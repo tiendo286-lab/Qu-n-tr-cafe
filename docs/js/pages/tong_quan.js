@@ -1,7 +1,7 @@
 // Tổng quan (trang chủ quản lý), giống màn TỔNG QUAN của bản offline
 import { isManager, state } from '../app.js';
 import { addDays, closure, focusWeek, getWeek, hasPublished, orderWindow, remaining, statusLabel, vnToday, weekLabel, weekStart } from '../data.js';
-import { sb, sel } from '../sb.js';
+import { sb, sel, selAll } from '../sb.js';
 import { ROLE_LABELS, go, html } from '../ui.js';
 
 async function count(table, q = (b) => b) {
@@ -21,13 +21,16 @@ export async function render({ me, can }) {
   const week = fw || await getWeek(start);
   let wk = null;
   if (week) {
-    const [win, cl, published, subs, ords, assigned] = await Promise.all([
+    const [win, cl, published, subs, ords, assigned, active] = await Promise.all([
       orderWindow(week.id), closure(week.id), hasPublished(week.id),
       sel('order_submissions', 'employee_id', (b) => b.eq('week_id', week.id)),
       can('xem_tat_ca') ? sel('order_entries', 'employee_id', (b) => b.eq('week_id', week.id).in('status', ['ĐI LÀM ĐƯỢC', 'NGHỈ'])) : Promise.resolve([]),
       can('xem_tat_ca') ? count('weekly_schedule_entries', (b) => b.eq('week_id', week.id).eq('state', 'ĐÃ XẾP')) : Promise.resolve('—'),
+      selAll('employees', 'id', (b) => b.eq('status', 'Đang làm')),
     ]);
-    const submitted = new Set([...subs.map((x) => x.employee_id), ...ords.map((x) => x.employee_id)]).size;
+    // Chỉ đếm nhân viên đang làm (người đã nghỉ vẫn có thể còn order cũ)
+    const activeIds = new Set(active.map((e) => e.id));
+    const submitted = new Set([...subs.map((x) => x.employee_id), ...ords.map((x) => x.employee_id)].filter((id) => activeIds.has(id))).size;
     wk = { win, cl, label: statusLabel(cl?.status, published), submitted, assigned };
   }
   const empty = empTotal === 0;
