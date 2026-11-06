@@ -20,7 +20,7 @@ export async function render({ params }) {
     return html`<td>
       ${s.report_id ? html`<a href="#/ca/phieu?id=${s.report_id}" class="ds-link">` : ''}
       <div><span class="pill ${st[1]}">NV: ${st[0]}</span></div>
-      ${s.status === 'hoan_thanh' ? html`<div style="margin-top:4px"><span class="pill ${s.recon_status === 'hoan_thanh' ? 'ok' : 'off'}">${s.recon_status === 'hoan_thanh' ? 'ĐÃ ĐỐI SOÁT' : `CHƯA ĐỐI SOÁT ${s.checks}/9`}</span></div>
+      ${s.status === 'hoan_thanh' ? html`<div style="margin-top:4px"><span class="pill ${s.recon_status === 'hoan_thanh' ? 'ok' : s.recon_status === 'mo_lai' ? 'warn' : 'off'}">${s.recon_status === 'hoan_thanh' ? 'ĐÃ ĐỐI SOÁT' : s.recon_status === 'mo_lai' ? 'ĐANG ĐỐI SOÁT LẠI' : `CHƯA ĐỐI SOÁT ${s.checks}/9`}</span></div>
         <div class="ds-money">TM: ${result(s.cash_left)}</div><div class="ds-money">CK: ${result(s.transfer_left)}</div>
         ${s.has_debt ? html`<div class="ds-money"><span class="pill warn">Có công nợ</span></div>` : ''}` : ''}
       ${s.report_id ? html`</a>` : ''}</td>`;
@@ -34,6 +34,8 @@ export async function render({ params }) {
     return html`<section class="card stack ds-day" style="gap:10px;padding:16px">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>${d.branch_code} – ${d.branch_name}</strong>
         ${d.done_at ? html`<span class="pill ok">Đã đối soát cuối ngày</span>` : ready ? html`<span class="pill off">Chưa đối soát cuối ngày</span>` : html`<span class="pill mute">Mới xong ${d.done}/${d.shifts} ca</span>`}</div>
+      <div class="st-meta" style="font-size:13px">Số liệu lấy theo <strong>bản đối soát</strong> của từng ca (ca chưa có bản đối soát thì lấy phiếu nhân viên). Đã hoàn thành đối soát ${d.recon_done ?? 0}/${d.shifts} ca.</div>
+      ${d.recon_reopen ? html`<div class="alert warn" style="font-size:13px">${d.recon_reopen} ca đang ĐỐI SOÁT LẠI — số liệu đang được sửa, chưa phải số chính thức.</div>` : d.done && (d.recon_done ?? 0) < d.done ? html`<div class="alert warn" style="font-size:13px">Còn ${d.done - (d.recon_done ?? 0)} ca chưa hoàn thành đối soát — số dưới đây chưa phải số chính thức.</div>` : ''}
       ${d.has_debt ? html`<div class="alert warn" style="font-size:13px">Ngày này có công nợ. Công thức cuối cùng khi có nợ đang chờ chốt — kết quả dưới đây chỉ để tham khảo.</div>` : ''}
       <div class="kv">
         <div>Tiền mặt đầu ngày</div><div>${vnd(d.opening)}</div>

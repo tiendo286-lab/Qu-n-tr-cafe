@@ -43,7 +43,7 @@ export async function render({ params }) {
     return html`<button type="button" class="ca-shift" data-b="${s.branch_id}" data-s="${s.shift}" data-id="${s.report_id || ''}">
       <div class="ca-shift-top"><strong>Ca ${s.shift}</strong>${s.start_time ? html`<span class="ca-time">${s.start_time}–${s.end_time}</span>` : ''}</div>
       <div><span class="pill ${st[1]}">${st[0]}</span>
-        ${s.status === 'hoan_thanh' ? html` <span class="pill ${s.recon_status === 'hoan_thanh' ? 'ok' : 'off'}">${s.recon_status === 'hoan_thanh' ? 'Đã đối soát' : 'Chưa đối soát'}</span>` : ''}</div>
+        ${s.status === 'hoan_thanh' ? html` <span class="pill ${s.recon_status === 'hoan_thanh' ? 'ok' : s.recon_status === 'mo_lai' ? 'warn' : 'off'}">${s.recon_status === 'hoan_thanh' ? 'Đã đối soát' : s.recon_status === 'mo_lai' ? 'Đang đối soát lại' : 'Chưa đối soát'}</span>` : ''}</div>
       ${s.completed_by ? html`<div class="ca-who">Chốt: ${s.completed_by}</div>` : s.created_by ? html`<div class="ca-who">Mở: ${s.created_by}</div>` : ''}
       ${left}</button>`;
   };

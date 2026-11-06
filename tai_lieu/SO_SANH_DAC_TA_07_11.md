@@ -45,3 +45,12 @@ Ngoài ra tối qua anh đã cho bỏ một số chức năng cũ của Order / 
 | D3 | **Nhập hàng từ kho tổng**: kế toán tải hóa đơn theo cơ sở; nhân viên mở hóa đơn, chụp ảnh hàng, báo ĐỦ / THIẾU từng món; kế toán xem trạng thái (2.9) | Nhân viên tự chọn Không nhận / ĐỦ / THIẾU và tự chụp ảnh trong phiếu ca |
 | D4 | **Tab Kế toán**: hóa đơn giao hàng + chuyển khoản thực nhận theo số dư BIDV từng ca; kế thừa số dư; khóa sau đối soát, mở khi mở lại (4) | Chưa có |
 | D5 | **Tab LOG** (chỉ Chủ): tài nguyên, phiên bản, lịch sử phát hành, lịch sử thao tác có trước/sau, lọc; không sửa / xóa được (9) | Có ghi nhật ký đơn giản (ai, làm gì, mô tả chữ), **chưa có trang xem**, không có giá trị trước/sau |
+
+## Đã làm theo câu trả lời của anh (07/11)
+
+- **C1** ✅ Giờ đến/về người theo lịch điền sẵn theo khung ca (tô vàng = gợi ý, sửa được).
+- **D1** ✅ Bản đối soát riêng: quản lý sửa toàn bộ (số liệu, giờ doanh thu, thu chi, nhân viên, nhập hàng); phiếu nhân viên giữ nguyên;
+  ô khác phiếu gốc ghi "Phiếu NV: …"; lịch sử sửa (trước → sau, người, giờ, lý do không bắt buộc); khóa khi HOÀN THÀNH ĐỐI SOÁT;
+  "Mở lại đối soát" → ĐANG ĐỐI SOÁT LẠI → "Hoàn thành đối soát lại". "Mở lại phiếu cho nhân viên sửa" vẫn giữ (bản đối soát làm lại).
+  Trang Đối soát và tiền cuối ngày dùng số của bản đối soát, ghi rõ ca chưa xong / đang đối soát lại.
+- **D2** ⏸ Kết quả THIẾU/THỪA/KHỚP từng hạng mục: anh chốt sau.

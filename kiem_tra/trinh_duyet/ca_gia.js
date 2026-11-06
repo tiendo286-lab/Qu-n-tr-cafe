@@ -15,6 +15,13 @@ export function makeCa(T, me) {
     return null;
   };
   const sumMoves = (rid, k) => T.shift_report_moves.filter((m) => m.report_id === rid && m.kind === k).reduce((a, m) => a + m.amount, 0);
+  const RECON = {}; const RLOG = [];
+  const FIELDS = ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status', 'goods_note', 'moves', 'staff', 'goods'];
+  const snap = (id) => { const r = T.shift_reports.find((x) => x.id === id); return {
+    ...Object.fromEntries(FIELDS.slice(0, 11).map((k) => [k, r[k] ?? null])),
+    moves: T.shift_report_moves.filter((m) => m.report_id === id).map((m) => ({ kind: m.kind, amount: m.amount, note: m.note || '' })),
+    staff: T.shift_report_staff.filter((x) => x.report_id === id).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role || null, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null })),
+    goods: T.shift_report_goods.filter((g) => g.report_id === id).map((g) => ({ item: g.item, qty: g.qty || '' })) }; };
   const F = {
     app_ca_overview({ p_date }) {
       const out = [];
@@ -103,12 +110,40 @@ export function makeCa(T, me) {
     app_ca_photo_del({ p_photo }) { const ph = T.shift_report_photos.find((x) => x.id === p_photo); needEdit(ph.report_id); T.shift_report_photos = T.shift_report_photos.filter((x) => x !== ph); return ph.path; },
     app_ca_check({ p_id, p_item, p_on }) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
+      if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
       if (p_on) T.shift_report_checks.push({ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() });
       const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
-      Object.assign(r, n >= ITEMS.length ? { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() } : { recon_status: 'chua', recon_by: null, recon_at: null });
+      if (r.recon_status === 'chua' && n >= ITEMS.length) { Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() }); RLOG.push({ report_id: p_id, action: 'hoan_thanh_doi_soat', by: name(me.account_id), at: now() }); }
     },
-    app_ca_reopen({ p_id }) { const r = rep(p_id); Object.assign(r, { status: 'dang_chot', recon_status: 'chua', completed_at: null, completed_by: null }); T.shift_report_checks = T.shift_report_checks.filter((c) => c.report_id !== p_id); },
+    app_ca_reopen({ p_id }) { const r = rep(p_id); Object.assign(r, { status: 'dang_chot', recon_status: 'chua', completed_at: null, completed_by: null }); T.shift_report_checks = T.shift_report_checks.filter((c) => c.report_id !== p_id); delete RECON[p_id]; RLOG.push({ report_id: p_id, action: 'lam_lai', by: name(me.account_id), at: now() }); },
+    app_ca_recon({ p_id }) {
+      const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
+      if (!RECON[p_id]) RECON[p_id] = snap(p_id);
+      const ids = new Set([...RECON[p_id].staff, ...snap(p_id).staff].map((x) => x.employee_id));
+      const employees = Object.fromEntries([...ids].map((id) => { const e = T.employees.find((x) => x.id === id) || {}; return [String(id), { code: e.code, name: e.name, rank: e.rank }]; }));
+      return { data: JSON.parse(JSON.stringify(RECON[p_id])), original: snap(p_id), employees, editable: r.recon_status !== 'hoan_thanh', recon_status: r.recon_status,
+        log: RLOG.filter((l) => l.report_id === p_id).slice().reverse() };
+    },
+    app_ca_recon_save({ p_id, p, p_reason }) {
+      const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
+      if (!RECON[p_id]) RECON[p_id] = snap(p_id);
+      const old = RECON[p_id];
+      for (const k of FIELDS) {
+        if (!(k in p)) continue;
+        let v = p[k];
+        if (k === 'staff') v = (v || []).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null }));
+        if (k === 'moves') v = (v || []).map((x) => ({ kind: x.kind, amount: x.amount, note: x.note || '' }));
+        if (k === 'goods') v = (v || []).filter((x) => x.item).map((x) => ({ item: x.item, qty: x.qty || '' }));
+        if (JSON.stringify(old[k] ?? null) !== JSON.stringify(v ?? null)) { RLOG.push({ report_id: p_id, action: 'sua', field: k, before: old[k] ?? null, after: v ?? null, reason: p_reason || null, by: name(me.account_id), at: now() }); old[k] = v; }
+      }
+    },
+    app_ca_recon_reopen({ p_id, p_reason }) { const r = rep(p_id); if (r.recon_status !== 'hoan_thanh') throw new Error('Phiếu chưa hoàn thành đối soát.'); r.recon_status = 'mo_lai'; RLOG.push({ report_id: p_id, action: 'mo_lai_doi_soat', reason: p_reason || null, by: name(me.account_id), at: now() }); },
+    app_ca_recon_finish({ p_id }) {
+      const r = rep(p_id); const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
+      if (n < ITEMS.length) throw new Error(`Còn ${ITEMS.length - n} hạng mục chưa đối soát.`);
+      Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() }); RLOG.push({ report_id: p_id, action: 'hoan_thanh_doi_soat', by: name(me.account_id), at: now() });
+    },
     app_ca_day({ p_date }) {
       return T.branches.filter((b) => b.status === 'Đang hoạt động').map((b) => {
         const rs = T.shift_reports.filter((r) => r.branch_id === b.id && r.work_date === p_date).sort((a, c) => shifts().indexOf(a.shift) - shifts().indexOf(c.shift));
