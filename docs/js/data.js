@@ -92,7 +92,11 @@ export function remaining(closeIso, nowIso) {
 
 export async function closure(weekId) {
   const r = await sel('schedule_closures', '*', (b) => b.eq('week_id', weekId));
-  return r[0] || null;
+  if (r[0]) return r[0];
+  // Giống bản offline: tuần chưa có dòng trạng thái nhưng đã có ca được xếp = đang xếp
+  // (tránh hiện nút "Bắt đầu xếp lịch" – nút đó làm lại lịch từ đầu, mất các ca đã xếp)
+  const x = await sel('weekly_schedule_entries', 'id', (b) => b.eq('week_id', weekId).eq('state', ASSIGNED).limit(1));
+  return x.length ? { week_id: weekId, status: 'ĐANG XẾP', closed_at: null, staffing_snapshot_json: null, updated_at: null } : null;
 }
 export async function hasPublished(weekId) {
   const r = await sel('schedule_published', 'week_id', (b) => b.eq('week_id', weekId).limit(1));
