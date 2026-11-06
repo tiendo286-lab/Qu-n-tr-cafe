@@ -1,8 +1,6 @@
-// Nhân viên: danh sách (lọc, sửa nhanh cấp bậc, cấp mật khẩu tạm, Excel) + form thêm/sửa
+// Nhân viên: danh sách (lọc, sửa nhanh cấp bậc, cấp mật khẩu tạm) + form thêm/sửa
 import { render as rerender, can } from '../app.js';
 import { RANKS, catalog } from '../data.js';
-import { EMPLOYEE_GUIDE, EMPLOYEE_TEMPLATE, downloadXlsx, parseEmployeeRows, readRows } from '../excel.js';
-import { fileInput } from '../parts.js';
 import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js';
 import { adminFn, rpc, sel, selAll } from '../sb.js';
 import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
@@ -43,13 +41,7 @@ export async function render({ params, me }) {
     title: 'Nhân viên',
     html: html`
       <div class="page-head"><div><h1>Nhân viên</h1><div class="sub">${full ? 'Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.' : 'Theo dõi đào tạo: bấm vào trạng thái ở cột Đào tạo để mở phiếu, hoặc Tạo phiếu cho người chưa đào tạo.'}${dts ? ' Cột Đào tạo: chương trình chạy bàn 8 ngày · 68 hạng mục.' : ''}</div></div>
-        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${full ? html`<a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a>` : ''}</div></div>
-      ${full ? html`<section class="card toolbar" style="padding:12px 18px">
-        <strong style="font-size:14px">Excel (như bản offline):</strong>
-        <button class="btn sm" type="button" id="imp-btn">Nhập file Excel</button>
-        <button class="btn sm secondary" type="button" id="tpl-btn">Tải file mẫu</button>
-        <button class="btn sm secondary" type="button" id="gf-btn">Xuất danh sách cho Google Form</button>
-        <a class="btn sm secondary" href="#/quan-ly/tai-khoan" style="margin-left:auto">Quản lý tài khoản đăng nhập →</a></section>` : ''}
+        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${full ? html`<a class="btn secondary" href="#/quan-ly/tai-khoan">Tài khoản đăng nhập →</a><a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a>` : ''}</div></div>
       <div class="emp-stats" aria-label="Thống kê nhân viên">
         <div class="es" style="--ac:#1e3a8a"><div class="n">${list.length}</div><div class="l">Tổng NV</div></div>
         <div class="es" style="--ac:#16a34a"><div class="n" style="color:var(--ok-ink)">${on.length}</div><div class="l">Đang làm</div></div>
@@ -140,18 +132,6 @@ export async function render({ params, me }) {
             <div style="font-size:14px;color:var(--muted);line-height:1.5">Đưa tận tay cho nhân viên. Mật khẩu này chỉ hiện <strong>một lần</strong>; lần đầu đăng nhập nhân viên phải đổi mật khẩu.</div>
             <form method="dialog" style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn" type="submit">Đã ghi lại</button></form>`);
         } catch (e) { showSaved(e.message, true); }
-      }));
-      $('#tpl-btn')?.addEventListener('click', () => downloadXlsx('Mau_danh_sach_nhan_vien.xlsx', [{ name: 'DANH SÁCH NV', rows: EMPLOYEE_TEMPLATE }, { name: 'HƯỚNG DẪN', rows: EMPLOYEE_GUIDE }]));
-      $('#gf-btn')?.addEventListener('click', () => downloadXlsx('DANH_SACH_NHAN_VIEN_GOOGLE_FORM.xlsx', [{ name: 'DANH SÁCH NHÂN VIÊN', rows: [['Mã NV', 'Họ và tên'], ...on.map((e) => [String(e.code), e.name])], widths: [16, 36] }]));
-      $('#imp-btn')?.addEventListener('click', () => fileInput('.xlsx', async (file) => {
-        try {
-          const codes = new Set(); cat.branches.forEach((b) => [b.code, b.display_code, b.system_code].forEach((x) => x && codes.add(String(x).toUpperCase())));
-          const parsed = parseEmployeeRows(await readRows(file), codes, cat.roles.map((r) => r.name));
-          if (!confirm(`Nhập ${parsed.length} nhân viên từ file? Nhân viên trùng mã sẽ được cập nhật tên, cấp bậc, trạng thái, cơ sở, vị trí.`)) return;
-          const r = await rpc('app_import_employees', { p_rows: parsed });
-          flash(`Nhập thành công: thêm ${r.added} nhân viên, cập nhật ${r.updated} nhân viên. Nhân viên mới đã có tài khoản (chưa có mật khẩu).`);
-        } catch (e) { flash('Không thể nhập file: ' + e.message, 'error'); }
-        rerender();
       }));
     },
   };
