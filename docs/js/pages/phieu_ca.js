@@ -4,6 +4,7 @@ import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
+import { catalog } from '../data.js';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -49,16 +50,20 @@ function debtRow(d, ed) {
     ${d.closed_at ? html`<span class="pill ok">Đã thu ${dt(d.closed_at)}</span>` : ''}
     ${ed && !d.closed_at ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa khoản nợ">×</button>` : ''}</div>`;
 }
-function staffRow(s, ed) {
+// SH = khung giờ của ca ở cơ sở này: người theo lịch chưa có giờ thì điền sẵn làm GỢI Ý (sửa được)
+function staffRow(s, ed, SH) {
   const worked = s.worked === undefined ? true : !!s.worked;
+  const hm = (x) => (x ? String(x).slice(0, 5) : '');
+  const sgIn = ed && s.source === 'lich' && !s.time_in && SH ? hm(SH.start) : '';
+  const sgOut = ed && s.source === 'lich' && !s.time_out && SH ? hm(SH.end) : '';
   return html`<div class="st-row" data-emp="${s.employee_id}" data-src="${s.source}" data-role="${s.role || ''}">
     <div class="st-head"><div><strong>${s.code} – ${s.name}</strong> <span class="st-meta">${s.rank || ''}${s.role ? ' · ' + s.role : ''}</span></div>
       <span class="pill ${s.source === 'lich' ? 'mute' : 'warn'}">${s.source === 'lich' ? 'Theo lịch' : 'Hỗ trợ phát sinh'}</span></div>
     <div class="pc-line">
       <select class="input sm st-worked" aria-label="Có làm hay nghỉ" ${ed ? '' : 'disabled'}>${opt('1', 'Có làm', worked ? '1' : '0')}${opt('0', 'Phát sinh nghỉ', worked ? '1' : '0')}</select>
       <span class="st-times" ${worked ? '' : 'hidden'}>
-        <label>Đến <input class="input sm st-in" type="time" value="${s.time_in || ''}" ${ed ? '' : 'disabled'}></label>
-        <label>Về <input class="input sm st-out" type="time" value="${s.time_out || ''}" ${ed ? '' : 'disabled'}></label></span>
+        <label>Đến <input class="input sm st-in ${sgIn ? 'st-sg' : ''}" type="time" value="${s.time_in || sgIn}" ${ed ? '' : 'disabled'} ${sgIn ? 'title="Gợi ý theo khung giờ ca — sửa theo thực tế"' : ''}></label>
+        <label>Về <input class="input sm st-out ${sgOut ? 'st-sg' : ''}" type="time" value="${s.time_out || sgOut}" ${ed ? '' : 'disabled'} ${sgOut ? 'title="Gợi ý theo khung giờ ca — sửa theo thực tế"' : ''}></label></span>
       <input class="input sm st-reason grow" placeholder="Lý do nghỉ" aria-label="Lý do nghỉ" value="${s.absent_reason || ''}" ${worked ? 'hidden' : ''} ${ed ? '' : 'disabled'}>
       <input class="input sm st-note grow" placeholder="Ghi chú" aria-label="Ghi chú" value="${s.note || ''}" ${ed ? '' : 'disabled'}>
       ${ed && s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Bỏ người hỗ trợ">×</button>` : ''}</div></div>`;
@@ -76,6 +81,8 @@ export async function render({ params }) {
   const id = Number(params.id);
   if (!id) return { title: 'Phiếu chốt ca', html: html`<div class="card">Thiếu mã phiếu. <a href="#/ca">Về danh sách ca</a></div>` };
   const R = await rpc('app_ca_get', { p_id: id });
+  const cat = await catalog().catch(() => null);
+  const SH = cat ? cat.branchShifts(R.branch_id).find((x) => x.name === R.shift) || null : null;
   const ed = !!R.can_edit;
   const done = R.status === 'hoan_thanh';
   const first = R.shift === R.first_shift;
@@ -152,7 +159,8 @@ export async function render({ params }) {
   // E. Nhân viên
   const secStaff = sec('5. Nhân viên thực tế làm trong ca', ['nhan_su'], html`
     <div class="st-meta">Danh sách theo lịch đã xếp. Ghi nhận ở đây không sửa lịch đã xếp.</div>
-    <div id="staff" class="stack" style="gap:8px">${(R.staff || []).map((s) => staffRow(s, ed))}</div>
+    ${ed && SH && (R.staff || []).some((s) => s.source === 'lich' && (!s.time_in || !s.time_out)) ? html`<div class="st-meta" style="font-size:13px">Giờ đến/về của người theo lịch được <span class="st-sg" style="padding:0 4px;border-radius:4px">điền sẵn theo khung ca ${String(SH.start || '').slice(0, 5)}–${String(SH.end || '').slice(0, 5)}</span> để gợi ý — sửa lại theo giờ thực tế.</div>` : ''}
+    <div id="staff" class="stack" style="gap:8px">${(R.staff || []).map((s) => staffRow(s, ed, SH))}</div>
     ${(R.staff || []).length ? '' : html`<div class="st-meta" id="staff-empty">Lịch chưa xếp ai cho ca này.</div>`}
     ${ed ? html`<div class="pc-line"><input class="input sm grow" id="helper" list="emp-list" placeholder="Gõ mã hoặc tên người hỗ trợ" aria-label="Người hỗ trợ"><datalist id="emp-list"></datalist>
       <button type="button" class="btn sm secondary" id="add-helper">+ Thêm người hỗ trợ</button></div>` : ''}
@@ -239,6 +247,8 @@ function collect() {
 function mount(R, ed, C0) {
   const form = $('#pc-form');
   bindMoneyInputs(form);
+  // giờ gợi ý: sửa rồi thì bỏ tô vàng
+  $$('input.st-sg').forEach((el) => el.addEventListener('input', () => el.classList.remove('st-sg')));
 
   // Tab nhập hàng
   $$('[data-tab]').forEach((a) => a.addEventListener('click', () => {
@@ -444,6 +454,7 @@ const STYLE = html`<style>
   .pc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 16px; }
   @media (max-width: 640px) { .pc-grid { grid-template-columns: minmax(0, 1fr); } }
   .pc-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
+  .st-sg { background: #fef9c3; }
   .pc-f > span:first-child { font-weight: 600; color: var(--ink-2); font-size: 13px; }
   .pc-fixed { min-height: 48px; display: flex; align-items: center; gap: 6px; font-weight: 600; flex-wrap: wrap; }
   .pc-hint { font-size: 12px; color: var(--muted); line-height: 1.4; }
