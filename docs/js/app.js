@@ -3,32 +3,21 @@ import { focusWeek, notifyTick, unreadCount } from './data.js';
 import { rpc, sb, viError } from './sb.js';
 import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
-// Menu quản lý: [nhóm, nhãn, đường dẫn, quyền cần, đã có ở bản mới chưa]
-export const MENU = [
-  ['QUẢN LÝ CA', 'Chốt ca', '/ca', 'chot_ca'],
-  ['QUẢN LÝ CA', 'Đối soát', '/quan-ly/doi-soat', 'doi_soat'],
-  ['GIAO VIỆC', 'Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec'],
-  ['GIAO VIỆC', 'Việc của tôi', '/viec', 'nhan_viec'],
-  ['TÀI LIỆU', 'Nội quy', '/noi-quy', null],
-  ['TÀI LIỆU', 'Quy trình', '/quy-trinh', null],
-  ['HỖ TRỢ', 'Yêu cầu hỗ trợ', '/ho-tro', null],
-  ['XẾP LỊCH', 'Order lịch làm', '/quan-ly/order', 'xem_tat_ca'],
-  ['XẾP LỊCH', 'Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
-  ['XẾP LỊCH', 'Xếp lịch làm tổng', '/quan-ly/lich-tong', 'bao_cao'],
-  ['XẾP LỊCH', 'Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'],
-  ['XẾP LỊCH', 'Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'],
-  ['HOÀN TẤT', 'Chốt lịch & báo cáo', '/quan-ly/bao-cao', 'bao_cao'],
-  ['THIẾT LẬP', 'Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'],
-  ['THIẾT LẬP', 'Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
-  ['THIẾT LẬP', 'Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']],
-  ['THIẾT LẬP', 'Giờ order', '/quan-ly/gio-order', 'cai_gio_order'],
-  ['THIẾT LẬP', 'Tài khoản đăng nhập', '/quan-ly/tai-khoan', 'quan_ly_nhan_vien'],
-  ['THIẾT LẬP', 'Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen'],
-  ['THIẾT LẬP', 'Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'],
-  ['CÁ NHÂN', 'Order ca của tôi', '/order', 'order_ca'],
-  ['CÁ NHÂN', 'Lịch của tôi', '/lich', 'xem_lich_minh'],
-  ['CÁ NHÂN', 'Thông báo', '/thong-bao', 'xem_lich_minh'],
-  ['CÁ NHÂN', 'Phiếu đào tạo của tôi', '/cua-toi/dao-tao', null],
+// Menu quản lý (phương án A): mỗi mục là 1 trang có các tab con.
+// [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab]
+export const HUBS = [
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat']], 'ngay'],
+  ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
+    ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
+  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec']]],
+  ['Nhân viên', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']]]],
+  ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]]],
+  ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]]],
+  ['Cài đặt xếp lịch', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
+    ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']]],
+  ['Tài khoản & phân quyền', [['Tài khoản đăng nhập', '/quan-ly/tai-khoan', 'quan_ly_nhan_vien'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']]],
+  ['Dữ liệu & sao lưu', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu']]],
+  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null]]],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
@@ -98,19 +87,36 @@ function parseHash() {
   return { path: path || '/', params: Object.fromEntries(new URLSearchParams(qs || '')) };
 }
 
+const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p))) && !(href === '/viec' && state.me?.role === 'chu'); // Chủ là người giao việc
+const onPath = (path, href) => path === href || path.startsWith(href + '/');
+const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
+const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review, '/ho-tro': state.support });
+
 function menuHtml(path) {
-  const groups = [];
-  for (const [g, label, href, perm] of MENU) {
-    if (perm && ![].concat(perm).some((p) => can(p))) continue;
-    if (href === '/viec' && state.me.role === 'chu') continue; // Chủ là người giao việc
-    if (!groups.length || groups[groups.length - 1].name !== g) groups.push({ name: g, items: [] });
-    const badge = { '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review, '/ho-tro': state.support }[href] || 0;
-    groups[groups.length - 1].items.push({ label, href, badge, active: path.startsWith(href) });
-  }
-  return groups.map((g) => html`<div class="group">${g.name}</div>${g.items.map((it) => html`
-    <a class="item ${it.active ? 'active' : ''}" href="#${it.href}">
-      <span>${it.label}${it.badge ? html` <span class="badge">${it.badge}</span>` : ''}</span></a>`)}`);
+  const b = badges();
+  return HUBS.map(([label, all]) => {
+    const tabs = visibleTabs(all);
+    if (!tabs.length) return '';
+    const n = tabs.reduce((sum, [, href]) => sum + (b[href] || 0), 0);
+    const active = tabs.some(([, href]) => onPath(path, href));
+    return html`<a class="item ${active ? 'active' : ''}" href="#${tabs[0][1]}"><span>${label}${n ? html` <span class="badge">${n}</span>` : ''}</span></a>`;
+  });
 }
+
+// Thanh tab con ở đầu trang (chỉ hiện khi mục có từ 2 tab trở lên)
+function hubTabs(path, params) {
+  for (const [label, all, keepKey] of HUBS) {
+    const tabs = visibleTabs(all);
+    if (!tabs.some(([, href]) => onPath(path, href))) continue;
+    if (tabs.length < 2) return '';
+    const keep = keepKey && params[keepKey] ? `?${keepKey}=${encodeURIComponent(params[keepKey])}` : '';
+    const b = badges();
+    return html`<nav class="hub-tabs" aria-label="${label}">${tabs.map(([l, href]) => html`<a class="${onPath(path, href) ? 'on' : ''}" href="#${href}${keep}">${l}${b[href] ? html` <span class="badge">${b[href]}</span>` : ''}</a>`)}</nav>`;
+  }
+  return '';
+}
+
+const BELL = html`<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>`;
 
 function layout(path, body, flashMsg) {
   const me = state.me;
@@ -123,7 +129,8 @@ function layout(path, body, flashMsg) {
   if (isManager()) {
     return html`<div class="layout">
       <nav class="sidebar" aria-label="Menu">
-        <div class="brand">Quản trị lịch làm</div>
+        <div class="brand-row"><div class="brand">Quản trị lịch làm</div>
+          <a class="sb-bell ${path === '/thong-bao' ? 'on' : ''}" href="#/thong-bao" title="Thông báo" aria-label="Thông báo${state.unread ? `, ${state.unread} chưa đọc` : ''}">${BELL}${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
         <div class="who">${me.code} – ${me.name} · ${ROLE_LABELS[me.role]}</div>
         <details class="navd" open><summary>☰ Menu</summary>
         <div class="nav">
@@ -207,7 +214,8 @@ export async function render() {
   }
   if (seq !== renderSeq) return; // người dùng đã chuyển trang khác
   document.title = `${page.title || 'Quản trị lịch làm'} · Lịch làm`;
-  root().innerHTML = str(layout(path, page.html, takeFlash()));
+  const tabsBar = state.me && isManager() && !state.me.must_change ? hubTabs(path, params) : '';
+  root().innerHTML = str(layout(path, html`${tabsBar}${page.html}`, takeFlash()));
   const nav = document.querySelector('details.navd');
   if (nav && window.matchMedia('(max-width: 900px)').matches) nav.open = false;
   document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
@@ -215,6 +223,9 @@ export async function render() {
     try { const c = await page.mount(root()); if (typeof c === 'function') cleanup = c; } catch (e) { console.error(e); alert(viError(e)); }
   }
   window.scrollTo(0, 0);
+  // điện thoại: cuộn thanh tab con để thấy tab đang mở
+  const onTab = document.querySelector('.hub-tabs a.on');
+  if (onTab) { const bar = onTab.parentElement; bar.scrollLeft = onTab.offsetLeft - (bar.clientWidth - onTab.offsetWidth) / 2; }
   remindOnce(path);
 }
 

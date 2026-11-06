@@ -39,3 +39,14 @@ textarea.input { font-family: inherit; height: auto; padding-top: 10px; padding-
 dialog { max-width: min(480px, calc(100vw - 24px)); }
 dialog .input { width: 100%; }
 dialog .toolbar .btn { flex: 0 0 auto; }
+
+/* Menu phương án A: thanh tab con ở đầu trang + chuông thông báo ở thanh bên */
+.hub-tabs { display: flex; gap: 2px; overflow-x: auto; margin: -4px 0 18px; border-bottom: 2px solid var(--line); scrollbar-width: thin; }
+.hub-tabs a { white-space: nowrap; padding: 10px 14px; font-weight: 600; font-size: 14px; color: var(--ink-2); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; }
+.hub-tabs a:hover { background: var(--line-soft); }
+.hub-tabs a.on { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }
+.hub-tabs .badge, .nav .item .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #dc2626; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
+.brand-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.sb-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; color: #cbd5e1; text-decoration: none; }
+.sb-bell:hover, .sb-bell.on { background: rgba(255,255,255,.1); color: #fff; }
+.sb-bell .bell-n { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }

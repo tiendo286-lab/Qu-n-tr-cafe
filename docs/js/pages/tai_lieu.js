@@ -42,7 +42,7 @@ export async function render({ params, me }) {
       .doc-title { font-size: 17px; font-weight: 700; flex: 1 1 auto; }
       .st-meta { font-size: 12px; color: var(--muted); }
     </style>
-    ${seg}
+    ${isManager() ? '' : seg}
     ${editor ? html`<div class="toolbar"><a class="btn" href="#/tai-lieu/soan?loai=${kind}">+ Soạn ${label.toLowerCase()} mới</a></div>` : ''}
     ${unread ? html`<div class="alert warn">Bạn còn ${unread} nội quy chưa xác nhận đã đọc.</div>` : ''}
     ${shown.length ? shown.map(card) : html`<div class="card">Chưa có ${label.toLowerCase()} nào được đăng.</div>`}`;
