@@ -91,6 +91,8 @@ export async function rpc(name, args = {}) {
   await new Promise((ok) => setTimeout(ok, 2));
   if (CA[name]) return CA[name](args);
   if (name === 'app_me') return ME;
+  if (name === 'app_backup_counts') return { shift_reports: (T.shift_reports || []).length, tasks: (T.tasks || []).length, docs: (T.docs || []).length, trainings: (T.trainings || []).length, support_requests: (T.support_requests || []).length };
+  if (name === 'app_backup_extra') return { shift_reports: T.shift_reports || [], tasks: T.tasks || [], trainings: T.trainings || [] };
   if (name === 'app_login_email') return { email: 'a1@milano.invalid' };
   if (name === 'app_order_window') {
     const w = T.weeks.find((x) => x.id === args.p_week_id || x.id === args.p_week);

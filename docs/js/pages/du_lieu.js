@@ -11,17 +11,18 @@ const JSZIP = 'https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js';
 const LABELS = {
   employees: 'Nhân viên', weeks: 'Tuần làm việc', order_entries: 'Ô order', weekly_schedule_entries: 'Ô lịch tuần',
   branches: 'Cơ sở', shifts: 'Ca làm việc', fixed_schedule_entries: 'Ô lịch cố định', staffing_requirements: 'Ô định biên',
-  shift_reports: 'Phiếu chốt ca', tasks: 'Công việc',
 };
+// Bảng của các tính năng mới (web không đọc thẳng được — đếm qua hàm app_backup_counts)
+const EXTRA_LABELS = { shift_reports: 'Phiếu chốt ca', tasks: 'Công việc', docs: 'Nội quy & quy trình', trainings: 'Phiếu đào tạo', support_requests: 'Yêu cầu hỗ trợ' };
 
 async function count(table) {
-  const { count: n } = await sb.from(table).select('*', { count: 'exact', head: true });
-  return n ?? 0;
+  const { count: n, error } = await sb.from(table).select('*', { count: 'exact', head: true });
+  return error ? null : n ?? 0;
 }
 
 export async function render() {
   const keys = Object.keys(LABELS);
-  const nums = await Promise.all(keys.map((k) => count(k).catch(() => null)));
+  const [nums, extra] = await Promise.all([Promise.all(keys.map((k) => count(k).catch(() => null))), rpc('app_backup_counts').catch(() => ({}))]);
   return {
     title: 'Dữ liệu & sao lưu',
     html: html`
@@ -30,11 +31,13 @@ export async function render() {
       <div class="grid2">
         <section class="card stack">
           <h2 style="margin:0">Dữ liệu hiện tại trên web</h2>
-          <div class="kv">${keys.filter((k, i) => nums[i] !== null).map((k) => html`<div>${LABELS[k]}</div><strong>${nums[keys.indexOf(k)]}</strong>`)}</div>
+          <div class="kv">${keys.filter((k, i) => nums[i] !== null).map((k) => html`<div>${LABELS[k]}</div><strong>${nums[keys.indexOf(k)]}</strong>`)}
+            ${Object.entries(EXTRA_LABELS).filter(([k]) => extra[k] != null).map(([k, l]) => html`<div>${l}</div><strong>${extra[k]}</strong>`)}</div>
         </section>
         <section class="card stack">
           <h2 style="margin:0">Tải bản sao lưu</h2>
-          <div style="font-size:14px;color:var(--ink-2);line-height:1.6">Tải về máy một gói ZIP gồm lịch tuần, order, nhân viên, chi nhánh, ca, định biên, lịch cố định. Mật khẩu không nằm trong gói.
+          <div style="font-size:14px;color:var(--ink-2);line-height:1.6">Tải về máy một gói ZIP gồm <strong>toàn bộ dữ liệu</strong>: lịch tuần, order, nhân viên, chi nhánh, ca, định biên, lịch cố định, phiếu chốt ca, công việc, nội quy &amp; quy trình, cam kết, đào tạo, yêu cầu hỗ trợ.
+            Mật khẩu và ảnh (ảnh phiếu ca, ảnh trong tài liệu) không nằm trong gói.
             Nên tải hằng tuần và cất ở nơi an toàn (máy tính, Google Drive).</div>
           <div><button class="btn" type="button" id="export-btn">Tải gói dữ liệu ZIP</button></div>
           <div id="export-status" style="font-size:13px;color:var(--muted)"></div>
@@ -74,22 +77,28 @@ async function exportZip(btn, status) {
       stats[t] = rows.length;
     }
     db.run('COMMIT');
+    status.textContent = 'Đang đọc phiếu chốt ca, công việc, đào tạo, nội quy, hỗ trợ…';
+    const extra = await rpc('app_backup_extra');
+    const extraStats = Object.fromEntries(Object.entries(extra).map(([t, rows]) => [t, rows.length]));
     const ok = db.exec('PRAGMA integrity_check')[0].values[0][0];
     const bytes = db.export();
     const now = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19);
     const manifest = { format: 'QuanTriLichLamCafe-Transfer-v1', created_at: now, app_version: 'Bản web GitHub Pages + Supabase', database: 'xep_lich.sqlite3',
-      stats: { employees: stats.employees || 0, weeks: stats.weeks || 0, evaluation_rounds: stats.evaluation_rounds || 0, evaluation_round_employees: stats.evaluation_round_employees || 0, evaluation_voucher_allocations: stats.evaluation_voucher_allocations || 0 } };
+      stats: { employees: stats.employees || 0, weeks: stats.weeks || 0, evaluation_rounds: stats.evaluation_rounds || 0, evaluation_round_employees: stats.evaluation_round_employees || 0, evaluation_voucher_allocations: stats.evaluation_voucher_allocations || 0 },
+      web_extra: { file: 'du_lieu_tinh_nang_moi.json', tables: extraStats } };
     const info = ['QUẢN TRỊ LỊCH LÀM CAFE - GÓI CHUYỂN DỮ LIỆU', `Thời điểm xuất: ${now.replace('T', ' ')}`, 'Phiên bản: bản web (GitHub Pages + Supabase)', `SQLite integrity_check: ${ok}`, '',
-      `Nhân viên: ${manifest.stats.employees}`, `Tuần làm việc: ${manifest.stats.weeks}`, `Lần đánh giá: ${manifest.stats.evaluation_rounds}`, '',
+      `Nhân viên: ${manifest.stats.employees}`, `Tuần làm việc: ${manifest.stats.weeks}`, '',
+      'File du_lieu_tinh_nang_moi.json: dữ liệu các tính năng chỉ có trên web (phiếu chốt ca, công việc, nội quy, đào tạo, hỗ trợ):',
+      ...Object.entries(extraStats).map(([t, n]) => `  ${t}: ${n} dòng`), '',
       'Có thể gửi nguyên file ZIP này qua Zalo rồi dùng nút NHẬP DỮ LIỆU TỪ MÁY KHÁC ở bản offline.'].join('\n');
     const zip = new window.JSZip();
-    zip.file('xep_lich.sqlite3', bytes); zip.file('manifest.json', JSON.stringify(manifest, null, 2)); zip.file('THONG_TIN_DU_LIEU.txt', info);
+    zip.file('xep_lich.sqlite3', bytes); zip.file('du_lieu_tinh_nang_moi.json', JSON.stringify(extra)); zip.file('manifest.json', JSON.stringify(manifest, null, 2)); zip.file('THONG_TIN_DU_LIEU.txt', info);
     const blob = await zip.generateAsync({ type: 'blob', compression: 'DEFLATE' });
     const a = document.createElement('a');
     a.href = URL.createObjectURL(blob); a.download = `DU_LIEU_QUAN_TRI_LICH_LAM_${now.slice(0, 10).replace(/-/g, '')}_${now.slice(11, 16).replace(':', '')}.zip`;
     document.body.appendChild(a); a.click(); a.remove();
     rpc('app_log', { p_action: 'xuat_du_lieu_zip', p_detail: JSON.stringify(manifest.stats) }).catch(() => {});
-    status.textContent = `Đã tạo gói ZIP: ${manifest.stats.employees} nhân viên, ${manifest.stats.weeks} tuần.`;
+    status.textContent = `Đã tạo gói ZIP: ${manifest.stats.employees} nhân viên, ${manifest.stats.weeks} tuần, ${extraStats.shift_reports || 0} phiếu chốt ca, ${extraStats.tasks || 0} công việc, ${extraStats.trainings || 0} phiếu đào tạo.`;
   } catch (e) {
     status.textContent = 'Không tạo được gói ZIP: ' + e.message;
   }

@@ -70,7 +70,7 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 ## 5. Dữ liệu & sao lưu
 
 - Xem số liệu hiện có: nhân viên, tuần, ô order, ô lịch, phiếu chốt ca, công việc…
-- Nút **Tải gói dữ liệu ZIP**: nên tải hằng tuần và cất vào máy tính hoặc Google Drive.
+- Nút **Tải gói dữ liệu ZIP**: gói gồm toàn bộ dữ liệu (lịch, order, nhân viên… + phiếu chốt ca, công việc, nội quy, cam kết, đào tạo, hỗ trợ). Không gồm mật khẩu và ảnh. Nên tải hằng tuần và cất vào máy tính hoặc Google Drive.
 - **Đã bỏ** phần nhập dữ liệu từ bản offline.
 
 ---
@@ -85,7 +85,7 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 
 | # | Việc | Cần anh quyết |
 |---|---|---|
-| 1 | **Gói sao lưu ZIP** chưa có phiếu chốt ca, công việc, đào tạo, nội quy, hỗ trợ | Có làm gói sao lưu đầy đủ không? |
+| 1 | ~~Gói sao lưu ZIP chưa đủ~~ — **xong 07/11**: gói có thêm `du_lieu_tinh_nang_moi.json` (phiếu chốt ca, công việc, nội quy, cam kết, đào tạo, hỗ trợ). Chưa có ảnh. | — |
 | 2 | **Cấp mật khẩu cho nhân viên**: 56 người đang làm chưa có mật khẩu, nên chưa nhận việc, chưa chốt ca, chưa đọc nội quy được trên web | Cấp lần lượt hay cấp một lượt rồi in danh sách? |
 | 3 | **Quyền giao việc của Quản lý tổng** đang bật | Giữ hay tắt? |
 | 4 | **Nhiệm vụ đào tạo** trong Công việc: trước đây giao từ trang Họp, nay chưa có chỗ giao riêng | Có cần không, hay giao như việc thường? |
