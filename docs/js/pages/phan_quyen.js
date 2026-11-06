@@ -17,6 +17,7 @@ const PERMISSIONS = [
   ['doi_soat', 'Đối soát phiếu chốt ca, tiền mặt cuối ngày'],
   ['mo_lai_phieu_ca', 'Mở lại phiếu chốt ca đã hoàn thành'],
   ['hop_giao_viec', 'Họp & giao việc, duyệt báo cáo xử lý'],
+  ['soan_tai_lieu', 'Soạn, sửa, đăng nội quy và quy trình'],
 ];
 const OWNER_ONLY = ['Cấp vai trò, sửa phân quyền', 'Xóa dữ liệu tuần', 'Sao lưu, chuyển dữ liệu (ZIP), khôi phục'];
 const NV_ALWAYS = ['order_ca', 'xem_lich_minh'];

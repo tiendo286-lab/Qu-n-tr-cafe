@@ -11,6 +11,8 @@ const KIND = [
   ['đã được chốt', '✓', '#dcfce7', '#14532d'],
   ['giành quyền', '!', '#ffedd5', '#9a3412'],
   ['Việc mới', '+', '#dbeafe', '#1e3a8a'],
+  ['Nội quy', '§', '#ede9fe', '#5b21b6'],
+  ['Quy trình', '§', '#ede9fe', '#5b21b6'],
   ['chờ duyệt', '!', '#ffedd5', '#9a3412'],
   ['duyệt hoàn thành', '✓', '#dcfce7', '#14532d'],
   ['làm lại', '!', '#fee2e2', '#991b1b'],

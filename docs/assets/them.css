@@ -14,3 +14,10 @@
 
 /* Thanh dưới của nhân viên: 3 mục (Order ca, Lịch làm, Chốt ca) */
 .tabbar { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
+
+/* Cột Nội quy / Cam kết trong tab Nhân viên */
+button.nq-btn { border: none; cursor: pointer; font: inherit; font-size: 12px; font-weight: 600; }
+.ck-select { width: 150px; }
+.ck-select.ck-chua_ky { border-color: #fca5a5; color: #b91c1c; }
+.ck-select.ck-da_ky_chua_nop { border-color: #fcd34d; color: #92400e; }
+.ck-select.ck-da_ky_nop { border-color: #86efac; color: #166534; }

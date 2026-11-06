@@ -7,23 +7,28 @@ import { adminFn, rpc, sel, selAll } from '../sb.js';
 import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
 
 export const perm = 'quan_ly_nhan_vien';
+const COMMIT = { chua_ky: ['Chưa ký'], da_ky_chua_nop: ['Đã ký, chưa nộp'], da_ky_nop: ['Đã ký và nộp'] };
 const RANK_COLOR = { 'Quản lý': '#7c3aed', 'Cấp 2': '#0ea5e9', 'Cấp 1': '#f59e0b', 'Thử việc': '#94a3b8' };
 
 export async function render({ params, me }) {
   if (params.id || params.them) return renderForm(params, me);
-  const [cat, emps, contacts, eb, er, accs] = await Promise.all([
+  const [cat, emps, contacts, eb, er, accs, tl] = await Promise.all([
     catalog(), selAll('employees', '*'), selAll('employee_contacts', '*'), selAll('employee_branches', '*'), selAll('employee_roles', '*'),
     selAll('accounts', 'id, employee_id, system_role, has_password, must_change'),
+    rpc('app_tl_staff_status').catch(() => null),
   ]);
   const bcode = new Map(cat.branches.map((b) => [b.id, b.code]));
   const con = new Map(contacts.map((c) => [c.employee_id, c]));
   const acc = new Map(accs.map((a) => [a.employee_id, a]));
   const ebm = {}; eb.forEach((r) => (ebm[r.employee_id] ||= []).push(bcode.get(r.branch_id)));
   const erm = {}; er.forEach((r) => (erm[r.employee_id] ||= []).push(r.role));
+  const nDocs = tl ? tl.noi_quy_docs : 0;
+  const tlm = new Map((tl?.rows || []).map((r) => [r.employee_id, r]));
+  const nq = (e) => { const r = tlm.get(e.id); return !nDocs ? 'khong' : r && r.read >= nDocs ? 'da_doc' : 'chua_doc'; };
   const list = emps.map((e) => {
     const a = acc.get(e.id) || {};
     return { ...e, email: con.get(e.id)?.email, phone: con.get(e.id)?.phone, branches: ebm[e.id] || [], roles: erm[e.id] || [], account_id: a.id, system_role: a.system_role,
-      state: !a.has_password ? 'chua_co' : a.must_change ? 'tam' : 'da_dat' };
+      state: !a.has_password ? 'chua_co' : a.must_change ? 'tam' : 'da_dat', nq: nq(e), tl: tlm.get(e.id) || {} };
   }).sort((x, y) => (x.status === 'Ngừng làm') - (y.status === 'Ngừng làm') || x.name.localeCompare(y.name, 'vi'));
   const on = list.filter((e) => e.status === 'Đang làm');
   return {
@@ -55,13 +60,15 @@ export async function render({ params, me }) {
           <select class="input sm" id="ef-rank" aria-label="Lọc cấp bậc"><option value="">Tất cả cấp bậc</option>${[...RANKS].reverse().map((r) => html`<option>${r}</option>`)}</select>
           <select class="input sm" id="ef-branch" aria-label="Lọc chi nhánh"><option value="">Tất cả chi nhánh</option>${cat.branches.map((b) => html`<option>${b.code}</option>`)}</select>
           <select class="input sm" id="ef-role" aria-label="Lọc vai trò"><option value="">Tất cả vai trò</option>${cat.roles.map((r) => html`<option>${r.name}</option>`)}</select>
+          ${tl ? html`<select class="input sm" id="ef-nq" aria-label="Lọc nội quy"><option value="">Nội quy: tất cả</option><option value="da_doc">Đã đọc nội quy</option><option value="chua_doc">Chưa đọc nội quy</option></select>
+          <select class="input sm" id="ef-ck" aria-label="Lọc cam kết"><option value="">Cam kết: tất cả</option>${Object.entries(COMMIT).map(([k, [l]]) => html`<option value="${k}">${l}</option>`)}</select>` : ''}
           <select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option><option value="chua_co">Chưa có mật khẩu</option><option value="tam">Mật khẩu tạm</option><option value="da_dat">Đã đặt mật khẩu</option></select>
           <button class="btn sm secondary" type="button" id="ef-clear">Xóa lọc</button><span class="ef-count" id="ef-count" role="status"></span></div>
         <div class="table-wrap"><table class="table fit" aria-label="Danh sách nhân viên">
-          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th><th>Email</th><th>Số điện thoại</th><th>Tài khoản</th><th></th></tr></thead>
+          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th><th>Email</th><th>Số điện thoại</th><th>Tài khoản</th>${tl ? html`<th>Nội quy</th><th>Cam kết</th>` : ''}<th></th></tr></thead>
           <tbody>${list.map((e) => {
             const stopped = e.status !== 'Đang làm';
-            return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" ${stopped ? 'hidden' : ''}>
+            return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" data-nq="${e.nq}" data-ck="${e.tl.commit || 'chua_ky'}" ${stopped ? 'hidden' : ''}>
               <td style="font-weight:600">${e.code}</td>
               <td><a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a></td>
               <td>${stopped ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
@@ -69,6 +76,11 @@ export async function render({ params, me }) {
               <td data-label="Vai trò làm việc">${e.roles.length ? e.roles.map((x) => html`<span class="chip role">${x}</span>`) : '—'}</td>
               <td>${e.email || '—'}</td><td>${e.phone || '—'}</td>
               <td class="state-cell">${stopped ? html`<span class="pill mute">Đã khóa</span>` : e.state === 'chua_co' ? html`<span class="pill mute">Chưa có mật khẩu</span>` : e.state === 'tam' ? html`<span class="pill warn">Mật khẩu tạm</span>` : html`<span class="pill ok">Đã đặt</span>`}</td>
+              ${tl ? html`<td data-label="Nội quy">${e.nq === 'khong' ? html`<span class="st-meta" title="Chưa có nội quy nào được đăng">—</span>`
+                : html`<button type="button" class="nq-btn pill ${e.nq === 'da_doc' ? 'ok' : 'off'}" data-id="${e.id}" data-read="${e.nq === 'da_doc' ? 1 : 0}" data-name="${e.code} – ${e.name}"
+                    title="${e.nq === 'da_doc' ? 'Đọc lúc ' + (e.tl.read_at || '') + ' · bấm để bỏ đánh dấu' : `Đã đọc ${e.tl.read || 0}/${nDocs} · bấm để đánh dấu đã đọc thay nhân viên`}">${e.nq === 'da_doc' ? 'Đã đọc' : nDocs > 1 && e.tl.read ? `Chưa đọc (${e.tl.read}/${nDocs})` : 'Chưa đọc'}</button>`}</td>
+                <td data-label="Cam kết"><select class="input sm ck-select ck-${e.tl.commit || 'chua_ky'}" data-id="${e.id}" aria-label="Cam kết của ${e.name}" title="${e.tl.commit_at ? `${e.tl.commit_by} · ${e.tl.commit_at}${e.tl.commit_note ? ' · ' + e.tl.commit_note : ''}` : ''}" ${stopped ? 'disabled' : ''}>
+                  ${Object.entries(COMMIT).map(([k, [l]]) => html`<option value="${k}" ${k === (e.tl.commit || 'chua_ky') ? 'selected' : ''}>${l}</option>`)}</select></td>` : ''}
               <td>${!stopped && e.account_id && e.account_id !== me.account_id ? html`<button type="button" class="btn sm secondary issue-btn" data-acc="${e.account_id}" data-name="${e.code} – ${e.name}">Cấp MK tạm</button>` : ''}</td></tr>`;
           })}</tbody></table></div>
       </section>`,
@@ -77,16 +89,27 @@ export async function render({ params, me }) {
       const apply = () => {
         const q = norm($('#emp-search').value.trim()); const st = $('#show-stopped').checked;
         const rk = $('#ef-rank').value, br = $('#ef-branch').value, rl = $('#ef-role').value, ac = $('#ef-state').value;
+        const fnq = $('#ef-nq')?.value || '', fck = $('#ef-ck')?.value || '';
         let n = 0;
         rows.forEach((r) => {
           const show = (st || !r.classList.contains('stopped')) && (!q || r.dataset.search.includes(q)) && (!rk || r.dataset.rank === rk)
-            && (!br || r.dataset.branches.includes(`|${br}|`)) && (!rl || r.dataset.roles.includes(`|${rl}|`)) && (!ac || r.dataset.state === ac);
+            && (!br || r.dataset.branches.includes(`|${br}|`)) && (!rl || r.dataset.roles.includes(`|${rl}|`)) && (!ac || r.dataset.state === ac)
+            && (!fnq || r.dataset.nq === fnq) && (!fck || r.dataset.ck === fck);
           r.hidden = !show; if (show) n++;
         });
         $('#ef-count').textContent = `${n} nhân viên`;
       };
-      ['#emp-search', '#show-stopped', '#ef-rank', '#ef-branch', '#ef-role', '#ef-state'].forEach((s) => $(s).addEventListener('input', apply));
-      $('#ef-clear').addEventListener('click', () => { ['#ef-rank', '#ef-branch', '#ef-role', '#ef-state', '#emp-search'].forEach((s) => { $(s).value = ''; }); apply(); });
+      ['#emp-search', '#show-stopped', '#ef-rank', '#ef-branch', '#ef-role', '#ef-state', '#ef-nq', '#ef-ck'].forEach((s) => $(s)?.addEventListener('input', apply));
+      $('#ef-clear').addEventListener('click', () => { ['#ef-rank', '#ef-branch', '#ef-role', '#ef-state', '#emp-search', '#ef-nq', '#ef-ck'].forEach((s) => { if ($(s)) $(s).value = ''; }); apply(); });
+      $$('.nq-btn').forEach((b) => b.addEventListener('click', async () => {
+        const read = b.dataset.read === '1';
+        if (!confirm(read ? `Bỏ đánh dấu đã đọc nội quy của ${b.dataset.name}?` : `Xác nhận thay ${b.dataset.name}: đã đọc toàn bộ nội quy đang đăng?`)) return;
+        try { await rpc('app_tl_mark_read', { p_employee: Number(b.dataset.id), p_read: !read }); rerender(); } catch (e) { showSaved(e.message, true); }
+      }));
+      $$('.ck-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
+        try { await rpc('app_tl_set_commit', { p_employee: Number(s.dataset.id), p_status: s.value, p_note: null }); s.className = `input sm ck-select ck-${s.value}`; s.closest('tr').dataset.ck = s.value; last = s.value; showSaved('Đã lưu · ' + hhmm()); }
+        catch (e) { s.value = last; showSaved(e.message, true); }
+      }); });
       apply();
       $$('.rank-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
         try { await rpc('app_set_rank', { p_id: Number(s.dataset.id), p_rank: s.value }); last = s.value; showSaved('Đã lưu · ' + hhmm()); } catch (e) { s.value = last; showSaved(e.message, true); }

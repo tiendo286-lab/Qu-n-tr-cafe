@@ -9,6 +9,8 @@ export const MENU = [
   ['QUẢN LÝ CA', 'Đối soát', '/quan-ly/doi-soat', 'doi_soat'],
   ['GIAO VIỆC', 'Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec'],
   ['GIAO VIỆC', 'Việc của tôi', '/viec', 'nhan_viec'],
+  ['TÀI LIỆU', 'Nội quy', '/noi-quy', null],
+  ['TÀI LIỆU', 'Quy trình', '/quy-trinh', null],
   ['XẾP LỊCH', 'Order lịch làm', '/quan-ly/order', 'xem_tat_ca'],
   ['XẾP LỊCH', 'Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
   ['XẾP LỊCH', 'Xếp lịch làm tổng', '/quan-ly/lich-tong', 'bao_cao'],
@@ -41,6 +43,9 @@ const PAGES = {
   '/quan-ly/hop': 'hop',
   '/quan-ly/hop/chi-tiet': 'hop_chi_tiet',
   '/viec': 'viec',
+  '/noi-quy': 'tai_lieu',
+  '/quy-trinh': 'tai_lieu',
+  '/tai-lieu/soan': 'soan_tai_lieu',
   '/quan-ly/order': 'order_ql',
   '/quan-ly/lich-co-dinh': 'lich_co_dinh',
   '/quan-ly/lich-tong': 'lich_tong',
@@ -90,7 +95,7 @@ function parseHash() {
 function menuHtml(path) {
   const groups = [];
   for (const [g, label, href, perm] of MENU) {
-    if (!can(perm)) continue;
+    if (perm && !can(perm)) continue;
     if (href === '/viec' && state.me.role === 'chu') continue; // Chủ là người giao việc
     if (!groups.length || groups[groups.length - 1].name !== g) groups.push({ name: g, items: [] });
     const badge = { '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review }[href] || 0;
@@ -139,6 +144,7 @@ function layout(path, body, flashMsg) {
       <a class="${path === '/order' ? 'on' : ''}" href="#/order">Order ca</a>
       <a class="${path.startsWith('/lich') ? 'on' : ''}" href="#/lich">Lịch làm</a>
       ${can('chot_ca') ? html`<a class="${path.startsWith('/ca') ? 'on' : ''}" href="#/ca">Chốt ca</a>` : ''}
+      <a class="${path === '/noi-quy' || path === '/quy-trinh' ? 'on' : ''}" href="#/noi-quy">Nội quy</a>
     </nav></div>`;
 }
 
