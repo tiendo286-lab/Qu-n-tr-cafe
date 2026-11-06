@@ -9,7 +9,7 @@ export const HUBS = [
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat']], 'ngay'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
-  ['Công việc', [['Giao việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec'], ['Họp', '/quan-ly/hop', 'hop_giao_viec']]],
+  ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']]],
   ['Nhân viên', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']]]],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]]],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]]],
@@ -31,8 +31,7 @@ const PAGES = {
   '/ca': 'chot_ca',
   '/ca/phieu': 'phieu_ca',
   '/quan-ly/doi-soat': 'doi_soat',
-  '/quan-ly/hop': 'hop',
-  '/quan-ly/hop/chi-tiet': 'hop_chi_tiet',
+  '/quan-ly/hop': 'giao_viec', // đường dẫn cũ (thông báo cũ) → Công việc
   '/viec': 'viec',
   '/quan-ly/giao-viec': 'giao_viec',
   '/noi-quy': 'tai_lieu',
@@ -91,7 +90,7 @@ function parseHash() {
 const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p))) && !(href === '/viec' && state.me?.role === 'chu'); // Chủ là người giao việc
 const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
-const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/ho-tro': state.support });
+const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support });
 
 function menuHtml(path) {
   const b = badges();
@@ -177,7 +176,7 @@ async function refreshBadges() {
   try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
   try { state.support = await rpc('app_ht_unread'); } catch (_) { /* bỏ qua */ }
   if (can('nhan_viec') || can('hop_giao_viec')) {
-    try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; } catch (_) { /* bỏ qua */ }
+    try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
   }
   if (can('xep_lich')) {
     try {

@@ -14,6 +14,8 @@ export function makeViec(T, me) {
   ];
   T.task_events = [];
   T.handover_items = T.handover_items || [];
+  const HO = [{ id: 901, content: 'Máy xay số 2 kêu to', report_id: 1, branch: 'LHP', work_date: today, shift: 'Sáng', by: 'NV thử' }, { id: 902, content: 'Hết giấy in hóa đơn', report_id: 1, branch: 'LHP', work_date: today, shift: 'Sáng', by: 'NV thử' }];
+  const hoClosed = new Set();
   const PEOPLE = [{ id: 6, name: '6 – QL tổng thử', role: 'ql_tong' }, { id: QL, name: '5 – Quản lý thử', role: 'ql' }, { id: NV, name: 'NV3 – Nhân viên thử', role: 'nv' }];
   const nid = (t) => Math.max(0, ...T[t].map((x) => x.id || 0)) + 1;
   const name = (aid) => (aid ? (PEOPLE.find((p) => p.id === aid)?.name || (aid === me.account_id ? `${me.code} – ${me.name}` : 'TK ' + aid)) : null);
@@ -26,6 +28,8 @@ export function makeViec(T, me) {
   const task = (id) => { const t = T.tasks.find((x) => x.id === id); if (!t) throw new Error('Không tìm thấy công việc.'); return t; };
   const F = {
     app_viec_people: () => PEOPLE,
+    app_viec_pending: () => ({ handover: HO.filter((h) => !hoClosed.has(h.id) && !T.tasks.some((t) => t.handover_item_id === h.id)), tasks: T.tasks.filter((t) => t.status === 'chua_phan_cong').map(json) }),
+    app_viec_handover_close({ p_item }) { if (hoClosed.has(p_item)) throw new Error('Đã xong.'); hoClosed.add(p_item); },
     app_viec_meetings: () => T.meetings.map((m) => ({ ...m, created_by: name(m.created_by), total: T.tasks.filter((t) => t.meeting_id === m.id).length, done: T.tasks.filter((t) => t.meeting_id === m.id && t.status === 'hoan_thanh').length, waiting: 0 })),
     app_viec_meeting_save({ p_id, p_title, p_date, p_note }) {
       if (!p_title?.trim()) throw new Error('Nhập tên cuộc họp.');
@@ -41,10 +45,9 @@ export function makeViec(T, me) {
         employees: T.employees.filter((e) => e.status === 'Đang làm').map(({ id, code, name: n, rank }) => ({ id, code, name: n, rank })) };
     },
     app_viec_add({ p_meeting, p }) {
-      if (!p_meeting && !p.assignee_id) throw new Error('Chọn người nhận việc.');
-      const content = (p.content || (p.handover_item_id ? 'Máy xay số 2 kêu to' : '')).trim(); if (!content) throw new Error('Nhập nội dung công việc.');
+      const content = (p.content || (p.handover_item_id ? HO.find((h) => h.id === p.handover_item_id).content : '')).trim(); if (!content) throw new Error('Nhập nội dung công việc.');
       if (p.kind === 'dao_tao' && !p.employee_id) throw new Error('Chọn nhân viên cần đào tạo.');
-      const id = nid('tasks'); T.tasks.push({ id, meeting_id: p_meeting, kind: p.kind || 'viec', content, handover_item_id: p.handover_item_id || null, employee_id: p.employee_id || null, status: 'chua_phan_cong', created_by: me.account_id });
+      const id = nid('tasks'); T.tasks.push({ id, meeting_id: p_meeting || null, kind: p.kind || 'viec', content, handover_item_id: p.handover_item_id || null, employee_id: p.employee_id || null, status: 'chua_phan_cong', created_by: me.account_id });
       ev(id, 'tao'); if (p.assignee_id || p.due_date) F.app_viec_update({ p_task: id, p }); return id;
     },
     app_viec_update({ p_task, p }) {
@@ -72,7 +75,7 @@ export function makeViec(T, me) {
     app_viec_reminder() {
       const open = T.tasks.filter((t) => t.assignee_id === me.account_id && ['da_giao', 'dang_xu_ly'].includes(t.status));
       return { overdue: open.filter((t) => t.due_date && t.due_date < today).length, today: open.filter((t) => t.due_date === today).length, open: open.length,
-        new: open.filter((t) => t.status === 'da_giao').length, waiting: 0, to_review: 0,
+        new: open.filter((t) => t.status === 'da_giao').length, waiting: 0, to_review: me.role === 'chu' ? F.app_viec_pending().handover.length + F.app_viec_pending().tasks.length : 0,
         items: open.map((t) => ({ id: t.id, content: t.content, due_date: t.due_date, status: t.status, kind: t.kind, group: t.due_date && t.due_date < today ? 'overdue' : t.due_date === today ? 'today' : 'open' })) };
     },
   };
