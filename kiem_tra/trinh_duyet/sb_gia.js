@@ -1,6 +1,7 @@
 // GIẢ LẬP Supabase để chạy thử trên Chrome (không kết nối dữ liệu thật)
 import { DATA } from '../test/data.js';
 import { makeCa, makeStorage } from '../test/ca_gia.js';
+import { makeViec } from '../test/viec_gia.js';
 export const SUPABASE_URL = 'x'; export const SUPABASE_KEY = 'x';
 const T = DATA;
 for (const t of ['order_submissions', 'notifications', 'schedule_published', 'schedule_extra_rows', 'schedule_locks', 'week_order_windows', 'notification_events', 'audit_log', 'order_edit_log']) T[t] = T[t] || [];
@@ -62,8 +63,10 @@ class Q {
 }
 const ME = role === 'chu'
   ? { account_id: 1, employee_id: null, role: 'chu', must_change: false, code: 'admin', name: 'Chủ', perms: new Proxy({}, { get: () => true }) }
-  : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true } };
-const CA = makeCa(T, ME);
+  : role === 'ql'
+    ? { account_id: 5, employee_id: 5, role: 'ql', must_change: false, code: '5', name: 'Quản lý thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true } }
+    : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true } };
+const CA = { ...makeCa(T, ME), ...makeViec(T, ME) };
 const authCbs = [];
 export const sb = {
   from: (t) => new Q(t),

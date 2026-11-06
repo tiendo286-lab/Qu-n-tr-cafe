@@ -10,6 +10,10 @@ const KIND = [
   ['Đã mở order', '+', '#dbeafe', '#1e3a8a'],
   ['đã được chốt', '✓', '#dcfce7', '#14532d'],
   ['giành quyền', '!', '#ffedd5', '#9a3412'],
+  ['Việc mới', '+', '#dbeafe', '#1e3a8a'],
+  ['chờ duyệt', '!', '#ffedd5', '#9a3412'],
+  ['duyệt hoàn thành', '✓', '#dcfce7', '#14532d'],
+  ['làm lại', '!', '#fee2e2', '#991b1b'],
 ];
 
 export async function render({ me }) {

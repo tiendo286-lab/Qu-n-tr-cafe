@@ -1,12 +1,14 @@
 // Lõi trang web: phiên đăng nhập, menu theo quyền, chuyển trang (dùng #/duong-dan vì GitHub Pages là trang tĩnh).
 import { focusWeek, notifyTick, unreadCount } from './data.js';
 import { rpc, sb, viError } from './sb.js';
-import { ROLE_LABELS, esc, go, html, str, takeFlash } from './ui.js';
+import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Menu quản lý: [nhóm, nhãn, đường dẫn, quyền cần, đã có ở bản mới chưa]
 export const MENU = [
   ['QUẢN LÝ CA', 'Chốt ca', '/ca', 'chot_ca'],
   ['QUẢN LÝ CA', 'Đối soát', '/quan-ly/doi-soat', 'doi_soat'],
+  ['GIAO VIỆC', 'Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec'],
+  ['GIAO VIỆC', 'Việc của tôi', '/viec', 'nhan_viec'],
   ['XẾP LỊCH', 'Order lịch làm', '/quan-ly/order', 'xem_tat_ca'],
   ['XẾP LỊCH', 'Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
   ['XẾP LỊCH', 'Xếp lịch làm tổng', '/quan-ly/lich-tong', 'bao_cao'],
@@ -36,6 +38,9 @@ const PAGES = {
   '/ca': 'chot_ca',
   '/ca/phieu': 'phieu_ca',
   '/quan-ly/doi-soat': 'doi_soat',
+  '/quan-ly/hop': 'hop',
+  '/quan-ly/hop/chi-tiet': 'hop_chi_tiet',
+  '/viec': 'viec',
   '/quan-ly/order': 'order_ql',
   '/quan-ly/lich-co-dinh': 'lich_co_dinh',
   '/quan-ly/lich-tong': 'lich_tong',
@@ -51,7 +56,7 @@ const PAGES = {
   '/quan-ly/du-lieu': 'du_lieu',
 };
 
-export const state = { me: null, unread: 0, warn: 0 };
+export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null };
 const root = () => document.getElementById('root');
 
 export function can(p) { return !!state.me?.perms?.[p]; }
@@ -71,7 +76,8 @@ export async function loadMe() {
 
 export async function logout() {
   await sb.auth.signOut();
-  state.me = null;
+  state.me = null; state.remind = null; state.tasks = 0; state.review = 0; badgeAt = 0;
+  try { sessionStorage.removeItem('nhac_viec'); } catch (_) { /* bỏ qua */ }
   go('/dang-nhap');
 }
 
@@ -85,8 +91,9 @@ function menuHtml(path) {
   const groups = [];
   for (const [g, label, href, perm] of MENU) {
     if (!can(perm)) continue;
+    if (href === '/viec' && state.me.role === 'chu') continue; // Chủ là người giao việc
     if (!groups.length || groups[groups.length - 1].name !== g) groups.push({ name: g, items: [] });
-    const badge = href === '/thong-bao' ? state.unread : href === '/quan-ly/canh-bao' ? state.warn : 0;
+    const badge = { '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review }[href] || 0;
     groups[groups.length - 1].items.push({ label, href, badge, active: path.startsWith(href) });
   }
   return groups.map((g) => html`<div class="group">${g.name}</div>${g.items.map((it) => html`
@@ -146,6 +153,9 @@ async function refreshBadges() {
   badgeAt = Date.now();
   await notifyTick();
   try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
+  if (can('nhan_viec') || can('hop_giao_viec')) {
+    try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
+  }
   if (can('xep_lich')) {
     try {
       const w = await focusWeek();
@@ -191,6 +201,26 @@ export async function render() {
     try { const c = await page.mount(root()); if (typeof c === 'function') cleanup = c; } catch (e) { console.error(e); alert(viError(e)); }
   }
   window.scrollTo(0, 0);
+  remindOnce(path);
+}
+
+// Nhắc việc mỗi khi quản lý mở app (một lần mỗi phiên): quá hạn → hôm nay → còn lại; chờ duyệt để riêng
+function remindOnce(path) {
+  const r = state.remind;
+  if (!r || !['ql_tong', 'ql'].includes(state.me?.role) || path === '/viec' || path === '/doi-mat-khau') return;
+  try { if (sessionStorage.getItem('nhac_viec')) return; sessionStorage.setItem('nhac_viec', '1'); } catch (_) { return; }
+  if (!r.items.length) return;
+  const g = (k) => r.items.filter((t) => t.group === k);
+  const dd = (d) => (d ? d.split('-').reverse().slice(0, 2).join('/') : 'chưa có hạn');
+  const list = (items, color) => html`${items.map((t) => html`<li style="color:${color}">${t.kind === 'dao_tao' ? '[Đào tạo] ' : ''}${t.content} <span style="font-size:12px;color:var(--muted)">· hạn ${dd(t.due_date)}</span></li>`)}`;
+  const sec = (title, items, color) => (items.length ? html`<div><strong style="color:${color}">${title} (${items.length})</strong><ul style="margin:4px 0 0;padding-left:20px">${list(items, color)}</ul></div>` : '');
+  const d = dialog(html`<div class="stack" style="gap:10px;max-width:520px">
+    <h2 style="margin:0">Việc được giao cho bạn</h2>
+    ${sec('Quá hạn', g('overdue'), '#b91c1c')}${sec('Đến hạn hôm nay', g('today'), '#b45309')}${sec('Việc còn lại chưa hoàn thành', g('open'), 'var(--ink)')}
+    ${g('waiting').length ? html`<div style="font-size:13px;color:var(--muted)">Đã gửi báo cáo, đang chờ duyệt: ${g('waiting').length} việc.</div>` : ''}
+    <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn secondary" id="rm-close">Để sau</button><a class="btn" href="#/viec" id="rm-go">Mở Việc của tôi</a></div></div>`);
+  d.querySelector('#rm-close').addEventListener('click', () => d.close());
+  d.querySelector('#rm-go').addEventListener('click', () => d.close());
 }
 
 window.addEventListener('hashchange', render);
