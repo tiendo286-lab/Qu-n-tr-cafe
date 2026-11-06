@@ -8,15 +8,15 @@ Bản web đang chạy theo các giả định dưới đây cho những điểm
 3. **Giờ bắt đầu ca Tối**: nhân viên tự chọn (phiếu có hiện giờ kết thúc ca Chiều để tham khảo). Ca Chiều chưa hoàn thành ca Sáng thì tạm nhập tay.
 4. **Tiền đầu ca lệch ca trước / ca trước chưa chốt**: chỉ báo đỏ hoặc báo "chưa có số liệu", vẫn cho hoàn thành.
 5. **Sửa / mở lại phiếu**: phiếu đã hoàn thành thì khóa. Quyền "Mở lại phiếu chốt ca" (mặc định Chủ, Quản lý tổng). Mở lại thì phải đối soát lại từ đầu.
-6. **Việc bàn giao không qua tab Họp**: người chốt ca sau bấm "Đã xong" (lưu người, giờ).
+6. **Việc bàn giao chưa giao ở tab Công việc**: người chốt ca sau bấm "Đã xong" (lưu người, giờ). Đã giao rồi thì chỉ xong khi người nhận báo "Đã xử lý".
 7. **Ai chốt ca**: ai đăng nhập cũng mở và điền phiếu được; "người chốt ca" là người bấm Xác nhận hoàn thành.
 8. **Nhập hàng**: thêm lựa chọn "Ca này không nhận hàng".
 9. **Tiền mặt cuối ngày phải có** = 1.000.000đ đầu ngày + tiền mặt POS các ca + thu/chi tiền mặt đã kê khai. Ngày có công nợ thì ghi chú "chỉ để tham khảo".
 
-## Họp & giao việc
-10. **Cuộc họp** chỉ gồm tên, ngày, ghi chú ngắn (mục 8.10 chưa chốt chi tiết).
-11. **Giao việc, duyệt báo cáo**: quyền "Họp & giao việc" (mặc định chỉ Chủ). Người duyệt không được là người nhận việc.
-12. **Người nhận việc**: Quản lý tổng, Quản lý. Chọn người + hạn thì việc tự chuyển "Đã giao" và báo cho người đó.
+## Công việc (đã chốt 07/11/2026 — bỏ Họp, xem TINH_NANG_DA_CHOT.md)
+10. ~~Cuộc họp~~ — đã bỏ.
+11. **Giao việc**: quyền "Giao việc cho nhân viên" (mặc định chỉ Chủ). Không còn bước duyệt; người giao có "Yêu cầu làm lại".
+12. **Người nhận việc**: mọi nhân viên đang làm có tài khoản. Chọn người là việc chuyển "Chờ nhận" và báo cho người đó; hạn không bắt buộc.
 
 ## Nội quy, Quy trình, Cam kết
 13. **Soạn / đăng**: quyền "Soạn nội quy, quy trình" (mặc định chỉ Chủ).
