@@ -70,7 +70,7 @@ export async function render({ params }) {
           </div>
           ${adm ? html`<datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>` : ''}
           <div class="st-meta">Mỗi hạng mục đi đủ 3 bước: Đã giới thiệu → Đã thực hành có giám sát → Mức đạt (Trung bình / Khá / Tốt — cả 3 mức đều tính là đạt). Hệ thống ghi người và ngày xác nhận thay cho chữ ký.</div>
-          ${T.tasks.length ? html`<div><span class="pc-sub">NHIỆM VỤ ĐÀO TẠO ĐƯỢC GIAO (TAB HỌP)</span>${T.tasks.map((k) => html`<div class="st-meta">• ${k.content} — ${k.assignee || 'chưa phân công'} · <span class="pill ${TASK_STATUS[k.status][1]}">${TASK_STATUS[k.status][0]}</span>${k.due_date ? ' · hạn ' + dmy(k.due_date) : ''}</div>`)}</div>` : ''}
+          ${T.tasks.length ? html`<div><span class="pc-sub">NHIỆM VỤ ĐÀO TẠO ĐƯỢC GIAO (TAB CÔNG VIỆC)</span>${T.tasks.map((k) => html`<div class="st-meta">• ${k.content} — ${k.assignee || 'chưa giao'} · <span class="pill ${TASK_STATUS[k.status][1]}">${TASK_STATUS[k.status][0]}</span>${k.due_date ? ' · hạn ' + dmy(k.due_date) : ''}</div>`)}</div>` : ''}
         </section>
         ${days.map(daySec)}
         <section class="card stack" style="gap:10px">

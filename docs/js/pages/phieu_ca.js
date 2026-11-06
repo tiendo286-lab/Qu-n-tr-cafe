@@ -65,7 +65,7 @@ function staffRow(s, ed) {
 }
 const hoRow = (h, ed) => html`<div class="pc-line ho-row" data-id="${h.id || ''}">
   <textarea class="input ho-text grow" rows="2" placeholder="Việc cần ca sau làm tiếp / thiết bị / vệ sinh / an toàn / sự cố" aria-label="Nội dung bàn giao" ${ed && !h.task_id ? '' : 'disabled'}>${h.content || ''}</textarea>
-  ${h.done_at ? html`<span class="pill ok">Đã xong ${dt(h.done_at)}</span>` : h.task_id ? html`<span class="pill warn">Đã giao quản lý</span>` : ''}
+  ${h.done_at ? html`<span class="pill ok">Đã xong ${dt(h.done_at)}</span>` : h.task_id ? html`<span class="pill warn">Đã giao việc</span>` : ''}
   ${ed && !h.task_id && !h.done_at ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa việc">×</button>` : ''}</div>`;
 const goodRow = (g, ed) => html`<div class="pc-line gd-row">
   <input class="input sm gd-item grow" placeholder="Mặt hàng" aria-label="Mặt hàng thiếu" value="${g.item || ''}" ${ed ? '' : 'disabled'}>
@@ -163,7 +163,7 @@ export async function render({ params }) {
   const secHand = sec('6. Nội dung bàn giao ca sau', ['ban_giao'], html`
     ${carried.length ? html`<div class="pc-sub">VIỆC CHƯA XONG TỪ CÁC CA TRƯỚC</div>${carried.map((h) => html`<div class="pc-line carried">
         <div class="grow">${h.content}<div class="st-meta">Ca ${h.from_shift} ${dmy(h.from_date)} · ${h.created_by_name || ''}${h.done_at ? ` · Xong: ${h.done_by_name} ${dt(h.done_at)}` : ''}</div></div>
-        ${h.task_id ? html`<span class="pill warn">Đã giao quản lý — chờ duyệt</span>`
+        ${h.task_id ? (h.done_at ? html`<span class="pill ok">Đã xử lý</span>` : html`<span class="pill warn">Đã giao việc — chờ xử lý</span>`)
           : ed ? (h.done_at ? html`<button type="button" class="btn sm secondary ho-done" data-id="${h.id}" data-undo="1">Bỏ đánh dấu</button>`
             : html`<button type="button" class="btn sm ho-done" data-id="${h.id}">Đã xong</button>`)
             : h.done_at ? html`<span class="pill ok">Đã xong</span>` : html`<span class="pill off">Chưa xong</span>`}</div>`)}` : ''}

@@ -16,7 +16,7 @@ const PERMISSIONS = [
   ['bao_cao', 'Xem báo cáo, xếp lịch tổng, xuất Excel'],
   ['doi_soat', 'Đối soát phiếu chốt ca, tiền mặt cuối ngày'],
   ['mo_lai_phieu_ca', 'Mở lại phiếu chốt ca đã hoàn thành'],
-  ['hop_giao_viec', 'Họp & giao việc, duyệt báo cáo xử lý'],
+  ['hop_giao_viec', 'Giao việc cho nhân viên, họp'],
   ['soan_tai_lieu', 'Soạn, sửa, đăng nội quy và quy trình'],
   ['dao_tao', 'Đào tạo: tạo phiếu, cập nhật mọi phiếu đào tạo'],
 ];

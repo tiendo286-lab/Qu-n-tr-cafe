@@ -1,16 +1,19 @@
-// Chi tiết cuộc họp: đưa nội dung bàn giao chưa xong vào danh sách, giao việc / nhiệm vụ đào tạo cho quản lý
+// Chi tiết cuộc họp: đưa nội dung bàn giao chưa xong vào danh sách, giao việc / nhiệm vụ đào tạo cho nhân viên
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
-import { dmy, dt } from '../tien.js';
+import { dmy } from '../tien.js';
 import { $, $$, flash, go, hhmm, html, showSaved } from '../ui.js';
-import { STATUS, STYLE, dueText, history, sourceText } from './viec.js';
-import { bindReview, reviewBox } from './hop.js';
+import { STATUS, STYLE, doneText, dueText, history, sourceText } from './viec.js';
 
 export const perm = 'hop_giao_viec';
 
 export async function render({ params }) {
   const M = await rpc('app_viec_meeting_get', { p_id: Number(params.id) });
-  const mgrOpts = (sel) => html`<option value="">— Chưa phân công —</option>${M.managers.map((m) => html`<option value="${m.id}" ${String(m.id) === String(sel) ? 'selected' : ''}>${m.name}${m.role === 'ql_tong' ? ' (QL tổng)' : ''}</option>`)}`;
+  const ROLE = { ql_tong: 'Quản lý tổng', ql: 'Quản lý', nv: 'Nhân viên' };
+  const mgrOpts = (sel) => html`<option value="">— Chưa giao —</option>${Object.entries(ROLE).map(([r, label]) => {
+    const ps = M.managers.filter((m) => m.role === r);
+    return ps.length ? html`<optgroup label="${label}">${ps.map((m) => html`<option value="${m.id}" ${String(m.id) === String(sel) ? 'selected' : ''}>${m.name}</option>`)}</optgroup>` : '';
+  })}`;
   const editable = (t) => ['chua_phan_cong', 'da_giao', 'dang_xu_ly'].includes(t.status);
 
   const task = (t) => html`<article class="card stack tk ${t.overdue ? 'tk-late' : ''}" style="gap:8px;padding:14px" data-id="${t.id}">
@@ -18,13 +21,13 @@ export async function render({ params }) {
     ${editable(t) ? html`<textarea class="input tk-edit" data-f="content" rows="2" aria-label="Nội dung công việc">${t.content}</textarea>` : html`<div class="tk-content">${t.content}</div>`}
     <div class="st-meta">${sourceText(t)}</div>
     ${editable(t) ? html`<div class="pc-line" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-        <label class="st-meta">Quản lý phụ trách <select class="input sm tk-edit" data-f="assignee_id" aria-label="Quản lý phụ trách">${mgrOpts(t.assignee_id)}</select></label>
+        <label class="st-meta">Người nhận <select class="input sm tk-edit" data-f="assignee_id" aria-label="Người nhận">${mgrOpts(t.assignee_id)}</select></label>
         <label class="st-meta">Hạn hoàn thành <input class="input sm tk-edit" type="date" data-f="due_date" value="${t.due_date || ''}" aria-label="Hạn hoàn thành"></label>
         <button type="button" class="btn sm secondary danger tk-del" style="margin-left:auto">Xóa việc</button></div>
-        ${t.status === 'chua_phan_cong' ? html`<div class="st-meta">Chọn quản lý phụ trách và hạn → việc tự chuyển “Đã giao” và người đó nhận thông báo.</div>` : ''}
+        ${t.status === 'chua_phan_cong' ? html`<div class="st-meta">Chọn người nhận → việc chuyển “Chờ nhận” và người đó nhận thông báo. Hạn không bắt buộc.</div>` : ''}
         ${t.status === 'dang_xu_ly' && t.review_note ? html`<div class="st-meta">Đã yêu cầu làm lại: ${t.review_note}</div>` : ''}`
-    : html`<div class="st-meta">Phụ trách: ${t.assignee_name || '—'}</div>`}
-    ${t.status === 'cho_duyet' ? reviewBox(t) : t.status === 'hoan_thanh' ? html`<div class="tk-report"><strong>Báo cáo:</strong> ${t.report}<div class="st-meta">Duyệt: ${t.approved_by_name} · ${dt(t.approved_at)}</div></div>` : ''}
+    : html`<div class="st-meta">Người nhận: ${t.assignee_name || '—'}</div>`}
+    ${doneText(t)}
     ${history(t)}</article>`;
 
   const empOpts = html`${M.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}`;
@@ -44,7 +47,7 @@ export async function render({ params }) {
 
         <section class="card stack" style="gap:10px">
           <h2 style="margin:0">Nội dung bàn giao chưa hoàn thành (${M.open_handover.length})</h2>
-          ${M.open_handover.length ? html`<div class="st-meta">Tick các nội dung cần xử lý rồi bấm “Đưa vào cuộc họp”. Sau khi đưa vào và giao, ca sau không tự đánh dấu xong được — chỉ hoàn thành khi bạn duyệt báo cáo xử lý.</div>
+          ${M.open_handover.length ? html`<div class="st-meta">Tick các nội dung cần xử lý rồi bấm “Đưa vào cuộc họp”. Sau khi đưa vào và giao, ca sau không tự đánh dấu xong được — chỉ xong khi người nhận báo “Đã xử lý”.</div>
             <div class="stack" style="gap:6px">${M.open_handover.map((h) => html`<label class="ho-pick"><input type="checkbox" class="check ho-cb" value="${h.id}">
               <span><strong>${h.content}</strong><br><span class="st-meta"><a href="#/ca/phieu?id=${h.report_id}">Phiếu ca ${h.shift} ${h.branch} ${dmy(h.work_date)}</a> · ${h.by || ''}</span></span></label>`)}</div>
             <div><button type="button" class="btn sm" id="ho-add">Đưa các mục đã chọn vào cuộc họp</button></div>`
@@ -57,7 +60,7 @@ export async function render({ params }) {
           <form id="add-task" class="stack" style="gap:8px">
             <textarea class="input" name="content" rows="2" placeholder="Nội dung công việc" required aria-label="Nội dung công việc"></textarea>
             <div class="pc-line" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <select class="input sm" name="assignee" aria-label="Quản lý phụ trách">${mgrOpts('')}</select>
+              <select class="input sm" name="assignee" aria-label="Người nhận">${mgrOpts('')}</select>
               <input class="input sm" type="date" name="due" aria-label="Hạn hoàn thành">
               <button class="btn sm" type="submit">Thêm việc</button></div></form></section>
 
@@ -66,7 +69,7 @@ export async function render({ params }) {
             <input class="input sm" name="emp" list="emp-list" placeholder="Nhân viên cần đào tạo (gõ mã hoặc tên)" required aria-label="Nhân viên cần đào tạo"><datalist id="emp-list">${empOpts}</datalist>
             <textarea class="input" name="content" rows="2" placeholder="Nội dung còn thiếu (vd: SOP 05 thanh toán, đóng cửa ca tối)" required aria-label="Nội dung đào tạo còn thiếu"></textarea>
             <div class="pc-line" style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">
-              <select class="input sm" name="assignee" aria-label="Quản lý phụ trách">${mgrOpts('')}</select>
+              <select class="input sm" name="assignee" aria-label="Người nhận">${mgrOpts('')}</select>
               <input class="input sm" type="date" name="due" aria-label="Hạn hoàn thành">
               <button class="btn sm" type="submit">Giao đào tạo</button></div>
             <div class="st-meta">Hoàn thành nhiệm vụ đào tạo không tự đánh dấu nhân viên đạt cả chương trình. Liên kết với phiếu đào tạo sẽ có ở phần Đào tạo.</div></form></section>
@@ -85,7 +88,7 @@ export async function render({ params }) {
       $('#ho-add')?.addEventListener('click', async () => {
         const ids = $$('.ho-cb:checked').map((c) => Number(c.value));
         if (!ids.length) { showSaved('Chưa chọn nội dung nào.', true); return; }
-        try { for (const id of ids) await rpc('app_viec_add', { p_meeting: M.id, p: { handover_item_id: id } }); flash(`Đã đưa ${ids.length} nội dung vào cuộc họp. Hãy chọn người phụ trách và hạn.`); rerender(); }
+        try { for (const id of ids) await rpc('app_viec_add', { p_meeting: M.id, p: { handover_item_id: id } }); flash(`Đã đưa ${ids.length} nội dung vào cuộc họp. Hãy chọn người nhận.`); rerender(); }
         catch (e) { showSaved(e.message, true); rerender(); }
       });
       // sửa việc: lưu ngay khi đổi
@@ -111,7 +114,6 @@ export async function render({ params }) {
         try { await rpc('app_viec_add', { p_meeting: M.id, p: { kind: 'dao_tao', employee_id: e.id, content: f.content.value, assignee_id: f.assignee.value || null, due_date: f.due.value || null } }); flash('Đã giao nhiệm vụ đào tạo.'); rerender(); }
         catch (err) { showSaved(err.message, true); }
       });
-      bindReview();
     },
   };
 }

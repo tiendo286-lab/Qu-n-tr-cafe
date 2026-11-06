@@ -9,7 +9,7 @@ export const HUBS = [
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat']], 'ngay'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
-  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec']]],
+  ['Công việc', [['Giao việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec'], ['Họp', '/quan-ly/hop', 'hop_giao_viec']]],
   ['Nhân viên', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']]]],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]]],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]]],
@@ -34,6 +34,7 @@ const PAGES = {
   '/quan-ly/hop': 'hop',
   '/quan-ly/hop/chi-tiet': 'hop_chi_tiet',
   '/viec': 'viec',
+  '/quan-ly/giao-viec': 'giao_viec',
   '/noi-quy': 'tai_lieu',
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
@@ -90,7 +91,7 @@ function parseHash() {
 const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p))) && !(href === '/viec' && state.me?.role === 'chu'); // Chủ là người giao việc
 const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
-const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review, '/ho-tro': state.support });
+const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/ho-tro': state.support });
 
 function menuHtml(path) {
   const b = badges();
@@ -156,6 +157,7 @@ function layout(path, body, flashMsg) {
     <nav class="tabbar" aria-label="Menu nhân viên">
       <a class="${path === '/order' ? 'on' : ''}" href="#/order">Order ca</a>
       <a class="${path.startsWith('/lich') ? 'on' : ''}" href="#/lich">Lịch làm</a>
+      <a class="${path === '/viec' ? 'on' : ''}" href="#/viec">Việc${state.tasks ? html` <span class="badge">${state.tasks}</span>` : ''}</a>
       ${can('chot_ca') ? html`<a class="${path.startsWith('/ca') ? 'on' : ''}" href="#/ca">Chốt ca</a>` : ''}
       <a class="${path === '/noi-quy' || path === '/quy-trinh' ? 'on' : ''}" href="#/noi-quy">Nội quy</a>
       <a class="${path.startsWith('/ho-tro') ? 'on' : ''}" href="#/ho-tro">Hỗ trợ${state.support ? html` <span class="badge">${state.support}</span>` : ''}</a>
@@ -175,7 +177,7 @@ async function refreshBadges() {
   try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
   try { state.support = await rpc('app_ht_unread'); } catch (_) { /* bỏ qua */ }
   if (can('nhan_viec') || can('hop_giao_viec')) {
-    try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
+    try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; } catch (_) { /* bỏ qua */ }
   }
   if (can('xep_lich')) {
     try {
@@ -229,20 +231,19 @@ export async function render() {
   remindOnce(path);
 }
 
-// Nhắc việc mỗi khi quản lý mở app (một lần mỗi phiên): quá hạn → hôm nay → còn lại; chờ duyệt để riêng
+// Nhắc việc mỗi khi mở app (một lần mỗi phiên): quá hạn → hôm nay → còn lại
 function remindOnce(path) {
   const r = state.remind;
-  if (!r || !['ql_tong', 'ql'].includes(state.me?.role) || path === '/viec' || path === '/doi-mat-khau') return;
+  if (!r || !['ql_tong', 'ql', 'nv'].includes(state.me?.role) || path === '/viec' || path === '/doi-mat-khau') return;
   try { if (sessionStorage.getItem('nhac_viec')) return; sessionStorage.setItem('nhac_viec', '1'); } catch (_) { return; }
   if (!r.items.length) return;
   const g = (k) => r.items.filter((t) => t.group === k);
   const dd = (d) => (d ? d.split('-').reverse().slice(0, 2).join('/') : 'chưa có hạn');
-  const list = (items, color) => html`${items.map((t) => html`<li style="color:${color}">${t.kind === 'dao_tao' ? '[Đào tạo] ' : ''}${t.content} <span style="font-size:12px;color:var(--muted)">· hạn ${dd(t.due_date)}</span></li>`)}`;
+  const list = (items, color) => html`${items.map((t) => html`<li style="color:${color}">${t.kind === 'dao_tao' ? '[Đào tạo] ' : ''}${t.content} <span style="font-size:12px;color:var(--muted)">· ${t.due_date ? 'hạn ' + dd(t.due_date) : 'không đặt hạn'}</span></li>`)}`;
   const sec = (title, items, color) => (items.length ? html`<div><strong style="color:${color}">${title} (${items.length})</strong><ul style="margin:4px 0 0;padding-left:20px">${list(items, color)}</ul></div>` : '');
   const d = dialog(html`<div class="stack" style="gap:10px;max-width:520px">
     <h2 style="margin:0">Việc được giao cho bạn</h2>
-    ${sec('Quá hạn', g('overdue'), '#b91c1c')}${sec('Đến hạn hôm nay', g('today'), '#b45309')}${sec('Việc còn lại chưa hoàn thành', g('open'), 'var(--ink)')}
-    ${g('waiting').length ? html`<div style="font-size:13px;color:var(--muted)">Đã gửi báo cáo, đang chờ duyệt: ${g('waiting').length} việc.</div>` : ''}
+    ${sec('Quá hạn', g('overdue'), '#b91c1c')}${sec('Đến hạn hôm nay', g('today'), '#b45309')}${sec('Việc còn lại chưa xử lý xong', g('open'), 'var(--ink)')}
     <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn secondary" id="rm-close">Để sau</button><a class="btn" href="#/viec" id="rm-go">Mở Việc của tôi</a></div></div>`);
   d.querySelector('#rm-close').addEventListener('click', () => d.close());
   d.querySelector('#rm-go').addEventListener('click', () => d.close());

@@ -1,4 +1,4 @@
-// Việc của tôi (quản lý nhận việc được giao qua tab Họp) + phần hiển thị việc dùng chung
+// Việc của tôi: việc được giao cho mình — Chờ nhận → Đang xử lý → Đã xử lý (+ phần hiển thị việc dùng chung)
 import { render as rerender } from '../app.js';
 import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
@@ -8,16 +8,17 @@ import { $$, flash, html, showSaved } from '../ui.js';
 export const perm = 'nhan_viec';
 
 export const STATUS = {
-  chua_phan_cong: ['Chưa phân công', 'mute'], da_giao: ['Đã giao', 'info'], dang_xu_ly: ['Đang xử lý', 'info'],
-  cho_duyet: ['Chờ duyệt', 'warn'], hoan_thanh: ['Hoàn thành', 'ok'],
+  chua_phan_cong: ['Chưa giao', 'mute'], da_giao: ['Chờ nhận', 'warn'], dang_xu_ly: ['Đang xử lý', 'info'],
+  cho_duyet: ['Đã xử lý', 'ok'], hoan_thanh: ['Đã xử lý', 'ok'],
 };
-const ACTION = { tao: 'Tạo việc', giao: 'Giao việc', bat_dau: 'Bắt đầu xử lý', bao_cao: 'Gửi báo cáo', duyet: 'Duyệt hoàn thành', lam_lai: 'Yêu cầu làm lại', sua: 'Sửa' };
+const ACTION = { tao: 'Tạo việc', giao: 'Giao việc', bat_dau: 'Nhận việc', bao_cao: 'Báo đã xử lý', duyet: 'Duyệt', lam_lai: 'Yêu cầu làm lại', sua: 'Sửa' };
 
 export function dueText(t) {
-  if (!t.due_date) return html`<span class="st-meta">Chưa có hạn</span>`;
+  if (!t.due_date) return html`<span class="st-meta">Không đặt hạn</span>`;
   const today = vnToday();
-  const late = t.status !== 'hoan_thanh' && t.status !== 'cho_duyet' && t.due_date < today;
-  const isToday = t.status !== 'hoan_thanh' && t.due_date === today;
+  const open = t.status === 'da_giao' || t.status === 'dang_xu_ly';
+  const late = open && t.due_date < today;
+  const isToday = open && t.due_date === today;
   return html`<span class="${late ? 'due-late' : isToday ? 'due-today' : ''}">Hạn ${dmy(t.due_date)}${late ? ' · QUÁ HẠN' : isToday ? ' · HÔM NAY' : ''}</span>`;
 }
 
@@ -33,52 +34,53 @@ export function history(t) {
     ${t.events.map((e) => html`<div class="tk-ev"><span class="st-meta">${dt(e.at)} · ${e.by || ''}</span> <strong>${ACTION[e.action] || e.action}</strong>${e.note ? html`: ${e.note}` : ''}</div>`)}</details>`;
 }
 
+// Kết quả + thời điểm xử lý xong (dùng chung)
+export function doneText(t) {
+  if (t.status !== 'hoan_thanh' && t.status !== 'cho_duyet') return '';
+  return html`<div class="tk-report">${t.report ? html`<strong>Kết quả:</strong> ${t.report}<br>` : ''}<span class="st-meta">Xử lý xong ${dt(t.done_at || t.submitted_at)}</span></div>`;
+}
+
 function card(t) {
   const st = STATUS[t.status];
-  const canWork = t.status === 'da_giao' || t.status === 'dang_xu_ly';
+  const meta = [sourceText(t), t.created_by_name ? html`Người giao: ${t.created_by_name}` : ''].filter(Boolean);
   return html`<article class="card stack tk ${t.overdue ? 'tk-late' : ''}" style="gap:8px;padding:14px">
     <div class="tk-top"><span class="pill ${st[1]}">${st[0]}</span>${dueText(t)}</div>
     <div class="tk-content">${t.content}</div>
-    <div class="st-meta">${sourceText(t)}${t.created_by_name ? html` · Người giao: ${t.created_by_name}` : ''}</div>
+    ${meta.length ? html`<div class="st-meta">${meta.map((m, i) => html`${i ? ' · ' : ''}${m}`)}</div>` : ''}
     ${t.status === 'dang_xu_ly' && t.review_note ? html`<div class="alert warn" style="font-size:13px"><strong>Yêu cầu làm lại:</strong> ${t.review_note}</div>` : ''}
-    ${t.report && t.status !== 'dang_xu_ly' ? html`<div class="tk-report"><strong>Báo cáo:</strong> ${t.report}</div>` : ''}
-    ${t.status === 'cho_duyet' ? html`<div class="st-meta">Đã gửi báo cáo ${dt(t.submitted_at)} — đang chờ chủ hệ thống duyệt.</div>` : ''}
-    ${t.status === 'hoan_thanh' ? html`<div class="st-meta">Duyệt: ${t.approved_by_name} · ${dt(t.approved_at)}${t.review_note ? ' · ' + t.review_note : ''}</div>` : ''}
-    ${canWork ? html`<div class="stack" style="gap:6px">
-      ${t.status === 'da_giao' ? html`<div><button type="button" class="btn sm secondary tk-start" data-id="${t.id}">Bắt đầu xử lý</button></div>` : ''}
-      <textarea class="input tk-rep" rows="3" placeholder="Báo cáo kết quả xử lý (đã làm gì, kết quả, chi phí nếu có)" aria-label="Báo cáo kết quả">${t.status === 'dang_xu_ly' && t.report ? t.report : ''}</textarea>
-      <div><button type="button" class="btn sm tk-submit" data-id="${t.id}">Gửi báo cáo để duyệt</button></div></div>` : ''}
+    ${doneText(t)}
+    ${t.status === 'da_giao' ? html`<div><button type="button" class="btn tk-start" data-id="${t.id}">Nhận việc</button></div>` : ''}
+    ${t.status === 'dang_xu_ly' ? html`<div class="stack" style="gap:6px">
+      <textarea class="input tk-rep" rows="2" placeholder="Kết quả xử lý (không bắt buộc)" aria-label="Kết quả xử lý"></textarea>
+      <div><button type="button" class="btn tk-submit" data-id="${t.id}" style="background:#15803d">Đã xử lý</button></div></div>` : ''}
     ${history(t)}</article>`;
 }
 
 export async function render() {
   const list = await rpc('app_viec_mine');
-  const today = vnToday();
-  const open = list.filter((t) => t.status === 'da_giao' || t.status === 'dang_xu_ly');
+  const by = (s) => list.filter((t) => t.status === s);
   const groups = [
-    ['Quá hạn', open.filter((t) => t.due_date && t.due_date < today), 'due-late'],
-    ['Đến hạn hôm nay', open.filter((t) => t.due_date === today), 'due-today'],
-    ['Việc còn lại chưa hoàn thành', open.filter((t) => !t.due_date || t.due_date > today), ''],
-    ['Đã gửi báo cáo — chờ duyệt', list.filter((t) => t.status === 'cho_duyet'), ''],
-    ['Đã hoàn thành (30 ngày gần đây)', list.filter((t) => t.status === 'hoan_thanh'), ''],
+    ['Chờ nhận', by('da_giao'), 'Bấm “Nhận việc” để báo cho người giao là bạn đã nhận.'],
+    ['Đang xử lý', by('dang_xu_ly'), 'Làm xong bấm “Đã xử lý”.'],
+    ['Đã xử lý (30 ngày gần đây)', list.filter((t) => t.status === 'hoan_thanh' || t.status === 'cho_duyet'), ''],
   ];
   return {
     title: 'Việc của tôi',
-    html: html`${STYLE}<div class="page-head"><div><h1>Việc của tôi</h1><div class="sub">Công việc và nhiệm vụ đào tạo được giao cho bạn qua tab Họp. Làm xong thì gửi báo cáo để chủ hệ thống duyệt.</div></div>
+    html: html`${STYLE}<div class="page-head"><div><h1>Việc của tôi</h1><div class="sub">Việc được giao cho bạn: Chờ nhận → Đang xử lý → Đã xử lý.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:760px;gap:14px">
         ${list.length ? '' : html`<div class="card">Chưa có việc nào được giao cho bạn.</div>`}
-        ${groups.filter(([, items]) => items.length).map(([name, items, cls]) => html`<h2 class="tk-group ${cls}">${name} (${items.length})</h2>${items.map(card)}`)}
+        ${groups.filter(([, items]) => items.length).map(([name, items, hint]) => html`<h2 class="tk-group">${name} (${items.length})</h2>
+          ${hint ? html`<div class="st-meta" style="margin-top:-8px">${hint}</div>` : ''}${items.map(card)}`)}
       </div>`,
     mount() {
       $$('.tk-start').forEach((b) => b.addEventListener('click', async () => {
-        try { await rpc('app_viec_start', { p_task: Number(b.dataset.id) }); rerender(); } catch (e) { showSaved(e.message, true); }
+        try { await rpc('app_viec_start', { p_task: Number(b.dataset.id) }); flash('Đã nhận việc.'); rerender(); } catch (e) { showSaved(e.message, true); }
       }));
       $$('.tk-submit').forEach((b) => b.addEventListener('click', async () => {
         const rep = b.closest('.tk').querySelector('.tk-rep').value;
-        if (!rep.trim()) { showSaved('Nhập báo cáo kết quả trước khi gửi.', true); return; }
-        if (!confirm('Gửi báo cáo cho chủ hệ thống duyệt?')) return;
-        try { await rpc('app_viec_submit', { p_task: Number(b.dataset.id), p_report: rep }); flash('Đã gửi báo cáo, đang chờ duyệt.'); rerender(); } catch (e) { showSaved(e.message, true); }
+        if (!confirm('Báo việc này đã xử lý xong?')) return;
+        try { await rpc('app_viec_submit', { p_task: Number(b.dataset.id), p_report: rep }); flash('Đã báo xử lý xong.'); rerender(); } catch (e) { showSaved(e.message, true); }
       }));
     },
   };
