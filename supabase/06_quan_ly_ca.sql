@@ -508,7 +508,7 @@ begin
   select count(*) into n_debt from public.shift_debts where report_id = r.id;
   if n_debt = 0 and r.total_revenue <> r.pos_cash + r.pos_transfer then
     raise exception 'Mục 1 (Tổng doanh thu) phải bằng Mục 2 + Mục 3. Đang lệch %đ — hãy sửa trước khi hoàn thành.',
-      to_char(r.total_revenue - r.pos_cash - r.pos_transfer, 'FM999G999G999G999');
+      replace(to_char(r.total_revenue - r.pos_cash - r.pos_transfer, 'FM999,999,999,999'), ',', '.');
   end if;
   if r.goods_status = 'thieu' and not exists (select 1 from public.shift_report_goods where report_id = r.id) then
     raise exception 'Nhập hàng THIẾU: hãy ghi mặt hàng và số lượng thiếu.';
