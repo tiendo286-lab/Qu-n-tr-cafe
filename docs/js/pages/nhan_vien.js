@@ -1,8 +1,9 @@
-// Nhân viên: danh sách (lọc, sửa nhanh cấp bậc, cấp mật khẩu tạm) + form thêm/sửa
+// Nhân viên: danh sách (lọc, sửa nhanh cấp bậc) + tài khoản đăng nhập (cấp mật khẩu, khóa, in hàng loạt, tài khoản riêng) + form thêm/sửa
 import { render as rerender, can } from '../app.js';
 import { RANKS, catalog } from '../data.js';
 import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js';
-import { adminFn, rpc, sel, selAll } from '../sb.js';
+import { rpc, sel, selAll } from '../sb.js';
+import { ACC_CSS, ACC_STATES, accCell, accMenu, accState, bindAccountActions, bindBulk, bulkButton, canTouch, standaloneSection } from './tai_khoan_chung.js';
 import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
 
 // Người có quyền Quản lý nhân viên: đầy đủ. Người chỉ có quyền Đào tạo: xem danh sách + cột Đào tạo, tạo phiếu đào tạo.
@@ -18,7 +19,7 @@ export async function render({ params, me }) {
   }
   const [cat, emps, contacts, eb, er, accs, tl, dts] = await Promise.all([
     catalog(), selAll('employees', '*'), selAll('employee_contacts', '*'), selAll('employee_branches', '*'), selAll('employee_roles', '*'),
-    selAll('accounts', 'id, employee_id, system_role, has_password, must_change'),
+    selAll('accounts', 'id, employee_id, employee_code, login_name, display_name, system_role, has_password, must_change, locked, last_login_at'),
     rpc('app_tl_staff_status').catch(() => null),
     rpc('app_dt_staff_status').catch(() => null),
   ]);
@@ -33,10 +34,12 @@ export async function render({ params, me }) {
   const nq = (e) => { const r = tlm.get(e.id); return !nDocs ? 'khong' : r && r.read >= nDocs ? 'da_doc' : 'chua_doc'; };
   const list = emps.map((e) => {
     const a = acc.get(e.id) || {};
-    return { ...e, email: con.get(e.id)?.email, phone: con.get(e.id)?.phone, branches: ebm[e.id] || [], roles: erm[e.id] || [], account_id: a.id, system_role: a.system_role,
-      state: !a.has_password ? 'chua_co' : a.must_change ? 'tam' : 'da_dat', nq: nq(e), tl: tlm.get(e.id) || {}, dt: dtm.get(e.id) || null };
+    return { ...e, email: con.get(e.id)?.email, phone: con.get(e.id)?.phone, branches: ebm[e.id] || [], roles: erm[e.id] || [], acc: a, account_id: a.id, system_role: a.system_role,
+      state: accState(a, e.status !== 'Đang làm'), nq: nq(e), tl: tlm.get(e.id) || {}, dt: dtm.get(e.id) || null };
   }).sort((x, y) => (x.status === 'Ngừng làm') - (y.status === 'Ngừng làm') || x.name.localeCompare(y.name, 'vi'));
   const on = list.filter((e) => e.status === 'Đang làm');
+  const standalone = accs.filter((a) => !a.employee_id && !a.employee_code);
+  const nst = (k) => on.filter((e) => e.state === k).length;
   return {
     title: 'Nhân viên',
     html: html`
@@ -51,10 +54,9 @@ export async function render({ params, me }) {
       <section class="card flush">
         <div class="card-head">
           <div class="stack" style="gap:8px">
-          ${full ? html`<div class="toolbar" style="font-size:14px">
-            <span class="pill off">Chưa có mật khẩu: ${on.filter((e) => e.state === 'chua_co').length}</span>
-            <span class="pill warn">Mật khẩu tạm: ${on.filter((e) => e.state === 'tam').length}</span>
-            <span class="pill ok">Đã đặt mật khẩu: ${on.filter((e) => e.state === 'da_dat').length}</span></div>` : ''}
+          ${full ? html`<div class="toolbar" style="font-size:14px;gap:6px"><strong style="font-size:13px">Tài khoản:</strong>
+            ${Object.entries(ACC_STATES).filter(([k]) => k !== 'khoa' || nst(k)).map(([k, [l, c]]) => html`<button type="button" class="pill ${k === 'chua_co' ? 'off' : c} acc-chip" data-st="${k}" style="border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:600">${l}: ${nst(k)}</button>`)}
+            ${bulkButton(nst('chua_co'), nst('tam'))}</div>` : ''}
           ${dts ? html`<div class="toolbar" style="font-size:14px;gap:6px"><strong style="font-size:13px">Đào tạo:</strong>${Object.entries(DT_STATUS).map(([k, [l, c]]) => html`<button type="button" class="pill ${c} dt-chip" data-st="${k}" style="border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:600">${l}: ${on.filter((e) => (e.dt ? e.dt.status : 'chua_dao_tao') === k).length}</button>`)}</div>` : ''}
           </div>
           <div class="toolbar"><label style="display:flex;align-items:center;gap:6px;font-size:14px"><input type="checkbox" id="show-stopped" class="check"> Hiện cả người ngừng làm</label>
@@ -66,10 +68,10 @@ export async function render({ params, me }) {
           ${tl ? html`<select class="input sm" id="ef-nq" aria-label="Lọc nội quy"><option value="">Nội quy: tất cả</option><option value="da_doc">Đã đọc nội quy</option><option value="chua_doc">Chưa đọc nội quy</option></select>
           <select class="input sm" id="ef-ck" aria-label="Lọc cam kết"><option value="">Cam kết: tất cả</option>${Object.entries(COMMIT).map(([k, [l]]) => html`<option value="${k}">${l}</option>`)}</select>` : ''}
           ${dts ? html`<select class="input sm" id="ef-dt" aria-label="Lọc đào tạo"><option value="">Đào tạo: tất cả</option>${Object.entries(DT_STATUS).map(([k, [l]]) => html`<option value="${k}">${l}</option>`)}</select>` : ''}
-          ${full ? html`<select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option><option value="chua_co">Chưa có mật khẩu</option><option value="tam">Mật khẩu tạm</option><option value="da_dat">Đã đặt mật khẩu</option></select>` : ''}
+          ${full ? html`<select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option>${Object.entries(ACC_STATES).map(([k, [l]]) => html`<option value="${k}" ${params.tk === k ? 'selected' : ''}>${l}</option>`)}</select>` : ''}
           <button class="btn sm secondary" type="button" id="ef-clear">Xóa lọc</button><span class="ef-count" id="ef-count" role="status"></span></div>
         <div class="table-wrap"><table class="table fit" aria-label="Danh sách nhân viên">
-          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th>${full ? html`<th>Email</th><th>Số điện thoại</th><th>Tài khoản</th>` : ''}${tl ? html`<th>Nội quy</th><th>Cam kết</th>` : ''}${dts ? html`<th>Đào tạo</th>` : ''}<th></th></tr></thead>
+          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th>${full ? html`<th>Tài khoản</th><th>Email</th><th>Số điện thoại</th>` : ''}${tl ? html`<th>Nội quy</th><th>Cam kết</th>` : ''}${dts ? html`<th>Đào tạo</th>` : ''}<th></th></tr></thead>
           <tbody>${list.map((e) => {
             const stopped = e.status !== 'Đang làm';
             return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" data-nq="${e.nq}" data-ck="${e.tl.commit || 'chua_ky'}" data-dt="${e.dt ? e.dt.status : 'chua_dao_tao'}" ${stopped ? 'hidden' : ''}>
@@ -78,8 +80,7 @@ export async function render({ params, me }) {
               <td>${stopped || !full ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
               <td data-label="Chi nhánh">${e.branches.length ? e.branches.map((x) => html`<span class="chip">${x}</span>`) : '—'}</td>
               <td data-label="Vai trò làm việc">${e.roles.length ? e.roles.map((x) => html`<span class="chip role">${x}</span>`) : '—'}</td>
-              ${full ? html`<td>${e.email || '—'}</td><td>${e.phone || '—'}</td>
-              <td class="state-cell">${stopped ? html`<span class="pill mute">Đã khóa</span>` : e.state === 'chua_co' ? html`<span class="pill mute">Chưa có mật khẩu</span>` : e.state === 'tam' ? html`<span class="pill warn">Mật khẩu tạm</span>` : html`<span class="pill ok">Đã đặt</span>`}</td>` : ''}
+              ${full ? html`<td data-label="Tài khoản"><div class="acc-cell"><div>${accCell(e.state, e.acc)}</div>${canTouch(e.acc, me, stopped) ? accMenu(e.acc, `${e.code} – ${e.name}`) : ''}</div></td><td>${e.email || '—'}</td><td>${e.phone || '—'}</td>` : ''}
               ${tl ? html`<td data-label="Nội quy">${e.nq === 'khong' ? html`<span class="st-meta" title="Chưa có nội quy nào được đăng">—</span>`
                 : html`<button type="button" class="nq-btn pill ${e.nq === 'da_doc' ? 'ok' : 'off'}" data-id="${e.id}" data-read="${e.nq === 'da_doc' ? 1 : 0}" data-name="${e.code} – ${e.name}"
                     title="${e.nq === 'da_doc' ? 'Đọc lúc ' + (e.tl.read_at || '') + ' · bấm để bỏ đánh dấu' : `Đã đọc ${e.tl.read || 0}/${nDocs} · bấm để đánh dấu đã đọc thay nhân viên`}">${e.nq === 'da_doc' ? 'Đã đọc' : nDocs > 1 && e.tl.read ? `Chưa đọc (${e.tl.read}/${nDocs})` : 'Chưa đọc'}</button>`}</td>
@@ -88,9 +89,10 @@ export async function render({ params, me }) {
               ${dts ? html`<td data-label="Đào tạo">${e.dt ? html`<a class="pill ${DT_STATUS[e.dt.status][1]}" href="#/dao-tao/phieu?id=${e.dt.id}" title="Bấm để mở phiếu${e.dt.status !== 'hoan_thanh' ? ' · còn thiếu: ' + e.dt.missing.join(', ') : ''}">${dtLabel(e.dt)}</a>
                   ${e.dt.instructor ? html`<div class="st-meta" style="font-size:11px;color:var(--muted);margin-top:2px">HD: ${e.dt.instructor}</div>` : ''}`
                 : dtAdmin && !stopped ? html`<button type="button" class="btn sm secondary new-dt" data-id="${e.id}" data-name="${e.code} – ${e.name}" data-b="${e.branches[0] || ''}" title="Chưa đào tạo">+ Tạo phiếu</button>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
-              <td>${full && !stopped && e.account_id && e.account_id !== me.account_id ? html`<button type="button" class="btn sm secondary issue-btn" data-acc="${e.account_id}" data-name="${e.code} – ${e.name}">Cấp MK tạm</button>` : ''}</td></tr>`;
+              <td></td></tr>`;
           })}</tbody></table></div>
-      </section>`,
+      </section>
+      ${full ? standaloneSection(standalone, me, can('phan_quyen')) : ''}${ACC_CSS}`,
     mount() {
       const rows = $$('.emp-row');
       const apply = () => {
@@ -123,16 +125,8 @@ export async function render({ params, me }) {
       $$('.rank-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
         try { await rpc('app_set_rank', { p_id: Number(s.dataset.id), p_rank: s.value }); last = s.value; showSaved('Đã lưu · ' + hhmm()); } catch (e) { s.value = last; showSaved(e.message, true); }
       }); });
-      $$('.issue-btn').forEach((b) => b.addEventListener('click', async () => {
-        if (!confirm(`${b.dataset.name}: mật khẩu cũ (nếu có) sẽ không dùng được nữa và nhân viên bị đăng xuất khỏi mọi thiết bị. Cấp mật khẩu tạm?`)) return;
-        try {
-          const r = await adminFn('temp_password', { account_id: Number(b.dataset.acc) });
-          b.closest('tr').querySelector('.state-cell').innerHTML = '<span class="pill warn">Mật khẩu tạm</span>';
-          dialog(html`<h2>Mật khẩu tạm</h2><div style="margin-top:6px;color:var(--ink-2)">${b.dataset.name}</div><div class="temp-pass">${r.password}</div>
-            <div style="font-size:14px;color:var(--muted);line-height:1.5">Đưa tận tay cho nhân viên. Mật khẩu này chỉ hiện <strong>một lần</strong>; lần đầu đăng nhập nhân viên phải đổi mật khẩu.</div>
-            <form method="dialog" style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn" type="submit">Đã ghi lại</button></form>`);
-        } catch (e) { showSaved(e.message, true); }
-      }));
+      $$('.acc-chip').forEach((c) => c.addEventListener('click', () => { const f = $('#ef-state'); f.value = f.value === c.dataset.st ? '' : c.dataset.st; apply(); }));
+      bindAccountActions(); bindBulk();
     },
   };
 }

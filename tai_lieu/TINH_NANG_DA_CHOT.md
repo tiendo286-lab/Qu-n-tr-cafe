@@ -13,7 +13,7 @@ Từ ngày 07/11/2026, **web là nơi duy nhất** lưu lịch, order và các d
 | **Quản lý ca** | Chốt ca · Đối soát | Phiếu chốt ca theo ngày, đối soát 9 mục |
 | **Xếp lịch tuần** | Order · Lịch cơ sở · Lịch tổng · Cảnh báo · Chốt & báo cáo | Xem bảng chi tiết ở mục 2 |
 | **Công việc** | Công việc · Việc của tôi | Xem bảng chi tiết ở mục 3 |
-| **Nhân viên & tài khoản** | Nhân viên · Tài khoản đăng nhập · Phân quyền | Gộp 2 mục cũ thành 1 |
+| **Nhân viên & tài khoản** | Nhân viên · Phân quyền | Tài khoản đăng nhập nằm ngay trong danh sách nhân viên |
 | **Nội quy & quy trình** | Nội quy · Quy trình | Soạn, đăng; nhân viên bấm "Tôi đã đọc" |
 | **Hỗ trợ** | Yêu cầu hỗ trợ | Nhắn qua lại giữa nhân viên và quản lý |
 | **Cài đặt xếp lịch** | Định biên · Chi nhánh, ca & vai trò · Giờ order · Lịch cố định | |
@@ -62,7 +62,7 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 | Chức năng | Đã chốt |
 |---|---|
 | Trang Nhân viên | Danh sách, bộ lọc, sửa nhanh cấp bậc, các cột Nội quy / Cam kết / Đào tạo, tạo phiếu đào tạo. **Đã bỏ:** Nhập file Excel, Tải file mẫu, Xuất danh sách cho Google Form. |
-| Tài khoản đăng nhập | Cấp mật khẩu tạm, khóa / mở tài khoản. |
+| Tài khoản đăng nhập | **Gộp vào bảng Nhân viên**: cột Tài khoản (trạng thái, vai trò, lần đăng nhập cuối) + nút **Tài khoản ▾** (cấp mật khẩu tạm, khóa / mở khóa, đăng xuất mọi nơi). Nút **Cấp & in mật khẩu hàng loạt**. Cuối trang: **Tài khoản riêng** (kế toán, chủ thứ hai…). |
 | Phân quyền | Bật / tắt quyền theo vai trò: Quản lý tổng, Quản lý, Nhân viên. |
 
 ---
