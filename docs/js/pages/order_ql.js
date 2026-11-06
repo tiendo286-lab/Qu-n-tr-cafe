@@ -134,7 +134,6 @@ export async function render({ params, me }) {
         </div>
         <div class="toolbar">
           <strong style="font-size:14px">Cả tuần:</strong>
-          <button class="btn sm secondary" type="button" id="restore-btn">Khôi phục bản trước</button>
           <button class="btn sm secondary danger" type="button" id="clear-btn">Xóa order tuần</button>
           ${can('xoa_du_lieu_tuan') ? html`<button class="btn sm secondary danger" type="button" id="del-week" style="margin-left:auto">Xóa dữ liệu tuần</button>` : ''}
         </div></section>` : html`<div class="alert warn">Bạn chỉ có quyền xem order. Muốn sửa cần quyền “Sửa order sau hạn”.</div>`}
@@ -170,17 +169,9 @@ export async function render({ params, me }) {
       });
       mountGrid({ week, me, days, shiftNames, canEdit, who });
       if (!canEdit) return;
-      $('#restore-btn').addEventListener('click', async () => {
-        if (!confirm('Khôi phục bản order trước lần nhập/xóa gần nhất?')) return;
-        try {
-          const r = await rpc('app_order_restore', { p_week: week.id });
-          flash(r.ok ? 'Đã khôi phục bản order trước lần nhập/xóa gần nhất.' + (r.synced ? ' Lịch đang xếp đã được cập nhật.' : '') : 'Chưa có bản order trước đó để khôi phục.', r.ok ? 'ok' : 'error');
-        } catch (e) { flash(e.message, 'error'); }
-        rerender();
-      });
       $('#clear-btn').addEventListener('click', async () => {
-        if (!confirm('Xóa toàn bộ order của tuần đang chọn? Web sẽ lưu bản trước để có thể khôi phục.')) return;
-        try { const s = await rpc('app_order_clear', { p_week: week.id }); flash('Đã xóa toàn bộ order của tuần (đã lưu bản trước để khôi phục).' + (s ? ' Lịch đang xếp đã được cập nhật.' : '')); }
+        if (!typed(`Xóa toàn bộ order tuần ${weekLabel(start)}? Order bị xóa không khôi phục được. Các ca đã xếp vẫn giữ nhưng sẽ báo viền đỏ vì không còn order.`, 'XOA')) return;
+        try { const s = await rpc('app_order_clear', { p_week: week.id }); flash('Đã xóa toàn bộ order của tuần.' + (s ? ' Lịch đang xếp đã được cập nhật.' : '')); }
         catch (e) { flash(e.message, 'error'); }
         rerender();
       });
