@@ -34,3 +34,8 @@ a.pill { text-decoration: none; }
 /* Ô nhập nhiều dòng dùng cùng phông chữ; nút Đăng xuất ở chân trang điện thoại trông như liên kết */
 textarea.input { font-family: inherit; height: auto; padding-top: 10px; padding-bottom: 10px; line-height: 1.5; }
 .m-foot button { background: none; border: none; color: var(--primary); font: inherit; font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline; }
+
+/* Hộp thoại: ô nhập vừa khung, không tràn ra ngoài */
+dialog { max-width: min(480px, calc(100vw - 24px)); }
+dialog .input { width: 100%; }
+dialog .toolbar .btn { flex: 0 0 auto; }

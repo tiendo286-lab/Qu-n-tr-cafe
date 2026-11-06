@@ -51,7 +51,7 @@ export async function render() {
       $$('.dt-tile').forEach((t) => t.addEventListener('click', () => { $('#f-st').value = $('#f-st').value === t.dataset.st ? '' : t.dataset.st; apply(); }));
       $$('.new-dt').forEach((b) => b.addEventListener('click', () => {
         const brId = opt.branches.find((x) => x.code === b.dataset.b)?.id || '';
-        const d = dialog(html`<form class="stack" style="gap:10px;min-width:min(420px,80vw)" id="dt-new">
+        const d = dialog(html`<form class="stack" style="gap:10px" id="dt-new">
           <h2 style="margin:0">Tạo phiếu đào tạo chạy bàn</h2><div><strong>${b.dataset.name}</strong></div>
           <label class="stack" style="gap:4px">Cơ sở<select class="input" name="branch"><option value="">—</option>${opt.branches.map((x) => html`<option value="${x.id}" ${String(x.id) === String(brId) ? 'selected' : ''}>${x.code}</option>`)}</select></label>
           <label class="stack" style="gap:4px">Ngày bắt đầu<input class="input" type="date" name="start" value="${vnToday()}" required></label>
