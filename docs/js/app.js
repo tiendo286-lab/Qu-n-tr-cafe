@@ -9,6 +9,8 @@ export const MENU = [
   ['QUẢN LÝ CA', 'Đối soát', '/quan-ly/doi-soat', 'doi_soat'],
   ['GIAO VIỆC', 'Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec'],
   ['GIAO VIỆC', 'Việc của tôi', '/viec', 'nhan_viec'],
+  ['ĐÀO TẠO', 'Đào tạo', '/dao-tao', 'dao_tao'],
+  ['ĐÀO TẠO', 'Phiếu đào tạo của tôi', '/cua-toi/dao-tao', null],
   ['TÀI LIỆU', 'Nội quy', '/noi-quy', null],
   ['TÀI LIỆU', 'Quy trình', '/quy-trinh', null],
   ['XẾP LỊCH', 'Order lịch làm', '/quan-ly/order', 'xem_tat_ca'],
@@ -46,6 +48,9 @@ const PAGES = {
   '/noi-quy': 'tai_lieu',
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
+  '/dao-tao': 'dao_tao',
+  '/dao-tao/phieu': 'phieu_dao_tao',
+  '/cua-toi/dao-tao': 'dao_tao_cua_toi',
   '/quan-ly/order': 'order_ql',
   '/quan-ly/lich-co-dinh': 'lich_co_dinh',
   '/quan-ly/lich-tong': 'lich_tong',
@@ -138,7 +143,7 @@ function layout(path, body, flashMsg) {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
         ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div></header>
     <div class="content">${alert}${body}
-      <div class="m-foot"><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
+      <div class="m-foot"><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
     </div>
     <nav class="tabbar" aria-label="Menu nhân viên">
       <a class="${path === '/order' ? 'on' : ''}" href="#/order">Order ca</a>

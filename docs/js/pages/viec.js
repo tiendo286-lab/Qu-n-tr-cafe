@@ -22,7 +22,7 @@ export function dueText(t) {
 }
 
 export function sourceText(t) {
-  if (t.kind === 'dao_tao') return html`<span class="pill info">Đào tạo</span> ${t.employee || ''}`;
+  if (t.kind === 'dao_tao') return html`<span class="pill info">Đào tạo</span> ${t.employee || ''}${t.training_id ? html` · <a href="#/dao-tao/phieu?id=${t.training_id}">Mở phiếu đào tạo</a>` : ''}`;
   if (t.source) return html`<a href="#/ca/phieu?id=${t.source.report_id}">Bàn giao ca ${t.source.shift} ${t.source.branch} ${dmy(t.source.work_date)}</a>`;
   return t.meeting_title ? html`Cuộc họp: ${t.meeting_title}` : '';
 }
