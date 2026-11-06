@@ -60,3 +60,6 @@ Ngoài ra tối qua anh đã cho bỏ một số chức năng cũ của Order / 
   = cuối ca trước; khóa khi HOÀN THÀNH ĐỐI SOÁT; lịch sử sửa ghi chung với lịch sử phiếu). Nhân viên báo nhận trong mục 7 của phiếu
   chốt ca (ít nhất 1 ảnh; THIẾU phải ghi món). Phần nhập hàng cũ giữ nguyên. Bản đối soát hiện số chuyển khoản thực nhận để so.
 - ⏸ Chuỗi số dư khi sửa ca cũ, tiền về chậm: chờ chốt — web chỉ cảnh báo khi số dư đầu ≠ cuối ca trước.
+- **D5** ✅ Tab **LOG hệ thống** (chỉ Chủ): tài nguyên (CSDL, ảnh & tài liệu theo gói Free; RAM / lưu lượng: "Không có số liệu"),
+  phiên bản hiện tại (theo ngày phát hành), lịch sử cập nhật web (Thêm / Thay đổi / Sửa lỗi / Loại bỏ, người cập nhật),
+  lịch sử thao tác (thời gian, người, thao tác, đối tượng có link, cơ sở, trước → sau; lọc ngày / người / cơ sở / loại; chỉ xem).

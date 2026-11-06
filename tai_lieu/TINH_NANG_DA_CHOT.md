@@ -18,6 +18,8 @@ Từ ngày 07/11/2026, **web là nơi duy nhất** lưu lịch, order và các d
 | **Hỗ trợ** | Yêu cầu hỗ trợ | Nhắn qua lại giữa nhân viên và quản lý |
 | **Cài đặt xếp lịch** | Định biên · Chi nhánh, ca & vai trò · Giờ order · Lịch cố định | |
 | **Dữ liệu & sao lưu** | — | Chỉ Chủ: xem số liệu, tải gói sao lưu ZIP |
+| **Kế toán** | Hóa đơn giao hàng · Chuyển khoản thực nhận | Chỉ Kế toán và Chủ |
+| **LOG hệ thống** | Tổng quan · Lịch sử cập nhật web · Lịch sử thao tác | Chỉ Chủ |
 | **Của tôi** | Order ca · Lịch của tôi · Phiếu đào tạo | |
 
 Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · Lịch làm · Việc · Chốt ca · Nội quy · Hỗ trợ**.

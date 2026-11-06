@@ -17,6 +17,7 @@ export const HUBS = [
   ['Cài đặt xếp lịch', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']]],
   ['Dữ liệu & sao lưu', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu']]],
+  ['LOG hệ thống', [['LOG hệ thống', '/quan-ly/log', 'phan_quyen']]],
   ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null]]],
 ];
 
@@ -54,6 +55,7 @@ const PAGES = {
   '/quan-ly/tai-khoan': 'nhan_vien', // trang cũ đã gộp vào Nhân viên
   '/quan-ly/phan-quyen': 'phan_quyen',
   '/quan-ly/du-lieu': 'du_lieu',
+  '/quan-ly/log': 'he_thong',
   '/ke-toan/hoa-don': 'ke_toan_hoa_don',
   '/ke-toan/chuyen-khoan': 'ke_toan_ck',
 };

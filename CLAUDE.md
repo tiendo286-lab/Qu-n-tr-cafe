@@ -15,6 +15,7 @@
 - Kho mã này **công khai**. **Không bao giờ** đưa lên GitHub: mã `sbp_`, khóa `service_role`/`sb_secret`, mật khẩu CSDL, token GitHub; dữ liệu thật (`du_lieu/`, `*.sqlite3`), tên nhân viên thật.
 - Cập nhật Supabase: dùng Management API (`https://api.supabase.com/v1/projects/krndtaskjhjpnqauoqiw/database/query`) với mã `sbp_` anh Tiến cấp. **Chạy thử trước** trong khối `DO $$ ... RAISE EXCEPTION 'REPORT>> %' ... $$` (tự hoàn tác), xem kết quả rồi mới chạy thật. Dùng xong nhắc anh **Revoke** mã ở https://supabase.com/dashboard/account/tokens.
 - Không dùng `x IN (a, NULL)` / `= NULL` trong kiểm tra quyền (ra NULL → bỏ qua kiểm tra); dùng `coalesce`.
+- **Mỗi lần cập nhật web** (đẩy lên `main`), ghi/cập nhật một dòng trong bảng `app_releases` trên Supabase: `version` = ngày phát hành `YYYY.MM.DD` (nhiều lần trong ngày thì gộp vào dòng của ngày, hoặc `.2`, `.3`), các mảng `added` / `changed` / `fixed` / `removed` viết tiếng Việt dễ hiểu, `released_by`. Trang LOG hệ thống đọc bảng này.
 - Commit với tên `Tien Do <tiendo286@gmail.com>`, cuối thông điệp có dòng `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Khi làm trên đám mây: làm trên nhánh riêng và mở PR; anh Tiến gộp (merge) vào `main` để lên web. Đổi CSDL thì phải cập nhật Supabase **trước** khi gộp giao diện cần nó.
 

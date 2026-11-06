@@ -94,6 +94,12 @@ export async function rpc(name, args = {}) {
   await new Promise((ok) => setTimeout(ok, 2));
   if (CA[name]) return CA[name](args);
   if (name === 'app_me') return ME;
+  if (name === 'app_sys_overview') return { plan: 'Free', db_bytes: 25165824, db_limit: 524288000, storage: { 'phieu-ca': { bytes: 3145728, files: 12 } }, storage_bytes: 3145728, storage_limit: 1073741824, ram: null, egress: null, now: '2026-11-07 02:10:00',
+    current: { version: '2026.11.07', released_at: '2026-11-07 02:10', released_by: 'Claude (theo yêu cầu anh Tiến)', added: ['Tab LOG'], changed: ['Gộp menu'], fixed: ['Sửa đếm'], removed: ['Họp'] } };
+  if (name === 'app_sys_releases') return [{ version: '2026.11.07', released_at: '2026-11-07 02:10', released_by: 'Claude', added: ['Tab LOG'], changed: [], fixed: [], removed: ['Họp'] }, { version: '2026.11.06', released_at: '2026-11-06 23:59', released_by: 'Claude', added: ['Quản lý ca'], changed: [], fixed: [], removed: [] }];
+  if (name === 'app_sys_log') return { limit: args.p_limit || 300, people: [{ id: 1, name: 'admin – Chủ' }], actions: ['mo_phieu_chot_ca', 'sua_ban_doi_soat'],
+    rows: [{ at: '2026-11-07 01:48:00', by: 'admin – Chủ', action: 'sua_ban_doi_soat', object: 'report=1', link: '/ca/phieu?id=1', branch: 'LHP', field: 'pos_cash', before: 1200000, after: 1250000, note: 'NV nhập nhầm' },
+           { at: '2026-11-07 00:59:57', by: 'admin – Chủ', action: 'mo_phieu_chot_ca', object: 'report=1', link: '/ca/phieu?id=1', branch: 'LHP', field: null, before: null, after: null, note: 'report=1' }].filter((r) => !args.p_action || r.action === args.p_action) };
   if (name === 'app_backup_counts') return { shift_reports: (T.shift_reports || []).length, tasks: (T.tasks || []).length, docs: (T.docs || []).length, trainings: (T.trainings || []).length, support_requests: (T.support_requests || []).length };
   if (name === 'app_backup_extra') return { shift_reports: T.shift_reports || [], tasks: T.tasks || [], trainings: T.trainings || [] };
   if (name === 'app_login_email') return { email: 'a1@milano.invalid' };
