@@ -58,7 +58,7 @@ export async function render({ params }) {
       <div class="page-head"><div><h1>Phiếu đào tạo chạy bàn</h1>
         <div class="sub"><strong>${T.employee.code} – ${T.employee.name}</strong> · ${T.employee.rank}</div>
         <div class="toolbar" style="gap:6px;margin-top:6px"><span class="pill ${DT_STATUS[st][1]}" id="dt-status">${dtLabel(T)}</span></div></div>
-        <div class="toolbar">${adm ? html`<a class="btn sm secondary" href="#/dao-tao">‹ Đào tạo</a>` : html`<a class="btn sm secondary" href="#/cua-toi/dao-tao">‹ Phiếu của tôi</a>`}<div id="saved-indicator" class="saved" role="status" hidden></div></div></div>
+        <div class="toolbar">${adm ? html`<a class="btn sm secondary" href="#/quan-ly/nhan-vien">‹ Nhân viên</a>` : html`<a class="btn sm secondary" href="#/cua-toi/dao-tao">‹ Phiếu của tôi</a>`}<div id="saved-indicator" class="saved" role="status" hidden></div></div></div>
       <div class="stack" style="max-width:900px;gap:12px">
         <section class="card stack" style="gap:10px">
           <div class="dt-prog"><div class="dt-bar"><div id="dt-bar" style="width:${Math.round((T.achieved / T.total) * 100)}%"></div></div><strong><span id="dt-ach">${T.achieved}</span>/${T.total} hạng mục đạt</strong></div>
@@ -145,7 +145,7 @@ export async function render({ params }) {
       });
       $('#dt-del')?.addEventListener('click', async () => {
         if (!confirm(`Xóa hẳn phiếu đào tạo của ${T.employee.code} – ${T.employee.name}? Mọi kết quả đã ghi sẽ mất.`)) return;
-        try { await rpc('app_dt_delete', { p_id: T.id }); flash('Đã xóa phiếu đào tạo.'); go('/dao-tao'); } catch (e) { showSaved(e.message, true); }
+        try { await rpc('app_dt_delete', { p_id: T.id }); flash('Đã xóa phiếu đào tạo.'); go('/quan-ly/nhan-vien'); } catch (e) { showSaved(e.message, true); }
       });
     },
   };

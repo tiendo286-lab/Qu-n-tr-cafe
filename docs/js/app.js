@@ -9,8 +9,6 @@ export const MENU = [
   ['QUẢN LÝ CA', 'Đối soát', '/quan-ly/doi-soat', 'doi_soat'],
   ['GIAO VIỆC', 'Họp & giao việc', '/quan-ly/hop', 'hop_giao_viec'],
   ['GIAO VIỆC', 'Việc của tôi', '/viec', 'nhan_viec'],
-  ['ĐÀO TẠO', 'Đào tạo', '/dao-tao', 'dao_tao'],
-  ['ĐÀO TẠO', 'Phiếu đào tạo của tôi', '/cua-toi/dao-tao', null],
   ['TÀI LIỆU', 'Nội quy', '/noi-quy', null],
   ['TÀI LIỆU', 'Quy trình', '/quy-trinh', null],
   ['HỖ TRỢ', 'Yêu cầu hỗ trợ', '/ho-tro', null],
@@ -22,7 +20,7 @@ export const MENU = [
   ['HOÀN TẤT', 'Chốt lịch & báo cáo', '/quan-ly/bao-cao', 'bao_cao'],
   ['THIẾT LẬP', 'Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'],
   ['THIẾT LẬP', 'Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
-  ['THIẾT LẬP', 'Nhân viên', '/quan-ly/nhan-vien', 'quan_ly_nhan_vien'],
+  ['THIẾT LẬP', 'Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']],
   ['THIẾT LẬP', 'Giờ order', '/quan-ly/gio-order', 'cai_gio_order'],
   ['THIẾT LẬP', 'Tài khoản đăng nhập', '/quan-ly/tai-khoan', 'quan_ly_nhan_vien'],
   ['THIẾT LẬP', 'Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen'],
@@ -30,6 +28,7 @@ export const MENU = [
   ['CÁ NHÂN', 'Order ca của tôi', '/order', 'order_ca'],
   ['CÁ NHÂN', 'Lịch của tôi', '/lich', 'xem_lich_minh'],
   ['CÁ NHÂN', 'Thông báo', '/thong-bao', 'xem_lich_minh'],
+  ['CÁ NHÂN', 'Phiếu đào tạo của tôi', '/cua-toi/dao-tao', null],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
@@ -49,7 +48,6 @@ const PAGES = {
   '/noi-quy': 'tai_lieu',
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
-  '/dao-tao': 'dao_tao',
   '/dao-tao/phieu': 'phieu_dao_tao',
   '/cua-toi/dao-tao': 'dao_tao_cua_toi',
   '/ho-tro': 'ho_tro',
@@ -103,7 +101,7 @@ function parseHash() {
 function menuHtml(path) {
   const groups = [];
   for (const [g, label, href, perm] of MENU) {
-    if (perm && !can(perm)) continue;
+    if (perm && ![].concat(perm).some((p) => can(p))) continue;
     if (href === '/viec' && state.me.role === 'chu') continue; // Chủ là người giao việc
     if (!groups.length || groups[groups.length - 1].name !== g) groups.push({ name: g, items: [] });
     const badge = { '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review, '/ho-tro': state.support }[href] || 0;
@@ -198,7 +196,7 @@ export async function render() {
   try {
     if (mod) {
       const m = await import(`./pages/${mod}.js`);
-      if (m.perm && !can(m.perm)) page = { title: 'Không có quyền', html: html`<div class="card">Bạn không có quyền vào trang này.</div>` };
+      if (m.perm && ![].concat(m.perm).some((p) => can(p))) page = { title: 'Không có quyền', html: html`<div class="card">Bạn không có quyền vào trang này.</div>` };
       else page = await m.render({ params, me: state.me, can });
     } else {
       page = notFound();

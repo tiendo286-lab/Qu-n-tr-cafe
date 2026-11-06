@@ -3,16 +3,21 @@ import { render as rerender, can } from '../app.js';
 import { RANKS, catalog } from '../data.js';
 import { EMPLOYEE_GUIDE, EMPLOYEE_TEMPLATE, downloadXlsx, parseEmployeeRows, readRows } from '../excel.js';
 import { fileInput } from '../parts.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js';
+import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js';
 import { adminFn, rpc, sel, selAll } from '../sb.js';
 import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
 
-export const perm = 'quan_ly_nhan_vien';
+// Người có quyền Quản lý nhân viên: đầy đủ. Người chỉ có quyền Đào tạo: xem danh sách + cột Đào tạo, tạo phiếu đào tạo.
+export const perm = ['quan_ly_nhan_vien', 'dao_tao'];
 const COMMIT = { chua_ky: ['Chưa ký'], da_ky_chua_nop: ['Đã ký, chưa nộp'], da_ky_nop: ['Đã ký và nộp'] };
 const RANK_COLOR = { 'Quản lý': '#7c3aed', 'Cấp 2': '#0ea5e9', 'Cấp 1': '#f59e0b', 'Thử việc': '#94a3b8' };
 
 export async function render({ params, me }) {
-  if (params.id || params.them) return renderForm(params, me);
+  const full = can('quan_ly_nhan_vien'); const dtAdmin = can('dao_tao');
+  if (params.id || params.them) {
+    if (!full) return { title: 'Không có quyền', html: html`<div class="card">Bạn không có quyền sửa thông tin nhân viên.</div>` };
+    return renderForm(params, me);
+  }
   const [cat, emps, contacts, eb, er, accs, tl, dts] = await Promise.all([
     catalog(), selAll('employees', '*'), selAll('employee_contacts', '*'), selAll('employee_branches', '*'), selAll('employee_roles', '*'),
     selAll('accounts', 'id, employee_id, system_role, has_password, must_change'),
@@ -37,14 +42,14 @@ export async function render({ params, me }) {
   return {
     title: 'Nhân viên',
     html: html`
-      <div class="page-head"><div><h1>Nhân viên</h1><div class="sub">Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.</div></div>
-        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div><a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a></div></div>
-      <section class="card toolbar" style="padding:12px 18px">
+      <div class="page-head"><div><h1>Nhân viên</h1><div class="sub">${full ? 'Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.' : 'Theo dõi đào tạo: bấm vào trạng thái ở cột Đào tạo để mở phiếu, hoặc Tạo phiếu cho người chưa đào tạo.'}${dts ? ' Cột Đào tạo: chương trình chạy bàn 8 ngày · 68 hạng mục.' : ''}</div></div>
+        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${full ? html`<a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a>` : ''}</div></div>
+      ${full ? html`<section class="card toolbar" style="padding:12px 18px">
         <strong style="font-size:14px">Excel (như bản offline):</strong>
         <button class="btn sm" type="button" id="imp-btn">Nhập file Excel</button>
         <button class="btn sm secondary" type="button" id="tpl-btn">Tải file mẫu</button>
         <button class="btn sm secondary" type="button" id="gf-btn">Xuất danh sách cho Google Form</button>
-        <a class="btn sm secondary" href="#/quan-ly/tai-khoan" style="margin-left:auto">Quản lý tài khoản đăng nhập →</a></section>
+        <a class="btn sm secondary" href="#/quan-ly/tai-khoan" style="margin-left:auto">Quản lý tài khoản đăng nhập →</a></section>` : ''}
       <div class="emp-stats" aria-label="Thống kê nhân viên">
         <div class="es" style="--ac:#1e3a8a"><div class="n">${list.length}</div><div class="l">Tổng NV</div></div>
         <div class="es" style="--ac:#16a34a"><div class="n" style="color:var(--ok-ink)">${on.length}</div><div class="l">Đang làm</div></div>
@@ -53,10 +58,13 @@ export async function render({ params, me }) {
       </div>
       <section class="card flush">
         <div class="card-head">
-          <div class="toolbar" style="font-size:14px">
+          <div class="stack" style="gap:8px">
+          ${full ? html`<div class="toolbar" style="font-size:14px">
             <span class="pill off">Chưa có mật khẩu: ${on.filter((e) => e.state === 'chua_co').length}</span>
             <span class="pill warn">Mật khẩu tạm: ${on.filter((e) => e.state === 'tam').length}</span>
-            <span class="pill ok">Đã đặt mật khẩu: ${on.filter((e) => e.state === 'da_dat').length}</span></div>
+            <span class="pill ok">Đã đặt mật khẩu: ${on.filter((e) => e.state === 'da_dat').length}</span></div>` : ''}
+          ${dts ? html`<div class="toolbar" style="font-size:14px;gap:6px"><strong style="font-size:13px">Đào tạo:</strong>${Object.entries(DT_STATUS).map(([k, [l, c]]) => html`<button type="button" class="pill ${c} dt-chip" data-st="${k}" style="border:none;cursor:pointer;font:inherit;font-size:12px;font-weight:600">${l}: ${on.filter((e) => (e.dt ? e.dt.status : 'chua_dao_tao') === k).length}</button>`)}</div>` : ''}
+          </div>
           <div class="toolbar"><label style="display:flex;align-items:center;gap:6px;font-size:14px"><input type="checkbox" id="show-stopped" class="check"> Hiện cả người ngừng làm</label>
             <input class="input sm" id="emp-search" type="search" placeholder="Tìm mã hoặc tên" aria-label="Tìm nhân viên" style="width:240px"></div></div>
         <div class="emp-filters">
@@ -66,34 +74,36 @@ export async function render({ params, me }) {
           ${tl ? html`<select class="input sm" id="ef-nq" aria-label="Lọc nội quy"><option value="">Nội quy: tất cả</option><option value="da_doc">Đã đọc nội quy</option><option value="chua_doc">Chưa đọc nội quy</option></select>
           <select class="input sm" id="ef-ck" aria-label="Lọc cam kết"><option value="">Cam kết: tất cả</option>${Object.entries(COMMIT).map(([k, [l]]) => html`<option value="${k}">${l}</option>`)}</select>` : ''}
           ${dts ? html`<select class="input sm" id="ef-dt" aria-label="Lọc đào tạo"><option value="">Đào tạo: tất cả</option>${Object.entries(DT_STATUS).map(([k, [l]]) => html`<option value="${k}">${l}</option>`)}</select>` : ''}
-          <select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option><option value="chua_co">Chưa có mật khẩu</option><option value="tam">Mật khẩu tạm</option><option value="da_dat">Đã đặt mật khẩu</option></select>
+          ${full ? html`<select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option><option value="chua_co">Chưa có mật khẩu</option><option value="tam">Mật khẩu tạm</option><option value="da_dat">Đã đặt mật khẩu</option></select>` : ''}
           <button class="btn sm secondary" type="button" id="ef-clear">Xóa lọc</button><span class="ef-count" id="ef-count" role="status"></span></div>
         <div class="table-wrap"><table class="table fit" aria-label="Danh sách nhân viên">
-          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th><th>Email</th><th>Số điện thoại</th><th>Tài khoản</th>${tl ? html`<th>Nội quy</th><th>Cam kết</th>` : ''}${dts ? html`<th>Đào tạo</th>` : ''}<th></th></tr></thead>
+          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th>${full ? html`<th>Email</th><th>Số điện thoại</th><th>Tài khoản</th>` : ''}${tl ? html`<th>Nội quy</th><th>Cam kết</th>` : ''}${dts ? html`<th>Đào tạo</th>` : ''}<th></th></tr></thead>
           <tbody>${list.map((e) => {
             const stopped = e.status !== 'Đang làm';
             return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" data-nq="${e.nq}" data-ck="${e.tl.commit || 'chua_ky'}" data-dt="${e.dt ? e.dt.status : 'chua_dao_tao'}" ${stopped ? 'hidden' : ''}>
               <td style="font-weight:600">${e.code}</td>
-              <td><a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a></td>
-              <td>${stopped ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
+              <td>${full ? html`<a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a>` : html`<span class="emp-name"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</span>`}</td>
+              <td>${stopped || !full ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
               <td data-label="Chi nhánh">${e.branches.length ? e.branches.map((x) => html`<span class="chip">${x}</span>`) : '—'}</td>
               <td data-label="Vai trò làm việc">${e.roles.length ? e.roles.map((x) => html`<span class="chip role">${x}</span>`) : '—'}</td>
-              <td>${e.email || '—'}</td><td>${e.phone || '—'}</td>
-              <td class="state-cell">${stopped ? html`<span class="pill mute">Đã khóa</span>` : e.state === 'chua_co' ? html`<span class="pill mute">Chưa có mật khẩu</span>` : e.state === 'tam' ? html`<span class="pill warn">Mật khẩu tạm</span>` : html`<span class="pill ok">Đã đặt</span>`}</td>
+              ${full ? html`<td>${e.email || '—'}</td><td>${e.phone || '—'}</td>
+              <td class="state-cell">${stopped ? html`<span class="pill mute">Đã khóa</span>` : e.state === 'chua_co' ? html`<span class="pill mute">Chưa có mật khẩu</span>` : e.state === 'tam' ? html`<span class="pill warn">Mật khẩu tạm</span>` : html`<span class="pill ok">Đã đặt</span>`}</td>` : ''}
               ${tl ? html`<td data-label="Nội quy">${e.nq === 'khong' ? html`<span class="st-meta" title="Chưa có nội quy nào được đăng">—</span>`
                 : html`<button type="button" class="nq-btn pill ${e.nq === 'da_doc' ? 'ok' : 'off'}" data-id="${e.id}" data-read="${e.nq === 'da_doc' ? 1 : 0}" data-name="${e.code} – ${e.name}"
                     title="${e.nq === 'da_doc' ? 'Đọc lúc ' + (e.tl.read_at || '') + ' · bấm để bỏ đánh dấu' : `Đã đọc ${e.tl.read || 0}/${nDocs} · bấm để đánh dấu đã đọc thay nhân viên`}">${e.nq === 'da_doc' ? 'Đã đọc' : nDocs > 1 && e.tl.read ? `Chưa đọc (${e.tl.read}/${nDocs})` : 'Chưa đọc'}</button>`}</td>
                 <td data-label="Cam kết"><select class="input sm ck-select ck-${e.tl.commit || 'chua_ky'}" data-id="${e.id}" aria-label="Cam kết của ${e.name}" title="${e.tl.commit_at ? `${e.tl.commit_by} · ${e.tl.commit_at}${e.tl.commit_note ? ' · ' + e.tl.commit_note : ''}` : ''}" ${stopped ? 'disabled' : ''}>
                   ${Object.entries(COMMIT).map(([k, [l]]) => html`<option value="${k}" ${k === (e.tl.commit || 'chua_ky') ? 'selected' : ''}>${l}</option>`)}</select></td>` : ''}
-              ${dts ? html`<td data-label="Đào tạo">${e.dt ? html`<a class="pill ${DT_STATUS[e.dt.status][1]}" href="#/dao-tao/phieu?id=${e.dt.id}" title="${e.dt.status !== 'hoan_thanh' ? 'Còn thiếu: ' + e.dt.missing.join(', ') : ''}">${dtLabel(e.dt)}</a>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
-              <td>${!stopped && e.account_id && e.account_id !== me.account_id ? html`<button type="button" class="btn sm secondary issue-btn" data-acc="${e.account_id}" data-name="${e.code} – ${e.name}">Cấp MK tạm</button>` : ''}</td></tr>`;
+              ${dts ? html`<td data-label="Đào tạo">${e.dt ? html`<a class="pill ${DT_STATUS[e.dt.status][1]}" href="#/dao-tao/phieu?id=${e.dt.id}" title="Bấm để mở phiếu${e.dt.status !== 'hoan_thanh' ? ' · còn thiếu: ' + e.dt.missing.join(', ') : ''}">${dtLabel(e.dt)}</a>
+                  ${e.dt.instructor ? html`<div class="st-meta" style="font-size:11px;color:var(--muted);margin-top:2px">HD: ${e.dt.instructor}</div>` : ''}`
+                : dtAdmin && !stopped ? html`<button type="button" class="btn sm secondary new-dt" data-id="${e.id}" data-name="${e.code} – ${e.name}" data-b="${e.branches[0] || ''}" title="Chưa đào tạo">+ Tạo phiếu</button>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
+              <td>${full && !stopped && e.account_id && e.account_id !== me.account_id ? html`<button type="button" class="btn sm secondary issue-btn" data-acc="${e.account_id}" data-name="${e.code} – ${e.name}">Cấp MK tạm</button>` : ''}</td></tr>`;
           })}</tbody></table></div>
       </section>`,
     mount() {
       const rows = $$('.emp-row');
       const apply = () => {
         const q = norm($('#emp-search').value.trim()); const st = $('#show-stopped').checked;
-        const rk = $('#ef-rank').value, br = $('#ef-branch').value, rl = $('#ef-role').value, ac = $('#ef-state').value;
+        const rk = $('#ef-rank').value, br = $('#ef-branch').value, rl = $('#ef-role').value, ac = $('#ef-state')?.value || '';
         const fnq = $('#ef-nq')?.value || '', fck = $('#ef-ck')?.value || '', fdt = $('#ef-dt')?.value || '';
         let n = 0;
         rows.forEach((r) => {
@@ -116,6 +126,8 @@ export async function render({ params, me }) {
         catch (e) { s.value = last; showSaved(e.message, true); }
       }); });
       apply();
+      $$('.dt-chip').forEach((c) => c.addEventListener('click', () => { const f = $('#ef-dt'); f.value = f.value === c.dataset.st ? '' : c.dataset.st; apply(); }));
+      $$('.new-dt').forEach((b) => b.addEventListener('click', () => openCreateDialog({ id: Number(b.dataset.id), name: b.dataset.name, branch: b.dataset.b }).catch((e) => showSaved(e.message, true))));
       $$('.rank-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
         try { await rpc('app_set_rank', { p_id: Number(s.dataset.id), p_rank: s.value }); last = s.value; showSaved('Đã lưu · ' + hhmm()); } catch (e) { s.value = last; showSaved(e.message, true); }
       }); });
@@ -129,9 +141,9 @@ export async function render({ params, me }) {
             <form method="dialog" style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn" type="submit">Đã ghi lại</button></form>`);
         } catch (e) { showSaved(e.message, true); }
       }));
-      $('#tpl-btn').addEventListener('click', () => downloadXlsx('Mau_danh_sach_nhan_vien.xlsx', [{ name: 'DANH SÁCH NV', rows: EMPLOYEE_TEMPLATE }, { name: 'HƯỚNG DẪN', rows: EMPLOYEE_GUIDE }]));
-      $('#gf-btn').addEventListener('click', () => downloadXlsx('DANH_SACH_NHAN_VIEN_GOOGLE_FORM.xlsx', [{ name: 'DANH SÁCH NHÂN VIÊN', rows: [['Mã NV', 'Họ và tên'], ...on.map((e) => [String(e.code), e.name])], widths: [16, 36] }]));
-      $('#imp-btn').addEventListener('click', () => fileInput('.xlsx', async (file) => {
+      $('#tpl-btn')?.addEventListener('click', () => downloadXlsx('Mau_danh_sach_nhan_vien.xlsx', [{ name: 'DANH SÁCH NV', rows: EMPLOYEE_TEMPLATE }, { name: 'HƯỚNG DẪN', rows: EMPLOYEE_GUIDE }]));
+      $('#gf-btn')?.addEventListener('click', () => downloadXlsx('DANH_SACH_NHAN_VIEN_GOOGLE_FORM.xlsx', [{ name: 'DANH SÁCH NHÂN VIÊN', rows: [['Mã NV', 'Họ và tên'], ...on.map((e) => [String(e.code), e.name])], widths: [16, 36] }]));
+      $('#imp-btn')?.addEventListener('click', () => fileInput('.xlsx', async (file) => {
         try {
           const codes = new Set(); cat.branches.forEach((b) => [b.code, b.display_code, b.system_code].forEach((x) => x && codes.add(String(x).toUpperCase())));
           const parsed = parseEmployeeRows(await readRows(file), codes, cat.roles.map((r) => r.name));
