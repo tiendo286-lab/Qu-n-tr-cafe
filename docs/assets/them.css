@@ -1,0 +1,8 @@
+/* Bổ sung cho bản GitHub Pages */
+.progress { height: 10px; background: var(--line-soft); border-radius: 6px; overflow: hidden; }
+.progress > div { height: 100%; background: var(--primary); width: 0; transition: width .2s; }
+.loading { padding: 40px; text-align: center; color: var(--muted); }
+.slips { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
+.slip { border: 1px dashed #94a3b8; padding: 12px 14px; font-size: 14px; line-height: 1.5; break-inside: avoid; }
+.slip .pw { font-family: ui-monospace, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+@media print { .sidebar, .noprint, .alert { display: none !important; } .layout { display: block; } .main { padding: 0; } }
