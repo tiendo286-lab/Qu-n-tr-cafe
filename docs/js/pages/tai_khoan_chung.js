@@ -1,7 +1,7 @@
 // Phần tài khoản đăng nhập dùng trong trang Nhân viên: trạng thái, menu thao tác từng người,
 // cấp mật khẩu tạm hàng loạt + in, tài khoản riêng (không phải nhân viên).
 import { render as rerender } from '../app.js';
-import { adminFn } from '../sb.js';
+import { adminFn, rpc, sel } from '../sb.js';
 import { $, $$, ROLE_LABELS, dialog, flash, html, showSaved, str } from '../ui.js';
 
 export const ACC_STATES = {
@@ -81,7 +81,17 @@ export function bindAccountActions() {
   if (cf) cf.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = new FormData(cf);
-    try { showPassword(await adminFn('create_account', { login: f.get('login'), name: f.get('name'), role: f.get('role') })); } catch (e) { showSaved(e.message, true); }
+    const role = f.get('role');
+    try {
+      // Kế toán: tạo như Quản lý rồi đổi vai trò (máy chủ tạo tài khoản chưa nhận vai trò Kế toán trực tiếp)
+      const r = await adminFn('create_account', { login: f.get('login'), name: f.get('name'), role: role === 'ke_toan' ? 'ql' : role });
+      if (role === 'ke_toan') {
+        const acc = (await sel('accounts', 'id, login_name', (b) => b.ilike('login_name', r.login)))[0];
+        if (!acc) throw new Error('Đã tạo tài khoản nhưng chưa đổi được sang Kế toán — vào Phân quyền đổi vai trò.');
+        await rpc('app_set_system_role', { p_account: acc.id, p_role: 'ke_toan' });
+      }
+      showPassword(r);
+    } catch (e) { showSaved(e.message, true); }
   });
 }
 
@@ -134,7 +144,7 @@ export function standaloneSection(items, me, canPerm) {
     ${canPerm ? html`<form class="toolbar" id="create-form">
       <input class="input sm" name="login" placeholder="Tên đăng nhập (vd ketoan)" required pattern="[A-Za-z0-9._\\-]{3,30}" aria-label="Tên đăng nhập">
       <input class="input sm" name="name" placeholder="Tên hiển thị" required maxlength="60" aria-label="Tên hiển thị">
-      <select class="input sm" name="role" aria-label="Vai trò"><option value="ql" selected>Quản lý</option><option value="ql_tong">Quản lý tổng</option><option value="chu">Chủ</option></select>
+      <select class="input sm" name="role" aria-label="Vai trò"><option value="ke_toan" selected>Kế toán</option><option value="ql">Quản lý</option><option value="ql_tong">Quản lý tổng</option><option value="chu">Chủ</option></select>
       <button class="btn sm" type="submit">+ Tạo tài khoản riêng</button></form>` : ''}</section>`;
 }
 

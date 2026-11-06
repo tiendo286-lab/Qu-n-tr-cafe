@@ -1,5 +1,5 @@
 // Tiện ích giao diện dùng chung
-export const ROLE_LABELS = { chu: 'Chủ', ql_tong: 'Quản lý tổng', ql: 'Quản lý', nv: 'Nhân viên' };
+export const ROLE_LABELS = { chu: 'Chủ', ql_tong: 'Quản lý tổng', ql: 'Quản lý', nv: 'Nhân viên', ke_toan: 'Kế toán' };
 
 // Thoát ký tự HTML
 export function esc(v) {

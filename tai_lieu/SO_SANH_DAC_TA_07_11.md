@@ -54,3 +54,9 @@ Ngoài ra tối qua anh đã cho bỏ một số chức năng cũ của Order / 
   "Mở lại đối soát" → ĐANG ĐỐI SOÁT LẠI → "Hoàn thành đối soát lại". "Mở lại phiếu cho nhân viên sửa" vẫn giữ (bản đối soát làm lại).
   Trang Đối soát và tiền cuối ngày dùng số của bản đối soát, ghi rõ ca chưa xong / đang đối soát lại.
 - **D2** ⏸ Kết quả THIẾU/THỪA/KHỚP từng hạng mục: anh chốt sau.
+- **A6 / D3 / D4** ✅ Vai trò **Kế toán** (chỉ vào tab Kế toán; tạo ở "Tài khoản riêng" hoặc đổi vai trò ở Phân quyền).
+  Tab Kế toán: **Hóa đơn giao hàng** (ảnh / PDF / Excel, nhiều tệp, theo cơ sở + ngày; trạng thái Chưa nhận / Đã nhận đủ / Báo thiếu)
+  và **Chuyển khoản thực nhận** (số dư đầu / cuối / chuyển ra theo từng phiếu ca; tiền nhận = cuối − đầu + chuyển ra; số dư đầu gợi ý
+  = cuối ca trước; khóa khi HOÀN THÀNH ĐỐI SOÁT; lịch sử sửa ghi chung với lịch sử phiếu). Nhân viên báo nhận trong mục 7 của phiếu
+  chốt ca (ít nhất 1 ảnh; THIẾU phải ghi món). Phần nhập hàng cũ giữ nguyên. Bản đối soát hiện số chuyển khoản thực nhận để so.
+- ⏸ Chuỗi số dư khi sửa ca cũ, tiền về chậm: chờ chốt — web chỉ cảnh báo khi số dư đầu ≠ cuối ca trước.

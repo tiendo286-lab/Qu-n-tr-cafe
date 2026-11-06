@@ -7,6 +7,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab]
 export const HUBS = [
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat']], 'ngay'],
+  ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']]],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']]],
@@ -53,13 +54,15 @@ const PAGES = {
   '/quan-ly/tai-khoan': 'nhan_vien', // trang cũ đã gộp vào Nhân viên
   '/quan-ly/phan-quyen': 'phan_quyen',
   '/quan-ly/du-lieu': 'du_lieu',
+  '/ke-toan/hoa-don': 'ke_toan_hoa_don',
+  '/ke-toan/chuyen-khoan': 'ke_toan_ck',
 };
 
 export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0 };
 const root = () => document.getElementById('root');
 
 export function can(p) { return !!state.me?.perms?.[p]; }
-export function isManager() { return ['chu', 'ql_tong', 'ql'].includes(state.me?.role); }
+export function isManager() { return ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(state.me?.role); }
 
 export async function loadMe() {
   const { data } = await sb.auth.getSession();
@@ -133,7 +136,7 @@ function layout(path, body, flashMsg) {
         <div class="who">${me.code} – ${me.name} · ${ROLE_LABELS[me.role]}</div>
         <details class="navd" open><summary>☰ Menu</summary>
         <div class="nav">
-          <a class="item ${path === '/' ? 'active' : ''}" href="#/">Tổng quan</a>
+          ${me.role === 'ke_toan' ? '' : html`<a class="item ${path === '/' ? 'active' : ''}" href="#/">Tổng quan</a>`}
           ${me.must_change ? '' : menuHtml(path)}
         </div>
         <div class="bottom">
@@ -195,6 +198,7 @@ export async function render() {
   if (me && path === '/dang-nhap') return go('/');
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
   if (path === '/' && me && !isManager()) return go('/order');
+  if (path === '/' && me && me.role === 'ke_toan') return go('/ke-toan/hoa-don');
   if (cleanup) { try { cleanup(); } catch (_) { /* bỏ qua */ } cleanup = null; }
   if (me) await refreshBadges();
 

@@ -1,0 +1,56 @@
+// Luồng Kế toán: role=chu (tải hóa đơn → nhân viên báo nhận trong phiếu ca → kế toán thấy trạng thái; nhập số dư BIDV)
+// role=kt (menu chỉ Kế toán, trang chủ chuyển sang Hóa đơn)
+export default async ({ sleep, out }) => {
+  const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
+  const txt = (s) => ($(s)?.innerText || '').replace(/\s+/g, ' ').trim();
+  const wait = async (sel, n = 200) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
+  const log = (route, title, errs = []) => out.push({ route, title: String(title).slice(0, 700), len: 0, errs });
+  const step = async (name, fn) => { window.__ERR.length = 0; let r = ''; try { r = await fn(); } catch (e) { window.__ERR.push('flow: ' + e.stack); } log(name, r || '', [...window.__ERR, ...$$('#root .alert.error').map((a) => 'page: ' + a.textContent.trim())]); };
+  const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  const setFiles = (inp, files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); inp.files = dt.files; inp.dispatchEvent(new Event('change', { bubbles: true })); };
+  const png = async () => { const c = document.createElement('canvas'); c.width = 20; c.height = 20; c.getContext('2d').fillRect(0, 0, 10, 10); return new File([await new Promise((r) => c.toBlob(r, 'image/png'))], 'hang.png', { type: 'image/png' }); };
+  const go = async (h, sel) => { location.hash = '#/__tam'; await sleep(200); location.hash = h; await wait(sel); await sleep(600); };
+  const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+
+  if (new URLSearchParams(location.search).get('role') === 'kt') {
+    await step('Kế toán: trang chủ + menu', async () => { location.hash = '#/'; await wait('h1'); await sleep(800); return location.hash + ' · ' + txt('h1') + ' || menu: ' + txt('.nav') + ' || tab: ' + txt('.hub-tabs'); });
+    await step('Kế toán: không vào được Đối soát', async () => { await go('#/quan-ly/doi-soat', '#root .card, h1'); return document.title + ' · ' + txt('#root .card'); });
+    return;
+  }
+  const { rpc } = await import('../js/sb.js');
+  let rid;
+  await step('Menu Kế toán', async () => { await go('#/ke-toan/hoa-don', '#hd-new'); return txt('.nav').includes('Kế toán') + ' · tab: ' + txt('.hub-tabs'); });
+  await step('Tải hóa đơn (PDF + Excel) cho cơ sở đầu, hôm nay', async () => {
+    const f = $('#hd-new'); f.branch.selectedIndex = 1; f.note.value = 'Giao sữa, đá';
+    setFiles(f.files, [new File(['%PDF-1.4'], 'hoadon.pdf', { type: 'application/pdf' }), new File(['a,b'], 'chitiet.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })]);
+    f.requestSubmit(); await sleep(1500); await wait('.hd'); await sleep(400);
+    return txt('#root .alert') + ' · ' + $$('.hd').map((c) => c.innerText.replace(/\s+/g, ' ').slice(0, 160)).join(' / ');
+  });
+  await step('Phiếu chốt ca: thấy hóa đơn, chụp ảnh, báo THIẾU', async () => {
+    const ov = await rpc('app_ca_overview', { p_date: day });
+    rid = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[0].shift });
+    await go('#/ca/phieu?id=' + rid, '.hd-card'); const a = txt('.hd-card');
+    $('.hd-send').click(); await sleep(300); const err1 = txt('#saved-indicator');
+    setFiles($('.hd-ph-in'), [await png()]); await sleep(1500); await wait('.hd-card .ph'); await sleep(300);
+    const c = $('.hd-card'); c.querySelector('input[value=thieu]').click(); await sleep(100);
+    setv(c.querySelector('.hd-it-name'), 'Sữa đặc'); setv(c.querySelector('.hd-it-qty'), '2 hộp');
+    c.querySelector('.hd-send').click(); await sleep(1000);
+    return `${a.slice(0, 120)} · bấm khi chưa chọn: "${err1}" · ảnh: ${$$('.hd-card .ph').length} · sau gửi: ${txt('.hd-card .pill')} · ${txt('.hd-card .hd-rec')}`;
+  });
+  await step('Kế toán thấy trạng thái', async () => { await go('#/ke-toan/hoa-don', '.hd'); return $$('.hd').map((c) => c.innerText.replace(/\s+/g, ' ').slice(0, 220)).join(' / '); });
+  await step('Chuyển khoản thực nhận: nhập số dư', async () => {
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-row');
+    const row = $('.ck-row[data-report]'); if (!row) return 'KHÔNG CÓ HÀNG CÓ PHIẾU · ' + txt('.ck-row');
+    setv(row.querySelector('.ck-open'), '10.000.000'); setv(row.querySelector('.ck-close'), '12.500.000'); setv(row.querySelector('.ck-out'), '300.000');
+    const res = txt('.ck-row[data-report] .ck-res');
+    row.querySelector('.ck-save').click(); await sleep(600);
+    return res + ' · ' + txt('#saved-indicator');
+  });
+  await step('Ca sau: gợi ý số dư đầu = cuối ca trước', async () => {
+    const ov = await rpc('app_ca_overview', { p_date: day });
+    await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[1].shift });
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-row');
+    const rows = $$('.ck-row[data-report]'); const r2 = rows[1];
+    return r2 ? 'ca 2 số dư đầu = ' + r2.querySelector('.ck-open').value + ' (tô vàng: ' + r2.querySelector('.ck-open').classList.contains('st-sg') + ') · ' + r2.querySelector('.pc-f .st-meta').innerText : 'KHÔNG THẤY CA 2';
+  });
+};

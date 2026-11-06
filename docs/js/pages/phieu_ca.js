@@ -5,6 +5,7 @@ import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMone
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
+import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -170,6 +171,7 @@ export async function render({ params }) {
   // C. Chênh lệch, thu chi
   const secDiff = sec('3. Chênh lệch và chi tiết thu chi', ['tien_mat', 'chuyen_khoan', 'thu_chi'], html`
     <div class="pc-grid" id="diff-box"></div>
+    ${isDs ? html`<div id="bank-box"></div>` : ''}
     <div class="pc-sub">CHI TIẾT THU CHI <span class="st-meta">— giải trình từng khoản làm tiền lệch (số âm = chi/thiếu, số dương = thu/thừa)</span></div>
     <div id="moves">${(R.moves || []).map((m) => moveRow(m, ed))}</div>
     ${ed ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`);
@@ -212,6 +214,7 @@ export async function render({ params }) {
   // G. Nhập hàng
   const gs = R.goods_status || '';
   const secGoods = sec('7. Nhập hàng từ kho tổng', ['nhap_hang'], html`
+    <div id="hd-box" class="stack" style="gap:10px"></div>
     <div class="seg" role="tablist"><a href="javascript:void 0" class="on" data-tab="photo" role="tab">Ảnh hàng & hóa đơn (${(R.photos || []).length})</a><a href="javascript:void 0" data-tab="report" role="tab">Báo cáo nhận hàng</a></div>
     <div data-pane="photo" class="stack" style="gap:10px">
       <div class="photos">${(R.photos || []).map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh hàng nhận" loading="lazy"></a>
@@ -265,7 +268,7 @@ export async function render({ params }) {
 
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
-    html: html`${STYLE}${head}<form id="pc-form" class="stack pc" onsubmit="return false">${secTime}${secMoney}${secDiff}${secDebt}${secStaff}${secHand}${secGoods}${foot}</form>`,
+    html: html`${STYLE}${HD_CSS}${head}<form id="pc-form" class="stack pc" onsubmit="return false">${secTime}${secMoney}${secDiff}${secDebt}${secStaff}${secHand}${secGoods}${foot}</form>`,
     mount() { return mount(R, ed, C, { isDs, RC, R0 }); },
   };
 }
@@ -358,6 +361,66 @@ function mount(R, ed, C0, ctx = {}) {
     $('#goods-missing') && ($('#goods-missing').hidden = (ed ? collect().goods_status : R.goods_status) !== 'thieu');
   };
   recalc();
+
+  // ---------- Hóa đơn kế toán gửi (nhân viên báo nhận khi phiếu đang chốt)
+  const canRecv = !isDs && !!(R0 || R).can_edit;
+  const hdCard = (i) => html`<div class="hd-card ${i.status === 'chua_nhan' ? 'todo' : ''}" data-id="${i.id}">
+    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>Hóa đơn kế toán gửi · ngày ${dmy(i.work_date)}</strong><span class="pill ${HD_STATUS[i.status][1]}">${HD_STATUS[i.status][0]}</span></div>
+    ${i.note ? html`<div style="font-size:14px">${i.note}</div>` : ''}
+    <div>${fileLinks(i.files, false)}</div>
+    <div class="pc-sub" style="margin:0">ẢNH HÀNG THỰC NHẬN (${i.photos.length})</div>
+    ${photoThumbs(i.photos, canRecv)}
+    ${canRecv ? html`<label class="btn sm secondary" style="align-self:flex-start">📷 Chụp / chọn ảnh hàng<input type="file" class="hd-ph-in" accept="image/*" multiple hidden></label><span class="st-meta hd-ph-st"></span>
+      <div class="pc-line" role="radiogroup" aria-label="Kết quả nhận hàng">
+        ${[['du', 'ĐỦ so với hóa đơn'], ['thieu', 'THIẾU so với hóa đơn']].map(([v, l]) => html`<label class="radio-pill"><input type="radio" name="hd-res-${i.id}" value="${v}" ${i.result === v ? 'checked' : ''}> ${l}</label>`)}</div>
+      <div class="hd-miss" ${i.result === 'thieu' ? '' : 'hidden'}><div class="pc-sub">MẶT HÀNG THIẾU</div>
+        <div class="hd-items">${(i.items.length ? i.items : [{}]).map((x) => html`<div class="pc-line hd-it"><input class="input sm grow hd-it-name" placeholder="Mặt hàng" value="${x.item || ''}"><input class="input sm hd-it-qty" placeholder="Số lượng thiếu" value="${x.qty || ''}" style="width:140px"></div>`)}</div>
+        <button type="button" class="btn sm secondary hd-it-add">+ Thêm mặt hàng thiếu</button></div>
+      <input class="input sm hd-note" placeholder="Ghi chú nhận hàng (không bắt buộc)" value="${i.receive_note || ''}">
+      <div><button type="button" class="btn sm hd-send">${i.status === 'chua_nhan' ? 'Gửi báo cáo nhận hàng' : 'Cập nhật báo cáo nhận hàng'}</button></div>` : ''}
+    ${i.status !== 'chua_nhan' ? receiptText(i) : ''}</div>`;
+  const loadHd = async () => {
+    const box = $('#hd-box'); if (!box) return;
+    let list = [];
+    try { list = await rpc('app_hd_for_report', { p_report: R.id }); } catch (_) { return; }
+    box.innerHTML = list.length ? str(html`<div class="pc-sub" style="margin:0">HÓA ĐƠN KẾ TOÁN GỬI (${list.length})</div>${list.map(hdCard)}<div class="pc-sub" style="margin:4px 0 0">TỰ GHI NHẬN NHẬP HÀNG CỦA CA</div>`) : '';
+    signLinks(box);
+    box.querySelectorAll('.hd-card').forEach((c) => {
+      const id = Number(c.dataset.id);
+      c.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { c.querySelector('.hd-miss').hidden = r.value !== 'thieu' || !r.checked; }));
+      c.querySelector('.hd-it-add')?.addEventListener('click', () => c.querySelector('.hd-items').insertAdjacentHTML('beforeend', '<div class="pc-line hd-it"><input class="input sm grow hd-it-name" placeholder="Mặt hàng"><input class="input sm hd-it-qty" placeholder="Số lượng thiếu" style="width:140px"></div>'));
+      c.querySelector('.hd-ph-in')?.addEventListener('change', async (ev) => {
+        try { await uploadFiles('nhan' + id, [...ev.target.files], (path) => rpc('app_hd_photo_add', { p_invoice: id, p_path: path }), c.querySelector('.hd-ph-st')); loadHd(); }
+        catch (e) { showSaved('Không tải được ảnh: ' + e.message, true); }
+      });
+      c.querySelectorAll('.hd-pdel').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Xóa ảnh này?')) return;
+        try { const path = await rpc('app_hd_photo_del', { p_photo: Number(b.dataset.id) }); if (path) await sb.storage.from(HD_BUCKET).remove([path]); loadHd(); } catch (e) { showSaved(e.message, true); }
+      }));
+      c.querySelector('.hd-send')?.addEventListener('click', async () => {
+        const res = c.querySelector('input[type=radio]:checked')?.value;
+        if (!res) { showSaved('Chọn ĐỦ hoặc THIẾU.', true); return; }
+        const items = [...c.querySelectorAll('.hd-it')].map((x) => ({ item: x.querySelector('.hd-it-name').value.trim(), qty: x.querySelector('.hd-it-qty').value.trim() })).filter((x) => x.item);
+        try { await rpc('app_hd_receive', { p_invoice: id, p_report: R.id, p_result: res, p_note: c.querySelector('.hd-note').value, p_items: items }); showSaved('Đã gửi báo cáo nhận hàng · ' + hhmm()); loadHd(); }
+        catch (e) { showSaved(e.message, true); }
+      });
+    });
+  };
+  loadHd();
+  // ---------- Bản đối soát: chuyển khoản thực nhận do kế toán nhập
+  if (isDs && $('#bank-box')) {
+    rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {
+      const got = b.received; const ck = R.pos_transfer; const rt = R.reported_transfer;
+      $('#bank-box').innerHTML = str(html`<div class="diff-card"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN THỰC NHẬN (KẾ TOÁN NHẬP)</div>
+        ${got === null || got === undefined ? html`<div class="st-meta">Kế toán chưa nhập số dư cho ca này.</div>`
+          : html`<div class="kv"><div>Số dư đầu → cuối</div><div>${vnd(b.opening)} → ${vnd(b.closing)}${b.transfers_out ? html` · chuyển ra ${vnd(b.transfers_out)}` : ''}</div>
+            <div><strong>Tiền nhận trong ca</strong></div><div><strong>${vnd(got)}</strong></div>
+            <div>So với CK theo POS</div><div>${ck === null || ck === undefined ? '—' : signed(got - ck)}</div>
+            <div>So với CK nhân viên báo</div><div>${rt === null || rt === undefined ? '—' : signed(got - rt)}</div>
+            ${b.note ? html`<div>Ghi chú kế toán</div><div>${b.note}</div>` : ''}</div>
+            <div class="st-meta">Nhập bởi ${b.updated_by || ''} · ${dt(b.updated_at)}${b.locked ? ' · đã khóa theo đối soát' : ''}</div>`}</div>`);
+    }).catch(() => {});
+  }
 
   if (R.can_recon && (R0 || R).recon_status !== 'hoan_thanh') {
     $$('.rc-chip[data-item]').forEach((b) => b.addEventListener('click', async () => {
@@ -528,6 +591,8 @@ const STYLE = html`<style>
   @media (max-width: 640px) { .pc-grid { grid-template-columns: minmax(0, 1fr); } }
   .pc-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
   .st-sg { background: #fef9c3; }
+  .hd-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }
+  .hd-card.todo { border-color: #f59e0b; background: #fffbeb; }
   .pc-orig { font-size: 12px; color: #9a3412; background: #ffedd5; border-radius: 6px; padding: 2px 6px; align-self: flex-start; }
   .pc-ban { margin-top: 8px; }
   .rc-log { font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--line-soft); }

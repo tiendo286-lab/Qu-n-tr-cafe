@@ -25,7 +25,9 @@ const NV_ALWAYS = ['order_ca', 'xem_lich_minh'];
 const EVERYONE = [['Chốt ca (điền phiếu chốt ca)', 'Luôn có cho mọi người (kể cả Nhân viên)'], ['Nhận việc được giao, gửi báo cáo xử lý', 'Luôn có cho Quản lý tổng và Quản lý'], ['Gửi yêu cầu hỗ trợ', 'Luôn có cho mọi người'], ['Xem mọi yêu cầu hỗ trợ và trả lời', 'Luôn có cho Chủ, Quản lý tổng và Quản lý']];
 const NV_EDITABLE = ['xem_tat_ca'];
 const EDITABLE_ROLES = ['ql_tong', 'ql', 'nv'];
-const ORDER = { chu: 0, ql_tong: 1, ql: 2, nv: 3 };
+// Vai trò chọn được cho từng tài khoản (Kế toán có quyền cố định: chỉ tab Kế toán, không nằm trong bảng quyền)
+const ACCOUNT_ROLES = ['ql_tong', 'ql', 'nv', 'ke_toan'];
+const ORDER = { chu: 0, ql_tong: 1, ql: 2, nv: 3, ke_toan: 4 };
 
 export async function render() {
   const [rp, accounts, emps] = await Promise.all([
@@ -83,7 +85,7 @@ export async function render() {
               <td style="font-weight:600">${u.code || '—'}</td><td>${u.name}</td><td>${u.rank || '—'}</td>
               <td>${u.system_role === 'chu' ? html`<span style="font-weight:600;color:var(--primary-dark)">Chủ (cố định)</span>` : html`
                 <select class="input sm role-select" data-account="${u.id}" aria-label="Vai trò của ${u.name}" style="width:180px">
-                  ${EDITABLE_ROLES.map((r) => html`<option value="${r}" ${r === u.system_role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`)}</select>`}</td>
+                  ${ACCOUNT_ROLES.map((r) => html`<option value="${r}" ${r === u.system_role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`)}</select>`}</td>
               <td>${u.stopped ? html`<span class="pill mute">Ngừng làm</span>` : html`<span class="pill ok">${u.system_role === 'chu' ? 'Đang dùng' : 'Đang làm'}</span>`}</td></tr>`)}
           </tbody></table></div>
       </section>`,
