@@ -1,0 +1,7 @@
+{
+  "smtp_host": "smtp.gmail.com",
+  "smtp_port": 587,
+  "smtp_user": "email-cua-quan@gmail.com",
+  "smtp_password": "mat-khau-ung-dung-16-ky-tu",
+  "smtp_from": "Lịch làm <email-cua-quan@gmail.com>"
+}

@@ -1,0 +1,330 @@
+{% extends "base.html" %}
+{% block title %}Order lịch làm{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Order lịch làm</h1>
+    <div class="sub">
+      Tuần {{ week_label }} ·
+      {% if win.state == 'dang_mo' %}<span class="pill ok">Đang mở order</span> hết hạn {{ close_text }} ({{ win.remaining }})
+      {% elif win.state == 'chua_mo' %}<span class="pill mute">Chưa mở</span> mở lúc {{ open_text }}
+      {% else %}<span class="pill off">Đã hết hạn</span> lúc {{ close_text }}{% endif %}
+    </div>
+  </div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+<section class="card toolbar" style="padding:14px 18px">
+  <strong style="font-size:14px;color:var(--primary-dark)">Tuần làm việc</strong>
+  <a class="btn sm secondary" href="/quan-ly/order?tuan={{ prev_w }}" style="min-height:40px">‹ Tuần trước</a>
+  <div style="font-weight:700;padding:0 6px">{{ week_label }}</div>
+  <a class="btn sm secondary" href="/quan-ly/order?tuan={{ next_w }}" style="min-height:40px">Tuần sau ›</a>
+  <form method="get" action="/quan-ly/order" class="toolbar" style="gap:8px;margin-left:auto">
+    <input class="input sm" type="date" name="tuan" value="{{ start }}" aria-label="Chọn ngày trong tuần" required>
+    <button class="btn sm" type="submit" style="min-height:40px">Chọn tuần</button>
+  </form>
+</section>
+
+<section class="card toolbar" style="padding:14px 18px">
+  {% if sched_status is none %}
+    <strong style="font-size:14px">Bước tiếp theo:</strong>
+    {% if can_start %}
+      {% if win.state == 'da_dong' %}
+      <form method="post" action="/quan-ly/lich/bat-dau/{{ week.id }}" onsubmit="return confirm('Bắt đầu xếp lịch tuần {{ week_label }}? Web sẽ đưa lịch cố định vào các ô nhân viên order Đi làm được.')"><button class="btn sm" type="submit" style="min-height:40px">Bắt đầu xếp lịch</button></form>
+      <span style="font-size:13px;color:var(--muted)">Kiểm tra, bổ sung order xong rồi bấm.</span>
+      {% else %}
+      <button class="btn sm" type="button" disabled style="min-height:40px">Bắt đầu xếp lịch</button>
+      <span style="font-size:13px;color:var(--muted)">Mở sau giờ hết hạn order: {{ close_text }}</span>
+      {% endif %}
+    {% else %}<span style="font-size:13px;color:var(--muted)">Chờ người có quyền xếp lịch bắt đầu xếp.</span>{% endif %}
+  {% else %}
+    <span class="pill {% if sched_status == 'ĐÃ CHỐT' %}ok{% else %}warn{% endif %}">{{ sched_label }}</span>
+    <span style="font-size:14px">Tuần này đã bắt đầu xếp lịch. Sửa order vẫn được; ô đã xếp mà đổi sang Nghỉ sẽ có cảnh báo trên lịch.</span>
+    <a class="btn sm" href="/quan-ly/lich-co-so?tuan={{ start }}" style="min-height:40px;margin-left:auto">Mở lịch cơ sở</a>
+  {% endif %}
+</section>
+
+{% if can_edit %}
+<section class="card stack d-only" style="padding:14px 18px;gap:10px">
+  <div style="font-size:13px;color:var(--muted)">Bấm một ô để chọn; giữ <strong>Command</strong> (Mac) / <strong>Ctrl</strong> (Windows) để chọn thêm; kéo chuột qua nhiều ô liền nhau; nhấp đúp để đổi nhanh một ô. Mọi thay đổi tự lưu và đánh dấu chấm đỏ.</div>
+  <div class="toolbar">
+    <strong style="font-size:14px">Sửa nhanh các ô đang chọn (<span id="sel-count">0</span>):</strong>
+    <button class="btn sm qb" type="button" data-set="ok" style="background:var(--ok-bg);color:var(--ok-ink);border:1px solid #4ade80">Đi làm được</button>
+    <button class="btn sm qb" type="button" data-set="off" style="background:var(--off-bg);color:var(--off-ink);border:1px solid #fca5a5">Nghỉ</button>
+    <button class="btn sm qb" type="button" data-set="none" style="background:#e5e7eb;color:var(--ink-2);border:1px solid #cbd2dc">Chưa order</button>
+    <button class="btn sm secondary" type="button" id="undo-btn" disabled>Hoàn tác</button>
+    <button class="btn sm secondary" type="button" id="clear-sel">Bỏ chọn</button>
+    {% if user.can('xoa_du_lieu_tuan') %}
+    <button class="btn sm secondary" type="button" id="del-week" style="margin-left:auto;color:var(--off-ink);border-color:#fca5a5">Xóa dữ liệu tuần</button>
+    {% endif %}
+  </div>
+</section>
+{% else %}
+<div class="alert warn">Bạn chỉ có quyền xem order. Muốn sửa cần quyền “Sửa order sau hạn”.</div>
+{% endif %}
+
+<section class="card stack" style="padding:14px 18px;gap:10px">
+  <div class="toolbar">
+    <input class="input sm" id="f-search" type="search" placeholder="Tìm theo mã hoặc tên" aria-label="Tìm nhân viên" style="width:220px">
+    <select class="input sm" id="f-rank" aria-label="Lọc phân cấp" style="width:150px"><option value="">Tất cả phân cấp</option>{% for r in RANKS %}<option>{{ r }}</option>{% endfor %}</select>
+    <select class="input sm" id="f-has" aria-label="Lọc nhân viên" style="width:170px"><option value="">Tất cả nhân viên</option><option value="1">Đã có order</option><option value="0">Chưa có order</option></select>
+    <select class="input sm d-only" id="f-day" aria-label="Lọc ngày" style="width:140px"><option value="">Tất cả ngày</option>{% for d in days %}<option value="{{ d.index }}">{{ d.name }} {{ d.date }}</option>{% endfor %}</select>
+    <select class="input sm d-only" id="f-shift" aria-label="Lọc ca" style="width:120px"><option value="">Tất cả ca</option>{% for s in shifts %}<option>{{ s.name }}</option>{% endfor %}</select>
+    <select class="input sm" id="f-status" aria-label="Lọc trạng thái" style="width:160px"><option value="">Tất cả trạng thái</option><option value="ok">Đi làm được</option><option value="off">Nghỉ</option><option value="none">Chưa order</option></select>
+    <button class="btn sm secondary" type="button" id="f-clear">Xóa bộ lọc</button>
+  </div>
+  <div class="d-only" style="font-size:13px;font-weight:600">Chú giải: <span style="color:var(--ok-ink)">Xanh: Đi làm được</span> · <span style="color:var(--off-ink)">Đỏ: Nghỉ</span> · <span style="color:var(--muted)">Xám: Chưa order</span> · <span style="color:#dc2626">● Chấm đỏ: quản lý đã sửa (rê chuột để xem ai sửa)</span></div>
+</section>
+
+<div class="stats">
+  <div class="stat"><div class="k">Tổng NV</div><div class="v" id="st-total">0</div></div>
+  <div class="stat"><div class="k">Có order</div><div class="v" id="st-has">0</div></div>
+  <div class="stat"><div class="k">Chưa có</div><div class="v" id="st-hasnot" style="color:var(--off-ink)">0</div></div>
+  <div class="stat"><div class="k">Đi làm được</div><div class="v" id="st-ok" style="color:var(--ok-ink)">0</div></div>
+  <div class="stat"><div class="k">Nghỉ</div><div class="v" id="st-off">0</div></div>
+  <div class="stat"><div class="k">Chưa order</div><div class="v" id="st-none">0</div></div>
+  <div class="stat"><div class="k">Ô đã sửa</div><div class="v" id="st-manual">0</div></div>
+</div>
+
+<section class="card flush m-only" id="m-order">
+  <div class="mo-days" id="mo-days" role="group" aria-label="Chọn ngày"></div>
+  <div id="mo-list"></div>
+</section>
+
+<section class="card flush d-only">
+  <div class="grid-wrap">
+  <table class="table og" id="order-grid" aria-label="Bảng order tuần {{ week_label }}">
+    <thead>
+      <tr>
+        <th class="sticky c1">STT</th><th class="sticky c2">Mã NV</th><th class="sticky c3">Tên nhân viên</th><th class="sticky c4">Phân cấp</th>
+        {% for d in days %}{% for s in shifts %}
+        <th class="center col-h" data-d="{{ d.index }}" data-s="{{ s.name }}">{{ d.name }}<br>{{ d.date }}<br>{{ s.name }}</th>
+        {% endfor %}{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr class="og-row" data-rank="{{ row.emp.rank }}" data-search="{{ row.emp.code }} {{ row.emp.name }}" data-has="{{ 1 if row.has else 0 }}">
+        <td class="sticky c1 rownum">{{ loop.index }}</td>
+        <td class="sticky c2" style="font-weight:600">{{ row.emp.code }}</td>
+        <td class="sticky c3">{{ row.emp.name }}</td>
+        <td class="sticky c4">{{ row.emp.rank }}</td>
+        {% set ri = loop.index0 %}
+        {% for c in row.cells %}
+        <td class="oc {{ c.code }} {% if c.manual %}manual{% endif %}" data-e="{{ row.emp.id }}" data-d="{{ c.d }}" data-s="{{ c.s }}" data-st="{{ c.code }}" data-r="{{ ri }}" data-c="{{ loop.index0 }}" {% if c.note %}title="{{ c.note }}"{% endif %}></td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% if user.can('xoa_du_lieu_tuan') %}
+<dialog id="del-dialog" aria-labelledby="del-title">
+  <form method="post" action="/quan-ly/order/xoa-tuan/{{ week.id }}" class="stack">
+    <h2 id="del-title">Xóa toàn bộ order tuần {{ week_label }}?</h2>
+    <div style="color:var(--ink-2);line-height:1.5">Mọi order của tuần này (kể cả nhân viên tự gửi) sẽ bị xóa và không khôi phục được. Lịch đã xếp không bị ảnh hưởng.</div>
+    <div class="field"><label for="xac_nhan">Gõ <strong>XOA</strong> để xác nhận</label><input class="input" id="xac_nhan" name="xac_nhan" autocomplete="off" required></div>
+    <div class="toolbar" style="justify-content:flex-end">
+      <button class="btn secondary" type="button" onclick="this.closest('dialog').close()">Hủy</button>
+      <button class="btn" type="submit" style="background:#b91c1c">Xóa dữ liệu tuần</button>
+    </div>
+  </form>
+</dialog>
+{% endif %}
+
+<style>
+  .stats { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 12px; }
+  .stat { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; }
+  .stat .k { font-size: 12px; font-weight: 600; color: var(--muted); }
+  .stat .v { font-size: 24px; font-weight: 700; }
+  .grid-wrap { overflow: auto; max-height: calc(100vh - 160px); }
+  .og th, .og td { padding: 0; }
+  .og thead th { position: sticky; top: 0; z-index: 2; padding: 8px 6px; font-size: 12px; line-height: 1.35; border-left: 1px solid #2a4a9e; }
+  .og .sticky { position: sticky; background: #fff; z-index: 1; padding: 8px 10px; }
+  .og thead .sticky { z-index: 3; background: var(--header); }
+  .og .c1 { left: 0; width: 46px; min-width: 46px; }
+  .og .c2 { left: 46px; width: 76px; min-width: 76px; }
+  .og .c3 { left: 122px; width: 190px; min-width: 190px; }
+  .og .c4 { left: 312px; width: 90px; min-width: 90px; box-shadow: 2px 0 0 var(--line); }
+  .oc { min-width: 100px; height: 40px; text-align: center; font-size: 12px; font-weight: 600; cursor: pointer; user-select: none; position: relative; border-left: 1px solid #fff; }
+  .oc.ok { background: var(--ok-bg); color: var(--ok-ink); }
+  .oc.off { background: var(--off-bg); color: var(--off-ink); }
+  .oc.none { background: #eceef2; color: var(--muted); }
+  .oc.ok::before { content: "ĐI LÀM ĐƯỢC"; } .oc.off::before { content: "NGHỈ"; } .oc.none::before { content: "CHƯA ORDER"; }
+  .oc.manual::after { content: ""; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 4px; background: #dc2626; }
+  .oc.sel { box-shadow: inset 0 0 0 3px var(--primary); }
+  .og tr[hidden] { display: none; }
+  .og .hidecol { display: none; }
+</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const WEEK_ID = {{ week.id }};
+  const CAN_EDIT = {{ 'true' if can_edit else 'false' }};
+  const cells = Array.from(document.querySelectorAll('.oc'));
+  const byKey = new Map(cells.map((c) => [c.dataset.e + '|' + c.dataset.d + '|' + c.dataset.s, c]));
+  const selected = new Set();
+  const undoStack = [];
+  const visible = (c) => !c.closest('tr').hidden && !c.classList.contains('hidecol');
+
+  function stats() {
+    let ok = 0, off = 0, none = 0, manual = 0, has = 0, total = 0;
+    document.querySelectorAll('.og-row').forEach((row) => {
+      total++;
+      let rowHas = row.dataset.has === '1';
+      row.querySelectorAll('.oc').forEach((c) => {
+        const st = c.dataset.st;
+        if (st === 'ok') ok++; else if (st === 'off') off++; else none++;
+        if (st !== 'none') rowHas = true;
+        if (c.classList.contains('manual')) manual++;
+      });
+      if (rowHas) has++;
+    });
+    const set = (id, v) => { document.getElementById(id).textContent = v; };
+    set('st-total', total); set('st-has', has); set('st-hasnot', total - has);
+    set('st-ok', ok); set('st-off', off); set('st-none', none); set('st-manual', manual);
+  }
+
+  function paintSel() {
+    cells.forEach((c) => c.classList.toggle('sel', selected.has(c)));
+    const el = document.getElementById('sel-count'); if (el) el.textContent = selected.size;
+  }
+
+  function setCell(c, st, note) {
+    c.classList.remove('ok', 'off', 'none'); c.classList.add(st);
+    c.dataset.st = st; c.classList.add('manual');
+    if (note) c.title = note;
+  }
+
+  async function send(changes, remember) {
+    if (!changes.length) return;
+    const prev = changes.map((x) => ({ ...x, status: byKey.get(x.employee_id + '|' + x.weekday + '|' + x.shift).dataset.st }));
+    try {
+      const r = await postJSON('/quan-ly/order/sua', { week_id: WEEK_ID, cells: changes });
+      r.cells.forEach((x) => setCell(byKey.get(x.employee_id + '|' + x.weekday + '|' + x.shift), x.status, x.note));
+      if (remember) { undoStack.push(prev); document.getElementById('undo-btn').disabled = false; }
+      showSaved('Đã lưu ' + r.cells.length + ' ô · ' + r.saved_at);
+      stats();
+    } catch (e) { showSaved(e.message, true); }
+  }
+
+  function applyStatus(st) {
+    const changes = Array.from(selected).filter((c) => c.dataset.st !== st)
+      .map((c) => ({ employee_id: c.dataset.e, weekday: c.dataset.d, shift: c.dataset.s, status: st }));
+    if (!selected.size) { showSaved('Chưa chọn ô nào.', true); return; }
+    if (!changes.length) { showSaved('Các ô đã ở trạng thái này.'); return; }
+    send(changes, true);
+  }
+
+  if (CAN_EDIT) {
+    let dragging = false, anchor = null, base = new Set();
+    const rect = (a, b) => {
+      const r1 = Math.min(+a.dataset.r, +b.dataset.r), r2 = Math.max(+a.dataset.r, +b.dataset.r);
+      const c1 = Math.min(+a.dataset.c, +b.dataset.c), c2 = Math.max(+a.dataset.c, +b.dataset.c);
+      return cells.filter((c) => visible(c) && +c.dataset.r >= r1 && +c.dataset.r <= r2 && +c.dataset.c >= c1 && +c.dataset.c <= c2);
+    };
+    cells.forEach((c) => {
+      c.addEventListener('mousedown', (ev) => {
+        ev.preventDefault();
+        if (ev.metaKey || ev.ctrlKey) {
+          selected.has(c) ? selected.delete(c) : selected.add(c);
+          anchor = c; paintSel(); return;
+        }
+        if (ev.shiftKey && anchor) { base = new Set(selected); rect(anchor, c).forEach((x) => selected.add(x)); paintSel(); return; }
+        selected.clear(); selected.add(c); anchor = c; base = new Set(); dragging = true; paintSel();
+      });
+      c.addEventListener('mouseenter', () => {
+        if (!dragging) return;
+        selected.clear(); base.forEach((x) => selected.add(x)); rect(anchor, c).forEach((x) => selected.add(x)); paintSel();
+      });
+      c.addEventListener('dblclick', () => {
+        const next = { ok: 'off', off: 'none', none: 'ok' }[c.dataset.st];
+        send([{ employee_id: c.dataset.e, weekday: c.dataset.d, shift: c.dataset.s, status: next }], true);
+      });
+    });
+    document.addEventListener('mouseup', () => { dragging = false; });
+    document.querySelectorAll('.qb').forEach((b) => b.addEventListener('click', () => applyStatus(b.dataset.set)));
+    document.getElementById('clear-sel').addEventListener('click', () => { selected.clear(); paintSel(); });
+    document.getElementById('undo-btn').addEventListener('click', async () => {
+      const prev = undoStack.pop(); if (!prev) return;
+      await send(prev, false);
+      document.getElementById('undo-btn').disabled = undoStack.length === 0;
+    });
+    const del = document.getElementById('del-week');
+    if (del) del.addEventListener('click', () => document.getElementById('del-dialog').showModal());
+  }
+
+  // Bộ lọc
+  const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  const f = (id) => document.getElementById(id);
+  function applyFilters() {
+    const q = norm(f('f-search').value.trim()), rank = f('f-rank').value, hasF = f('f-has').value;
+    const day = f('f-day').value, shift = f('f-shift').value, st = f('f-status').value;
+    document.querySelectorAll('.col-h').forEach((th) => th.classList.toggle('hidecol', (day && th.dataset.d !== day) || (shift && th.dataset.s !== shift)));
+    cells.forEach((c) => c.classList.toggle('hidecol', (day && c.dataset.d !== day) || (shift && c.dataset.s !== shift)));
+    let n = 0;
+    document.querySelectorAll('.og-row').forEach((row) => {
+      let rowHas = row.dataset.has === '1' || Array.from(row.querySelectorAll('.oc')).some((c) => c.dataset.st !== 'none');
+      let show = (!q || norm(row.dataset.search).includes(q)) && (!rank || row.dataset.rank === rank) && (!hasF || String(+rowHas) === hasF);
+      if (show && st) show = Array.from(row.querySelectorAll('.oc')).some((c) => !c.classList.contains('hidecol') && c.dataset.st === st);
+      row.hidden = !show;
+      if (show) row.querySelector('.rownum').textContent = ++n;
+    });
+  }
+  ['f-search', 'f-rank', 'f-has', 'f-day', 'f-shift', 'f-status'].forEach((id) => f(id).addEventListener(id === 'f-search' ? 'input' : 'change', () => applyFilters()));
+  f('f-clear').addEventListener('click', () => { ['f-search', 'f-rank', 'f-has', 'f-day', 'f-shift', 'f-status'].forEach((id) => { f(id).value = ''; }); applyFilters(); });
+
+  // ---- Điện thoại: xem theo ngày, chạm một ca để đổi ----
+  const DAYS = [{% for d in days %}{i:{{ d.index }},n:"{{ d.name }}",d:"{{ d.date }}"}{% if not loop.last %},{% endif %}{% endfor %}];
+  const SHIFTS = [{% for s in shifts %}"{{ s.name }}"{% if not loop.last %},{% endif %}{% endfor %}];
+  const LAB = { ok: 'Đi làm được', off: 'Nghỉ', none: 'Chưa order' };
+  let curDay = DAYS.length ? DAYS[0].i : 0;
+  const esc = (t) => String(t).replace(/[&<>"]/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[m]));
+  function renderM() {
+    const box = document.getElementById('mo-list'); if (!box) return;
+    document.getElementById('mo-days').innerHTML = DAYS.map((d) => '<button type="button" class="mo-day ' + (d.i === curDay ? 'on' : '') + '" data-day="' + d.i + '"><b>' +
+      esc(d.n.replace('Thứ ', 'T').replace('Chủ nhật', 'CN')) + '</b><span>' + esc(d.d) + '</span></button>').join('');
+    let h = '';
+    document.querySelectorAll('.og-row').forEach((row) => {
+      if (row.hidden) return;
+      const tds = row.querySelectorAll('.oc'); if (!tds.length) return;
+      const e = tds[0].dataset.e;
+      h += '<div class="mo-row"><div class="who"><strong>' + esc(row.children[2].textContent) + '</strong><span>' + esc(row.children[1].textContent) + ' · ' + esc(row.dataset.rank) + '</span></div><div class="mo-chips">';
+      SHIFTS.forEach((sn) => {
+        const c = byKey.get(e + '|' + curDay + '|' + sn); if (!c) return;
+        h += '<button type="button" class="mo-chip ' + c.dataset.st + '" data-e="' + e + '" data-s="' + esc(sn) + '">' + esc(sn) + '<small>' + LAB[c.dataset.st] + '</small>' + (c.classList.contains('manual') ? '<i></i>' : '') + '</button>';
+      });
+      h += '</div></div>';
+    });
+    box.innerHTML = h || '<div style="padding:16px;color:var(--muted)">Không có nhân viên phù hợp bộ lọc.</div>';
+  }
+  function openSheet(e, sn, name) {
+    const c = byKey.get(e + '|' + curDay + '|' + sn); const wd = DAYS.find((d) => d.i === curDay);
+    const bg = document.createElement('div'); bg.className = 'mo-sheet-bg';
+    bg.innerHTML = '<div class="mo-sheet" role="dialog"><div class="t">' + esc(name + ' · Ca ' + sn + ' · ' + wd.n + ' ' + wd.d) + '</div>' +
+      ['ok', 'off', 'none'].map((k) => '<button type="button" class="' + k + (c.dataset.st === k ? ' cur' : '') + '" data-k="' + k + '">' + LAB[k] + '</button>').join('') +
+      '<button type="button" data-k="">Đóng</button></div>';
+    bg.addEventListener('click', (ev) => {
+      const b = ev.target.closest('button');
+      if (ev.target === bg || (b && b.dataset.k === '')) { bg.remove(); return; }
+      if (!b) return;
+      bg.remove();
+      if (b.dataset.k !== c.dataset.st) send([{ employee_id: e, weekday: String(curDay), shift: sn, status: b.dataset.k }], false);
+    });
+    document.body.appendChild(bg);
+  }
+  const mo = document.getElementById('m-order');
+  if (mo) mo.addEventListener('click', (ev) => {
+    const d = ev.target.closest('.mo-day');
+    if (d) { curDay = +d.dataset.day; renderM(); return; }
+    const ch = ev.target.closest('.mo-chip');
+    if (ch && CAN_EDIT) openSheet(ch.dataset.e, ch.dataset.s, ch.closest('.mo-row').querySelector('strong').textContent);
+  });
+  const _stats = stats; stats = function () { _stats(); renderM(); };
+  const _af = applyFilters; applyFilters = function () { _af(); renderM(); };
+  stats();
+});
+</script>
+{% endblock %}

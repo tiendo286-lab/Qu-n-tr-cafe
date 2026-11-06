@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="vi">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Quản trị lịch làm{% endblock %} · Lịch làm</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Be+Vietnam+Pro:wght@400;500;600;700&display=swap">
+<link rel="stylesheet" href="/static/style.css?v={{ asset_v('style.css') }}">
+<script src="/static/app.js?v={{ asset_v('app.js') }}" defer></script>
+</head>
+<body>
+{% if user and user.is_manager_view %}
+<div class="layout">
+  <nav class="sidebar" aria-label="Menu">
+    <div class="brand">Quản trị lịch làm</div>
+    <div class="who">{{ user.code }} – {{ user.name }} · {{ ROLE_LABELS[user.role] }}</div>
+    <details class="navd" open>
+    <summary>☰ Menu</summary>
+    <div class="nav">
+      <a class="item {% if request.url.path == '/' %}active{% endif %}" href="/">Trang chủ</a>
+      {% for g in menu %}
+        <div class="group">{{ g.name }}</div>
+        {% for it in g['items'] %}
+          <a class="item {% if it.active %}active{% endif %} {% if not it.ready %}notready{% endif %}" href="{{ it.href }}">
+            <span>{{ it.label }}{% if it.href == '/thong-bao' and unread %} <span class="badge">{{ unread }}</span>{% endif %}{% if it.href == '/quan-ly/canh-bao' and warn_total %} <span class="badge">{{ warn_total }}</span>{% endif %}</span>{% if not it.ready %}<span class="soon">sắp có</span>{% endif %}
+          </a>
+        {% endfor %}
+      {% endfor %}
+    </div>
+    <div class="bottom">
+      <a href="/doi-mat-khau">Đổi mật khẩu</a>
+      <form method="post" action="/dang-xuat"><button type="submit">Đăng xuất</button></form>
+    </div>
+    </details>
+  </nav>
+  <script>(function(){var d=document.querySelector('details.navd');if(d&&window.matchMedia('(max-width: 900px)').matches)d.open=false;})();</script>
+  <main class="main">
+    {% if flash %}<div class="alert {{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
+    {% block content %}{% endblock %}
+  </main>
+</div>
+{% elif user %}
+<div class="mobile">
+  {% block mheader %}
+  <header class="appbar">
+    <div class="row">
+      <div>
+        <div class="t1">{{ user.code }} – {{ user.name }}</div>
+        <div class="t2">{% block apptitle %}Lịch làm{% endblock %}</div>
+      </div>
+      <a class="bell" href="/thong-bao" aria-label="Thông báo{% if unread %}, {{ unread }} chưa đọc{% endif %}">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
+        {% if unread %}<span class="bell-n">{{ unread }}</span>{% endif %}
+      </a>
+    </div>
+    {% block apptabs %}{% endblock %}
+  </header>
+  {% endblock %}
+  <div class="content">
+    {% if flash %}<div class="alert {{ flash.kind }}" role="status">{{ flash.message }}</div>{% endif %}
+    {% block mobile %}{% endblock %}
+    <div class="m-foot"><a href="/doi-mat-khau">Đổi mật khẩu</a>
+      <form method="post" action="/dang-xuat"><button type="submit">Đăng xuất</button></form></div>
+  </div>
+  <nav class="tabbar" aria-label="Menu nhân viên">
+    <a class="{{ 'on' if request.url.path == '/order' }}" href="/order">Order ca</a>
+    <a class="{{ 'on' if request.url.path.startswith('/lich') }}" href="/lich">Lịch làm</a>
+  </nav>
+</div>
+{% else %}
+<div class="auth">
+  <div class="auth-hero">
+    <div class="logo" aria-hidden="true">
+      <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3M8 18h6"/></svg>
+    </div>
+    <div class="name">Quản trị lịch làm</div>
+    <div class="tag">Milano Coffee · Lela Cafe</div>
+  </div>
+  {% block auth %}{% endblock %}
+</div>
+{% endif %}
+<script>
+/* Điện thoại: bảng đơn giản → thẻ (chỉ có tác dụng ở màn hình hẹp, nhờ CSS) */
+document.querySelectorAll('.table-wrap > table.table:not(.og):not(.rt-fx)').forEach((t) => {
+  const heads = Array.from(t.querySelectorAll('thead tr:last-child th')).map((h) => h.textContent.trim());
+  if (!heads.length) return;
+  t.classList.add('rt');
+  t.querySelectorAll('tbody tr').forEach((tr) => {
+    Array.from(tr.children).forEach((c, i) => { if (c.tagName === 'TD' && !c.hasAttribute('data-label')) c.setAttribute('data-label', heads[i] || ''); });
+  });
+});
+</script>
+</body>
+</html>

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+{% block title %}Order lịch làm{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Order lịch làm</h1><div class="sub">Tuần {{ week_label }}</div></div></div>
+<section class="card toolbar" style="padding:14px 18px">
+  <strong style="font-size:14px;color:var(--primary-dark)">Tuần làm việc</strong>
+  <a class="btn sm secondary" href="/quan-ly/order?tuan={{ prev_w }}" style="min-height:40px">‹ Tuần trước</a>
+  <div style="font-weight:700;padding:0 6px">{{ week_label }}</div>
+  <a class="btn sm secondary" href="/quan-ly/order?tuan={{ next_w }}" style="min-height:40px">Tuần sau ›</a>
+  <form method="get" action="/quan-ly/order" class="toolbar" style="gap:8px;margin-left:auto">
+    <input class="input sm" type="date" name="tuan" value="{{ start }}" aria-label="Chọn ngày trong tuần" required>
+    <button class="btn sm" type="submit" style="min-height:40px">Chọn tuần</button>
+  </form>
+</section>
+<section class="card stack" style="max-width:640px">
+  <h2>Tuần {{ week_label }} chưa được tạo</h2>
+  <div style="color:var(--ink-2);line-height:1.6">Khi tạo tuần, cả {{ n_emp }} nhân viên đang làm sẽ ở trạng thái <strong>Chưa order</strong>. Nhân viên chỉ order được sau khi tuần đã được tạo và trong giờ mở order.</div>
+  {% if can_create %}
+  <form method="post" action="/quan-ly/order/tao-tuan">
+    <input type="hidden" name="tuan" value="{{ start }}">
+    <button class="btn" type="submit">Tạo tuần mới</button>
+  </form>
+  {% else %}
+  <div class="alert warn">Chỉ người có quyền xếp lịch mới tạo được tuần mới.</div>
+  {% endif %}
+</section>
+{% endblock %}

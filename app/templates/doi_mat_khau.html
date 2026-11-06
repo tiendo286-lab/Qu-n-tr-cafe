@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Đổi mật khẩu{% endblock %}
+{% macro form_body() %}
+  {% if user.must_change %}
+  <div class="alert warn">Bạn đang dùng mật khẩu tạm do quản lý cấp. Hãy đặt mật khẩu riêng trước khi tiếp tục.</div>
+  {% endif %}
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+  <form class="stack" method="post" action="/doi-mat-khau">
+    {% if not user.must_change %}
+    <div class="field">
+      <label for="cu">Mật khẩu hiện tại</label>
+      <input class="input" id="cu" name="mat_khau_cu" type="password" autocomplete="current-password" required>
+    </div>
+    {% endif %}
+    <div class="field">
+      <label for="moi">Mật khẩu mới</label>
+      <input class="input" id="moi" name="mat_khau_moi" type="password" autocomplete="new-password" minlength="6" required>
+      <div class="hint">Tối thiểu 6 ký tự.</div>
+    </div>
+    <div class="field">
+      <label for="lai">Nhập lại mật khẩu mới</label>
+      <input class="input" id="lai" name="nhap_lai" type="password" autocomplete="new-password" minlength="6" required>
+    </div>
+    <button class="btn" type="submit">Lưu mật khẩu</button>
+  </form>
+{% endmacro %}
+{% block apptitle %}Đổi mật khẩu{% endblock %}
+{% block mobile %}<div class="card stack">{{ form_body() }}</div>{% endblock %}
+{% block content %}
+<div class="page-head"><h1>Đổi mật khẩu</h1></div>
+<div class="card stack" style="max-width:460px">{{ form_body() }}</div>
+{% endblock %}

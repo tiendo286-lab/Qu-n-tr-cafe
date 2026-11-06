@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Phân quyền{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Phân quyền</h1>
+    <div class="sub">Chỉ Chủ vào được. Quyền áp dụng theo vai trò; mỗi thay đổi được lưu ngay.</div>
+  </div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+<section class="card flush">
+  <div class="card-head"><h2>Quyền theo vai trò</h2></div>
+  <div class="table-wrap">
+  <table class="table" aria-label="Quyền theo vai trò">
+    <thead class="dark">
+      <tr><th scope="col">Chức năng</th><th scope="col" class="center">Chủ</th><th scope="col" class="center">Quản lý tổng</th><th scope="col" class="center">Quản lý</th><th scope="col" class="center">Nhân viên</th></tr>
+    </thead>
+    <tbody>
+      {% for r in matrix %}
+      <tr>
+        <th scope="row" style="background:none;font-weight:500;color:var(--ink)">{{ r.label }}</th>
+        <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
+        {% for c in r.cells %}
+        <td class="center">
+          {% if c.kind == 'box' %}
+            <input type="checkbox" class="check perm-box" data-role="{{ c.role }}" data-perm="{{ r.key }}" {% if c.on %}checked{% endif %} aria-label="{{ r.label }} – {{ ROLE_LABELS[c.role] }}">
+          {% elif c.kind == 'always' %}<span style="color:var(--muted);font-size:13px">Luôn có</span>
+          {% else %}<span style="color:#8a93a3">—</span>{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+      {% endfor %}
+      {% for key, label in owner_only %}
+      <tr class="locked">
+        <th scope="row" style="background:#f7f8fb;font-weight:500;color:var(--ink)">{{ label }}</th>
+        <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
+        <td class="center" colspan="3" style="color:var(--muted);font-size:13px">Chỉ Chủ — không cấp được cho vai trò khác</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card flush">
+  <div class="card-head">
+    <h2>Người dùng</h2>
+    <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px"><input type="checkbox" id="show-stopped" class="check"> Hiện cả người ngừng làm</label>
+      <input class="input sm" id="user-search" type="search" placeholder="Tìm mã hoặc tên" aria-label="Tìm người dùng" style="width:240px">
+    </div>
+  </div>
+  <div class="table-wrap">
+  <table class="table" aria-label="Người dùng">
+    <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Vai trò hệ thống</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+      {% for u in users %}
+      {% set stopped = u.status and u.status != 'Đang làm' %}
+      <tr class="user-row {% if stopped %}muted stopped{% endif %}" data-search="{{ u.code or u.login_name }} {{ u.name or 'Chủ' }}" {% if stopped %}hidden{% endif %}>
+        <td style="font-weight:600">{{ u.code or u.login_name }}</td>
+        <td>{{ u.name or 'Chủ' }}</td>
+        <td>{{ u.rank or '—' }}</td>
+        <td>
+          {% if u.system_role == 'chu' %}<span style="font-weight:600;color:var(--primary-dark)">Chủ (cố định)</span>
+          {% else %}
+          <select class="input sm role-select" data-account="{{ u.id }}" aria-label="Vai trò của {{ u.name }}" style="width:180px">
+            {% for value, label in role_choices %}<option value="{{ value }}" {% if value == u.system_role %}selected{% endif %}>{{ label }}</option>{% endfor %}
+          </select>
+          {% endif %}
+        </td>
+        <td>{% if u.system_role == 'chu' %}<span class="pill ok">Đang dùng</span>{% elif stopped %}<span class="pill mute">Ngừng làm</span>{% else %}<span class="pill ok">Đang làm</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.perm-box').forEach((box) => {
+    box.addEventListener('change', async () => {
+      try {
+        const r = await postJSON('/quan-ly/phan-quyen/quyen', { role: box.dataset.role, perm: box.dataset.perm, allowed: box.checked });
+        showSaved('Đã lưu · ' + r.saved_at);
+      } catch (e) { box.checked = !box.checked; showSaved(e.message, true); }
+    });
+  });
+  document.querySelectorAll('.role-select').forEach((sel) => {
+    let prev = sel.value;
+    sel.addEventListener('change', async () => {
+      try {
+        const r = await postJSON('/quan-ly/phan-quyen/vai-tro', { account_id: sel.dataset.account, role: sel.value });
+        prev = sel.value; showSaved('Đã lưu · ' + r.saved_at);
+      } catch (e) { sel.value = prev; showSaved(e.message, true); }
+    });
+  });
+  const stopped = document.getElementById('show-stopped');
+  const search = document.getElementById('user-search');
+  const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  function apply() {
+    const q = norm(search.value.trim());
+    document.querySelectorAll('.user-row').forEach((row) => {
+      const hideStopped = row.classList.contains('stopped') && !stopped.checked;
+      row.hidden = hideStopped || (q && !norm(row.dataset.search).includes(q));
+    });
+  }
+  stopped.addEventListener('change', apply);
+  search.addEventListener('input', apply);
+});
+</script>
+{% endblock %}

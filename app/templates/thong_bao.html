@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Thông báo{% endblock %}
+{% macro body() %}
+{% if not items %}<div class="card">Chưa có thông báo nào.</div>{% endif %}
+{% for n in items %}
+<article class="card ntf">
+  <div class="ico" style="background:{{ n.bg }};color:{{ n.fg }}" aria-hidden="true">{{ n.icon }}</div>
+  <div class="ntf-body">
+    <div class="n-head"><div class="ttl">{{ n.title }}</div>{% if n.unread %}<span class="dot-unread" aria-label="Chưa đọc"></span>{% endif %}</div>
+    {% for l in n.lines %}<div class="n-line">{{ l }}</div>{% endfor %}
+    <div class="when">{{ n.when }}{% if n.link %} · <a href="{{ n.link }}">Xem</a>{% endif %}</div>
+  </div>
+</article>
+{% endfor %}
+<div class="det" style="text-align:center;padding-top:4px">Thông báo tự xóa sau 60 ngày.</div>
+{% endmacro %}
+{% block mheader %}
+<header class="appbar back">
+  <a class="back-a" href="/order" aria-label="Quay lại"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"></path></svg></a>
+  <div class="t2" style="flex-grow:1">Thông báo</div>
+  <div class="t1" style="padding-right:12px">{% if n_unread %}{{ n_unread }} chưa đọc{% endif %}</div>
+</header>
+{% endblock %}
+{% block mobile %}{{ body() }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Thông báo</h1><div class="sub">{% if n_unread %}{{ n_unread }} chưa đọc · {% endif %}Thông báo cũ hơn 60 ngày tự xóa.</div></div></div>
+<div class="stack" style="max-width:640px;gap:12px">{{ body() }}</div>
+{% endblock %}

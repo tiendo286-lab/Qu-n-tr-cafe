@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block apptitle %}{{ title }}{% endblock %}
+{% block mobile %}<div class="card">{{ message }} <a href="/">Về trang chủ</a></div>{% endblock %}
+{% block content %}
+<div class="page-head"><h1>{{ title }}</h1></div>
+<div class="card">{{ message }} <a href="/">Về trang chủ</a></div>
+{% endblock %}
+{% block auth %}<div class="card">{{ message }} <a href="/dang-nhap">Đăng nhập</a></div>{% endblock %}

@@ -1,0 +1,159 @@
+{% extends "base.html" %}
+{% block title %}Nhân viên{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Nhân viên</h1>
+    <div class="sub">Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.</div>
+  </div>
+  <div class="toolbar">
+    <div id="saved-indicator" class="saved" role="status" hidden></div>
+    <a class="btn" href="/quan-ly/nhan-vien/them">+ Thêm nhân viên</a>
+  </div>
+</div>
+
+{% set n_all = employees | length %}
+{% set n_on = employees | selectattr('status','equalto','Đang làm') | list | length %}
+<div class="emp-stats" aria-label="Thống kê nhân viên">
+  <div class="es" style="--ac:#1e3a8a"><div class="n">{{ n_all }}</div><div class="l">Tổng NV</div></div>
+  <div class="es" style="--ac:#16a34a"><div class="n" style="color:var(--ok-ink)">{{ n_on }}</div><div class="l">Đang làm</div></div>
+  <div class="es" style="--ac:#9ca3af"><div class="n" style="color:var(--muted)">{{ n_all - n_on }}</div><div class="l">Ngừng làm</div></div>
+  {% for r in ['Quản lý', 'Cấp 2', 'Cấp 1', 'Thử việc'] %}
+  <div class="es" style="--ac:{{ {'Quản lý':'#7c3aed','Cấp 2':'#0ea5e9','Cấp 1':'#f59e0b','Thử việc':'#94a3b8'}[r] }}"><div class="n">{{ employees | selectattr('rank','equalto',r) | list | length }}</div><div class="l">{{ r }}</div></div>
+  {% endfor %}
+</div>
+
+<section class="card flush">
+  <div class="card-head">
+    <div class="toolbar" style="font-size:14px">
+      <span class="pill off">Chưa có mật khẩu: {{ employees | selectattr('status','equalto','Đang làm') | selectattr('state','equalto','chua_co') | list | length }}</span>
+      <span class="pill warn">Mật khẩu tạm: {{ employees | selectattr('status','equalto','Đang làm') | selectattr('state','equalto','tam') | list | length }}</span>
+      <span class="pill ok">Đã đặt mật khẩu: {{ employees | selectattr('status','equalto','Đang làm') | selectattr('state','equalto','da_dat') | list | length }}</span>
+    </div>
+    <div class="toolbar">
+      <label style="display:flex;align-items:center;gap:6px;font-size:14px"><input type="checkbox" id="show-stopped" class="check"> Hiện cả người ngừng làm</label>
+      <input class="input sm" id="emp-search" type="search" placeholder="Tìm mã hoặc tên" aria-label="Tìm nhân viên" style="width:240px">
+    </div>
+  </div>
+  <div class="emp-filters">
+    <select class="input sm" id="ef-rank" aria-label="Lọc cấp bậc"><option value="">Tất cả cấp bậc</option>{% for r in RANKS | reverse %}<option>{{ r }}</option>{% endfor %}</select>
+    <select class="input sm" id="ef-branch" aria-label="Lọc chi nhánh"><option value="">Tất cả chi nhánh</option></select>
+    <select class="input sm" id="ef-role" aria-label="Lọc vai trò"><option value="">Tất cả vai trò</option></select>
+    <select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option><option value="chua_co">Chưa có mật khẩu</option><option value="tam">Mật khẩu tạm</option><option value="da_dat">Đã đặt mật khẩu</option></select>
+    <button class="btn sm secondary" type="button" id="ef-clear">Xóa lọc</button>
+    <span class="ef-count" id="ef-count" role="status"></span>
+  </div>
+  <div class="table-wrap">
+  <table class="table fit" aria-label="Danh sách nhân viên">
+    <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th><th>Email</th><th>Số điện thoại</th><th>Tài khoản</th><th></th></tr></thead>
+    <tbody>
+      {% for e in employees %}
+      {% set stopped = e.status != 'Đang làm' %}
+      <tr class="emp-row {% if stopped %}muted stopped{% endif %}" data-search="{{ e.code }} {{ e.name }}" data-rank="{{ e.rank }}" data-branches="{{ e.branch_codes or '' }}" data-roles="{{ e.work_roles or '' }}" data-state="{{ e.state }}" {% if stopped %}hidden{% endif %}>
+        <td style="font-weight:600">{{ e.code }}</td>
+        <td><a class="emp-name" href="/quan-ly/nhan-vien/{{ e.id }}"><span class="av">{{ e.name.strip()[:1] | upper }}</span>{{ e.name }}</a></td>
+        <td>
+          {% if stopped %}{{ e.rank }}{% else %}
+          <select class="input sm rank-select" data-id="{{ e.id }}" aria-label="Cấp bậc của {{ e.name }}" style="width:120px">
+            {% for r in RANKS %}<option {% if r == e.rank %}selected{% endif %}>{{ r }}</option>{% endfor %}
+          </select>{% endif %}
+        </td>
+        <td data-label="Chi nhánh">{% if e.branch_codes %}{% for x in e.branch_codes.split(', ') %}<span class="chip">{{ x }}</span>{% endfor %}{% else %}—{% endif %}</td>
+        <td data-label="Vai trò làm việc">{% if e.work_roles %}{% for x in e.work_roles.split(', ') %}<span class="chip role">{{ x }}</span>{% endfor %}{% else %}—{% endif %}</td>
+        <td>{{ e.email or '—' }}</td>
+        <td>{{ e.phone or '—' }}</td>
+        <td class="state-cell">
+          {% if stopped %}<span class="pill mute">Đã khóa</span>
+          {% elif e.state == 'chua_co' %}<span class="pill mute">Chưa có mật khẩu</span>
+          {% elif e.state == 'tam' %}<span class="pill warn">Mật khẩu tạm</span>
+          {% else %}<span class="pill ok">Đã đặt</span>{% endif %}
+        </td>
+        <td>{% if not stopped %}<button type="button" class="btn sm secondary issue-btn" data-id="{{ e.id }}" data-name="{{ e.code }} – {{ e.name }}">Cấp MK tạm</button>{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<dialog id="temp-dialog" aria-labelledby="temp-title">
+  <h2 id="temp-title">Mật khẩu tạm</h2>
+  <div id="temp-who" style="margin-top:6px;color:var(--ink-2)"></div>
+  <div class="temp-pass" id="temp-value"></div>
+  <div style="font-size:14px;color:var(--muted);line-height:1.5">Đưa tận tay cho nhân viên. Mật khẩu này chỉ hiện <strong>một lần</strong>; lần đầu đăng nhập nhân viên phải đổi mật khẩu.</div>
+  <form method="dialog" style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn" type="submit">Đã ghi lại</button></form>
+</dialog>
+
+<dialog id="confirm-dialog" aria-labelledby="confirm-title">
+  <h2 id="confirm-title">Cấp mật khẩu tạm?</h2>
+  <div id="confirm-who" style="margin:10px 0;color:var(--ink-2);line-height:1.5"></div>
+  <div style="display:flex;gap:10px;justify-content:flex-end">
+    <button class="btn secondary" type="button" id="confirm-no">Hủy</button>
+    <button class="btn" type="button" id="confirm-yes">Cấp mật khẩu</button>
+  </div>
+</dialog>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  const confirmDlg = document.getElementById('confirm-dialog');
+  const tempDlg = document.getElementById('temp-dialog');
+  let pending = null;
+  document.querySelectorAll('.issue-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      pending = btn;
+      document.getElementById('confirm-who').textContent =
+        btn.dataset.name + ': mật khẩu cũ (nếu có) sẽ không dùng được nữa và nhân viên bị đăng xuất khỏi mọi thiết bị.';
+      confirmDlg.showModal();
+    });
+  });
+  document.getElementById('confirm-no').addEventListener('click', () => confirmDlg.close());
+  document.getElementById('confirm-yes').addEventListener('click', async () => {
+    confirmDlg.close();
+    const btn = pending; if (!btn) return;
+    try {
+      const r = await postJSON('/quan-ly/nhan-vien/' + btn.dataset.id + '/mat-khau-tam');
+      document.getElementById('temp-who').textContent = btn.dataset.name;
+      document.getElementById('temp-value').textContent = r.password;
+      btn.closest('tr').querySelector('.state-cell').innerHTML = '<span class="pill warn">Mật khẩu tạm</span>';
+      tempDlg.showModal();
+    } catch (e) { showSaved(e.message, true); }
+  });
+  document.querySelectorAll('.rank-select').forEach((sel) => {
+    let last = sel.value;
+    sel.addEventListener('change', async () => {
+      try {
+        const r = await postJSON('/quan-ly/nhan-vien/' + sel.dataset.id + '/cap-bac', { rank: sel.value });
+        last = sel.value; showSaved('Đã lưu · ' + r.saved_at);
+      } catch (e) { sel.value = last; showSaved(e.message, true); }
+    });
+  });
+  const stopped = document.getElementById('show-stopped');
+  const search = document.getElementById('emp-search');
+  const norm = (s) => s.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase();
+  const rows = Array.from(document.querySelectorAll('.emp-row'));
+  const fill = (id, key) => {
+    const set = new Set(); rows.forEach((r) => (r.dataset[key] || '').split(', ').forEach((x) => { if (x) set.add(x); }));
+    const sel = document.getElementById(id); Array.from(set).sort((a, b) => a.localeCompare(b, 'vi')).forEach((x) => sel.add(new Option(x, x)));
+  };
+  fill('ef-branch', 'branches'); fill('ef-role', 'roles');
+  const F = { rank: document.getElementById('ef-rank'), branch: document.getElementById('ef-branch'), role: document.getElementById('ef-role'), state: document.getElementById('ef-state') };
+  function apply() {
+    const q = norm(search.value.trim()); let shown = 0;
+    rows.forEach((row) => {
+      const d = row.dataset;
+      const hideStopped = row.classList.contains('stopped') && !stopped.checked;
+      const ok = !hideStopped && (!q || norm(d.search).includes(q)) && (!F.rank.value || d.rank === F.rank.value)
+        && (!F.branch.value || d.branches.split(', ').includes(F.branch.value)) && (!F.role.value || d.roles.split(', ').includes(F.role.value))
+        && (!F.state.value || (d.state === F.state.value && !row.classList.contains('stopped')));
+      row.hidden = !ok; if (ok) shown++;
+    });
+    document.getElementById('ef-count').textContent = 'Đang hiện ' + shown + '/' + rows.length + ' nhân viên';
+  }
+  Object.values(F).forEach((el) => el.addEventListener('change', apply));
+  document.getElementById('ef-clear').addEventListener('click', () => { Object.values(F).forEach((el) => { el.value = ''; }); search.value = ''; stopped.checked = false; apply(); });
+  stopped.addEventListener('change', apply);
+  search.addEventListener('input', apply);
+  apply();
+});
+</script>
+{% endblock %}

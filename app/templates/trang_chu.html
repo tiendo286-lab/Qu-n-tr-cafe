@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Trang chủ{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Xin chào, {{ user.name }}</h1><div class="sub">Vai trò: {{ ROLE_LABELS[user.role] }}</div></div>
+</div>
+<div class="card stack">
+  <h2>Bản thử nghiệm – bước 5</h2>
+  <div>Đã có: tài khoản & phân quyền, danh mục, order ca, xếp lịch cơ sở, chốt tuần, cảnh báo, lịch của nhân viên, thông báo.</div>
+  <div class="toolbar">
+    {% if user.can('xem_tat_ca') %}<a class="btn sm" href="/quan-ly/order">Theo dõi order</a>{% endif %}
+    {% if user.can('order_ca') and user.employee_id %}<a class="btn sm secondary" href="/order">Order ca của tôi</a>{% endif %}
+  </div>
+  
+</div>
+{% endblock %}
+{% block apptitle %}Lịch làm{% endblock %}
+{% block mobile %}
+<div class="card stack">
+  <h2>Xin chào, {{ user.name }}</h2>
+  <div>Dùng thanh bên dưới để vào <strong>Order ca</strong>, <strong>Lịch làm</strong> và <strong>Thông báo</strong>.</div>
+  <a href="/doi-mat-khau">Đổi mật khẩu</a>
+</div>
+{% endblock %}

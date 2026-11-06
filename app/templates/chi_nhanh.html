@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block title %}Chi nhánh, ca & vai trò{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Chi nhánh, ca & vai trò</h1>
+    <div class="sub">Sửa trực tiếp trong bảng, mỗi thay đổi được lưu ngay. Không xóa: chuyển trạng thái “Ngừng” để giữ lịch sử.</div>
+  </div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+<section class="card flush">
+  <div class="card-head"><h2>Chi nhánh</h2></div>
+  <div class="table-wrap">
+  <table class="table" aria-label="Chi nhánh">
+    <thead><tr><th>Mã</th><th>Tên chi nhánh</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+    {% for b in branches %}
+      <tr class="autosave" data-url="/quan-ly/chi-nhanh/{{ b.id }}">
+        <td><input class="input sm" data-f="code" value="{{ b.code }}" maxlength="10" aria-label="Mã chi nhánh" style="width:90px"></td>
+        <td><input class="input sm" data-f="name" value="{{ b.name }}" maxlength="80" aria-label="Tên chi nhánh" style="width:320px"></td>
+        <td><select class="input sm" data-f="status" aria-label="Trạng thái chi nhánh">
+          {% for st in [BRANCH_ACTIVE, BRANCH_STOPPED] %}<option {% if st == b.status %}selected{% endif %}>{{ st }}</option>{% endfor %}
+        </select></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form class="toolbar" method="post" action="/quan-ly/chi-nhanh/them" style="padding:14px 20px;border-top:1px solid var(--line-soft)">
+    <strong style="font-size:14px">Thêm chi nhánh</strong>
+    <input class="input sm" name="code" placeholder="Mã, vd: TT" maxlength="10" required aria-label="Mã chi nhánh mới" style="width:120px">
+    <input class="input sm" name="name" placeholder="Tên chi nhánh" maxlength="80" required aria-label="Tên chi nhánh mới" style="width:280px">
+    <button class="btn sm" type="submit">Thêm</button>
+  </form>
+</section>
+
+<section class="card flush">
+  <div class="card-head">
+    <h2>Ca làm việc & giờ ca theo chi nhánh</h2>
+    <div style="font-size:13px;color:var(--muted)">Tick = chi nhánh có ca đó. Mỗi chi nhánh một bộ giờ cho cả tuần.</div>
+  </div>
+  <div class="table-wrap">
+  <table class="table" aria-label="Ca làm việc">
+    <thead>
+      <tr><th>Tên ca</th><th>Mã</th><th>Trạng thái</th>
+        {% for b in branches %}<th>{{ b.code }}</th>{% endfor %}
+      </tr>
+    </thead>
+    <tbody>
+    {% for s in shifts %}
+      <tr>
+        <td class="autosave-cell" data-url="/quan-ly/ca/{{ s.id }}" data-group="shift-{{ s.id }}"><input class="input sm" data-f="name" value="{{ s.name }}" maxlength="30" aria-label="Tên ca" style="width:100px"></td>
+        <td class="autosave-cell" data-url="/quan-ly/ca/{{ s.id }}" data-group="shift-{{ s.id }}"><input class="input sm" data-f="code" value="{{ s.code }}" maxlength="5" aria-label="Mã ca" style="width:60px"></td>
+        <td class="autosave-cell" data-url="/quan-ly/ca/{{ s.id }}" data-group="shift-{{ s.id }}"><select class="input sm" data-f="status" aria-label="Trạng thái ca">
+          {% for st in [IN_USE, NOT_IN_USE] %}<option {% if st == s.status %}selected{% endif %}>{{ st }}</option>{% endfor %}
+        </select></td>
+        {% for b in branches %}{% set cfg = bs.get((b.id, s.id)) %}
+        <td class="autosave-cell" data-url="/quan-ly/gio-ca" data-group="bs-{{ b.id }}-{{ s.id }}" data-extra='{"branch_id": {{ b.id }}, "shift_id": {{ s.id }}}'>
+          <div style="display:flex;align-items:center;gap:6px">
+            <input type="checkbox" class="check" data-f="enabled" {% if cfg and cfg.enabled %}checked{% endif %} aria-label="{{ b.code }} có ca {{ s.name }}">
+            <input class="input sm" type="text" inputmode="numeric" maxlength="5" placeholder="06:30" data-f="start_time" value="{{ cfg.start_time if cfg and cfg.start_time else '' }}" aria-label="{{ b.code }} {{ s.name }} bắt đầu" style="width:68px;text-align:center">
+            <span>–</span>
+            <input class="input sm" type="text" inputmode="numeric" maxlength="5" placeholder="12:00" data-f="end_time" value="{{ cfg.end_time if cfg and cfg.end_time else '' }}" aria-label="{{ b.code }} {{ s.name }} kết thúc" style="width:68px;text-align:center">
+          </div>
+        </td>
+        {% endfor %}
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form class="toolbar" method="post" action="/quan-ly/ca/them" style="padding:14px 20px;border-top:1px solid var(--line-soft)">
+    <strong style="font-size:14px">Thêm ca</strong>
+    <input class="input sm" name="name" placeholder="Tên ca, vd: Đêm" maxlength="30" required aria-label="Tên ca mới" style="width:160px">
+    <input class="input sm" name="code" placeholder="Mã, vd: Đ" maxlength="5" required aria-label="Mã ca mới" style="width:100px">
+    <button class="btn sm" type="submit">Thêm</button>
+    <span style="font-size:13px;color:var(--muted)">Thêm ca thì lưới order của nhân viên có thêm 7 ô.</span>
+  </form>
+</section>
+
+<section class="card flush">
+  <div class="card-head"><h2>Vai trò làm việc</h2></div>
+  <div class="table-wrap">
+  <table class="table" aria-label="Vai trò làm việc">
+    <thead><tr><th>Tên vai trò</th><th>Viết tắt</th><th>Trạng thái</th></tr></thead>
+    <tbody>
+    {% for r in roles %}
+      <tr class="autosave" data-url="/quan-ly/vai-tro-lam-viec/{{ r.id }}">
+        <td><input class="input sm" data-f="name" value="{{ r.name }}" maxlength="30" aria-label="Tên vai trò" style="width:200px"></td>
+        <td style="color:var(--muted)">{{ r.name.split() | map('first') | join('') | upper }}</td>
+        <td><select class="input sm" data-f="status" aria-label="Trạng thái vai trò">
+          {% for st in [IN_USE, NOT_IN_USE] %}<option {% if st == r.status %}selected{% endif %}>{{ st }}</option>{% endfor %}
+        </select></td>
+      </tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+  <form class="toolbar" method="post" action="/quan-ly/vai-tro-lam-viec/them" style="padding:14px 20px;border-top:1px solid var(--line-soft)">
+    <strong style="font-size:14px">Thêm vai trò</strong>
+    <input class="input sm" name="name" placeholder="Vd: Thu ngân" maxlength="30" required aria-label="Tên vai trò mới" style="width:200px">
+    <button class="btn sm" type="submit">Thêm</button>
+    <span style="font-size:13px;color:var(--muted)">Đổi tên vai trò hoặc ca sẽ cập nhật cả dữ liệu cũ.</span>
+  </form>
+</section>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  function collect(scope) {
+    const data = scope.dataset.extra ? JSON.parse(scope.dataset.extra) : {};
+    scope.querySelectorAll('[data-f]').forEach((el) => { data[el.dataset.f] = el.type === 'checkbox' ? el.checked : el.value; });
+    return data;
+  }
+  function groupData(el) {
+    // Các ô cùng nhóm (cùng 1 ca) gửi chung
+    const group = el.dataset.group;
+    if (!group) return collect(el);
+    const data = {};
+    document.querySelectorAll('[data-group="' + group + '"]').forEach((c) => Object.assign(data, collect(c)));
+    return data;
+  }
+  document.querySelectorAll('.autosave, .autosave-cell').forEach((scope) => {
+    scope.querySelectorAll('[data-f]').forEach((input) => {
+      input.dataset.last = input.type === 'checkbox' ? input.checked : input.value;
+      input.addEventListener('change', async () => {
+        try {
+          const r = await postJSON(scope.dataset.url, groupData(scope));
+          input.dataset.last = input.type === 'checkbox' ? input.checked : input.value;
+          showSaved('Đã lưu · ' + r.saved_at);
+        } catch (e) {
+          if (input.type === 'checkbox') input.checked = input.dataset.last === 'true'; else input.value = input.dataset.last;
+          showSaved(e.message, true);
+        }
+      });
+    });
+  });
+});
+</script>
+{% endblock %}

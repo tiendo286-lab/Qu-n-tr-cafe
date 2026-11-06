@@ -1,0 +1,76 @@
+{% extends "base.html" %}
+{% block title %}Lịch làm{% endblock %}
+{% macro weeknav(path) %}
+<div class="wk2">
+  {% if prev_w %}<a class="circ" aria-label="Tuần trước" href="{{ path }}tuan={{ prev_w }}">‹</a>{% else %}<span class="circ dis">‹</span>{% endif %}
+  <div class="mid"><div class="a">Tuần {{ week_label }}</div>
+    <div class="b">{% if editing %}Đang chỉnh sửa · bản đã chốt gần nhất{% elif tab == 'cua_toi' %}Đã chốt · {{ total }} ca{% else %}Đã chốt{% endif %}</div></div>
+  {% if next_w %}<a class="circ" aria-label="Tuần sau" href="{{ path }}tuan={{ next_w }}">›</a>{% else %}<span class="circ dis">›</span>{% endif %}
+</div>
+{% endmacro %}
+{% macro body() %}
+{% if tab == 'cua_toi' %}
+  {% if no_emp %}
+    <div class="card">Tài khoản Chủ không gắn với nhân viên nên không có lịch cá nhân. Xem <a href="/lich/co-so">Lịch cơ sở</a>.</div>
+  {% elif not week %}
+    <div class="card">Chưa có lịch tuần nào được chốt. Khi quản lý chốt lịch, bạn sẽ thấy ca của mình ở đây.</div>
+  {% else %}
+    {{ weeknav('/lich?') }}
+    {% if banner %}
+    <div class="upd-banner" role="status">Lịch tuần này vừa được cập nhật {{ banner.when }}: <strong>{{ banner.n }} thay đổi</strong>, ca bị đổi hoặc thêm được đánh dấu “Mới cập nhật” bên dưới.
+      {% for l in banner.lines %}<div class="bl">{{ l }}</div>{% endfor %}</div>
+    {% endif %}
+    {% for d in days %}
+    <section class="dcard">
+      <div class="dl">{{ d.name }} · {{ d.date }}</div>
+      {% if not d.shifts %}<div class="det">Không có ca</div>{% endif %}
+      {% for s in d.shifts %}
+      <div class="srow"><div class="bar" style="background:{{ s.color }}"></div>
+        <div class="sb"><div class="s1"><span>{{ s.shift }}{% if s.hours %} · {{ s.hours }}{% endif %}</span>{% if s.updated %}<span class="chip-new">Mới cập nhật</span>{% endif %}</div>
+          <div class="s2">{{ s.branch }} – {{ s.branch_name }} · {{ s.role }}</div>
+          {% if s.note %}<div class="s3">{{ s.note }}</div>{% endif %}</div></div>
+      {% endfor %}
+    </section>
+    {% endfor %}
+  {% endif %}
+{% else %}
+  {% if not week %}
+    <div class="card">Chưa có lịch tuần nào được chốt.</div>
+  {% else %}
+    {{ weeknav('/lich/co-so?cn=' ~ branch.id ~ '&ngay=' ~ ngay ~ '&') }}
+    <div class="grid4" role="group" aria-label="Chi nhánh">
+      {% for b in branches %}<a class="pick {{ 'on' if b.id == branch.id }}" href="/lich/co-so?tuan={{ start }}&cn={{ b.id }}&ngay={{ ngay }}">{{ b.code }}</a>{% endfor %}
+    </div>
+    <div class="grid7" role="group" aria-label="Ngày">
+      {% for d in day_buttons %}<a class="dpick {{ 'on' if d.active }}" href="/lich/co-so?tuan={{ start }}&cn={{ branch.id }}&ngay={{ d.i }}"><b>{{ d.w }}</b><span>{{ d.date }}</span></a>{% endfor %}
+    </div>
+    <div style="font-size:16px;font-weight:700">{{ day_title }}</div>
+    {% for b in blocks %}
+    <section class="card flush">
+      <div class="shift-h"><strong>Ca {{ b.shift }}</strong><span class="det">{{ b.hours }}</span></div>
+      {% for p in b.people %}
+      <div class="prow"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:500">{{ p.label }}</span>{% if p.me %}<span class="me-chip">Bạn</span>{% endif %}</div>
+        <span class="role-chip">{{ p.role }}</span></div>
+      {% else %}<div class="prow det">Chưa có ai</div>{% endfor %}
+    </section>
+    {% endfor %}
+    <div class="det" style="line-height:1.5">Chỉ hiện ai làm ca nào, vị trí nào. Không hiện ô trống, định biên hay trạng thái order.</div>
+  {% endif %}
+{% endif %}
+{% endmacro %}
+{% block apptitle %}Lịch làm{% endblock %}
+{% block apptabs %}
+<nav class="utabs">
+  <a class="{{ 'on' if tab == 'cua_toi' }}" {% if tab == 'cua_toi' %}aria-current="page"{% endif %} href="/lich{{ '?tuan=' ~ start if week }}">Lịch của tôi</a>
+  <a class="{{ 'on' if tab == 'co_so' }}" {% if tab == 'co_so' %}aria-current="page"{% endif %} href="/lich/co-so{{ '?tuan=' ~ start if week }}">Lịch cơ sở</a>
+</nav>
+{% endblock %}
+{% block mobile %}{{ body() }}{% endblock %}
+{% block content %}
+<div class="page-head"><div><h1>Lịch làm</h1></div></div>
+<div class="seg" style="max-width:560px">
+  <a class="{{ 'on' if tab == 'cua_toi' }}" href="/lich{{ '?tuan=' ~ start if week }}">Lịch của tôi</a>
+  <a class="{{ 'on' if tab == 'co_so' }}" href="/lich/co-so{{ '?tuan=' ~ start if week }}">Lịch cơ sở</a>
+</div>
+<div class="stack" style="max-width:560px;gap:12px">{{ body() }}</div>
+{% endblock %}

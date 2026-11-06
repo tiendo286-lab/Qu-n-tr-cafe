@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Giờ order{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Giờ order</h1><div class="sub">Nhân viên chỉ order được trong khoảng giờ mở → hết hạn. Sau hạn chỉ người có quyền “Sửa order sau hạn” sửa được.</div></div>
+</div>
+
+<section class="card stack" style="max-width:860px">
+  <h2>Lặp lại hằng tuần</h2>
+  <div style="font-size:14px;color:var(--muted)">Tính theo <strong>tuần liền trước</strong> tuần cần order. Ví dụ: mở Thứ Hai 08:00, hết hạn Thứ Năm 22:00 → order cho tuần sau.</div>
+  <form method="post" action="/quan-ly/gio-order" class="toolbar" style="gap:16px">
+    <div class="field"><label for="open_dow">Mở order</label>
+      <div class="toolbar" style="gap:8px">
+        <select class="input" id="open_dow" name="open_dow" style="width:150px">{% for d in DOW %}<option value="{{ loop.index0 }}" {% if loop.index0 == rule.open_dow %}selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+        <input class="input" name="open_time" value="{{ rule.open_time }}" maxlength="5" inputmode="numeric" aria-label="Giờ mở" style="width:90px;text-align:center">
+      </div>
+    </div>
+    <div class="field"><label for="close_dow">Hết hạn</label>
+      <div class="toolbar" style="gap:8px">
+        <select class="input" id="close_dow" name="close_dow" style="width:150px">{% for d in DOW %}<option value="{{ loop.index0 }}" {% if loop.index0 == rule.close_dow %}selected{% endif %}>{{ d }}</option>{% endfor %}</select>
+        <input class="input" name="close_time" value="{{ rule.close_time }}" maxlength="5" inputmode="numeric" aria-label="Giờ hết hạn" style="width:90px;text-align:center">
+      </div>
+    </div>
+    <button class="btn" type="submit" style="align-self:flex-end">Lưu</button>
+  </form>
+</section>
+
+<section class="card flush">
+  <div class="card-head"><h2>Các tuần đã tạo</h2><div style="font-size:13px;color:var(--muted)">Sửa riêng một tuần (dịp lễ) mà không ảnh hưởng tuần khác. Tuần mới tạo ở trang Order lịch làm.</div></div>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Tuần</th><th>Mở order</th><th>Hết hạn</th><th>Trạng thái</th><th>Cài riêng tuần này</th></tr></thead>
+    <tbody>
+    {% for w in weeks %}
+      <tr>
+        <td style="font-weight:600">{{ w.label }}</td>
+        <td>{{ w.open_text }}</td>
+        <td>{{ w.close_text }}</td>
+        <td>{% if w.win.state == 'dang_mo' %}<span class="pill ok">Đang mở</span>{% elif w.win.state == 'chua_mo' %}<span class="pill mute">Chưa mở</span>{% else %}<span class="pill off">Đã hết hạn</span>{% endif %}
+            {% if w.win.custom %}<span class="pill warn">Giờ riêng</span>{% endif %}{% if not w.exists %}<span class="pill mute">Chưa tạo</span>{% endif %}</td>
+        <td>
+          {% if not w.exists %}<span style="font-size:13px;color:var(--muted)">Tuần chưa được tạo – tạo tuần ở trang Order lịch làm rồi mới cài giờ riêng.</span>{% else %}
+          <form method="post" action="/quan-ly/gio-order/tuan/{{ w.week.id }}" class="toolbar" style="gap:6px">
+            <input class="input sm" type="datetime-local" name="open_at" value="{{ w.win.open.strftime('%Y-%m-%dT%H:%M') }}" aria-label="Mở order tuần {{ w.label }}" required>
+            <span>→</span>
+            <input class="input sm" type="datetime-local" name="close_at" value="{{ w.win.close.strftime('%Y-%m-%dT%H:%M') }}" aria-label="Hết hạn tuần {{ w.label }}" required>
+            <button class="btn sm" type="submit">Lưu</button>
+            {% if w.win.custom %}<button class="btn sm secondary" type="submit" name="reset" value="1" formnovalidate>Về mặc định</button>{% endif %}
+          </form>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="5" style="color:var(--muted)">Chưa có tuần nào từ tuần này trở đi. Hãy tạo tuần mới ở trang <a href="/quan-ly/order">Order lịch làm</a>.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% endblock %}

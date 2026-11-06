@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Quên mật khẩu{% endblock %}
+{% block auth %}
+<div class="card stack">
+  <h2>Quên mật khẩu</h2>
+  {% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+  {% if step == 1 %}
+  <form class="stack" method="post" action="/quen-mat-khau/gui-ma">
+    <div class="field">
+      <label for="ma">Mã nhân viên</label>
+      <input class="input" id="ma" name="ma" value="{{ ma or '' }}" autocapitalize="off" required autofocus>
+    </div>
+    <button class="btn" type="submit">Gửi mã qua email</button>
+  </form>
+  {% else %}
+  {% if masked %}<div class="alert ok" role="status">Đã gửi mã 6 số tới {{ masked }}. Mã có hiệu lực 15 phút.</div>{% endif %}
+  <form class="stack" method="post" action="/quen-mat-khau/dat-lai">
+    <input type="hidden" name="ma" value="{{ ma }}">
+    <div class="field">
+      <label for="otp">Mã khôi phục</label>
+      <input class="input" id="otp" name="ma_khoi_phuc" inputmode="numeric" autocomplete="one-time-code" maxlength="6" required autofocus style="letter-spacing:6px;font-size:20px">
+    </div>
+    <div class="field">
+      <label for="moi">Mật khẩu mới</label>
+      <input class="input" id="moi" name="mat_khau_moi" type="password" autocomplete="new-password" minlength="6" required>
+      <div class="hint">Tối thiểu 6 ký tự.</div>
+    </div>
+    <div class="field">
+      <label for="lai">Nhập lại mật khẩu mới</label>
+      <input class="input" id="lai" name="nhap_lai" type="password" autocomplete="new-password" minlength="6" required>
+    </div>
+    <button class="btn" type="submit">Đặt lại mật khẩu</button>
+  </form>
+  {% endif %}
+  <a href="/dang-nhap" style="text-align:center;font-weight:600;font-size:14px;padding:8px 0">Quay lại đăng nhập</a>
+</div>
+<div class="foot">Không có email hoặc không nhận được mã? Nhờ quản lý cấp lại mật khẩu tạm. Tối đa 5 lần gửi mã mỗi ngày.</div>
+{% endblock %}

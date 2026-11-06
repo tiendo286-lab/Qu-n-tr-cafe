@@ -1,0 +1,15 @@
+# Dữ liệu thật, mật khẩu, khóa bí mật — KHÔNG đưa lên GitHub
+du_lieu/*
+!du_lieu/cau_hinh.vi_du.json
+*.sqlite3
+*.sqlite3-*
+*.key
+.secret
+
+# Môi trường Python, file tạm
+.venv*/
+venv/
+__pycache__/
+*.pyc
+kiem_tra/_tam/
+.DS_Store

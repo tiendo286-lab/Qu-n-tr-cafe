@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% block title %}Lịch cố định{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <h1>Lịch cố định</h1>
+    <div class="sub">Gợi ý để xếp nhanh. Chỉ tự điền vào lịch tuần khi nhân viên order “Đi làm được” ca đó. Mỗi ô chỉ chọn được chi nhánh và vị trí đã khai báo cho nhân viên.</div>
+  </div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+<div style="display:grid;grid-template-columns:repeat({{ 2 + role_counts | length }},minmax(0,1fr));gap:12px">
+  <div class="card" style="padding:14px 18px"><div style="font-size:13px;color:var(--muted)">Nhân viên cố định</div><div style="font-size:26px;font-weight:700">{{ rows | length }}</div></div>
+  <div class="card" style="padding:14px 18px"><div style="font-size:13px;color:var(--muted)">Tổng ca cố định</div><div style="font-size:26px;font-weight:700" id="total-fixed">{{ total }}</div></div>
+  {% for role, n in role_counts.items() %}
+  <div class="card" style="padding:14px 18px"><div style="font-size:13px;color:var(--muted)">{{ role }}</div><div style="font-size:26px;font-weight:700">{{ n }}</div></div>
+  {% endfor %}
+</div>
+
+<section class="card flush">
+  <div class="card-head">
+    <form class="toolbar" method="post" action="/quan-ly/lich-co-dinh/them">
+      <label for="add-emp" style="font-size:14px;font-weight:600">Thêm nhân viên</label>
+      <select class="input sm" id="add-emp" name="employee_id" required style="width:260px">
+        <option value="">— Chọn nhân viên —</option>
+        {% for c in candidates %}<option value="{{ c.id }}">{{ c.code }} – {{ c.name }}</option>{% endfor %}
+      </select>
+      <button class="btn sm" type="submit">Thêm</button>
+    </form>
+  </div>
+  <div class="table-wrap">
+  <table class="table rt rt-fx" aria-label="Lịch cố định" style="--n:{{ shifts | length }}">
+    <thead class="dark">
+      <tr>
+        <th rowspan="2">Mã NV</th><th rowspan="2">Tên</th><th rowspan="2">Cấp bậc</th><th rowspan="2">Chi nhánh</th><th rowspan="2">Vị trí</th>
+        {% for d in WEEKDAYS %}<th class="center" colspan="{{ shifts | length }}" style="border-left:2px solid #3b5bb5">{{ d }}</th>{% endfor %}
+        <th rowspan="2"></th>
+      </tr>
+      <tr>{% for d in WEEKDAYS %}{% for s in shifts %}<th class="center" style="font-size:12px;{% if loop.first %}border-left:2px solid #3b5bb5{% endif %}">{{ s.name }}</th>{% endfor %}{% endfor %}</tr>
+    </thead>
+    <tbody>
+      {% for row in rows %}
+      <tr {% if row.emp.status != 'Đang làm' %}class="muted"{% endif %}>
+        <td data-label="Mã NV" style="font-weight:600">{{ row.emp.code }}</td>
+        <td data-label="Tên">{{ row.emp.name }}{% if row.emp.status != 'Đang làm' %} <span class="pill mute">Ngừng làm</span>{% endif %}</td>
+        <td data-label="Cấp bậc">{{ row.emp.rank }}</td>
+        <td data-label="Chi nhánh">{{ row.branches }}</td>
+        <td data-label="Vị trí">{{ row.roles }}</td>
+        {% for c in row.cells %}
+        <td class="center sc" data-label="{{ WEEKDAYS[c.weekday] }} · {{ shifts[loop.index0 % (shifts|length)].name }}" style="padding:6px 4px;{% if loop.index0 % (shifts|length) == 0 %}border-left:2px solid var(--line){% endif %}">
+          <select class="input sm fixed-cell {% if c.value %}filled{% endif %}" data-emp="{{ row.emp.id }}" data-weekday="{{ c.weekday }}" data-shift="{{ c.shift_id }}"
+            aria-label="{{ row.emp.name }} {{ WEEKDAYS[c.weekday] }}" style="width:92px;padding:0 4px">
+            <option value="">Để trống</option>
+            {% for o in c.options %}<option value="{{ o.value }}" title="{{ o.title }}" {% if o.value == c.value %}selected{% endif %}>{{ o.label }}</option>{% endfor %}
+          </select>
+        </td>
+        {% endfor %}
+        <td>
+          <form method="post" action="/quan-ly/lich-co-dinh/{{ row.emp.id }}/xoa" onsubmit="return confirm('Xóa {{ row.emp.code }} – {{ row.emp.name }} khỏi lịch cố định?')">
+            <button class="link-btn" type="submit" style="color:var(--off-ink)">Xóa</button>
+          </form>
+        </td>
+      </tr>
+      {% else %}
+      <tr><td colspan="99" style="color:var(--muted)">Chưa có nhân viên nào trong lịch cố định.</td></tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+<style>.fixed-cell.filled{background:#fef3c7;border-color:#f59e0b;font-weight:600}</style>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  document.querySelectorAll('.fixed-cell').forEach((sel) => {
+    let last = sel.value;
+    sel.addEventListener('change', async () => {
+      try {
+        const r = await postJSON('/quan-ly/lich-co-dinh/o', { employee_id: sel.dataset.emp, weekday: sel.dataset.weekday, shift_id: sel.dataset.shift, value: sel.value });
+        const total = document.getElementById('total-fixed');
+        total.textContent = parseInt(total.textContent, 10) + (sel.value ? 1 : 0) - (last ? 1 : 0);
+        last = sel.value; sel.classList.toggle('filled', !!sel.value);
+        showSaved('Đã lưu · ' + r.saved_at);
+      } catch (e) { sel.value = last; showSaved(e.message, true); }
+    });
+  });
+});
+</script>
+{% endblock %}

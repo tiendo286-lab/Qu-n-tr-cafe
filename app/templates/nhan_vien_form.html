@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block title %}{% if emp %}Sửa nhân viên{% else %}Thêm nhân viên{% endif %}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a href="/quan-ly/nhan-vien" style="font-size:14px;font-weight:600">‹ Danh sách nhân viên</a>
+    <h1 style="margin-top:6px">{% if emp %}Sửa: {{ emp.code }} – {{ emp.name }}{% else %}Thêm nhân viên{% endif %}</h1>
+  </div>
+</div>
+{% if error %}<div class="alert error" role="alert">{{ error }}</div>{% endif %}
+<form class="card stack" method="post" style="max-width:860px">
+  <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+    <div class="field">
+      <label for="code">Mã nhân viên</label>
+      <input class="input" id="code" name="code" value="{{ v.code or '' }}" maxlength="20" required autocapitalize="off">
+      <div class="hint">{% if emp %}Đổi mã thì nhân viên đăng nhập bằng mã mới, mật khẩu giữ nguyên.{% else %}Dùng để đăng nhập. Không trùng với người khác.{% endif %}</div>
+    </div>
+    <div class="field">
+      <label for="name">Họ tên</label>
+      <input class="input" id="name" name="name" value="{{ v.name or '' }}" maxlength="80" required>
+    </div>
+    <div class="field">
+      <label for="rank">Cấp bậc</label>
+      <select class="input" id="rank" name="rank" required>
+        <option value="">— Chọn —</option>
+        {% for r in RANKS %}<option {% if r == v.rank %}selected{% endif %}>{{ r }}</option>{% endfor %}
+      </select>
+    </div>
+    <div class="field">
+      <label for="status">Trạng thái</label>
+      <select class="input" id="status" name="status">
+        {% for s in EMP_STATUSES %}<option {% if s == v.status %}selected{% endif %}>{{ s }}</option>{% endfor %}
+      </select>
+      <div class="hint">Chuyển “Ngừng làm” sẽ khóa tài khoản ngay; lịch sử vẫn giữ.</div>
+    </div>
+  </div>
+
+  <fieldset style="border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+    <legend style="font-weight:600;font-size:14px;padding:0 6px">Vai trò làm việc</legend>
+    <div class="toolbar">
+      {% for r in all_roles %}
+      <label style="display:flex;align-items:center;gap:8px;min-height:44px;padding-right:16px">
+        <input type="checkbox" class="check" name="roles" value="{{ r.name }}" {% if r.name in (v.roles or []) %}checked{% endif %}> {{ r.name }}
+      </label>
+      {% endfor %}
+    </div>
+    <div class="field" style="margin-top:8px;max-width:300px">
+      <label for="preferred_role">Vai trò ưu tiên</label>
+      <select class="input" id="preferred_role" name="preferred_role">
+        <option value="">(vai trò đầu tiên đã chọn)</option>
+        {% for r in all_roles %}<option {% if r.name == v.preferred_role %}selected{% endif %}>{{ r.name }}</option>{% endfor %}
+      </select>
+    </div>
+  </fieldset>
+
+  <fieldset style="border:1px solid var(--line);border-radius:12px;padding:14px 16px">
+    <legend style="font-weight:600;font-size:14px;padding:0 6px">Chi nhánh làm được</legend>
+    <div class="toolbar">
+      {% for b in all_branches %}
+      <label style="display:flex;align-items:center;gap:8px;min-height:44px;padding-right:16px">
+        <input type="checkbox" class="check" name="branches" value="{{ b.id }}" {% if b.id in (v.branch_ids or []) %}checked{% endif %}> {{ b.code }} – {{ b.name }}{% if b.status != 'Đang hoạt động' %} (ngừng){% endif %}
+      </label>
+      {% endfor %}
+    </div>
+  </fieldset>
+
+  <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+    <div class="field">
+      <label for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" value="{{ v.email or '' }}" placeholder="để lấy lại mật khẩu">
+    </div>
+    <div class="field">
+      <label for="phone">Số điện thoại</label>
+      <input class="input" id="phone" name="phone" type="tel" value="{{ v.phone or '' }}">
+    </div>
+    <div class="field">
+      <label for="start_date">Ngày bắt đầu vào làm</label>
+      <input class="input" id="start_date" name="start_date" type="date" value="{{ v.start_date or '' }}">
+    </div>
+  </div>
+
+  <div class="toolbar">
+    <button class="btn" type="submit">{% if emp %}Lưu thay đổi{% else %}Thêm nhân viên{% endif %}</button>
+    <a class="btn secondary" href="/quan-ly/nhan-vien">Hủy</a>
+  </div>
+</form>
+{% endblock %}

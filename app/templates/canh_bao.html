@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Cảnh báo{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Cảnh báo</h1>
+  <div class="sub">Chỉ cảnh báo, không chặn việc xếp. Bấm “Xem trên lịch” để nhảy đến ô đó.</div></div>
+  <div class="wk-nav">
+    <a class="btn sm secondary" href="/quan-ly/canh-bao?tuan={{ prev_w }}">‹ Tuần trước</a>
+    <span class="wk-label">{{ week_label }}</span>
+    <a class="btn sm secondary" href="/quan-ly/canh-bao?tuan={{ next_w }}">Tuần sau ›</a>
+    {% if ready %}<span class="pill warn">{{ status_label }}</span>{% endif %}
+  </div>
+</div>
+{% if not ready %}
+<div class="card">Tuần này chưa bắt đầu xếp lịch nên chưa có cảnh báo. Cảnh báo xuất hiện sau khi quản lý bấm <strong>Bắt đầu xếp lịch</strong> ở tab Order lịch làm.</div>
+{% else %}
+{% if total == 0 %}<div class="alert ok">Không có cảnh báo nào. Lịch tuần này ổn.</div>{% endif %}
+<div class="tiles">
+  {% for g in groups %}
+  <a class="tile" href="#g-{{ g.key }}" data-g="g-{{ g.key }}" style="border-top-color:{{ g.color }}">
+    <div class="n">{{ g['items']|length }}</div><div class="l">{{ g.tile }}</div>
+  </a>
+  {% endfor %}
+</div>
+<div style="display:flex;gap:8px">
+  <button class="btn sm secondary" type="button" id="wg-open">Mở hết</button>
+  <button class="btn sm secondary" type="button" id="wg-close">Thu hết</button>
+</div>
+<div class="warn-grid">
+  {% for g in groups %}
+  <details class="card flush wg" id="g-{{ g.key }}" open>
+    <summary class="card-head"><span class="chev" aria-hidden="true">›</span>
+      <h2 style="font-size:16px;flex-grow:1"><span class="dot" style="background:{{ g.color }}"></span>{{ loop.index }}. {{ g.title }}</h2>
+      <strong>{{ g['items']|length }}</strong></summary>
+    {% if g['items'] %}
+    <ul class="warn-list">
+      {% for it in g['items'] %}
+      <li><div><div style="font-weight:600">{{ it.label }}</div><div class="det">{{ it.detail }}</div></div>
+        <a class="go" href="/quan-ly/lich-co-so?tuan={{ start }}&cn={{ it.branch_id }}">Xem trên lịch →</a></li>
+      {% endfor %}
+    </ul>
+    {% else %}<div style="padding:14px 20px;color:var(--muted);font-size:14px">Không có.</div>{% endif %}
+  </details>
+  {% endfor %}
+</div>
+<details class="card flush wg" open style="margin-top:16px">
+  <summary class="card-head"><span class="chev" aria-hidden="true">›</span>
+    <h2 style="font-size:16px;flex-grow:1"><span class="dot" style="background:#6b7280"></span>7. Số ca mỗi người trong tuần</h2>
+    <span class="det">Chỉ để xem · xếp từ nhiều đến ít</span></summary>
+  {% if so_ca %}
+  <div class="filter-bar">
+    <input class="input sm" type="search" id="ca-q" placeholder="Tìm theo mã hoặc tên nhân viên…" aria-label="Tìm nhân viên" autocomplete="off">
+    <select class="input sm" id="ca-rank" aria-label="Lọc cấp bậc">
+      <option value="">Mọi cấp bậc</option>
+      {% for r in ['Thử việc', 'Cấp 1', 'Cấp 2', 'Quản lý'] %}<option>{{ r }}</option>{% endfor %}
+    </select>
+    <span class="det" id="ca-count"></span>
+  </div>
+  <div class="table-wrap"><table class="table" id="ca-table"><thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th style="text-align:right">Số ca</th><th style="width:40%"></th></tr></thead><tbody>
+    {% for p in so_ca %}<tr data-rank="{{ p.rank }}"><td>{{ p.code }}</td><td>{{ p.name }}</td><td>{{ p.rank }}</td><td style="text-align:right"><strong>{{ p.n }}</strong></td>
+      <td><div class="bar"><i style="width:{{ (p.n * 100 / max_ca)|round|int }}%"></i></div></td></tr>{% endfor %}
+  </tbody></table></div>
+  <div id="ca-empty" style="padding:14px 20px;color:var(--muted);font-size:14px" hidden>Không tìm thấy nhân viên nào.</div>
+  {% else %}<div style="padding:14px 20px;color:var(--muted);font-size:14px">Chưa xếp ai.</div>{% endif %}
+</details>
+{% endif %}
+<script>
+(function () {
+  const q = document.getElementById('ca-q'), rk = document.getElementById('ca-rank'), tb = document.getElementById('ca-table');
+  if (!q || !tb) return;
+  const norm = (x) => x.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/g, 'd').replace(/Đ/g, 'D').toLowerCase().trim();
+  const rows = Array.from(tb.tBodies[0].rows);
+  const info = document.getElementById('ca-count'), empty = document.getElementById('ca-empty');
+  function apply() {
+    const t = norm(q.value), r = rk.value; let n = 0;
+    rows.forEach((tr) => {
+      const show = (!t || norm(tr.cells[0].textContent + ' ' + tr.cells[1].textContent).includes(t)) && (!r || tr.dataset.rank === r);
+      tr.hidden = !show; if (show) n++;
+    });
+    info.textContent = (t || r) ? n + '/' + rows.length + ' người' : '';
+    empty.hidden = n > 0;
+  }
+  q.addEventListener('input', apply); rk.addEventListener('change', apply);
+})();
+document.getElementById('wg-open')?.addEventListener('click', () => document.querySelectorAll('details.wg').forEach((d) => { d.open = true; }));
+document.getElementById('wg-close')?.addEventListener('click', () => document.querySelectorAll('details.wg').forEach((d) => { d.open = false; }));
+document.querySelectorAll('.tile').forEach((t) => t.addEventListener('click', (ev) => {
+  ev.preventDefault(); const d = document.getElementById(t.dataset.g); if (d) { d.open = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+}));
+</script>
+{% endblock %}
