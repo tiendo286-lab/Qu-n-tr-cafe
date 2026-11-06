@@ -14,9 +14,12 @@ const PERMISSIONS = [
   ['cai_gio_order', 'Cài giờ mở/hết hạn order'],
   ['sua_danh_muc', 'Sửa định biên, giờ ca, lịch cố định'],
   ['bao_cao', 'Xem báo cáo, xếp lịch tổng, xuất Excel'],
+  ['doi_soat', 'Đối soát phiếu chốt ca, tiền mặt cuối ngày'],
+  ['mo_lai_phieu_ca', 'Mở lại phiếu chốt ca đã hoàn thành'],
 ];
 const OWNER_ONLY = ['Cấp vai trò, sửa phân quyền', 'Xóa dữ liệu tuần', 'Sao lưu, chuyển dữ liệu (ZIP), khôi phục'];
 const NV_ALWAYS = ['order_ca', 'xem_lich_minh'];
+const EVERYONE = ['Chốt ca (điền phiếu chốt ca)'];
 const NV_EDITABLE = ['xem_tat_ca'];
 const EDITABLE_ROLES = ['ql_tong', 'ql', 'nv'];
 const ORDER = { chu: 0, ql_tong: 1, ql: 2, nv: 3 };
@@ -55,6 +58,9 @@ export async function render() {
               <th scope="row" style="background:none;font-weight:500;color:var(--ink)">${label}</th>
               <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
               ${EDITABLE_ROLES.map((role) => html`<td class="center">${cell(role, key, label)}</td>`)}</tr>`)}
+            ${EVERYONE.map((label) => html`<tr class="locked">
+              <th scope="row" style="background:#f7f8fb;font-weight:500;color:var(--ink)">${label}</th>
+              <td class="center" colspan="4" style="color:var(--muted);font-size:13px">Luôn có cho mọi người (kể cả Nhân viên)</td></tr>`)}
             ${OWNER_ONLY.map((label) => html`<tr class="locked">
               <th scope="row" style="background:#f7f8fb;font-weight:500;color:var(--ink)">${label}</th>
               <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>

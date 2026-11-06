@@ -1,5 +1,6 @@
 // GIẢ LẬP Supabase để chạy thử trên Chrome (không kết nối dữ liệu thật)
 import { DATA } from '../test/data.js';
+import { makeCa, makeStorage } from '../test/ca_gia.js';
 export const SUPABASE_URL = 'x'; export const SUPABASE_KEY = 'x';
 const T = DATA;
 for (const t of ['order_submissions', 'notifications', 'schedule_published', 'schedule_extra_rows', 'schedule_locks', 'week_order_windows', 'notification_events', 'audit_log', 'order_edit_log']) T[t] = T[t] || [];
@@ -61,7 +62,8 @@ class Q {
 }
 const ME = role === 'chu'
   ? { account_id: 1, employee_id: null, role: 'chu', must_change: false, code: 'admin', name: 'Chủ', perms: new Proxy({}, { get: () => true }) }
-  : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true } };
+  : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true } };
+const CA = makeCa(T, ME);
 const authCbs = [];
 export const sb = {
   from: (t) => new Q(t),
@@ -74,12 +76,14 @@ export const sb = {
     signOut: async () => { localStorage.removeItem('fake_login'); authCbs.forEach((f) => f('SIGNED_OUT')); },
     onAuthStateChange(f) { authCbs.push(f); },
   },
+  storage: makeStorage(),
   functions: { invoke: async (n, { body }) => { window.__LOG.push(['fn', body]); return { data: { ok: true, password: 'abc12345', results: [], rows: [{ code: 'NV1', name: 'A', password: 'x1', login: 'NV1' }], accounts: T.accounts.map((a) => ({ ...a, employees: T.employees.find((e) => e.id === a.employee_id) || null })) }, error: null }; } },
 };
 export function viError(e) { return String(e?.message || e); }
 export async function rpc(name, args = {}) {
   window.__LOG.push(['rpc', name, args]);
   await new Promise((ok) => setTimeout(ok, 2));
+  if (CA[name]) return CA[name](args);
   if (name === 'app_me') return ME;
   if (name === 'app_login_email') return { email: 'a1@milano.invalid' };
   if (name === 'app_order_window') {

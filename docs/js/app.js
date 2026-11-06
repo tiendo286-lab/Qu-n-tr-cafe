@@ -5,6 +5,8 @@ import { ROLE_LABELS, esc, go, html, str, takeFlash } from './ui.js';
 
 // Menu quản lý: [nhóm, nhãn, đường dẫn, quyền cần, đã có ở bản mới chưa]
 export const MENU = [
+  ['QUẢN LÝ CA', 'Chốt ca', '/ca', 'chot_ca'],
+  ['QUẢN LÝ CA', 'Đối soát', '/quan-ly/doi-soat', 'doi_soat'],
   ['XẾP LỊCH', 'Order lịch làm', '/quan-ly/order', 'xem_tat_ca'],
   ['XẾP LỊCH', 'Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
   ['XẾP LỊCH', 'Xếp lịch làm tổng', '/quan-ly/lich-tong', 'bao_cao'],
@@ -31,6 +33,9 @@ const PAGES = {
   '/order': 'order_nv',
   '/lich': 'lich',
   '/thong-bao': 'thong_bao',
+  '/ca': 'chot_ca',
+  '/ca/phieu': 'phieu_ca',
+  '/quan-ly/doi-soat': 'doi_soat',
   '/quan-ly/order': 'order_ql',
   '/quan-ly/lich-co-dinh': 'lich_co_dinh',
   '/quan-ly/lich-tong': 'lich_tong',
@@ -126,6 +131,7 @@ function layout(path, body, flashMsg) {
     <nav class="tabbar" aria-label="Menu nhân viên">
       <a class="${path === '/order' ? 'on' : ''}" href="#/order">Order ca</a>
       <a class="${path.startsWith('/lich') ? 'on' : ''}" href="#/lich">Lịch làm</a>
+      ${can('chot_ca') ? html`<a class="${path.startsWith('/ca') ? 'on' : ''}" href="#/ca">Chốt ca</a>` : ''}
     </nav></div>`;
 }
 

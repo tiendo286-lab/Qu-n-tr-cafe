@@ -3,8 +3,8 @@
 # Dùng: kiem_tra/trinh_duyet/chuan_bi.sh <thư mục tạm>   rồi mở http://127.0.0.1:8765/index.html?auto=1&routes=...
 set -e
 D="$(cd "$(dirname "$0")" && pwd)"; GOC="$D/../../docs"; W="${1:?cần thư mục tạm}"
-mkdir -p "$W"; rsync -a --delete --exclude test "$GOC/" "$W/"; mkdir -p "$W/test"
-cp "$D/sb_gia.js" "$W/js/sb.js"; cp "$D"/{catch.js,driver.js,fuzz.js,flow.js,flow2.js,login.js,wide.js,phone.html} "$W/test/"
+mkdir -p "$W"; rsync -a --exclude test "$GOC/" "$W/"; mkdir -p "$W/test"
+cp "$D/sb_gia.js" "$W/js/sb.js"; cp "$D"/{ca_gia.js,flow_ca.js,catch.js,driver.js,fuzz.js,flow.js,flow2.js,login.js,wide.js,phone.html} "$W/test/"
 python3 -I "$D/dump_web.py" "$D/../../du_lieu/app.sqlite3" "$W/test/data.js"
 python3 - "$W/index.html" <<'PY'
 import sys; p=sys.argv[1]; s=open(p).read()
