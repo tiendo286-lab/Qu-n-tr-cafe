@@ -61,8 +61,9 @@ export async function render() {
         </section>
         <section class="card stack">
           <h2 style="margin:0">Nhập dữ liệu</h2>
-          <div class="alert warn">Nhập sẽ <strong>thay toàn bộ</strong> dữ liệu lịch, order, nhân viên, đánh giá hiện có bằng dữ liệu trong file.
-            <strong>Tài khoản đăng nhập và mật khẩu được giữ nguyên</strong> (gắn lại theo mã nhân viên).</div>
+          <div class="alert warn">Nhập sẽ <strong>thay hẳn</strong> lịch tuần, order, chốt tuần, định biên, lịch cố định theo file;
+            <strong>cập nhật</strong> nhân viên, chi nhánh, ca theo file (không xóa người đang có trên web).
+            <strong>Giữ nguyên</strong> tài khoản &amp; mật khẩu, phân quyền, phiếu chốt ca, công việc, đào tạo, nội quy, hỗ trợ.</div>
           <div style="font-size:14px;color:var(--ink-2)">Chọn một trong các file:<br>
             • Gói <strong>.zip</strong> xuất từ bản offline (nút XUẤT DỮ LIỆU) hoặc từ bản web cũ (trang Dữ liệu &amp; sao lưu)<br>
             • File <strong>xep_lich.sqlite3</strong> của bản offline, hoặc <strong>app.sqlite3</strong> của bản web cũ</div>
