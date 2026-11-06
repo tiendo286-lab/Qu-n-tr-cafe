@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Lần đánh giá {{ r.label }}{% endblock %}
+{% macro rating_pill(v) -%}
+{%- if v and v in RATING_COLORS -%}<span class="pill" style="background:{{ RATING_COLORS[v][0] }};color:{{ RATING_COLORS[v][1] }}">{{ v }}</span>{%- else -%}{{ v or '—' }}{%- endif -%}
+{%- endmacro %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back-a" href="/quan-ly/danh-gia">‹ Danh sách lần đánh giá</a>
+    <h1>Lần đánh giá {{ r.label }} {% if closed %}<span class="pill ok">Đã chốt</span>{% else %}<span class="pill warn">Đang thực hiện</span>{% endif %}</h1>
+    <div class="sub">Đã đánh giá {{ summary.evaluated }}/{{ summary.total }} nhân viên · Tổng voucher cần phân: {{ summary.vouchers }} · Đã phân mã: {{ vstats.allocated }}</div>
+  </div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+<div class="toolbar">
+  {% if not closed %}
+  <form method="post" action="/quan-ly/danh-gia/{{ r.id }}/sao-chep" onsubmit="return confirm('Sao chép Pha chế/Chạy bàn từ lần đánh giá gần nhất trước đó?')"><button class="btn sm secondary" type="submit">Sao chép phân công từ lần trước</button></form>
+  <a class="btn sm" href="/quan-ly/danh-gia/{{ r.id }}/xuat-form" {% if unassigned %}onclick="alert('Còn {{ unassigned }} nhân viên chưa chọn PHA CHẾ / CHẠY BÀN.'); return false;"{% endif %}>Xuất dữ liệu tạo Form (Excel)</a>
+  {% endif %}
+  <form method="post" action="/quan-ly/danh-gia/{{ r.id }}/chot"
+    onsubmit="return confirm({% if closed %}'Mở lại lần đánh giá này để tiếp tục chỉnh sửa?{% if vstats.allocated %}\n\nLần này đã phân {{ vstats.allocated }} mã Voucher. Nếu sửa SỐ LƯỢNG VOUCHER của nhân viên, mã đã phân cho người đó sẽ bị xóa và cần nhập lại file Voucher.{% endif %}'{% else %}'Chốt lần đánh giá {{ r.label }}?\n\nĐã đánh giá: {{ summary.evaluated }}\nChưa đánh giá: {{ summary.pending }}\nTrùng phản hồi: {{ summary.duplicate }}\n\nVẫn cho chốt dù chưa đủ kết quả.'{% endif %})">
+    <button class="btn sm {{ 'secondary' if closed }}" type="submit">{{ 'Mở lại' if closed else 'Chốt lần đánh giá' }}</button></form>
+  {% if closed %}
+  <a class="btn sm secondary" href="/quan-ly/danh-gia/{{ r.id }}/xuat-voucher">Xuất Excel danh sách Voucher</a>
+  <form method="post" action="/quan-ly/danh-gia/{{ r.id }}/nhap-voucher" enctype="multipart/form-data" class="upl"
+    onsubmit="{% if vstats.allocated %}if(!confirm('Lần này đã phân {{ vstats.allocated }} mã Voucher. Nhập file mới sẽ xóa phân bổ hiện tại và phân lại từ đầu. Tiếp tục?')) return false;{% endif %} return true;">
+    <label class="btn sm">Nhập file Voucher<input type="file" name="file" accept=".xlsx,.xlsm" hidden onchange="this.form.requestSubmit()"></label></form>
+  <a class="btn sm" href="/quan-ly/danh-gia/{{ r.id }}/in" target="_blank" rel="noopener">In toàn bộ phiếu đánh giá</a>
+  {% endif %}
+</div>
+{% if closed %}<div class="alert warn">Lần đánh giá đã chốt: phiếu chỉ xem. Bấm <strong>Mở lại</strong> nếu cần sửa. Nhập Voucher và in phiếu chỉ dùng được khi đã chốt.</div>{% endif %}
+
+<nav class="tabs-nav" aria-label="Mục">
+  {% for k, label in [('tong-quan','Tổng quan'),('nhan-vien','Nhân viên'),('nhap-form','Nhập Form')] %}
+  <a href="/quan-ly/danh-gia/{{ r.id }}?tab={{ k }}" class="{{ 'on' if tab == k }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+{% if tab == 'tong-quan' %}
+<div class="tiles">
+  <div class="tile" style="border-top-color:#2563eb"><div class="n">{{ summary.total }}</div><div class="l">Tổng nhân viên</div></div>
+  <div class="tile" style="border-top-color:#16a34a"><div class="n">{{ summary.evaluated }}</div><div class="l">Đã đánh giá</div></div>
+  <div class="tile" style="border-top-color:#9ca3af"><div class="n">{{ summary.pending }}</div><div class="l">Chưa đánh giá</div></div>
+  <div class="tile" style="border-top-color:#dc2626"><div class="n">{{ summary.duplicate }}</div><div class="l">Trùng phản hồi</div></div>
+  <div class="tile" style="border-top-color:#7c3aed"><div class="n">{{ summary.vouchers }}</div><div class="l">Tổng voucher</div></div>
+</div>
+<div class="card" style="font-size:14px;line-height:1.6">
+  <strong>Luồng chính:</strong> 1) Chọn bộ tiêu chí (Pha chế / Chạy bàn) cho toàn bộ nhân viên ở tab <em>Nhân viên</em> →
+  2) Xuất dữ liệu tạo Form → 3) Nhập phản hồi Form ở tab <em>Nhập Form</em>. Người chưa có dữ liệu hoặc bị trùng phản hồi thì bấm <em>Mở phiếu</em> để chấm tay.
+  4) Chốt → 5) Nhập file Voucher → 6) In toàn bộ phiếu (A4 ngang, 2 phiếu A5/tờ, mặt sau là mã Voucher).
+</div>
+
+{% elif tab == 'nhan-vien' %}
+<section class="card flush">
+  <form method="get" class="filter-bar">
+    <input type="hidden" name="tab" value="nhan-vien">
+    <input class="input sm" type="search" name="q" value="{{ f.q }}" placeholder="Tìm nhanh mã NV / họ tên" aria-label="Tìm">
+    <select class="input sm" name="bo" aria-label="Bộ tiêu chí"><option value="">Tất cả bộ tiêu chí</option>{% for x in ROLES %}<option {{ 'selected' if f.bo == x }}>{{ x }}</option>{% endfor %}</select>
+    <select class="input sm" name="tt" aria-label="Trạng thái"><option value="">Tất cả trạng thái</option>{% for x in STATUS_EMPLOYEE %}<option {{ 'selected' if f.tt == x }}>{{ x }}</option>{% endfor %}</select>
+    <select class="input sm" name="xl" aria-label="Xếp loại"><option value="">Tất cả xếp loại</option>{% for x in RATINGS %}<option {{ 'selected' if f.xl == x }}>{{ x }}</option>{% endfor %}</select>
+    <select class="input sm" name="nguon" aria-label="Nguồn"><option value="">Tất cả nguồn</option>{% for x in SOURCES %}<option {{ 'selected' if f.nguon == x }}>{{ x }}</option>{% endfor %}</select>
+    <label style="font-size:13px"><input type="checkbox" name="chua_chon" value="1" {{ 'checked' if f.chua_chon }}> Chỉ xem chưa chọn bộ tiêu chí</label>
+    <button class="btn sm" type="submit">Lọc</button>
+    <a class="btn sm secondary" href="/quan-ly/danh-gia/{{ r.id }}?tab=nhan-vien">Xóa lọc</a>
+  </form>
+  <div style="padding:10px 20px;font-size:14px">Đang hiện <strong>{{ emps|length }}</strong> nhân viên · Chưa chọn bộ tiêu chí: <strong id="unassigned">{{ unassigned }}</strong></div>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th class="center">STT</th><th class="center">Hạng</th><th>Mã NV</th><th>Họ và tên</th><th>Bộ tiêu chí</th><th>Người đánh giá</th><th>Trạng thái</th><th>Nguồn</th><th class="center">Tổng điểm</th><th>Xếp loại</th><th class="center">SL voucher</th><th>Mã voucher đã phân</th><th></th></tr></thead>
+    <tbody>
+    {% for e in emps %}
+      <tr>
+        <td class="center">{{ loop.index }}</td><td class="center">{{ e.rank_position or '—' }}</td>
+        <td>{{ e.employee_code }}</td><td><strong>{{ e.employee_name }}</strong></td>
+        <td><select class="input sm role-sel" data-id="{{ e.id }}" aria-label="Bộ tiêu chí của {{ e.employee_name }}" {{ 'disabled' if closed or e.status == 'ĐÃ ĐÁNH GIÁ' }}>
+          <option value="">Chưa chọn</option>{% for x in ROLES %}<option value="{{ x }}" {{ 'selected' if e.role == x }}>{{ x }}</option>{% endfor %}</select></td>
+        <td>{{ e.evaluator_name or '—' }}</td>
+        <td>{% if e.status == 'ĐÃ ĐÁNH GIÁ' %}<span class="pill ok">Đã đánh giá</span>{% elif e.status == 'TRÙNG PHẢN HỒI' %}<span class="pill off">Trùng phản hồi</span>{% else %}<span class="pill mute">Chưa đánh giá</span>{% endif %}</td>
+        <td style="font-size:13px">{{ e.data_source or '—' }}</td>
+        <td class="center"><strong>{{ e.total_points if e.status == 'ĐÃ ĐÁNH GIÁ' else '—' }}</strong></td>
+        <td>{{ rating_pill(e.rating) }}</td><td class="center">{{ e.voucher_count or 0 }}</td>
+        <td style="font-size:12px;max-width:220px;word-break:break-all">{{ e.voucher_codes or '—' }}</td>
+        <td>{% if e.role %}<a class="btn sm {{ 'secondary' if closed }}" href="/quan-ly/danh-gia/phieu/{{ e.id }}">{{ 'Xem phiếu' if closed else 'Mở phiếu' }}</a>{% endif %}</td>
+      </tr>
+    {% else %}
+      <tr><td colspan="13">Không có nhân viên nào khớp bộ lọc.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+<script>
+document.querySelectorAll('.role-sel').forEach((sel) => {
+  sel.addEventListener('change', async () => {
+    try {
+      const r = await postJSON('/quan-ly/danh-gia/{{ r.id }}/bo-tieu-chi', { id: sel.dataset.id, role: sel.value });
+      document.getElementById('unassigned').textContent = r.unassigned;
+      showSaved('Đã lưu');
+      const row = sel.closest('tr'); const cell = row.lastElementChild;
+      cell.innerHTML = sel.value ? '<a class="btn sm" href="/quan-ly/danh-gia/phieu/' + sel.dataset.id + '">Mở phiếu</a>' : '';
+    } catch (e) { showSaved(e.message, true); }
+  });
+});
+</script>
+
+{% elif tab == 'nhap-form' %}
+<section class="card">
+  <h2 style="margin-top:0">Nhập phản hồi Google Form</h2>
+  <p style="font-size:14px;color:var(--ink-2)">Chọn file <strong>.xlsx</strong> tải từ Google Form (Câu trả lời → Tải xuống). Người đánh giá trùng sẽ được đánh dấu <em>Trùng phản hồi</em> để chấm tay lại.</p>
+  {% if closed %}<div class="alert warn">Lần đánh giá đã chốt. Mở lại để nhập Form.</div>{% else %}
+  <form method="post" action="/quan-ly/danh-gia/{{ r.id }}/nhap-form" enctype="multipart/form-data" class="toolbar">
+    <input class="input" type="file" name="file" accept=".xlsx" required>
+    <button class="btn" type="submit">Nhập dữ liệu Form</button>
+  </form>{% endif %}
+</section>
+{% if import_result %}
+<section class="card">
+  <h2 style="margin-top:0">Tóm tắt kết quả nhập</h2>
+  <div class="tiles">
+    <div class="tile" style="border-top-color:#16a34a"><div class="n">{{ import_result.imported }}</div><div class="l">Đã nhập</div></div>
+    <div class="tile" style="border-top-color:#9ca3af"><div class="n">{{ import_result.pending }}</div><div class="l">Chưa đánh giá</div></div>
+    <div class="tile" style="border-top-color:#dc2626"><div class="n">{{ import_result.duplicate }}</div><div class="l">Trùng phản hồi</div></div>
+    <div class="tile" style="border-top-color:#f59e0b"><div class="n">{{ import_result.error_count }}</div><div class="l">Lỗi</div></div>
+  </div>
+  {% if import_result.errors %}<ul style="font-size:13px">{% for x in import_result.errors %}<li>{{ x }}</li>{% endfor %}</ul>
+  {% if import_result.more %}<p style="font-size:13px">… và {{ import_result.more }} lỗi khác</p>{% endif %}{% endif %}
+</section>
+{% endif %}
+{% endif %}
+{% endblock %}

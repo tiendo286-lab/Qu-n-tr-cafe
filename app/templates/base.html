@@ -18,7 +18,7 @@
     <details class="navd" open>
     <summary>☰ Menu</summary>
     <div class="nav">
-      <a class="item {% if request.url.path == '/' %}active{% endif %}" href="/">Trang chủ</a>
+      <a class="item {% if request.url.path == '/' %}active{% endif %}" href="/">Tổng quan</a>
       {% for g in menu %}
         <div class="group">{{ g.name }}</div>
         {% for it in g['items'] %}

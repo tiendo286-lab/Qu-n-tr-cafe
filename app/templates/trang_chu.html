@@ -1,17 +1,59 @@
 {% extends "base.html" %}
-{% block title %}Trang chủ{% endblock %}
+{% block title %}Tổng quan{% endblock %}
 {% block content %}
 <div class="page-head">
-  <div><h1>Xin chào, {{ user.name }}</h1><div class="sub">Vai trò: {{ ROLE_LABELS[user.role] }}</div></div>
+  <div><h1>Tổng quan</h1><div class="sub">Xin chào, {{ user.name }} · {{ ROLE_LABELS[user.role] }} · Milano Coffee &amp; Lela Cafe</div></div>
 </div>
-<div class="card stack">
-  <h2>Bản thử nghiệm – bước 5</h2>
-  <div>Đã có: tài khoản & phân quyền, danh mục, order ca, xếp lịch cơ sở, chốt tuần, cảnh báo, lịch của nhân viên, thông báo.</div>
+
+<div class="tiles">
+  <a class="tile" href="/quan-ly/nhan-vien" style="border-top-color:#2563eb"><div class="n">{{ emp_active }}</div><div class="l">Nhân viên đang làm (tổng {{ emp_total }})</div></a>
+  <a class="tile" href="/quan-ly/dinh-bien" style="border-top-color:#0ea5e9"><div class="n">{{ staff_cells }}</div><div class="l">Ô định biên đã khai báo</div></a>
+  <a class="tile" href="/quan-ly/lich-co-dinh" style="border-top-color:#f59e0b"><div class="n">{{ fixed_members }}</div><div class="l">Nhân viên có lịch cố định</div></a>
+  {% if user.can('quan_ly_nhan_vien') %}<a class="tile" href="/quan-ly/tai-khoan?tt=chua_co" style="border-top-color:#9ca3af"><div class="n">{{ no_pw }}</div><div class="l">Nhân viên chưa có mật khẩu</div></a>{% endif %}
+</div>
+
+<div class="grid2">
+<section class="card stack">
+  <h2 style="margin:0">Tuần {{ week_label }}</h2>
+  {% if not week %}
+    <div>Tuần này chưa được tạo.</div>
+    {% if user.can('xem_tat_ca') %}<div><a class="btn sm" href="/quan-ly/order?tuan={{ week_start }}">Tạo tuần ở Order lịch làm</a></div>{% endif %}
+  {% else %}
+    <div class="kv">
+      <div>Order</div><div>{% if win.state == 'dang_mo' %}<span class="pill ok">Đang mở</span> còn {{ win.remaining }}{% elif win.state == 'chua_mo' %}<span class="pill mute">Chưa mở</span>{% else %}<span class="pill off">Đã hết hạn</span>{% endif %}</div>
+      <div>Đã order</div><div><strong>{{ submitted }}</strong> / {{ emp_active }} nhân viên</div>
+      <div>Lịch</div><div><span class="pill warn">{{ sched_label }}</span></div>
+      <div>Ca đã xếp</div><div><strong>{{ assigned }}</strong></div>
+      {% if user.can('xep_lich') %}<div>Cảnh báo</div><div><strong>{{ warn }}</strong></div>{% endif %}
+    </div>
+    <div class="toolbar">
+      {% if user.can('xem_tat_ca') %}<a class="btn sm" href="/quan-ly/order?tuan={{ week_start }}">Order lịch làm</a>
+      <a class="btn sm secondary" href="/quan-ly/lich-co-so?tuan={{ week_start }}">Lịch cơ sở</a>{% endif %}
+      {% if user.can('bao_cao') %}<a class="btn sm secondary" href="/quan-ly/lich-tong?tuan={{ week_start }}">Lịch tổng</a>
+      <a class="btn sm secondary" href="/quan-ly/bao-cao?tuan={{ week_start }}">Chốt &amp; báo cáo</a>{% endif %}
+    </div>
+  {% endif %}
+</section>
+{% if user.can('danh_gia') %}
+<section class="card stack">
+  <h2 style="margin:0">Đánh giá nhân viên</h2>
+  {% if eval %}
+    <div class="kv">
+      <div>Lần gần nhất</div><div><strong>{{ eval.label }}</strong> {% if eval.status == 'ĐÃ CHỐT' %}<span class="pill ok">Đã chốt</span>{% else %}<span class="pill warn">Đang thực hiện</span>{% endif %}</div>
+      <div>Đã đánh giá</div><div><strong>{{ eval.done }}</strong> / {{ eval.total }}</div>
+    </div>
+    <div class="toolbar"><a class="btn sm" href="/quan-ly/danh-gia/{{ eval.id }}">Mở lần đánh giá</a><a class="btn sm secondary" href="/quan-ly/danh-gia?tab=tong-hop">Tổng hợp</a></div>
+  {% else %}<div>Chưa có lần đánh giá nào.</div><div><a class="btn sm" href="/quan-ly/danh-gia">Tạo lần đánh giá</a></div>{% endif %}
+</section>
+{% endif %}
+<section class="card stack">
+  <h2 style="margin:0">Cá nhân</h2>
   <div class="toolbar">
-    {% if user.can('xem_tat_ca') %}<a class="btn sm" href="/quan-ly/order">Theo dõi order</a>{% endif %}
-    {% if user.can('order_ca') and user.employee_id %}<a class="btn sm secondary" href="/order">Order ca của tôi</a>{% endif %}
+    {% if user.can('order_ca') and user.employee_id %}<a class="btn sm" href="/order">Order ca của tôi</a>{% endif %}
+    {% if user.employee_id %}<a class="btn sm secondary" href="/lich">Lịch của tôi</a>{% endif %}
+    <a class="btn sm secondary" href="/doi-mat-khau">Đổi mật khẩu</a>
   </div>
-  
+</section>
 </div>
 {% endblock %}
 {% block apptitle %}Lịch làm{% endblock %}

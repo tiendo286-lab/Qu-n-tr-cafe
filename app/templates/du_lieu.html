@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Dữ liệu & sao lưu{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Dữ liệu &amp; sao lưu</h1>
+  <div class="sub">Chỉ Chủ vào được. Gói ZIP dùng chung định dạng với bản offline 1.7.6 (Mac/Windows), có thể chuyển qua lại giữa web và máy tính.</div></div>
+</div>
+
+{% if result %}
+<div class="alert ok">
+  <strong>Đã nhập dữ liệu</strong>{% if result.created %} (gói tạo lúc {{ result.created }}){% endif %}:
+  {{ result.stats.employees or 0 }} nhân viên, {{ result.stats.weeks or 0 }} tuần, {{ result.stats.evaluation_rounds or 0 }} lần đánh giá.
+  {% if result.kept %}Đã giữ lại {{ result.kept }} tài khoản đăng nhập (khớp theo mã nhân viên).{% endif %}
+  Bản sao lưu trước khi nhập: {{ result.backup or '—' }}.
+</div>
+{% endif %}
+
+<div class="grid2">
+<section class="card stack">
+  <h2 style="margin:0">Dữ liệu hiện tại</h2>
+  <div class="kv">
+    {% for k, v in stats.items() %}<div>{{ k }}</div><strong>{{ v }}</strong>{% endfor %}
+    <div>Dung lượng</div><strong>{{ size }}</strong>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2 style="margin:0">Xuất dữ liệu</h2>
+  <p style="margin:0;font-size:14px;color:var(--ink-2)">Tải về một gói ZIP chứa toàn bộ dữ liệu (lịch, order, nhân viên, đánh giá, voucher, tài khoản). Nên tải định kỳ để giữ một bản ngoài máy chủ.</p>
+  <div class="toolbar">
+    <a class="btn" href="/quan-ly/du-lieu/xuat">Tải gói dữ liệu ZIP</a>
+    <form method="post" action="/quan-ly/du-lieu/sao-luu"><button class="btn secondary" type="submit">Sao lưu ngay trên máy chủ</button></form>
+  </div>
+</section>
+
+<section class="card stack">
+  <h2 style="margin:0">Nhập dữ liệu từ máy khác</h2>
+  <div class="alert warn">Nhập sẽ <strong>ghi đè toàn bộ</strong> dữ liệu hiện tại bằng dữ liệu trong gói ZIP. Hệ thống tự sao lưu dữ liệu hiện tại trước khi ghi đè.
+    Nếu gói đến từ <strong>bản offline</strong>, tài khoản đăng nhập và mật khẩu trên web được giữ lại (khớp theo mã nhân viên).</div>
+  <form method="post" action="/quan-ly/du-lieu/nhap" enctype="multipart/form-data" class="stack"
+    onsubmit="const v=prompt('Ghi đè toàn bộ dữ liệu bằng gói ZIP này?\nGõ NHAP để xác nhận:'); if(v===null) return false; this.xac_nhan.value=v; return true;">
+    <input class="input" type="file" name="file" accept=".zip" required>
+    <input type="hidden" name="xac_nhan">
+    <button class="btn solid-danger" type="submit">Nhập gói ZIP</button>
+  </form>
+</section>
+</div>
+
+<section class="card flush">
+  <div class="card-head"><h2>Bản sao lưu trên máy chủ</h2><span style="font-size:13px;color:var(--ink-2)">Giữ tối đa 20 bản gần nhất trong 30 ngày</span></div>
+  <div class="table-wrap">
+  <table class="table"><thead><tr><th>Tên file</th><th>Thời gian</th><th>Dung lượng</th><th></th></tr></thead>
+  <tbody>{% for b in backups %}<tr><td style="font-size:13px">{{ b.name }}</td><td>{{ b.at }}</td><td>{{ b.size }}</td><td><a class="btn sm secondary" href="/quan-ly/du-lieu/sao-luu/{{ b.name }}">Tải về</a></td></tr>
+  {% else %}<tr><td colspan="4">Chưa có bản sao lưu.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</section>
+{% endblock %}

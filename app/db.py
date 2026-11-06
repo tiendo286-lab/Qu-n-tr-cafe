@@ -45,13 +45,19 @@ PERMISSIONS = [
     ("quan_ly_nhan_vien", "Thêm/sửa nhân viên, email, mật khẩu tạm"),
     ("cai_gio_order", "Cài giờ mở/hết hạn order"),
     ("sua_danh_muc", "Sửa định biên, giờ ca, lịch cố định"),
+    ("bao_cao", "Xem báo cáo, xếp lịch tổng, xuất Excel"),
+    ("danh_gia", "Đánh giá nhân viên, voucher"),
 ]
 PERM_KEYS = [k for k, _ in PERMISSIONS]
 # Nhân viên luôn có 2 quyền này; các quyền quản trị không cấp được cho nhân viên.
 NV_ALWAYS = {"order_ca", "xem_lich_minh"}
 NV_EDITABLE = {"xem_tat_ca"}
 # Chỉ Chủ: không có ô tick.
-OWNER_ONLY = [("phan_quyen", "Cấp vai trò, sửa phân quyền"), ("xoa_du_lieu_tuan", "Xóa dữ liệu tuần")]
+OWNER_ONLY = [
+    ("phan_quyen", "Cấp vai trò, sửa phân quyền"),
+    ("xoa_du_lieu_tuan", "Xóa dữ liệu tuần"),
+    ("du_lieu", "Sao lưu, chuyển dữ liệu (ZIP), khôi phục"),
+]
 
 DEFAULT_PERMS = {
     "ql_tong": {k: 1 for k in PERM_KEYS},
@@ -251,7 +257,21 @@ def _migration_6(con) -> None:
         con.execute("ALTER TABLE schedule_published ADD COLUMN changed_at TEXT")
 
 
-MIGRATIONS = [_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6]
+def _migration_7(con) -> None:
+    """Thêm quyền Báo cáo và Đánh giá (chức năng lấy từ bản offline). Mặc định: Quản lý tổng có."""
+    for perm in ("bao_cao", "danh_gia"):
+        con.execute("INSERT OR IGNORE INTO role_permissions(role, perm, allowed) VALUES ('ql_tong', ?, 1)", (perm,))
+        con.execute("INSERT OR IGNORE INTO role_permissions(role, perm, allowed) VALUES ('ql', ?, 0)", (perm,))
+
+
+def _migration_8(con) -> None:
+    """Quản lý tài khoản: khóa/mở khóa tài khoản đăng nhập."""
+    if "locked" not in _columns(con, "accounts"):
+        con.execute("ALTER TABLE accounts ADD COLUMN locked INTEGER NOT NULL DEFAULT 0")
+
+
+MIGRATIONS = [_migration_1, _migration_2, _migration_3, _migration_4, _migration_5, _migration_6, _migration_7,
+              _migration_8]
 
 
 def ensure_accounts(con) -> None:
@@ -297,22 +317,7 @@ def init_db() -> None:
         )
     con = connect()
     try:
-        con.execute("PRAGMA journal_mode = WAL")
-        con.execute("CREATE TABLE IF NOT EXISTS web_schema_version (version INTEGER NOT NULL)")
-        row = con.execute("SELECT version FROM web_schema_version").fetchone()
-        version = row["version"] if row else 0
-        if not row:
-            con.execute("INSERT INTO web_schema_version(version) VALUES (0)")
-        for i, mig in enumerate(MIGRATIONS, start=1):
-            if version < i:
-                con.execute("BEGIN")
-                try:
-                    mig(con)
-                    con.execute("UPDATE web_schema_version SET version = ?", (i,))
-                    con.execute("COMMIT")
-                except Exception:
-                    con.execute("ROLLBACK")
-                    raise
+        run_migrations(con)
         con.execute("BEGIN")
         ensure_accounts(con)
         temp = ensure_owner(con)
@@ -324,6 +329,26 @@ def init_db() -> None:
             print("=" * 60)
     finally:
         con.close()
+
+
+def run_migrations(con) -> None:
+    """Nâng cấp cấu trúc dữ liệu của bản offline lên bản web (chạy được nhiều lần)."""
+    con.execute("PRAGMA journal_mode = WAL")
+    con.execute("CREATE TABLE IF NOT EXISTS web_schema_version (version INTEGER NOT NULL)")
+    row = con.execute("SELECT version FROM web_schema_version").fetchone()
+    version = row["version"] if row else 0
+    if not row:
+        con.execute("INSERT INTO web_schema_version(version) VALUES (0)")
+    for i, mig in enumerate(MIGRATIONS, start=1):
+        if version < i:
+            con.execute("BEGIN")
+            try:
+                mig(con)
+                con.execute("UPDATE web_schema_version SET version = ?", (i,))
+                con.execute("COMMIT")
+            except Exception:
+                con.execute("ROLLBACK")
+                raise
 
 
 def get_secret_key() -> str:

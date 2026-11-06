@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Tài khoản đăng nhập{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Tài khoản đăng nhập</h1>
+  <div class="sub">Mỗi nhân viên có sẵn một tài khoản, đăng nhập bằng <strong>mã nhân viên</strong>. Cấp mật khẩu tạm và đưa tận tay; lần đầu đăng nhập nhân viên bắt buộc đổi mật khẩu. Vai trò và quyền chỉnh ở <a href="/quan-ly/phan-quyen">Phân quyền</a>.</div></div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+{% if printed %}
+<div class="alert ok">Tài khoản <strong>{{ printed.login }}</strong> ({{ printed.name }}) — mật khẩu tạm: <span class="temp-pass" style="display:inline-block;font-size:20px;padding:2px 10px">{{ printed.password }}</span> — chỉ hiện một lần, hãy ghi lại.</div>
+{% endif %}
+
+<div class="tiles">
+  {% for k, (label, kind) in STATE_LABELS.items() %}
+  <a class="tile" href="?tt={{ k }}" style="border-top-color:{{ {'ok':'#16a34a','warn':'#f59e0b','mute':'#9ca3af','off':'#dc2626'}[kind] }}"><div class="n">{{ counts[k] }}</div><div class="l">{{ label }}</div></a>
+  {% endfor %}
+</div>
+
+<div class="grid2">
+<section class="card stack">
+  <h2 style="margin:0">Cấp mật khẩu tạm hàng loạt</h2>
+  <p style="margin:0;font-size:14px;color:var(--ink-2)">Tạo mật khẩu tạm cho nhiều nhân viên một lúc, rồi in danh sách cắt nhỏ phát cho từng người.</p>
+  <form method="post" action="/quan-ly/tai-khoan/hang-loat" class="toolbar" onsubmit="return confirm('Cấp mật khẩu tạm mới cho các tài khoản đã chọn? Mật khẩu tạm cũ (nếu có) sẽ hết hiệu lực.')">
+    <select class="input sm" name="pham_vi" aria-label="Phạm vi">
+      <option value="chua_co">Người chưa có mật khẩu ({{ counts.chua_co }})</option>
+      <option value="chua_doi">Người chưa có + người chưa đổi mật khẩu tạm ({{ counts.chua_co + counts.tam }})</option>
+    </select>
+    <button class="btn sm" type="submit">Cấp &amp; in danh sách</button>
+  </form>
+</section>
+{% if user.can('phan_quyen') %}
+<section class="card stack">
+  <h2 style="margin:0">Tạo tài khoản riêng</h2>
+  <p style="margin:0;font-size:14px;color:var(--ink-2)">Cho người không có trong danh sách nhân viên (vd kế toán, chủ thứ hai). Nhân viên thì không cần tạo — đã có sẵn.</p>
+  <form method="post" action="/quan-ly/tai-khoan/tao" class="toolbar">
+    <input class="input sm" name="ten_dang_nhap" placeholder="Tên đăng nhập (vd ketoan)" required pattern="[A-Za-z0-9._\-]{3,30}" aria-label="Tên đăng nhập">
+    <input class="input sm" name="ten" placeholder="Tên hiển thị" required maxlength="60" aria-label="Tên hiển thị">
+    <select class="input sm" name="vai_tro" aria-label="Vai trò">{% for k, v in role_choices if k != 'nv' %}<option value="{{ k }}" {{ 'selected' if k == 'ql' }}>{{ v }}</option>{% endfor %}</select>
+    <button class="btn sm" type="submit">+ Tạo</button>
+  </form>
+</section>
+{% endif %}
+</div>
+
+<section class="card flush">
+  <form method="get" class="filter-bar">
+    <input class="input sm" type="search" name="q" value="{{ f.q }}" placeholder="Tìm mã / tên" aria-label="Tìm">
+    <select class="input sm" name="tt" aria-label="Trạng thái"><option value="">Tất cả trạng thái</option>{% for k, (label, kind) in STATE_LABELS.items() %}<option value="{{ k }}" {{ 'selected' if f.tt == k }}>{{ label }}</option>{% endfor %}</select>
+    <select class="input sm" name="vt" aria-label="Vai trò"><option value="">Tất cả vai trò</option>{% for k, v in role_choices %}<option value="{{ k }}" {{ 'selected' if f.vt == k }}>{{ v }}</option>{% endfor %}</select>
+    <button class="btn sm" type="submit">Lọc</button><a class="btn sm secondary" href="/quan-ly/tai-khoan">Xóa lọc</a>
+    <span style="font-size:13px">{{ items|length }} tài khoản</span>
+  </form>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Đăng nhập bằng</th><th>Họ tên</th><th>Vai trò</th><th>Cơ sở</th><th>Trạng thái</th><th>Đăng nhập gần nhất</th><th></th></tr></thead>
+    <tbody>
+    {% for a in items %}
+      <tr data-id="{{ a.id }}">
+        <td><strong>{{ a.login }}</strong></td><td>{{ a.who }}{% if not a.employee_id %} <span class="pill mute">tài khoản riêng</span>{% endif %}</td>
+        <td>{{ ROLE_LABELS[a.system_role] }}</td><td style="font-size:13px">{{ a.branch_codes or '—' }}</td>
+        <td><span class="pill {{ STATE_LABELS[a.state][1] }}">{{ STATE_LABELS[a.state][0] }}</span></td>
+        <td style="font-size:13px">{{ a.last_login_at or 'Chưa đăng nhập' }}</td>
+        <td style="white-space:nowrap">
+          {% if a.id != user.account_id and a.state != 'ngung' and (user.is_owner or a.system_role not in ['chu','ql_tong']) %}
+          <button class="btn sm act-temp" type="button" data-id="{{ a.id }}" data-name="{{ a.who }}">Cấp mật khẩu tạm</button>
+          <button class="btn sm secondary act-lock" type="button" data-id="{{ a.id }}">{{ 'Mở khóa' if a.locked else 'Khóa' }}</button>
+          {% if a.has_pw %}<button class="btn sm secondary act-out" type="button" data-id="{{ a.id }}" title="Buộc đăng xuất trên mọi điện thoại/máy tính">Đăng xuất mọi nơi</button>{% endif %}
+          {% if not a.employee_id and user.can('phan_quyen') %}
+          <form method="post" action="/quan-ly/tai-khoan/{{ a.id }}/xoa" style="display:inline" onsubmit="return confirm('Xóa tài khoản {{ a.login }}?')"><button class="btn sm secondary danger" type="submit">Xóa</button></form>
+          {% endif %}
+          {% elif a.id == user.account_id %}<span style="font-size:13px;color:var(--muted)">Tài khoản của bạn</span>{% endif %}
+        </td>
+      </tr>
+    {% else %}
+      <tr><td colspan="7">Không có tài khoản nào khớp bộ lọc.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<dialog id="temp-dialog" aria-labelledby="temp-title">
+  <h2 id="temp-title">Mật khẩu tạm</h2>
+  <div id="temp-who" style="margin-top:6px;color:var(--ink-2)"></div>
+  <div class="temp-pass" id="temp-value"></div>
+  <p style="font-size:14px;color:var(--ink-2)">Chỉ hiện một lần. Đưa tận tay; lần đầu đăng nhập nhân viên phải đổi mật khẩu.</p>
+  <form method="dialog"><button class="btn" type="submit">Đã ghi lại</button></form>
+</dialog>
+<script>
+const dlg = document.getElementById('temp-dialog');
+document.querySelectorAll('.act-temp').forEach((b) => b.addEventListener('click', async () => {
+  if (!confirm('Cấp mật khẩu tạm mới cho ' + b.dataset.name + '? Mật khẩu cũ sẽ hết hiệu lực.')) return;
+  try {
+    const r = await postJSON('/quan-ly/tai-khoan/' + b.dataset.id + '/mat-khau-tam');
+    document.getElementById('temp-who').textContent = r.login + ' – ' + r.name;
+    document.getElementById('temp-value').textContent = r.password;
+    dlg.showModal();
+  } catch (e) { alert(e.message); }
+}));
+document.querySelectorAll('.act-lock').forEach((b) => b.addEventListener('click', async () => {
+  const locking = b.textContent.trim() === 'Khóa';
+  if (!confirm(locking ? 'Khóa tài khoản này? Người dùng sẽ bị đăng xuất và không đăng nhập được.' : 'Mở khóa tài khoản này?')) return;
+  try { await postJSON('/quan-ly/tai-khoan/' + b.dataset.id + '/khoa'); location.reload(); } catch (e) { alert(e.message); }
+}));
+document.querySelectorAll('.act-out').forEach((b) => b.addEventListener('click', async () => {
+  if (!confirm('Buộc tài khoản này đăng xuất trên mọi thiết bị?')) return;
+  try { await postJSON('/quan-ly/tai-khoan/' + b.dataset.id + '/dang-xuat'); showSaved('Đã đăng xuất mọi nơi'); } catch (e) { alert(e.message); }
+}));
+</script>
+{% endblock %}

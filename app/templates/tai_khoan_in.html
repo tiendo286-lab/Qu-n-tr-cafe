@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Danh sách mật khẩu tạm{% endblock %}
+{% block content %}
+<style>
+  .slips { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 0; }
+  .slip { border: 1px dashed #94a3b8; padding: 12px 14px; font-size: 14px; line-height: 1.5; break-inside: avoid; }
+  .slip .pw { font-family: ui-monospace, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
+  @media print {
+    .sidebar, .page-head .noprint, .alert, .noprint { display: none !important; }
+    .layout { display: block; } .main { padding: 0; }
+  }
+</style>
+<div class="page-head">
+  <div><h1>Danh sách mật khẩu tạm ({{ rows|length }} người)</h1>
+  <div class="sub">Tạo lúc {{ at }}. Danh sách <strong>chỉ hiện một lần</strong> — hãy in hoặc ghi lại ngay. Cắt theo đường đứt và đưa tận tay từng người.</div></div>
+  <div class="noprint toolbar"><button class="btn" type="button" onclick="window.print()">In danh sách</button><a class="btn secondary" href="/quan-ly/tai-khoan">Xong</a></div>
+</div>
+<div class="slips">
+  {% for r in rows %}
+  <div class="slip">
+    <div><strong>{{ r.name }}</strong>{% if r.branches %} · {{ r.branches }}{% endif %}</div>
+    <div>Mã đăng nhập: <strong>{{ r.login }}</strong></div>
+    <div>Mật khẩu tạm: <span class="pw">{{ r.password }}</span></div>
+    <div style="font-size:12px;color:#475569">Vào web, đăng nhập rồi đổi mật khẩu mới (ít nhất 6 ký tự).</div>
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}

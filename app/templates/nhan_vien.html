@@ -11,6 +11,15 @@
     <a class="btn" href="/quan-ly/nhan-vien/them">+ Thêm nhân viên</a>
   </div>
 </div>
+<section class="card toolbar" style="padding:12px 18px">
+  <strong style="font-size:14px">Excel (như bản offline):</strong>
+  <form method="post" action="/quan-ly/nhan-vien/nhap-excel" enctype="multipart/form-data" class="upl"
+    onsubmit="return confirm('Nhập danh sách nhân viên từ file Excel? Nhân viên trùng mã sẽ được cập nhật tên, cấp bậc, trạng thái, cơ sở, vị trí.')">
+    <label class="btn sm">Nhập file Excel<input type="file" name="file" accept=".xlsx" hidden onchange="this.form.requestSubmit()"></label></form>
+  <a class="btn sm secondary" href="/quan-ly/nhan-vien/file-mau">Tải file mẫu</a>
+  <a class="btn sm secondary" href="/quan-ly/nhan-vien/xuat-google-form">Xuất danh sách cho Google Form</a>
+  <a class="btn sm secondary" href="/quan-ly/tai-khoan" style="margin-left:auto">Quản lý tài khoản đăng nhập →</a>
+</section>
 
 {% set n_all = employees | length %}
 {% set n_on = employees | selectattr('status','equalto','Đang làm') | list | length %}

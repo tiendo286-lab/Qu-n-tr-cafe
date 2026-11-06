@@ -13,7 +13,7 @@
   <div class="card-head"><h2>Chi nhánh</h2></div>
   <div class="table-wrap">
   <table class="table" aria-label="Chi nhánh">
-    <thead><tr><th>Mã</th><th>Tên chi nhánh</th><th>Trạng thái</th></tr></thead>
+    <thead><tr><th>Mã</th><th>Tên chi nhánh</th><th>Trạng thái</th><th></th></tr></thead>
     <tbody>
     {% for b in branches %}
       <tr class="autosave" data-url="/quan-ly/chi-nhanh/{{ b.id }}">
@@ -22,6 +22,7 @@
         <td><select class="input sm" data-f="status" aria-label="Trạng thái chi nhánh">
           {% for st in [BRANCH_ACTIVE, BRANCH_STOPPED] %}<option {% if st == b.status %}selected{% endif %}>{{ st }}</option>{% endfor %}
         </select></td>
+        <td><form method="post" action="/quan-ly/chi-nhanh/{{ b.id }}/xoa" onsubmit="return confirm('Xóa hẳn chi nhánh {{ b.code }}? Chỉ xóa được khi chưa có nhân viên, định biên, lịch nào gắn với chi nhánh này. Nếu đã có dữ liệu, hãy chuyển sang Ngừng hoạt động.')"><button class="btn sm secondary danger" type="submit" title="Xóa (chỉ khi chưa phát sinh dữ liệu)">Xóa</button></form></td>
       </tr>
     {% endfor %}
     </tbody>
@@ -44,7 +45,7 @@
   <table class="table" aria-label="Ca làm việc">
     <thead>
       <tr><th>Tên ca</th><th>Mã</th><th>Trạng thái</th>
-        {% for b in branches %}<th>{{ b.code }}</th>{% endfor %}
+        {% for b in branches %}<th>{{ b.code }}</th>{% endfor %}<th></th>
       </tr>
     </thead>
     <tbody>
@@ -65,6 +66,7 @@
           </div>
         </td>
         {% endfor %}
+        <td><form method="post" action="/quan-ly/ca/{{ s.id }}/xoa" onsubmit="return confirm('Xóa hẳn ca {{ s.name }}? Chỉ xóa được khi chưa có order, định biên, lịch nào dùng ca này. Nếu đã có dữ liệu, hãy chuyển sang Ngừng sử dụng.')"><button class="btn sm secondary danger" type="submit">Xóa</button></form></td>
       </tr>
     {% endfor %}
     </tbody>

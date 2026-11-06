@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+{% block title %}Chốt lịch & báo cáo{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Chốt lịch &amp; báo cáo {% if ready %}<span class="pill {{ 'ok' if closed else 'warn' }}">{{ status_label }}</span>{% endif %}</h1>
+  <div class="sub">Kiểm tra toàn bộ lịch sau khi đã xếp xong các cơ sở. Cảnh báo không chặn chốt lịch. Khi chốt, định biên hiện tại được lưu cùng tuần và nhân viên xem được lịch.</div></div>
+  <div class="wk-nav">
+    <a class="btn sm secondary" href="?tuan={{ prev_w }}&tab={{ tab }}">‹ Tuần trước</a>
+    <span class="wk-label">{{ week_label }}</span>
+    <a class="btn sm secondary" href="?tuan={{ next_w }}&tab={{ tab }}">Tuần sau ›</a>
+    <form method="get" style="display:inline"><input type="hidden" name="tab" value="{{ tab }}"><input class="input sm" type="date" name="tuan" value="{{ start }}" onchange="this.form.submit()" aria-label="Chọn tuần theo ngày"></form>
+  </div>
+</div>
+
+{% if ready and tab != 'lich-su' %}
+<div class="toolbar">
+  {% if user.can('chot_tuan') %}
+    {% if closed %}
+    <form method="post" action="/quan-ly/lich/mo-lai/{{ week.id }}" onsubmit="return confirm('Mở lại tuần để chỉnh sửa? Nhân viên vẫn xem bản đã chốt gần nhất cho tới khi chốt lại.')"><button class="btn sm secondary" type="submit">Mở lại tuần</button></form>
+    {% else %}
+    <form method="post" action="/quan-ly/lich/chot/{{ week.id }}" onsubmit="return confirm('Chốt lịch tuần {{ week_label }}?\n\nCa thiếu tổng: {{ counts.shortage }}\nCa thừa: {{ counts.overstaff }}\nLệch vị trí PC/CB: {{ counts.role_mismatch }}\nThiếu QL/Cấp 1+: {{ counts.missing_senior }}\nXếp vào ca Nghỉ: {{ counts.assigned_off }}\nXếp khi Chưa order: {{ counts.assigned_no_order }}\nLàm thông 3 ca: {{ counts.three_shifts or 0 }}\nNhân viên chưa có ca: {{ counts.unassigned }}\n\nVẫn chốt?')"><button class="btn sm" type="submit">Chốt lịch</button></form>
+    {% endif %}
+  {% endif %}
+  <a class="btn sm secondary" href="/quan-ly/bao-cao/xuat?tuan={{ start }}">Xuất báo cáo Excel</a>
+  <a class="btn sm secondary" href="?tuan={{ start }}&tab={{ tab }}">Kiểm tra lại dữ liệu</a>
+  <span style="font-size:13px;color:var(--ink-2)">Chốt gần nhất: {{ closed_at or '—' }}</span>
+</div>
+<div class="tiles">
+  <div class="tile" style="border-top-color:#2563eb"><div class="n">{{ stats.active }}</div><div class="l">Nhân viên</div></div>
+  <div class="tile" style="border-top-color:#16a34a"><div class="n">{{ stats.total_assignments }}</div><div class="l">Tổng ca</div></div>
+  <div class="tile" style="border-top-color:#f59e0b"><div class="n">{{ warn_total }}</div><div class="l">Cảnh báo</div></div>
+  <div class="tile" style="border-top-color:#dc2626"><div class="n">{{ counts.shortage }}</div><div class="l">Ca thiếu</div></div>
+  <div class="tile" style="border-top-color:#7c3aed"><div class="n">{{ counts.overstaff }}</div><div class="l">Ca thừa</div></div>
+  <div class="tile" style="border-top-color:#9ca3af"><div class="n">{{ counts.unassigned }}</div><div class="l">Chưa có ca</div></div>
+</div>
+{% endif %}
+
+<nav class="tabs-nav" aria-label="Mục báo cáo">
+  {% for k, label in [('lich','Xem lịch tuần'),('canh-bao','Cảnh báo'),('dinh-bien','Định biên'),('nhan-vien','Nhân viên'),('order','Order'),('co-so','Cơ sở'),('lich-su','Lịch 30 ngày')] %}
+  <a href="?tuan={{ start }}&tab={{ k }}" class="{{ 'on' if tab == k }}">{{ label }}</a>
+  {% endfor %}
+</nav>
+
+{% if tab == 'lich-su' %}
+<section class="card flush">
+  <div class="card-head"><h2>Các tuần đã xếp lịch</h2></div>
+  <div class="table-wrap">
+  <table class="table">
+    <thead><tr><th>Tuần</th><th>Trạng thái</th><th>Ngày chốt gần nhất</th><th class="center">Cảnh báo</th><th></th></tr></thead>
+    <tbody>
+    {% for h in hist %}
+      <tr><td><strong>{{ h.start_date[8:10] }}/{{ h.start_date[5:7] }}/{{ h.start_date[:4] }} – {{ h.end_date[8:10] }}/{{ h.end_date[5:7] }}/{{ h.end_date[:4] }}</strong></td>
+        <td>{{ h.label }}</td><td>{{ h.closed_at or '—' }}</td><td class="center">{{ h.warning_count }}</td>
+        <td style="white-space:nowrap">
+          <a class="btn sm" href="?tuan={{ h.start_date }}&tab=lich">Xem tuần</a>
+          <a class="btn sm secondary" href="/quan-ly/bao-cao/xuat?tuan={{ h.start_date }}">Xuất Excel</a>
+          {% if h.status == 'ĐÃ CHỐT' and user.can('chot_tuan') %}
+          <form method="post" action="/quan-ly/lich/mo-lai/{{ h.week_id }}" style="display:inline" onsubmit="return confirm('Mở lại tuần này để chỉnh sửa?')"><button class="btn sm secondary" type="submit">Mở lại</button></form>
+          {% endif %}
+        </td></tr>
+    {% else %}
+      <tr><td colspan="5">Chưa có tuần nào được xếp lịch.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+{% elif not ready %}
+<div class="card">{% if not week %}Tuần này chưa được tạo.{% else %}Tuần này chưa bắt đầu xếp lịch nên chưa có báo cáo.{% endif %}
+  Xếp lịch ở <a href="/quan-ly/lich-tong?tuan={{ start }}">Xếp lịch làm tổng</a> hoặc <a href="/quan-ly/order?tuan={{ start }}">Order lịch làm</a>.</div>
+
+{% elif tab == 'canh-bao' %}
+<section class="card flush">
+  <form method="get" class="filter-bar">
+    <input type="hidden" name="tuan" value="{{ start }}"><input type="hidden" name="tab" value="canh-bao">
+    <label for="loai" style="font-weight:600;font-size:14px">Lọc cảnh báo</label>
+    <select class="input sm" id="loai" name="loai" onchange="this.form.submit()"><option value="">Tất cả cảnh báo</option>{% for x in WARN_CATEGORIES %}<option {{ 'selected' if loai == x }}>{{ x }}</option>{% endfor %}</select>
+    <span style="font-size:13px">{{ lines|length }} dòng</span>
+  </form>
+  <div class="table-wrap">
+  <table class="table"><thead><tr><th>Loại cảnh báo</th><th>Chi tiết</th></tr></thead>
+    <tbody>{% for x in lines %}<tr><td><span class="pill warn">{{ x.cat }}</span></td><td>{{ x.detail }}</td></tr>{% else %}<tr><td colspan="2">Không có cảnh báo.</td></tr>{% endfor %}</tbody></table>
+  </div>
+</section>
+
+{% elif tab == 'dinh-bien' %}
+<section class="card flush"><div class="table-wrap">
+  <table class="table"><thead><tr><th>Cơ sở</th><th>Ngày</th><th>Ca</th><th class="center">Tổng</th><th class="center">Định biên</th><th class="center">Pha chế</th><th class="center">Chạy bàn</th><th class="center">Cấp 1+</th><th>Trạng thái</th></tr></thead>
+  <tbody>{% for r in staff_rows %}<tr><td>{{ r.branch_code }}</td><td>{{ r.day }}</td><td>{{ r.shift }}</td><td class="center">{{ r.actual }}</td><td class="center">{{ r.required }}</td>
+    <td class="center">{{ r.bar_actual }}/{{ r.bar_required }}</td><td class="center">{{ r.floor_actual }}/{{ r.floor_required }}</td><td class="center">{{ r.senior }}</td>
+    <td><span class="pill {{ 'ok' if r.status == 'ĐỦ' else ('off' if 'THIẾU' in r.status else 'warn') }}">{{ r.status }}</span></td></tr>{% endfor %}</tbody></table>
+</div></section>
+
+{% elif tab == 'nhan-vien' %}
+<section class="card flush">
+  <form method="get" class="filter-bar"><input type="hidden" name="tuan" value="{{ start }}"><input type="hidden" name="tab" value="nhan-vien">
+    <input class="input sm" type="search" name="q" value="{{ q }}" placeholder="Nhập mã NV hoặc họ tên" aria-label="Tìm nhân viên"><button class="btn sm" type="submit">Tìm</button></form>
+  <div class="table-wrap">
+  <table class="table"><thead><tr><th>Mã NV</th><th>Tên nhân viên</th><th>Phân cấp</th><th class="center">Tổng ca</th>{% for s in shifts %}<th class="center">{{ s }}</th>{% endfor %}<th>Cơ sở</th></tr></thead>
+  <tbody>{% for r in emp_rows %}<tr><td>{{ r.code }}</td><td>{{ r.name }}</td><td>{{ r.rank }}</td><td class="center"><strong>{{ r.total }}</strong></td>
+    {% for s in shifts %}<td class="center">{{ r.shift_counts.get(s, 0) }}</td>{% endfor %}<td>{{ r.branches or '—' }}</td></tr>{% endfor %}</tbody></table>
+  </div>
+</section>
+
+{% elif tab == 'order' %}
+<div class="tiles">
+  <div class="tile" style="border-top-color:#2563eb"><div class="n">{{ order.summary.active }}</div><div class="l">Nhân viên đang làm</div></div>
+  <div class="tile" style="border-top-color:#16a34a"><div class="n">{{ order.summary.with_data }}</div><div class="l">Đã có order</div></div>
+  <div class="tile" style="border-top-color:#9ca3af"><div class="n">{{ order.summary.without_data }}</div><div class="l">Chưa có order</div></div>
+  <div class="tile" style="border-top-color:#22c55e"><div class="n">{{ order.summary.available }}</div><div class="l">Ô đi làm được</div></div>
+  <div class="tile" style="border-top-color:#dc2626"><div class="n">{{ order.summary.off }}</div><div class="l">Ô nghỉ</div></div>
+</div>
+<section class="card flush"><div class="table-wrap">
+  <table class="table"><thead><tr><th>Nội dung</th><th>Chi tiết</th></tr></thead>
+  <tbody>{% for r in order.exceptions %}<tr><td>{{ r.category }}</td><td>{{ r.detail }}</td></tr>{% else %}<tr><td colspan="2">Không có ngoại lệ.</td></tr>{% endfor %}</tbody></table>
+</div></section>
+
+{% elif tab == 'co-so' %}
+<section class="card flush"><div class="table-wrap">
+  <table class="table"><thead><tr><th>Cơ sở</th><th class="center">Tổng ca NV</th><th class="center">Ca đủ</th><th class="center">Ca thiếu</th><th class="center">Ca thừa</th><th class="center">Lệch vị trí</th><th class="center">Thiếu cấp 1+</th></tr></thead>
+  <tbody>{% for r in branch_rows %}<tr><td><strong>{{ r.branch_code }}</strong></td><td class="center">{{ r.total_assignments }}</td><td class="center">{{ r.exact }}</td><td class="center">{{ r.shortage }}</td><td class="center">{{ r.overstaff }}</td><td class="center">{{ r.role_mismatch }}</td><td class="center">{{ r.missing_senior }}</td></tr>{% endfor %}</tbody></table>
+</div></section>
+
+{% else %}
+<section class="card flush">
+  <form method="get" class="filter-bar">
+    <input type="hidden" name="tuan" value="{{ start }}"><input type="hidden" name="tab" value="lich">
+    <select class="input sm" name="che_do" onchange="this.form.submit()" aria-label="Kiểu xem">
+      <option value="nv" {{ 'selected' if che_do == 'nv' }}>Lịch tổng theo nhân viên</option>
+      <option value="cs" {{ 'selected' if che_do == 'cs' }}>Lịch theo cơ sở</option></select>
+    {% if che_do == 'cs' %}
+    <select class="input sm" name="cn" onchange="this.form.submit()" aria-label="Cơ sở">{% for b in branches %}<option value="{{ b.code }}" {{ 'selected' if cn == b.code }}>{{ b.code }} – {{ b.name }}</option>{% endfor %}</select>
+    {% else %}
+    <input class="input sm" type="search" name="q" value="{{ q }}" placeholder="Tìm nhanh mã NV / họ tên" aria-label="Tìm"><button class="btn sm secondary" type="submit">Tìm</button>
+    {% endif %}
+    <a class="btn sm" href="/quan-ly/bao-cao/xuat-lich?tuan={{ start }}&che_do={{ che_do }}&cn={{ cn }}">Xuất lịch đang xem</a>
+  </form>
+  <div class="mtx-wrap" style="border:0;border-radius:0">
+  {% if che_do == 'cs' %}
+  <table class="mtx" style="font-size:13px">
+    <thead><tr><th class="nm">Ca – vị trí</th>{% for h in day_heads %}<th>{{ h }}</th>{% endfor %}</tr></thead>
+    <tbody>
+    {% for blk in blocks %}
+      {% for r in blk.rows %}
+        {% set n = ([r.required|max] + (r.days|map('length')|list))|max %}
+        {% for i in range(n if n > 0 else 1) %}
+        <tr><td class="nm">{{ blk.shift }} – {{ r.role }} {{ i + 1 }}</td>
+          {% for d in range(7) %}{% set items = r.days[d] %}
+          {% if i < items|length %}{% set a = items[i] %}
+            <td class="{{ 'st-fx' if a.source == 'FIXED' else 'st-ok' }} {{ 'st-warn' if a.base_status in ['NGHỈ', 'CHƯA ORDER'] }}" style="text-align:left">{{ a.code }} – {{ a.name }}{% if a.source == 'FIXED' %} <small>CĐ</small>{% endif %}{% if a.base_status == 'NGHỈ' %} ⚠ Nghỉ{% elif a.base_status == 'CHƯA ORDER' %} <small>Chưa order</small>{% endif %}</td>
+          {% elif i < r.required[d] %}<td class="st-off">Thiếu</td>
+          {% else %}<td></td>{% endif %}
+          {% endfor %}</tr>
+        {% endfor %}
+      {% endfor %}
+      <tr style="background:#f0f5ff"><td class="nm"><strong>Tổng ca {{ blk.shift }}</strong></td>
+        {% for t in blk.totals %}{% if t %}<td title="{% for k, v in t.roles.items() %}{{ k }}: {{ v }}/{{ t.role_required[k] }}&#10;{% endfor %}Cấp 2+/QL: {{ t.senior }}" style="font-weight:700;color:{{ '#166534' if t.actual >= t.required else '#b91c1c' }}">{{ t.actual }}/{{ t.required }}</td>{% else %}<td>—</td>{% endif %}{% endfor %}</tr>
+    {% else %}
+      <tr><td colspan="8">Cơ sở này chưa có định biên hoặc người được xếp.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <table class="mtx" style="font-size:12px">
+    <thead><tr><th>STT</th><th class="nm">Nhân viên</th><th>Phân cấp</th>{% for h in day_heads %}<th>{{ h }}</th>{% endfor %}<th>Tổng ca</th></tr></thead>
+    <tbody>
+    {% for r in emp_grid %}
+      <tr><td>{{ loop.index }}</td><td class="nm"><strong>{{ r.code }}</strong> – {{ r.name }}</td><td>{{ r.rank }}</td>
+        {% for c in r.cells %}<td {% if c %}class="st-ok"{% endif %} style="white-space:normal;min-width:110px">{{ c|join('<br>'|safe) }}</td>{% endfor %}
+        <td><strong>{{ r.total }}</strong></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+  </div>
+</section>
+{% endif %}
+{% endblock %}

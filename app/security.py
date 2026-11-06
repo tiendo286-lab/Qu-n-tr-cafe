@@ -86,7 +86,7 @@ class Forbidden(Exception):
 
 USER_SQL = """
 SELECT a.id AS account_id, a.employee_id, a.login_name, a.system_role, a.password_hash,
-       a.must_change, a.session_version, a.display_name,
+       a.must_change, a.session_version, a.display_name, a.locked,
        e.code, e.name, e.rank, e.status, e.email, e.preferred_role
 FROM accounts a LEFT JOIN employees e ON e.id = a.employee_id
 """
@@ -111,7 +111,7 @@ class User:
     def can(self, perm: str) -> bool:
         if self.role == "chu":
             return True
-        if perm in ("phan_quyen", "xoa_du_lieu_tuan"):
+        if perm in ("phan_quyen", "xoa_du_lieu_tuan", "du_lieu"):
             return False
         if self.role == "nv":
             if perm in NV_ALWAYS:
@@ -142,6 +142,9 @@ def current_user(request, con) -> User | None:
         request.session.clear()
         return None
     if row["employee_id"] and row["status"] != "Đang làm":
+        request.session.clear()
+        return None
+    if row["locked"]:
         request.session.clear()
         return None
     return User(row, load_role_perms(con, row["system_role"]))

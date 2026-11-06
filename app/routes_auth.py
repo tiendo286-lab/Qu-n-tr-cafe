@@ -61,6 +61,8 @@ def login_submit(request: Request, ma: str = Form(""), mat_khau: str = Form(""),
     row = _find_account(con, ma)
     if row and row["employee_id"] and row["status"] != "Đang làm":
         return render(request, "dang_nhap.html", error="Tài khoản đã bị khóa vì nhân viên đã ngừng làm.", ma=ma)
+    if row and row["locked"]:
+        return render(request, "dang_nhap.html", error="Tài khoản đang bị khóa. Hãy liên hệ quản lý.", ma=ma)
     if row and not row["password_hash"]:
         return render(
             request,

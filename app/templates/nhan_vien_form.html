@@ -84,4 +84,12 @@
     <a class="btn secondary" href="/quan-ly/nhan-vien">Hủy</a>
   </div>
 </form>
+{% if emp %}
+<section class="card" style="margin-top:16px;max-width:860px">
+  <h2 style="margin-top:0;font-size:16px">Xóa nhân viên</h2>
+  <p style="font-size:14px;color:var(--ink-2)">Chỉ xóa được nhân viên nhập nhầm, chưa có order, lịch cố định, lịch làm hay đánh giá. Nhân viên đã nghỉ việc thì chuyển trạng thái sang <strong>Ngừng làm</strong> để giữ lịch sử.</p>
+  <form method="post" action="/quan-ly/nhan-vien/{{ emp.id }}/xoa" onsubmit="return confirm('Xóa hoàn toàn {{ emp.code }} – {{ emp.name }}? Web sẽ sao lưu trước khi xóa.')">
+    <button class="btn sm secondary danger" type="submit">Xóa nhân viên này</button></form>
+</section>
+{% endif %}
 {% endblock %}

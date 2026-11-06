@@ -1,0 +1,144 @@
+{% extends "base.html" %}
+{% block title %}Xếp lịch làm tổng{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div><h1>Xếp lịch làm tổng {% if ready %}<span class="pill warn">{{ status_label }}</span>{% endif %}</h1>
+  <div class="sub">Mỗi nhân viên một dòng, mỗi cột là một ca trong tuần. Xếp tự động chỉ đưa trạng thái order và lịch cố định vào bảng. Mọi thao tác xếp tay được lưu ngay và đồng bộ với Lịch cơ sở.</div></div>
+  <div class="wk-nav">
+    <a class="btn sm secondary" href="?tuan={{ prev_w }}">‹ Tuần trước</a>
+    <span class="wk-label">{{ week_label }}</span>
+    <a class="btn sm secondary" href="?tuan={{ next_w }}">Tuần sau ›</a>
+    <form method="get" style="display:inline"><input class="input sm" type="date" name="tuan" value="{{ start }}" onchange="this.form.submit()" aria-label="Chọn tuần theo ngày"></form>
+  </div>
+  <div id="saved-indicator" class="saved" role="status" hidden></div>
+</div>
+
+{% if not ready %}
+<div class="card">
+  {% if not week %}Tuần này chưa được tạo. Vào <a href="/quan-ly/order?tuan={{ start }}">Order lịch làm</a> để tạo tuần và cho nhân viên order.
+  {% else %}Tuần này chưa bắt đầu xếp lịch.
+    {% if user.can('xep_lich') %}
+    <form method="post" action="/quan-ly/lich-tong/tu-dong/{{ week.id }}" style="margin-top:12px"><button class="btn" type="submit">Xếp theo order &amp; lịch cố định</button></form>
+    <div style="font-size:13px;color:var(--muted);margin-top:6px">Chỉ làm được sau giờ hết hạn order.</div>
+    {% endif %}
+  {% endif %}
+</div>
+{% else %}
+
+<div class="toolbar">
+  {% if user.can('xep_lich') and not closed %}
+  <form method="post" action="/quan-ly/lich-tong/tu-dong/{{ week.id }}" onsubmit="return confirm('Xếp lại từ đầu theo order và lịch cố định?\n\nMọi ca đã xếp tay của tuần này sẽ bị xóa.')"><button class="btn sm" type="submit">Xếp theo order &amp; lịch cố định</button></form>
+  <form method="post" action="/quan-ly/lich-tong/cap-nhat-order/{{ week.id }}" onsubmit="return confirm('Đọc lại order mới nhất vào lịch? Các ca đã xếp được giữ nguyên.')"><button class="btn sm secondary" type="submit">Cập nhật order vào lịch</button></form>
+  {% if not has_published %}
+  <form method="post" action="/quan-ly/lich-tong/xoa/{{ week.id }}" onsubmit="const v=prompt('Xóa toàn bộ lịch tuần này (order vẫn giữ)?\nGõ XOA để xác nhận:'); if(v===null) return false; this.xac_nhan.value=v; return true;"><input type="hidden" name="xac_nhan"><button class="btn sm secondary danger" type="submit">Xóa lịch tuần</button></form>
+  {% endif %}
+  {% endif %}
+  <a class="btn sm secondary" href="/quan-ly/bao-cao?tuan={{ start }}">Chốt lịch &amp; báo cáo →</a>
+</div>
+{% if closed %}<div class="alert warn">Lịch tuần đã chốt — chỉ xem. Mở lại tuần ở <a href="/quan-ly/bao-cao?tuan={{ start }}">Chốt lịch &amp; báo cáo</a> nếu cần sửa.</div>
+{% elif lock %}<div class="alert warn">Đang được <strong>{{ lock.who }}</strong> xếp lịch từ {{ lock.acquired_at[11:16] }} — bạn đang ở chế độ chỉ xem.</div>
+{% elif not editable %}<div class="alert warn">Bạn đang ở chế độ chỉ xem.</div>{% endif %}
+
+<div class="tiles">
+  <div class="tile" style="border-top-color:#2563eb"><div class="n">{{ stats.active }}</div><div class="l">Nhân viên đang làm</div></div>
+  <div class="tile" style="border-top-color:#16a34a"><div class="n">{{ stats.assigned_employees }}</div><div class="l">Đã có ca</div></div>
+  <div class="tile" style="border-top-color:#9ca3af"><div class="n">{{ stats.unassigned_employees }}</div><div class="l">Chưa có ca</div></div>
+  <div class="tile" style="border-top-color:#f59e0b"><div class="n">{{ stats.total_assignments }}</div><div class="l">Tổng ca đã xếp</div></div>
+  <div class="tile" style="border-top-color:#dc2626"><div class="n">{{ stats.shortage }}</div><div class="l">Ca thiếu người</div></div>
+</div>
+
+<section class="card flush">
+  <div class="card-head"><h2>Tổng định biên</h2>
+    <div style="font-size:12px">Số = <strong>thực tế / định biên</strong> ·
+      <span class="pill ok">Xanh: đủ</span> <span class="pill off">Đỏ: thiếu</span> <span class="pill" style="background:#fef3c7;color:#92400e">Vàng: vượt</span></div></div>
+  <div class="mtx-wrap" style="max-height:none">
+  <table class="mtx">
+    <thead>
+      <tr><th class="nm" rowspan="2">Cơ sở</th>{% for h in day_heads %}<th colspan="{{ shifts|length }}">{{ h }}</th>{% endfor %}</tr>
+      <tr>{% for h in day_heads %}{% for s in shifts %}<th>{{ s }}</th>{% endfor %}{% endfor %}</tr>
+    </thead>
+    <tbody>
+    {% for r in sum_rows %}
+      <tr><td class="nm"><strong>{{ r.label }}</strong></td>
+      {% for c in r.cells %}
+        {% if c %}{% set bg = '#dcfce7' if c.actual == c.required else ('#fee2e2' if c.actual < c.required else '#fef3c7') %}
+        <td style="background:{{ bg }}" title="{% if c.roles is defined %}{% for k, v in c.roles.items() %}{{ k }}: {{ v }}/{{ c.role_required[k] }}&#10;{% endfor %}Cấp 2+/QL: {{ c.senior }}{% endif %}">{{ c.actual }}/{{ c.required }}</td>
+        {% else %}<td>—</td>{% endif %}
+      {% endfor %}</tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+
+<section class="card flush">
+  <form method="get" class="filter-bar">
+    <input type="hidden" name="tuan" value="{{ start }}">
+    <input class="input sm" type="search" name="q" value="{{ f.q }}" placeholder="Tìm mã hoặc tên nhân viên" aria-label="Tìm nhân viên">
+    <select class="input sm" name="cap" aria-label="Phân cấp"><option value="">Tất cả phân cấp</option>{% for x in RANKS %}<option {{ 'selected' if f.cap == x }}>{{ x }}</option>{% endfor %}</select>
+    <select class="input sm" name="cn" aria-label="Cơ sở"><option value="">Tất cả cơ sở</option>{% for b in branches %}<option value="{{ b.code }}" {{ 'selected' if f.cn == b.code }}>{{ b.code }}</option>{% endfor %}</select>
+    <select class="input sm" name="vt" aria-label="Vị trí"><option value="">Tất cả vị trí</option>{% for x in roles %}<option {{ 'selected' if f.vt == x }}>{{ x }}</option>{% endfor %}</select>
+    <select class="input sm" name="tt" aria-label="Trạng thái">{% for v, t in STATE_FILTERS %}<option value="{{ v }}" {{ 'selected' if f.tt == v }}>{{ t }}</option>{% endfor %}</select>
+    <button class="btn sm" type="submit">Lọc</button>
+    <a class="btn sm secondary" href="?tuan={{ start }}">Xóa lọc</a>
+  </form>
+  <div style="padding:8px 20px;font-size:12px;display:flex;gap:10px;flex-wrap:wrap">
+    <span class="mtx"><span class="st-free" style="padding:2px 6px">Xanh: đi làm được – chưa xếp</span></span>
+    <span class="mtx"><span class="st-off" style="padding:2px 6px">Đỏ: nghỉ</span></span>
+    <span class="mtx"><span class="st-none" style="padding:2px 6px">Xám: chưa order</span></span>
+    <span class="mtx"><span class="st-ok" style="padding:2px 6px">Vàng: đã xếp</span></span>
+    <span><strong>CĐ</strong>: lịch cố định</span> <span><span style="color:#dc2626">●</span> quản lý đã sửa</span>
+    <span style="color:#b91c1c">⚠ viền đỏ: xếp vào ca Nghỉ/Chưa order</span>
+    <span>Đang hiện <strong>{{ rows|length }}</strong> nhân viên</span>
+  </div>
+  <div class="mtx-wrap" style="border:0;border-top:1px solid var(--line);border-radius:0">
+  <table class="mtx" id="master">
+    <thead>
+      <tr><th class="nm" rowspan="2">Nhân viên</th><th rowspan="2">Cấp</th><th rowspan="2">Tổng</th>{% for h in day_heads %}<th colspan="{{ shifts|length }}">{{ h }}</th>{% endfor %}</tr>
+      <tr>{% for h in day_heads %}{% for s in shifts %}<th>{{ s }}</th>{% endfor %}{% endfor %}</tr>
+    </thead>
+    <tbody>
+    {% for r in rows %}
+      <tr>
+        <td class="nm"><strong>{{ r.e.code }}</strong> – {{ r.e.name }}</td><td>{{ r.e.rank }}</td><td class="tot"><strong>{{ r.total }}</strong></td>
+        {% for c in r.cells %}
+        <td class="{{ c.cls }}" data-d="{{ c.d }}" data-s="{{ c.s }}" data-base="{{ c.base }}">
+          {% if editable and c.state %}
+          <select data-e="{{ r.e.id }}" data-d="{{ c.d }}" data-s="{{ c.s }}" data-prev="{{ c.val }}" aria-label="{{ r.e.name }} {{ day_heads[c.d] }} {{ c.s }}">
+            <option value="">{{ 'Nghỉ' if c.base == 'NGHỈ' else ('Chưa order' if c.base == 'CHƯA ORDER' else 'Trống') }}</option>
+            {% for o in c.opts %}<option value="{{ o.v }}" {{ 'selected' if o.v == c.val }}>{{ o.t }}</option>{% endfor %}
+          </select>{% if c.manual %}<span style="color:#dc2626" title="Quản lý đã sửa">●</span>{% endif %}
+          {% else %}{{ c.text }}{% if c.manual %}<span style="color:#dc2626" title="Quản lý đã sửa">●</span>{% endif %}{% endif %}
+        </td>
+        {% endfor %}
+      </tr>
+    {% else %}
+      <tr><td class="nm" colspan="{{ 3 + 7 * shifts|length }}">Không có nhân viên nào khớp bộ lọc.</td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+{% if editable %}
+<script>
+document.querySelectorAll('#master select').forEach((sel) => {
+  sel.addEventListener('change', async () => {
+    const td = sel.closest('td');
+    if (sel.value && (td.dataset.base === 'NGHỈ' || td.dataset.base === 'CHƯA ORDER')) {
+      if (!confirm('Nhân viên ' + (td.dataset.base === 'NGHỈ' ? 'đã order NGHỈ' : 'CHƯA ORDER') + ' ca này. Vẫn xếp?')) { sel.value = sel.dataset.prev; return; }
+    }
+    try {
+      const r = await postJSON('/quan-ly/lich-tong/o', { week_id: {{ week.id }}, employee_id: sel.dataset.e, weekday: sel.dataset.d, shift: sel.dataset.s, value: sel.value });
+      sel.dataset.prev = sel.value;
+      const base = td.dataset.base;
+      td.className = sel.value ? ('st-ok' + ((base === 'NGHỈ' || base === 'CHƯA ORDER') ? ' st-warn' : '')) : (base === 'NGHỈ' ? 'st-off' : (base === 'CHƯA ORDER' ? 'st-none' : 'st-free'));
+      const tr = sel.closest('tr'); let n = 0; tr.querySelectorAll('select').forEach((s) => { if (s.value) n++; });
+      tr.querySelector('.tot strong').textContent = n;
+      showSaved('Đã lưu ' + r.saved_at);
+    } catch (e) { sel.value = sel.dataset.prev; showSaved(e.message, true); }
+  });
+});
+</script>
+{% endif %}
+{% endif %}
+{% endblock %}

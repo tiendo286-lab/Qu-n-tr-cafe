@@ -54,6 +54,12 @@
     <button class="btn sm qb" type="button" data-set="none" style="background:#e5e7eb;color:var(--ink-2);border:1px solid #cbd2dc">Chưa order</button>
     <button class="btn sm secondary" type="button" id="undo-btn" disabled>Hoàn tác</button>
     <button class="btn sm secondary" type="button" id="clear-sel">Bỏ chọn</button>
+    <form method="post" action="/quan-ly/order/nhap-form/{{ week.id }}" enctype="multipart/form-data" class="upl"
+      onsubmit="return confirm('Nhập file câu trả lời Google Form vào tuần {{ week_label }}?\n\n• Nhân viên gửi đúng 1 lần: nhập tự động.\n• Không gửi: giữ CHƯA ORDER.\n• Gửi từ 2 lần trở lên: không nhập, giữ CHƯA ORDER để kiểm tra tay.\n• Các ô quản lý đã sửa tay được giữ nguyên.')">
+      <label class="btn sm secondary">Nhập câu trả lời Form<input type="file" name="file" accept=".xlsx,.csv" hidden onchange="this.form.requestSubmit()"></label></form>
+    <a class="btn sm secondary" href="/quan-ly/order/file-mau">Tải file mẫu order</a>
+    <form method="post" action="/quan-ly/order/khoi-phuc/{{ week.id }}" onsubmit="return confirm('Khôi phục bản order trước lần nhập/xóa gần nhất?')"><button class="btn sm secondary" type="submit">Khôi phục bản trước</button></form>
+    <form method="post" action="/quan-ly/order/xoa-order/{{ week.id }}" onsubmit="return confirm('Xóa toàn bộ order của tuần đang chọn? Web sẽ lưu bản trước để có thể khôi phục.')"><button class="btn sm secondary danger" type="submit">Xóa order tuần</button></form>
     {% if user.can('xoa_du_lieu_tuan') %}
     <button class="btn sm secondary" type="button" id="del-week" style="margin-left:auto;color:var(--off-ink);border-color:#fca5a5">Xóa dữ liệu tuần</button>
     {% endif %}

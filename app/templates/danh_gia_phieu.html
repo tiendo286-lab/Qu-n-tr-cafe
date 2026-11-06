@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Phiếu {{ row.employee_code }}{% endblock %}
+{% block content %}
+<div class="page-head">
+  <div>
+    <a class="back-a" href="/quan-ly/danh-gia/{{ r.id }}?tab=nhan-vien">‹ Lần đánh giá {{ r.label }}</a>
+    <h1>Phiếu đánh giá — {{ row.employee_code }} – {{ row.employee_name }}</h1>
+    <div class="sub">Bộ tiêu chí: <strong>{{ row.role }}</strong> · Nguồn: {{ row.data_source or '—' }} · Trạng thái: {{ row.status }}</div>
+  </div>
+</div>
+{% if closed %}<div class="alert warn">Lần đánh giá đã chốt — phiếu đang ở chế độ chỉ xem. Bấm <strong>Mở lại</strong> ở màn hình lần đánh giá nếu cần sửa.</div>{% endif %}
+<form method="post" action="/quan-ly/danh-gia/phieu/{{ row.id }}" class="stack" id="slip">
+<section class="card flush">
+  <div class="table-wrap">
+  <table class="table rt-fx">
+    <thead><tr><th class="center">STT</th><th>Tiêu chí</th><th class="center">Điểm tối đa</th><th class="center">Điểm đánh giá</th></tr></thead>
+    <tbody>
+    {% for c in criteria %}
+      <tr><td class="center">{{ loop.index }}</td><td>{{ c.label }}</td><td class="center">{{ c.max_score }}</td>
+        <td class="center"><input class="input sm sc" type="number" name="s{{ c.id }}" min="0" max="{{ c.max_score }}" step="1" inputmode="numeric"
+          value="{{ saved.get(c.id, 0) }}" {{ 'disabled' if closed }} aria-label="Điểm {{ c.label }}" style="width:80px;text-align:center"></td></tr>
+    {% endfor %}
+    </tbody>
+  </table>
+  </div>
+</section>
+<section class="card stack">
+  <div class="field"><label for="nguoi">Người đánh giá <span style="color:#b91c1c">*</span></label>
+    <input class="input" id="nguoi" name="nguoi" value="{{ row.evaluator_name or '' }}" required {{ 'readonly' if closed }}></div>
+  <div class="field"><label for="nhan_xet">Nhận xét chung <span style="color:#b91c1c">*</span></label>
+    <textarea class="input" id="nhan_xet" name="nhan_xet" rows="4" required {{ 'readonly' if closed }} style="min-height:110px;padding:10px">{{ row.comments or '' }}</textarea></div>
+  <div class="field" style="max-width:220px"><label for="voucher">Số lượng voucher</label>
+    <input class="input" id="voucher" type="number" min="0" max="9999" name="voucher" value="{{ row.voucher_count or 0 }}" {{ 'disabled' if closed }}></div>
+  <div style="display:flex;gap:24px;align-items:center;font-size:18px">
+    <div>Tổng điểm: <strong id="total">0</strong> / {{ criteria | sum(attribute='max_score') }}</div>
+    <div>Xếp loại: <strong id="rating" class="pill" style="font-size:15px">—</strong></div>
+  </div>
+  <div class="toolbar">
+    {% if not closed %}
+    <button class="btn" type="submit">Lưu</button>
+    {% if nxt %}<button class="btn secondary" type="submit" name="next" value="{{ nxt }}">Lưu &amp; chuyển nhân viên tiếp theo</button>{% endif %}
+    {% elif nxt %}<a class="btn secondary" href="/quan-ly/danh-gia/phieu/{{ nxt }}">Xem nhân viên tiếp theo</a>{% endif %}
+    <a class="btn secondary" href="/quan-ly/danh-gia/{{ r.id }}?tab=nhan-vien">Quay lại</a>
+  </div>
+</section>
+</form>
+<script>
+(function () {
+  const th = {{ thresholds | tojson }};
+  const colors = {{ RATING_COLORS | tojson }};
+  const inputs = document.querySelectorAll('.sc');
+  function recalc() {
+    let t = 0; inputs.forEach((i) => { t += parseInt(i.value || '0', 10) || 0; });
+    document.getElementById('total').textContent = t;
+    let label = 'Yếu'; for (const [min, name] of th) { if (t >= min) { label = name; break; } }
+    const el = document.getElementById('rating'); el.textContent = label;
+    const c = colors[label]; if (c) { el.style.background = c[0]; el.style.color = c[1]; }
+  }
+  inputs.forEach((i) => i.addEventListener('input', recalc)); recalc();
+})();
+</script>
+{% endblock %}

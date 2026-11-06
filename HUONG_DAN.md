@@ -26,7 +26,7 @@ Chưa cài thì nút "Gửi mã qua email" sẽ báo nhờ quản lý cấp mậ
 Trong Terminal tại thư mục này: `.venv-mac/bin/python dat_lai_mat_khau_chu.py`
 
 ## Kiểm tra tự động
-`.venv-mac/bin/python kiem_tra/kiem_tra_buoc1.py` (tương tự buoc2, buoc3) – chạy trên bản sao, không đụng dữ liệu thật.
+`.venv-mac/bin/python kiem_tra/kiem_tra_buoc1.py` (tương tự buoc2 … buoc6) – chạy trên bản sao, không đụng dữ liệu thật.
 
 ## Các bước
 - [x] Bước 1: đăng nhập, tài khoản, phân quyền, cấp mật khẩu tạm
@@ -34,6 +34,7 @@ Trong Terminal tại thư mục này: `.venv-mac/bin/python dat_lai_mat_khau_chu
 - [x] Bước 3: order ca
 - [x] Bước 4: xếp lịch cơ sở, khóa xếp lịch, chốt tuần
 - [x] Bước 5: cảnh báo, lịch của nhân viên, thông báo
+- [x] Bước 6: đủ chức năng bản offline 1.7.6 + quản lý tài khoản
 
 ## Cách dùng bước 4 (xếp lịch)
 1. Tab **Order lịch làm**: sau khi hết hạn order, quản lý bấm **Bắt đầu xếp lịch** (tự đưa lịch cố định vào cho người đã order "đi làm được").
@@ -44,3 +45,23 @@ Trong Terminal tại thư mục này: `.venv-mac/bin/python dat_lai_mat_khau_chu
 - **Cảnh báo** (quản lý có quyền xếp lịch): chọn tuần, xem 6 nhóm cảnh báo + số ca mỗi người; bấm *Mở* để nhảy tới ca đó trong Lịch cơ sở.
 - **Nhân viên** dùng thanh dưới màn hình: *Order ca* · *Lịch làm* (Lịch của tôi / Lịch cơ sở 4 chi nhánh, chỉ thấy lịch đã chốt) · *Thông báo* (có số chưa đọc).
 - **Thông báo tự động**: mở order tuần mới; còn dưới 3 giờ là hết hạn (chỉ người chưa order); lịch được chốt; lịch chốt bị sửa (chỉ người đổi ca). Tự xóa sau 60 ngày.
+
+## Bước 6 – chức năng lấy từ bản offline 1.7.6
+Phần xử lý dữ liệu dùng lại nguyên mã gốc của bản offline (`app/legacy/`, bản gốc đầy đủ ở `tham_khao/`).
+- **Tổng quan** (trang chủ quản lý): số nhân viên, tiến độ order, trạng thái tuần, cảnh báo, đánh giá gần nhất.
+- **Xếp lịch làm tổng**: bảng mọi nhân viên × mọi ca trong tuần, chọn “cơ sở – vị trí” ngay trong ô; bảng tổng định biên;
+  nút *Xếp theo order & lịch cố định*, *Cập nhật order vào lịch* (giữ ca đã xếp), *Xóa lịch tuần*. Dùng chung khóa xếp lịch với Lịch cơ sở.
+- **Chốt lịch & báo cáo**: 7 tab Xem lịch tuần (theo nhân viên / theo cơ sở) · Cảnh báo · Định biên · Nhân viên · Order · Cơ sở · Lịch 30 ngày;
+  chốt / mở lại tuần; xuất báo cáo Excel 7 sheet như bản offline; xuất lịch đang xem.
+- **Đánh giá nhân viên**: tạo lần đánh giá, chọn bộ tiêu chí (sao chép từ lần trước), xuất dữ liệu tạo Google Form, nhập phản hồi Form,
+  chấm tay từng phiếu (Lưu & chuyển người tiếp theo), chốt / mở lại, xuất Excel voucher, nhập file voucher, in toàn bộ phiếu
+  (A4 ngang, 2 phiếu A5/tờ, mặt sau mã voucher — bấm *In / Lưu PDF* trên trình duyệt); tab Tổng hợp, Lịch sử nhân viên, Tiêu chí, Cài đặt xếp loại.
+- **Nhân viên**: nhập Excel, tải file mẫu, xuất danh sách cho Google Form, xóa nhân viên nhập nhầm (chưa phát sinh dữ liệu).
+- **Order lịch làm**: nhập câu trả lời Google Form, tải file mẫu order, xóa order tuần, khôi phục bản trước.
+- **Chi nhánh, ca**: xóa khi chưa phát sinh dữ liệu (đã có dữ liệu thì chuyển Ngừng hoạt động/Ngừng sử dụng).
+- **Tài khoản đăng nhập**: trạng thái từng tài khoản, cấp mật khẩu tạm từng người hoặc hàng loạt (in phiếu cắt nhỏ), khóa / mở khóa,
+  buộc đăng xuất mọi thiết bị, tạo tài khoản riêng không phải nhân viên (chỉ Chủ).
+- **Dữ liệu & sao lưu** (chỉ Chủ): tải / nhập gói ZIP cùng định dạng bản offline. Nhập gói từ bản offline vẫn **giữ tài khoản và mật khẩu web**
+  (khớp theo mã NV). Sao lưu tự động mỗi ngày vào `du_lieu/sao_luu` (giữ 20 bản / 30 ngày), có nút sao lưu ngay và tải bản sao lưu.
+- **Phân quyền**: thêm 2 quyền “Xem báo cáo, xếp lịch tổng, xuất Excel” và “Đánh giá nhân viên, voucher” (mặc định Quản lý tổng có).
+- Khác bản offline: web **không tự xóa tuần cũ hơn 30 ngày** và không tự tạo tuần khi mở — giữ toàn bộ lịch sử.

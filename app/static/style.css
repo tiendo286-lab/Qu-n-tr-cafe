@@ -338,3 +338,30 @@ details.navd { display: flex; flex-direction: column; flex-grow: 1; }
 .emp-filters .input { width: auto; min-width: 150px; }
 .emp-filters .ef-count { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--ink-2); }
 @media (max-width: 760px) { .emp-filters { padding: 0 16px 12px; } .emp-filters .input, .emp-filters .btn { flex: 1 1 140px; } .emp-filters .ef-count { width: 100%; margin-left: 0; } }
+
+/* ===== Chức năng lấy từ bản offline: tab, lưới 2 cột, nút nguy hiểm ===== */
+.tabs-nav { display: flex; gap: 4px; flex-wrap: wrap; border-bottom: 2px solid var(--line); }
+.tabs-nav a { padding: 10px 16px; font-weight: 600; font-size: 14px; color: var(--ink-2); text-decoration: none; border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; }
+.tabs-nav a:hover { background: var(--line-soft); }
+.tabs-nav a.on { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(420px, 1fr)); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .grid2 { grid-template-columns: 1fr; } }
+.btn.danger, .btn.secondary.danger { color: #b91c1c; border-color: #b91c1c; }
+.btn.secondary.danger:hover { background: #fef2f2; }
+.btn.solid-danger { background: #b91c1c; }
+.btn.solid-danger:hover { background: #991b1b; }
+.upl { display: inline; }
+.upl label.btn { cursor: pointer; }
+.kv { display: grid; grid-template-columns: max-content 1fr; gap: 6px 16px; font-size: 14px; }
+.mtx { border-collapse: collapse; font-size: 12px; }
+.mtx th, .mtx td { border: 1px solid var(--line); padding: 3px 5px; text-align: center; white-space: nowrap; }
+.mtx thead th { background: #1e293b; color: #fff; position: sticky; top: 0; z-index: 1; }
+.mtx td.nm, .mtx th.nm { text-align: left; position: sticky; left: 0; background: #fff; z-index: 1; }
+.mtx .st-ok { background: #fef9c3; font-weight: 700; }
+.mtx .st-fx { background: #fde68a; font-weight: 700; }
+.mtx .st-free { background: #dcfce7; color: #166534; }
+.mtx .st-off { background: #fee2e2; color: #991b1b; }
+.mtx .st-none { background: #f1f5f9; color: #64748b; }
+.mtx .st-warn { outline: 2px solid #dc2626; outline-offset: -2px; }
+.mtx-wrap { overflow: auto; max-height: 75vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
+.mtx select { font-size: 12px; padding: 2px; border: 0; background: transparent; max-width: 110px; }
