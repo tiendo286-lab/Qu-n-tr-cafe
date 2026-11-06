@@ -1,8 +1,7 @@
 // Quản lý: theo dõi & sửa order (giống màn ORDER LỊCH LÀM của bản offline)
 import { render as rerender, can, state } from '../app.js';
 import { CODE, LABEL, RANKS, ST_CHOT, addDays, closure, hasPublished, orderWindow, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart, getWeek } from '../data.js';
-import { downloadXlsx, orderTemplate, parseFormResponses, readRows } from '../excel.js';
-import { bindWeekPick, fileInput, typed, weekBar } from '../parts.js';
+import { bindWeekPick, typed, weekBar } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, $$, esc, flash, go, html, norm, showSaved, hhmm } from '../ui.js';
 
@@ -134,9 +133,7 @@ export async function render({ params, me }) {
           <button class="btn sm secondary" type="button" id="clear-sel">Bỏ chọn</button>
         </div>
         <div class="toolbar">
-          <strong style="font-size:14px">Như bản offline:</strong>
-          <button class="btn sm secondary" type="button" id="form-btn">Nhập câu trả lời Form</button>
-          <button class="btn sm secondary" type="button" id="tpl-btn">Tải file mẫu order</button>
+          <strong style="font-size:14px">Cả tuần:</strong>
           <button class="btn sm secondary" type="button" id="restore-btn">Khôi phục bản trước</button>
           <button class="btn sm secondary danger" type="button" id="clear-btn">Xóa order tuần</button>
           ${can('xoa_du_lieu_tuan') ? html`<button class="btn sm secondary danger" type="button" id="del-week" style="margin-left:auto">Xóa dữ liệu tuần</button>` : ''}
@@ -173,26 +170,6 @@ export async function render({ params, me }) {
       });
       mountGrid({ week, me, days, shiftNames, canEdit, who });
       if (!canEdit) return;
-      $('#tpl-btn').addEventListener('click', () => downloadXlsx('Mau_order_lich_lam.xlsx', [{ name: 'ORDER LỊCH', rows: orderTemplate(shiftNames) }]));
-      $('#form-btn').addEventListener('click', () => {
-        if (!confirm(`Nhập file câu trả lời Google Form vào tuần ${weekLabel(start)}?\n\n• Nhân viên gửi đúng 1 lần: nhập tự động.\n• Không gửi: giữ CHƯA ORDER.\n• Gửi từ 2 lần trở lên: không nhập, giữ CHƯA ORDER để kiểm tra tay.\n• Các ô quản lý đã sửa tay được giữ nguyên.`)) return;
-        fileInput('.xlsx,.csv', async (file) => {
-          try {
-            const parsed = parseFormResponses(await readRows(file), shiftNames);
-            const res = await rpc('app_order_form_import', { p_week: week.id, p_rows: parsed.valid.map((v) => ({ code: v.code, statuses: v.statuses })), p_filename: file.name });
-            const activeCodes = new Set(emps.map((e) => e.code.toLowerCase()));
-            const responded = new Set([...parsed.valid.map((v) => v.code.toLowerCase()), ...parsed.duplicates.map((c) => c.toLowerCase())]);
-            const noResp = [...activeCodes].filter((c) => !responded.has(c)).length;
-            let msg = `Đã nhập câu trả lời Form: tổng ${parsed.submissionCount} lượt, nhập tự động ${res.imported} nhân viên, chưa gửi ${noResp}, gửi trùng ${parsed.duplicates.length}.`;
-            if (parsed.duplicates.length) msg += ` Gửi trùng (giữ Chưa order, cần kiểm tra tay): ${parsed.duplicates.slice(0, 15).join(', ')}.`;
-            if (res.unknown.length) msg += ` Mã không có trong danh sách: ${res.unknown.slice(0, 15).join(', ')}.`;
-            if (parsed.invalid.length) msg += ` Dòng lỗi: ${parsed.invalid.slice(0, 5).join(' | ')}.`;
-            if (res.synced) msg += ' Lịch đang xếp đã được cập nhật theo order mới (giữ nguyên các ca đã xếp).';
-            flash(msg, parsed.duplicates.length || parsed.invalid.length ? 'warn' : 'ok');
-          } catch (e) { flash('Không thể nhập câu trả lời Form: ' + e.message, 'error'); }
-          rerender();
-        });
-      });
       $('#restore-btn').addEventListener('click', async () => {
         if (!confirm('Khôi phục bản order trước lần nhập/xóa gần nhất?')) return;
         try {
