@@ -13,6 +13,7 @@ export const MENU = [
   ['ĐÀO TẠO', 'Phiếu đào tạo của tôi', '/cua-toi/dao-tao', null],
   ['TÀI LIỆU', 'Nội quy', '/noi-quy', null],
   ['TÀI LIỆU', 'Quy trình', '/quy-trinh', null],
+  ['HỖ TRỢ', 'Yêu cầu hỗ trợ', '/ho-tro', null],
   ['XẾP LỊCH', 'Order lịch làm', '/quan-ly/order', 'xem_tat_ca'],
   ['XẾP LỊCH', 'Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
   ['XẾP LỊCH', 'Xếp lịch làm tổng', '/quan-ly/lich-tong', 'bao_cao'],
@@ -51,6 +52,8 @@ const PAGES = {
   '/dao-tao': 'dao_tao',
   '/dao-tao/phieu': 'phieu_dao_tao',
   '/cua-toi/dao-tao': 'dao_tao_cua_toi',
+  '/ho-tro': 'ho_tro',
+  '/ho-tro/chi-tiet': 'ho_tro_chi_tiet',
   '/quan-ly/order': 'order_ql',
   '/quan-ly/lich-co-dinh': 'lich_co_dinh',
   '/quan-ly/lich-tong': 'lich_tong',
@@ -66,7 +69,7 @@ const PAGES = {
   '/quan-ly/du-lieu': 'du_lieu',
 };
 
-export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null };
+export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0 };
 const root = () => document.getElementById('root');
 
 export function can(p) { return !!state.me?.perms?.[p]; }
@@ -86,7 +89,7 @@ export async function loadMe() {
 
 export async function logout() {
   await sb.auth.signOut();
-  state.me = null; state.remind = null; state.tasks = 0; state.review = 0; badgeAt = 0;
+  state.me = null; state.remind = null; state.tasks = 0; state.review = 0; state.support = 0; badgeAt = 0;
   try { sessionStorage.removeItem('nhac_viec'); } catch (_) { /* bỏ qua */ }
   go('/dang-nhap');
 }
@@ -103,7 +106,7 @@ function menuHtml(path) {
     if (perm && !can(perm)) continue;
     if (href === '/viec' && state.me.role === 'chu') continue; // Chủ là người giao việc
     if (!groups.length || groups[groups.length - 1].name !== g) groups.push({ name: g, items: [] });
-    const badge = { '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review }[href] || 0;
+    const badge = { '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/hop': state.review, '/ho-tro': state.support }[href] || 0;
     groups[groups.length - 1].items.push({ label, href, badge, active: path.startsWith(href) });
   }
   return groups.map((g) => html`<div class="group">${g.name}</div>${g.items.map((it) => html`
@@ -150,6 +153,7 @@ function layout(path, body, flashMsg) {
       <a class="${path.startsWith('/lich') ? 'on' : ''}" href="#/lich">Lịch làm</a>
       ${can('chot_ca') ? html`<a class="${path.startsWith('/ca') ? 'on' : ''}" href="#/ca">Chốt ca</a>` : ''}
       <a class="${path === '/noi-quy' || path === '/quy-trinh' ? 'on' : ''}" href="#/noi-quy">Nội quy</a>
+      <a class="${path.startsWith('/ho-tro') ? 'on' : ''}" href="#/ho-tro">Hỗ trợ${state.support ? html` <span class="badge">${state.support}</span>` : ''}</a>
     </nav></div>`;
 }
 
@@ -164,6 +168,7 @@ async function refreshBadges() {
   badgeAt = Date.now();
   await notifyTick();
   try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
+  try { state.support = await rpc('app_ht_unread'); } catch (_) { /* bỏ qua */ }
   if (can('nhan_viec') || can('hop_giao_viec')) {
     try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
   }

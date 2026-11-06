@@ -22,7 +22,7 @@ const PERMISSIONS = [
 ];
 const OWNER_ONLY = ['Cấp vai trò, sửa phân quyền', 'Xóa dữ liệu tuần', 'Sao lưu, chuyển dữ liệu (ZIP), khôi phục'];
 const NV_ALWAYS = ['order_ca', 'xem_lich_minh'];
-const EVERYONE = [['Chốt ca (điền phiếu chốt ca)', 'Luôn có cho mọi người (kể cả Nhân viên)'], ['Nhận việc được giao, gửi báo cáo xử lý', 'Luôn có cho Quản lý tổng và Quản lý']];
+const EVERYONE = [['Chốt ca (điền phiếu chốt ca)', 'Luôn có cho mọi người (kể cả Nhân viên)'], ['Nhận việc được giao, gửi báo cáo xử lý', 'Luôn có cho Quản lý tổng và Quản lý'], ['Gửi yêu cầu hỗ trợ', 'Luôn có cho mọi người'], ['Xem mọi yêu cầu hỗ trợ và trả lời', 'Luôn có cho Chủ, Quản lý tổng và Quản lý']];
 const NV_EDITABLE = ['xem_tat_ca'];
 const EDITABLE_ROLES = ['ql_tong', 'ql', 'nv'];
 const ORDER = { chu: 0, ql_tong: 1, ql: 2, nv: 3 };
