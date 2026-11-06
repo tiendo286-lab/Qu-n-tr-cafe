@@ -15,7 +15,7 @@ export function html(strings, ...vals) {
     out += s;
     if (i < vals.length) {
       const v = vals[i];
-      if (Array.isArray(v)) out += v.map((x) => (x && x[RAW] !== undefined ? x[RAW] : esc(x))).join('');
+      if (Array.isArray(v)) out += v.flat(Infinity).map((x) => (x && x[RAW] !== undefined ? x[RAW] : (x === false || x === null || x === undefined ? '' : esc(x)))).join('');
       else if (v && v[RAW] !== undefined) out += v[RAW];
       else if (v === false || v === null || v === undefined) out += '';
       else out += esc(v);

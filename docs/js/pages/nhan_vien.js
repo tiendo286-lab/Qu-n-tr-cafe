@@ -1,0 +1,183 @@
+// Nhân viên: danh sách (lọc, sửa nhanh cấp bậc, cấp mật khẩu tạm, Excel) + form thêm/sửa
+import { render as rerender, can } from '../app.js';
+import { RANKS, catalog } from '../data.js';
+import { EMPLOYEE_GUIDE, EMPLOYEE_TEMPLATE, downloadXlsx, parseEmployeeRows, readRows } from '../excel.js';
+import { fileInput } from '../parts.js';
+import { adminFn, rpc, sel, selAll } from '../sb.js';
+import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
+
+export const perm = 'quan_ly_nhan_vien';
+const RANK_COLOR = { 'Quản lý': '#7c3aed', 'Cấp 2': '#0ea5e9', 'Cấp 1': '#f59e0b', 'Thử việc': '#94a3b8' };
+
+export async function render({ params, me }) {
+  if (params.id || params.them) return renderForm(params, me);
+  const [cat, emps, contacts, eb, er, accs] = await Promise.all([
+    catalog(), selAll('employees', '*'), selAll('employee_contacts', '*'), selAll('employee_branches', '*'), selAll('employee_roles', '*'),
+    selAll('accounts', 'id, employee_id, system_role, has_password, must_change'),
+  ]);
+  const bcode = new Map(cat.branches.map((b) => [b.id, b.code]));
+  const con = new Map(contacts.map((c) => [c.employee_id, c]));
+  const acc = new Map(accs.map((a) => [a.employee_id, a]));
+  const ebm = {}; eb.forEach((r) => (ebm[r.employee_id] ||= []).push(bcode.get(r.branch_id)));
+  const erm = {}; er.forEach((r) => (erm[r.employee_id] ||= []).push(r.role));
+  const list = emps.map((e) => {
+    const a = acc.get(e.id) || {};
+    return { ...e, email: con.get(e.id)?.email, phone: con.get(e.id)?.phone, branches: ebm[e.id] || [], roles: erm[e.id] || [], account_id: a.id, system_role: a.system_role,
+      state: !a.has_password ? 'chua_co' : a.must_change ? 'tam' : 'da_dat' };
+  }).sort((x, y) => (x.status === 'Ngừng làm') - (y.status === 'Ngừng làm') || x.name.localeCompare(y.name, 'vi'));
+  const on = list.filter((e) => e.status === 'Đang làm');
+  return {
+    title: 'Nhân viên',
+    html: html`
+      <div class="page-head"><div><h1>Nhân viên</h1><div class="sub">Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.</div></div>
+        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div><a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a></div></div>
+      <section class="card toolbar" style="padding:12px 18px">
+        <strong style="font-size:14px">Excel (như bản offline):</strong>
+        <button class="btn sm" type="button" id="imp-btn">Nhập file Excel</button>
+        <button class="btn sm secondary" type="button" id="tpl-btn">Tải file mẫu</button>
+        <button class="btn sm secondary" type="button" id="gf-btn">Xuất danh sách cho Google Form</button>
+        <a class="btn sm secondary" href="#/quan-ly/tai-khoan" style="margin-left:auto">Quản lý tài khoản đăng nhập →</a></section>
+      <div class="emp-stats" aria-label="Thống kê nhân viên">
+        <div class="es" style="--ac:#1e3a8a"><div class="n">${list.length}</div><div class="l">Tổng NV</div></div>
+        <div class="es" style="--ac:#16a34a"><div class="n" style="color:var(--ok-ink)">${on.length}</div><div class="l">Đang làm</div></div>
+        <div class="es" style="--ac:#9ca3af"><div class="n" style="color:var(--muted)">${list.length - on.length}</div><div class="l">Ngừng làm</div></div>
+        ${['Quản lý', 'Cấp 2', 'Cấp 1', 'Thử việc'].map((r) => html`<div class="es" style="--ac:${RANK_COLOR[r]}"><div class="n">${list.filter((e) => e.rank === r).length}</div><div class="l">${r}</div></div>`)}
+      </div>
+      <section class="card flush">
+        <div class="card-head">
+          <div class="toolbar" style="font-size:14px">
+            <span class="pill off">Chưa có mật khẩu: ${on.filter((e) => e.state === 'chua_co').length}</span>
+            <span class="pill warn">Mật khẩu tạm: ${on.filter((e) => e.state === 'tam').length}</span>
+            <span class="pill ok">Đã đặt mật khẩu: ${on.filter((e) => e.state === 'da_dat').length}</span></div>
+          <div class="toolbar"><label style="display:flex;align-items:center;gap:6px;font-size:14px"><input type="checkbox" id="show-stopped" class="check"> Hiện cả người ngừng làm</label>
+            <input class="input sm" id="emp-search" type="search" placeholder="Tìm mã hoặc tên" aria-label="Tìm nhân viên" style="width:240px"></div></div>
+        <div class="emp-filters">
+          <select class="input sm" id="ef-rank" aria-label="Lọc cấp bậc"><option value="">Tất cả cấp bậc</option>${[...RANKS].reverse().map((r) => html`<option>${r}</option>`)}</select>
+          <select class="input sm" id="ef-branch" aria-label="Lọc chi nhánh"><option value="">Tất cả chi nhánh</option>${cat.branches.map((b) => html`<option>${b.code}</option>`)}</select>
+          <select class="input sm" id="ef-role" aria-label="Lọc vai trò"><option value="">Tất cả vai trò</option>${cat.roles.map((r) => html`<option>${r.name}</option>`)}</select>
+          <select class="input sm" id="ef-state" aria-label="Lọc tài khoản"><option value="">Mọi tài khoản</option><option value="chua_co">Chưa có mật khẩu</option><option value="tam">Mật khẩu tạm</option><option value="da_dat">Đã đặt mật khẩu</option></select>
+          <button class="btn sm secondary" type="button" id="ef-clear">Xóa lọc</button><span class="ef-count" id="ef-count" role="status"></span></div>
+        <div class="table-wrap"><table class="table fit" aria-label="Danh sách nhân viên">
+          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Chi nhánh</th><th>Vai trò làm việc</th><th>Email</th><th>Số điện thoại</th><th>Tài khoản</th><th></th></tr></thead>
+          <tbody>${list.map((e) => {
+            const stopped = e.status !== 'Đang làm';
+            return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" ${stopped ? 'hidden' : ''}>
+              <td style="font-weight:600">${e.code}</td>
+              <td><a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a></td>
+              <td>${stopped ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
+              <td data-label="Chi nhánh">${e.branches.length ? e.branches.map((x) => html`<span class="chip">${x}</span>`) : '—'}</td>
+              <td data-label="Vai trò làm việc">${e.roles.length ? e.roles.map((x) => html`<span class="chip role">${x}</span>`) : '—'}</td>
+              <td>${e.email || '—'}</td><td>${e.phone || '—'}</td>
+              <td class="state-cell">${stopped ? html`<span class="pill mute">Đã khóa</span>` : e.state === 'chua_co' ? html`<span class="pill mute">Chưa có mật khẩu</span>` : e.state === 'tam' ? html`<span class="pill warn">Mật khẩu tạm</span>` : html`<span class="pill ok">Đã đặt</span>`}</td>
+              <td>${!stopped && e.account_id && e.account_id !== me.account_id ? html`<button type="button" class="btn sm secondary issue-btn" data-acc="${e.account_id}" data-name="${e.code} – ${e.name}">Cấp MK tạm</button>` : ''}</td></tr>`;
+          })}</tbody></table></div>
+      </section>`,
+    mount() {
+      const rows = $$('.emp-row');
+      const apply = () => {
+        const q = norm($('#emp-search').value.trim()); const st = $('#show-stopped').checked;
+        const rk = $('#ef-rank').value, br = $('#ef-branch').value, rl = $('#ef-role').value, ac = $('#ef-state').value;
+        let n = 0;
+        rows.forEach((r) => {
+          const show = (st || !r.classList.contains('stopped')) && (!q || r.dataset.search.includes(q)) && (!rk || r.dataset.rank === rk)
+            && (!br || r.dataset.branches.includes(`|${br}|`)) && (!rl || r.dataset.roles.includes(`|${rl}|`)) && (!ac || r.dataset.state === ac);
+          r.hidden = !show; if (show) n++;
+        });
+        $('#ef-count').textContent = `${n} nhân viên`;
+      };
+      ['#emp-search', '#show-stopped', '#ef-rank', '#ef-branch', '#ef-role', '#ef-state'].forEach((s) => $(s).addEventListener('input', apply));
+      $('#ef-clear').addEventListener('click', () => { ['#ef-rank', '#ef-branch', '#ef-role', '#ef-state', '#emp-search'].forEach((s) => { $(s).value = ''; }); apply(); });
+      apply();
+      $$('.rank-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
+        try { await rpc('app_set_rank', { p_id: Number(s.dataset.id), p_rank: s.value }); last = s.value; showSaved('Đã lưu · ' + hhmm()); } catch (e) { s.value = last; showSaved(e.message, true); }
+      }); });
+      $$('.issue-btn').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm(`${b.dataset.name}: mật khẩu cũ (nếu có) sẽ không dùng được nữa và nhân viên bị đăng xuất khỏi mọi thiết bị. Cấp mật khẩu tạm?`)) return;
+        try {
+          const r = await adminFn('temp_password', { account_id: Number(b.dataset.acc) });
+          b.closest('tr').querySelector('.state-cell').innerHTML = '<span class="pill warn">Mật khẩu tạm</span>';
+          dialog(html`<h2>Mật khẩu tạm</h2><div style="margin-top:6px;color:var(--ink-2)">${b.dataset.name}</div><div class="temp-pass">${r.password}</div>
+            <div style="font-size:14px;color:var(--muted);line-height:1.5">Đưa tận tay cho nhân viên. Mật khẩu này chỉ hiện <strong>một lần</strong>; lần đầu đăng nhập nhân viên phải đổi mật khẩu.</div>
+            <form method="dialog" style="margin-top:16px;display:flex;justify-content:flex-end"><button class="btn" type="submit">Đã ghi lại</button></form>`);
+        } catch (e) { showSaved(e.message, true); }
+      }));
+      $('#tpl-btn').addEventListener('click', () => downloadXlsx('Mau_danh_sach_nhan_vien.xlsx', [{ name: 'DANH SÁCH NV', rows: EMPLOYEE_TEMPLATE }, { name: 'HƯỚNG DẪN', rows: EMPLOYEE_GUIDE }]));
+      $('#gf-btn').addEventListener('click', () => downloadXlsx('DANH_SACH_NHAN_VIEN_GOOGLE_FORM.xlsx', [{ name: 'DANH SÁCH NHÂN VIÊN', rows: [['Mã NV', 'Họ và tên'], ...on.map((e) => [String(e.code), e.name])], widths: [16, 36] }]));
+      $('#imp-btn').addEventListener('click', () => fileInput('.xlsx', async (file) => {
+        try {
+          const codes = new Set(); cat.branches.forEach((b) => [b.code, b.display_code, b.system_code].forEach((x) => x && codes.add(String(x).toUpperCase())));
+          const parsed = parseEmployeeRows(await readRows(file), codes, cat.roles.map((r) => r.name));
+          if (!confirm(`Nhập ${parsed.length} nhân viên từ file? Nhân viên trùng mã sẽ được cập nhật tên, cấp bậc, trạng thái, cơ sở, vị trí.`)) return;
+          const r = await rpc('app_import_employees', { p_rows: parsed });
+          flash(`Nhập thành công: thêm ${r.added} nhân viên, cập nhật ${r.updated} nhân viên. Nhân viên mới đã có tài khoản (chưa có mật khẩu).`);
+        } catch (e) { flash('Không thể nhập file: ' + e.message, 'error'); }
+        rerender();
+      }));
+    },
+  };
+}
+
+async function renderForm(params, me) {
+  const cat = await catalog();
+  let v = { status: 'Đang làm', roles: [], branch_ids: [] }; let emp = null;
+  if (params.id) {
+    const id = Number(params.id);
+    const [e, c, eb, er] = await Promise.all([
+      sel('employees', '*', (b) => b.eq('id', id)), sel('employee_contacts', '*', (b) => b.eq('employee_id', id)),
+      sel('employee_branches', 'branch_id', (b) => b.eq('employee_id', id)), sel('employee_roles', 'role', (b) => b.eq('employee_id', id)),
+    ]);
+    emp = e[0];
+    if (!emp) return { title: 'Nhân viên', html: html`<div class="card">Không tìm thấy nhân viên. <a href="#/quan-ly/nhan-vien">Về danh sách</a></div>` };
+    v = { ...emp, email: c[0]?.email, phone: c[0]?.phone, branch_ids: eb.map((x) => x.branch_id), roles: er.map((x) => x.role) };
+  }
+  return {
+    title: emp ? 'Sửa nhân viên' : 'Thêm nhân viên',
+    html: html`
+      <div class="page-head"><div><a href="#/quan-ly/nhan-vien" style="font-size:14px;font-weight:600">‹ Danh sách nhân viên</a>
+        <h1 style="margin-top:6px">${emp ? `Sửa: ${emp.code} – ${emp.name}` : 'Thêm nhân viên'}</h1></div></div>
+      <div class="alert error" role="alert" id="emp-err" hidden></div>
+      <form class="card stack" id="emp-form" style="max-width:860px">
+        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
+          <div class="field"><label for="code">Mã nhân viên</label><input class="input" id="code" name="code" value="${v.code || ''}" maxlength="20" required autocapitalize="off">
+            <div class="hint">${emp ? 'Đổi mã thì nhân viên đăng nhập bằng mã mới, mật khẩu giữ nguyên.' : 'Dùng để đăng nhập. Không trùng với người khác.'}</div></div>
+          <div class="field"><label for="name">Họ tên</label><input class="input" id="name" name="name" value="${v.name || ''}" maxlength="80" required></div>
+          <div class="field"><label for="rank">Cấp bậc</label><select class="input" id="rank" name="rank" required><option value="">— Chọn —</option>${RANKS.map((r) => html`<option ${r === v.rank ? 'selected' : ''}>${r}</option>`)}</select></div>
+          <div class="field"><label for="status">Trạng thái</label><select class="input" id="status" name="status">${['Đang làm', 'Ngừng làm'].map((s) => html`<option ${s === v.status ? 'selected' : ''}>${s}</option>`)}</select>
+            <div class="hint">Chuyển “Ngừng làm” sẽ khóa tài khoản ngay; lịch sử vẫn giữ.</div></div>
+        </div>
+        <fieldset style="border:1px solid var(--line);border-radius:12px;padding:14px 16px"><legend style="font-weight:600;font-size:14px;padding:0 6px">Vai trò làm việc</legend>
+          <div class="toolbar">${cat.roles.map((r) => html`<label style="display:flex;align-items:center;gap:8px;min-height:44px;padding-right:16px"><input type="checkbox" class="check" name="roles" value="${r.name}" ${v.roles.includes(r.name) ? 'checked' : ''}> ${r.name}</label>`)}</div>
+          <div class="field" style="margin-top:8px;max-width:300px"><label for="preferred_role">Vai trò ưu tiên</label>
+            <select class="input" id="preferred_role" name="preferred_role"><option value="">(vai trò đầu tiên đã chọn)</option>${cat.roles.map((r) => html`<option ${r.name === v.preferred_role ? 'selected' : ''}>${r.name}</option>`)}</select></div></fieldset>
+        <fieldset style="border:1px solid var(--line);border-radius:12px;padding:14px 16px"><legend style="font-weight:600;font-size:14px;padding:0 6px">Chi nhánh làm được</legend>
+          <div class="toolbar">${cat.branches.map((b) => html`<label style="display:flex;align-items:center;gap:8px;min-height:44px;padding-right:16px"><input type="checkbox" class="check" name="branches" value="${b.id}" ${v.branch_ids.includes(b.id) ? 'checked' : ''}> ${b.code} – ${b.name}${b.status !== 'Đang hoạt động' ? ' (ngừng)' : ''}</label>`)}</div></fieldset>
+        <div style="display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:16px">
+          <div class="field"><label for="email">Email</label><input class="input" id="email" name="email" type="email" value="${v.email || ''}"></div>
+          <div class="field"><label for="phone">Số điện thoại</label><input class="input" id="phone" name="phone" type="tel" value="${v.phone || ''}"></div>
+          <div class="field"><label for="start_date">Ngày bắt đầu vào làm</label><input class="input" id="start_date" name="start_date" type="date" value="${v.start_date || ''}"></div>
+        </div>
+        <div class="toolbar"><button class="btn" type="submit">${emp ? 'Lưu thay đổi' : 'Thêm nhân viên'}</button><a class="btn secondary" href="#/quan-ly/nhan-vien">Hủy</a></div>
+      </form>
+      ${emp ? html`<section class="card" style="margin-top:16px;max-width:860px"><h2 style="margin-top:0;font-size:16px">Xóa nhân viên</h2>
+        <p style="font-size:14px;color:var(--ink-2)">Chỉ xóa được nhân viên nhập nhầm, chưa có order, lịch cố định, lịch làm hay đánh giá. Nhân viên đã nghỉ việc thì chuyển trạng thái sang <strong>Ngừng làm</strong> để giữ lịch sử.</p>
+        <button class="btn sm secondary danger" type="button" id="del-emp">Xóa nhân viên này</button></section>` : ''}`,
+    mount() {
+      $('#emp-form').addEventListener('submit', async (ev) => {
+        ev.preventDefault();
+        const f = new FormData(ev.target);
+        const p = { code: f.get('code'), name: f.get('name'), rank: f.get('rank'), status: f.get('status'), roles: f.getAll('roles'), preferred_role: f.get('preferred_role'),
+          branch_ids: f.getAll('branches').map(Number), email: f.get('email'), phone: f.get('phone'), start_date: f.get('start_date') };
+        try {
+          await rpc('app_save_employee', { p_id: emp ? emp.id : null, p });
+          flash(emp ? `Đã lưu ${p.code} – ${p.name}.` : `Đã thêm ${p.code} – ${p.name}. Hãy cấp mật khẩu tạm để nhân viên đăng nhập.`);
+          go('/quan-ly/nhan-vien');
+        } catch (e) { const el = $('#emp-err'); el.textContent = e.message; el.hidden = false; window.scrollTo(0, 0); }
+      });
+      $('#del-emp')?.addEventListener('click', async () => {
+        if (!confirm(`Xóa hoàn toàn ${emp.code} – ${emp.name}?`)) return;
+        try { await rpc('app_delete_employee', { p_id: emp.id }); flash(`Đã xóa ${emp.code} – ${emp.name}.`); go('/quan-ly/nhan-vien'); }
+        catch (e) { flash(e.message, 'error'); rerender(); }
+      });
+    },
+  };
+}

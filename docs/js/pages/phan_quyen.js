@@ -14,7 +14,6 @@ const PERMISSIONS = [
   ['cai_gio_order', 'Cài giờ mở/hết hạn order'],
   ['sua_danh_muc', 'Sửa định biên, giờ ca, lịch cố định'],
   ['bao_cao', 'Xem báo cáo, xếp lịch tổng, xuất Excel'],
-  ['danh_gia', 'Đánh giá nhân viên, voucher'],
 ];
 const OWNER_ONLY = ['Cấp vai trò, sửa phân quyền', 'Xóa dữ liệu tuần', 'Sao lưu, chuyển dữ liệu (ZIP), khôi phục'];
 const NV_ALWAYS = ['order_ca', 'xem_lich_minh'];
