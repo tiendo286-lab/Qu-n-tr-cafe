@@ -41,7 +41,7 @@ export async function render({ params, me }) {
     title: 'Nhân viên',
     html: html`
       <div class="page-head"><div><h1>Nhân viên</h1><div class="sub">${full ? 'Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.' : 'Theo dõi đào tạo: bấm vào trạng thái ở cột Đào tạo để mở phiếu, hoặc Tạo phiếu cho người chưa đào tạo.'}${dts ? ' Cột Đào tạo: chương trình chạy bàn 8 ngày · 68 hạng mục.' : ''}</div></div>
-        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${full ? html`<a class="btn secondary" href="#/quan-ly/tai-khoan">Tài khoản đăng nhập →</a><a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a>` : ''}</div></div>
+        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${full ? html`<a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a>` : ''}</div></div>
       <div class="emp-stats" aria-label="Thống kê nhân viên">
         <div class="es" style="--ac:#1e3a8a"><div class="n">${list.length}</div><div class="l">Tổng NV</div></div>
         <div class="es" style="--ac:#16a34a"><div class="n" style="color:var(--ok-ink)">${on.length}</div><div class="l">Đang làm</div></div>

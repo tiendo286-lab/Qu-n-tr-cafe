@@ -143,7 +143,7 @@ export async function render({ params, me }) {
   const canBack = status === ST_XEP && !published && !wse.some((r) => r.state === 'ĐÃ XẾP' && r.source === 'MANUAL');
   let lockBox = '';
   if (editable && !can('xep_lich')) {
-    lockBox = html`<div class="alert warn" role="status">Tài khoản của bạn chỉ được <strong>xem</strong> lịch, chưa có quyền <strong>Xếp lịch</strong>. Chủ bật quyền này ở mục Tài khoản &amp; phân quyền.</div>`;
+    lockBox = html`<div class="alert warn" role="status">Tài khoản của bạn chỉ được <strong>xem</strong> lịch, chưa có quyền <strong>Xếp lịch</strong>. Chủ bật quyền này ở mục Nhân viên &amp; tài khoản → Phân quyền.</div>`;
   } else if (editable && !holds && lock) {
     lockBox = html`<div class="alert warn toolbar" role="status"><span>Đang được <strong>${lock.who}</strong> xếp lịch từ ${(lock.acquired_at || '').slice(11, 16)}. Bạn đang ở chế độ chỉ xem; màn hình tự cập nhật.</span>
       ${can('phan_quyen') ? html`<button class="btn sm" type="button" id="take-btn" style="margin-left:auto">Giành quyền xếp</button>` : ''}</div>`;

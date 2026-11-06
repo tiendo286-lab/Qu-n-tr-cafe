@@ -10,12 +10,11 @@ export const HUBS = [
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']]],
-  ['Nhân viên', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']]]],
+  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Tài khoản đăng nhập', '/quan-ly/tai-khoan', 'quan_ly_nhan_vien'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']]],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]]],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]]],
   ['Cài đặt xếp lịch', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']]],
-  ['Tài khoản & phân quyền', [['Tài khoản đăng nhập', '/quan-ly/tai-khoan', 'quan_ly_nhan_vien'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']]],
   ['Dữ liệu & sao lưu', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu']]],
   ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null]]],
 ];
