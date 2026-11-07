@@ -39,7 +39,7 @@ export async function render({ params }) {
         </details>`)}</div>
       <details class="card flush wg" open style="margin-top:16px">
         <summary class="card-head"><span class="chev" aria-hidden="true">›</span>
-          <h2 style="font-size:16px;flex-grow:1"><span class="dot" style="background:#6b7280"></span>7. Số ca mỗi người trong tuần</h2><span class="det">Chỉ để xem · xếp từ nhiều đến ít</span></summary>
+          <h2 style="font-size:16px;flex-grow:1"><span class="dot" style="background:var(--muted)"></span>7. Số ca mỗi người trong tuần</h2><span class="det">Chỉ để xem · xếp từ nhiều đến ít</span></summary>
         ${w.so_ca.length ? html`<div class="filter-bar">
             <input class="input sm" type="search" id="ca-q" placeholder="Tìm theo mã hoặc tên nhân viên…" aria-label="Tìm nhân viên" autocomplete="off">
             <select class="input sm" id="ca-rank" aria-label="Lọc cấp bậc"><option value="">Mọi cấp bậc</option>${RANKS.map((r) => html`<option>${r}</option>`)}</select>

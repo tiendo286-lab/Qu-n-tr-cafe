@@ -64,7 +64,7 @@ function card(t) {
     ${t.status === 'da_giao' ? html`<div><button type="button" class="btn tk-start" data-id="${t.id}">Nhận việc</button></div>` : ''}
     ${t.status === 'dang_xu_ly' ? html`<div class="stack" style="gap:6px">
       <textarea class="input tk-rep" rows="2" placeholder="Kết quả xử lý (không bắt buộc)" aria-label="Kết quả xử lý"></textarea>
-      <div><button type="button" class="btn tk-submit" data-id="${t.id}" style="background:#15803d">Đã xử lý</button></div></div>` : ''}
+      <div><button type="button" class="btn tk-submit" data-id="${t.id}" style="background:var(--ok-line)">Đã xử lý</button></div></div>` : ''}
     ${history(t)}</article>`;
 }
 
@@ -99,14 +99,14 @@ export async function render() {
 }
 
 export const STYLE = html`<style>
-  .pill.info { background: #dbeafe; color: #1e3a8a; }
+  .pill.info { background: var(--info-bg); color: var(--info-ink); }
   .tk-top { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 13px; font-weight: 600; }
   .tk-content { font-size: 15px; font-weight: 600; white-space: pre-wrap; }
   .tk-late { border-left: 4px solid #dc2626; }
   .due-late { color: #b91c1c; font-weight: 700; }
   .due-today { color: #b45309; font-weight: 700; }
   h2.tk-group { margin: 6px 0 0; font-size: 16px; }
-  .tk-report { font-size: 14px; background: #f7f8fb; border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
+  .tk-report { font-size: 14px; background: var(--subtle); border-radius: 8px; padding: 8px 10px; white-space: pre-wrap; }
   .tk-hist summary { cursor: pointer; font-size: 12px; color: var(--muted); }
   .tk-ev { font-size: 13px; padding: 3px 0; }
   .st-meta { font-size: 12px; color: var(--muted); font-weight: 400; }

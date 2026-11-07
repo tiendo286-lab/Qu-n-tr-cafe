@@ -7,15 +7,15 @@ export const perm = 'xem_lich_minh';
 const KIND = [
   ['thay đổi', '!', '#ffedd5', '#9a3412'],
   ['Sắp hết hạn', '!', '#fee2e2', '#991b1b'],
-  ['Đã mở order', '+', '#dbeafe', '#1e3a8a'],
-  ['đã được chốt', '✓', '#dcfce7', '#14532d'],
+  ['Đã mở order', '+', 'var(--info-bg)', 'var(--info-ink)'],
+  ['đã được chốt', '✓', 'var(--ok-bg)', 'var(--ok-ink)'],
   ['giành quyền', '!', '#ffedd5', '#9a3412'],
-  ['Việc mới', '+', '#dbeafe', '#1e3a8a'],
-  ['Nội quy', '§', '#ede9fe', '#5b21b6'],
-  ['hỗ trợ', '?', '#e0f2fe', '#075985'],
-  ['Quy trình', '§', '#ede9fe', '#5b21b6'],
+  ['Việc mới', '+', 'var(--info-bg)', 'var(--info-ink)'],
+  ['Nội quy', '§', 'var(--plum-bg)', 'var(--plum-ink)'],
+  ['hỗ trợ', '?', 'var(--info-bg)', 'var(--info-ink)'],
+  ['Quy trình', '§', 'var(--plum-bg)', 'var(--plum-ink)'],
   ['chờ duyệt', '!', '#ffedd5', '#9a3412'],
-  ['duyệt hoàn thành', '✓', '#dcfce7', '#14532d'],
+  ['duyệt hoàn thành', '✓', 'var(--ok-bg)', 'var(--ok-ink)'],
   ['làm lại', '!', '#fee2e2', '#991b1b'],
 ];
 
@@ -24,7 +24,7 @@ export async function render({ me }) {
   const nUnread = rows.filter((r) => !r.read_at).length;
   if (nUnread) { await rpc('app_notifications_read').catch(() => {}); state.unread = 0; }
   const items = rows.map((r) => {
-    const k = KIND.find(([key]) => r.title.includes(key)) || [null, '•', '#e6e9ef', '#3b4454'];
+    const k = KIND.find(([key]) => r.title.includes(key)) || [null, '•', 'var(--line-soft)', 'var(--ink-2)'];
     return html`<article class="card ntf">
       <div class="ico" style="background:${k[2]};color:${k[3]}" aria-hidden="true">${k[1]}</div>
       <div class="ntf-body">

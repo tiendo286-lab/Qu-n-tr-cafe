@@ -35,7 +35,7 @@ const val = (v) => (v === null || v === undefined ? '(trống)' : Array.isArray(
 const size = (b) => (b === null || b === undefined ? 'Không có số liệu' : b >= 1073741824 ? (b / 1073741824).toFixed(2) + ' GB' : b >= 1048576 ? (b / 1048576).toFixed(1) + ' MB' : (b / 1024).toFixed(0) + ' KB');
 const bar = (used, limit) => {
   const pct = Math.min(100, Math.round((used / limit) * 1000) / 10);
-  return html`<div class="sys-bar" role="img" aria-label="Đã dùng ${pct}%"><div style="width:${pct}%;background:${pct > 80 ? '#dc2626' : pct > 60 ? '#f59e0b' : '#16a34a'}"></div></div><div class="st-meta">${size(used)} / ${size(limit)} · ${pct}%</div>`;
+  return html`<div class="sys-bar" role="img" aria-label="Đã dùng ${pct}%"><div style="width:${pct}%;background:${pct > 80 ? '#dc2626' : pct > 60 ? '#f59e0b' : 'var(--ok-line)'}"></div></div><div class="st-meta">${size(used)} / ${size(limit)} · ${pct}%</div>`;
 };
 const releaseCard = (r, open) => html`<details class="card sys-rel" ${open ? 'open' : ''}><summary><strong>Phiên bản ${r.version}</strong> <span class="st-meta">· ${r.released_at} · ${r.released_by}</span></summary>
   ${[['Thêm', r.added], ['Thay đổi', r.changed], ['Sửa lỗi', r.fixed], ['Loại bỏ', r.removed]].filter(([, a]) => a && a.length).map(([t, a]) => html`<div class="sys-sub">${t}</div><ul>${a.map((x) => html`<li>${x}</li>`)}</ul>`)}</details>`;

@@ -86,17 +86,17 @@ export async function render({ params }) {
         .bc-top { display: flex; justify-content: space-between; gap: 4px; align-items: center; }
         .bc-lbl { font-weight: 700; font-size: 13px; }
         .bc-n { font-size: 12px; font-weight: 700; }
-        .bc-big { font-size: 17px; font-weight: 800; }
+        .bc-big { font-size: 17px; font-weight: 700; }
         .bc-rev { font-size: 12px; font-weight: 600; }
         .bc-m { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .bc-hand { font-weight: 700; color: #b91c1c; background: #fff; border-radius: 6px; padding: 1px 5px; align-self: flex-start; }
         .bc-tam { font-size: 10px; font-weight: 700; background: #fff; border-radius: 6px; padding: 0 4px; }
         .bc-none { --bg: var(--line-soft); --c: var(--line); --fg: var(--muted); align-items: center; justify-content: center; }
-        .bc-chua { --c: #9ca3af; --bg: #f3f4f6; --fg: #4b5563; }
-        .bc-tre { --c: #b91c1c; --bg: #f5f5f4; --fg: #7f1d1d; }
+        .bc-chua { --c: var(--muted); --bg: var(--line-soft); --fg: var(--ink-2); }
+        .bc-tre { --c: #b91c1c; --bg: #fbefec; --fg: #7f1d1d; }
         .bc-dang { --c: #d97706; --bg: #fef3c7; --fg: #92400e; }
-        .bc-cho { --c: #2563eb; --bg: #dbeafe; --fg: #1e40af; }
-        .bc-xong { --c: #16a34a; --bg: #dcfce7; --fg: #166534; }
+        .bc-cho { --c: var(--info-line); --bg: var(--info-bg); --fg: var(--info-ink); }
+        .bc-xong { --c: var(--ok-line); --bg: var(--ok-bg); --fg: var(--ok-ink); }
         .bc-am { --c: #dc2626; --bg: #fee2e2; --fg: #991b1b; }
         @media (max-width: 640px) { .bc-grid { gap: 5px; grid-template-columns: 40px repeat(3, minmax(0, 1fr)) !important; } .bc { padding: 7px; border-left-width: 4px; } .bc-lbl { font-size: 11.5px; } .bc-m, .bc-rev { font-size: 11px; } }
       </style>

@@ -36,7 +36,7 @@ export async function render({ params }) {
     html: html`<style>
         .ka-sum { overflow-x: auto; }
         .ka-r { display: grid; grid-template-columns: minmax(0, 1fr) 110px 110px 80px; gap: 10px; align-items: center; padding: 10px 4px; border-top: 1px solid var(--line-soft); }
-        .ka-a { font-weight: 800; color: #b91c1c; text-align: right; }
+        .ka-a { font-weight: 700; color: #b91c1c; text-align: right; }
         .ka-rep { font-size: 13px; background: #fff7ed; border-radius: 8px; padding: 4px 8px; margin-top: 4px; }
         .ka-r[hidden] { display: none; }
         @media (max-width: 640px) { .ka-r { grid-template-columns: minmax(0, 1fr) auto; } .ka-s { grid-column: 1; } }

@@ -8,11 +8,11 @@ export const perm = 'order_ca';
 
 const STYLE = html`<style>
   .opt { position: absolute; opacity: 0; pointer-events: none; }
-  .choice { flex: 1; min-height: 44px; border-radius: 10px; border: 1px solid #cbd2dc; background: #fff; color: var(--ink-2); font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; text-align: center; }
+  .choice { flex: 1; min-height: 44px; border-radius: 10px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink-2); font-size: 13px; font-weight: 500; display: flex; align-items: center; justify-content: center; cursor: pointer; user-select: none; text-align: center; }
   .opt:checked + .choice.ok { border: 2px solid var(--ok-line); background: var(--ok-bg); color: var(--ok-ink); font-weight: 700; }
   .opt:checked + .choice.off { border: 2px solid var(--off-line); background: var(--off-bg); color: var(--off-ink); font-weight: 700; }
   .opt:checked + .choice::before { content: "✓ "; }
-  .opt:focus-visible + .choice { outline: 3px solid #93c5fd; outline-offset: 1px; }
+  .opt:focus-visible + .choice { outline: 3px solid var(--focus); outline-offset: 1px; }
   .opt:disabled + .choice { cursor: default; }
   .order-row.missing .choice { border: 2px dashed var(--off-line); background: #fff5f5; }
 </style>`;
@@ -63,7 +63,7 @@ export async function render({ me }) {
     </section>
     <form id="order-form" class="stack" style="gap:12px">
       ${days.map((d) => html`<section class="card flush day-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:#f7f8fb">
+        <div style="display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:var(--subtle)">
           <div style="font-weight:700">${d.name} · ${d.date}</div><div class="day-count" style="font-size:12px;color:var(--muted)"></div></div>
         ${shifts.map((s) => {
           const e = ent.get(`${d.index}|${s.name}`);

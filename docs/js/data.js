@@ -11,7 +11,7 @@ export const DOW_LABELS = ['Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', '
 export const RANKS = ['Thử việc', 'Cấp 1', 'Cấp 2', 'Quản lý'];
 export const SENIOR = new Set(['Cấp 2', 'Quản lý']);
 export const ST_XEP = 'ĐANG XẾP', ST_CHOT = 'ĐÃ CHỐT', ST_SUA = 'ĐANG CHỈNH SỬA';
-export const SHIFT_COLORS = ['#f59e0b', '#0ea5e9', '#7c3aed', '#10b981', '#ec4899'];
+export const SHIFT_COLORS = ['#d9922e', '#4f7f9a', '#8a5a83', '#5f8a4e', '#c0605a'];
 
 // ---------------- Ngày tháng (giờ Việt Nam)
 export function vnToday() {

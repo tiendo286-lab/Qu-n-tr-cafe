@@ -44,8 +44,8 @@ export async function render() {
           <button class="btn sm" type="submit">Thêm</button></form></div>
         <div class="table-wrap"><table class="table rt rt-fx" aria-label="Lịch cố định">
           <thead class="dark"><tr><th rowspan="2">Mã NV</th><th rowspan="2">Tên</th><th rowspan="2">Cấp bậc</th><th rowspan="2">Chi nhánh</th><th rowspan="2">Vị trí</th>
-            ${WEEKDAYS.map((d) => html`<th class="center" colspan="${shifts.length}" style="border-left:2px solid #3b5bb5">${d}</th>`)}<th rowspan="2"></th></tr>
-            <tr>${WEEKDAYS.map(() => shifts.map((s, i) => html`<th class="center" style="font-size:12px;${i === 0 ? 'border-left:2px solid #3b5bb5' : ''}">${s.name}</th>`))}</tr></thead>
+            ${WEEKDAYS.map((d) => html`<th class="center" colspan="${shifts.length}" style="border-left:2px solid var(--forest-2)">${d}</th>`)}<th rowspan="2"></th></tr>
+            <tr>${WEEKDAYS.map(() => shifts.map((s, i) => html`<th class="center" style="font-size:12px;${i === 0 ? 'border-left:2px solid var(--forest-2)' : ''}">${s.name}</th>`))}</tr></thead>
           <tbody>${rows.length ? rows.map((e) => html`<tr ${e.status !== 'Đang làm' ? 'class="muted"' : ''}>
             <td data-label="Mã NV" style="font-weight:600">${e.code}</td>
             <td data-label="Tên">${e.name}${e.status !== 'Đang làm' ? html` <span class="pill mute">Ngừng làm</span>` : ''}</td>

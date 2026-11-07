@@ -104,7 +104,7 @@ export async function render({ params }) {
         .ck-row { border: 1px solid var(--line); border-radius: 14px; padding: 12px; display: flex; flex-direction: column; gap: 10px; }
         .ck-none { background: var(--line-soft); }
         .ck-head { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-        .ck-acc { background: #f6f7fb; border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+        .ck-acc { background: var(--subtle); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
         .ck-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
         .ck-res { font-size: 14px; }
         .st-sg { background: #fef9c3; }
@@ -112,7 +112,7 @@ export async function render({ params }) {
         .ck-accf { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: end; }
         .ck-ab { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
         .ck-abh { font-weight: 700; }
-        .ck-al { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; background: #f6f7fb; border-radius: 12px; }
+        .ck-al { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; background: var(--subtle); border-radius: 12px; }
         .ck-al.off { opacity: .65; }
         .ck-ali { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
         .ck-alb { display: flex; gap: 6px; flex-wrap: wrap; }

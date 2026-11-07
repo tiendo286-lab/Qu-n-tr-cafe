@@ -55,8 +55,8 @@ export async function render({ params }) {
     title: 'Báo cáo ca',
     html: html`<style>
         .rp-k { background: var(--card); border-radius: 16px; padding: 14px; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 4px; }
-        .rp-v { font-size: 22px; font-weight: 800; }
-        .rp-d { font-size: 12px; color: var(--muted); } .rp-d.up { color: #15803d; } .rp-d.down { color: #b91c1c; }
+        .rp-v { font-size: 22px; font-weight: 700; }
+        .rp-d { font-size: 12px; color: var(--muted); } .rp-d.up { color: var(--ok-line); } .rp-d.down { color: #b91c1c; }
         .rp-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; }
         .rp-chart { display: flex; align-items: flex-end; gap: 3px; height: 180px; padding: 8px 4px 0; border-bottom: 1px solid var(--line); overflow-x: auto; }
         .rp-bar { flex: 1 1 0; display: flex; flex-direction: column; justify-content: flex-end; align-items: center; height: 100%; min-width: 0; }

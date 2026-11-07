@@ -40,10 +40,10 @@ export async function render({ me, can }) {
       <div class="page-head"><div><h1>Tổng quan</h1><div class="sub">Xin chào, ${me.name} · ${ROLE_LABELS[me.role]} · Milano Coffee &amp; Lela Cafe</div></div></div>
       ${empty && can('du_lieu') ? html`<div class="alert warn">Chưa có dữ liệu. Thêm nhân viên ở <a href="#/quan-ly/nhan-vien">Nhân viên &amp; tài khoản</a>, rồi tạo tuần ở <a href="#/quan-ly/order">Xếp lịch tuần → Order</a>.</div>` : ''}
       <div class="tiles">
-        <a class="tile" href="#/quan-ly/nhan-vien" style="border-top-color:#2563eb"><div class="n">${empActive}</div><div class="l">Nhân viên đang làm (tổng ${empTotal})</div></a>
-        <a class="tile" href="#/quan-ly/dinh-bien" style="border-top-color:#0ea5e9"><div class="n">${staffCells}</div><div class="l">Ô định biên đã khai báo</div></a>
+        <a class="tile" href="#/quan-ly/nhan-vien" style="border-top-color:var(--primary)"><div class="n">${empActive}</div><div class="l">Nhân viên đang làm (tổng ${empTotal})</div></a>
+        <a class="tile" href="#/quan-ly/dinh-bien" style="border-top-color:var(--sage)"><div class="n">${staffCells}</div><div class="l">Ô định biên đã khai báo</div></a>
         <a class="tile" href="#/quan-ly/lich-co-dinh" style="border-top-color:#f59e0b"><div class="n">${fixedMembers}</div><div class="l">Nhân viên có lịch cố định</div></a>
-        ${noPw !== null ? html`<a class="tile" href="#/quan-ly/nhan-vien?tk=chua_co" style="border-top-color:#9ca3af"><div class="n">${noPw}</div><div class="l">Nhân viên chưa có mật khẩu</div></a>` : ''}
+        ${noPw !== null ? html`<a class="tile" href="#/quan-ly/nhan-vien?tk=chua_co" style="border-top-color:var(--muted)"><div class="n">${noPw}</div><div class="l">Nhân viên chưa có mật khẩu</div></a>` : ''}
       </div>
       <div class="grid2">
         <section class="card stack">

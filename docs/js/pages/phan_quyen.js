@@ -44,7 +44,7 @@ export async function render() {
 
   const cell = (role, key, label) => {
     if (role === 'nv' && NV_ALWAYS.includes(key)) return html`<span style="color:var(--muted);font-size:13px">Luôn có</span>`;
-    if (role === 'nv' && !NV_EDITABLE.includes(key)) return html`<span style="color:#8a93a3">—</span>`;
+    if (role === 'nv' && !NV_EDITABLE.includes(key)) return html`<span style="color:var(--muted)">—</span>`;
     return html`<input type="checkbox" class="check perm-box" data-role="${role}" data-perm="${key}" ${allowed.get(`${role}.${key}`) ? 'checked' : ''} aria-label="${label} – ${ROLE_LABELS[role]}">`;
   };
 
@@ -64,10 +64,10 @@ export async function render() {
               <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
               ${EDITABLE_ROLES.map((role) => html`<td class="center">${cell(role, key, label)}</td>`)}</tr>`)}
             ${EVERYONE.map(([label, note]) => html`<tr class="locked">
-              <th scope="row" style="background:#f7f8fb;font-weight:500;color:var(--ink)">${label}</th>
+              <th scope="row" style="background:var(--subtle);font-weight:500;color:var(--ink)">${label}</th>
               <td class="center" colspan="4" style="color:var(--muted);font-size:13px">${note}</td></tr>`)}
             ${OWNER_ONLY.map((label) => html`<tr class="locked">
-              <th scope="row" style="background:#f7f8fb;font-weight:500;color:var(--ink)">${label}</th>
+              <th scope="row" style="background:var(--subtle);font-weight:500;color:var(--ink)">${label}</th>
               <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
               <td class="center" colspan="3" style="color:var(--muted);font-size:13px">Chỉ Chủ — không cấp được cho vai trò khác</td></tr>`)}
           </tbody></table></div>

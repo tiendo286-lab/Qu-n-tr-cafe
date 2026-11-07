@@ -3,7 +3,7 @@
 .progress > div { height: 100%; background: var(--primary); width: 0; transition: width .2s; }
 .loading { padding: 40px; text-align: center; color: var(--muted); }
 .slips { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); }
-.slip { border: 1px dashed #94a3b8; padding: 12px 14px; font-size: 14px; line-height: 1.5; break-inside: avoid; }
+.slip { border: 1px dashed var(--line-strong); padding: 12px 14px; font-size: 14px; line-height: 1.5; break-inside: avoid; }
 .slip .pw { font-family: ui-monospace, Menlo, monospace; font-size: 20px; font-weight: 700; letter-spacing: 1px; }
 @media print { .sidebar, .noprint, .alert { display: none !important; } .layout { display: block; } .main { padding: 0; } }
 
@@ -20,10 +20,10 @@ button.nq-btn { border: none; cursor: pointer; font: inherit; font-size: 12px; f
 .ck-select { width: 150px; }
 .ck-select.ck-chua_ky { border-color: #fca5a5; color: #b91c1c; }
 .ck-select.ck-da_ky_chua_nop { border-color: #fcd34d; color: #92400e; }
-.ck-select.ck-da_ky_nop { border-color: #86efac; color: #166534; }
+.ck-select.ck-da_ky_nop { border-color: #b8d9ab; color: var(--ok-ink); }
 
 /* Trạng thái xanh dương dùng chung (Đang đào tạo, Đã giao...) */
-.pill.info { background: #dbeafe; color: #1e3a8a; }
+.pill.info { background: var(--info-bg); color: var(--info-ink); }
 a.pill { text-decoration: none; }
 .m-foot { flex-wrap: wrap; }
 
@@ -47,7 +47,7 @@ dialog .toolbar .btn { flex: 0 0 auto; }
 .hub-tabs a.on { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }
 .hub-tabs .badge, .nav .item .badge { display: inline-block; min-width: 18px; padding: 0 5px; border-radius: 9px; background: #dc2626; color: #fff; font-size: 11px; line-height: 18px; text-align: center; }
 .brand-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
-.sb-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; color: #cbd5e1; text-decoration: none; }
+.sb-bell { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 10px; color: #cfd8c4; text-decoration: none; }
 .sb-bell:hover, .sb-bell.on { background: rgba(255,255,255,.1); color: #fff; }
 .sb-bell .bell-n { position: absolute; top: 2px; right: 2px; min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #dc2626; color: #fff; font-size: 10px; font-weight: 700; line-height: 16px; text-align: center; }
 
@@ -56,21 +56,14 @@ dialog .toolbar .btn { flex: 0 0 auto; }
    thẻ trắng bo tròn có bóng mềm; điện thoại nhân viên: đầu trang bo tròn + dải ngày,
    thanh dưới dạng viên thuốc nổi với nút tròn "+" (Order ca) ở giữa.
    ===================================================================== */
-:root {
-  --navy: #252e7a; --navy-2: #343e94; --header: #2a3486;
-  --primary: #2f3a9e; --primary-dark: #222a72;
-  --ground: #e9ebf2; --line: #e3e6ef; --line-soft: #eef0f6;
-  --radius: 18px;
-  --shadow: 0 4px 16px rgba(37, 46, 122, .07);
-}
-.table thead tr + tr th, .table thead.dark tr + tr th { background: #3a45a3; }
+.table thead tr + tr th, .table thead.dark tr + tr th { background: var(--header-2); }
 .card, .dcard, .tile { border-color: transparent; box-shadow: var(--shadow); }
 .input { border-radius: 12px; }
 .btn { border-radius: 14px; }
 .btn.sm { border-radius: 10px; }
-.seg { background: #dde0ea; border-radius: 16px; }
+.seg { background: #ebe2d6; border-radius: 16px; }
 .seg a { border-radius: 12px; }
-.seg a.on { color: var(--navy); box-shadow: 0 2px 8px rgba(37, 46, 122, .12); }
+.seg a.on { color: var(--navy); box-shadow: 0 2px 8px rgba(60, 40, 20, .12); }
 .pick, .dpick { border-color: transparent; box-shadow: var(--shadow); border-radius: 14px; }
 .pick.on, .dpick.on { background: var(--navy); border-color: var(--navy); }
 .wk2 .circ { border-color: transparent; box-shadow: var(--shadow); }
@@ -80,16 +73,16 @@ dialog .toolbar .btn { flex: 0 0 auto; }
 /* ---- Đầu trang điện thoại ---- */
 .mobile { background: var(--ground); }
 .appbar.hero { border-radius: 0 0 28px 28px; padding: 20px 16px 16px; gap: 16px; position: relative; z-index: 2; }
-.appbar.hero .t1 { font-size: 13px; color: #b9c1f0; }
+.appbar.hero .t1 { font-size: 13px; color: #cfd8c4; }
 .appbar.hero .t2 { font-size: 22px; line-height: 1.25; }
 .appbar.hero .bell { background: rgba(255, 255, 255, .12); }
 .wstrip { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; align-items: start; }
-.ws-d { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 16px; color: #c5ccf5; text-decoration: none; }
+.ws-d { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 6px 0; border-radius: 16px; color: #cfd8c4; text-decoration: none; }
 .ws-d b { font-size: 16px; color: #fff; } .ws-d span { font-size: 11px; }
 .ws-d.sel:not(.today) { background: rgba(255, 255, 255, .14); }
-.ws-d.today { background: #fff; color: var(--navy); padding: 8px 0 10px; margin-bottom: -40px; box-shadow: 0 8px 20px rgba(20, 30, 90, .18); }
-.ws-d.today b { color: var(--navy); font-size: 18px; } .ws-d.today span { color: #7a82a8; font-weight: 600; }
-.ws-ic { display: flex; width: 26px; height: 26px; border-radius: 9px; background: #eef0fa; align-items: center; justify-content: center; margin-bottom: 2px; }
+.ws-d.today { background: #fff; color: var(--navy); padding: 8px 0 10px; margin-bottom: -40px; box-shadow: 0 8px 20px rgba(60, 40, 20, .18); }
+.ws-d.today b { color: var(--navy); font-size: 18px; } .ws-d.today span { color: var(--muted); font-weight: 600; }
+.ws-ic { display: flex; width: 26px; height: 26px; border-radius: 9px; background: var(--caramel-soft); align-items: center; justify-content: center; margin-bottom: 2px; }
 .ws-d em { width: 5px; height: 5px; border-radius: 50%; background: var(--navy); margin-top: 3px; }
 .mobile .content { padding-top: 52px; }
 
@@ -100,28 +93,20 @@ dialog .toolbar .btn { flex: 0 0 auto; }
 .srow { background: #f4f5fa; border-radius: 14px; padding: 10px 12px; }
 
 /* ---- Thanh dưới dạng viên thuốc ---- */
-.tabbar.pillbar { position: sticky; bottom: 10px; margin: auto 12px 10px; display: flex; align-items: flex-end; background: #fff; border: none; border-radius: 28px; box-shadow: 0 8px 24px rgba(20, 30, 90, .16); padding: 4px 6px; z-index: 5; }
+.tabbar.pillbar { position: sticky; bottom: 10px; margin: auto 12px 10px; display: flex; align-items: flex-end; background: #fff; border: none; border-radius: 28px; box-shadow: 0 8px 24px rgba(60, 40, 20, .16); padding: 4px 6px; z-index: 5; }
 .pillbar .tb-side { flex: 1 1 0; display: flex; min-width: 0; }
 .pillbar .tb-it { flex: 1 1 0; min-width: 0; position: relative; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 0 7px; color: #9aa1b8; font-size: 10.5px; font-weight: 600; text-decoration: none; box-shadow: none; white-space: nowrap; }
 .pillbar .tb-it.on, .pillbar .tb-plus.on { color: var(--navy); box-shadow: none; }
 .pillbar .tb-it.on span { font-weight: 700; }
 .pillbar .tb-n { position: absolute; top: 3px; left: calc(50% + 4px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: 8px; background: #dc2626; color: #fff; font-size: 10px; line-height: 16px; text-align: center; font-style: normal; }
 .pillbar .tb-plus { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 4px 7px; color: var(--navy); font-size: 10.5px; font-weight: 700; text-decoration: none; box-shadow: none; white-space: nowrap; }
-.pillbar .tb-c { display: flex; width: 54px; height: 54px; margin-top: -24px; border-radius: 50%; background: var(--navy); color: #fff; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(37, 46, 122, .38); border: 4px solid var(--ground); }
-.pillbar .tb-plus.on .tb-c { background: var(--navy-2); box-shadow: 0 0 0 3px #c7cdf3, 0 6px 14px rgba(37, 46, 122, .38); }
+.pillbar .tb-c { display: flex; width: 54px; height: 54px; margin-top: -24px; border-radius: 50%; background: var(--navy); color: #fff; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(60, 40, 20, .38); border: 4px solid var(--ground); }
+.pillbar .tb-plus.on .tb-c { background: var(--navy-2); box-shadow: 0 0 0 3px var(--caramel-line), 0 6px 14px rgba(60, 40, 20, .38); }
 
 /* =====================================================================
    TÔNG MÀU CHỦ ĐẠO "QUẢN TRỊ CAFE" (anh Tiến chốt 07/11/2026): nâu espresso, caramel, nền kem, xanh lá xô thơm.
    Màu trạng thái (đỏ / vàng / xanh dương / xanh lá) giữ nguyên để dễ phân biệt.
    ===================================================================== */
-:root {
-  --espresso: #2e2019; --navy: #3a2a20; --navy-2: #57402f; --header: #4a3426;
-  --primary: #9c5b27; --primary-dark: #7a431a; --caramel-soft: #f6ead9;
-  --sage: #8a9a6e; --sage-bg: #e9eddf; --forest: #2f3b2f;
-  --ground: #f5efe6; --card: #fffdfa; --line: #e9dfd2; --line-soft: #f2ebe1;
-  --ink: #2b1d14; --ink-2: #4a3a2e; --muted: #7a6a5c;
-  --shadow: 0 4px 16px rgba(60, 40, 20, .08);
-}
 h1, .sidebar .brand, .auth-hero .name, .appbar.hero .t2 { font-family: 'Playfair Display', Georgia, serif; letter-spacing: .2px; }
 .card, .dcard, .tile { background: var(--card); }
 .sidebar { background: var(--espresso); }
@@ -148,7 +133,7 @@ h1, .sidebar .brand, .auth-hero .name, .appbar.hero .t2 { font-family: 'Playfair
 .seg { background: #ebe2d6; } .seg a.on { color: var(--navy); }
 .pick.on, .dpick.on { background: var(--navy); border-color: var(--navy); }
 .branch-tabs a { border-color: var(--primary); color: var(--primary); } .branch-tabs a.on { background: var(--primary); color: #fff; }
-.pillbar .tb-it { color: #a8998a; }
+.pillbar .tb-it { color: var(--muted); }
 .pillbar .tb-c { background: var(--primary); box-shadow: 0 6px 14px rgba(156, 91, 39, .38); }
 .pillbar .tb-plus { color: var(--primary); }
 .pillbar .tb-plus.on .tb-c { background: var(--primary-dark); box-shadow: 0 0 0 3px #ecd3b8, 0 6px 14px rgba(156, 91, 39, .38); }
@@ -156,10 +141,6 @@ h1, .sidebar .brand, .auth-hero .name, .appbar.hero .t2 { font-family: 'Playfair
 .ck-acc, .ck-al { background: #f7f1e8 !important; }
 
 /* ---- Phối 2 màu (anh Tiến 07/11): NÂU caramel = nút / hành động · XANH RÊU = khung (menu, đầu trang, tiêu đề bảng, nút phụ) · nền kem ---- */
-:root {
-  --forest: #2f3d31; --forest-2: #44574a; --sage-ink: #3f5a36; --sage-bg: #e6ecdc;
-  --navy: var(--forest); --navy-2: var(--forest-2); --header: #3a4c3e;
-}
 .sidebar { background: var(--forest); }
 .sidebar .who { color: #cfd8c4; } .sidebar .group { color: #a9b89a; }
 .sidebar a.item, .sidebar .bottom a, .sidebar .bottom button { color: #e6ecdc; }
@@ -178,3 +159,30 @@ h1, .sidebar .brand, .auth-hero .name, .appbar.hero .t2 { font-family: 'Playfair
 .srow { background: #f1f3ea; }
 .chip-today { background: var(--forest); }
 h1 { color: var(--ink); }
+
+/* ---- Rà soát phông chữ + màu 08/11: một bảng màu chung (đầu style.css), chữ dễ đọc ---- */
+body { background: var(--ground); color: var(--ink); -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility; }
+h1 { font-size: 26px; font-weight: 700; line-height: 1.25; }
+h2 { font-size: 17px; font-weight: 700; line-height: 1.35; color: var(--ink); }
+h3 { font-size: 15px; font-weight: 700; line-height: 1.35; margin: 0; color: var(--ink); }
+@media (max-width: 760px) { h1 { font-size: 22px; } }
+.page-head .sub, .st-meta, .det, .hint { color: var(--muted); }
+/* số tiền, số liệu: các chữ số rộng bằng nhau để cột thẳng hàng */
+.money, .input.money, .table td, .kv, .tile .n, .emp-stats .n, .stat .v, .bc-big, .bc-rev, .bc-m, .pill, .badge { font-variant-numeric: tabular-nums; }
+.tile .n, .emp-stats .n { color: var(--ink); }
+/* ô nhập, nút, hộp thoại dùng cùng phông */
+input, select, textarea, button, dialog { font-family: inherit; }
+::placeholder { color: #a99a8b; opacity: 1; }
+a { color: var(--primary); } a:hover { color: var(--primary-dark); }
+/* trạng thái dùng chung */
+.pill.ok { background: var(--ok-bg); color: var(--ok-ink); }
+.pill.info { background: var(--info-bg); color: var(--info-ink); }
+.alert.ok { background: var(--ok-bg); color: var(--ok-ink); border: 1px solid #b8d9ab; }
+.alert.error { border: 1px solid #f3b8b0; }
+.saved { border-color: var(--ok-line); }
+/* thanh dưới điện thoại: chữ đậm hơn để dễ đọc */
+.pillbar .tb-it { color: var(--muted); font-size: 11px; }
+.table thead th { background: var(--header); color: #fff; font-weight: 600; }
+.table th { color: var(--ink-2); }
+.input { color: var(--ink); border-color: var(--line-strong); }
+.btn[disabled] { background: var(--line); color: var(--muted); }

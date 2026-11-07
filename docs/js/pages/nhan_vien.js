@@ -9,7 +9,7 @@ import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js'
 // Người có quyền Quản lý nhân viên: đầy đủ. Người chỉ có quyền Đào tạo: xem danh sách + cột Đào tạo, tạo phiếu đào tạo.
 export const perm = ['quan_ly_nhan_vien', 'dao_tao'];
 const COMMIT = { chua_ky: ['Chưa ký'], da_ky_chua_nop: ['Đã ký, chưa nộp'], da_ky_nop: ['Đã ký và nộp'] };
-const RANK_COLOR = { 'Quản lý': '#7c3aed', 'Cấp 2': '#0ea5e9', 'Cấp 1': '#f59e0b', 'Thử việc': '#94a3b8' };
+const RANK_COLOR = { 'Quản lý': '#8a5a83', 'Cấp 2': '#4f7f9a', 'Cấp 1': '#d9922e', 'Thử việc': '#a89a8c' };
 
 export async function render({ params, me }) {
   const full = can('quan_ly_nhan_vien'); const dtAdmin = can('dao_tao');
@@ -46,9 +46,9 @@ export async function render({ params, me }) {
       <div class="page-head"><div><h1>Nhân viên</h1><div class="sub">${full ? 'Bấm vào tên để sửa đầy đủ. Cấp bậc sửa nhanh ngay trong bảng.' : 'Theo dõi đào tạo: bấm vào trạng thái ở cột Đào tạo để mở phiếu, hoặc Tạo phiếu cho người chưa đào tạo.'}${dts ? ' Cột Đào tạo: chương trình chạy bàn 8 ngày · 68 hạng mục.' : ''}</div></div>
         <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${full ? html`<a class="btn" href="#/quan-ly/nhan-vien?them=1">+ Thêm nhân viên</a>` : ''}</div></div>
       <div class="emp-stats" aria-label="Thống kê nhân viên">
-        <div class="es" style="--ac:#1e3a8a"><div class="n">${list.length}</div><div class="l">Tổng NV</div></div>
-        <div class="es" style="--ac:#16a34a"><div class="n" style="color:var(--ok-ink)">${on.length}</div><div class="l">Đang làm</div></div>
-        <div class="es" style="--ac:#9ca3af"><div class="n" style="color:var(--muted)">${list.length - on.length}</div><div class="l">Ngừng làm</div></div>
+        <div class="es" style="--ac:var(--forest)"><div class="n">${list.length}</div><div class="l">Tổng NV</div></div>
+        <div class="es" style="--ac:var(--ok-line)"><div class="n" style="color:var(--ok-ink)">${on.length}</div><div class="l">Đang làm</div></div>
+        <div class="es" style="--ac:var(--muted)"><div class="n" style="color:var(--muted)">${list.length - on.length}</div><div class="l">Ngừng làm</div></div>
         ${['Quản lý', 'Cấp 2', 'Cấp 1', 'Thử việc'].map((r) => html`<div class="es" style="--ac:${RANK_COLOR[r]}"><div class="n">${list.filter((e) => e.rank === r).length}</div><div class="l">${r}</div></div>`)}
       </div>
       <section class="card flush">

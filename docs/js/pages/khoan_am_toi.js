@@ -26,7 +26,7 @@ export async function render() {
   </article>`;
   return {
     title: 'Khoản âm của tôi',
-    html: html`<style>.ka-c.open { border-left: 4px solid #dc2626; } .ka-amt { font-size: 20px; font-weight: 800; color: #b91c1c; } .ka-rep { font-size: 14px; background: var(--line-soft); border-radius: 10px; padding: 8px 10px; }</style>
+    html: html`<style>.ka-c.open { border-left: 4px solid #dc2626; } .ka-amt { font-size: 20px; font-weight: 700; color: #b91c1c; } .ka-rep { font-size: 14px; background: var(--line-soft); border-radius: 10px; padding: 8px 10px; }</style>
       <div class="page-head"><div><h1>Khoản âm của tôi</h1><div class="sub">Khi đối soát ca ra thiếu tiền, quản lý gán phần thiếu cho người làm ca đó.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:640px;gap:12px">

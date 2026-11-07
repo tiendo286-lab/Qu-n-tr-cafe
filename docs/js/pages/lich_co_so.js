@@ -16,13 +16,13 @@ const CSS = raw(`<style>
   .sg thead th { position: sticky; top: 0; z-index: 2; background: var(--header); color: #fff; padding: 10px 6px; font-size: 12px; text-align: center; }
   .sg .lab { position: sticky; left: 0; z-index: 1; min-width: 210px; padding: 8px 12px; font-weight: 600; text-align: left; white-space: nowrap; }
   .sg thead .lab { z-index: 3; }
-  .sg tr.r-role .lab { background: #eef4ff; color: #1e3a8a; } .sg tr.r-role.alt .lab { background: #f5efff; color: #5b21b6; }
-  .sg tr.r-extra .lab { color: #9a3412; } .sg tr.r-total .lab, .sg tr.r-total td { background: #f0f4fa; }
+  .sg tr.r-role .lab { background: var(--sage-bg); color: var(--forest); } .sg tr.r-role.alt .lab { background: var(--plum-bg); color: var(--plum-ink); }
+  .sg tr.r-extra .lab { color: #9a3412; } .sg tr.r-total .lab, .sg tr.r-total td { background: var(--subtle); }
   .sg td.c { padding: 4px; min-width: 150px; }
   .cell { height: 36px; border-radius: 8px; display: flex; align-items: center; padding: 0 8px; font-weight: 600; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; position: relative; border: 1px solid transparent; }
-  .cell.sel { cursor: pointer; } .cell.sel:hover { outline: 2px solid #93c5fd; }
-  .cell.empty { background: #fff; border-color: #cbd2dc; color: var(--ink); } .cell.extra { background: #fff; border: 1px dashed #cbd2dc; color: var(--muted); font-weight: 500; }
-  .cell.blocked { background: #f3f4f6; color: #9aa3b2; font-weight: 500; justify-content: center; }
+  .cell.sel { cursor: pointer; } .cell.sel:hover { outline: 2px solid var(--focus); }
+  .cell.empty { background: #fff; border-color: var(--line-strong); color: var(--ink); } .cell.extra { background: #fff; border: 1px dashed var(--line-strong); color: var(--muted); font-weight: 500; }
+  .cell.blocked { background: var(--line-soft); color: var(--muted); font-weight: 500; justify-content: center; }
   .cell.filled { background: #fef3c7; border-color: #f59e0b; color: #78350f; } .cell.warnc { border: 2px solid #dc2626; }
   .cell .tag { font-size: 10px; font-weight: 700; color: #b91c1c; margin-left: 6px; }
   .tot { height: 34px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border-radius: 8px; }
@@ -30,18 +30,18 @@ const CSS = raw(`<style>
   .rm-extra { margin-left: 8px; padding: 0 6px; line-height: 1; border: none; background: none; color: #b91c1c; cursor: pointer; font-weight: 700; font-size: 14px; }
   .picker { position: absolute; z-index: 50; background: #fff; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 10px 30px rgba(15,27,61,.25); max-height: 420px; overflow: auto; width: 360px; padding: 6px; }
   .picker button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--ink); }
-  .picker button:hover, .picker button:focus { background: #e0ecff; outline: none; }
-  .picker .g-ok { background: var(--ok-bg); color: var(--ok-ink); } .picker .g-none { background: #f5f6f8; color: var(--ink-2); } .picker .g-off { background: #fff1f2; color: #9f1239; }
+  .picker button:hover, .picker button:focus { background: var(--caramel-soft); outline: none; }
+  .picker .g-ok { background: var(--ok-bg); color: var(--ok-ink); } .picker .g-none { background: var(--subtle); color: var(--ink-2); } .picker .g-off { background: #fff1f2; color: #9f1239; }
   .picker .cur { font-weight: 700; } .picker .hd { font-size: 11px; font-weight: 700; color: var(--muted); padding: 8px 10px 2px; }
-  .lg { padding: 2px 6px; border-radius: 6px; } .lg.empty { border: 1px solid #cbd2dc; } .lg.filled { background: #fef3c7; } .lg.warn { border: 2px solid #dc2626; }
+  .lg { padding: 2px 6px; border-radius: 6px; } .lg.empty { border: 1px solid var(--line-strong); } .lg.filled { background: #fef3c7; } .lg.warn { border: 2px solid #dc2626; }
   .m-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; padding: 10px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
-  .m-day { position: relative; min-height: 52px; border-radius: 10px; border: 1px solid #cbd2dc; background: #fff; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-family: inherit; cursor: pointer; padding: 0; }
+  .m-day { position: relative; min-height: 52px; border-radius: 10px; border: 1px solid var(--line-strong); background: #fff; color: var(--ink); display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; font-family: inherit; cursor: pointer; padding: 0; }
   .m-day b { font-size: 12px; } .m-day span { font-size: 11px; color: var(--muted); }
   .m-day.on { background: var(--navy); border-color: var(--navy); color: #fff; } .m-day.on span { color: #fff; }
   .m-dot { position: absolute; top: 4px; right: 4px; width: 8px; height: 8px; border-radius: 4px; background: #dc2626; }
   .m-title { font-size: 15px; font-weight: 700; padding: 12px 12px 4px; } .m-pad { padding: 14px; }
   .m-shift { margin: 10px; border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: #fff; }
-  .m-sh-h { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: #f7f8fb; font-size: 15px; }
+  .m-sh-h { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px; background: var(--subtle); font-size: 15px; }
   .m-tot { min-width: 64px; height: 30px; } .m-role { font-size: 12px; font-weight: 700; color: var(--primary-dark); padding: 10px 14px 2px; text-transform: uppercase; }
   .m-row { display: flex; align-items: center; gap: 8px; padding: 4px 10px 4px 14px; } .m-lab { width: 54px; font-size: 12px; font-weight: 600; color: var(--muted); flex-shrink: 0; }
   .m-row .cell { flex-grow: 1; min-width: 0; }
@@ -164,13 +164,13 @@ export async function render({ params, me }) {
         <button class="btn sm secondary" type="button" id="refresh-btn">Làm mới</button>
         <div style="margin-left:auto" class="toolbar">
           ${canBack && can('xep_lich') && holds ? html`<button class="btn sm secondary" type="button" id="back-btn">Quay lại order</button>` : ''}
-          ${editable && can('chot_tuan') ? html`<button class="btn sm" type="button" id="chot-btn" style="background:#15803d">Chốt tuần</button>` : ''}
+          ${editable && can('chot_tuan') ? html`<button class="btn sm" type="button" id="chot-btn" style="background:var(--ok-line)">Chốt tuần</button>` : ''}
         </div>
       </section>
       <div class="hide-m" style="font-size:13px;font-weight:600;line-height:1.8">
         Chú giải: <span class="lg empty">Trắng: chưa xếp</span> <span class="lg filled">Vàng: đã xếp ca</span> CĐ: lịch cố định ·
         <span style="color:#dc2626">•</span> quản lý đã xếp tay · <span class="lg warn">⚠ Viền đỏ: order Nghỉ / Chưa order</span> ·
-        Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:#15803d">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu người Cấp 2 hoặc Quản lý</div>
+        Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:var(--ok-line)">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu người Cấp 2 hoặc Quản lý</div>
       <section class="card flush"><div class="grid-wrap" id="grid"></div></section>
       <div id="picker" class="picker" role="listbox" hidden></div>
       <dialog id="extra-dialog"><form class="stack" id="extra-form"><h2>Thêm vượt định biên</h2>
@@ -181,7 +181,7 @@ export async function render({ params, me }) {
       <dialog id="chot-dialog"><div class="stack"><h2>Chốt lịch tuần ${weekLabel(start)}?</h2>
         <div id="chot-summary" style="line-height:1.7;color:var(--ink-2)">Đang kiểm tra…</div>
         <div style="font-size:13px;color:var(--muted)">Sau khi chốt, lịch bị khóa và nhân viên xem được lịch của mình.${published ? ' Nhân viên có ca thay đổi sẽ nhận thông báo.' : ''}</div>
-        <div class="toolbar" style="justify-content:flex-end"><button class="btn secondary" type="button" data-close>Hủy</button><button class="btn" type="button" id="chot-go" style="background:#15803d">Chốt tuần</button></div></div></dialog>
+        <div class="toolbar" style="justify-content:flex-end"><button class="btn secondary" type="button" data-close>Hủy</button><button class="btn" type="button" id="chot-go" style="background:var(--ok-line)">Chốt tuần</button></div></div></dialog>
       ${CSS}`,
     mount() { return mountGrid(P, { week, start, editable, holds }); },
   };

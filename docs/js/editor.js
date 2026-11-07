@@ -130,12 +130,12 @@ export const DOC_STYLE = `<style>
   .doc p { margin: 6px 0; } .doc ul, .doc ol { padding-left: 22px; margin: 6px 0; }
   .doc table { border-collapse: collapse; width: 100%; margin: 10px 0; font-size: 14px; display: block; overflow-x: auto; }
   .doc th, .doc td { border: 1px solid var(--line); padding: 6px 8px; vertical-align: top; min-width: 60px; }
-  .doc th { background: #f1f4f9; text-align: left; }
+  .doc th { background: var(--subtle); text-align: left; }
   .doc img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 8px 0; background: var(--line-soft); min-height: 40px; }
   .doc blockquote { border-left: 4px solid var(--line); margin: 8px 0; padding: 4px 12px; color: var(--ink-2); }
   .ed-area { min-height: 360px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: #fff; outline: none; }
-  .ed-area:focus { border-color: var(--primary); box-shadow: 0 0 0 3px #dbeafe; }
-  .ed-tools { display: flex; flex-wrap: wrap; gap: 4px; position: sticky; top: 0; z-index: 5; background: var(--bg, #f3f5f9); padding: 6px 0; }
+  .ed-area:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--info-bg); }
+  .ed-tools { display: flex; flex-wrap: wrap; gap: 4px; position: sticky; top: 0; z-index: 5; background: var(--bg, var(--subtle)); padding: 6px 0; }
   .ed-tools button { font: inherit; font-size: 13px; font-weight: 600; min-height: 34px; padding: 0 10px; border-radius: 8px; border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--ink); }
   .ed-tools button:hover { border-color: var(--primary); color: var(--primary); }
 </style>`;

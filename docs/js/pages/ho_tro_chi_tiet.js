@@ -14,10 +14,10 @@ export async function render({ params }) {
   const body = html`<style>
       .msgs { display: flex; flex-direction: column; gap: 10px; }
       .msg { max-width: 85%; align-self: flex-start; background: #fff; border: 1px solid var(--line); border-radius: 14px 14px 14px 4px; padding: 8px 12px; }
-      .msg.me { align-self: flex-end; background: #eff6ff; border-color: #bfdbfe; border-radius: 14px 14px 4px 14px; }
+      .msg.me { align-self: flex-end; background: var(--caramel-soft); border-color: var(--caramel-line); border-radius: 14px 14px 4px 14px; }
       .msg-by { font-size: 12px; color: var(--muted); margin-bottom: 2px; }
       .msg-body { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 15px; }
-      .pill.info { background: #dbeafe; color: #1e3a8a; }
+      .pill.info { background: var(--info-bg); color: var(--info-ink); }
       .ht-send { position: sticky; bottom: 8px; box-shadow: 0 4px 16px rgba(0,0,0,.08); }
       .mobile .ht-send { bottom: 58px; }
     </style>

@@ -152,10 +152,10 @@ export async function render({ params }) {
 }
 
 const STYLE = html`<style>
-  .pill.info { background: #dbeafe; color: #1e3a8a; }
+  .pill.info { background: var(--info-bg); color: var(--info-ink); }
   .dt-prog { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .dt-bar { flex: 1 1 200px; height: 10px; background: var(--line-soft); border-radius: 6px; overflow: hidden; }
-  .dt-bar > div { height: 10px; background: var(--ok-line, #16a34a); }
+  .dt-bar > div { height: 10px; background: var(--ok-line, var(--ok-line)); }
   .pc-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; }
   @media (max-width: 640px) { .pc-grid { grid-template-columns: minmax(0, 1fr); } }
   .pc-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
@@ -167,7 +167,7 @@ const STYLE = html`<style>
   .dt-day summary { cursor: pointer; display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
   .dt-day-t { font-weight: 700; font-size: 15px; }
   .dt-item { border: 1px solid var(--line-soft); border-left: 4px solid #fca5a5; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
-  .dt-item.done { border-left-color: #22c55e; }
+  .dt-item.done { border-left-color: var(--ok-line); }
   .dt-it-ctl { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; font-size: 13px; }
   .dt-it-ctl label { display: inline-flex; gap: 4px; align-items: center; }
   .dt-it-ctl select { width: 150px; }

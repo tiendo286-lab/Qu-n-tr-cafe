@@ -276,10 +276,10 @@ const CSS = html`<style>
   .v-tabs { display: flex; gap: 8px; flex-wrap: wrap; }
   .v-cats { display: flex; gap: 6px; flex-wrap: wrap; padding-bottom: 4px; border-bottom: 1px dashed var(--line); }
   .v-cat { border: 1px solid var(--line); background: #fff; border-radius: 12px; padding: 8px 16px; font: inherit; font-size: 14px; font-weight: 700; color: var(--ink-2); cursor: pointer; }
-  .v-cat b { font-weight: 800; margin-left: 2px; }
+  .v-cat b { font-weight: 700; margin-left: 2px; }
   .v-cat.on { background: var(--forest, #2f3d31); border-color: var(--forest, #2f3d31); color: #fff; }
   .v-cat.vk-ql.on { background: var(--primary); border-color: var(--primary); }
-  .vk-auto { display: inline-block; font-size: 10.5px; font-weight: 800; padding: 1px 6px; border-radius: 8px; background: #ede9fe; color: #5b21b6; }
+  .vk-auto { display: inline-block; font-size: 10.5px; font-weight: 700; padding: 1px 6px; border-radius: 8px; background: var(--plum-bg); color: var(--plum-ink); }
   .v-detail { font-size: 13px; background: var(--line-soft); border-radius: 10px; padding: 8px 10px; max-height: 140px; overflow: auto; }
   .vsub .vk { margin-right: 2px; }
   .v-tab { display: inline-flex; align-items: center; gap: 6px; border: 1px solid var(--line); background: #fff; border-radius: 20px; padding: 7px 14px; font: inherit; font-size: 14px; font-weight: 600; color: var(--ink-2); cursor: pointer; }
@@ -290,8 +290,8 @@ const CSS = html`<style>
   .vs-all { --c: var(--navy); }
   .vs-can { --c: #dc2626; --bg: #fee2e2; --fg: #991b1b; }
   .vs-cho { --c: #d97706; --bg: #fef3c7; --fg: #92400e; }
-  .vs-dang { --c: #2563eb; --bg: #dbeafe; --fg: #1e40af; }
-  .vs-xong { --c: #16a34a; --bg: #dcfce7; --fg: #166534; }
+  .vs-dang { --c: var(--info-line); --bg: var(--info-bg); --fg: var(--info-ink); }
+  .vs-xong { --c: var(--ok-line); --bg: var(--ok-bg); --fg: var(--ok-ink); }
   .v-bar { display: flex; height: 8px; border-radius: 4px; overflow: hidden; background: var(--line-soft); }
   .v-bar span { background: var(--c); }
   .v-filters { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 8px; padding: 12px; background: #f7f1e8; border-radius: 14px; }

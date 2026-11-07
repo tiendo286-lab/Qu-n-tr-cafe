@@ -15,13 +15,13 @@ const CSS = html`<style>
   .stat .v { font-size: 24px; font-weight: 700; }
   .grid-wrap { overflow: auto; max-height: calc(100vh - 160px); }
   .og th, .og td { padding: 0; }
-  .og thead th { position: sticky; top: 0; z-index: 2; padding: 8px 6px; font-size: 12px; line-height: 1.35; border-left: 1px solid #2a4a9e; }
+  .og thead th { position: sticky; top: 0; z-index: 2; padding: 8px 6px; font-size: 12px; line-height: 1.35; border-left: 1px solid var(--header-2); }
   .og .sticky { position: sticky; background: #fff; z-index: 1; padding: 8px 10px; }
   .og thead .sticky { z-index: 3; background: var(--header); }
   .og .c1 { left: 0; width: 46px; min-width: 46px; } .og .c2 { left: 46px; width: 76px; min-width: 76px; }
   .og .c3 { left: 122px; width: 190px; min-width: 190px; } .og .c4 { left: 312px; width: 90px; min-width: 90px; box-shadow: 2px 0 0 var(--line); }
   .oc { min-width: 100px; height: 40px; text-align: center; font-size: 12px; font-weight: 600; cursor: pointer; user-select: none; position: relative; border-left: 1px solid #fff; }
-  .oc.ok { background: var(--ok-bg); color: var(--ok-ink); } .oc.off { background: var(--off-bg); color: var(--off-ink); } .oc.none { background: #eceef2; color: var(--muted); }
+  .oc.ok { background: var(--ok-bg); color: var(--ok-ink); } .oc.off { background: var(--off-bg); color: var(--off-ink); } .oc.none { background: var(--line-soft); color: var(--muted); }
   .oc.ok::before { content: "ĐI LÀM ĐƯỢC"; } .oc.off::before { content: "NGHỈ"; } .oc.none::before { content: "CHƯA ORDER"; }
   .oc.manual::after { content: ""; position: absolute; top: 5px; right: 5px; width: 8px; height: 8px; border-radius: 4px; background: #dc2626; }
   .oc.sel { box-shadow: inset 0 0 0 3px var(--primary); }
@@ -128,7 +128,7 @@ export async function render({ params, me }) {
           <strong style="font-size:14px">Sửa nhanh các ô đang chọn (<span id="sel-count">0</span>):</strong>
           <button class="btn sm qb" type="button" data-set="ok" style="background:var(--ok-bg);color:var(--ok-ink);border:1px solid #4ade80">Đi làm được</button>
           <button class="btn sm qb" type="button" data-set="off" style="background:var(--off-bg);color:var(--off-ink);border:1px solid #fca5a5">Nghỉ</button>
-          <button class="btn sm qb" type="button" data-set="none" style="background:#e5e7eb;color:var(--ink-2);border:1px solid #cbd2dc">Chưa order</button>
+          <button class="btn sm qb" type="button" data-set="none" style="background:var(--line-soft);color:var(--ink-2);border:1px solid var(--line-strong)">Chưa order</button>
           <button class="btn sm secondary" type="button" id="undo-btn" disabled>Hoàn tác</button>
           <button class="btn sm secondary" type="button" id="clear-sel">Bỏ chọn</button>
         </div>

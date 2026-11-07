@@ -6,9 +6,9 @@ export const WARN_GROUPS = [
   ['thieu', 'Ca thiếu người so với định biên', 'Ca thiếu người', '#dc2626'],
   ['thieu_cap2', 'Ca thiếu người Cấp 2 hoặc Quản lý', 'Thiếu Cấp 2+', '#ea580c'],
   ['xep_nghi', 'Đã xếp người order Nghỉ', 'Xếp người Nghỉ', '#b91c1c'],
-  ['xep_chua_order', 'Đã xếp người Chưa order', 'Xếp người Chưa order', '#6b7280'],
+  ['xep_chua_order', 'Đã xếp người Chưa order', 'Xếp người Chưa order', 'var(--muted)'],
   ['vuot', 'Xếp vượt định biên', 'Vượt định biên', '#ca8a04'],
-  ['thong_3_ca', 'Làm thông 3 ca trong ngày', 'Làm thông 3 ca', '#7c3aed'],
+  ['thong_3_ca', 'Làm thông 3 ca trong ngày', 'Làm thông 3 ca', '#8a5a83'],
 ];
 
 export async function computeWarnings(week, ctx = {}) {

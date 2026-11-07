@@ -9,7 +9,7 @@ const ROLE = { hoc: 'Bạn được đào tạo', huong_dan: 'Bạn hướng d�
 
 export async function render() {
   const list = await rpc('app_dt_mine');
-  const body = html`<style>.pill.info { background: #dbeafe; color: #1e3a8a; }</style>
+  const body = html`<style>.pill.info { background: var(--info-bg); color: var(--info-ink); }</style>
     ${list.length ? list.map((t) => html`<a class="card stack" href="#/dao-tao/phieu?id=${t.id}" style="gap:6px;padding:14px;text-decoration:none;color:inherit">
         <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>${t.employee}</strong><span class="pill ${DT_STATUS[t.status][1]}">${dtLabel(t)}</span></div>
         <div style="font-size:13px;color:var(--muted)">${ROLE[t.role]} · bắt đầu ${dmy(t.start_date)}${t.branch ? ' · ' + t.branch : ''}${t.instructor ? ' · hướng dẫn: ' + t.instructor : ''}</div></a>`)

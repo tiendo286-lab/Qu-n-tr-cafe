@@ -4,7 +4,7 @@ import { sb, sel, viError } from '../sb.js';
 import { $$, hhmm, html, showSaved } from '../ui.js';
 
 export const perm = 'sua_danh_muc';
-const TINTS = ['#e0ecff', '#fef3c7', '#ede9fe', '#dcfce7', '#fce7f3'];
+const TINTS = ['#e9eff4', '#fbf0d9', '#efe6ee', '#e6ecdc', '#f6e3e1'];
 
 export async function render({ params }) {
   const cat = await catalog();
@@ -32,7 +32,7 @@ export async function render({ params }) {
           <tbody>${blk.rows.map((row) => html`<tr><th scope="row" style="background:none;color:var(--ink);font-weight:600">${blk.s.name} – ${row.role}</th>
             ${row.counts.map((c, d) => html`<td class="center"><input class="input sm staff-input" type="number" min="0" max="50" step="1" inputmode="numeric" value="${c}"
               data-weekday="${d}" data-shift="${blk.s.name}" data-role="${row.role}" aria-label="${blk.s.name} ${row.role} ${WEEKDAYS[d]}" style="width:72px;text-align:center"></td>`)}</tr>`)}
-            <tr style="background:#f0f5ff"><th scope="row" style="background:none;color:var(--primary-dark)">Tổng ca ${blk.s.name}</th>
+            <tr style="background:var(--sage-bg)"><th scope="row" style="background:none;color:var(--primary-dark)">Tổng ca ${blk.s.name}</th>
               ${blk.totals.map((t, d) => html`<td class="center total-cell" data-weekday="${d}" style="font-weight:700;color:var(--primary-dark)">${t}</td>`)}</tr>
           </tbody></table></div></section>`)
         : html`<div class="card">Chi nhánh này chưa bật ca nào. Vào <a href="#/quan-ly/chi-nhanh">Chi nhánh, ca &amp; vai trò</a> để bật ca và nhập giờ.</div>`}`,

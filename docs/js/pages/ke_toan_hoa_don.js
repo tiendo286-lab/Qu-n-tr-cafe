@@ -54,7 +54,7 @@ export function receiptText(i) {
 export const HD_CSS = html`<style>
   .hd-file { display: inline-flex; align-items: center; gap: 2px; margin: 2px 8px 2px 0; font-size: 14px; }
   .hd-fdel { border: none; background: none; color: #b91c1c; font-weight: 700; cursor: pointer; font-size: 15px; }
-  .hd-rec { font-size: 14px; background: #f7f8fb; border-radius: 8px; padding: 8px 10px; }
+  .hd-rec { font-size: 14px; background: var(--subtle); border-radius: 8px; padding: 8px 10px; }
   .photos { display: flex; flex-wrap: wrap; gap: 8px; }
   .photos .ph { position: relative; margin: 0; width: 88px; height: 88px; border-radius: 8px; overflow: hidden; background: var(--line-soft); }
   .photos .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }

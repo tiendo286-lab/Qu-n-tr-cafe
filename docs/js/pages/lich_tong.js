@@ -81,7 +81,7 @@ export async function render({ params, me }) {
   const sumRow = (label, getter) => html`<tr><td class="nm"><strong>${label}</strong></td>${days.map((d) => shifts.map((s) => {
     const c = getter(d.index, s);
     if (!c) return html`<td>—</td>`;
-    const bg = c.actual === c.required ? '#dcfce7' : c.actual < c.required ? '#fee2e2' : '#fef3c7';
+    const bg = c.actual === c.required ? 'var(--ok-bg)' : c.actual < c.required ? '#fee2e2' : '#fef3c7';
     const tip = c.roles ? Object.keys(c.roles).map((k) => `${k}: ${c.roles[k]}/${c.role_required[k]}`).join('\n') + `\nQL/Cấp 1: ${c.senior}` : '';
     return html`<td style="background:${bg}" title="${tip}">${c.actual}/${c.required}</td>`;
   }))}</tr>`;
@@ -100,9 +100,9 @@ export async function render({ params, me }) {
         <a class="btn sm secondary" href="#/quan-ly/bao-cao?tuan=${start}">Chốt lịch &amp; báo cáo →</a></div>
       ${lockBox}
       <div class="tiles">
-        <div class="tile" style="border-top-color:#2563eb"><div class="n">${stats.active}</div><div class="l">Nhân viên đang làm</div></div>
-        <div class="tile" style="border-top-color:#16a34a"><div class="n">${stats.assigned_employees}</div><div class="l">Đã có ca</div></div>
-        <div class="tile" style="border-top-color:#9ca3af"><div class="n">${stats.unassigned_employees}</div><div class="l">Chưa có ca</div></div>
+        <div class="tile" style="border-top-color:var(--primary)"><div class="n">${stats.active}</div><div class="l">Nhân viên đang làm</div></div>
+        <div class="tile" style="border-top-color:var(--ok-line)"><div class="n">${stats.assigned_employees}</div><div class="l">Đã có ca</div></div>
+        <div class="tile" style="border-top-color:var(--muted)"><div class="n">${stats.unassigned_employees}</div><div class="l">Chưa có ca</div></div>
         <div class="tile" style="border-top-color:#f59e0b"><div class="n">${stats.total_assignments}</div><div class="l">Tổng ca đã xếp</div></div>
         <div class="tile" style="border-top-color:#dc2626"><div class="n">${stats.shortage}</div><div class="l">Ca thiếu người</div></div></div>
       <section class="card flush">

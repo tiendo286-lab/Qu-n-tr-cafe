@@ -85,7 +85,7 @@ export async function render({ params }) {
         ${shifts.map((s) => html`<td class="center">${r.shift_counts[s] || 0}</td>`)}<td>${r.branches || '—'}</td></tr>`)}</tbody></table></div></section>`;
   } else if (tab === 'order') {
     const o = rep.orderDetails();
-    body = html`<div class="tiles">${[['#2563eb', o.summary.active, 'Nhân viên đang làm'], ['#16a34a', o.summary.with_data, 'Đã có order'], ['#9ca3af', o.summary.without_data, 'Chưa có order'], ['#22c55e', o.summary.available, 'Ô đi làm được'], ['#dc2626', o.summary.off, 'Ô nghỉ']]
+    body = html`<div class="tiles">${[['var(--primary)', o.summary.active, 'Nhân viên đang làm'], ['var(--ok-line)', o.summary.with_data, 'Đã có order'], ['var(--muted)', o.summary.without_data, 'Chưa có order'], ['var(--ok-line)', o.summary.available, 'Ô đi làm được'], ['#dc2626', o.summary.off, 'Ô nghỉ']]
       .map(([c, n, l]) => html`<div class="tile" style="border-top-color:${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`)}</div>
       <section class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Nội dung</th><th>Chi tiết</th></tr></thead>
       <tbody>${o.exceptions.length ? o.exceptions.map((r) => html`<tr><td>${r.category}</td><td>${r.detail}</td></tr>`) : html`<tr><td colspan="2">Không có ngoại lệ.</td></tr>`}</tbody></table></div></section>`;
@@ -107,8 +107,8 @@ export async function render({ params }) {
             if (a) return html`<td class="${a.source === 'FIXED' ? 'st-fx' : 'st-ok'} ${['NGHỈ', 'CHƯA ORDER'].includes(a.base_status) ? 'st-warn' : ''}" style="text-align:left">${a.code} – ${a.name}${a.source === 'FIXED' ? html` <small>CĐ</small>` : ''}${a.base_status === 'NGHỈ' ? ' ⚠ Nghỉ' : a.base_status === 'CHƯA ORDER' ? html` <small>Chưa order</small>` : ''}</td>`;
             return i < r.required[d.index] ? html`<td class="st-off">Thiếu</td>` : html`<td></td>`;
           })}</tr>`);
-        })}<tr style="background:#f0f5ff"><td class="nm"><strong>Tổng ca ${s}</strong></td>${days.map((d) => { const t = sm.branches.get(`${b.code}|${d.index}|${s}`);
-          return t ? html`<td style="font-weight:700;color:${t.actual >= t.required ? '#166534' : '#b91c1c'}">${t.actual}/${t.required}</td>` : html`<td>—</td>`; })}</tr>`)
+        })}<tr style="background:var(--sage-bg)"><td class="nm"><strong>Tổng ca ${s}</strong></td>${days.map((d) => { const t = sm.branches.get(`${b.code}|${d.index}|${s}`);
+          return t ? html`<td style="font-weight:700;color:${t.actual >= t.required ? 'var(--ok-ink)' : '#b91c1c'}">${t.actual}/${t.required}</td>` : html`<td>—</td>`; })}</tr>`)
         : html`<tr><td colspan="8">Cơ sở này chưa có định biên hoặc người được xếp.</td></tr>`}</tbody></table>`;
     } else {
       const grid = rep.employeeGrid();
@@ -133,7 +133,7 @@ export async function render({ params }) {
         <button class="btn sm secondary" type="button" id="xuat-bc">Xuất báo cáo Excel</button>
         <a class="btn sm secondary" href="${q('r', Date.now())}">Kiểm tra lại dữ liệu</a>
         <span style="font-size:13px;color:var(--ink-2)">Chốt gần nhất: ${cl.closed_at || '—'}</span></div>
-      <div class="tiles">${[['#2563eb', stats.active, 'Nhân viên'], ['#16a34a', stats.total_assignments, 'Tổng ca'], ['#f59e0b', warnTotal, 'Cảnh báo'], ['#dc2626', counts.shortage, 'Ca thiếu'], ['#7c3aed', counts.overstaff, 'Ca thừa'], ['#9ca3af', counts.unassigned, 'Chưa có ca']]
+      <div class="tiles">${[['var(--primary)', stats.active, 'Nhân viên'], ['var(--ok-line)', stats.total_assignments, 'Tổng ca'], ['#f59e0b', warnTotal, 'Cảnh báo'], ['#dc2626', counts.shortage, 'Ca thiếu'], ['#8a5a83', counts.overstaff, 'Ca thừa'], ['var(--muted)', counts.unassigned, 'Chưa có ca']]
         .map(([c, n, l]) => html`<div class="tile" style="border-top-color:${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`)}</div>
       ${tabsNav}${body}`,
     mount() {
