@@ -1,5 +1,5 @@
 // Lõi trang web: phiên đăng nhập, menu theo quyền, chuyển trang (dùng #/duong-dan vì GitHub Pages là trang tĩnh).
-import { focusWeek, notifyTick, unreadCount } from './data.js';
+import { addDays, focusWeek, notifyTick, unreadCount, vnToday, weekStart } from './data.js';
 import { rpc, sb, viError } from './sb.js';
 import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
@@ -149,22 +149,58 @@ function layout(path, body, flashMsg) {
       <main class="main">${alert}${body}</main></div>`;
   }
   return html`<div class="mobile">
-    <header class="appbar"><div class="row"><div>
-      <div class="t1">${me.code} – ${me.name}</div><div class="t2">Lịch làm</div></div>
+    <header class="appbar hero"><div class="row"><div>
+      <div class="t1">${greet()}</div><div class="t2">${me.name}</div></div>
       <a class="bell" href="#/thong-bao" aria-label="Thông báo${state.unread ? `, ${state.unread} chưa đọc` : ''}">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
-        ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div></header>
+        ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
+      ${weekStrip(path)}</header>
     <div class="content">${alert}${body}
       <div class="m-foot"><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
     </div>
-    <nav class="tabbar" aria-label="Menu nhân viên">
-      <a class="${path === '/order' ? 'on' : ''}" href="#/order">Order ca</a>
-      <a class="${path.startsWith('/lich') ? 'on' : ''}" href="#/lich">Lịch làm</a>
-      <a class="${path === '/viec' ? 'on' : ''}" href="#/viec">Việc${state.tasks ? html` <span class="badge">${state.tasks}</span>` : ''}</a>
-      ${can('chot_ca') ? html`<a class="${path.startsWith('/ca') ? 'on' : ''}" href="#/ca">Chốt ca</a>` : ''}
-      <a class="${path === '/noi-quy' || path === '/quy-trinh' ? 'on' : ''}" href="#/noi-quy">Nội quy</a>
-      <a class="${path.startsWith('/ho-tro') ? 'on' : ''}" href="#/ho-tro">Hỗ trợ${state.support ? html` <span class="badge">${state.support}</span>` : ''}</a>
+    <nav class="tabbar pillbar" aria-label="Menu nhân viên">
+      <div class="tb-side">
+        ${tabItem(path.startsWith('/lich'), '#/lich', 'Lịch', ICONS.lich)}
+        ${tabItem(path === '/viec', '#/viec', 'Việc', ICONS.viec, state.tasks)}
+        ${can('chot_ca') ? tabItem(path.startsWith('/ca'), '#/ca', 'Chốt ca', ICONS.ca) : ''}
+      </div>
+      <a class="tb-plus ${path === '/order' ? 'on' : ''}" href="#/order"><i class="tb-c">${ICONS.plus}</i><span>Order ca</span></a>
+      <div class="tb-side">
+        ${tabItem(path === '/noi-quy' || path === '/quy-trinh', '#/noi-quy', 'Nội quy', ICONS.noiquy)}
+        ${tabItem(path.startsWith('/ho-tro'), '#/ho-tro', 'Hỗ trợ', ICONS.hotro, state.support)}
+      </div>
     </nav></div>`;
+}
+
+// ---------- Giao diện điện thoại nhân viên (mẫu: đầu trang xanh bo tròn, dải ngày, thanh dưới dạng viên thuốc) ----------
+const svg = (inner) => html`<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${inner}</svg>`;
+const ICONS = {
+  lich: svg(html`<rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/>`),
+  viec: svg(html`<rect x="8" y="2" width="8" height="4" rx="1"/><path d="M16 4h2a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2"/><path d="m9 14 2 2 4-4"/>`),
+  ca: svg(html`<path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/>`),
+  noiquy: svg(html`<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>`),
+  hotro: svg(html`<path d="M7.9 20A9 9 0 1 0 4 16.1L2 22Z"/>`),
+  plus: html`<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>`,
+  cal: html`<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="3"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>`,
+};
+function tabItem(on, href, label, icon, badge) {
+  return html`<a class="tb-it ${on ? 'on' : ''}" href="${href}">${icon}<span>${label}</span>${badge ? html`<b class="tb-n">${badge}</b>` : ''}</a>`;
+}
+function greet() {
+  const h = new Date(Date.now() + 7 * 3600e3).getUTCHours();
+  return h < 11 ? 'Chào buổi sáng' : h < 13 ? 'Chào buổi trưa' : h < 18 ? 'Chào buổi chiều' : 'Chào buổi tối';
+}
+const WD = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+function weekStrip(path) {
+  const today = vnToday();
+  const start = weekStart(today);
+  const sel = path.startsWith('/lich') ? Number(parseHash().params.ngay) : NaN;
+  return html`<div class="wstrip" role="group" aria-label="Tuần này">${WD.map((w, i) => {
+    const d = addDays(start, i);
+    const isToday = d === today;
+    return html`<a class="ws-d ${isToday ? 'today' : ''} ${sel === i ? 'sel' : ''}" href="#/lich?tab=cua-toi&ngay=${i}" aria-label="${w} ${d.slice(8, 10)}/${d.slice(5, 7)}${isToday ? ' (hôm nay)' : ''}">
+      ${isToday ? html`<i class="ws-ic">${ICONS.cal}</i>` : ''}<b>${Number(d.slice(8, 10))}</b><span>${w}</span>${isToday ? html`<em></em>` : ''}</a>`;
+  })}</div>`;
 }
 
 function notFound() {

@@ -49,6 +49,8 @@ export async function render({ me, params }) {
     const cat = await catalog();
     const shiftIdx = new Map(cat.shifts.map((s, i) => [s.name, i]));
     if (tab === 'cua_toi') {
+      // Bấm một ngày trên dải ngày ở đầu trang → cuộn tới ngày đó (chỉ khi đang xem tuần hiện tại)
+      const focusDay = params.ngay !== undefined && week.start_date === weekStart(vnToday()) ? Number(params.ngay) : -1;
       if (!me.employee_id) {
         body = html`<div class="card">Tài khoản này không gắn với nhân viên nên không có lịch cá nhân. Xem <a href="#/lich?tab=co-so">Lịch cơ sở</a>.</div>`;
       } else {
@@ -76,7 +78,7 @@ export async function render({ me, params }) {
         body = html`${weeknav('/lich?tab=cua-toi&', week, prev, next, editing ? 'Đang chỉnh sửa · bản đã chốt gần nhất' : `Đã chốt · ${rows.length} ca`)}
           ${changes.length ? html`<div class="upd-banner" role="status">Lịch tuần này vừa được cập nhật ${when(changes[changes.length - 1].created_at).toLowerCase()}: <strong>${lines.length} thay đổi</strong>, ca bị đổi hoặc thêm được đánh dấu “Mới cập nhật” bên dưới.
             ${lines.map((l) => html`<div class="bl">${l}</div>`)}</div>` : ''}
-          ${weekDays(week.start_date).map((d) => html`<section class="dcard"><div class="dl">${d.name} · ${d.date}</div>
+          ${weekDays(week.start_date).map((d) => html`<section class="dcard ${d.iso === vnToday() ? 'today' : ''} ${d.index === focusDay ? 'sel' : ''}"><div class="dl">${d.name} · ${d.date}${d.iso === vnToday() ? html` <span class="chip-today">Hôm nay</span>` : ''}</div>
             ${(byDay[d.index] || []).length ? '' : html`<div class="det">Không có ca</div>`}
             ${(byDay[d.index] || []).map((s) => html`<div class="srow"><div class="bar" style="background:${s.color}"></div>
               <div class="sb"><div class="s1"><span>${s.shift}${s.hours ? ` · ${s.hours}` : ''}</span>${s.updated ? html`<span class="chip-new">Mới cập nhật</span>` : ''}</div>
@@ -115,6 +117,7 @@ export async function render({ me, params }) {
   }
   return {
     title: 'Lịch làm',
+    mount: () => { const el = document.querySelector('.dcard.sel'); if (el) setTimeout(() => el.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50); },
     html: isManager()
       ? html`<div class="page-head"><div><h1>Lịch làm</h1></div></div>${tabs}<div class="stack" style="max-width:560px;gap:12px">${body}</div>`
       : html`${tabs}${body}`,
