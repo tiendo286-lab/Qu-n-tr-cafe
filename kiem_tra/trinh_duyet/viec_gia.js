@@ -47,14 +47,15 @@ export function makeViec(T, me) {
     app_viec_add({ p_meeting, p }) {
       const content = (p.content || (p.handover_item_id ? HO.find((h) => h.id === p.handover_item_id).content : '')).trim(); if (!content) throw new Error('Nhập nội dung công việc.');
       if (p.kind === 'dao_tao' && !p.employee_id) throw new Error('Chọn nhân viên cần đào tạo.');
-      const id = nid('tasks'); T.tasks.push({ id, meeting_id: p_meeting || null, kind: p.kind || 'viec', content, handover_item_id: p.handover_item_id || null, employee_id: p.employee_id || null, status: 'chua_phan_cong', created_by: me.account_id });
-      ev(id, 'tao'); if (p.assignee_id || p.due_date) F.app_viec_update({ p_task: id, p }); return id;
+      const id = nid('tasks'); T.tasks.push({ id, meeting_id: p_meeting || null, kind: p.kind || 'viec', content, handover_item_id: p.handover_item_id || null, employee_id: p.employee_id || null, status: 'chua_phan_cong', created_by: me.account_id, priority: p.priority || 'binh_thuong' });
+      ev(id, 'tao'); if (p.assignee_id || p.due_date) { const q = { ...p }; delete q.priority; F.app_viec_update({ p_task: id, p: q }); } return id;
     },
     app_viec_update({ p_task, p }) {
       const t = task(p_task); if (t.status === 'hoan_thanh') throw new Error('Việc đã xử lý xong.');
       const ass = 'assignee_id' in p ? (p.assignee_id ? Number(p.assignee_id) : null) : t.assignee_id;
       const due = 'due_date' in p ? p.due_date || null : t.due_date;
       if ('content' in p && p.content?.trim()) t.content = p.content.trim();
+      if ('priority' in p) { if (!['thap', 'binh_thuong', 'gap'].includes(p.priority || 'binh_thuong')) throw new Error('Mức độ không hợp lệ.'); t.priority = p.priority || 'binh_thuong'; }
       const changed = ass && ass !== t.assignee_id;
       t.status = !ass ? 'chua_phan_cong' : changed ? 'da_giao' : t.status;
       if (changed) ev(t.id, 'giao', name(ass));

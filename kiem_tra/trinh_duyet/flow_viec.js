@@ -22,30 +22,43 @@ export default async ({ visit, settle, sleep, out }) => {
     await step('Không vào được trang Công việc của chủ', async () => { await go('#/quan-ly/giao-viec'); return document.title + ' · ' + txt('#root .card'); });
     return;
   }
-  await step('Menu + tab Cần xử lý', async () => { await go('#/quan-ly/giao-viec'); return txt('.nav') + ' || ' + txt('.hub-tabs') + ' || ' + txt('.tabs-nav') + ' || ' + $$('.pend .tk-content').map((x) => x.innerText).join(' / '); });
-  await step('Giao 1 mục bàn giao (chưa chọn người thì báo)', async () => {
-    const c = $$('.pend').find((x) => x.innerText.includes('Máy xay')); c.querySelector('.as-go').click(); await sleep(200); const err = txt('#saved-indicator');
-    setv(c.querySelector('.as-who'), '3'); c.querySelector('.as-go').click(); await sleep(400); await settle();
-    return `"${err}" → ${txt('#root .alert')} · ${txt('.tabs-nav')}`;
+  // Tab Công việc dạng bảng: thanh trạng thái tô màu, tìm kiếm + bộ lọc, bấm từng việc mở hộp chi tiết
+  const tabs = () => txt('.v-tabs');
+  const rowOf = (t) => $$('.vr[data-k]').find((r) => !r.hidden && r.innerText.includes(t));
+  const dlg = () => $('dialog[open]');
+  const tab = async (k) => { $(`.v-tab[data-tab="${k}"]`).click(); await sleep(150); };
+  await step('Menu + tab Cần xử lý', async () => { await go('#/quan-ly/giao-viec'); for (let i = 0; i < 100 && !$('.v-tabs'); i++) await sleep(100); await sleep(300); return txt('.nav') + ' || ' + txt('.hub-tabs') + ' || ' + tabs() + ' || ' + $$('.vr[data-k]').filter((r) => !r.hidden).map((r) => r.querySelector('.vtt').innerText + ' [' + r.querySelector('.vst').innerText + ']').join(' / '); });
+  await step('Giao 1 mục bàn giao (chưa chọn người thì báo) — mức độ Gấp', async () => {
+    rowOf('Máy xay').querySelector('.v-assign').click(); await sleep(200);
+    const f = dlg().querySelector('.v-edit'); f.requestSubmit(); await sleep(200); const err = txt('#saved-indicator');
+    setv(f.assignee, '3'); setv(f.pri, 'gap'); f.requestSubmit(); await sleep(400); await settle();
+    return `"${err}" → ${txt('#root .alert')} · ${tabs()}`;
   });
-  await step('Đã xong không cần giao', async () => { $$('.pend').find((x) => x.innerText.includes('giấy in')).querySelector('.ho-close').click(); await sleep(400); await settle(); return txt('#root .alert') + ' · ' + txt('.tabs-nav'); });
+  await step('Đã xong không cần giao', async () => { rowOf('giấy in').click(); await sleep(200); dlg().querySelector('.v-hoclose').click(); await sleep(400); await settle(); return txt('#root .alert') + ' · ' + tabs(); });
   await step('Thêm việc giao sau, rồi giao', async () => {
-    const f = $('#add-task'); f.content.value = 'Kiểm tra camera'; f.assignee.value = ''; f.requestSubmit(); await sleep(400); await settle();
-    const a = txt('#root .alert') + ' · ' + txt('.tabs-nav');
-    const c = $$('.pend').find((x) => x.innerText.includes('camera')); setv(c.querySelector('.as-who'), '5'); setv(c.querySelector('.as-due'), '2030-01-01'); c.querySelector('.as-go').click(); await sleep(400); await settle();
-    return a + ' → ' + txt('#root .alert') + ' · ' + txt('.tabs-nav');
+    $('#v-add').click(); await sleep(200); const f = dlg().querySelector('form'); f.content.value = 'Kiểm tra camera'; f.requestSubmit(); await sleep(400); await settle();
+    const a = txt('#root .alert') + ' · ' + tabs();
+    rowOf('camera').click(); await sleep(200); const g = dlg().querySelector('.v-edit'); setv(g.assignee, '5'); setv(g.due, '2030-01-01'); g.requestSubmit(); await sleep(400); await settle();
+    return a + ' → ' + txt('#root .alert') + ' · ' + tabs();
   });
-  await step('Thêm việc giao ngay', async () => { const f = $('#add-task'); f.content.value = 'Lau bàn'; f.assignee.value = '6'; f.requestSubmit(); await sleep(400); await settle(); return txt('#root .alert') + ' · ' + txt('.tabs-nav'); });
+  await step('Thêm việc giao ngay (mức độ Thấp)', async () => { $('#v-add').click(); await sleep(200); const f = dlg().querySelector('form'); f.content.value = 'Lau bàn'; f.assignee.value = '6'; f.pri.value = 'thap'; f.requestSubmit(); await sleep(400); await settle(); return txt('#root .alert') + ' · ' + tabs(); });
   await step('Tab Chờ nhận + bỏ giao', async () => {
-    await go('#/quan-ly/giao-viec?tab=cho-nhan'); const a = txt('#f-count');
-    const c = $$('.tk').find((x) => x.innerText.includes('Lau bàn')); setv(c.querySelector('select[data-f=assignee_id]'), ''); await sleep(400); await settle();
-    return `${a} → bỏ giao: ${txt('.tabs-nav')}`;
+    await tab('cho-nhan'); const a = txt('#f-count') + ' · hash ' + location.hash;
+    rowOf('Lau bàn').click(); await sleep(200); const g = dlg().querySelector('.v-edit'); setv(g.assignee, ''); g.requestSubmit(); await sleep(400); await settle();
+    return `${a} → bỏ giao: ${txt('#root .alert')} · ${tabs()}`;
+  });
+  await step('Bộ lọc mức độ + tìm kiếm', async () => {
+    await tab('tat-ca'); $('#f-toggle').click(); await sleep(100); setv($('#f-pri'), 'gap'); await sleep(100);
+    const a = txt('#f-count') + ': ' + $$('.vr[data-k]').filter((r) => !r.hidden).map((r) => r.querySelector('.vtt').innerText + ' ' + r.querySelector('.vp').innerText).join(' / ');
+    $('#f-clear').click(); setv($('#f-q'), 'camera'); await sleep(100); const b = txt('#f-count'); setv($('#f-q'), '');
+    return `${a} · tìm "camera": ${b} · thanh màu: ${$$('.v-bar span').length} đoạn`;
   });
   await step('Tab Đã xử lý + yêu cầu làm lại', async () => {
-    await go('#/quan-ly/giao-viec?tab=da-xu-ly'); const before = $$('.tk').length;
-    const c = $('.tk'); c.querySelector('.tk-reopen').click(); await sleep(200); const err = txt('#saved-indicator');
-    setv(c.querySelector('.tk-note'), 'Còn 1 bóng chưa sáng'); c.querySelector('.tk-reopen').click(); await sleep(400); await settle();
-    return `${before} việc · thiếu lý do: "${err}" → ${txt('#root .alert')} · ${txt('.tabs-nav')}`;
+    await tab('da-xu-ly'); const before = txt('#f-count');
+    const r = $$('.vr[data-k]').find((x) => !x.hidden); r.click(); await sleep(200);
+    dlg().querySelector('.v-reopen').click(); await sleep(200); const err = txt('#saved-indicator');
+    setv(dlg().querySelector('.v-note'), 'Còn 1 bóng chưa sáng'); dlg().querySelector('.v-reopen').click(); await sleep(400); await settle();
+    return `${before} · thiếu lý do: "${err}" → ${txt('#root .alert')} · ${tabs()}`;
   });
   await step('Đường dẫn cũ #/quan-ly/hop', async () => { await go('#/quan-ly/hop'); return document.title; });
 };

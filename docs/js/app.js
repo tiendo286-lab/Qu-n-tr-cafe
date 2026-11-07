@@ -127,13 +127,13 @@ function layout(path, body, flashMsg) {
   const alert = flashMsg ? html`<div class="alert ${flashMsg.kind}" role="status">${flashMsg.message}</div>` : '';
   if (!me) {
     return html`<div class="auth"><div class="auth-hero">
-      <div class="logo" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18M8 14h3M8 18h6"/></svg></div>
-      <div class="name">Quản trị lịch làm</div><div class="tag">Milano Coffee · Lela Cafe</div></div>${alert}${body}</div>`;
+      <div class="logo" aria-hidden="true"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 8h1a4 4 0 1 1 0 8h-1"/><path d="M3 8h14v9a4 4 0 0 1-4 4H7a4 4 0 0 1-4-4Z"/><path d="M6 2v2M10 2v2M14 2v2"/></svg></div>
+      <div class="name">Quản trị cafe</div><div class="tag">Milano Coffee · Lela Cafe</div></div>${alert}${body}</div>`;
   }
   if (isManager()) {
     return html`<div class="layout">
       <nav class="sidebar" aria-label="Menu">
-        <div class="brand-row"><div class="brand">Quản trị lịch làm</div>
+        <div class="brand-row"><div class="brand">Quản trị cafe</div>
           <a class="sb-bell ${path === '/thong-bao' ? 'on' : ''}" href="#/thong-bao" title="Thông báo" aria-label="Thông báo${state.unread ? `, ${state.unread} chưa đọc` : ''}">${BELL}${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
         <div class="who">${me.code} – ${me.name} · ${ROLE_LABELS[me.role]}</div>
         <details class="navd" open><summary>☰ Menu</summary>
@@ -255,7 +255,7 @@ export async function render() {
     page = { title: 'Lỗi', html: html`<div class="alert error">${viError(e)}</div>` };
   }
   if (seq !== renderSeq) return; // người dùng đã chuyển trang khác
-  document.title = `${page.title || 'Quản trị lịch làm'} · Lịch làm`;
+  document.title = `${page.title || 'Quản trị cafe'} · Quản trị cafe`;
   const tabsBar = state.me && isManager() && !state.me.must_change ? hubTabs(path, params) : '';
   root().innerHTML = str(layout(path, html`${tabsBar}${page.html}`, takeFlash()));
   const nav = document.querySelector('details.navd');

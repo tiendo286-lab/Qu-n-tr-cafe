@@ -109,3 +109,48 @@ dialog .toolbar .btn { flex: 0 0 auto; }
 .pillbar .tb-plus { flex: 0 0 auto; display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 0 4px 7px; color: var(--navy); font-size: 10.5px; font-weight: 700; text-decoration: none; box-shadow: none; white-space: nowrap; }
 .pillbar .tb-c { display: flex; width: 54px; height: 54px; margin-top: -24px; border-radius: 50%; background: var(--navy); color: #fff; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(37, 46, 122, .38); border: 4px solid var(--ground); }
 .pillbar .tb-plus.on .tb-c { background: var(--navy-2); box-shadow: 0 0 0 3px #c7cdf3, 0 6px 14px rgba(37, 46, 122, .38); }
+
+/* =====================================================================
+   TÔNG MÀU CHỦ ĐẠO "QUẢN TRỊ CAFE" (anh Tiến chốt 07/11/2026): nâu espresso, caramel, nền kem, xanh lá xô thơm.
+   Màu trạng thái (đỏ / vàng / xanh dương / xanh lá) giữ nguyên để dễ phân biệt.
+   ===================================================================== */
+:root {
+  --espresso: #2e2019; --navy: #3a2a20; --navy-2: #57402f; --header: #4a3426;
+  --primary: #9c5b27; --primary-dark: #7a431a; --caramel-soft: #f6ead9;
+  --sage: #8a9a6e; --sage-bg: #e9eddf; --forest: #2f3b2f;
+  --ground: #f5efe6; --card: #fffdfa; --line: #e9dfd2; --line-soft: #f2ebe1;
+  --ink: #2b1d14; --ink-2: #4a3a2e; --muted: #7a6a5c;
+  --shadow: 0 4px 16px rgba(60, 40, 20, .08);
+}
+h1, .sidebar .brand, .auth-hero .name, .appbar.hero .t2 { font-family: 'Playfair Display', Georgia, serif; letter-spacing: .2px; }
+.card, .dcard, .tile { background: var(--card); }
+.sidebar { background: var(--espresso); }
+.sidebar .who { color: #d9c7b4; } .sidebar .group { color: #b89f86; }
+.sidebar a.item { color: #eadccd; } .sidebar a.item:hover { background: #47332a; }
+.sidebar a.item.active { background: var(--primary); }
+.sidebar .bottom a, .sidebar .bottom button { color: #eadccd; }
+.auth-hero { background: var(--espresso); } .auth-hero .tag { color: #e3d2bf; } .auth-hero .logo { background: var(--primary); }
+.appbar { background: var(--navy); }
+.appbar .t1, .appbar.hero .t1 { color: #e3d2bf; }
+.bell { background: #4b372b; } .appbar.hero .bell { background: rgba(255, 255, 255, .12); }
+.utabs a { color: #e3d2bf; } .utabs a.on { border-bottom-color: #e2b98f; }
+.ws-d { color: #d9c7b4; } .ws-ic { background: var(--caramel-soft); color: var(--primary); } .ws-d em { background: var(--primary); }
+.ws-d.today span { color: var(--muted); }
+.input { border-color: #d8ccbd; }
+.input:focus, .btn:focus-visible, select:focus { outline-color: #e2b98f; }
+.btn.secondary { background: #fff; }
+.btn.secondary:hover { background: #f8efe4; }
+.notice.unread { background: #fbf5ec; border-left-color: var(--primary); }
+.bar i, .progress > div { background: var(--primary); }
+.wk2 .b { color: var(--primary); }
+.table thead th { background: var(--header); } .table thead tr + tr th, .table thead.dark tr + tr th { background: #6b4f3c; }
+.hub-tabs a.on { color: var(--primary); border-bottom-color: var(--primary); }
+.seg { background: #ebe2d6; } .seg a.on { color: var(--navy); }
+.pick.on, .dpick.on { background: var(--navy); border-color: var(--navy); }
+.branch-tabs a { border-color: var(--primary); color: var(--primary); } .branch-tabs a.on { background: var(--primary); color: #fff; }
+.pillbar .tb-it { color: #a8998a; }
+.pillbar .tb-c { background: var(--primary); box-shadow: 0 6px 14px rgba(156, 91, 39, .38); }
+.pillbar .tb-plus { color: var(--primary); }
+.pillbar .tb-plus.on .tb-c { background: var(--primary-dark); box-shadow: 0 0 0 3px #ecd3b8, 0 6px 14px rgba(156, 91, 39, .38); }
+.srow { background: #f7f1e8; }
+.ck-acc, .ck-al { background: #f7f1e8 !important; }

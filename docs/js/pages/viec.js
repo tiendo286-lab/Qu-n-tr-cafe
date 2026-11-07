@@ -11,6 +11,9 @@ export const STATUS = {
   chua_phan_cong: ['Chưa giao', 'mute'], da_giao: ['Chờ nhận', 'warn'], dang_xu_ly: ['Đang xử lý', 'info'],
   cho_duyet: ['Đã xử lý', 'ok'], hoan_thanh: ['Đã xử lý', 'ok'],
 };
+// Mức độ công việc (dùng chung với tab Công việc)
+export const PRI = { gap: { label: 'Gấp', cls: 'vp-gap' }, binh_thuong: { label: 'Bình thường', cls: 'vp-tb' }, thap: { label: 'Thấp', cls: 'vp-thap' } };
+const PRI_RANK = { gap: 0, binh_thuong: 1, thap: 2 };
 const ACTION = { tao: 'Tạo việc', giao: 'Giao việc', bat_dau: 'Nhận việc', bao_cao: 'Báo đã xử lý', duyet: 'Duyệt', lam_lai: 'Yêu cầu làm lại', sua: 'Sửa' };
 
 export function dueText(t) {
@@ -43,8 +46,8 @@ export function doneText(t) {
 function card(t) {
   const st = STATUS[t.status];
   const meta = [sourceText(t), t.created_by_name ? html`Người giao: ${t.created_by_name}` : ''].filter(Boolean);
-  return html`<article class="card stack tk ${t.overdue ? 'tk-late' : ''}" style="gap:8px;padding:14px">
-    <div class="tk-top"><span class="pill ${st[1]}">${st[0]}</span>${dueText(t)}</div>
+  return html`<article class="card stack tk ${t.overdue || t.priority === 'gap' ? 'tk-late' : ''}" style="gap:8px;padding:14px">
+    <div class="tk-top"><span><span class="pill ${st[1]}">${st[0]}</span>${t.priority && t.priority !== 'binh_thuong' ? html` <span class="vp ${PRI[t.priority].cls}"><i></i>${PRI[t.priority].label}</span>` : ''}</span>${dueText(t)}</div>
     <div class="tk-content">${t.content}</div>
     ${meta.length ? html`<div class="st-meta">${meta.map((m, i) => html`${i ? ' · ' : ''}${m}`)}</div>` : ''}
     ${t.status === 'dang_xu_ly' && t.review_note ? html`<div class="alert warn" style="font-size:13px"><strong>Yêu cầu làm lại:</strong> ${t.review_note}</div>` : ''}
@@ -57,7 +60,7 @@ function card(t) {
 }
 
 export async function render() {
-  const list = await rpc('app_viec_mine');
+  const list = (await rpc('app_viec_mine')).sort((a, b) => (PRI_RANK[a.priority] ?? 1) - (PRI_RANK[b.priority] ?? 1) || (a.due_date || '9999').localeCompare(b.due_date || '9999'));
   const by = (s) => list.filter((t) => t.status === s);
   const groups = [
     ['Chờ nhận', by('da_giao'), 'Bấm “Nhận việc” để báo cho người giao là bạn đã nhận.'],
@@ -98,4 +101,7 @@ export const STYLE = html`<style>
   .tk-hist summary { cursor: pointer; font-size: 12px; color: var(--muted); }
   .tk-ev { font-size: 13px; padding: 3px 0; }
   .st-meta { font-size: 12px; color: var(--muted); font-weight: 400; }
+  .vp { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .vp i { width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
+  .vp-gap { color: #dc2626; } .vp-tb { color: #8a6d55; } .vp-thap { color: #6b8f4e; }
 </style>`;
