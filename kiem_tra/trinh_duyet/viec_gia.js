@@ -12,6 +12,14 @@ export function makeViec(T, me) {
     { id: 3, meeting_id: 1, kind: 'viec', content: 'Thay bóng đèn biển hiệu ĐK', assignee_id: QL, due_date: add(today, 3), status: 'hoan_thanh', report: 'Đã thay 2 bóng', done_at: now(), created_by: 1 },
     { id: 4, meeting_id: null, kind: 'viec', content: 'Lau kính mặt tiền LL', assignee_id: NV, due_date: null, status: 'da_giao', created_by: 1 },
   ];
+  T.tasks.forEach((t) => { t.category = t.kind === 'dao_tao' ? 'quan_ly' : 'van_hanh'; t.topic = t.kind === 'dao_tao' ? 'dao_tao' : 'hong_hoc'; });
+  const TOP = { van_hanh: ['hong_hoc', 'doi_soat_ca', 'khoan_am', 'ban_giao', 've_sinh', 'nhap_hang', 'khac_vh'], quan_ly: ['dao_tao', 'noi_quy', 'cam_ket', 'nhan_su', 'khac_ql'] };
+  const AUTO = [
+    { key: 'doi_soat:r=77', category: 'van_hanh', topic: 'doi_soat_ca', title: 'Đối soát Ca Sáng LHP ' + today.split('-').reverse().join('/'), detail: 'Nhân viên đã hoàn thành phiếu · đã đối soát 3/9 hạng mục', link: '/ca/phieu?id=77' },
+    { key: 'chua_chot:d=' + today, category: 'van_hanh', topic: 'doi_soat_ca', title: '2 ca quá giờ chưa chốt ngày hôm nay', detail: 'ĐK Sáng (chưa mở), HS Sáng (đang chốt dở)', link: '/ca?ngay=' + today },
+    { key: 'cam_ket:chua_ky', category: 'quan_ly', topic: 'cam_ket', title: '12 nhân viên chưa ký cam kết', detail: 'NV1 – A, NV2 – B', link: '/quan-ly/nhan-vien' },
+    { key: 'doc:d=1:v=2', category: 'quan_ly', topic: 'noi_quy', title: '5 nhân viên chưa đọc nội quy: Nội quy chung', detail: 'NV1 – A', link: '/noi-quy' },
+  ];
   T.task_events = [];
   T.handover_items = T.handover_items || [];
   const HO = [{ id: 901, content: 'Máy xay số 2 kêu to', report_id: 1, branch: 'LHP', work_date: today, shift: 'Sáng', by: 'NV thử' }, { id: 902, content: 'Hết giấy in hóa đơn', report_id: 1, branch: 'LHP', work_date: today, shift: 'Sáng', by: 'NV thử' }];
@@ -47,7 +55,11 @@ export function makeViec(T, me) {
     app_viec_add({ p_meeting, p }) {
       const content = (p.content || (p.handover_item_id ? HO.find((h) => h.id === p.handover_item_id).content : '')).trim(); if (!content) throw new Error('Nhập nội dung công việc.');
       if (p.kind === 'dao_tao' && !p.employee_id) throw new Error('Chọn nhân viên cần đào tạo.');
-      const id = nid('tasks'); T.tasks.push({ id, meeting_id: p_meeting || null, kind: p.kind || 'viec', content, handover_item_id: p.handover_item_id || null, employee_id: p.employee_id || null, status: 'chua_phan_cong', created_by: me.account_id, priority: p.priority || 'binh_thuong' });
+      const cat = p.category || (p.kind === 'dao_tao' ? 'quan_ly' : 'van_hanh'); const top = p.topic || (p.kind === 'dao_tao' ? 'dao_tao' : p.handover_item_id ? 'ban_giao' : cat === 'quan_ly' ? 'khac_ql' : 'khac_vh');
+      if (!TOP[cat] || !TOP[cat].includes(top)) throw new Error('Nhóm việc không thuộc loại đã chọn.');
+      if (p.auto_key && T.tasks.some((x) => x.auto_key === p.auto_key && x.status !== 'hoan_thanh')) throw new Error('Việc này đã được giao rồi (đang chờ xử lý).');
+      const id = nid('tasks'); T.tasks.push({ id, meeting_id: p_meeting || null, kind: p.kind || 'viec', content, handover_item_id: p.handover_item_id || null, employee_id: p.employee_id || null, status: 'chua_phan_cong', created_by: me.account_id, priority: p.priority || 'binh_thuong',
+        category: cat, topic: top, link: p.link || null, auto_key: p.auto_key || null });
       ev(id, 'tao'); if (p.assignee_id || p.due_date) { const q = { ...p }; delete q.priority; F.app_viec_update({ p_task: id, p: q }); } return id;
     },
     app_viec_update({ p_task, p }) {
@@ -61,6 +73,8 @@ export function makeViec(T, me) {
       if (changed) ev(t.id, 'giao', name(ass));
       t.assignee_id = ass; t.due_date = due;
     },
+    app_viec_auto: () => AUTO.filter((a) => !T.tasks.some((t) => t.auto_key === a.key && t.status !== 'hoan_thanh')),
+    app_viec_set_topic({ p_task, p_category, p_topic }) { if (!TOP[p_category]?.includes(p_topic)) throw new Error('Loại / nhóm việc không hợp lệ.'); Object.assign(task(p_task), { category: p_category, topic: p_topic }); },
     app_viec_delete({ p_task }) { const t = task(p_task); T.tasks = T.tasks.filter((x) => x !== t); },
     app_viec_all: () => T.tasks.map(json),
     app_viec_reopen({ p_task, p_note }) {

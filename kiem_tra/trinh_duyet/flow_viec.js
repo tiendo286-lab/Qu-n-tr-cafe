@@ -60,5 +60,28 @@ export default async ({ visit, settle, sleep, out }) => {
     setv(dlg().querySelector('.v-note'), 'Còn 1 bóng chưa sáng'); dlg().querySelector('.v-reopen').click(); await sleep(400); await settle();
     return `${before} · thiếu lý do: "${err}" → ${txt('#root .alert')} · ${tabs()}`;
   });
+  await step('Loại công việc: Vận hành / Quản lý + việc tự sinh', async () => {
+    await go('#/quan-ly/giao-viec?tab=can-xu-ly'); for (let i = 0; i < 100 && !$('.v-cats'); i++) await sleep(100); await sleep(300);
+    const cats = txt('.v-cats');
+    $('.v-cat[data-cat=quan_ly]').click(); await sleep(150);
+    const ql = txt('.v-tabs') + ' :: ' + $$('.vr[data-k]').filter((r) => !r.hidden).map((r) => r.querySelector('.vtt').innerText + ' [' + r.querySelector('.vk').innerText + ']').join(' / ');
+    $('.v-cat[data-cat=""]').click(); await sleep(150);
+    return `${cats} || Quản lý → ${ql}`;
+  });
+  await step('Giao việc tự sinh (đối soát ca) → hết khỏi Cần xử lý, thành việc Chờ nhận có link', async () => {
+    const r = rowOf('Đối soát Ca Sáng'); r.querySelector('.v-assign').click(); await sleep(200);
+    const d = dlg(); const info = d.innerText.replace(/\s+/g, ' ').slice(0, 200);
+    const g = d.querySelector('.v-edit'); setv(g.assignee, '5'); g.requestSubmit(); await sleep(400); await settle();
+    for (let i = 0; i < 100 && !$('.v-cats'); i++) await sleep(100); await sleep(300);
+    await tab('cho-nhan'); const t = rowOf('Đối soát Ca Sáng');
+    return `${info} → ${txt('#root .alert')} · Chờ nhận: ${t ? t.querySelector('.vsub').innerText.replace(/\s+/g, ' ') : 'KHÔNG THẤY'}`;
+  });
+  await step('Thêm việc Quản lý / Nội quy', async () => {
+    $('#v-add').click(); await sleep(200); const f = dlg().querySelector('form');
+    f.content.value = 'Nhắc nhân viên đọc nội quy mới'; const q = f.querySelector('input[name=cat][value=quan_ly]'); q.checked = true; q.dispatchEvent(new Event('change', { bubbles: true }));
+    const opts = [...f.topic.options].map((o) => o.text).join(','); f.topic.value = 'noi_quy'; f.requestSubmit(); await sleep(400); await settle();
+    for (let i = 0; i < 100 && !$('.v-cats'); i++) await sleep(100); await sleep(300);
+    await tab('tat-ca'); const r = rowOf('Nhắc nhân viên đọc nội quy'); return `nhóm Quản lý: ${opts} → ${r ? r.querySelector('.vk').innerText : 'KHÔNG THẤY'}`;
+  });
   await step('Đường dẫn cũ #/quan-ly/hop', async () => { await go('#/quan-ly/hop'); return document.title; });
 };

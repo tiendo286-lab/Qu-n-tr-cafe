@@ -14,6 +14,14 @@ export const STATUS = {
 // Mức độ công việc (dùng chung với tab Công việc)
 export const PRI = { gap: { label: 'Gấp', cls: 'vp-gap' }, binh_thuong: { label: 'Bình thường', cls: 'vp-tb' }, thap: { label: 'Thấp', cls: 'vp-thap' } };
 const PRI_RANK = { gap: 0, binh_thuong: 1, thap: 2 };
+// Loại công việc + nhóm (chốt 07/11): Vận hành / Quản lý
+export const CAT = { van_hanh: { label: 'Vận hành', cls: 'vk-vh' }, quan_ly: { label: 'Quản lý', cls: 'vk-ql' } };
+export const TOPICS = {
+  van_hanh: [['hong_hoc', 'Hỏng hóc, sửa chữa'], ['doi_soat_ca', 'Đối soát ca'], ['khoan_am', 'Khoản âm'], ['ban_giao', 'Bàn giao ca'], ['ve_sinh', 'Vệ sinh'], ['nhap_hang', 'Nhập hàng, kho'], ['khac_vh', 'Khác']],
+  quan_ly: [['dao_tao', 'Đào tạo nhân viên'], ['noi_quy', 'Nội quy, quy trình'], ['cam_ket', 'Cam kết'], ['nhan_su', 'Nhân sự, lịch làm'], ['khac_ql', 'Khác']],
+};
+export const topicLabel = (t) => ([...TOPICS.van_hanh, ...TOPICS.quan_ly].find(([k]) => k === t) || [t, ''])[1];
+export const catChip = (c, t) => (c ? html`<span class="vk ${CAT[c]?.cls || ''}">${CAT[c]?.label || c}${t ? html` · ${topicLabel(t)}` : ''}</span>` : '');
 const ACTION = { tao: 'Tạo việc', giao: 'Giao việc', bat_dau: 'Nhận việc', bao_cao: 'Báo đã xử lý', duyet: 'Duyệt', lam_lai: 'Yêu cầu làm lại', sua: 'Sửa' };
 
 export function dueText(t) {
@@ -45,9 +53,10 @@ export function doneText(t) {
 
 function card(t) {
   const st = STATUS[t.status];
-  const meta = [sourceText(t), t.created_by_name ? html`Người giao: ${t.created_by_name}` : ''].filter(Boolean);
+  const meta = [sourceText(t), t.created_by_name ? html`Người giao: ${t.created_by_name}` : '', t.link ? html`<a href="#${t.link}">Mở trang liên quan</a>` : ''].filter(Boolean);
   return html`<article class="card stack tk ${t.overdue || t.priority === 'gap' ? 'tk-late' : ''}" style="gap:8px;padding:14px">
     <div class="tk-top"><span><span class="pill ${st[1]}">${st[0]}</span>${t.priority && t.priority !== 'binh_thuong' ? html` <span class="vp ${PRI[t.priority].cls}"><i></i>${PRI[t.priority].label}</span>` : ''}</span>${dueText(t)}</div>
+    <div>${catChip(t.category, t.topic)}</div>
     <div class="tk-content">${t.content}</div>
     ${meta.length ? html`<div class="st-meta">${meta.map((m, i) => html`${i ? ' · ' : ''}${m}`)}</div>` : ''}
     ${t.status === 'dang_xu_ly' && t.review_note ? html`<div class="alert warn" style="font-size:13px"><strong>Yêu cầu làm lại:</strong> ${t.review_note}</div>` : ''}
@@ -104,4 +113,6 @@ export const STYLE = html`<style>
   .vp { display: inline-flex; align-items: center; gap: 5px; font-size: 13px; font-weight: 700; white-space: nowrap; }
   .vp i { width: 10px; height: 10px; border-radius: 3px; background: currentColor; }
   .vp-gap { color: #dc2626; } .vp-tb { color: #8a6d55; } .vp-thap { color: #6b8f4e; }
+  .vk { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 10px; white-space: nowrap; }
+  .vk-vh { background: #e6ecdc; color: #2f3d31; } .vk-ql { background: #f6ead9; color: #7a431a; }
 </style>`;
