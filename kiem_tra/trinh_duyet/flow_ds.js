@@ -16,8 +16,9 @@ export default async ({ settle, sleep, out }) => {
     const ov = await rpc('app_ca_overview', { p_date: day });
     id = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[0].shift });
     const R = await rpc('app_ca_get', { p_id: id });
-    await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2150000, opening_cash: 1000000, cups: 80, goods_status: 'khong', goods_note: null,
+    await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2150000, opening_cash: 1000000, ipos_opening: 1000000, cups: 80, goods_status: 'khong', goods_note: null,
       moves: [{ kind: 'tien_mat', amount: -50000, note: 'chi đá' }], staff: (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:30' })), handover: [], goods: [], debts: [] } });
+    await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
     await rpc('app_ca_complete', { p_id: id });
     return 'phiếu ' + id + ' · ' + (await rpc('app_ca_get', { p_id: id })).status;
   });
@@ -77,4 +78,25 @@ export default async ({ settle, sleep, out }) => {
     return a + ' → ' + txt('#root .alert.ok');
   });
   await step('Lịch sử sửa', async () => $$('.rc-log').map((x) => x.textContent.replace(/\s+/g, ' ')).join(' / '));
+  let id2;
+  await step('Ca Chiều đếm nhận két lệch → đếm lại vẫn lệch (máy chủ giả)', async () => {
+    const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+    const ov = await rpc('app_ca_overview', { p_date: day });
+    id2 = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[1].shift });
+    const h1 = await rpc('app_ca_cash_receive', { p_id: id2, p_amount: 2000000 });
+    let again = ''; try { await rpc('app_ca_cash_receive', { p_id: id2, p_amount: 2150000 }); again = 'ĐẾM MÙ LẦN 2 KHÔNG BỊ CHẶN'; } catch (e) { again = 'đếm mù lần 2: chặn'; }
+    const giver = h1.prev_staff[0]?.id || (await rpc('app_ca_employees'))[0].id;
+    const h2 = await rpc('app_ca_cash_recount', { p_id: id2, p_amount: 2100000, p_giver: giver });
+    let again2 = ''; try { await rpc('app_ca_cash_recount', { p_id: id2, p_amount: 2150000, p_giver: giver }); again2 = 'ĐẾM LẠI LẦN 2 KHÔNG BỊ CHẶN'; } catch (e) { again2 = 'đếm lại lần 2: chặn'; }
+    return `lần đầu ${h1.state} ${h1.gap} · ${again} · đếm lại ${h2.state} ${h2.gap} · ${again2} · báo: ${JSON.stringify(window.__LOG.filter((x) => x[0] === 'notify'))}`;
+  });
+  await step('Phiếu Chiều (quản lý xem): kết quả nhận két', async () => { await open('#/ca/phieu?id=' + id2 + '&ban=goc'); return txt('.hand-kv') + ' · ' + txt('#pc-form .alert.error'); });
+  await step('Bản đối soát ca Sáng: lệch bàn giao cộng vào tiền mặt', async () => {
+    await open('#/ca/phieu?id=' + id);
+    return txt('#diff-box .diff-card') + ' || ' + txt('.diff-card.hand-bad');
+  });
+  await step('Bảng ca: ô ca Chiều có cảnh báo nhận két lệch', async () => {
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat'; await wait('.bc-grid'); await sleep(500);
+    return $$('.bc-grid .bc').filter((b) => b.querySelector('.bc-hand')).map((b) => b.innerText.replace(/\s+/g, ' ')).join(' / ') || 'KHÔNG THẤY CẢNH BÁO';
+  });
 };

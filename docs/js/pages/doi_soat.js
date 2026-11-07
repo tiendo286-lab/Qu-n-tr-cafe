@@ -31,6 +31,7 @@ export async function render({ params }) {
       ${s.st === 'am' ? html`<div class="bc-big">−${fmt(s.short_total)}đ</div>` : ''}
       ${s.status === 'hoan_thanh' && s.revenue !== null && s.revenue !== undefined ? html`<div class="bc-rev">${fmt(s.revenue)}đ · ${s.cups ?? 0} cốc</div>` : ''}
       ${s.status === 'hoan_thanh' && s.st !== 'xong' && s.st !== 'am' ? html`<div class="bc-m">TM ${result(s.cash_left)}</div><div class="bc-m">CK ${result(s.transfer_left)}${s.ck_basis === 'nhan_vien' ? html` <span class="bc-tam">tạm</span>` : ''}</div>` : ''}
+      ${s.hand_state === 'lech' || s.hand_state === 'can_dem_lai' ? html`<div class="bc-m bc-hand">⚠ Nhận két lệch ${signed(s.hand_gap)}${s.hand_state === 'can_dem_lai' ? ' · chờ đếm lại' : ''}</div>` : ''}
       ${s.status === 'dang_chot' && s.created_by ? html`<div class="bc-m">${s.created_by}</div>` : ''}
       ${s.has_debt ? html`<div class="bc-m">Có công nợ</div>` : ''}`;
     return s.report_id ? html`<a class="bc ${cls}" href="#/ca/phieu?id=${s.report_id}">${inner}</a>` : html`<div class="bc ${cls}">${inner}</div>`;
@@ -88,6 +89,7 @@ export async function render({ params }) {
         .bc-big { font-size: 17px; font-weight: 800; }
         .bc-rev { font-size: 12px; font-weight: 600; }
         .bc-m { font-size: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .bc-hand { font-weight: 700; color: #b91c1c; background: #fff; border-radius: 6px; padding: 1px 5px; align-self: flex-start; }
         .bc-tam { font-size: 10px; font-weight: 700; background: #fff; border-radius: 6px; padding: 0 4px; }
         .bc-none { --bg: var(--line-soft); --c: var(--line); --fg: var(--muted); align-items: center; justify-content: center; }
         .bc-chua { --c: #9ca3af; --bg: #f3f4f6; --fg: #4b5563; }
