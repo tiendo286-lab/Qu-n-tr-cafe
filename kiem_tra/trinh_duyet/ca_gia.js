@@ -11,11 +11,28 @@ export function makeCa(T, me) {
   const needEdit = (id) => { const r = rep(id); if (r.status === 'hoan_thanh') throw new Error('Phiếu đã hoàn thành, không sửa được.'); return r; };
   const forced = (r) => {
     const s = shifts(); if (r.shift === s[0]) return r.work_date + ' 06:45';
-    if (r.shift === s[1]) { const p = T.shift_reports.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === s[0] && x.status === 'hoan_thanh'); return p ? p.rev_end : null; }
-    return null;
+    const ps = s[s.indexOf(r.shift) - 1];
+    const p = T.shift_reports.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === ps && x.status === 'hoan_thanh');
+    return p ? eff(p.id).rev_end : null;
   };
-  const sumMoves = (rid, k) => T.shift_report_moves.filter((m) => m.report_id === rid && m.kind === k).reduce((a, m) => a + m.amount, 0);
+  const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
+  const RES = {}; const SF = []; let sfSeq = 1;
+  const LBL = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
+  const eff = (id) => RECON[id] || snap(id);
+  const money = (id) => {
+    const d = eff(id); const mv = (k) => (d.moves || []).filter((m) => m.kind === k).reduce((a, m) => a + m.amount, 0);
+    const debtNew = T.shift_debts.filter((x) => x.report_id === id).reduce((a, x) => a + (x.amount || 0), 0);
+    const col = (k) => T.shift_debts.filter((x) => x.closed_report_id === id && x.collect_kind === k).reduce((a, x) => a + (x.amount || 0), 0);
+    const tm = d.cash_counted - d.opening_cash - d.pos_cash - mv('tien_mat') - col('tien_mat');
+    const ck = d.reported_transfer - d.pos_transfer - mv('chuyen_khoan') - col('chuyen_khoan');
+    return { sum_gap: d.total_revenue - d.pos_cash - d.pos_transfer - debtNew, debt_new: debtNew, tm_left: tm, ck_left: ck, ck_left_nv: ck, bank_ok: false, ck_basis: 'nhan_vien' };
+  };
+  const emp = (id) => T.employees.find((e) => e.id === id) || {};
+  const kaJson = (k) => { const r = rep(k.report_id); const b = T.branches.find((x) => x.id === r.branch_id) || {};
+    return { ...k, item_label: LBL[k.item], employee: `${emp(k.employee_id).code} – ${emp(k.employee_id).name}`, work_date: r.work_date, shift: r.shift, branch: b.display_code || b.code, branch_id: r.branch_id, created_by: name(k.created_by) }; };
   const RECON = {}; const RLOG = [];
+  const sumMoves = (rid, k) => T.shift_report_moves.filter((m) => m.report_id === rid && m.kind === k).reduce((a, m) => a + m.amount, 0);
+
   const FIELDS = ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status', 'goods_note', 'moves', 'staff', 'goods'];
   const snap = (id) => { const r = T.shift_reports.find((x) => x.id === id); return {
     ...Object.fromEntries(FIELDS.slice(0, 11).map((k) => [k, r[k] ?? null])),
@@ -32,8 +49,10 @@ export function makeCa(T, me) {
           const done = r && r.status === 'hoan_thanh';
           out.push({ branch_id: b.id, branch_code: b.display_code || b.code, branch_name: b.name, shift: sh.name, start_time: bs.start_time, end_time: bs.end_time, _o: sh.sort_order,
             report_id: r?.id || null, status: r?.status, recon_status: r?.recon_status, created_by: name(r?.created_by), completed_by: name(r?.completed_by), completed_at: r?.completed_at,
-            cash_left: done ? r.cash_counted - r.opening_cash - r.pos_cash - sumMoves(r.id, 'tien_mat') : null,
-            transfer_left: done ? r.reported_transfer - r.pos_transfer - sumMoves(r.id, 'chuyen_khoan') : null,
+            cash_left: done && me.perms.doi_soat ? money(r.id).tm_left : null,
+            transfer_left: done && me.perms.doi_soat ? money(r.id).ck_left : null, ck_basis: 'nhan_vien',
+            revenue: done ? eff(r.id).total_revenue : null, cups: done ? eff(r.id).cups : null,
+            short_total: r ? MONEY.reduce((a, it) => a + (RES[r.id + '|' + it]?.result === 'thieu' ? RES[r.id + '|' + it].amount : 0), 0) || null : null,
             checks: r ? T.shift_report_checks.filter((c) => c.report_id === r.id).length : 0, has_debt: !!(r && T.shift_debts.some((d) => d.report_id === r.id)) });
         }
       }
@@ -60,7 +79,10 @@ export function makeCa(T, me) {
       const before = (o) => ord(o) < ord(r);
       return { ...r, branch_code: b.display_code || b.code, branch_name: b.name, first_shift: s[0], second_shift: s[1],
         created_by_name: name(r.created_by), completed_by_name: name(r.completed_by), recon_by_name: name(r.recon_by), updated_by_name: name(r.updated_by),
-        prev: ps ? { shift: ps, id: prev?.id, status: prev?.status, cash_counted: prev?.cash_counted, rev_end: prev?.rev_end } : null,
+        prev: ps ? { shift: ps, id: prev?.id, status: prev?.status, cash_counted: prev?.status === 'hoan_thanh' ? eff(prev.id).cash_counted : prev?.cash_counted, rev_end: prev?.status === 'hoan_thanh' ? eff(prev.id).rev_end : prev?.rev_end } : null,
+        money_items: MONEY, results: Object.fromEntries(MONEY.filter((it) => RES[r.id + '|' + it]).map((it) => [it, RES[r.id + '|' + it]])),
+        shortfalls: SF.filter((k) => k.report_id === r.id && k.status !== 'huy').map((k) => ({ ...k, employee: `${emp(k.employee_id).code} – ${emp(k.employee_id).name}` })),
+        money: r.status === 'hoan_thanh' && me.perms.doi_soat ? money(r.id) : null,
         moves: T.shift_report_moves.filter((m) => m.report_id === r.id),
         staff: T.shift_report_staff.filter((x) => x.report_id === r.id).map((x) => ({ ...x, code: emp(x.employee_id).code, name: emp(x.employee_id).name, rank: emp(x.employee_id).rank })),
         handover: T.handover_items.filter((h) => h.report_id === r.id).map((h) => ({ ...h, created_by_name: name(h.created_by) })),
@@ -76,7 +98,7 @@ export function makeCa(T, me) {
     app_ca_save({ p_id, p }) {
       const r = needEdit(p_id); const f = forced(r);
       Object.assign(r, { rev_start: f || p.rev_start, rev_end: p.rev_end, total_revenue: p.total_revenue, pos_cash: p.pos_cash, pos_transfer: p.pos_transfer, reported_transfer: p.reported_transfer,
-        cash_counted: p.cash_counted, opening_cash: r.shift === shifts()[0] ? 1000000 : p.opening_cash, cups: p.cups, goods_status: p.goods_status, goods_note: p.goods_note, updated_at: now(), updated_by: me.account_id });
+        cash_counted: p.cash_counted, opening_cash: r.shift === shifts()[0] ? 1000000 : p.opening_cash, opening_note: p.opening_note || null, cups: p.cups, goods_status: p.goods_status, goods_note: p.goods_note, updated_at: now(), updated_by: me.account_id });
       T.shift_report_moves = T.shift_report_moves.filter((m) => m.report_id !== r.id).concat(p.moves.map((m, i) => ({ id: 1000 + Math.random(), report_id: r.id, ...m, sort_order: i })));
       T.shift_report_staff = T.shift_report_staff.filter((m) => m.report_id !== r.id).concat(p.staff.map((m) => ({ id: Math.random(), report_id: r.id, ...m, worked: m.worked ? 1 : 0 })));
       T.shift_report_goods = T.shift_report_goods.filter((m) => m.report_id !== r.id).concat(p.goods.filter((g) => g.item).map((g) => ({ id: Math.random(), report_id: r.id, ...g })));
@@ -95,7 +117,10 @@ export function makeCa(T, me) {
       for (const k of ['total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status']) if (r[k] === null || r[k] === undefined) miss.push(k);
       if (miss.length) throw new Error('Còn thiếu: ' + miss.join(', ') + '.');
       if (r.rev_end <= r.rev_start) throw new Error('Giờ kết thúc doanh thu phải sau giờ bắt đầu.');
-      if (!T.shift_debts.some((d) => d.report_id === r.id) && r.total_revenue !== r.pos_cash + r.pos_transfer) throw new Error('Mục 1 (Tổng doanh thu) phải bằng Mục 2 + Mục 3.');
+      const debtNew = T.shift_debts.filter((d) => d.report_id === r.id).reduce((a, d) => a + (d.amount || 0), 0);
+      if (r.total_revenue !== r.pos_cash + r.pos_transfer + debtNew) throw new Error('Mục 1 (Tổng doanh thu) phải bằng Mục 2 + Mục 3 + Công nợ phát sinh.');
+      const sh = shifts(); const pv = T.shift_reports.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === sh[sh.indexOf(r.shift) - 1] && x.status === 'hoan_thanh');
+      if (pv && eff(pv.id).cash_counted !== r.opening_cash && !r.opening_note) throw new Error('Tiền mặt đầu ca lệch két cuối ca trước. Ghi lý do lệch trước khi hoàn thành.');
       if (r.goods_status === 'thieu' && !T.shift_report_goods.some((g) => g.report_id === r.id)) throw new Error('Nhập hàng THIẾU: hãy ghi mặt hàng.');
       if (T.shift_report_moves.some((m) => m.report_id === r.id && (!m.amount || !m.note))) throw new Error('Mỗi dòng thu chi cần số tiền khác 0 và nội dung.');
       for (const s of T.shift_report_staff.filter((x) => x.report_id === r.id)) {
@@ -105,18 +130,55 @@ export function makeCa(T, me) {
       Object.assign(r, { status: 'hoan_thanh', completed_by: me.account_id, completed_at: now() });
     },
     app_ca_handover_done({ p_item, p_report, p_done }) { needEdit(p_report); const h = T.handover_items.find((x) => x.id === p_item); Object.assign(h, p_done ? { done_at: now(), done_by: me.account_id, done_report_id: p_report } : { done_at: null, done_by: null, done_report_id: null }); },
-    app_ca_debt_close({ p_debt, p_report, p_note }) { needEdit(p_report); const d = T.shift_debts.find((x) => x.id === p_debt); Object.assign(d, p_note === null ? { closed_at: null, closed_by: null, closed_report_id: null, close_note: null } : { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note }); },
+    app_ca_debt_collect({ p_debt, p_report, p_kind, p_note }) { needEdit(p_report); const d = T.shift_debts.find((x) => x.id === p_debt); Object.assign(d, p_kind === null ? { closed_at: null, closed_by: null, closed_report_id: null, close_note: null, collect_kind: null } : { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || 'Đã thu', collect_kind: p_kind }); },
     app_ca_photo_add({ p_id, p_path }) { needEdit(p_id); const id = nid('shift_report_photos'); T.shift_report_photos.push({ id, report_id: p_id, path: p_path }); return id; },
     app_ca_photo_del({ p_photo }) { const ph = T.shift_report_photos.find((x) => x.id === p_photo); needEdit(ph.report_id); T.shift_report_photos = T.shift_report_photos.filter((x) => x !== ph); return ph.path; },
     app_ca_check({ p_id, p_item, p_on }) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
       if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
+      if (MONEY.includes(p_item)) throw new Error('Hạng mục tiền: chọn kết quả KHỚP / THIẾU / THỪA.');
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
       if (p_on) T.shift_report_checks.push({ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() });
       const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
       if (r.recon_status === 'chua' && n >= ITEMS.length) { Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() }); RLOG.push({ report_id: p_id, action: 'hoan_thanh_doi_soat', by: name(me.account_id), at: now() }); }
     },
-    app_ca_reopen({ p_id }) { const r = rep(p_id); Object.assign(r, { status: 'dang_chot', recon_status: 'chua', completed_at: null, completed_by: null }); T.shift_report_checks = T.shift_report_checks.filter((c) => c.report_id !== p_id); delete RECON[p_id]; RLOG.push({ report_id: p_id, action: 'lam_lai', by: name(me.account_id), at: now() }); },
+    app_ca_result_set({ p_id, p_item, p_result, p_amount, p_reason, p_people }) {
+      const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
+      const amt = p_result === 'khop' ? 0 : p_amount || 0;
+      if (p_result !== 'khop' && amt <= 0) throw new Error('Nhập số tiền (lớn hơn 0).');
+      if (p_result !== 'khop' && !(p_reason || '').trim()) throw new Error('Ghi lý do.');
+      if (SF.some((k) => k.report_id === p_id && k.item === p_item && ['da_bu', 'tru_luong', 'mien'].includes(k.status))) throw new Error('Khoản âm của hạng mục này đã được xử lý nên không đổi được kết quả.');
+      if (p_result === 'thieu') {
+        if (!(p_people || []).length) throw new Error('Chọn nhân viên chịu khoản thiếu.');
+        const tot = p_people.reduce((a, x) => a + x.amount, 0); if (tot !== amt) throw new Error(`Tổng tiền chia cho nhân viên (${tot}) phải bằng số tiền thiếu (${amt}).`);
+      }
+      for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && SF[i].status === 'chua_xu_ly') SF.splice(i, 1);
+      if (p_result === 'thieu') p_people.forEach((x) => SF.push({ id: sfSeq++, report_id: p_id, item: p_item, employee_id: x.employee_id, amount: x.amount, reason: p_reason, status: 'chua_xu_ly', created_by: me.account_id, created_at: now() }));
+      RES[p_id + '|' + p_item] = { result: p_result, amount: amt, reason: p_reason || null, by: name(me.account_id), at: now() };
+      T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item)).concat([{ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() }]);
+      RLOG.push({ report_id: p_id, action: 'ket_qua', field: p_item, after: { result: p_result, amount: amt, people: p_people || [] }, reason: p_reason || null, by: name(me.account_id), at: now() });
+      if (r.recon_status === 'chua' && T.shift_report_checks.filter((c) => c.report_id === p_id).length >= ITEMS.length) Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() });
+    },
+    app_ca_result_clear({ p_id, p_item }) {
+      delete RES[p_id + '|' + p_item];
+      for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && SF[i].status === 'chua_xu_ly') SF.splice(i, 1);
+      T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
+    },
+    app_ka_mine: () => SF.filter((k) => k.employee_id === me.employee_id).map(kaJson).reverse(),
+    app_ka_seen({ p_id }) { const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (k && !k.seen_at) k.seen_at = now(); },
+    app_ka_reply({ p_id, p_text }) { if (!(p_text || '').trim()) throw new Error('Nhập nội dung giải trình.'); const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (!k) throw new Error('Không tìm thấy khoản âm của bạn.'); Object.assign(k, { reply: p_text.trim(), reply_at: now(), seen_at: k.seen_at || now() }); },
+    app_ka_all: ({ p_from, p_to }) => SF.filter((k) => k.status !== 'huy').map(kaJson).filter((k) => (!p_from || k.work_date >= p_from) && (!p_to || k.work_date <= p_to)),
+    app_ka_set_status({ p_id, p_status, p_note }) { if (p_status === 'mien' && !(p_note || '').trim()) throw new Error('Miễn khoản âm phải ghi lý do.'); Object.assign(SF.find((x) => x.id === p_id), { status: p_status, status_note: p_note || null, status_by: me.account_id, status_at: now() }); },
+    app_ca_report({ p_from, p_to }) {
+      const rs = T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.work_date >= p_from && r.work_date <= p_to);
+      return { reports: rs.map((r) => { const d = eff(r.id); const b = T.branches.find((x) => x.id === r.branch_id) || {};
+        return { id: r.id, work_date: r.work_date, shift: r.shift, branch_id: r.branch_id, branch: b.display_code || b.code, revenue: d.total_revenue, cups: d.cups, pos_cash: d.pos_cash, pos_transfer: d.pos_transfer, debt_new: 0, recon: r.recon_status,
+          short: MONEY.reduce((a, it) => a + (RES[r.id + '|' + it]?.result === 'thieu' ? RES[r.id + '|' + it].amount : 0), 0), over: 0 }; }),
+        shortfalls: SF.filter((k) => k.status !== 'huy').map(kaJson).filter((k) => k.work_date >= p_from && k.work_date <= p_to),
+        shifts: shifts(), branches: T.branches.filter((b) => b.status === 'Đang hoạt động').map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) };
+    },
+    app_ca_reopen({ p_id }) { const r = rep(p_id); Object.assign(r, { status: 'dang_chot', recon_status: 'chua', completed_at: null, completed_by: null }); T.shift_report_checks = T.shift_report_checks.filter((c) => c.report_id !== p_id); delete RECON[p_id];
+      SF.forEach((k) => { if (k.report_id === p_id && k.status === 'chua_xu_ly') k.status = 'huy'; }); MONEY.forEach((it) => delete RES[p_id + '|' + it]); RLOG.push({ report_id: p_id, action: 'lam_lai', by: name(me.account_id), at: now() }); },
     app_ca_recon({ p_id }) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
       if (!RECON[p_id]) RECON[p_id] = snap(p_id);
@@ -150,7 +212,7 @@ export function makeCa(T, me) {
         const dn = rs.filter((r) => r.status === 'hoan_thanh'); const c = T.daily_cash_closings.find((x) => x.branch_id === b.id && x.work_date === p_date) || {};
         return { branch_id: b.id, branch_code: b.display_code || b.code, branch_name: b.name, shifts: T.branch_shifts.filter((x) => x.branch_id === b.id && x.enabled).length, done: dn.length,
           opening: rs[0]?.opening_cash ?? null, pos_cash: dn.length ? dn.reduce((a, r) => a + r.pos_cash, 0) : null,
-          moves_cash: dn.reduce((a, r) => a + sumMoves(r.id, 'tien_mat'), 0), last_counted: dn.at(-1)?.cash_counted ?? null, last_shift: dn.at(-1)?.shift ?? null,
+          moves_cash: dn.reduce((a, r) => a + sumMoves(r.id, 'tien_mat'), 0), debt_cash: T.shift_debts.filter((d) => d.collect_kind === 'tien_mat' && dn.some((r) => r.id === d.closed_report_id)).reduce((a, d) => a + d.amount, 0), last_counted: dn.at(-1)?.cash_counted ?? null, last_shift: dn.at(-1)?.shift ?? null,
           has_debt: T.shift_debts.some((d) => rs.some((r) => r.id === d.report_id)), counted: c.counted ?? null, note: c.note ?? null, done_by: name(c.done_by), done_at: c.done_at ?? null };
       });
     },

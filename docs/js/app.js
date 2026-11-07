@@ -6,7 +6,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 // Menu quản lý (phương án A): mỗi mục là 1 trang có các tab con.
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab]
 export const HUBS = [
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat']], 'ngay'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Khoản âm', '/quan-ly/khoan-am', 'doi_soat'], ['Báo cáo', '/quan-ly/bao-cao-ca', 'bao_cao_ca']], 'ngay'],
   ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']]],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
@@ -18,7 +18,7 @@ export const HUBS = [
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']]],
   ['Dữ liệu & sao lưu', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu']]],
   ['LOG hệ thống', [['LOG hệ thống', '/quan-ly/log', 'phan_quyen']]],
-  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null]]],
+  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]]],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
@@ -58,12 +58,19 @@ const PAGES = {
   '/quan-ly/log': 'he_thong',
   '/ke-toan/hoa-don': 'ke_toan_hoa_don',
   '/ke-toan/chuyen-khoan': 'ke_toan_ck',
+  '/quan-ly/khoan-am': 'khoan_am',
+  '/cua-toi/khoan-am': 'khoan_am_toi',
+  '/quan-ly/bao-cao-ca': 'bao_cao_ca',
 };
 
-export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0 };
+export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0, ka: 0 };
 const root = () => document.getElementById('root');
 
-export function can(p) { return !!state.me?.perms?.[p]; }
+export function can(p) {
+  // Báo cáo ca: chỉ Chủ và Quản lý tổng (máy chủ cũng kiểm tra)
+  if (p === 'bao_cao_ca') return ['chu', 'ql_tong'].includes(state.me?.role) && !!state.me?.perms?.doi_soat;
+  return !!state.me?.perms?.[p];
+}
 export function isManager() { return ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(state.me?.role); }
 
 export async function loadMe() {
@@ -94,7 +101,7 @@ function parseHash() {
 const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p))) && !(href === '/viec' && state.me?.role === 'chu'); // Chủ là người giao việc
 const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
-const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support });
+const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka });
 
 function menuHtml(path) {
   const b = badges();
@@ -156,7 +163,7 @@ function layout(path, body, flashMsg) {
         ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
       ${weekStrip(path)}</header>
     <div class="content">${alert}${body}
-      <div class="m-foot"><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
+      <div class="m-foot"><a href="#/cua-toi/khoan-am">Khoản âm${state.ka ? html` <span class="badge">${state.ka}</span>` : ''}</a><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
     </div>
     <nav class="tabbar pillbar" aria-label="Menu nhân viên">
       <div class="tb-side">
@@ -215,6 +222,7 @@ async function refreshBadges() {
   await notifyTick();
   try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
   try { state.support = await rpc('app_ht_unread'); } catch (_) { /* bỏ qua */ }
+  if (state.me.employee_id) { try { state.ka = (await rpc('app_ka_mine')).filter((k) => k.status === 'chua_xu_ly' && !k.seen_at).length; } catch (_) { /* bỏ qua */ } }
   if (can('nhan_viec') || can('hop_giao_viec')) {
     try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
   }

@@ -39,7 +39,7 @@ export async function render({ params }) {
   }
   const card = (s) => {
     const st = s.report_id ? STAFF_LABEL[s.status] : ['Chưa mở phiếu', 'mute'];
-    const left = s.status === 'hoan_thanh' ? html`<div class="ca-diff">TM ${signed(s.cash_left)} · CK ${signed(s.transfer_left)}</div>` : '';
+    const left = s.status === 'hoan_thanh' && s.cash_left !== null && s.cash_left !== undefined ? html`<div class="ca-diff">TM ${signed(s.cash_left)} · CK ${signed(s.transfer_left)}</div>` : '';
     return html`<button type="button" class="ca-shift" data-b="${s.branch_id}" data-s="${s.shift}" data-id="${s.report_id || ''}">
       <div class="ca-shift-top"><strong>Ca ${s.shift}</strong>${s.start_time ? html`<span class="ca-time">${s.start_time}–${s.end_time}</span>` : ''}</div>
       <div><span class="pill ${st[1]}">${st[0]}</span>

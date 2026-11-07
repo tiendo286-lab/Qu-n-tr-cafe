@@ -39,7 +39,8 @@ export async function render({ params }) {
     const prevC = a.prev ? a.prev.closing : null;
     const sgOpen = a.opening === null && prevC !== null; // gợi ý số dư đầu = cuối ca trước của cùng tài khoản
     const mismatch = a.opening !== null && prevC !== null && Number(a.opening) !== Number(prevC);
-    return html`<div class="ck-acc" data-acc="${a.account_id}">
+    const late = Number(a.late_in || 0) - Number(a.late_out || 0);
+    return html`<div class="ck-acc" data-acc="${a.account_id}" data-late="${late}">
       <div class="ck-accn"><strong>${a.bank} ${a.account_no}</strong>${a.label ? html` <span class="st-meta">· ${a.label}</span>` : ''}${a.active ? '' : html` <span class="pill mute">Ngừng dùng</span>`}</div>
       <div class="ck-grid">
         <label class="pc-f"><span>Số dư đầu ca</span>${money('ck-open' + (sgOpen ? ' st-sg' : ''), sgOpen ? prevC : a.opening, lock, sgOpen ? 'title="Gợi ý = số dư cuối ca trước"' : '')}
@@ -49,9 +50,23 @@ export async function render({ params }) {
         <label class="pc-f"><span>Tiền chuyển ra trong ca</span>${money('ck-out', a.transfers_out ?? 0, lock)}<span class="st-meta">Không có thì để 0.</span></label>
         <label class="pc-f"><span>Ghi chú</span><input class="input sm ck-note" value="${a.note || ''}" ${lock ? 'disabled' : ''} placeholder="Không bắt buộc"></label>
       </div>
+      ${late ? html`<div class="st-meta">Tiền về chậm: ${a.late_in ? html`+${vnd(a.late_in)} (của ca này, về sau) ` : ''}${a.late_out ? html`−${vnd(a.late_out)} (của ca trước, về trong ca này)` : ''}</div>` : ''}
       <div class="ck-ares st-meta"></div>
     </div>`;
   };
+  const shiftNames = [...new Set(rows.map((x) => x.shift))];
+  const lateBox = (r, s) => html`<details class="ck-late" ${(r.late || []).length ? 'open' : ''}><summary>Tiền về chậm${(r.late || []).length ? ` (${r.late.length})` : ''}</summary>
+    <div class="stack" style="gap:6px;margin-top:6px">
+      ${(r.late || []).map((l) => html`<div class="pc-line"><span class="grow">${l.dir === 'in' ? html`<strong>+${vnd(l.amount)}</strong> của ca này, tiền về ở <strong>${l.other}</strong>` : html`<strong>−${vnd(l.amount)}</strong> thuộc <strong>${l.other}</strong>, tiền về trong ca này`} · ${l.account}${l.note ? ` · ${l.note}` : ''} <span class="st-meta">${l.by || ''}</span></span>
+        ${r.locked ? '' : html`<button type="button" class="btn sm secondary danger ck-late-del" data-id="${l.id}">Xóa</button>`}</div>`)}
+      ${r.locked ? '' : html`<div class="st-meta">Tiền về tài khoản trong ca ${s.shift} này nhưng là của ca trước: ghi lại để cộng vào ca gốc và trừ khỏi ca này.</div>
+        <div class="ck-lf"><select class="input sm ck-l-acc" aria-label="Tài khoản">${r.accounts.map((a) => html`<option value="${a.account_id}">${a.bank} ${a.account_no}</option>`)}</select>
+          <input class="input sm ck-l-date" type="date" value="${addDays(day, -1)}" aria-label="Ngày của ca gốc">
+          <select class="input sm ck-l-shift" aria-label="Ca gốc">${shiftNames.map((x) => html`<option>${x}</option>`)}</select>
+          <input class="input sm money ck-l-amt" inputmode="numeric" placeholder="Số tiền" aria-label="Số tiền">
+          <input class="input sm ck-l-note" placeholder="Ghi chú" aria-label="Ghi chú">
+          <button type="button" class="btn sm secondary ck-late-add">+ Ghi tiền về chậm</button></div>`}
+    </div></details>`;
 
   const shiftCard = (s) => {
     const r = s.row;
@@ -63,6 +78,7 @@ export async function render({ params }) {
         ${lock ? html`<span class="pill ok">Đã đối soát — khóa</span>` : r.recon_status === 'mo_lai' ? html`<span class="pill warn">Đang đối soát lại</span>` : r.status !== 'hoan_thanh' ? html`<span class="pill mute">Nhân viên đang chốt</span>` : ''}
         <a class="st-meta" href="#/ca/phieu?id=${r.report_id}" style="margin-left:auto">Mở phiếu ca</a></div>
       ${r.accounts.length ? r.accounts.map((a) => accRow(a, lock)) : html`<div class="st-meta">Chi nhánh chưa có tài khoản nhận tiền — thêm ở mục <strong>Tài khoản nhận tiền</strong> phía trên.</div>`}
+      ${r.accounts.length ? lateBox(r, s) : ''}
       <div class="ck-res"></div>
       ${lock || !r.accounts.length ? '' : html`<div class="toolbar"><button type="button" class="btn sm ck-save">Lưu ca ${s.shift}</button>${r.updated_at ? html`<span class="st-meta">Sửa lần cuối: ${r.updated_by || ''} · ${dt(r.updated_at)}</span>` : ''}</div>`}
     </div>`;
@@ -101,6 +117,8 @@ export async function render({ params }) {
         .ck-ali { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
         .ck-alb { display: flex; gap: 6px; flex-wrap: wrap; }
         details.ck-accs > summary { cursor: pointer; font-weight: 700; font-size: 17px; }
+        details.ck-late > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); }
+        .ck-lf { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
       </style>${BANKS}
       <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub">Nhập số dư từng tài khoản nhận tiền của cơ sở theo đúng mốc giờ của phiếu ca. Tiền nhận trong ca = tổng các tài khoản (Số dư cuối − Số dư đầu + Tiền chuyển ra). Đây là tiền nhận trong ca, chưa mặc định là doanh thu.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
@@ -165,6 +183,20 @@ export async function render({ params }) {
           catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
         });
       });
+      // ---- Tiền về chậm
+      $$('.ck-late-add').forEach((b) => b.addEventListener('click', async () => {
+        const row = b.closest('.ck-row'); const f = b.closest('.ck-lf');
+        b.disabled = true;
+        try {
+          await rpc('app_kt_late_add', { p_arrived: Number(row.dataset.report), p_account: Number(f.querySelector('.ck-l-acc').value), p_origin_date: f.querySelector('.ck-l-date').value,
+            p_origin_shift: f.querySelector('.ck-l-shift').value, p_amount: parseMoney(f.querySelector('.ck-l-amt').value), p_note: f.querySelector('.ck-l-note').value });
+          flash('Đã ghi tiền về chậm: cộng vào ca gốc, trừ khỏi ca này.'); rerender();
+        } catch (e) { showSaved(e.message, true); b.disabled = false; }
+      }));
+      $$('.ck-late-del').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Xóa dòng tiền về chậm này?')) return;
+        try { await rpc('app_kt_late_del', { p_id: Number(b.dataset.id) }); flash('Đã xóa.'); rerender(); } catch (e) { showSaved(e.message, true); }
+      }));
       // ---- Số dư theo ca
       $$('.ck-row[data-report]').forEach((row) => {
         bindMoneyInputs(row);
@@ -172,7 +204,7 @@ export async function render({ params }) {
           let tot = 0; let any = false; let all = true;
           row.querySelectorAll('.ck-acc').forEach((acc) => {
             const o = parseMoney(acc.querySelector('.ck-open').value); const c = parseMoney(acc.querySelector('.ck-close').value); const out = parseMoney(acc.querySelector('.ck-out').value) || 0;
-            const got = o === null || c === null ? null : c - o + out;
+            const got = o === null || c === null ? null : c - o + out + Number(acc.dataset.late || 0);
             acc.querySelector('.ck-ares').textContent = got === null ? 'Nhập số dư đầu và cuối để tính.' : `Nhận vào tài khoản này: ${fmt(got)}đ`;
             if (got === null) all = false; else { any = true; tot += got; }
           });

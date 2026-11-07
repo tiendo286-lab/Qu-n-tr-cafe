@@ -19,8 +19,15 @@ const FIELD_LABEL = {
   pos_transfer: 'Mục 3 Chuyển khoản POS', reported_transfer: 'Mục 4 Chuyển khoản thực tế', cash_counted: 'Mục 5 Tiền trong két',
   opening_cash: 'Tiền mặt đầu ca', cups: 'Số cốc', goods_status: 'Kết quả nhận hàng', goods_note: 'Ghi chú nhận hàng',
   moves: 'Chi tiết thu chi', staff: 'Nhân viên trong ca', goods: 'Mặt hàng thiếu',
+  bank_opening: 'Số dư đầu', bank_closing: 'Số dư cuối', bank_transfers_out: 'Tiền chuyển ra', bank_note: 'Ghi chú kế toán',
+  bank_late_in: 'Tiền về chậm (cộng vào ca này)', bank_late_out: 'Tiền về chậm của ca trước (trừ khỏi ca này)',
 };
-const LOG_ACTION = { sua: 'Sửa', mo_lai_doi_soat: 'Mở lại đối soát', hoan_thanh_doi_soat: 'Hoàn thành đối soát', lam_lai: 'Mở lại phiếu cho nhân viên sửa — bản đối soát làm lại từ đầu' };
+const LOG_ACTION = { sua: 'Sửa', mo_lai_doi_soat: 'Mở lại đối soát', hoan_thanh_doi_soat: 'Hoàn thành đối soát', lam_lai: 'Mở lại phiếu cho nhân viên sửa — bản đối soát làm lại từ đầu',
+  ket_qua: 'Kết quả đối soát', bo_ket_qua: 'Bỏ kết quả đối soát', ke_toan: 'Kế toán' };
+const RES = { khop: ['KHỚP', 'on'], thieu: ['THIẾU', 'bad'], thua: ['THỪA', 'warn'] };
+const MONEY_ITEMS = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
+export const KA_STATUS = { chua_xu_ly: ['Chưa xử lý', 'off'], da_bu: ['Đã bù', 'ok'], tru_luong: ['Trừ lương', 'info'], mien: ['Miễn', 'mute'], huy: ['Đã hủy', 'mute'] };
+const resText = (x) => (x ? `${RES[x.result][0]}${x.amount ? ' ' + fmt(x.amount) + 'đ' : ''}` : 'CHƯA ĐỐI SOÁT');
 const GOODS_LABEL = { khong: 'Không nhận hàng', du: 'ĐỦ', thieu: 'THIẾU' };
 function showVal(k, v) {
   if (v === null || v === undefined || v === '') return '(trống)';
@@ -29,6 +36,7 @@ function showVal(k, v) {
   if (k === 'cups') return String(v);
   if (k === 'goods_status') return GOODS_LABEL[v] || v;
   if (typeof v === 'number') return vnd(v);
+  if (typeof v === 'object' && v.result) return `${RES[v.result][0]}${v.amount ? ' ' + fmt(v.amount) + 'đ' : ''}${(v.people || []).length ? ` · ${v.people.length} nhân viên chịu` : ''}`;
   return String(v);
 }
 // Gộp bản đối soát vào dữ liệu phiếu để dùng chung giao diện
@@ -39,18 +47,25 @@ function mergeRecon(R0, RC) {
 }
 
 // ---------------------------------------------------------------- tính toán
-export function calc(v) {
-  const n = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
+// Công nợ (chốt 07/11): Mục 1 = Mục 2 + Mục 3 + nợ phát sinh; tiền thu nợ cộng vào tiền mặt / chuyển khoản của ca thu
+export function debtSums(R, debtsNow) {
+  const debtNew = (debtsNow || R.debts || []).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const col = (k) => (R.open_debts || []).filter((d) => d.closed_report_id === R.id && d.collect_kind === k).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  return { debtNew, colTM: col('tien_mat'), colCK: col('chuyen_khoan') };
+}
+export function calc(v, x = {}) {
+  const n = (y) => (y === null || y === undefined || y === '' ? null : Number(y));
   const [total, pc, pt, rt, cc, op] = [n(v.total_revenue), n(v.pos_cash), n(v.pos_transfer), n(v.reported_transfer), n(v.cash_counted), n(v.opening_cash)];
   const sum = (k) => (v.moves || []).filter((m) => m.kind === k).reduce((s, m) => s + (Number(m.amount) || 0), 0);
+  const debtNew = x.debtNew || 0; const colTM = x.colTM || 0; const colCK = x.colCK || 0;
   const ckDiff = rt !== null && pt !== null ? rt - pt : null;
   const tmDiff = cc !== null && op !== null && pc !== null ? cc - op - pc : null;
   const ckMoves = sum('chuyen_khoan'); const tmMoves = sum('tien_mat');
   return {
-    sumGap: total !== null && pc !== null && pt !== null ? total - pc - pt : null,
-    ckDiff, tmDiff, ckMoves, tmMoves,
-    ckLeft: ckDiff === null ? null : ckDiff - ckMoves,
-    tmLeft: tmDiff === null ? null : tmDiff - tmMoves,
+    sumGap: total !== null && pc !== null && pt !== null ? total - pc - pt - debtNew : null,
+    debtNew, colTM, colCK, ckDiff, tmDiff, ckMoves, tmMoves,
+    ckLeft: ckDiff === null ? null : ckDiff - ckMoves - colCK,
+    tmLeft: tmDiff === null ? null : tmDiff - tmMoves - colTM,
   };
 }
 
@@ -117,11 +132,19 @@ export async function render({ params }) {
   const ed = isDs ? !!RC.editable : !!R.can_edit;
   const edShared = isDs ? false : ed; // bàn giao, công nợ, ảnh dùng chung — chỉ sửa trên phiếu nhân viên
   const first = R.shift === R.first_shift;
-  const C = calc(R);
+  const C = calc(R, debtSums(R));
+  const rcEdit = R.can_recon && R0.recon_status !== 'hoan_thanh';
   const prev = R.prev;
 
   const chip = (item) => {
     if (!done) return '';
+    if (MONEY_ITEMS.includes(item)) {
+      const x = (R.results || {})[item]; const cls = x ? RES[x.result][1] : '';
+      const t = x ? `${x.by || ''} · ${dt(x.at)}${x.reason ? ' · ' + x.reason : ''}` : 'Bấm để chọn KHỚP / THIẾU / THỪA';
+      return rcEdit
+        ? html`<button type="button" class="rc-chip rc-res ${cls}" data-item="${item}" title="${t}">${x ? '✓ ' : ''}${CHECK_LABEL[item]}: ${resText(x)}</button>`
+        : html`<span class="rc-chip ${cls}" title="${t}">${CHECK_LABEL[item]}: ${resText(x)}</span>`;
+    }
     const c = R.checks[item];
     const label = c ? `ĐÃ ĐỐI SOÁT` : 'CHƯA ĐỐI SOÁT';
     const t = c ? `${c.by} · ${dt(c.at)}` : '';
@@ -136,9 +159,9 @@ export async function render({ params }) {
   const startBox = first && !isDs
     ? html`<div class="pc-fixed">06:45 ${dmy(R.work_date)} <span class="st-meta">(cố định cho ca ${R.shift})</span></div>`
     : R.forced_start && !isDs
-      ? html`<div class="pc-fixed">${dt(R.forced_start)} <span class="st-meta">(= giờ kết thúc doanh thu ca ${R.first_shift})</span></div>`
+      ? html`<div class="pc-fixed">${dt(R.forced_start)} <span class="st-meta">(= giờ kết thúc doanh thu ca ${prev?.shift || R.first_shift})</span></div>`
       : html`<input class="input" type="datetime-local" id="rev_start" value="${toLocalInput(R.rev_start)}" ${ed ? '' : 'disabled'}>
-        ${R.shift === R.second_shift && !isDs ? html`<div class="pc-hint warn">Ca ${R.first_shift} chưa hoàn thành nên tạm nhập tay. Khi ca ${R.first_shift} hoàn thành, giờ bắt đầu tự lấy theo giờ kết thúc của ca ${R.first_shift}.</div>` : ''}
+        ${!first && !isDs && prev ? html`<div class="pc-hint warn">Ca ${prev.shift} chưa hoàn thành nên tạm nhập tay. Khi ca ${prev.shift} hoàn thành, giờ bắt đầu tự lấy theo giờ kết thúc của ca ${prev.shift}.</div>` : ''}
         ${prev && prev.rev_end ? html`<div class="pc-hint">Ca ${prev.shift} kết thúc doanh thu lúc ${dt(prev.rev_end)}.</div>` : ''}`;
   const secTime = sec('1. Thời gian doanh thu', ['thoi_gian'], html`
     <div class="pc-grid">
@@ -159,12 +182,13 @@ export async function render({ params }) {
       <label class="pc-f"><span>Mục 1 · Tổng doanh thu</span>${money('total_revenue', R.total_revenue, !ed)}</label>
       <label class="pc-f"><span>Mục 2 · Doanh thu tiền mặt theo POS</span>${money('pos_cash', R.pos_cash, !ed)}</label>
       <label class="pc-f"><span>Mục 3 · Doanh thu chuyển khoản theo POS</span>${money('pos_transfer', R.pos_transfer, !ed)}</label>
-      <div class="pc-f"><span>Kiểm tra Mục 1 = Mục 2 + Mục 3</span><div id="sum-check"></div></div>
+      <div class="pc-f"><span>Kiểm tra Mục 1 = Mục 2 + Mục 3 + Nợ phát sinh</span><div id="sum-check"></div></div>
       <label class="pc-f"><span>Mục 4 · Chuyển khoản thực tế (tự cộng hóa đơn trên hotline)</span>${money('reported_transfer', R.reported_transfer, !ed)}</label>
       <label class="pc-f"><span>Mục 5 · Tiền trong két thực đếm cuối ca</span>${money('cash_counted', R.cash_counted, !ed)}</label>
       <label class="pc-f"><span>Tiền mặt đầu ca</span>${first && !isDs ? html`<div class="pc-fixed">1.000.000đ <span class="st-meta">(tiền lẻ cố định ca ${R.shift})</span></div><input type="hidden" id="opening_cash" value="1000000">`
         : html`${money('opening_cash', R.opening_cash, !ed)}<span class="pc-hint">Số tiền thực nhận đầu ca, gồm cả tiền doanh thu các ca trước còn trong két.</span>`}</label>
-      ${first ? '' : html`<div class="pc-f"><span>Đối chiếu với két cuối ca ${prev?.shift || 'trước'}</span><div id="open-check" data-prev="${prevCash ?? ''}"></div></div>`}
+      ${first ? '' : html`<div class="pc-f"><span>Đối chiếu với két cuối ca ${prev?.shift || 'trước'}</span><div id="open-check" data-prev="${prevCash ?? ''}"></div></div>
+        <label class="pc-f" id="open-note-box" ${R.opening_note ? '' : 'hidden'}><span>Lý do lệch tiền đầu ca (bắt buộc khi lệch)</span><input class="input" id="opening_note" value="${R.opening_note || ''}" placeholder="vd: chủ rút 500.000đ lúc 14:00" autocomplete="off" ${ed && !isDs ? '' : 'disabled'}></label>`}
       <label class="pc-f"><span>Số cốc bán trong ca</span><input class="input" id="cups" inputmode="numeric" placeholder="0" value="${R.cups ?? ''}" ${ed ? '' : 'disabled'}></label>
     </div>`);
 
@@ -172,18 +196,21 @@ export async function render({ params }) {
   const secDiff = sec('3. Chênh lệch và chi tiết thu chi', ['tien_mat', 'chuyen_khoan', 'thu_chi'], html`
     <div class="pc-grid" id="diff-box"></div>
     ${isDs ? html`<div id="bank-box"></div>` : ''}
+    ${done && (R.shortfalls || []).length ? html`<div class="ka-box"><div class="pc-sub" style="margin:0">KHOẢN ÂM ĐÃ GÁN CHO NHÂN VIÊN</div>
+      ${R.shortfalls.map((k) => html`<div class="pc-line"><strong>${k.employee}</strong> · ${CHECK_LABEL[k.item]} · ${vnd(k.amount)} <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}</span>${k.seen_at ? html`<span class="st-meta">đã xem</span>` : ''}${k.reply ? html`<span class="st-meta">· giải trình: ${k.reply}</span>` : ''}</div>`)}
+      <a class="st-meta" href="#/quan-ly/khoan-am">Mở danh sách khoản âm</a></div>` : ''}
     <div class="pc-sub">CHI TIẾT THU CHI <span class="st-meta">— giải trình từng khoản làm tiền lệch (số âm = chi/thiếu, số dương = thu/thừa)</span></div>
     <div id="moves">${(R.moves || []).map((m) => moveRow(m, ed))}</div>
     ${ed ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`);
 
   // D. Công nợ
   const secDebt = sec('4. Khách chưa thanh toán (công nợ)', ['cong_no'], html`
-    <div class="alert warn" style="font-size:13px">Tạm thời chỉ ghi sổ. Cách tính công nợ vào doanh thu và đối soát đang chờ chủ hệ thống chốt, nên phiếu có công nợ <strong>không</strong> bị chặn bởi công thức Mục 1 = Mục 2 + Mục 3.</div>
+    <div class="st-meta" style="font-size:13px">Nợ phát sinh được tính vào doanh thu: <strong>Mục 1 = Mục 2 + Mục 3 + Nợ phát sinh</strong>. Khách trả nợ của ca trước thì bấm <strong>Khách đã trả</strong> và chọn tiền mặt hay chuyển khoản — tiền đó được cộng vào ca này.</div>
     ${(R.open_debts || []).length ? html`<div class="pc-sub">NỢ TỪ CÁC CA TRƯỚC</div>${R.open_debts.map((d) => html`<div class="pc-line carried">
         <div class="grow"><strong>Bàn ${d.table_name}</strong> · ${vnd(d.amount)} <span class="st-meta">· ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span>
-          ${d.closed_at ? html`<div class="st-meta">Đã thu: ${d.close_note || ''} · ${d.closed_by_name} ${dt(d.closed_at)}</div>` : ''}</div>
+          ${d.closed_at ? html`<div class="st-meta">Đã thu${d.collect_kind ? ` bằng ${d.collect_kind === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản'}` : ''}: ${d.close_note || ''} · ${d.closed_by_name} ${dt(d.closed_at)}</div>` : ''}</div>
         ${edShared ? (d.closed_at ? html`<button type="button" class="btn sm secondary debt-close" data-id="${d.id}" data-undo="1">Bỏ đánh dấu</button>`
-          : html`<button type="button" class="btn sm debt-close" data-id="${d.id}">Đã thu</button>`) : ''}</div>`)}` : ''}
+          : html`<button type="button" class="btn sm debt-close" data-id="${d.id}" data-amt="${d.amount}" data-table="${d.table_name}">Khách đã trả</button>`) : ''}</div>`)}` : ''}
     <div class="pc-sub">NỢ PHÁT SINH CA NÀY</div>
     <div id="debts">${(R.debts || []).map((d) => debtRow(d, edShared))}</div>
     ${edShared ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).length ? '' : html`<div class="st-meta">Không có.</div>`}`);
@@ -245,7 +272,7 @@ export async function render({ params }) {
     <div class="toolbar"><a class="btn sm secondary" href="#${isManager() && done ? '/quan-ly/doi-soat' : '/ca'}?ngay=${R.work_date}">‹ Danh sách ca</a>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div></div>`;
 
-  const logRow = (l) => html`<div class="rc-log"><span class="st-meta">${dt(l.at)} · ${l.by || ''}</span> <strong>${LOG_ACTION[l.action] || l.action}</strong>${l.field ? html` ${FIELD_LABEL[l.field] || l.field}: ${showVal(l.field, l.before)} → <strong>${showVal(l.field, l.after)}</strong>` : ''}${l.reason ? html` <span class="st-meta">· Lý do: ${l.reason}</span>` : ''}</div>`;
+  const logRow = (l) => html`<div class="rc-log"><span class="st-meta">${dt(l.at)} · ${l.by || ''}</span> <strong>${LOG_ACTION[l.action] || l.action}</strong>${l.action === 'ket_qua' || l.action === 'bo_ket_qua' ? html` ${CHECK_LABEL[l.field] || l.field}${l.after ? html`: <strong>${showVal(l.field, l.after)}</strong>` : ''}` : l.field ? html` ${FIELD_LABEL[l.field] || l.field}: ${showVal(l.field, l.before)} → <strong>${showVal(l.field, l.after)}</strong>` : ''}${l.reason ? html` <span class="st-meta">· Lý do: ${l.reason}</span>` : ''}</div>`;
   const dsFoot = isDs ? html`<section class="card stack" style="gap:10px">
       <h2 style="margin:0">Bản đối soát</h2>
       ${R0.recon_status === 'hoan_thanh' ? html`<div class="alert ok">HOÀN THÀNH ĐỐI SOÁT: ${R0.recon_by_name || ''} · ${dt(R0.recon_at)}. Số liệu trên đây là số chính thức của ca.</div>`
@@ -266,11 +293,47 @@ export async function render({ params }) {
         ${canRc ? html`<div class="st-meta">Đây là phiếu nhân viên (bản gốc, giữ nguyên). Đối soát và sửa số liệu ở <a href="#/ca/phieu?id=${R0.id}">Bản đối soát</a>.</div>` : ''}
         ${R.can_reopen ? html`<div><button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button></div>` : ''}</section>`;
 
+  // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
+  const wizard = !isDs && ed && (!isManager() || window.matchMedia('(max-width: 760px)').matches);
+  const body = wizard
+    ? html`<nav class="wz-steps" aria-label="Các bước">${WZ_STEPS.map((t, i) => html`<button type="button" class="wz-st" data-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" hidden></i></button>`)}</nav>
+      <div class="wz-pane" data-step="0">${secTime}${secMoney}</div>
+      <div class="wz-pane" data-step="1" hidden>${secDiff}${secDebt}</div>
+      <div class="wz-pane" data-step="2" hidden>${secStaff}</div>
+      <div class="wz-pane" data-step="3" hidden>${secHand}${secGoods}</div>
+      <div class="wz-pane" data-step="4" hidden><section class="card stack pc-sec"><div class="pc-sec-head"><h2>Kiểm tra và hoàn thành</h2></div><div id="wz-check"></div></section></div>
+      <section class="card wz-foot"><button type="button" class="btn secondary" id="wz-prev">‹ Quay lại</button><span class="st-meta" id="wz-pos"></span>
+        <button type="button" class="btn" id="wz-next">Tiếp ›</button><button type="button" class="btn" id="finish" hidden>HOÀN THÀNH</button></section>`
+    : html`${secTime}${secMoney}${secDiff}${secDebt}${secStaff}${secHand}${secGoods}${foot}`;
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
-    html: html`${STYLE}${HD_CSS}${head}<form id="pc-form" class="stack pc" onsubmit="return false">${secTime}${secMoney}${secDiff}${secDebt}${secStaff}${secHand}${secGoods}${foot}</form>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0 }); },
+    html: html`${STYLE}${HD_CSS}${head}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''}" onsubmit="return false">${body}</form>`,
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard }); },
   };
+}
+
+const WZ_STEPS = ['Số liệu', 'Thu chi & nợ', 'Nhân sự', 'Bàn giao & hàng', 'Hoàn thành'];
+// Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
+function missingList(v, c) {
+  const out = []; const m = (step, t) => out.push([step, t]);
+  const empty = (x) => x === null || x === undefined || x === '';
+  if ($('#rev_start') && !v.rev_start) m(0, 'Giờ bắt đầu doanh thu');
+  if (!v.rev_end) m(0, 'Giờ kết thúc doanh thu');
+  [['total_revenue', 'Mục 1 Tổng doanh thu'], ['pos_cash', 'Mục 2 Tiền mặt POS'], ['pos_transfer', 'Mục 3 Chuyển khoản POS'], ['reported_transfer', 'Mục 4 Chuyển khoản thực tế'],
+    ['cash_counted', 'Mục 5 Tiền trong két'], ['opening_cash', 'Tiền mặt đầu ca'], ['cups', 'Số cốc bán']].forEach(([k, t]) => { if (empty(v[k])) m(0, t); });
+  if (c.sumGap !== null && c.sumGap !== 0) m(0, `Mục 1 lệch ${signed(c.sumGap)} so với Mục 2 + Mục 3 + Nợ phát sinh`);
+  const oc = $('#open-check'); const pv = oc && oc.dataset.prev !== '' ? Number(oc.dataset.prev) : null;
+  if (pv !== null && !empty(v.opening_cash) && Number(v.opening_cash) !== pv && !(v.opening_note || '').trim()) m(0, 'Ghi lý do lệch tiền đầu ca');
+  if (v.moves.some((x) => !x.amount || !x.note)) m(1, 'Dòng thu chi thiếu số tiền hoặc nội dung');
+  if (v.debts.some((d) => (d.table_name || '').trim() && !(Number(d.amount) > 0))) m(1, 'Bàn còn nợ thiếu số tiền');
+  v.staff.forEach((x) => {
+    const row = $(`.st-row[data-emp="${x.employee_id}"] strong`); const nm = row ? row.textContent : 'nhân viên';
+    if (x.worked && (!x.time_in || !x.time_out)) m(2, `Giờ đến / về của ${nm}`);
+    if (!x.worked && !x.absent_reason) m(2, `Lý do nghỉ của ${nm}`);
+  });
+  if (!v.goods_status) m(3, 'Nhập hàng: chọn Không nhận / Đủ / Thiếu (mục Báo cáo nhận hàng)');
+  if (v.goods_status === 'thieu' && !v.goods.some((g) => g.item)) m(3, 'Nhập hàng THIẾU: ghi mặt hàng thiếu');
+  return out;
 }
 
 // ---------------------------------------------------------------- tương tác
@@ -281,6 +344,7 @@ function collect() {
     total_revenue: parseMoney(v('#total_revenue')), pos_cash: parseMoney(v('#pos_cash')), pos_transfer: parseMoney(v('#pos_transfer')),
     reported_transfer: parseMoney(v('#reported_transfer')), cash_counted: parseMoney(v('#cash_counted')), opening_cash: parseMoney(v('#opening_cash')),
     cups: v('#cups').replace(/\D/g, '') === '' ? null : Number(v('#cups').replace(/\D/g, '')),
+    opening_note: v('#opening_note').trim() || null,
     goods_status: $('input[name=goods]:checked')?.value || null,
     goods_note: v('#goods_note').trim() || null,
     moves: $$('.mv-row').map((r) => ({ kind: r.querySelector('.mv-kind').value, amount: (parseMoney(r.querySelector('.mv-amt').value) || 0) * (r.querySelector('.mv-sign').value === '-' ? -1 : 1), note: r.querySelector('.mv-note').value.trim() })),
@@ -293,7 +357,7 @@ function collect() {
 }
 
 function mount(R, ed, C0, ctx = {}) {
-  const { isDs, RC, R0 } = ctx;
+  const { isDs, RC, R0, wizard } = ctx;
   let saveNow = null;
   const form = $('#pc-form');
   bindMoneyInputs(form);
@@ -331,14 +395,12 @@ function mount(R, ed, C0, ctx = {}) {
 
   const recalc = () => {
     const v = ed ? collect() : R;
-    const c = calc(v);
-    const debts = ed ? collect().debts.length : (R.debts || []).length;
+    const c = calc(v, debtSums(R, ed ? v.debts : null));
     const sc = $('#sum-check');
     if (sc) {
       sc.innerHTML = str(c.sumGap === null ? html`<span class="pill mute">Nhập đủ Mục 1, 2, 3</span>`
-        : debts ? html`<span class="pill warn">Có công nợ — chưa áp dụng công thức (chờ chốt)</span>${c.sumGap ? html` <span class="st-meta">lệch ${signed(c.sumGap)}</span>` : ''}`
-        : c.sumGap === 0 ? html`<span class="pill ok">Khớp</span>`
-        : html`<span class="pill off">Lệch ${signed(c.sumGap)} — phải sửa trước khi hoàn thành</span>`);
+        : c.sumGap === 0 ? html`<span class="pill ok">Khớp</span>${c.debtNew ? html` <span class="st-meta">gồm nợ phát sinh ${vnd(c.debtNew)}</span>` : ''}`
+        : html`<span class="pill off">Lệch ${signed(c.sumGap)} — phải sửa trước khi hoàn thành</span>${c.debtNew ? html` <span class="st-meta">(đã tính nợ phát sinh ${vnd(c.debtNew)})</span>` : ''}`);
     }
     const oc = $('#open-check');
     if (oc) {
@@ -347,20 +409,51 @@ function mount(R, ed, C0, ctx = {}) {
       oc.innerHTML = str(pv === null ? html`<span class="pill mute">Ca trước chưa chốt — chưa có số liệu để đối chiếu</span>`
         : op === null ? html`<span class="st-meta">Két cuối ca trước: ${vnd(pv)}</span>`
         : op === pv ? html`<span class="pill ok">Khớp két cuối ca trước (${vnd(pv)})</span>`
-        : html`<span class="pill off">${op < pv ? 'THIẾU' : 'THỪA'} ${fmt(Math.abs(op - pv))}đ so với két cuối ca trước (${vnd(pv)}) — hãy kiểm tra</span>`);
+        : html`<span class="pill off">${op < pv ? 'THIẾU' : 'THỪA'} ${fmt(Math.abs(op - pv))}đ so với két cuối ca trước (${vnd(pv)}) — ghi lý do bên dưới</span>`);
+      const nb = $('#open-note-box');
+      if (nb) nb.hidden = !(pv !== null && op !== null && op !== pv) && !(v.opening_note || R.opening_note);
     }
-    const box = (label, init, moves, left, formula) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
+    const box = (label, init, moves, col, left, formula) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
       <div class="kv"><div>Chênh lệch ban đầu</div><div>${init === null ? '—' : signed(init)} <span class="st-meta">${formula}</span></div>
         <div>Đã kê khai thu chi</div><div>${signed(moves)}</div>
+        ${col ? html`<div>Khách trả nợ ca trước</div><div>${signed(col)}</div>` : ''}
         <div><strong>Chưa giải trình</strong></div><div><strong>${left === null ? '—' : signed(left)}</strong></div>
         <div>Kết quả</div><div>${result(left)}</div></div></div>`;
     const db = $('#diff-box');
-    if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves, c.tmLeft, '(Mục 5 − đầu ca − Mục 2)')}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.ckLeft, '(Mục 4 − Mục 3)')}`);
+    if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves, c.colTM, c.tmLeft, '(Mục 5 − đầu ca − Mục 2)')}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
     const sc2 = $('#staff-count');
     if (sc2) sc2.textContent = new Set($$('.st-row').filter((r) => r.querySelector('.st-worked').value === '1').map((r) => r.dataset.emp)).size;
     $('#goods-missing') && ($('#goods-missing').hidden = (ed ? collect().goods_status : R.goods_status) !== 'thieu');
+    if (wizard) {
+      const miss = missingList(v, c);
+      $$('.wz-st').forEach((b) => { b.querySelector('.wz-dot').hidden = Number(b.dataset.go) === 4 || !miss.some(([st]) => st === Number(b.dataset.go)); });
+      const box2 = $('#wz-check');
+      if (box2) {
+        box2.innerHTML = str(html`${miss.length
+          ? html`<div class="alert warn">Còn ${miss.length} chỗ cần bổ sung trước khi hoàn thành:</div>${miss.map(([st, t]) => html`<div class="pc-line wz-miss"><span class="grow">${t}</span><button type="button" class="btn sm secondary" data-go="${st}">Sửa ở bước ${st + 1}</button></div>`)}`
+          : html`<div class="alert ok">Đã đủ thông tin. Bấm <strong>HOÀN THÀNH</strong> để xem lại và xác nhận.</div>`}
+          <div class="kv" style="margin-top:8px"><div>Tiền mặt chưa giải trình</div><div>${result(c.tmLeft)}</div><div>Chuyển khoản chưa giải trình</div><div>${result(c.ckLeft)}</div></div>`);
+      }
+    }
   };
   recalc();
+  // ---------- phiếu từng bước
+  if (wizard) {
+    let step = 0;
+    const show = (i) => {
+      step = Math.max(0, Math.min(4, i));
+      $$('.wz-pane').forEach((p) => { p.hidden = Number(p.dataset.step) !== step; });
+      $$('.wz-st').forEach((b) => { const k = Number(b.dataset.go); b.classList.toggle('on', k === step); b.classList.toggle('past', k < step); });
+      $('#wz-prev').disabled = step === 0;
+      $('#wz-next').hidden = step === 4; $('#finish').hidden = step !== 4;
+      $('#wz-pos').textContent = `Bước ${step + 1}/5`;
+      recalc(); window.scrollTo({ top: 0, behavior: 'smooth' });
+    };
+    form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-go]'); if (g) show(Number(g.dataset.go)); });
+    $('#wz-prev').addEventListener('click', () => show(step - 1));
+    $('#wz-next').addEventListener('click', () => show(step + 1));
+    show(0);
+  }
 
   // ---------- Hóa đơn kế toán gửi (nhân viên báo nhận khi phiếu đang chốt)
   const canRecv = !isDs && !!(R0 || R).can_edit;
@@ -422,11 +515,82 @@ function mount(R, ed, C0, ctx = {}) {
   }
 
   if (R.can_recon && (R0 || R).recon_status !== 'hoan_thanh') {
-    $$('.rc-chip[data-item]').forEach((b) => b.addEventListener('click', async () => {
+    $$('.rc-res').forEach((b) => b.addEventListener('click', () => openResult(b.dataset.item)));
+    $$('.rc-chip[data-item]:not(.rc-res)').forEach((b) => b.addEventListener('click', async () => {
       b.disabled = true;
       try { await rpc('app_ca_check', { p_id: R.id, p_item: b.dataset.item, p_on: !b.classList.contains('on') }); rerender(); }
       catch (e) { b.disabled = false; showSaved(e.message, true); }
     }));
+  }
+  // Hộp chọn KHỚP / THIẾU / THỪA cho một hạng mục tiền
+  function openResult(item) {
+    const v = ed ? collect() : R; const c = calc(v, debtSums(R, ed ? v.debts : null));
+    const M = (R0 || R).money || {};
+    let comp = null; let basis = '';
+    if (item === 'tien_mat') { comp = c.tmLeft; basis = 'Tiền mặt chưa giải trình (Mục 5 − đầu ca − Mục 2 − thu chi − thu nợ)'; }
+    if (item === 'chuyen_khoan') {
+      if (M.bank_ok) { comp = Number(M.bank_received) - Number(v.pos_transfer || 0) - c.ckMoves - c.colCK; basis = `Theo tiền thực nhận kế toán nhập (${vnd(M.bank_received)}) − Mục 3 − thu chi − thu nợ`; }
+      else { comp = c.ckLeft; basis = 'TẠM theo Mục 4 nhân viên báo (kế toán chưa nhập đủ số dư) − Mục 3 − thu chi − thu nợ'; }
+    }
+    const cur = (R.results || {})[item];
+    const sug = cur ? cur.result : comp === null || comp === 0 ? 'khop' : comp < 0 ? 'thieu' : 'thua';
+    const amt0 = cur ? cur.amount : comp ? Math.abs(comp) : '';
+    const staff = (v.staff || []).filter((x) => x.worked).map((x) => ({ id: x.employee_id, name: ($(`.st-row[data-emp="${x.employee_id}"] strong`)?.textContent) || ((R.staff || []).find((y) => y.employee_id === x.employee_id) || {}).name || ('NV ' + x.employee_id) }));
+    const had = (R.shortfalls || []).filter((k) => k.item === item);
+    const d = dialog(html`<form class="stack rs-dlg" style="gap:12px">
+      <h2 style="margin:0">Đối soát: ${CHECK_LABEL[item]}</h2>
+      ${comp !== null ? html`<div class="diff-card"><div><strong>Web tính: ${signed(comp)}</strong> ${result(comp)}</div><div class="st-meta">${basis}</div></div>` : html`<div class="st-meta">Kiểm tra chứng từ của hạng mục rồi chọn kết quả.</div>`}
+      <div class="pc-line" role="radiogroup" aria-label="Kết quả">${['khop', 'thieu', 'thua'].map((k) => html`<label class="radio-pill rs-${k}"><input type="radio" name="res" value="${k}" ${sug === k ? 'checked' : ''}> ${RES[k][0]}</label>`)}</div>
+      <div class="rs-more" ${sug === 'khop' ? 'hidden' : ''}>
+        <label class="pc-f"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${amt0 ? fmt(amt0) : ''}" autocomplete="off"></label>
+        <label class="pc-f"><span>Lý do (bắt buộc)</span><input class="input" name="why" value="${cur?.reason || ''}" placeholder="vd: thiếu tiền két, chưa rõ nguyên nhân" autocomplete="off"></label>
+      </div>
+      <div class="rs-people" ${sug === 'thieu' ? '' : 'hidden'}>
+        <div class="pc-sub">NHÂN VIÊN CHỊU KHOẢN THIẾU <span class="st-meta">— web chia đều, sửa được số từng người; mỗi người nhận thông báo</span></div>
+        ${staff.length ? staff.map((p) => { const h = had.find((k) => k.employee_id === p.id); return html`<div class="pc-line rs-p" data-emp="${p.id}"><label class="grow" style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${h ? 'checked' : ''}> ${p.name}</label>
+          <input class="input sm money rs-pa" inputmode="numeric" value="${h ? fmt(h.amount) : ''}" style="width:130px" aria-label="Số tiền của ${p.name}"></div>`; })
+          : html`<div class="st-meta">Phiếu chưa có nhân viên làm trong ca.</div>`}
+        <div class="st-meta" id="rs-sum"></div>
+      </div>
+      <div id="rs-err"></div>
+      <div class="toolbar" style="justify-content:space-between">
+        <span>${cur ? html`<button type="button" class="btn sm secondary danger" id="rs-clear">Bỏ kết quả</button>` : ''}</span>
+        <span class="toolbar"><button type="button" class="btn sm secondary" id="rs-x">Hủy</button><button class="btn sm" type="submit">Lưu kết quả</button></span></div></form>`);
+    bindMoneyInputs(d);
+    const f = d.querySelector('form');
+    const val = () => f.querySelector('input[name=res]:checked')?.value;
+    const split = () => {
+      const tot = parseMoney(f.amt.value) || 0; const on = [...d.querySelectorAll('.rs-p')].filter((r) => r.querySelector('input[type=checkbox]').checked);
+      if (on.length) { const each = Math.floor(tot / on.length / 1000) * 1000; on.forEach((r, i) => { r.querySelector('.rs-pa').value = fmt(i === on.length - 1 ? tot - each * (on.length - 1) : each); }); }
+      d.querySelectorAll('.rs-p').forEach((r) => { if (!r.querySelector('input[type=checkbox]').checked) r.querySelector('.rs-pa').value = ''; });
+      sumTxt();
+    };
+    const sumTxt = () => {
+      const tot = parseMoney(f.amt.value) || 0; const got = [...d.querySelectorAll('.rs-p')].filter((r) => r.querySelector('input[type=checkbox]').checked).reduce((s2, r) => s2 + (parseMoney(r.querySelector('.rs-pa').value) || 0), 0);
+      const el = d.querySelector('#rs-sum'); if (el) el.textContent = `Đã chia ${fmt(got)}đ / ${fmt(tot)}đ${got !== tot ? ' — chưa khớp' : ''}`;
+    };
+    f.addEventListener('change', (e) => {
+      if (e.target.name === 'res') { d.querySelector('.rs-more').hidden = val() === 'khop'; d.querySelector('.rs-people').hidden = val() !== 'thieu'; }
+      if (e.target.type === 'checkbox') split();
+    });
+    f.amt.addEventListener('input', split);
+    d.querySelectorAll('.rs-pa').forEach((x) => x.addEventListener('input', sumTxt));
+    if (sug === 'thieu' && !had.length && staff.length === 1) { d.querySelector('.rs-p input[type=checkbox]').checked = true; split(); } else sumTxt();
+    d.querySelector('#rs-x').addEventListener('click', () => d.close());
+    d.querySelector('#rs-clear')?.addEventListener('click', async () => {
+      try { await rpc('app_ca_result_clear', { p_id: R.id, p_item: item }); d.close(); flash('Đã bỏ kết quả.'); rerender(); }
+      catch (e) { d.querySelector('#rs-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
+    });
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault();
+      const res = val(); const people = res === 'thieu' ? [...d.querySelectorAll('.rs-p')].filter((r) => r.querySelector('input[type=checkbox]').checked).map((r) => ({ employee_id: Number(r.dataset.emp), amount: parseMoney(r.querySelector('.rs-pa').value) || 0 })) : null;
+      const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+      try {
+        if (saveNow) await saveNow().catch(() => {});
+        await rpc('app_ca_result_set', { p_id: R.id, p_item: item, p_result: res, p_amount: res === 'khop' ? null : parseMoney(f.amt.value), p_reason: f.why.value, p_people: people });
+        d.close(); flash(res === 'thieu' && people?.length ? `Đã lưu. ${people.length} nhân viên đã được báo khoản âm.` : 'Đã lưu kết quả đối soát.'); rerender();
+      } catch (e) { btn.disabled = false; d.querySelector('#rs-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
+    });
   }
   $('#rc-reopen')?.addEventListener('click', async () => {
     const why = prompt('Mở lại đối soát để sửa? Phiếu sẽ ở trạng thái ĐANG ĐỐI SOÁT LẠI cho tới khi bấm hoàn thành lại.\nLý do (không bắt buộc):', '');
@@ -507,10 +671,22 @@ function mount(R, ed, C0, ctx = {}) {
     catch (e) { showSaved(e.message, true); }
   }));
   $$('.debt-close').forEach((b) => b.addEventListener('click', async () => {
-    let note = null;
-    if (!b.dataset.undo) { note = prompt('Ghi chú thu nợ (vd: khách trả tiền mặt 50.000đ lúc 15:00):'); if (note === null) return; }
-    try { await saveNow(); await rpc('app_ca_debt_close', { p_debt: Number(b.dataset.id), p_report: R.id, p_note: b.dataset.undo ? null : (note.trim() || 'Đã thu') }); rerender(); }
-    catch (e) { showSaved(e.message, true); }
+    if (b.dataset.undo) {
+      try { await saveNow(); await rpc('app_ca_debt_collect', { p_debt: Number(b.dataset.id), p_report: R.id, p_kind: null, p_note: null }); rerender(); } catch (e) { showSaved(e.message, true); }
+      return;
+    }
+    const d = dialog(html`<form class="stack" style="gap:12px;max-width:440px"><h2 style="margin:0">Khách trả nợ bàn ${b.dataset.table}</h2>
+      <div>Số tiền: <strong>${vnd(b.dataset.amt)}</strong> — được cộng vào tiền của ca này.</div>
+      <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="kind" value="tien_mat"> Tiền mặt (vào két)</label><label class="radio-pill"><input type="radio" name="kind" value="chuyen_khoan"> Chuyển khoản</label></div>
+      <input class="input" name="note" placeholder="Ghi chú (không bắt buộc)" autocomplete="off"><div id="dc-err"></div>
+      <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Xác nhận đã thu</button></div></form>`);
+    d.querySelector('[data-x]').addEventListener('click', () => d.close());
+    d.querySelector('form').addEventListener('submit', async (ev) => {
+      ev.preventDefault(); const f = ev.target; const kind = f.querySelector('input[name=kind]:checked')?.value;
+      if (!kind) { d.querySelector('#dc-err').innerHTML = str(html`<div class="alert error">Chọn tiền mặt hay chuyển khoản.</div>`); return; }
+      try { await saveNow(); await rpc('app_ca_debt_collect', { p_debt: Number(b.dataset.id), p_report: R.id, p_kind: kind, p_note: f.note.value }); d.close(); rerender(); }
+      catch (e) { d.querySelector('#dc-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
+    });
   }));
 
   // ảnh
@@ -540,7 +716,7 @@ function mount(R, ed, C0, ctx = {}) {
   $('#finish')?.addEventListener('click', async () => {
     dirty = true;
     try { await saveNow(); } catch (_) { return; }
-    const v = collect(); const c = calc(v);
+    const v = collect(); const c = calc(v, debtSums(R, v.debts));
     const total = (c.tmLeft || 0) + (c.ckLeft || 0);
     const question = c.tmLeft === null || c.ckLeft === null ? 'Chưa đủ số liệu tiền.'
       : total < 0 ? `Bạn có xác nhận tiền âm của ca này là ${signed(total)} không?`
@@ -560,6 +736,8 @@ function mount(R, ed, C0, ctx = {}) {
         <div>Tiền mặt đầu ca</div><div>${vnd(v.opening_cash)}</div>
         <div>Số cốc</div><div>${v.cups ?? '—'}</div>
         <div>Số người thực tế làm</div><div>${$('#staff-count')?.textContent}</div>
+        ${c.debtNew ? html`<div>Nợ phát sinh ca này</div><div>${vnd(c.debtNew)}</div>` : ''}
+        ${c.colTM || c.colCK ? html`<div>Khách trả nợ ca trước</div><div>TM ${signed(c.colTM)} · CK ${signed(c.colCK)}</div>` : ''}
         <div>Chênh lệch ban đầu</div><div>TM ${signed(c.tmDiff)} · CK ${signed(c.ckDiff)}</div>
       </div>
       ${v.moves.length ? html`<div><strong>Thu chi đã kê khai:</strong>${v.moves.map((m) => html`<div class="st-meta">${m.kind === 'tien_mat' ? 'Tiền mặt' : 'Chuyển khoản'} ${signed(m.amount)} — ${m.note}</div>`)}</div>` : ''}
@@ -625,6 +803,29 @@ const STYLE = html`<style>
   .pc-foot { position: sticky; bottom: 8px; display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; box-shadow: 0 4px 16px rgba(0,0,0,.1); padding: 12px 16px; }
   .pc-foot .btn { min-width: 180px; }
   @media (max-width: 760px) { .pc-foot { padding: 8px 10px; bottom: 6px; } .pc-foot .st-meta { display: none; } .pc-foot .btn { width: 100%; min-height: 44px; } }
-  .mobile .pc-foot { bottom: 58px; }
+  .mobile .pc-foot, .mobile .wz-foot { bottom: 92px; }
+  .rc-chip.bad { border-color: #dc2626; background: #dc2626; color: #fff; }
+  .rc-chip.warn { border-color: #f59e0b; background: #fef3c7; color: #92400e; }
+  .ka-box { border: 1px solid #fca5a5; background: #fef2f2; border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; font-size: 14px; }
+  .rs-dlg { width: min(520px, calc(100vw - 56px)); }
+  .rs-more { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 560px) { .rs-more { grid-template-columns: 1fr; } }
+  .rs-people { display: flex; flex-direction: column; gap: 6px; }
+  .radio-pill.rs-khop:has(input:checked) { border-color: #16a34a; background: #dcfce7; }
+  .radio-pill.rs-thieu:has(input:checked) { border-color: #dc2626; background: #fee2e2; }
+  .radio-pill.rs-thua:has(input:checked) { border-color: #f59e0b; background: #fef3c7; }
+  .wz-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; position: sticky; top: 0; z-index: 4; background: var(--ground); padding: 6px 0; }
+  .wz-st { position: relative; display: flex; flex-direction: column; align-items: center; gap: 3px; border: none; background: none; font: inherit; cursor: pointer; padding: 4px 0; color: var(--muted); min-width: 0; }
+  .wz-st b { width: 28px; height: 28px; border-radius: 50%; display: flex; align-items: center; justify-content: center; background: #fff; border: 2px solid var(--line); font-size: 13px; }
+  .wz-st span { font-size: 10.5px; font-weight: 600; text-align: center; line-height: 1.2; }
+  .wz-st.on { color: var(--ink); } .wz-st.on b { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .wz-st.past b { background: var(--sage-bg, #e6ecdc); border-color: var(--forest, #2f3d31); color: var(--forest, #2f3d31); }
+  .wz-dot { position: absolute; top: 2px; left: calc(50% + 8px); width: 9px; height: 9px; border-radius: 50%; background: #dc2626; }
+  .wz-foot { position: sticky; bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 4; }
+  .wz-foot .btn { min-height: 44px; white-space: nowrap; padding: 0 14px; flex: 1 1 0; min-width: 0; font-size: 15px; }
+  .wz-foot #wz-pos { flex: 0 0 auto; }
+  .wz-foot [hidden], .wz-pane[hidden] { display: none !important; }
+  .wz-miss { padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
+  .radio-pill:has(input:checked) { background: var(--caramel-soft, #f6ead9); }
   dialog { max-width: calc(100vw - 24px); }
 </style>`;
