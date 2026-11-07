@@ -154,3 +154,27 @@ h1, .sidebar .brand, .auth-hero .name, .appbar.hero .t2 { font-family: 'Playfair
 .pillbar .tb-plus.on .tb-c { background: var(--primary-dark); box-shadow: 0 0 0 3px #ecd3b8, 0 6px 14px rgba(156, 91, 39, .38); }
 .srow { background: #f7f1e8; }
 .ck-acc, .ck-al { background: #f7f1e8 !important; }
+
+/* ---- Phối 2 màu (anh Tiến 07/11): NÂU caramel = nút / hành động · XANH RÊU = khung (menu, đầu trang, tiêu đề bảng, nút phụ) · nền kem ---- */
+:root {
+  --forest: #2f3d31; --forest-2: #44574a; --sage-ink: #3f5a36; --sage-bg: #e6ecdc;
+  --navy: var(--forest); --navy-2: var(--forest-2); --header: #3a4c3e;
+}
+.sidebar { background: var(--forest); }
+.sidebar .who { color: #cfd8c4; } .sidebar .group { color: #a9b89a; }
+.sidebar a.item, .sidebar .bottom a, .sidebar .bottom button { color: #e6ecdc; }
+.sidebar a.item:hover { background: var(--forest-2); }
+.sidebar a.item.active { background: var(--primary); }
+.auth-hero { background: var(--forest); } .auth-hero .tag { color: #cfd8c4; }
+.appbar { background: var(--forest); }
+.appbar .t1, .appbar.hero .t1, .utabs a { color: #cfd8c4; }
+.bell { background: var(--forest-2); }
+.ws-d { color: #cfd8c4; }
+.ws-d em { background: var(--primary); }
+.table thead tr + tr th, .table thead.dark tr + tr th { background: #55695a; }
+.btn.secondary { color: var(--forest); border-color: var(--forest); }
+.btn.secondary:hover { background: var(--sage-bg); color: var(--forest); }
+.seg a.on { color: var(--forest); }
+.srow { background: #f1f3ea; }
+.chip-today { background: var(--forest); }
+h1 { color: var(--ink); }

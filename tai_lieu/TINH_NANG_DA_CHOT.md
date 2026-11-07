@@ -86,6 +86,22 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 
 ---
 
+## 5b. Quản lý ca — chốt 07/11/2026 (chưa làm, chờ anh Tiến đồng ý thiết kế chi tiết)
+
+| # | Điểm | Anh Tiến chốt |
+|---|---|---|
+| 1 | Kết quả đối soát | Các hạng mục tiền (Tiền mặt, Chuyển khoản, Thu chi, Công nợ) có kết quả **KHỚP / THIẾU / THỪA**: web tự tính số lệch, quản lý xác nhận; THIẾU / THỪA bắt buộc ghi lý do. |
+| 2 | Khoản âm (thiếu tiền) | Khi đối soát ra âm, quản lý **gán luôn nhân viên** chịu khoản âm đó; web **báo cho nhân viên bị âm** (thông báo + danh sách của nhân viên). |
+| 3 | Công nợ | Tính vào doanh thu, không nằm trong tiền mặt / chuyển khoản: Mục 1 = Mục 2 + Mục 3 + Công nợ phát sinh. Thu được nợ thì cộng vào tiền mặt / chuyển khoản của ca thu, ghi "thu nợ của ca X". |
+| 4 | Tiền đầu ca lệch két cuối ca trước | Không cho hoàn thành phiếu nếu chưa ghi lý do lệch. |
+| 5 | Số dư ngân hàng | Sửa ca cũ: web chỉ báo các ca sau lệch chuỗi, không tự sửa. Tiền về chậm: kế toán ghi "tiền về sau của ca X", web cộng bù vào đúng ca X. |
+| 6 | Giờ bắt đầu ca Tối | Tự lấy giờ kết thúc ca Chiều (như ca Chiều lấy theo ca Sáng). |
+| A | Bảng ca hôm nay | 5 cơ sở × 3 ca, ô tô màu theo trạng thái (chưa mở · đang chốt · chờ đối soát · đối soát xong · có lệch). |
+| F | Phiếu ca từng bước trên điện thoại | Số liệu → Thu chi → Nhân sự → Bàn giao → Nhập hàng → Hoàn thành. |
+| G | Báo cáo tuần / tháng | Doanh thu, số cốc theo cơ sở / ca, tổng khoản âm theo nhân viên, so sánh cơ sở. |
+
+---
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
@@ -100,8 +116,8 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 | 2 | **Cấp mật khẩu cho nhân viên**: 56 người đang làm chưa có mật khẩu, nên chưa nhận việc, chưa chốt ca, chưa đọc nội quy được trên web | Cấp lần lượt hay cấp một lượt rồi in danh sách? |
 | 3 | **Quyền giao việc của Quản lý tổng** đang bật | Giữ hay tắt? |
 | 4 | **Nhiệm vụ đào tạo** trong Công việc: trước đây giao từ trang Họp, nay chưa có chỗ giao riêng | Có cần không, hay giao như việc thường? |
-| 5 | **Công nợ** chưa tính vào công thức tiền của phiếu ca | Công thức thế nào? |
-| 6 | **Tab kế toán** nhập chuyển khoản | Có làm không, ai dùng? |
+| 5 | ~~Công nợ~~ — **đã chốt 07/11** (mục 5b, điểm 3), chờ làm | — |
+| 6 | ~~Tab kế toán~~ — **xong 07/11** (Hóa đơn giao hàng, Chuyển khoản thực nhận theo tài khoản từng chi nhánh) | — |
 | 7 | **Bài kiểm tra lý thuyết** đào tạo | Nội dung câu hỏi |
 | 8 | **Tải ảnh minh chứng** bản cam kết đã ký | Có cần không? |
 | 9 | **Bản offline**: từ nay không còn đồng bộ lên web | Có báo quản lý ngừng dùng bản offline không? |
