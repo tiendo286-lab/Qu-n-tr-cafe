@@ -26,13 +26,22 @@ alter table public.shift_report_photos add constraint shift_report_photos_kind_c
 create or replace function public.app__ca_tol() returns bigint
 language sql immutable as $$ select 5000::bigint $$;
 
+-- Ca thuộc chuỗi két (Sáng → Chiều → Tối). Ca "FULL TIME …" chỉ để xếp người, không nằm trong chuỗi bàn giao két.
+create or replace function public.app__ca_chain(p_shift text) returns boolean
+language sql immutable as $$ select coalesce(p_shift, '') !~* '^\s*full\s*time' $$;
+
+-- Ca liền sau trong chuỗi két
 create or replace function public.app__ca_next_shift(p_shift text) returns text
 language plpgsql stable security definer set search_path = public as $$
 declare s text[] := public.app__shifts(); i int;
 begin
+  if not public.app__ca_chain(p_shift) then return null; end if;
   i := array_position(s, p_shift);
-  if i is null or i >= array_length(s, 1) then return null; end if;
-  return s[i + 1];
+  if i is null then return null; end if;
+  for j in i + 1 .. coalesce(array_length(s, 1), 0) loop
+    if public.app__ca_chain(s[j]) then return s[j]; end if;
+  end loop;
+  return null;
 end $$;
 
 -- ---------------------------------------------------------------- Tình trạng nhận két của một phiếu (phiếu ca NHẬN)
@@ -43,7 +52,7 @@ declare r public.shift_reports; prev public.shift_reports; ps text; tol bigint :
         pc bigint; cnt bigint; gap bigint; st text;
 begin
   select * into r from public.shift_reports where id = p_id;
-  if r.id is null or r.shift = (public.app__shifts())[1] then return null; end if;
+  if r.id is null or r.shift = (public.app__shifts())[1] or not public.app__ca_chain(r.shift) then return null; end if;
   ps := public.app__ca_prev_shift(r.shift);
   if ps is not null then
     select * into prev from public.shift_reports where branch_id = r.branch_id and work_date = r.work_date and shift = ps;
@@ -89,6 +98,7 @@ begin
   a := public.app_account();
   r := public.app__ca_need_edit(p_id);
   if r.shift = (public.app__shifts())[1] then raise exception 'Ca % là ca đầu ngày, nhận 1.000.000đ cố định — không cần đếm nhận két.', r.shift; end if;
+  if not public.app__ca_chain(r.shift) then raise exception 'Ca % không nằm trong chuỗi bàn giao két — nhập tiền đầu ca trực tiếp.', r.shift; end if;
   if r.opening_cash is not null then
     raise exception 'Ca này đã nhập tiền nhận két (%). Nếu lệch, hãy cùng người ca trước đếm lại.', public.app__vnd(r.opening_cash);
   end if;
@@ -209,7 +219,7 @@ begin
   end if;
   h := public.app__ca_hand(r.id);
   -- chưa đếm nhận két → không cho nhân viên thấy số két ca trước khai
-  hide_prev := not ds and r.opening_cash is null and r.shift <> (public.app__shifts())[1];
+  hide_prev := not ds and r.opening_cash is null and r.shift <> (public.app__shifts())[1] and public.app__ca_chain(r.shift);
   if h is not null and hide_prev then h := h || jsonb_build_object('prev_cash', null, 'gap', null, 'hidden', true); end if;
   -- phiếu đã hoàn thành mà ca sau chưa đếm nhận két → giấu số két (và ảnh phiếu iPOS) với người khác
   ns := public.app__ca_next_shift(r.shift);
@@ -288,7 +298,9 @@ begin
     pos_transfer = nullif(p ->> 'pos_transfer', '')::bigint,
     reported_transfer = nullif(p ->> 'reported_transfer', '')::bigint,
     cash_counted = nullif(p ->> 'cash_counted', '')::bigint,
-    opening_cash = case when r.shift = (public.app__shifts())[1] then 1000000 else r.opening_cash end,
+    opening_cash = case when r.shift = (public.app__shifts())[1] then 1000000
+                        when not public.app__ca_chain(r.shift) then nullif(p ->> 'opening_cash', '')::bigint
+                        else r.opening_cash end,
     opening_note = nullif(trim(coalesce(p ->> 'opening_note', '')), ''),
     ipos_opening = case when p ? 'ipos_opening' then nullif(p ->> 'ipos_opening', '')::bigint else r.ipos_opening end,
     cups = nullif(p ->> 'cups', '')::int,
@@ -364,7 +376,9 @@ begin
     update public.shift_reports set rev_start = public.app__ca_forced_start(r) where id = r.id;
     r.rev_start := public.app__ca_forced_start(r);
   end if;
-  if r.opening_cash is null and not is_first then miss := miss || 'Đếm nhận két đầu ca'::text; end if;
+  if r.opening_cash is null and not is_first then
+    miss := miss || (case when public.app__ca_chain(r.shift) then 'Đếm nhận két đầu ca' else 'Tiền mặt đầu ca' end)::text;
+  end if;
   if r.ipos_opening is null then miss := miss || 'Số dư đầu trên phiếu iPOS'::text; end if;
   if r.rev_start is null or r.rev_end is null then miss := miss || 'giờ bắt đầu/kết thúc doanh thu'::text; end if;
   if r.rev_start is not null and r.rev_end is not null and r.rev_end <= r.rev_start then

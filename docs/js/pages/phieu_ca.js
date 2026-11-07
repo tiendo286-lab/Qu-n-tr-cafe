@@ -216,7 +216,7 @@ export async function render({ params }) {
   if (first) {
     openBox = isDs ? money('opening_cash', R.opening_cash, !ed)
       : html`<div class="pc-fixed">1.000.000đ <span class="st-meta">(tiền lẻ cố định ca ${R.shift})</span></div><input type="hidden" id="opening_cash" value="1000000">`;
-  } else if (isDs) {
+  } else if (isDs || !H) { // ca không nằm trong chuỗi két (FULL TIME): nhập tiền đầu ca trực tiếp như cũ
     openBox = html`${money('opening_cash', R.opening_cash, !ed)}${handInfo(H)}`;
   } else if (staffEd && !counted) {
     openBox = H && H.state === 'cho_ca_truoc'
