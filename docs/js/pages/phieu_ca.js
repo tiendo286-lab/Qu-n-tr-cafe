@@ -413,11 +413,10 @@ function mount(R, ed, C0, ctx = {}) {
       const got = b.received; const ck = R.pos_transfer; const rt = R.reported_transfer;
       $('#bank-box').innerHTML = str(html`<div class="diff-card"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN THỰC NHẬN (KẾ TOÁN NHẬP)</div>
         ${got === null || got === undefined ? html`<div class="st-meta">Kế toán chưa nhập số dư cho ca này.</div>`
-          : html`<div class="kv"><div>Số dư đầu → cuối</div><div>${vnd(b.opening)} → ${vnd(b.closing)}${b.transfers_out ? html` · chuyển ra ${vnd(b.transfers_out)}` : ''}</div>
-            <div><strong>Tiền nhận trong ca</strong></div><div><strong>${vnd(got)}</strong></div>
+          : html`<div class="kv">${(b.accounts || []).map((a) => html`<div>${a.bank} ${a.account_no}${a.label ? ' · ' + a.label : ''}</div><div>${a.received === null || a.received === undefined ? 'chưa nhập' : html`${vnd(a.opening)} → ${vnd(a.closing)}${a.transfers_out ? ` · chuyển ra ${vnd(a.transfers_out)}` : ''} = <strong>${vnd(a.received)}</strong>`}${a.note ? html`<br><span class="st-meta">${a.note}</span>` : ''}</div>`)}
+            <div><strong>Tiền nhận trong ca</strong></div><div><strong>${vnd(got)}</strong>${b.entered < b.account_count ? html` <span class="pill warn">còn ${b.account_count - b.entered} tài khoản chưa nhập</span>` : ''}</div>
             <div>So với CK theo POS</div><div>${ck === null || ck === undefined ? '—' : signed(got - ck)}</div>
-            <div>So với CK nhân viên báo</div><div>${rt === null || rt === undefined ? '—' : signed(got - rt)}</div>
-            ${b.note ? html`<div>Ghi chú kế toán</div><div>${b.note}</div>` : ''}</div>
+            <div>So với CK nhân viên báo</div><div>${rt === null || rt === undefined ? '—' : signed(got - rt)}</div></div>
             <div class="st-meta">Nhập bởi ${b.updated_by || ''} · ${dt(b.updated_at)}${b.locked ? ' · đã khóa theo đối soát' : ''}</div>`}</div>`);
     }).catch(() => {});
   }

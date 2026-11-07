@@ -10,7 +10,7 @@ const BUCKET_LABEL = { 'phieu-ca': 'Ảnh phiếu chốt ca', 'tai-lieu': 'Ảnh
 const ACTION = {
   mo_phieu_chot_ca: 'Mở phiếu chốt ca', hoan_thanh_chot_ca: 'Hoàn thành chốt ca', mo_lai_phieu_ca: 'Mở lại phiếu cho nhân viên sửa', mo_lai_phieu_cho_nv: 'Bản đối soát làm lại (NV sửa phiếu gốc)',
   doi_soat_ca: 'Đánh dấu hạng mục đối soát', hoan_thanh_doi_soat: 'Hoàn thành đối soát', mo_lai_doi_soat: 'Mở lại đối soát', sua_ban_doi_soat: 'Sửa bản đối soát',
-  doi_soat_cuoi_ngay: 'Đối soát tiền cuối ngày', ke_toan_sua_so_du: 'Kế toán sửa số dư', ke_toan_so_du: 'Kế toán lưu số dư', ke_toan_them_hoa_don: 'Kế toán thêm hóa đơn',
+  doi_soat_cuoi_ngay: 'Đối soát tiền cuối ngày', ke_toan_sua_so_du: 'Kế toán sửa số dư', ke_toan_so_du: 'Kế toán lưu số dư', ke_toan_them_hoa_don: 'Kế toán thêm hóa đơn', ke_toan_them_tai_khoan: 'Thêm tài khoản nhận tiền', ke_toan_sua_tai_khoan: 'Sửa tài khoản nhận tiền', ke_toan_xoa_tai_khoan: 'Xóa tài khoản nhận tiền',
   ke_toan_xoa_hoa_don: 'Kế toán xóa hóa đơn', bao_nhan_hang: 'Báo nhận hàng',
   tao_tuan: 'Tạo tuần', sua_order: 'Sửa order', xoa_order_tuan: 'Xóa order tuần', bat_dau_xep_lich: 'Bắt đầu xếp lịch', xep_lich: 'Xếp lịch', xep_lich_tong: 'Xếp lịch tổng',
   xep_lich_tu_dong: 'Xếp lịch tự động', chot_tuan: 'Chốt tuần', mo_lai_tuan: 'Mở lại tuần', quay_lai_order: 'Quay lại order', gianh_quyen_xep: 'Giành quyền xếp', vuot_dinh_bien: 'Thêm vượt định biên',

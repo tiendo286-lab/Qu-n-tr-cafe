@@ -1,7 +1,7 @@
 // Giả lập phần Kế toán (hóa đơn giao hàng + chuyển khoản thực nhận) — chỉ để chạy thử giao diện
 export function makeKt(T, me) {
   const now = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
-  const INV = []; const FILES = []; const PH = []; const ITEMS = []; const BANK = {};
+  const INV = []; const FILES = []; const PH = []; const ITEMS = [];
   let seq = 1;
   const name = (id) => (id === me.account_id ? `${me.code} – ${me.name}` : id ? 'TK ' + id : null);
   const rep = (id) => T.shift_reports.find((r) => r.id === id);
@@ -10,14 +10,23 @@ export function makeKt(T, me) {
     created_by_name: name(i.created_by), received_by_name: name(i.received_by), received_shift: i.received_report_id ? rep(i.received_report_id)?.shift : null,
     files: FILES.filter((f) => f.invoice_id === i.id), photos: PH.filter((p) => p.invoice_id === i.id), items: ITEMS.filter((x) => x.invoice_id === i.id) });
   const order = ['Sáng', 'Chiều', 'Tối'];
+  const ACC = []; const BAL = {}; // BAL[reportId][accId]
+  const rec = (x) => (x && x.opening != null && x.closing != null ? x.closing - x.opening + (x.transfers_out || 0) : null);
   const bankJson = (r) => {
-    const b = BANK[r.id] || {};
-    const prev = T.shift_reports.filter((p) => p.branch_id === r.branch_id && BANK[p.id]?.closing != null && (p.work_date < r.work_date || (p.work_date === r.work_date && order.indexOf(p.shift) < order.indexOf(r.shift))))
-      .sort((a, c) => (a.work_date + order.indexOf(a.shift)).localeCompare(c.work_date + order.indexOf(c.shift))).pop();
+    const mine = BAL[r.id] || {};
+    const accs = ACC.filter((k) => k.branch_id === r.branch_id && (k.active || mine[k.id])).map((k) => {
+      const x = mine[k.id] || {};
+      const prev = T.shift_reports.filter((p) => p.branch_id === r.branch_id && BAL[p.id]?.[k.id]?.closing != null && (p.work_date < r.work_date || (p.work_date === r.work_date && order.indexOf(p.shift) < order.indexOf(r.shift))))
+        .sort((a, c) => (a.work_date + order.indexOf(a.shift)).localeCompare(c.work_date + order.indexOf(c.shift))).pop();
+      return { account_id: k.id, bank: k.bank, account_no: k.account_no, holder: k.holder, label: k.label, active: k.active,
+        opening: x.opening ?? null, closing: x.closing ?? null, transfers_out: x.transfers_out ?? 0, note: x.note || null, received: rec(x),
+        prev: prev ? { closing: BAL[prev.id][k.id].closing, work_date: prev.work_date, shift: prev.shift } : null };
+    });
+    const got = accs.filter((a) => a.received != null);
+    const last = Object.values(mine).sort((a, c) => (c.updated_at || '').localeCompare(a.updated_at || ''))[0];
     return { report_id: r.id, status: r.status, recon_status: r.recon_status, rev_start: r.rev_start, rev_end: r.rev_end, pos_transfer: r.pos_transfer ?? null, reported_transfer: r.reported_transfer ?? null,
-      opening: b.opening ?? null, closing: b.closing ?? null, transfers_out: b.transfers_out ?? 0, note: b.note || null,
-      received: b.opening != null && b.closing != null ? b.closing - b.opening + (b.transfers_out || 0) : null, updated_by: b.updated_by ? name(b.updated_by) : null, updated_at: b.updated_at || null,
-      prev: prev ? { closing: BANK[prev.id].closing, work_date: prev.work_date, shift: prev.shift } : null, locked: r.recon_status === 'hoan_thanh' };
+      accounts: accs, received: got.length ? got.reduce((t, a) => t + a.received, 0) : null, entered: got.length, account_count: accs.length,
+      updated_by: last ? name(last.updated_by) : null, updated_at: last?.updated_at || null, locked: r.recon_status === 'hoan_thanh' };
   };
   return {
     app_kt_invoices: ({ p_from, p_to, p_branch }) => INV.filter((i) => (!p_from || i.work_date >= p_from) && (!p_to || i.work_date <= p_to) && (!p_branch || i.branch_id === p_branch)).map(json).reverse(),
@@ -41,6 +50,19 @@ export function makeKt(T, me) {
       return out;
     },
     app_kt_bank_get: ({ p_report }) => bankJson(rep(p_report)),
-    app_kt_bank_save({ p_report, p_opening, p_closing, p_out, p_note }) { const r = rep(p_report); if (r.recon_status === 'hoan_thanh') throw new Error('Quản lý đã HOÀN THÀNH ĐỐI SOÁT ca này nên số liệu kế toán đã khóa.'); BANK[p_report] = { opening: p_opening, closing: p_closing, transfers_out: p_out || 0, note: p_note || null, updated_by: me.account_id, updated_at: now() }; },
+    app_kt_accounts: () => ACC.map((k) => ({ ...k, branch_code: bcode(k.branch_id), used: Object.values(BAL).some((m) => m[k.id]) })),
+    app_kt_account_save({ p_id, p_branch, p_bank, p_no, p_holder, p_label, p_active }) {
+      const no = String(p_no || '').replace(/[\s.-]/g, ''); const bank = String(p_bank || '').trim().toUpperCase();
+      if (!p_branch) throw new Error('Chọn chi nhánh.'); if (!/^[0-9]{4,20}$/.test(no)) throw new Error('Số tài khoản chỉ gồm chữ số (4–20 số).');
+      if (ACC.some((k) => k.branch_id === p_branch && k.bank === bank && k.account_no === no && k.id !== p_id)) throw new Error(`Chi nhánh này đã có tài khoản ${bank} ${no}.`);
+      if (!p_id) { const id = seq++; ACC.push({ id, branch_id: p_branch, bank, account_no: no, holder: p_holder || null, label: p_label || null, active: p_active !== false }); return id; }
+      Object.assign(ACC.find((k) => k.id === p_id), { branch_id: p_branch, bank, account_no: no, holder: p_holder || null, label: p_label || null, active: p_active !== false }); return p_id;
+    },
+    app_kt_account_delete({ p_id }) { if (Object.values(BAL).some((m) => m[p_id])) throw new Error('Tài khoản đã có số dư theo ca nên không xóa được.'); ACC.splice(ACC.findIndex((k) => k.id === p_id), 1); },
+    app_kt_bank_save_accounts({ p_report, p_rows }) {
+      const r = rep(p_report); if (r.recon_status === 'hoan_thanh') throw new Error('Quản lý đã HOÀN THÀNH ĐỐI SOÁT ca này nên số liệu kế toán đã khóa.');
+      const m = (BAL[p_report] ||= {});
+      p_rows.forEach((x) => { if (!m[x.account_id] && x.opening == null && x.closing == null && !x.transfers_out && !x.note) return; m[x.account_id] = { opening: x.opening, closing: x.closing, transfers_out: x.transfers_out || 0, note: x.note || null, updated_by: me.account_id, updated_at: now() }; });
+    },
   };
 }
