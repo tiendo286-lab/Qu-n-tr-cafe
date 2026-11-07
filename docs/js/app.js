@@ -8,6 +8,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 export const HUBS = [
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Khoản âm', '/quan-ly/khoan-am', 'doi_soat'], ['Báo cáo', '/quan-ly/bao-cao-ca', 'bao_cao_ca']], 'ngay'],
   ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']]],
+  ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']]],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']]],
@@ -61,6 +62,7 @@ const PAGES = {
   '/quan-ly/khoan-am': 'khoan_am',
   '/cua-toi/khoan-am': 'khoan_am_toi',
   '/quan-ly/bao-cao-ca': 'bao_cao_ca',
+  '/quan-ly/chot-thang': 'chot_thang',
 };
 
 export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0, ka: 0 };
@@ -69,6 +71,8 @@ const root = () => document.getElementById('root');
 export function can(p) {
   // Báo cáo ca: chỉ Chủ và Quản lý tổng (máy chủ cũng kiểm tra)
   if (p === 'bao_cao_ca') return ['chu', 'ql_tong'].includes(state.me?.role) && !!state.me?.perms?.doi_soat;
+  // Chốt tháng: Chủ, Quản lý tổng, Quản lý (máy chủ chỉ cho cơ sở được giao)
+  if (p === 'chot_thang') return ['chu', 'ql_tong', 'ql'].includes(state.me?.role);
   return !!state.me?.perms?.[p];
 }
 export function isManager() { return ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(state.me?.role); }

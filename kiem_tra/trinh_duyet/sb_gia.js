@@ -6,6 +6,7 @@ import { makeTl } from '../test/tl_gia.js';
 import { makeDt } from '../test/dt_gia.js';
 import { makeHt } from '../test/ht_gia.js';
 import { makeKt } from '../test/kt_gia.js';
+import { makeFin } from '../test/fin_gia.js';
 export const SUPABASE_URL = 'x'; export const SUPABASE_KEY = 'x';
 const T = DATA;
 for (const t of ['order_submissions', 'notifications', 'schedule_published', 'schedule_extra_rows', 'schedule_locks', 'week_order_windows', 'notification_events', 'audit_log', 'order_edit_log']) T[t] = T[t] || [];
@@ -72,7 +73,7 @@ const ME = role === 'chu'
   : role === 'ql'
     ? { account_id: 5, employee_id: 5, role: 'ql', must_change: false, code: '5', name: 'Quản lý thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, dao_tao: true } }
     : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true } };
-const CA = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(T, ME), ...makeHt(T, ME), ...makeKt(T, ME) };
+const CA = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(T, ME), ...makeHt(T, ME), ...makeKt(T, ME), ...makeFin(T, ME) };
 const authCbs = [];
 export const sb = {
   from: (t) => new Q(t),
