@@ -186,3 +186,21 @@ a { color: var(--primary); } a:hover { color: var(--primary-dark); }
 .table th { color: var(--ink-2); }
 .input { color: var(--ink); border-color: var(--line-strong); }
 .btn[disabled] { background: var(--line); color: var(--muted); }
+
+/* ---- Tiêu đề + nhãn viết IN HOA (anh Tiến chốt 08/11/2026). Chỉ đổi cách hiển thị; ô nhập, nội dung, tên trong bảng giữ nguyên ---- */
+h1, h2, h3, h4, details > summary,
+.sidebar .brand, .sidebar .group, .sidebar a.item, .sidebar .bottom a, .sidebar .bottom button,
+.auth-hero .name, .appbar .t1, .appbar .t2,
+.field label, .pc-f > span:first-child, .v-f,
+.btn, .link-btn, .pill, .badge, .chip, .role-chip, .me-chip, .chip-new, .vk, .vk-auto, .vst, .rc-chip,
+.table thead th, .mtx thead th, .table.rt td::before,
+.tabbar a, .seg a, .branch-tabs a, .tabs-nav a, .utabs a, .hub-tabs a, .v-tab, .v-cat, .pillbar .tb-it span, .pillbar .tb-plus,
+.tile .l, .stat .k, .emp-stats .l, .ct-k span, .pc-sub, .sys-sub, .vh, .m-role, .bc-sh, .bc-lbl, .bc-lg, .wz-st span, .mo-sheet .t, .shift-h, .day-h, .wk-label {
+  text-transform: uppercase;
+}
+h2, h3, h4, details > summary, .field label, .pc-f > span:first-child, .btn, .pill, .chip, .table thead th, .tabbar a, .seg a, .branch-tabs a, .tabs-nav a { letter-spacing: .02em; }
+h1, .appbar .t2 { letter-spacing: .04em; }
+/* chữ người dùng nhập / chọn luôn giữ nguyên */
+input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirror { text-transform: none; }
+/* chữ in hoa rộng hơn: nhãn dài được xuống dòng trên điện thoại, không tràn ngang */
+@media (max-width: 760px) { .pill, .chip, .vst, .vk { white-space: normal; max-width: 100%; } }
