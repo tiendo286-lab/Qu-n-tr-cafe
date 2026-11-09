@@ -1,6 +1,6 @@
 // Chốt lịch & báo cáo (bản offline): 7 tab + chốt/mở lại + xuất Excel
 import { render as rerender, can } from '../app.js';
-import { ST_CHOT, addDays, dmy, focusWeek, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
+import { ST_CHOT, addDays, dmy, focusWeek, ftShort, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { downloadXlsx } from '../excel.js';
 import { rpc, sel } from '../sb.js';
 import { $, flash, html, norm, raw } from '../ui.js';
@@ -104,7 +104,7 @@ export async function render({ params }) {
           const n = Math.max(...r.required, ...r.days.map((x) => x.length), 1);
           return Array.from({ length: n }, (_, i) => html`<tr><td class="nm">${s} – ${r.role} ${i + 1}</td>${days.map((d) => {
             const a = r.days[d.index][i];
-            if (a) return html`<td class="${a.source === 'FIXED' ? 'st-fx' : 'st-ok'} ${['NGHỈ', 'CHƯA ORDER'].includes(a.base_status) ? 'st-warn' : ''}" style="text-align:left">${a.code} – ${a.name}${a.source === 'FIXED' ? html` <small>CĐ</small>` : ''}${a.base_status === 'NGHỈ' ? ' ⚠ Nghỉ' : a.base_status === 'CHƯA ORDER' ? html` <small>Chưa order</small>` : ''}</td>`;
+            if (a) return html`<td class="${a.source === 'FIXED' ? 'st-fx' : 'st-ok'} ${['NGHỈ', 'CHƯA ORDER'].includes(a.base_status) ? 'st-warn' : ''}" style="text-align:left">${a.code} – ${a.name}${a.ft ? html` <small class="pill info">${ftShort(a.ft)}</small>` : ''}${a.source === 'FIXED' ? html` <small>CĐ</small>` : ''}${a.base_status === 'NGHỈ' ? ' ⚠ Nghỉ' : a.base_status === 'CHƯA ORDER' ? html` <small>Chưa order</small>` : ''}</td>`;
             return i < r.required[d.index] ? html`<td class="st-off">Thiếu</td>` : html`<td></td>`;
           })}</tr>`);
         })}<tr style="background:var(--sage-bg)"><td class="nm"><strong>Tổng ca ${s}</strong></td>${days.map((d) => { const t = sm.branches.get(`${b.code}|${d.index}|${s}`);
@@ -190,7 +190,7 @@ function exportWeekly(rep, mode, branch) {
     for (const s of [...new Set(comp.map((r) => r.shift))]) {
       for (const r of comp.filter((x) => x.shift === s)) {
         const n = Math.max(...r.required, ...r.days.map((x) => x.length), 1);
-        for (let i = 0; i < n; i++) rows.push([`${s} – ${r.role} ${i + 1}`, ...days.map((d) => { const a = r.days[d.index][i]; return a ? `${a.code} – ${a.name}${a.source === 'FIXED' ? ' CĐ' : ''}` : i < r.required[d.index] ? 'THIẾU' : ''; })]);
+        for (let i = 0; i < n; i++) rows.push([`${s} – ${r.role} ${i + 1}`, ...days.map((d) => { const a = r.days[d.index][i]; return a ? `${a.code} – ${a.name}${a.ft ? ` (${ftShort(a.ft)})` : ''}${a.source === 'FIXED' ? ' CĐ' : ''}` : i < r.required[d.index] ? 'THIẾU' : ''; })]);
       }
       rows.push([`TỔNG CA ${s.toUpperCase()}`, ...days.map((d) => { const t = sm.branches.get(`${branch.code}|${d.index}|${s}`); return t ? `${t.actual}/${t.required}` : ''; })]);
     }

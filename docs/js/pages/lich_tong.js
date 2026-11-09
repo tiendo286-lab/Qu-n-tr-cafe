@@ -1,6 +1,6 @@
 // Xếp lịch làm tổng (bản offline): mỗi nhân viên một dòng × mọi ca trong tuần; chọn "cơ sở – vị trí" ngay trong ô
 import { render as rerender, can, state } from '../app.js';
-import { ASSIGNED, NONE, OFF, RANKS, ST_CHOT, ST_SUA, ST_XEP, addDays, focusWeek, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
+import { ASSIGNED, NONE, OFF, RANKS, ST_CHOT, ftShort, isFT, ST_SUA, ST_XEP, addDays, focusWeek, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { typed } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, $$, flash, hhmm, html, norm, showSaved } from '../ui.js';
@@ -43,7 +43,9 @@ export async function render({ params, me }) {
   const editable = editableSt && can('xep_lich') && holds;
   const [rep, eb, er, published] = await Promise.all([loadReport(week), selAll('employee_branches', '*'), selAll('employee_roles', '*'), hasPublished(week.id)]);
   const cat = rep.cat;
-  const shifts = cat.activeShifts.map((s) => s.name);
+  const shifts = cat.mainShifts.map((s) => s.name);   // ca FULL TIME gộp vào ca chính
+  const ftBy = new Map(cat.activeBranches.map((b) => [b.id, cat.ftOf(b.id).ft]));
+  const ftOpts = (bid, s) => Object.values(ftBy.get(bid) || {}).filter((f) => f.parent === s);
   const roles = cat.activeRoles.map((r) => r.name);
   const ebm = {}; eb.forEach((r) => (ebm[r.employee_id] ||= []).push(r.branch_id));
   const erm = {}; er.forEach((r) => (erm[r.employee_id] ||= []).push(r.role));
@@ -56,22 +58,35 @@ export async function render({ params, me }) {
     let total = 0; const flags = new Set();
     const cells = [];
     days.forEach((d) => shifts.forEach((s) => {
-      const c = matrix.get(`${e.id}|${d.index}|${s}`);
+      // FULL TIME của nhân viên trong ngày: hiện ở ca chính "parent" (sửa được), các ca chồng giờ khác chỉ ghi chú
+      const fts = rep.wse.filter((r) => r.employee_id === e.id && r.weekday === d.index && r.state === ASSIGNED && isFT(r.shift) && r.branch_id);
+      const ftHere = fts.find((r) => ftBy.get(r.branch_id)?.[r.shift]?.parent === s);
+      const ftAway = ftHere ? null : fts.find((r) => ftBy.get(r.branch_id)?.[r.shift]?.covers.includes(s));
+      const main = matrix.get(`${e.id}|${d.index}|${s}`);
+      const mainA = main && main.state === ASSIGNED;
+      if (ftAway && !mainA) {
+        cells.push(html`<td class="st-ok" title="${ftAway.shift}">${rep.bById.get(ftAway.branch_id)?.code} · ${ftShort(ftAway.shift)}</td>`); return;
+      }
+      const c = ftHere && !mainA ? ftHere : main;
       if (!c) { cells.push(html`<td class="st-none" data-d="${d.index}" data-s="${s}">—</td>`); return; }
       const isA = c.state === ASSIGNED; const base = c.base_status;
       if (isA) { total++; flags.add('assigned'); } if (base === OFF) flags.add('off'); if (base === NONE) flags.add('no_order');
       if (c.source === 'FIXED') flags.add('fixed'); if (c.is_manual) flags.add('manual');
       const warn = isA && (base === OFF || base === NONE);
       const bc = isA ? rep.bById.get(c.branch_id)?.code : '';
-      const text = isA ? `${bc} – ${abbr(c.role)}${c.source === 'FIXED' ? ' CĐ' : ''}` : base === OFF ? 'Nghỉ' : base === NONE ? 'Chưa order' : 'Trống';
+      const isF = isFT(c.shift);
+      const text = isA ? `${bc} – ${abbr(c.role)}${isF ? ' · FT' : ''}${c.source === 'FIXED' ? ' CĐ' : ''}` : base === OFF ? 'Nghỉ' : base === NONE ? 'Chưa order' : 'Trống';
       const cls = isA ? (c.source === 'FIXED' ? 'st-fx' : 'st-ok') : base === OFF ? 'st-off' : base === NONE ? 'st-none' : 'st-free';
-      const val = isA ? `${c.branch_id}|${c.role}` : '';
+      const val = isA ? `${c.branch_id}|${c.role}${isF ? `|${c.shift}` : ''}` : '';
       const opts = options.filter((o) => cat.shiftEnabled(o.bid, s));
+      options.forEach((o) => ftOpts(o.bid, s).forEach((f) => opts.push({ v: `${o.v}|${f.name}`, t: `${o.t} · FT`, bid: o.bid })));
       if (val && !opts.some((o) => o.v === val)) opts.push({ v: val, t: `${text} (!)` });
+      const bft = Object.fromEntries(options.flatMap((o) => ftOpts(o.bid, s)).map((f) => [f.name, matrix.get(`${e.id}|${d.index}|${f.name}`)?.base_status || NONE]));
       const dot = c.is_manual ? html`<span style="color:#dc2626" title="Quản lý đã sửa">●</span>` : '';
+      const mainBase = main?.base_status || NONE;
       cells.push(editable
-        ? html`<td class="${cls} ${warn ? 'st-warn' : ''}" data-d="${d.index}" data-s="${s}" data-base="${base}"><select data-e="${e.id}" data-d="${d.index}" data-s="${s}" data-prev="${val}" aria-label="${e.name} ${d.short} ${s}">
-            <option value="">${base === OFF ? 'Nghỉ' : base === NONE ? 'Chưa order' : 'Trống'}</option>${opts.map((o) => html`<option value="${o.v}" ${o.v === val ? 'selected' : ''}>${o.t}</option>`)}</select>${dot}</td>`
+        ? html`<td class="${cls} ${warn ? 'st-warn' : ''}" data-d="${d.index}" data-s="${s}" data-base="${mainBase}" data-bft="${JSON.stringify(bft)}"><select data-e="${e.id}" data-d="${d.index}" data-s="${s}" data-prev="${val}" aria-label="${e.name} ${d.short} ${s}">
+            <option value="">${mainBase === OFF ? 'Nghỉ' : mainBase === NONE ? 'Chưa order' : 'Trống'}</option>${opts.map((o) => html`<option value="${o.v}" ${o.v === val ? 'selected' : ''}>${o.t}</option>`)}</select>${dot}</td>`
         : html`<td class="${cls} ${warn ? 'st-warn' : ''}">${text}${dot}</td>`);
     }));
     if (!flags.has('assigned')) flags.add('unassigned');
@@ -146,15 +161,21 @@ export async function render({ params, me }) {
       ['#f-q', '#f-cap', '#f-cn', '#f-vt', '#f-tt'].forEach((s) => $(s).addEventListener('input', apply));
       apply();
       $$('#master select').forEach((s) => s.addEventListener('change', async () => {
-        const td = s.closest('td'); const base = td.dataset.base;
-        if (s.value && (base === OFF || base === NONE) && !confirm(`Nhân viên ${base === OFF ? 'đã order NGHỈ' : 'CHƯA ORDER'} ca này. Vẫn xếp?`)) { s.value = s.dataset.prev; return; }
-        const [bid, role] = s.value ? s.value.split('|') : [null, null];
+        const td = s.closest('td');
+        const [bid, role, ft] = s.value ? s.value.split('|') : [null, null, null];
+        const pft = s.dataset.prev ? s.dataset.prev.split('|')[2] : null;
+        const shift = ft || s.dataset.s; const prevShift = pft || s.dataset.s;
+        const base = ft ? (JSON.parse(td.dataset.bft || '{}')[ft] || NONE) : td.dataset.base;
+        if (s.value && (base === OFF || base === NONE) && !confirm(`Nhân viên ${base === OFF ? 'đã order NGHỈ' : 'CHƯA ORDER'} ${ft ? 'ca FULL TIME' : 'ca'} này. Vẫn xếp?`)) { s.value = s.dataset.prev; return; }
+        const cell = (sh, b, r) => rpc('app_master_cell', { p_week: week.id, p_emp: Number(s.dataset.e), p_day: Number(s.dataset.d), p_shift: sh, p_branch: b ? Number(b) : null, p_role: r });
         try {
-          await rpc('app_master_cell', { p_week: week.id, p_emp: Number(s.dataset.e), p_day: Number(s.dataset.d), p_shift: s.dataset.s, p_branch: bid ? Number(bid) : null, p_role: role });
+          if (s.dataset.prev && prevShift !== shift) await cell(prevShift, null, null);   // đổi ca thường ↔ FULL TIME
+          await cell(shift, bid, role);
           s.dataset.prev = s.value;
           td.className = s.value ? `st-ok${base === OFF || base === NONE ? ' st-warn' : ''}` : base === OFF ? 'st-off' : base === NONE ? 'st-none' : 'st-free';
           const tr = s.closest('tr'); tr.querySelector('.tot strong').textContent = [...tr.querySelectorAll('select')].filter((x) => x.value).length;
           showSaved('Đã lưu · ' + hhmm());
+          if (ft || pft) setTimeout(rerender, 400);   // cập nhật ô FULL TIME ở các ca chồng giờ
         } catch (e) { s.value = s.dataset.prev; showSaved(e.message, true); }
       }));
       $('#auto-btn')?.addEventListener('click', async () => {

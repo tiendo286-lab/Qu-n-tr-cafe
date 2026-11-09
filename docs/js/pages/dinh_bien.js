@@ -13,7 +13,7 @@ export async function render({ params }) {
   const branch = brs.find((b) => String(b.id) === params.cn) || brs[0];
   const reqRows = await sel('staffing_requirements', 'weekday, shift, role, required_count', (b) => b.eq('branch_id', branch.id));
   const req = new Map(reqRows.map((r) => [`${r.weekday}|${r.shift}|${r.role}`, r.required_count]));
-  const blocks = cat.branchShifts(branch.id).map((s) => {
+  const blocks = cat.ftOf(branch.id).main.map((s) => {   // ca FULL TIME không có định biên riêng (tính vào ca chính)
     const rows = cat.activeRoles.map((r) => ({ role: r.name, counts: WEEKDAYS.map((_, d) => req.get(`${d}|${s.name}|${r.name}`) || 0) }));
     return { s, rows, totals: WEEKDAYS.map((_, d) => rows.reduce((t, r) => t + r.counts[d], 0)) };
   });

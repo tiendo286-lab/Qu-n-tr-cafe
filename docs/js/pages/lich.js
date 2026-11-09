@@ -1,6 +1,6 @@
 // Lịch làm: Lịch của tôi (ca đã chốt) + Lịch cơ sở 4 chi nhánh (bản rút gọn cho nhân viên)
 import { isManager } from '../app.js';
-import { RANKS, SHIFT_COLORS, ST_SUA, WEEKDAYS, WD_SHORT, addDays, catalog, dm, parseWeekParam, vnToday, weekDays, weekLabel, weekStart, when } from '../data.js';
+import { RANKS, SHIFT_COLORS, ST_SUA, hm, isFT, toMin, WEEKDAYS, WD_SHORT, addDays, catalog, dm, parseWeekParam, vnToday, weekDays, weekLabel, weekStart, when } from '../data.js';
 import { rpc, sel } from '../sb.js';
 import { html } from '../ui.js';
 
@@ -61,16 +61,17 @@ export async function render({ me, params }) {
         const since = changes.length ? changes[0].created_at : null;
         const bmap = new Map(cat.branches.map((b) => [b.id, b]));
         const byDay = {};
-        rows.sort((a, b) => a.weekday - b.weekday || (shiftIdx.get(a.shift) ?? 99) - (shiftIdx.get(b.shift) ?? 99));
+        const cfgOf = (r) => { const sh = cat.shifts.find((s) => s.name === r.shift); return sh ? cat.bsMap.get(`${r.branch_id}|${sh.id}`) : null; };
+        rows.sort((a, b) => a.weekday - b.weekday || (toMin(cfgOf(a)?.start_time) ?? 9999) - (toMin(cfgOf(b)?.start_time) ?? 9999) || (shiftIdx.get(a.shift) ?? 99) - (shiftIdx.get(b.shift) ?? 99));
         for (const r of rows) {
           const br = bmap.get(r.branch_id) || {};
-          const sh = cat.shifts.find((s) => s.name === r.shift);
-          const cfg = sh ? cat.bsMap.get(`${r.branch_id}|${sh.id}`) : null;
+          const cfg = cfgOf(r);
+          const ftp = isFT(r.shift) ? cat.ftOf(r.branch_id).ft[r.shift]?.parent : null;
           const upd = !!(since && r.changed_at && r.changed_at >= since.slice(0, 17));
           (byDay[r.weekday] ||= []).push({
-            shift: r.shift, role: r.role, branch: br.code, branchName: br.name,
-            hours: cfg?.start_time ? `${hh(cfg.start_time)}–${hh(cfg.end_time)}` : '',
-            color: SHIFT_COLORS[(shiftIdx.get(r.shift) || 0) % SHIFT_COLORS.length], updated: upd, note: upd ? r.note : '',
+            shift: ftp ? `Ca ${ftp} · FULL TIME` : r.shift, role: r.role, branch: br.code, branchName: br.name,
+            hours: cfg?.start_time ? `${hm(cfg.start_time)}–${hm(cfg.end_time)}` : '',
+            color: SHIFT_COLORS[(shiftIdx.get(ftp || r.shift) || 0) % SHIFT_COLORS.length], updated: upd, note: upd ? r.note : '',
           });
         }
         const lines = changes.flatMap((n) => (n.body || '').split('\n').filter(Boolean));
@@ -99,9 +100,11 @@ export async function render({ me, params }) {
       ]);
       const ebyId = new Map(emps.map((e) => [e.id, e]));
       const roleOrder = new Map(cat.roles.map((r, i) => [r.name, i]));
-      const blocks = cat.branchShifts(branch.id).map((s) => ({
-        shift: s.name, hours: `${hh(s.start)} – ${hh(s.end)}`,
-        people: rows.filter((r) => r.shift === s.name).map((r) => ({ ...r, e: ebyId.get(r.employee_id) || {} }))
+      const fm = cat.ftOf(branch.id);
+      const blocks = fm.main.map((s) => ({
+        shift: s.name, hours: `${hm(s.start)} – ${hm(s.end)}`,
+        people: rows.filter((r) => r.shift === s.name || fm.ft[r.shift]?.covers.includes(s.name))
+          .map((r) => ({ ...r, e: ebyId.get(r.employee_id) || {}, ft: fm.ft[r.shift] ? `FT ${hm(fm.ft[r.shift].start)}–${hm(fm.ft[r.shift].end)}` : '' }))
           .sort((a, b) => (roleOrder.get(a.role) ?? 99) - (roleOrder.get(b.role) ?? 99) || RANKS.indexOf(b.e.rank) - RANKS.indexOf(a.e.rank) || String(a.e.name).localeCompare(String(b.e.name), 'vi')),
       }));
       const base = `/lich?tab=co-so&cn=${branch.id}&ngay=${ngay}&`;
@@ -110,7 +113,7 @@ export async function render({ me, params }) {
         <div class="grid7" role="group" aria-label="Ngày">${WD_SHORT.map((w, i) => html`<a class="dpick ${i === ngay ? 'on' : ''}" href="#/lich?tab=co-so&tuan=${week.start_date}&cn=${branch.id}&ngay=${i}"><b>${w}</b><span>${dm(addDays(week.start_date, i))}</span></a>`)}</div>
         <div style="font-size:16px;font-weight:700">${branch.code} – ${branch.name} · ${WEEKDAYS[ngay]} ${dm(addDays(week.start_date, ngay))}</div>
         ${blocks.map((b) => html`<section class="card flush"><div class="shift-h"><strong>Ca ${b.shift}</strong><span class="det">${b.hours}</span></div>
-          ${b.people.length ? b.people.map((p) => html`<div class="prow"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:500">${p.e.code} – ${p.e.name}</span>${p.employee_id === me.employee_id ? html`<span class="me-chip">Bạn</span>` : ''}</div><span class="role-chip">${p.role}</span></div>`) : html`<div class="prow det">Chưa có ai</div>`}
+          ${b.people.length ? b.people.map((p) => html`<div class="prow"><div style="display:flex;align-items:center;gap:8px"><span style="font-weight:500">${p.e.code} – ${p.e.name}</span>${p.ft ? html`<span class="pill info">${p.ft}</span>` : ''}${p.employee_id === me.employee_id ? html`<span class="me-chip">Bạn</span>` : ''}</div><span class="role-chip">${p.role}</span></div>`) : html`<div class="prow det">Chưa có ai</div>`}
         </section>`)}
         <div class="det" style="line-height:1.5">Chỉ hiện ai làm ca nào, vị trí nào. Không hiện ô trống, định biên hay trạng thái order.</div>`;
     }

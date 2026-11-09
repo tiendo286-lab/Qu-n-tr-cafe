@@ -1,6 +1,6 @@
 // Nhân viên order ca cho tuần kế tiếp (ưu tiên điện thoại)
 import { render as rerender, isManager } from '../app.js';
-import { CODE, addDays, getWeek, orderWindow, remaining, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
+import { CODE, addDays, catalog, ftShort, isFT, withFtAfter, getWeek, orderWindow, remaining, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { rpc, sel } from '../sb.js';
 import { $, $$, flash, html } from '../ui.js';
 
@@ -15,6 +15,10 @@ const STYLE = html`<style>
   .opt:focus-visible + .choice { outline: 3px solid var(--focus); outline-offset: 1px; }
   .opt:disabled + .choice { cursor: default; }
   .order-row.missing .choice { border: 2px dashed var(--off-line); background: #fff5f5; }
+  .order-row.ft { background: var(--plum-bg); padding-left: 22px !important; border-top: 1px dashed var(--line) !important; }
+  .order-row.ft .sn { color: var(--plum-ink); font-size: 13px; }
+  .order-row.ft .choice { min-height: 38px; }
+  .ft-note { font-size: 12px; color: var(--plum-ink); line-height: 1.5; }
 </style>`;
 
 function wrap(inner) {
@@ -32,12 +36,16 @@ export async function render({ me }) {
   if (!week) {
     return { title: 'Order ca', html: wrap(html`<div class="card">Quản lý chưa mở tuần mới (${weekLabel(start)}). Hãy quay lại sau.</div>`) };
   }
-  const [win, shifts, entries, subs] = await Promise.all([
+  const [win, shifts0, entries, subs, cat] = await Promise.all([
     orderWindow(week.id),
     sel('shifts', 'id, name, sort_order', (b) => b.eq('status', 'Đang sử dụng').order('sort_order').order('id')),
     sel('order_entries', 'weekday, shift, status, is_manual', (b) => b.eq('week_id', week.id).eq('employee_id', me.employee_id)),
     sel('order_submissions', 'employee_id', (b) => b.eq('week_id', week.id).eq('employee_id', me.employee_id)),
+    catalog(),
   ]);
+  const par = cat.ftParents();
+  const shifts = withFtAfter(shifts0, par);
+  const hasFT = shifts.some((s) => isFT(s.name));
   const ent = new Map(entries.map((e) => [`${e.weekday}|${e.shift}`, e]));
   const submitted = subs.length > 0 || entries.some((e) => e.status === 'ĐI LÀM ĐƯỢC' || e.status === 'NGHỈ');
   const editable = win.state === 'dang_mo';
@@ -52,6 +60,7 @@ export async function render({ me }) {
       </div>
       ${win.state === 'dang_mo' ? html`
         <div style="font-size:14px;color:var(--ink-2)">Hạn order: <strong>${win.close_text}</strong> · ${remaining(win.close, win.now)}</div>
+        ${hasFT ? html`<div class="ft-note"><strong>FULL TIME</strong> nằm ngay dưới ca chính. Chọn FULL TIME “Đi làm được” thì ca chính tự thành “Đi làm được”; chọn ca chính “Nghỉ” thì FULL TIME tự thành “Nghỉ”.</div>` : ''}
         <div style="font-size:13px;color:var(--muted);line-height:1.5">Chọn <strong style="color:var(--ok-ink)">Đi làm được</strong> hoặc <strong style="color:var(--off-ink)">Nghỉ</strong> cho từng ca. Phải chọn đủ ${total} ô mới gửi được. Trước hạn vẫn sửa lại được.</div>`
       : win.state === 'chua_mo' ? html`<div style="font-size:14px;color:var(--ink-2)">Order mở lúc <strong>${win.open_text}</strong>, hết hạn ${win.close_text}.</div>`
       : html`<div style="font-size:14px;color:var(--ink-2)">Đã hết hạn lúc ${win.close_text}. ${submitted ? 'Dưới đây là order bạn đã gửi.' : 'Bạn chưa gửi order tuần này — hãy liên hệ quản lý.'}</div>`}
@@ -69,9 +78,9 @@ export async function render({ me }) {
           const e = ent.get(`${d.index}|${s.name}`);
           const code = e ? CODE[e.status] || 'none' : 'none';
           const f = `c_${d.index}_${s.id}`;
-          return html`<div class="order-row" data-d="${d.index}" data-s="${s.name}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line-soft)">
+          return html`<div class="order-row ${isFT(s.name) ? 'ft' : ''}" data-d="${d.index}" data-s="${s.name}" data-par="${par[s.name] || ''}" style="display:flex;align-items:center;gap:8px;padding:10px 12px;border-top:1px solid var(--line-soft)">
             <div style="width:74px;display:flex;flex-direction:column;gap:2px">
-              <div style="font-weight:600">${s.name}</div>
+              <div class="sn" style="font-weight:600">${isFT(s.name) ? `↳ ${ftShort(s.name)}` : s.name}</div>
               <div class="missing-text" style="font-size:11px;font-weight:600;color:#b91c1c" hidden>Chưa chọn</div>
               ${e && e.is_manual ? html`<div style="font-size:10px;font-weight:600;color:#9a3412;background:#ffedd5;padding:1px 5px;border-radius:6px;align-self:flex-start">QL đã sửa</div>` : ''}
             </div>
@@ -112,7 +121,15 @@ export async function render({ me }) {
           remainText.textContent = `Còn ${total - done} ô chưa chọn — các ô viền đỏ`;
         }
       };
-      $$('.opt').forEach((o) => o.addEventListener('change', update));
+      // FULL TIME ↔ ca chính trong cùng ngày
+      const rowOf = (d, sn) => $$('.order-row').find((r) => r.dataset.d === d && r.dataset.s === sn);
+      const setRow = (row, v) => { const o = row && row.querySelector(`.opt[value="${v}"]`); if (o && !o.checked) o.checked = true; };
+      $$('.opt').forEach((o) => o.addEventListener('change', () => {
+        const row = o.closest('.order-row');
+        if (row.dataset.par && o.value === 'ok') setRow(rowOf(row.dataset.d, row.dataset.par), 'ok');
+        if (!row.dataset.par && o.value === 'off') $$('.order-row').filter((r) => r.dataset.d === row.dataset.d && r.dataset.par === row.dataset.s).forEach((r) => setRow(r, 'off'));
+        update();
+      }));
       update();
       $('#order-form').addEventListener('submit', async (ev) => {
         ev.preventDefault();

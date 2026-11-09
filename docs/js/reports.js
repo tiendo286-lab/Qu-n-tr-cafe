@@ -1,6 +1,6 @@
 // Báo cáo lịch tuần (chuyển từ database.py của bản offline 1.7.6: week_schedule_summary, schedule_warning_report,
 // staffing_report_rows, employee_schedule_report, order_report_details, branch_schedule_report, ...)
-import { ASSIGNED, WD_SHORT, WEEKDAYS, catalog, closure, requirements } from './data.js';
+import { ASSIGNED, WD_SHORT, WEEKDAYS, catalog, closure, isFT, requirements } from './data.js';
 import { sel, selAll } from './sb.js';
 
 const RANK_ORDER = { 'Quản lý': 0, 'Cấp 1': 1, 'Cấp 2': 2 };
@@ -24,13 +24,16 @@ export class Report {
     this.roles = cat.roles.map((r) => r.name);
     this.bById = new Map(cat.branches.map((b) => [b.id, b]));
     this.assigned = wse.filter((r) => r.state === ASSIGNED && r.branch_id);
-    this.shiftNames = cat.shifts.map((s) => s.name);
+    // Ca FULL TIME không có định biên riêng: người FT tính vào mọi ca chính chồng giờ
+    this.allShiftNames = cat.shifts.map((s) => s.name);
+    this.shiftNames = cat.shifts.filter((s) => !isFT(s.name)).map((s) => s.name);
+    this.counted = cat.expandFT(this.assigned);
   }
 
   summary() {
     if (this._summary) return this._summary;
     const actual = new Map();
-    for (const r of this.assigned) {
+    for (const r of this.counted) {
       const b = this.bById.get(r.branch_id); if (!b) continue;
       const k = `${b.code}|${r.weekday}|${r.shift}`;
       if (!actual.has(k)) actual.set(k, { actual: 0, roles: {}, senior: 0 });
@@ -71,10 +74,10 @@ export class Report {
     const g = new Map();
     this.wse.filter((r) => r.state === ASSIGNED).forEach((r) => { const k = `${r.employee_id}|${r.weekday}`; if (!g.has(k)) g.set(k, []); g.get(k).push(r); });
     for (const [k, rows] of g) {
-      if (new Set(rows.map((r) => r.shift)).size < 3) continue;
+      if (new Set(this.cat.expandFT(rows.filter((r) => r.branch_id)).map((r) => r.shift)).size < 3) continue;
       counts.three_shifts++;
       const [eid, wd] = k.split('|').map(Number); const e = this.em.get(eid) || {};
-      rows.sort((a, b) => this.shiftNames.indexOf(a.shift) - this.shiftNames.indexOf(b.shift));
+      rows.sort((a, b) => this.allShiftNames.indexOf(a.shift) - this.allShiftNames.indexOf(b.shift));
       lines.push(`LÀM THÔNG 3 CA: ${e.code} – ${e.name} – ${WD_SHORT[wd]}: ${rows.map((r) => `${r.shift} ${this.bById.get(r.branch_id)?.code || '—'} ${r.role || ''}`.trim()).join(' + ')}`);
     }
     const has = new Set(this.wse.filter((r) => r.state === ASSIGNED).map((r) => r.employee_id));
@@ -140,7 +143,7 @@ export class Report {
       const days = {};
       for (let d = 0; d < 7; d++) {
         days[d] = this.assigned.filter((r) => r.employee_id === e.id && r.weekday === d)
-          .sort((a, b) => this.shiftNames.indexOf(a.shift) - this.shiftNames.indexOf(b.shift))
+          .sort((a, b) => this.allShiftNames.indexOf(a.shift) - this.allShiftNames.indexOf(b.shift))
           .map((r) => ({ shift: r.shift, role: r.role, branch_code: this.bById.get(r.branch_id)?.code, branch_name: this.bById.get(r.branch_id)?.name }));
       }
       return { employee_id: e.id, code: e.code, name: e.name, rank: e.rank, days, total: Object.values(days).reduce((t, x) => t + x.length, 0) };
@@ -152,7 +155,7 @@ export class Report {
     const rows = [];
     for (const s of this.shiftNames) for (const r of this.roles) {
       const required = WEEKDAYS.map((_, d) => this.req[`${branch.id}|${d}|${s}|${r}`] || 0);
-      const days = WEEKDAYS.map((_, d) => this.assigned.filter((x) => x.branch_id === branch.id && x.weekday === d && x.shift === s && x.role === r)
+      const days = WEEKDAYS.map((_, d) => this.counted.filter((x) => x.branch_id === branch.id && x.weekday === d && x.shift === s && x.role === r)
         .map((x) => ({ ...x, ...(this.em.get(x.employee_id) || {}) })).sort(rankSort));
       if (Math.max(...required) === 0 && !days.some((x) => x.length)) continue;
       rows.push({ shift: s, role: r, required, days });

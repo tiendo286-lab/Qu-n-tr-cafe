@@ -1,6 +1,6 @@
 // Quản lý: theo dõi & sửa order (giống màn ORDER LỊCH LÀM của bản offline)
 import { render as rerender, can, state } from '../app.js';
-import { CODE, LABEL, RANKS, ST_CHOT, addDays, closure, hasPublished, orderWindow, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart, getWeek } from '../data.js';
+import { CODE, LABEL, RANKS, ST_CHOT, addDays, closure, hasPublished, orderWindow, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart, getWeek, catalog, ftShort, isFT, withFtAfter } from '../data.js';
 import { bindWeekPick, typed, weekBar } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, $$, esc, flash, go, html, norm, showSaved, hhmm } from '../ui.js';
@@ -62,7 +62,7 @@ export async function render({ params, me }) {
       },
     };
   }
-  const [win, shifts, emps, entries, subs, logs, cl, published] = await Promise.all([
+  const [win, shifts0, emps, entries, subs, logs, cl, published] = await Promise.all([
     orderWindow(week.id),
     sel('shifts', 'id, name', (b) => b.eq('status', 'Đang sử dụng').order('sort_order').order('id')),
     sel('employees', 'id, code, name, rank', (b) => b.eq('status', 'Đang làm')),
@@ -84,6 +84,8 @@ export async function render({ params, me }) {
   const st = cl?.status || null;
   const canEdit = can('sua_order_sau_han');
   const canStart = can('xep_lich');
+  const catx = await catalog(); const par = catx.ftParents();
+  const shifts = withFtAfter(shifts0, par);
   const shiftNames = shifts.map((s) => s.name);
 
   const rows = emps.map((e, ri) => {
@@ -157,7 +159,7 @@ export async function render({ params, me }) {
       <section class="card flush d-only"><div class="grid-wrap">
         <table class="table og" id="order-grid" aria-label="Bảng order tuần ${weekLabel(start)}">
           <thead><tr><th class="sticky c1">STT</th><th class="sticky c2">Mã NV</th><th class="sticky c3">Tên nhân viên</th><th class="sticky c4">Phân cấp</th>
-            ${days.map((d) => shifts.map((s) => html`<th class="center col-h" data-d="${d.index}" data-s="${s.name}">${d.name}<br>${d.date}<br>${s.name}</th>`))}</tr></thead>
+            ${days.map((d) => shifts.map((s) => html`<th class="center col-h" data-d="${d.index}" data-s="${s.name}">${d.name}<br>${d.date}<br>${isFT(s.name) ? ftShort(s.name) : s.name}</th>`))}</tr></thead>
           <tbody>${rows}</tbody></table></div></section>${CSS}`,
     mount() {
       bindWeekPick();
@@ -167,7 +169,7 @@ export async function render({ params, me }) {
         try { const n = await rpc('app_start_scheduling', { p_week: week.id }); flash(`Đã bắt đầu xếp lịch tuần ${weekLabel(start)}. Đã đưa ${n} ca từ lịch cố định vào lịch.`); go(`/quan-ly/lich-co-so?tuan=${start}`); }
         catch (e) { flash(e.message, 'error'); rerender(); }
       });
-      mountGrid({ week, me, days, shiftNames, canEdit, who });
+      mountGrid({ week, me, days, shiftNames, canEdit, who, par });
       if (!canEdit) return;
       $('#clear-btn').addEventListener('click', async () => {
         if (!typed(`Xóa toàn bộ order tuần ${weekLabel(start)}? Order bị xóa không khôi phục được. Các ca đã xếp vẫn giữ nhưng sẽ báo viền đỏ vì không còn order.`, 'XOA')) return;
@@ -186,7 +188,7 @@ export async function render({ params, me }) {
   };
 }
 
-function mountGrid({ week, me, days, shiftNames, canEdit }) {
+function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
   const cells = $$('.oc');
   const byKey = new Map(cells.map((c) => [`${c.dataset.e}|${c.dataset.d}|${c.dataset.s}`, c]));
   const selected = new Set();
@@ -224,6 +226,12 @@ function mountGrid({ week, me, days, shiftNames, canEdit }) {
       changes.forEach((x) => {
         const c = byKey.get(`${x.employee_id}|${x.weekday}|${x.shift}`);
         setCell(c, x.status, `Sửa bởi ${me.code} – ${me.name} lúc ${t.slice(11, 16)} ${t.slice(8, 10)}/${t.slice(5, 7)}: ${LAB[c.dataset.st]} → ${LAB[x.status]}`);
+      });
+      // máy chủ tự đổi theo quy tắc FULL TIME: FT "đi làm được" → ca chính "đi làm được"; ca chính "nghỉ" → FT "nghỉ"
+      changes.forEach((x) => {
+        const k = (s) => byKey.get(`${x.employee_id}|${x.weekday}|${s}`);
+        if (par[x.shift] && x.status === 'ok') { const c = k(par[x.shift]); if (c && c.dataset.st !== 'ok') setCell(c, 'ok', 'Tự đổi theo ca FULL TIME'); }
+        if (!par[x.shift] && x.status === 'off') Object.keys(par).filter((f) => par[f] === x.shift).forEach((f) => { const c = k(f); if (c && c.dataset.st !== 'off') setCell(c, 'off', 'Tự đổi theo ca chính'); });
       });
       if (remember) { undoStack.push(prev); $('#undo-btn').disabled = false; }
       showSaved(`Đã lưu ${changes.length} ô · ${hhmm()}`);
@@ -294,7 +302,7 @@ function mountGrid({ week, me, days, shiftNames, canEdit }) {
       h += `<div class="mo-row"><div class="who"><strong>${esc(row.children[2].textContent)}</strong><span>${esc(row.children[1].textContent)} · ${esc(row.dataset.rank)}</span></div><div class="mo-chips">`;
       shiftNames.forEach((sn) => {
         const c = byKey.get(`${e}|${curDay}|${sn}`); if (!c) return;
-        h += `<button type="button" class="mo-chip ${c.dataset.st}" data-e="${e}" data-s="${esc(sn)}">${esc(sn)}<small>${LAB[c.dataset.st]}</small>${c.classList.contains('manual') ? '<i></i>' : ''}</button>`;
+        h += `<button type="button" class="mo-chip ${c.dataset.st}" data-e="${e}" data-s="${esc(sn)}">${esc(isFT(sn) ? ftShort(sn) : sn)}<small>${LAB[c.dataset.st]}</small>${c.classList.contains('manual') ? '<i></i>' : ''}</button>`;
       });
       h += '</div></div>';
     });

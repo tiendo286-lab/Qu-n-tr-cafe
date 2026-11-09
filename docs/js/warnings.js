@@ -1,5 +1,5 @@
 // Cảnh báo của một tuần (chuyển từ schedule.warnings của bản Python)
-import { ASSIGNED, OFF, OK, RANKS, SENIOR, catalog, closure, requirements, weekDays } from './data.js';
+import { ASSIGNED, OFF, OK, RANKS, SENIOR, catalog, closure, isFT, requirements, weekDays } from './data.js';
 import { sel, selAll } from './sb.js';
 
 export const WARN_GROUPS = [
@@ -23,10 +23,12 @@ export async function computeWarnings(week, ctx = {}) {
   const em = new Map(emps.map((e) => [e.id, e]));
   const roleOrder = new Map(cat.roles.map((r, i) => [r.name, i]));
   const byCell = new Map();
-  rows.forEach((r) => { const k = `${r.branch_id}|${r.weekday}|${r.shift}`; if (!byCell.has(k)) byCell.set(k, []); byCell.get(k).push(r); });
+  // Người FULL TIME tính cho mọi ca chính chồng giờ
+  const counted = cat.expandFT(rows);
+  counted.forEach((r) => { const k = `${r.branch_id}|${r.weekday}|${r.shift}`; if (!byCell.has(k)) byCell.set(k, []); byCell.get(k).push(r); });
   const out = { thieu: [], thieu_cap2: [], xep_nghi: [], xep_chua_order: [], vuot: [], thong_3_ca: [] };
   for (const b of cat.activeBranches) {
-    for (const s of cat.branchShifts(b.id)) {
+    for (const s of cat.branchShifts(b.id).filter((x) => !isFT(x.name))) {
       for (const d of days) {
         const assigned = byCell.get(`${b.id}|${d.index}|${s.name}`) || [];
         const needR = {};
@@ -70,7 +72,8 @@ export async function computeWarnings(week, ctx = {}) {
     perDay.get(k).push(r);
   }
   for (const [k, lst] of perDay) {
-    if (lst.length < 3) continue;
+    // làm thông 3 ca: tính theo ca chính (FULL TIME Sáng = Sáng + Chiều)
+    if (new Set(cat.expandFT(lst).map((x) => x.shift)).size < 3) continue;
     const [eid, d] = k.split('|').map(Number);
     const e = em.get(eid) || {};
     out.thong_3_ca.push({ branch_id: lst[0].branch_id, weekday: d, shift: lst[0].shift, label: `${e.code} – ${e.name} · ${dname[d]}`,

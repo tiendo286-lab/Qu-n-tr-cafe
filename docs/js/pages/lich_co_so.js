@@ -1,6 +1,6 @@
 // Xếp lịch cơ sở: lưới ca – vị trí × 7 ngày, chọn người, vượt định biên, khóa 1 người xếp, chốt tuần
 import { render as rerender, can, state } from '../app.js';
-import { CODE, RANKS, SENIOR, ST_CHOT, ST_SUA, ST_XEP, addDays, catalog, closure, getWeek, hasPublished, orderWindow, parseWeekParam, requirements, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
+import { CODE, RANKS, SENIOR, ST_CHOT, ST_SUA, ST_XEP, addDays, catalog, ftShort, hm, overlap, closure, getWeek, hasPublished, orderWindow, parseWeekParam, requirements, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { bindWeekPick } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, esc, flash, go, html, raw, showSaved, hhmm } from '../ui.js';
@@ -24,6 +24,12 @@ const CSS = raw(`<style>
   .cell.empty { background: #fff; border-color: var(--line-strong); color: var(--ink); } .cell.extra { background: #fff; border: 1px dashed var(--line-strong); color: var(--muted); font-weight: 500; }
   .cell.blocked { background: var(--line-soft); color: var(--muted); font-weight: 500; justify-content: center; }
   .cell.filled { background: #fef3c7; border-color: #f59e0b; color: #78350f; } .cell.warnc { border: 2px solid #dc2626; }
+  .cell .ftb { flex-shrink: 0; font-size: 10px; font-weight: 700; padding: 1px 5px; border-radius: 6px; background: var(--plum-ink); color: #fff; margin-right: 6px; }
+  .cell.ftc { background: var(--plum-bg); border-color: var(--plum-ink); color: var(--plum-ink); }
+  .cell.ftc.away { border-style: dashed; }
+  .pk-modes { display: flex; gap: 6px; padding: 6px 4px 8px; flex-wrap: wrap; } .picker .pk-modes button { flex: 1 1 140px; width: auto; text-align: center; border: 1px solid var(--line-strong); font-weight: 700; font-size: 12px; }
+  .picker .pk-modes button.on { background: var(--plum-ink); border-color: var(--plum-ink); color: #fff; }
+  .lg.ft { background: var(--plum-bg); color: var(--plum-ink); }
   .cell .tag { font-size: 10px; font-weight: 700; color: #b91c1c; margin-left: 6px; }
   .tot { height: 34px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border-radius: 8px; }
   .tot.short { background: #fee2e2; color: #b91c1c; } .tot.ok { background: #a7e8bd; color: #0f4a26; } .tot.over { background: #fef3c7; color: #a16207; } .tot.zero { color: var(--muted); }
@@ -132,7 +138,8 @@ export async function render({ params, me }) {
   });
   const P = {
     week_id: week.id, branch: { id: branch.id, code: branch.code, name: branch.name }, days: weekDays(week.start_date),
-    shifts: cat.branchShifts(branch.id).map((s) => ({ name: s.name, start: s.start, end: s.end })),
+    shifts: cat.ftOf(branch.id).main, ft: cat.ftOf(branch.id).ft,
+    allShifts: cat.branchShifts(branch.id).map((s) => ({ name: s.name, start: s.start, end: s.end })),
     roles: cat.activeRoles.map((r) => r.name),
     req: Object.fromEntries(Object.entries(req).filter(([k]) => k.startsWith(`${branch.id}|`)).map(([k, n]) => [k.split('|').slice(1).join('|'), n])),
     extra: Object.fromEntries(extraRows.map((r) => [`${r.shift}|${r.role}`, r.count])),
@@ -170,6 +177,7 @@ export async function render({ params, me }) {
       <div class="hide-m" style="font-size:13px;font-weight:600;line-height:1.8">
         Chú giải: <span class="lg empty">Trắng: chưa xếp</span> <span class="lg filled">Vàng: đã xếp ca</span> CĐ: lịch cố định ·
         <span style="color:#dc2626">•</span> quản lý đã xếp tay · <span class="lg warn">⚠ Viền đỏ: order Nghỉ / Chưa order</span> ·
+        <span class="lg ft">FT: làm FULL TIME</span> (hiện ở ca chính và tính cho mọi ca chồng giờ) ·
         Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:var(--ok-line)">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu người Cấp 2 hoặc Quản lý</div>
       <section class="card flush"><div class="grid-wrap" id="grid"></div></section>
       <div id="picker" class="picker" role="listbox" hidden></div>
@@ -196,26 +204,34 @@ function mountGrid(P, { week, start, holds }) {
   const reqOf = (d, s, r) => P.req[`${d}|${s}|${r}`] || 0;
   const extraOf = (s, r) => P.extra[`${s}|${r}`] || 0;
   const maxReq = (s, r) => Math.max(0, ...P.days.map((d) => reqOf(d.index, s, r)));
-  const groupOf = (d, s, r) => P.assign.filter((a) => a.b === P.branch.id && a.d === d && a.s === s && a.r === r);
+  // Người FULL TIME hiện trong mọi ca chính chồng giờ (ô chính ở ca "parent", các ca khác viền nét đứt)
+  const inBlock = (a, s) => a.s === s || !!P.ft[a.s]?.covers.includes(s);
+  const shiftObj = (n) => P.allShifts.find((x) => x.name === n) || { name: n };
+  const groupOf = (d, s, r) => P.assign.filter((a) => a.b === P.branch.id && a.d === d && a.r === r && inBlock(a, s));
   const rowsFor = (s, r) => Math.max(maxReq(s, r) + extraOf(s, r), ...P.days.map((d) => groupOf(d.index, s, r).length));
   function place(d, s, r, rows) {
     const arr = new Array(rows).fill(null);
     const list = groupOf(d, s, r).slice().sort((a, b) => (a.slot ?? 999) - (b.slot ?? 999));
     const rest = [];
-    list.forEach((a) => { if (a.slot != null && a.slot < rows && !arr[a.slot]) arr[a.slot] = a; else rest.push(a); });
+    const own = (a) => a.s === s || P.ft[a.s]?.parent === s;
+    list.filter(own).forEach((a) => { if (a.slot != null && a.slot < rows && !arr[a.slot]) arr[a.slot] = a; else rest.push(a); });
+    list.filter((a) => !own(a)).forEach((a) => rest.push(a));
     rest.forEach((a) => { const i = arr.indexOf(null); if (i >= 0) arr[i] = a; });
     return arr;
   }
   const filledCell = (a, d, s, attrs, mobile) => {
     const e = empById.get(a.eid) || { code: '?', name: 'Ngừng làm' };
-    const b = baseOf(a.eid, d, s); const warn = b !== 'ok';
-    const title = `${e.code} – ${e.name} · ${e.rank || ''}${a.fixed ? ' · Lịch cố định' : ''}${a.manual ? ' · Quản lý xếp tay' : ''}${warn ? ` · Order: ${WARN_LABEL[b]}` : ''}`;
-    return `<div class="cell filled ${mobile ? 'm ' : ''}${warn ? 'warnc ' : ''}${P.can_edit ? 'sel' : ''}"${attrs} data-e="${a.eid}" title="${esc(title)}">`
+    const f = P.ft[a.s]; const away = f && f.parent !== s;
+    if (f) attrs = ` data-d="${d}" data-s="${esc(a.s)}" data-r="${esc(a.r)}" data-i="${a.slot ?? 0}" data-blk="${esc(f.parent)}"`;
+    const b = baseOf(a.eid, d, a.s); const warn = b !== 'ok';
+    const title = `${e.code} – ${e.name} · ${e.rank || ''}${f ? ` · ${a.s} ${hm(f.start)}–${hm(f.end)}` : ''}${a.fixed ? ' · Lịch cố định' : ''}${a.manual ? ' · Quản lý xếp tay' : ''}${warn ? ` · Order: ${WARN_LABEL[b]}` : ''}`;
+    return `<div class="cell filled ${f ? `ftc ${away ? 'away ' : ''}` : ''}${mobile ? 'm ' : ''}${warn ? 'warnc ' : ''}${P.can_edit ? 'sel' : ''}"${attrs} data-e="${a.eid}" title="${esc(title)}">`
+      + (f ? `<span class="ftb">${esc(`FT ${hm(f.start)}–${hm(f.end)}`)}</span>` : '')
       + (a.fixed && !a.manual ? 'CĐ ' : (a.manual ? '<span style="color:#dc2626;margin-right:4px">•</span>' : '')) + esc(`${e.code} – ${e.name}`.toUpperCase())
       + (warn ? `<span class="tag">⚠ ${WARN_LABEL[b]}</span>` : '') + '</div>';
   };
   function shiftTotal(d, s) {
-    const asg = P.assign.filter((a) => a.b === P.branch.id && a.d === d && a.s === s);
+    const asg = P.assign.filter((a) => a.b === P.branch.id && a.d === d && inBlock(a, s));
     const need = P.roles.reduce((t, r) => t + reqOf(d, s, r), 0);
     const senior = asg.filter((a) => (empById.get(a.eid) || {}).senior).length;
     const cls = !need && !asg.length ? 'zero' : asg.length < need ? 'short' : asg.length > need ? 'over' : 'ok';
@@ -232,7 +248,7 @@ function mountGrid(P, { week, start, holds }) {
         const rows = rowsFor(s.name, r), mr = maxReq(s.name, r), places = {};
         P.days.forEach((d) => { places[d.index] = place(d.index, s.name, r, rows); });
         for (let i = 0; i < rows; i++) {
-          const isExtra = i >= mr; const lastExtra = isExtra && i === rows - 1;
+          const isExtra = i >= mr; const lastExtra = isExtra && extraOf(s.name, r) > 0 && i === mr + extraOf(s.name, r) - 1;   // chỉ hàng vượt định biên do quản lý thêm (không phải hàng sinh ra vì người FULL TIME)
           h += `<tr class="r-role ${ri % 2 ? 'alt ' : ''}${isExtra ? 'r-extra' : ''}"><th class="lab">${esc(`${s.name.toUpperCase()} – ${r.toUpperCase()} ${i + 1}`)}${isExtra ? ' – VƯỢT ĐỊNH BIÊN' : ''}`
             + (lastExtra && P.can_edit ? `<button class="rm-extra" data-s="${esc(s.name)}" data-r="${esc(r)}" title="Xóa hàng vượt định biên" aria-label="Xóa hàng vượt định biên">×</button>` : '') + '</th>';
           P.days.forEach((d) => {
@@ -276,7 +292,7 @@ function mountGrid(P, { week, start, holds }) {
           const cell = a ? filledCell(a, curDay, s.name, attrs, true)
             : i < reqOf(curDay, s.name, r) ? `<div class="cell empty m ${P.can_edit ? 'sel' : ''}"${attrs}>ĐỂ TRỐNG · bấm để chọn</div>`
             : `<div class="cell extra m ${P.can_edit ? 'sel' : ''}"${attrs}>Ngoài định biên</div>`;
-          const lastExtra = isExtra && i === rows - 1 && P.can_edit;
+          const lastExtra = isExtra && extraOf(s.name, r) > 0 && i === mr + extraOf(s.name, r) - 1 && P.can_edit;
           lines.push(`<div class="m-row"><div class="m-lab">${isExtra ? 'Vượt ĐB' : (i + 1)}${lastExtra ? `<button class="rm-extra" data-s="${esc(s.name)}" data-r="${esc(r)}" aria-label="Xóa hàng vượt định biên">×</button>` : ''}</div>${cell}</div>`);
         }
         if (lines.length) h += `<div class="m-role">${esc(r)}</div>${lines.join('')}`;
@@ -295,36 +311,57 @@ function mountGrid(P, { week, start, holds }) {
   function openPicker(cell) {
     const d = +cell.dataset.d, s = cell.dataset.s, r = cell.dataset.r, i = +cell.dataset.i;
     const cur = cell.dataset.e ? +cell.dataset.e : null;
+    const blk = cell.dataset.blk || s;
+    // Ở ca chính có ca FULL TIME đi kèm: chọn xếp ca thường hay FULL TIME
+    const modes = [blk, ...Object.values(P.ft).filter((f) => f.parent === blk).map((f) => f.name)];
+    pickCtx = { d, s, r, i, cur, blk, modes, mode: s, cell };
+    drawPicker();
+    const rc = cell.getBoundingClientRect();
+    picker.style.left = `${Math.min(window.scrollX + rc.left, window.scrollX + document.documentElement.clientWidth - 380)}px`;
+    picker.style.top = `${window.scrollY + rc.bottom + 4}px`;
+    picker.hidden = false;
+    picker.querySelector('button[data-pick]')?.focus();
+  }
+  function drawPicker() {
+    const { d, r, cur, modes, mode } = pickCtx;
     const showOff = $('#show-off').checked;
-    const busy = new Set(P.assign.filter((a) => a.d === d && a.s === s && a.eid !== cur).map((a) => a.eid));
+    const ms = shiftObj(mode);
+    // bận: đã xếp cùng ca, hoặc trùng giờ với ca FULL TIME (ở bất kỳ cơ sở nào)
+    const busy = new Set(P.assign.filter((a) => a.d === d && a.eid !== cur && (a.s === mode || ((P.ft[a.s] || P.ft[mode]) && overlap(shiftObj(a.s), ms)))).map((a) => a.eid));
     const cands = P.employees.filter((e) => e.branches.includes(P.branch.id) && e.roles.includes(r) && !busy.has(e.id));
     const groups = { ok: [], none: [], off: [] };
-    cands.forEach((e) => groups[baseOf(e.id, d, s)].push(e));
+    cands.forEach((e) => groups[baseOf(e.id, d, mode)].push(e));
     Object.values(groups).forEach((g) => g.sort((a, b) => b.rank_i - a.rank_i || a.name.localeCompare(b.name, 'vi')));
     const line = (e, g) => `<button type="button" class="g-${g}${e.id === cur ? ' cur' : ''}" data-pick="${e.id}">${e.id === cur ? '✓ ' : ''}${g === 'off' ? '⚠ ' : ''}${esc(`${e.code} – ${e.name} – ${e.rank}`)}${g === 'none' ? ' – CHƯA ORDER' : ''}</button>`;
-    let h = '<button type="button" data-pick="">ĐỂ TRỐNG</button>';
+    let h = '';
+    if (modes.length > 1) h += '<div class="pk-modes" role="group" aria-label="Loại ca">' + modes.map((m) => { const o = shiftObj(m); return `<button type="button" data-mode="${esc(m)}" class="${m === mode ? 'on' : ''}">${esc(P.ft[m] ? 'FULL TIME' : `Ca ${m}`)} ${hm(o.start)}–${hm(o.end)}</button>`; }).join('') + '</div>';
+    h += '<button type="button" data-pick="">ĐỂ TRỐNG</button>';
     if (groups.ok.length) h += '<div class="hd">ĐI LÀM ĐƯỢC</div>' + groups.ok.map((e) => line(e, 'ok')).join('');
     if (groups.none.length) h += '<div class="hd">CHƯA ORDER</div>' + groups.none.map((e) => line(e, 'none')).join('');
     if (showOff && groups.off.length) h += '<div class="hd">ĐÃ ĐĂNG KÝ NGHỈ</div>' + groups.off.map((e) => line(e, 'off')).join('');
     if (!cands.length) h += '<div class="hd">Không còn ai phù hợp (đúng chi nhánh, vị trí, chưa xếp ca này).</div>';
     picker.innerHTML = h;
-    if (mq.matches) { const wd = P.days[d]; picker.insertAdjacentHTML('afterbegin', `<div class="hd sheet-t">${esc(`${r} · Ca ${s} · ${wd.name} ${wd.date}`)}</div>`); }
-    const rc = cell.getBoundingClientRect();
-    picker.style.left = `${Math.min(window.scrollX + rc.left, window.scrollX + document.documentElement.clientWidth - 380)}px`;
-    picker.style.top = `${window.scrollY + rc.bottom + 4}px`;
-    picker.hidden = false;
-    pickCtx = { d, s, r, i, cur };
-    picker.querySelector('button')?.focus();
+    if (mq.matches) { const wd = P.days[d]; picker.insertAdjacentHTML('afterbegin', `<div class="hd sheet-t">${esc(`${r} · ${P.ft[mode] ? mode : `Ca ${mode}`} · ${wd.name} ${wd.date}`)}</div>`); }
   }
   async function pick(eid) {
     const c = pickCtx; closePicker();
-    if (!c || (eid || null) === c.cur) return;
+    if (!c) return;
+    eid = eid || null;
+    if (c.mode === c.s && eid === c.cur) return;
+    const call = (shift, emp, prev) => rpc('app_assign', { p_week: P.week_id, p_branch: P.branch.id, p_day: c.d, p_shift: shift, p_role: c.r, p_slot: c.i, p_emp: emp, p_prev: prev });
     try {
-      const res = await rpc('app_assign', { p_week: P.week_id, p_branch: P.branch.id, p_day: c.d, p_shift: c.s, p_role: c.r, p_slot: c.i, p_emp: eid || null, p_prev: c.cur });
-      P.assign = P.assign.filter((a) => !(a.d === c.d && a.s === c.s && (a.eid === c.cur || a.eid === eid)));
-      if (eid) P.assign.push({ eid, d: c.d, s: c.s, b: P.branch.id, r: c.r, slot: c.i, fixed: false, manual: true });
-      P.version = res.version; draw(); showSaved('Đã lưu · ' + hhmm());
-    } catch (e) { showSaved(e.message, true); if (/chế độ chỉ xem|tải lại/i.test(e.message)) setTimeout(rerender, 1500); }
+      let res;
+      if (c.mode === c.s) res = await call(c.s, eid, c.cur);
+      else {   // đổi giữa ca thường ↔ FULL TIME: gỡ ở ca cũ rồi xếp ở ca mới
+        if (c.cur) res = await call(c.s, null, c.cur);
+        P.assign = P.assign.filter((a) => !(a.d === c.d && a.s === c.s && a.eid === c.cur));
+        if (eid) res = await call(c.mode, eid, null);
+      }
+      P.assign = P.assign.filter((a) => !(a.d === c.d && ((a.s === c.s && a.eid === c.cur) || (a.s === c.mode && a.eid === eid))));
+      if (eid) P.assign.push({ eid, d: c.d, s: c.mode, b: P.branch.id, r: c.r, slot: c.i, fixed: false, manual: true });
+      if (res) P.version = res.version;
+      draw(); showSaved('Đã lưu · ' + hhmm());
+    } catch (e) { showSaved(e.message, true); setTimeout(rerender, 1500); }
   }
   async function extra(s, r, delta) {
     try {
@@ -341,14 +378,19 @@ function mountGrid(P, { week, start, holds }) {
     const rm = ev.target.closest('.rm-extra');
     if (rm) {
       const rows = rowsFor(rm.dataset.s, rm.dataset.r);
-      const has = P.days.some((d) => place(d.index, rm.dataset.s, rm.dataset.r, rows)[rows - 1]);
+      const last = maxReq(rm.dataset.s, rm.dataset.r) + extraOf(rm.dataset.s, rm.dataset.r) - 1;
+      const has = P.days.some((d) => { const a = place(d.index, rm.dataset.s, rm.dataset.r, rows)[last]; return a && !P.ft[a.s]; });
       if (has && !confirm('Hàng này còn người được xếp. Xóa hàng sẽ bỏ xếp những người trong hàng. Vẫn xóa?')) return;
       extra(rm.dataset.s, rm.dataset.r, -1); return;
     }
     const cell = ev.target.closest('.cell.sel');
     if (cell && P.can_edit) { ev.stopPropagation(); openPicker(cell); }
   });
-  picker.addEventListener('click', (ev) => { const b = ev.target.closest('button[data-pick]'); if (b) pick(b.dataset.pick ? +b.dataset.pick : null); });
+  picker.addEventListener('click', (ev) => {
+    const m = ev.target.closest('button[data-mode]');
+    if (m && pickCtx) { ev.stopPropagation(); pickCtx.mode = m.dataset.mode; drawPicker(); return; }
+    const b = ev.target.closest('button[data-pick]'); if (b) pick(b.dataset.pick ? +b.dataset.pick : null);
+  });
   const docClick = (ev) => { if (!picker.hidden && !picker.contains(ev.target)) closePicker(); };
   const docKey = (ev) => { if (ev.key === 'Escape') closePicker(); };
   document.addEventListener('click', docClick);
