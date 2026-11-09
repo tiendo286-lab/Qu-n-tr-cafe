@@ -33,7 +33,8 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 | Chức năng | Đã chốt |
 |---|---|
 | Trạng thái tuần | Đang order → Đang xếp → Đã chốt → (Mở lại) Đang chỉnh sửa. Tuần đã có ca xếp mà chưa ghi trạng thái thì tính là **Đang xếp**, giống bản offline. |
-| Nút "Bắt đầu xếp lịch" | Không hiện và bị máy chủ chặn khi tuần đã có ca được xếp, để không xóa mất lịch. |
+| Nút "Bắt đầu xếp lịch" | Không hiện và bị máy chủ chặn khi tuần đã có ca được xếp, để không xóa mất lịch. **Từ 09/11 (bước 26):** bấm được cả khi order chưa hết hạn — web hỏi lại, bấm xong thì **order của tuần đó đóng ngay** (muốn mở lại: "Quay lại order" rồi cài giờ hết hạn mới). |
+| Nút "Xóa lịch tuần" (09/11) | Có ở trang Xếp lịch cơ sở (trước chỉ ở Lịch tổng). Xóa mọi ca đã xếp của tuần ở **tất cả cơ sở** (kể cả lịch cố định), order giữ nguyên, quay về bước "Bắt đầu xếp lịch". Phải gõ chữ XOA. Không hiện / bị chặn khi tuần đã chốt ít nhất một lần (nhân viên đã thấy lịch). |
 | Quản lý sửa order | Lịch tự cập nhật theo các trường hợp ở dòng bên dưới. Cần quyền "Sửa order sau hạn" (mặc định Chủ, Quản lý tổng). |
 | Ô đã xếp mà order đổi sang Nghỉ | Web **không tự gỡ** người khỏi ca. Ô hiện viền đỏ ⚠ và có tên trong tab Cảnh báo. |
 | Tuần đã chốt | Nhân viên giữ bản đã chốt. Muốn đổi thì bấm "Mở lại tuần để sửa". Chốt lại thì nhân viên có ca thay đổi nhận thông báo. |

@@ -1,7 +1,7 @@
 // Xếp lịch cơ sở: lưới ca – vị trí × 7 ngày, chọn người, vượt định biên, khóa 1 người xếp, chốt tuần
 import { render as rerender, can, state } from '../app.js';
 import { CODE, RANKS, SENIOR, ST_CHOT, ST_SUA, ST_XEP, addDays, catalog, ftShort, hm, overlap, segText, staffSegments, toMin, closure, getWeek, hasPublished, orderWindow, parseWeekParam, requirements, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
-import { bindWeekPick } from '../parts.js';
+import { bindWeekPick, typed } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, esc, flash, go, html, raw, showSaved, hhmm } from '../ui.js';
 import { computeWarnings } from '../warnings.js';
@@ -96,13 +96,14 @@ export async function render({ params, me }) {
       title: 'Lịch cơ sở',
       html: html`${head('')}<section class="card stack" style="max-width:680px"><h2>Chưa bắt đầu xếp lịch</h2>
         <div style="color:var(--ink-2);line-height:1.6">Kiểm tra và bổ sung order ở trang <a href="#/quan-ly/order?tuan=${start}">Order lịch làm</a>. Khi bấm “Bắt đầu xếp lịch”, web tự đưa lịch cố định vào các ô nhân viên order “Đi làm được”.</div>
-        ${can('xep_lich') ? (win.state === 'da_dong' ? html`<div><button class="btn" type="button" id="start-btn">Bắt đầu xếp lịch</button></div>`
-          : html`<div class="toolbar"><button class="btn" type="button" disabled>Bắt đầu xếp lịch</button><span style="font-size:14px;color:var(--muted)">Mở sau giờ hết hạn order: ${win.close_text}</span></div>`)
+        ${can('xep_lich') ? html`<div class="toolbar"><button class="btn" type="button" id="start-btn">Bắt đầu xếp lịch</button>
+            ${win.state === 'da_dong' ? '' : html`<span style="font-size:14px;color:#9a3412">${win.state === 'dang_mo' ? `Order đang mở tới ${win.close_text}.` : `Order chưa mở (mở lúc ${win.open_text}).`} Bắt đầu xếp bây giờ thì order đóng ngay, nhân viên không order thêm được.</span>`}</div>`
           : html`<div class="alert warn">Chỉ người có quyền xếp lịch mới bắt đầu được.</div>`}</section>${CSS}`,
       mount() {
         bindWeekPick();
         const b = $('#start-btn');
         if (b) b.addEventListener('click', async () => {
+          if (win.state !== 'da_dong' && !confirm(`Order tuần ${weekLabel(start)} chưa hết hạn (${win.close_text}).\n\nBắt đầu xếp lịch bây giờ sẽ ĐÓNG ORDER ngay: nhân viên không order thêm hoặc sửa order được nữa.\n\nVẫn bắt đầu?`)) return;
           try { const n = await rpc('app_start_scheduling', { p_week: week.id }); flash(`Đã bắt đầu xếp lịch tuần ${weekLabel(start)}. Đã đưa ${n} ca từ lịch cố định vào lịch.`); }
           catch (e) { flash(e.message, 'error'); }
           rerender();
@@ -174,6 +175,7 @@ export async function render({ params, me }) {
         <button class="btn sm secondary" type="button" id="refresh-btn">Làm mới</button>
         <div style="margin-left:auto" class="toolbar">
           ${canBack && can('xep_lich') && holds ? html`<button class="btn sm secondary" type="button" id="back-btn">Quay lại order</button>` : ''}
+          ${editable && can('xep_lich') && !published ? html`<button class="btn sm secondary danger" type="button" id="clear-btn">Xóa lịch tuần</button>` : ''}
           ${editable && can('chot_tuan') ? html`<button class="btn sm" type="button" id="chot-btn" style="background:var(--ok-line)">Chốt tuần</button>` : ''}
         </div>
       </section>
@@ -449,6 +451,12 @@ function mountGrid(P, { week, start, holds }) {
   });
   $('#take-btn')?.addEventListener('click', async () => {
     try { await rpc('app_schedule_lock', { p_week: P.week_id, p_force: true }); flash('Bạn đã giành quyền xếp lịch. Người đang xếp sẽ chuyển sang chỉ xem.'); }
+    catch (e) { flash(e.message, 'error'); }
+    rerender();
+  });
+  $('#clear-btn')?.addEventListener('click', async () => {
+    if (!typed(`Xóa toàn bộ lịch tuần ${weekLabel(start)} của TẤT CẢ cơ sở?\n\nMọi ca đã xếp (kể cả lịch cố định) bị xóa, order của nhân viên vẫn giữ. Sau đó bấm "Bắt đầu xếp lịch" để xếp lại.`, 'XOA')) return;
+    try { await rpc('app_clear_schedule', { p_week: P.week_id }); flash(`Đã xóa lịch tuần ${weekLabel(start)}. Order vẫn giữ nguyên; bấm “Bắt đầu xếp lịch” để xếp lại.`); }
     catch (e) { flash(e.message, 'error'); }
     rerender();
   });
