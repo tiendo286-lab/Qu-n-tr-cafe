@@ -1,6 +1,10 @@
 // Báo cáo lịch tuần (chuyển từ database.py của bản offline 1.7.6: week_schedule_summary, schedule_warning_report,
 // staffing_report_rows, employee_schedule_report, order_report_details, branch_schedule_report, ...)
-import { ASSIGNED, WD_SHORT, WEEKDAYS, catalog, closure, isFT, requirements } from './data.js';
+import { ASSIGNED, WD_SHORT, WEEKDAYS, catalog, closure, isFT, requirements, segText, staffSegments } from './data.js';
+
+// Thiếu / thừa của một ô (cơ sở · ngày · ca). Ô có người FULL TIME: theo số người có mặt từng khoảng giờ (x.st).
+export const isShort = (x) => (x.st ? x.st === 'short' : x.actual < x.required);
+export const isOver = (x) => (x.st ? x.st === 'over' : x.actual > x.required);
 import { sel, selAll } from './sb.js';
 
 const RANK_ORDER = { 'Quản lý': 0, 'Cấp 1': 1, 'Cấp 2': 2 };
@@ -36,8 +40,8 @@ export class Report {
     for (const r of this.counted) {
       const b = this.bById.get(r.branch_id); if (!b) continue;
       const k = `${b.code}|${r.weekday}|${r.shift}`;
-      if (!actual.has(k)) actual.set(k, { actual: 0, roles: {}, senior: 0 });
-      const a = actual.get(k); a.actual++; a.roles[r.role] = (a.roles[r.role] || 0) + 1;
+      if (!actual.has(k)) actual.set(k, { actual: 0, roles: {}, senior: 0, people: [] });
+      const a = actual.get(k); a.actual++; a.roles[r.role] = (a.roles[r.role] || 0) + 1; a.people.push(r);
       if (['Quản lý', 'Cấp 1'].includes(this.em.get(r.employee_id)?.rank)) a.senior++;
     }
     const branches = new Map(); const chain = new Map();
@@ -45,7 +49,13 @@ export class Report {
       const a = actual.get(`${b.code}|${d}|${s}`) || { actual: 0, roles: {}, senior: 0 };
       const roleReq = Object.fromEntries(this.roles.map((r) => [r, this.req[`${b.id}|${d}|${s}|${r}`] || 0]));
       const required = Object.values(roleReq).reduce((t, n) => t + n, 0);
-      branches.set(`${b.code}|${d}|${s}`, { actual: a.actual, required, roles: Object.fromEntries(this.roles.map((r) => [r, a.roles[r] || 0])), role_required: roleReq, senior: a.senior });
+      let st = null; let segs = [];
+      if ((a.people || []).some((r) => r.ft)) {   // có người FULL TIME: tính theo giờ có mặt
+        const fm = this.cat.ftOf(b.id); const sh = fm.main.find((x) => x.name === s);
+        const segAll = staffSegments(sh, a.people.map((r) => (r.ft ? fm.ft[r.ft] : null)), required);
+        if (segAll.length) { st = segAll.some((x) => x.diff < 0) ? 'short' : segAll.some((x) => x.diff > 0) ? 'over' : 'ok'; segs = segText(segAll); }
+      }
+      branches.set(`${b.code}|${d}|${s}`, { actual: a.actual, required, roles: Object.fromEntries(this.roles.map((r) => [r, a.roles[r] || 0])), role_required: roleReq, senior: a.senior, st, segs });
       const c = chain.get(`${d}|${s}`) || { actual: 0, required: 0 }; c.actual += a.actual; c.required += required; chain.set(`${d}|${s}`, c);
     }
     this._summary = { branches, chain };
@@ -57,8 +67,9 @@ export class Report {
     const counts = { shortage: 0, overstaff: 0, role_mismatch: 0, missing_senior: 0, assigned_off: 0, assigned_no_order: 0, unassigned: 0, three_shifts: 0 };
     for (const [k, d] of sm.branches) {
       const [code, wd, shift] = k.split('|'); const label = `${code} – ${WD_SHORT[wd]} – ${shift}`;
-      if (d.actual < d.required) { counts.shortage++; lines.push(`THIẾU TỔNG: ${label}: ${d.actual}/${d.required}`); }
-      else if (d.actual > d.required) { counts.overstaff++; lines.push(`THỪA TỔNG: ${label}: ${d.actual}/${d.required}`); }
+      const tail = d.segs?.length ? ` (${d.segs.join(', ')})` : '';
+      if (isShort(d)) { counts.shortage++; lines.push(`THIẾU TỔNG: ${label}: ${d.actual}/${d.required}${tail}`); }
+      else if (isOver(d)) { counts.overstaff++; lines.push(`THỪA TỔNG: ${label}: ${d.actual}/${d.required}${tail}`); }
       const parts = this.roles.filter((r) => d.roles[r] !== d.role_required[r]).map((r) => `${r} ${d.roles[r]}/${d.role_required[r]}`);
       if (parts.length) { counts.role_mismatch++; lines.push(`LỆCH VỊ TRÍ: ${label}: ${parts.join(', ')}`); }
       if (d.actual > 0 && d.senior === 0) { counts.missing_senior++; lines.push(`THIẾU CẤP 1+: ${label}`); }
@@ -92,12 +103,12 @@ export class Report {
     const [r1, r2] = [this.roles.includes('Pha chế') ? 'Pha chế' : this.roles[0], this.roles.includes('Chạy bàn') ? 'Chạy bàn' : this.roles[1]];
     for (const b of this.cat.branches) for (let d = 0; d < 7; d++) for (const s of this.shiftNames) {
       const x = sm.branches.get(`${b.code}|${d}|${s}`); const issues = [];
-      if (x.actual < x.required) issues.push('THIẾU'); else if (x.actual > x.required) issues.push('THỪA');
+      if (isShort(x)) issues.push('THIẾU'); else if (isOver(x)) issues.push('THỪA');
       if (this.roles.some((r) => x.roles[r] !== x.role_required[r])) issues.push('LỆCH VỊ TRÍ');
       if (x.actual > 0 && x.senior === 0) issues.push('THIẾU CẤP 1+');
       out.push({ branch_code: b.code, branch_name: b.name, weekday: d, day: WEEKDAYS[d], shift: s, actual: x.actual, required: x.required,
         bar_actual: x.roles[r1] || 0, bar_required: x.role_required[r1] || 0, floor_actual: x.roles[r2] || 0, floor_required: x.role_required[r2] || 0,
-        senior: x.senior, status: issues.length ? issues.join(' • ') : 'ĐỦ' });
+        senior: x.senior, st: x.st, status: issues.length ? issues.join(' • ') : 'ĐỦ' });
     }
     return out;
   }
@@ -130,8 +141,8 @@ export class Report {
     return this.cat.branches.map((b) => {
       const s = rows.filter((r) => r.branch_code === b.code);
       return { branch_code: b.code, branch_name: b.name, total_assignments: s.reduce((t, r) => t + r.actual, 0),
-        exact: s.filter((r) => r.actual === r.required).length, shortage: s.filter((r) => r.actual < r.required).length,
-        overstaff: s.filter((r) => r.actual > r.required).length,
+        exact: s.filter((r) => !isShort(r) && !isOver(r)).length, shortage: s.filter(isShort).length,
+        overstaff: s.filter(isOver).length,
         role_mismatch: s.filter((r) => r.bar_actual !== r.bar_required || r.floor_actual !== r.floor_required).length,
         missing_senior: s.filter((r) => r.actual > 0 && r.senior === 0).length };
     });
@@ -167,7 +178,7 @@ export class Report {
     const sm = this.summary();
     const assignedEmp = new Set(this.wse.filter((r) => r.state === ASSIGNED).map((r) => r.employee_id)).size;
     let shortage = 0; let missingSenior = 0;
-    for (const d of sm.branches.values()) { if (d.actual < d.required) shortage++; if (d.actual > 0 && d.senior === 0) missingSenior++; }
+    for (const d of sm.branches.values()) { if (isShort(d)) shortage++; if (d.actual > 0 && d.senior === 0) missingSenior++; }
     return { active: this.active.length, assigned_employees: assignedEmp, unassigned_employees: Math.max(0, this.active.length - assignedEmp),
       total_assignments: this.wse.filter((r) => r.state === ASSIGNED).length, shortage, missing_senior: missingSenior };
   }

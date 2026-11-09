@@ -1,6 +1,6 @@
 // Xếp lịch cơ sở: lưới ca – vị trí × 7 ngày, chọn người, vượt định biên, khóa 1 người xếp, chốt tuần
 import { render as rerender, can, state } from '../app.js';
-import { CODE, RANKS, SENIOR, ST_CHOT, ST_SUA, ST_XEP, addDays, catalog, ftShort, hm, overlap, closure, getWeek, hasPublished, orderWindow, parseWeekParam, requirements, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
+import { CODE, RANKS, SENIOR, ST_CHOT, ST_SUA, ST_XEP, addDays, catalog, ftShort, hm, overlap, segText, staffSegments, toMin, closure, getWeek, hasPublished, orderWindow, parseWeekParam, requirements, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { bindWeekPick } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, esc, flash, go, html, raw, showSaved, hhmm } from '../ui.js';
@@ -31,6 +31,9 @@ const CSS = raw(`<style>
   .picker .pk-modes button.on { background: var(--plum-ink); border-color: var(--plum-ink); color: #fff; }
   .lg.ft { background: var(--plum-bg); color: var(--plum-ink); }
   .cell .tag { font-size: 10px; font-weight: 700; color: #b91c1c; margin-left: 6px; }
+  .tot small { display: block; font-size: 10.5px; font-weight: 600; line-height: 1.35; margin-top: 2px; }
+  .sg .tot:has(small) { height: auto; min-height: 34px; flex-direction: column; padding: 4px 6px; }
+  .m-seg { padding: 6px 14px; font-size: 13px; font-weight: 600; color: #a16207; background: #fef9e7; border-bottom: 1px solid var(--line-soft); }
   .tot { height: 34px; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 13px; border-radius: 8px; }
   .tot.short { background: #fee2e2; color: #b91c1c; } .tot.ok { background: #a7e8bd; color: #0f4a26; } .tot.over { background: #fef3c7; color: #a16207; } .tot.zero { color: var(--muted); }
   .rm-extra { margin-left: 8px; padding: 0 6px; line-height: 1; border: none; background: none; color: #b91c1c; cursor: pointer; font-weight: 700; font-size: 14px; }
@@ -234,9 +237,21 @@ function mountGrid(P, { week, start, holds }) {
     const asg = P.assign.filter((a) => a.b === P.branch.id && a.d === d && inBlock(a, s));
     const need = P.roles.reduce((t, r) => t + reqOf(d, s, r), 0);
     const senior = asg.filter((a) => (empById.get(a.eid) || {}).senior).length;
-    const cls = !need && !asg.length ? 'zero' : asg.length < need ? 'short' : asg.length > need ? 'over' : 'ok';
-    const tip = [`Tổng: ${asg.length}/${need}`].concat(P.roles.map((r) => `${r}: ${asg.filter((a) => a.r === r).length}/${reqOf(d, s, r)}`), [`Cấp 2+: ${senior}`]).join('\n');
-    return { n: asg.length, need, cls, bang: (need || asg.length) && senior === 0, tip };
+    let cls = !need && !asg.length ? 'zero' : asg.length < need ? 'short' : asg.length > need ? 'over' : 'ok';
+    // Có người FULL TIME (chỉ có mặt một phần ca): ghi rõ thừa / thiếu từ mấy giờ đến mấy giờ
+    const segAll = asg.some((a) => P.ft[a.s]) ? staffSegments(shiftObj(s), asg.map((a) => P.ft[a.s] || null), need) : [];
+    const segs = segText(segAll);
+    if (segAll.length) {   // màu theo số người có mặt từng khoảng giờ (người FT về / vào giữa ca)
+      cls = segAll.some((x) => x.diff < 0) ? 'short' : segAll.some((x) => x.diff > 0) ? 'over' : 'ok';
+      const sh = shiftObj(s);   // chỉ ghi 'Đủ người cả ca' khi có người FT vào / về giữa ca
+      const partial = asg.some((a) => { const f = P.ft[a.s]; return f && (toMin(f.start) > toMin(sh.start) || toMin(f.end) < toMin(sh.end)); });
+      if (!segs.length && partial) segs.push('Đủ người cả ca');
+    }
+    // con số hiển thị: có người FT thì là số người CÓ MẶT CÙNG LÚC (vd "3/3", "3–4/3")
+    const lo = segAll.length ? Math.min(...segAll.map((x) => x.n)) : asg.length; const hi = segAll.length ? Math.max(...segAll.map((x) => x.n)) : asg.length;
+    const label = `${lo === hi ? lo : `${lo}–${hi}`}/${need}`;
+    const tip = [`Tổng: ${asg.length} người${segAll.length ? ` (có mặt cùng lúc ${label})` : `/${need}`}`].concat(P.roles.map((r) => `${r}: ${asg.filter((a) => a.r === r).length}/${reqOf(d, s, r)}`), [`Cấp 2+: ${senior}`], segs).join('\n');
+    return { n: asg.length, need, label, cls, bang: (need || asg.length) && senior === 0, tip, segs };
   }
   function renderGrid() {
     let h = '<table class="sg"><thead><tr><th class="lab">CA / VỊ TRÍ</th>';
@@ -263,7 +278,7 @@ function mountGrid(P, { week, start, holds }) {
         }
       });
       h += `<tr class="r-total"><th class="lab" style="text-align:center">TỔNG CA ${esc(s.name.toUpperCase())}</th>`;
-      P.days.forEach((d) => { const t = shiftTotal(d.index, s.name); h += `<td class="c"><div class="tot ${t.cls}" title="${esc(t.tip)}">${t.n}/${t.need}${t.bang ? ' !' : ''}</div></td>`; });
+      P.days.forEach((d) => { const t = shiftTotal(d.index, s.name); h += `<td class="c"><div class="tot ${t.cls}" title="${esc(t.tip)}">${t.label}${t.bang ? ' !' : ''}${t.segs.length ? `<small>${t.segs.map(esc).join('<br>')}</small>` : ''}</div></td>`; });
       h += '</tr>';
     });
     $('#grid').innerHTML = h + '</tbody></table>';
@@ -281,7 +296,7 @@ function mountGrid(P, { week, start, holds }) {
     if (!P.shifts.length) h += '<div class="m-pad">Chi nhánh chưa bật ca nào.</div>';
     P.shifts.forEach((s) => {
       const t = shiftTotal(curDay, s.name);
-      h += `<section class="m-shift"><div class="m-sh-h"><div><strong>Ca ${esc(s.name)}</strong> <span class="det">${(s.start || '').slice(0, 5)}–${(s.end || '').slice(0, 5)}</span></div><span class="tot ${t.cls} m-tot">${t.n}/${t.need}${t.bang ? ' !' : ''}</span></div>`;
+      h += `<section class="m-shift"><div class="m-sh-h"><div><strong>Ca ${esc(s.name)}</strong> <span class="det">${(s.start || '').slice(0, 5)}–${(s.end || '').slice(0, 5)}</span></div><span class="tot ${t.cls} m-tot">${t.label}${t.bang ? ' !' : ''}</span></div>${t.segs.length ? `<div class="m-seg">${t.segs.map(esc).join(' · ')}</div>` : ''}`;
       P.roles.forEach((r) => {
         const rows = rowsFor(s.name, r), mr = maxReq(s.name, r), arr = place(curDay, s.name, r, rows);
         const lines = [];

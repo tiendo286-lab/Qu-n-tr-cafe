@@ -35,6 +35,24 @@ export function ftModel(list) {
   }
   return { main, ft };
 }
+// Số người có mặt theo từng khoảng giờ trong một ca: người ca chính có mặt cả ca (null), người FULL TIME chỉ phần chồng giờ ({start, end})
+export function staffSegments(shift, people, need) {
+  const s0 = toMin(shift?.start), s1 = toMin(shift?.end);
+  if (s0 == null || s1 == null || s1 <= s0) return [];
+  const iv = people.map((p) => (p ? [Math.max(s0, toMin(p.start) ?? s0), Math.min(s1, toMin(p.end) ?? s1)] : [s0, s1]));
+  const pts = [...new Set([s0, s1, ...iv.flat()].filter((x) => x >= s0 && x <= s1))].sort((a, b) => a - b);
+  const out = [];
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i], b = pts[i + 1]; const n = iv.filter(([x, y]) => x < b && y > a).length;
+    const last = out[out.length - 1];
+    if (last && last.n === n) last.to = b; else out.push({ from: a, to: b, n, diff: n - need });
+  }
+  return out;
+}
+const fmtMin = (m) => `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`;
+// ["Thừa 1: 12:30–15:00", "Thiếu 1: 15:00–17:30"] — chỉ các khoảng giờ lệch định biên
+export const segText = (segs) => segs.filter((x) => x.diff).map((x) => `${x.diff > 0 ? 'Thừa' : 'Thiếu'} ${Math.abs(x.diff)}: ${fmtMin(x.from)}–${fmtMin(x.to)}`);
+
 // Sắp ca cho order: mỗi ca FULL TIME đứng ngay sau ca chính của nó
 export function withFtAfter(list, par) {
   const out = [];

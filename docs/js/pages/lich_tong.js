@@ -4,7 +4,7 @@ import { ASSIGNED, NONE, OFF, RANKS, ST_CHOT, ftShort, isFT, ST_SUA, ST_XEP, add
 import { typed } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
 import { $, $$, flash, hhmm, html, norm, showSaved } from '../ui.js';
-import { loadReport } from '../reports.js';
+import { isOver, isShort, loadReport } from '../reports.js';
 
 export const perm = 'bao_cao';
 const abbr = (n) => String(n || '').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase();
@@ -96,9 +96,9 @@ export async function render({ params, me }) {
   const sumRow = (label, getter) => html`<tr><td class="nm"><strong>${label}</strong></td>${days.map((d) => shifts.map((s) => {
     const c = getter(d.index, s);
     if (!c) return html`<td>—</td>`;
-    const bg = c.actual === c.required ? 'var(--ok-bg)' : c.actual < c.required ? '#fee2e2' : '#fef3c7';
-    const tip = c.roles ? Object.keys(c.roles).map((k) => `${k}: ${c.roles[k]}/${c.role_required[k]}`).join('\n') + `\nQL/Cấp 1: ${c.senior}` : '';
-    return html`<td style="background:${bg}" title="${tip}">${c.actual}/${c.required}</td>`;
+    const bg = isShort(c) ? '#fee2e2' : isOver(c) ? '#fef3c7' : 'var(--ok-bg)';
+    const tip = (c.roles ? Object.keys(c.roles).map((k) => `${k}: ${c.roles[k]}/${c.role_required[k]}`).join('\n') + `\nQL/Cấp 1: ${c.senior}` : '') + (c.segs?.length ? `\n${c.segs.join('\n')}` : '');
+    return html`<td style="background:${bg}" title="${tip}">${c.actual}/${c.required}${c.segs?.length ? html`<br><small>${c.segs.join(' · ')}</small>` : ''}</td>`;
   }))}</tr>`;
   const lockBox = cl.status === ST_CHOT ? html`<div class="alert warn">Lịch tuần đã chốt — chỉ xem. Mở lại tuần ở <a href="#/quan-ly/bao-cao?tuan=${start}">Chốt lịch &amp; báo cáo</a> nếu cần sửa.</div>`
     : lock ? html`<div class="alert warn">Đang được <strong>${lock.who}</strong> xếp lịch từ ${(lock.acquired_at || '').slice(11, 16)} — bạn đang ở chế độ chỉ xem.</div>`

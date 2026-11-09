@@ -1,5 +1,5 @@
 // Cảnh báo của một tuần (chuyển từ schedule.warnings của bản Python)
-import { ASSIGNED, OFF, OK, RANKS, SENIOR, catalog, closure, isFT, requirements, weekDays } from './data.js';
+import { ASSIGNED, OFF, OK, RANKS, SENIOR, catalog, closure, isFT, requirements, segText, staffSegments, weekDays } from './data.js';
 import { sel, selAll } from './sb.js';
 
 export const WARN_GROUPS = [
@@ -41,13 +41,21 @@ export async function computeWarnings(week, ctx = {}) {
         assigned.forEach((a) => { haveR[a.role] = (haveR[a.role] || 0) + 1; });
         const order = [...new Set([...Object.keys(needR), ...Object.keys(haveR)])].sort((x, y) => (roleOrder.get(x) ?? 99) - (roleOrder.get(y) ?? 99));
         const ctxW = { branch_id: b.id, weekday: d.index, shift: s.name, label: `${b.code} · ${d.name} ${d.date} · ${s.name}` };
-        if (assigned.length < need) {
+        // có người FULL TIME: ghi rõ thừa / thiếu từ mấy giờ đến mấy giờ
+        const fm = assigned.some((a) => a.ft) ? cat.ftOf(b.id).ft : null;
+        const segAll = fm ? staffSegments(s, assigned.map((a) => (a.ft ? fm[a.ft] : null)), need) : [];
+        const segs = segText(segAll);
+        const segTail = segs.length ? ` · ${segs.join(', ')}` : '';
+        // có người FT: thiếu / vượt tính theo số người có mặt từng khoảng giờ
+        const isShort = segAll.length ? segAll.some((x) => x.diff < 0) : assigned.length < need;
+        const isOver = segAll.length ? !isShort && segAll.some((x) => x.diff > 0) : assigned.length > need;
+        if (isShort) {
           const parts = order.filter((r) => (needR[r] || 0) > (haveR[r] || 0)).map((r) => `${r} ${haveR[r] || 0}/${needR[r] || 0}`);
-          out.thieu.push({ ...ctxW, detail: `Đã xếp ${assigned.length}/${need}${parts.length ? ` (${parts.join(', ')})` : ''}` });
+          out.thieu.push({ ...ctxW, detail: `Đã xếp ${assigned.length}/${need}${parts.length ? ` (${parts.join(', ')})` : ''}${segTail}` });
         }
-        if (assigned.length > need) {
+        if (isOver) {
           const parts = order.filter((r) => (haveR[r] || 0) > (needR[r] || 0)).map((r) => `${r} ${haveR[r] || 0}/${needR[r] || 0}`);
-          out.vuot.push({ ...ctxW, detail: `Đã xếp ${assigned.length}/${need}${parts.length ? ` (${parts.join(', ')})` : ''}` });
+          out.vuot.push({ ...ctxW, detail: `Đã xếp ${assigned.length}/${need}${parts.length ? ` (${parts.join(', ')})` : ''}${segTail}` });
         }
         if ((need || assigned.length) && !assigned.some((a) => SENIOR.has(em.get(a.employee_id)?.rank))) {
           const rk = {};

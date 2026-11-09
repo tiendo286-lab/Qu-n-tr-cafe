@@ -4,7 +4,7 @@ import { ST_CHOT, addDays, dmy, focusWeek, ftShort, getWeek, hasPublished, parse
 import { downloadXlsx } from '../excel.js';
 import { rpc, sel } from '../sb.js';
 import { $, flash, html, norm, raw } from '../ui.js';
-import { loadReport } from '../reports.js';
+import { loadReport, isShort } from '../reports.js';
 
 export const perm = 'bao_cao';
 const WARN_CATS = ['THIẾU TỔNG', 'THỪA TỔNG', 'LỆCH VỊ TRÍ', 'THIẾU CẤP 1+', 'XẾP CA ĐÃ NGHỈ', 'XẾP KHI CHƯA ORDER', 'LÀM THÔNG 3 CA', 'CHƯA CÓ CA'];
@@ -108,7 +108,7 @@ export async function render({ params }) {
             return i < r.required[d.index] ? html`<td class="st-off">Thiếu</td>` : html`<td></td>`;
           })}</tr>`);
         })}<tr style="background:var(--sage-bg)"><td class="nm"><strong>Tổng ca ${s}</strong></td>${days.map((d) => { const t = sm.branches.get(`${b.code}|${d.index}|${s}`);
-          return t ? html`<td style="font-weight:700;color:${t.actual >= t.required ? 'var(--ok-ink)' : '#b91c1c'}">${t.actual}/${t.required}</td>` : html`<td>—</td>`; })}</tr>`)
+          return t ? html`<td style="font-weight:700;color:${isShort(t) ? '#b91c1c' : 'var(--ok-ink)'}">${t.actual}/${t.required}${t.segs?.length ? html`<br><small style="font-weight:600">${t.segs.join(' · ')}</small>` : ''}</td>` : html`<td>—</td>`; })}</tr>`)
         : html`<tr><td colspan="8">Cơ sở này chưa có định biên hoặc người được xếp.</td></tr>`}</tbody></table>`;
     } else {
       const grid = rep.employeeGrid();
@@ -192,7 +192,7 @@ function exportWeekly(rep, mode, branch) {
         const n = Math.max(...r.required, ...r.days.map((x) => x.length), 1);
         for (let i = 0; i < n; i++) rows.push([`${s} – ${r.role} ${i + 1}`, ...days.map((d) => { const a = r.days[d.index][i]; return a ? `${a.code} – ${a.name}${a.ft ? ` (${ftShort(a.ft)})` : ''}${a.source === 'FIXED' ? ' CĐ' : ''}` : i < r.required[d.index] ? 'THIẾU' : ''; })]);
       }
-      rows.push([`TỔNG CA ${s.toUpperCase()}`, ...days.map((d) => { const t = sm.branches.get(`${branch.code}|${d.index}|${s}`); return t ? `${t.actual}/${t.required}` : ''; })]);
+      rows.push([`TỔNG CA ${s.toUpperCase()}`, ...days.map((d) => { const t = sm.branches.get(`${branch.code}|${d.index}|${s}`); return t ? `${t.actual}/${t.required}${t.segs?.length ? ` (${t.segs.join(', ')})` : ''}` : ''; })]);
     }
     downloadXlsx(`Lich_co_so_${branch.code}_${w.start_date}.xlsx`, [{ name: 'LICH_TUAN', rows }]);
   } else {
