@@ -150,7 +150,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Tiền hàng | Tiền hàng **cuối tháng thanh toán 1 lần**. Tổng bill các hóa đơn trong tháng của từng cơ sở → chi phí "Nguyên liệu (kho tổng)" của cơ sở đó ở Chốt tháng (không trừ quỹ cơ sở; bảng đối chiếu cộng lại như chi phí quỹ ngoài). Trang Kế toán có tổng phải trả kho tổng theo tháng / cơ sở. Cuối tháng ghi **một lần thanh toán** (ở Quỹ ngoài: khoản "Thanh toán kho tổng tháng X", điền sẵn tổng tiền, không chia lại cho cơ sở vì đã tính theo từng hóa đơn). |
 | File Excel | Đọc "Phiếu xuất điều chuyển": các dòng đầu dạng "Nhãn: giá trị" (Số đơn, Ngày tạo, Người tạo, Kho xuất, Thời gian xuất, Kho nhập "Tên (MÃ KHO)", Tham chiếu) + bảng cột Mã hàng · Tên hàng · Tên đơn vị tính · Số lượng · Đơn giá · Tổng, dòng cuối "Tổng". Kho nhập tự nhận ra cơ sở (lần đầu đoán theo chữ cái đầu tên, kế toán xác nhận, lần sau nhớ). Trùng số đơn bị chặn. Đã làm theo đề xuất: 1 ảnh gắn được nhiều món (tick các món trong ảnh); mỗi món có nút "Đủ" điền sẵn số hóa đơn; số lượng cho phép số lẻ. Quản lý xem được trang Hóa đơn giao hàng (không tải / ghép / xóa). |
 
-## 5i. Chia phiếu chốt ca thành phần việc — anh Tiến chốt 11/11/2026, CHƯA LÀM (chờ anh xác nhận 2 điểm cuối + lệnh bắt đầu)
+## 5i. Chia phiếu chốt ca thành phần việc — anh Tiến chốt 11/11/2026, CHƯA LÀM (đã chốt đủ, chờ lệnh bắt đầu)
 
 | Điểm | Anh Tiến chốt |
 |---|---|
@@ -158,7 +158,8 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Nhận phần | Mỗi người bấm "Tôi nhận phần này". **Chỉ người nhận sửa được** phần đó; người khác chỉ xem, muốn làm thay bấm "Nhận lại phần này" (ghi lịch sử). |
 | Xong phần | Người nhận bấm "Xong phần này" — web kiểm tra đúng các mục của phần. **Đủ các phần Xong → phiếu tự HOÀN THÀNH** (bỏ nút Hoàn thành riêng). |
 | Chưa xong | Còn phần chưa xong → phiếu chưa hoàn thành và **treo nhắc nhân viên** (người nhận phần; phần chưa ai nhận thì nhắc cả nhân viên trong ca). |
-| Chờ xác nhận | (đề xuất) nhắc từ hết giờ ca + 15 phút, lặp mỗi giờ; người được nhận phần = nhân viên có tên trong ca + quản lý. |
+| Giờ nhắc | Nhắc lần đầu **30 phút trước khi hết ca**; sau đó còn phần chưa xong thì nhắc lại mỗi giờ tới khi xong. |
+| Ai được nhận phần | Nhân viên có tên trong ca đó + quản lý. |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
