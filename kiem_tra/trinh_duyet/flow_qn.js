@@ -24,8 +24,8 @@ export default async ({ sleep, out }) => {
   const err = txt('dialog[open] .sq-err');
   ms[1].value = '200.000'; $('button[type=submit]', dlg()).click(); await reload();
   r.push(`tự nhập: "${sumTxt}" · sai tổng: "${err}" → ${$$('.sq-sec .sq-w').length} khoản`);
-  location.hash = '#/quan-ly/chot-thang?cn=1'; await wait('.ct-k', 200); await sleep(400);
-  r.push(`Chốt tháng LHP: đối chiếu ${$('.ct-rc') ? 'CÓ' : 'KHÔNG'} · ${txt('.ct-rc').slice(-60)}`);
+  location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/chot-thang?cn=1'; await wait('.ct-rc', 300); await sleep(800);
+  r.push(`Chốt tháng LHP: đối chiếu ${$('.ct-rc') ? 'CÓ' : 'KHÔNG'} · ${txt('.ct-rc').slice(-60)} · ${document.title} · ${location.hash} · ${[...document.querySelectorAll('h2')].map((h) => h.innerText.slice(0, 20)).join('/')}`);
   r.push(`rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);
   out.push({ route: 'quỹ ngoài', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

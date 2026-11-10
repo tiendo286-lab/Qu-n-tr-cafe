@@ -237,8 +237,9 @@ export async function render({ params }) {
 
 // ---------------------------------------------------------------- Quỹ ngoài (chỉ Chủ)
 const MODE = { doanh_thu: 'Theo tỉ lệ doanh thu', deu: 'Chia đều', mot: 'Cho 1 cơ sở', tu_nhap: 'Tự nhập số' };
+const MODE_ALL = { ...MODE, kho_tong: 'Thanh toán kho tổng (không chia — đã tính theo từng hóa đơn)' };
 async function renderExt(month, head) {
-  const E = await rpc('app_ext_month', { p_month: month });
+  const [E, K] = await Promise.all([rpc('app_ext_month', { p_month: month }), rpc('app_ext_kho', { p_month: month }).catch(() => null)]);
   const cats = (k) => E.categories.filter((c) => c.kind === k && c.active);
   const sumK = (k) => E.entries.filter((e) => e.kind === k).reduce((s, e) => s + Number(e.amount), 0);
   const recv = E.rows.filter((r) => r.type === 'nhan').reduce((s, r) => s + Number(r.amount), 0);
@@ -264,6 +265,7 @@ async function renderExt(month, head) {
         <div class="sq-k pos"><span>Nhận từ cơ sở trong tháng</span><b>${vnd(recv)}</b><small>${E.pending.length ? `${E.pending.length} phiếu chờ anh nhận` : 'Không có phiếu chờ'}</small></div>
         <div class="sq-k neg"><span>Chi ngoài trong tháng</span><b>${vnd(sumK('chi'))}</b><small>Thu ngoài ${vnd(sumK('thu'))}</small></div></div>
       ${E.locked ? '' : html`<div class="toolbar" style="margin-bottom:12px"><button type="button" class="btn" id="ex-add">+ Khoản chi / thu ngoài</button>
+        ${K && K.total ? html`<button type="button" class="btn secondary" id="ex-kho">Thanh toán kho tổng (${vnd(K.total)}${K.paid ? ` · đã trả ${vnd(K.paid)}` : ''})</button>` : ''}
         ${E.is_start_month ? html`<button type="button" class="btn secondary" id="ex-open">Số dư đầu ${dmy(E.start).slice(0, 5)}</button>` : ''}</div>`}
       ${E.pending.length ? html`<section class="card stack sq-sec"><h2>Phiếu rút chờ anh xác nhận</h2>
         ${E.pending.map((w) => html`<div class="sq-w todo"><div class="grow"><strong>${w.code} · ${M[w.method]}</strong>${w.note ? ` — ${w.note}` : ''}<div class="st-meta">${dmy(w.wdate)} · ${w.by || ''}</div></div>
@@ -272,7 +274,7 @@ async function renderExt(month, head) {
         <div class="st-meta">Doanh thu tháng để chia theo tỉ lệ: ${E.revenue.map((r) => `${r.code} ${vnd(r.revenue)}`).join(' · ')}</div>
         ${E.entries.length ? E.entries.map((e) => html`<div class="sq-w ${e.ok ? '' : 'todo'}">
             <div class="grow"><strong>${e.note}</strong> <span class="st-meta">· ${e.category || ''} · ${e.pay_method === 'tien_mat' ? 'Tiền mặt' : 'Chuyển khoản'} · ${dmy(e.entry_date)}</span>
-              <div class="st-meta">${MODE[e.alloc_mode]}${e.fixed ? ' (đã cố định)' : ''}: ${e.alloc.length ? e.alloc.map((a) => `${a.code} ${fmt(a.amount)}đ`).join(' · ') : 'chưa chia'}${e.ok ? '' : html` · <strong class="sq-out">chưa chia hết</strong>`}</div></div>
+              <div class="st-meta">${MODE_ALL[e.alloc_mode]}${e.fixed ? ' (đã cố định)' : ''}${e.alloc_mode === 'kho_tong' ? '' : `: ${e.alloc.length ? e.alloc.map((a) => `${a.code} ${fmt(a.amount)}đ`).join(' · ') : 'chưa chia'}`}${e.ok ? '' : html` · <strong class="sq-out">chưa chia hết</strong>`}</div></div>
             <div class="sq-amt ${e.kind === 'thu' ? 'sq-in' : ''}">${e.kind === 'chi' ? '−' : '+'}${fmt(e.amount)}đ</div>
             ${E.locked ? '' : html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary ex-ed" data-id="${e.id}">Sửa</button><button type="button" class="btn sm secondary danger ex-del" data-id="${e.id}" aria-label="Xóa">×</button></span>`}</div>`)
           : html`<div class="st-meta">Tháng này chưa có khoản ngoài nào.</div>`}</section>
@@ -301,7 +303,7 @@ async function renderExt(month, head) {
           <label class="field"><span>Nội dung</span><input class="input" name="note" value="${e.note || ''}" placeholder="vd: Tiền nhà LHP tháng 11, lương quản lý…" autocomplete="off"></label>
           <label class="field"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${e.amount ? fmt(e.amount) : ''}" autocomplete="off"></label>
           <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" ${(e.pay_method || 'tien_mat') === 'tien_mat' ? 'checked' : ''}> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan" ${e.pay_method === 'chuyen_khoan' ? 'checked' : ''}> Chuyển khoản</label></div>
-          <label class="field"><span>Chia cho cơ sở</span><select class="input" name="mode">${Object.entries(MODE).map(([k, l]) => html`<option value="${k}" ${mode === k ? 'selected' : ''}>${l}</option>`)}</select></label>
+          <label class="field"><span>Chia cho cơ sở</span><select class="input" name="mode">${Object.entries(mode === 'kho_tong' ? MODE_ALL : MODE).map(([k, l]) => html`<option value="${k}" ${mode === k ? 'selected' : ''}>${l}</option>`)}</select></label>
           <label class="field ex-one" ${mode === 'mot' ? '' : 'hidden'}><span>Cơ sở</span><select class="input" name="br"><option value="">— Chọn cơ sở —</option>${E.branches.map((b) => html`<option value="${b.id}" ${String(e.alloc_branch) === String(b.id) ? 'selected' : ''}>${b.code} – ${b.name}</option>`)}</select></label>
           <div class="ex-man stack" style="gap:6px" ${mode === 'tu_nhap' ? '' : 'hidden'}>${E.branches.map((b) => html`<label class="ex-mrow"><span>${b.code}</span><input class="input money ex-m" data-b="${b.id}" inputmode="numeric" value="${man[b.id] ? fmt(man[b.id]) : ''}" autocomplete="off"></label>`)}
             <div class="st-meta" id="ex-msum"></div></div>
@@ -326,6 +328,9 @@ async function renderExt(month, head) {
         });
       };
       $('#ex-add')?.addEventListener('click', () => form());
+      $('#ex-kho')?.addEventListener('click', () => form({ kind: 'chi', amount: Math.max(0, K.total - (K.paid || 0)) || K.total, alloc_mode: 'kho_tong', pay_method: 'chuyen_khoan',
+        entry_date: vnToday().startsWith(month) ? vnToday() : E.to, note: `Thanh toán kho tổng tháng ${month.slice(5)}/${month.slice(0, 4)}`,
+        category_id: (E.categories.find((c) => c.kind === 'chi' && /kho tổng/i.test(c.name)) || {}).id }));
       $$('.ex-ed').forEach((b) => b.addEventListener('click', () => form(E.entries.find((x) => x.id === Number(b.dataset.id)))));
       $('#ex-open')?.addEventListener('click', () => {
         const o = E.openings || {};

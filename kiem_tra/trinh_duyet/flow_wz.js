@@ -48,13 +48,12 @@ export default async ({ sleep, out }) => {
     await go(0);
     return `trước: "${before}" · ảnh iPOS: ${$$('#ipos-input').length && $('#ipos-input').closest('.pc-f').querySelectorAll('.ph').length} · sau: "${after || 'hết thiếu'}" · ${txt('#ipos-check')}`;
   });
-  await step('Bước 4: chọn Không nhận hàng → bước 5 đủ → HOÀN THÀNH', async () => {
-    await go(3); $('[data-tab="report"]').click(); const k = $('input[name=goods][value=khong]'); k.checked = true; k.dispatchEvent(new Event('change', { bubbles: true }));
-    await sleep(1600); await go(4);
+  await step('Bước 4: không có hàng kho tổng (không phải chọn gì) → bước 5 đủ → HOÀN THÀNH', async () => {
+    await go(3); const nh = txt('#hd-box'); await sleep(400); await go(4);
     const a = txt('#wz-check');
     $('#finish').click(); await sleep(1500); const d = $('dialog[open]'); const sum = d ? d.innerText.replace(/\s+/g, ' ').slice(0, 260) : 'KHÔNG HIỆN HỘP';
     d?.querySelector('#confirm-finish').click(); await sleep(1200); await wait('#pc-form');
-    return `${a.slice(0, 120)} || ${sum} || ${txt('#root .alert')} · ${(await rpc('app_ca_get', { p_id: r1 })).status}`;
+    return `mục 7: ${nh.slice(0, 60)} || ${a.slice(0, 120)} || ${sum} || ${txt("#root .alert")} · ${(await rpc("app_ca_get", { p_id: r1 })).status}`;
   });
   let r3;
   await step('Ca Tối mở trước khi ca Chiều hoàn thành: chưa cho đếm nhận két', async () => {

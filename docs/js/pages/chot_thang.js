@@ -141,6 +141,8 @@ export async function render({ params }) {
         <div class="ct-amt ${e.kind === 'chi' ? 'ct-neg' : ''}">${e.kind === 'chi' ? '−' : '+'}${vnd(e.amount)}</div>
         ${locked ? '' : html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary ct-ed" data-id="${e.id}">Sửa</button><button type="button" class="btn sm secondary danger ct-del" data-id="${e.id}" aria-label="Xóa">×</button></span>`}</div>`)}</div>`
       : html`<div class="st-meta">Chưa nhập khoản nào.</div>`}
+    <div class="pc-sub" style="margin-top:8px">HÀNG KHO TỔNG (${(D.kho || []).length} hóa đơn · ${vnd(Tt.chi_kho || 0)}) <span class="st-meta">— tổng bill phiếu xuất kho tổng trong tháng, thanh toán 1 lần cuối tháng (không lấy tiền của quán) · <a href="#/ke-toan/hoa-don?thang=${month}&cn=${cn}">Hóa đơn giao hàng ›</a></span></div>
+    ${(D.kho || []).length ? html`<div class="ct-list">${D.kho.map((x) => html`<div class="ct-row"><div class="grow"><strong>${x.doc_no}</strong><div class="st-meta">${dmy(x.date)} · ${x.state === 'dang_chuyen' ? 'đang chuyển' : 'đã nhận'}</div></div><div class="ct-amt ct-neg">−${vnd(x.total)}</div></div>`)}</div>` : ''}
     <div class="pc-sub" style="margin-top:8px">CHI PHÍ / THU CHIA TỪ QUỸ NGOÀI (${(D.ext || []).length}) <span class="st-meta">— Chủ ghi ở Sổ quỹ › Quỹ ngoài, chia cho cơ sở; không lấy tiền của quán</span></div>
     ${(D.ext || []).length ? html`<div class="ct-list">${D.ext.map((x) => html`<div class="ct-row">
         <div class="grow"><strong>${x.note}</strong><div class="st-meta">${dmy(x.date)} · ${x.kind === 'chi' ? 'Chi' : 'Thu'} · ${x.category || ''} · phần của cơ sở / tổng ${vnd(x.total)}</div></div>
@@ -156,7 +158,7 @@ export async function render({ params }) {
     <div class="kv">
       <div>Doanh thu</div><div>${vnd(Tt.revenue)}</div>
       <div>+ Thu khác</div><div>${vnd(Tt.thu)}</div>
-      <div>− Chi phí</div><div>${vnd(Tt.chi)} <span class="st-meta">(ở phiếu ca ${vnd(Tt.chi_ca)} · nhập thêm ${vnd(Tt.chi_tay)}${Tt.chi_ngoai ? ` · chia từ quỹ ngoài ${vnd(Tt.chi_ngoai)}` : ''})</span></div>
+      <div>− Chi phí</div><div>${vnd(Tt.chi)} <span class="st-meta">(ở phiếu ca ${vnd(Tt.chi_ca)} · nhập thêm ${vnd(Tt.chi_tay)}${Tt.chi_ngoai ? ` · chia từ quỹ ngoài ${vnd(Tt.chi_ngoai)}` : ''}${Tt.chi_kho ? ` · hàng kho tổng ${vnd(Tt.chi_kho)}` : ''})</span></div>
       <div><strong>Lãi tạm tính</strong></div><div class="${Tt.profit < 0 ? 'ct-neg' : 'ct-pos'}"><strong>${signed(Tt.profit)}</strong></div></div>
     <div class="st-meta">"Tạm tính" vì chỉ gồm các khoản đã nhập. Khoản âm của nhân viên không trừ vào lãi (đã nằm trong tiền thiếu của ca).</div>
     ${RC.active ? html`<div class="pc-sub" style="margin-top:6px">ĐỐI CHIẾU: LÃI TẠM TÍNH → TIỀN PHẢI RÚT VỀ</div>
@@ -165,6 +167,7 @@ export async function render({ params }) {
         ${RC.debt_new ? html`<div>− Khách nợ phát sinh (chưa thu)</div><div>−${vnd(RC.debt_new)}</div>` : ''}
         ${RC.debt_col ? html`<div>+ Thu được nợ</div><div>+${vnd(RC.debt_col)}</div>` : ''}
         ${RC.ext_cost ? html`<div>+ Chi phí chia từ Quỹ ngoài (không lấy tiền quán)</div><div>${signed(RC.ext_cost)}</div>` : ''}
+        ${RC.kho_cost ? html`<div>+ Hàng kho tổng (thanh toán cuối tháng, không lấy tiền quán)</div><div>+${vnd(RC.kho_cost)}</div>` : ''}
         ${RC.moves_excluded ? html`<div>+ Thu chi phiếu ca "Không tính"</div><div>${signed(RC.moves_excluded)}</div>` : ''}
         ${RC.shortfalls ? html`<div>− Khoản âm nhân viên (tiền thiếu)</div><div>−${vnd(RC.shortfalls)}</div>` : ''}
         ${RC.bu ? html`<div>+ Nhân viên bù khoản âm vào quỹ</div><div>+${vnd(RC.bu)}</div>` : ''}

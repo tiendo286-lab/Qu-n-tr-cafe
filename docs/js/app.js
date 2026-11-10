@@ -11,7 +11,7 @@ export const HUBS = [
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']], null, 'Vận hành'],
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
-  ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']], null, 'Tiền'],
+  ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', ['ke_toan', 'doi_soat']], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
   ['Cài đặt xếp lịch', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
@@ -231,6 +231,11 @@ async function refreshBadges() {
   await notifyTick();
   try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
   try { state.support = await rpc('app_ht_unread'); } catch (_) { /* bỏ qua */ }
+  // Nhắc hồ sơ nhận hàng kho tổng còn thiếu (máy chủ chỉ gửi 1 lần mỗi ngày)
+  if ((can('ke_toan') || can('doi_soat')) && sessionStorage.getItem('nh_tick') !== vnToday()) {
+    try { sessionStorage.setItem('nh_tick', vnToday()); } catch (_) { /* bỏ qua */ }
+    rpc('app_nh_tick').catch(() => {});
+  }
   if (state.me.employee_id) { try { state.ka = (await rpc('app_ka_mine')).filter((k) => k.status === 'chua_xu_ly' && !k.seen_at).length; } catch (_) { /* bỏ qua */ } }
   if (can('nhan_viec') || can('hop_giao_viec')) {
     try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }

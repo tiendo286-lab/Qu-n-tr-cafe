@@ -1,5 +1,6 @@
 // Phiếu chốt ca: nhân viên chốt ca (tự động lưu) → Hoàn thành → quản lý đối soát trên BẢN ĐỐI SOÁT riêng (phiếu gốc giữ nguyên)
-import { render as rerender, isManager } from '../app.js';
+import { render as rerender, isManager, can } from '../app.js';
+import { mountDeliveries, NH_CSS } from '../nhap_hang.js';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
@@ -302,26 +303,16 @@ export async function render({ params }) {
     <div id="handover" class="stack" style="gap:8px">${(R.handover || []).map((h) => hoRow(h, edShared))}</div>
     ${edShared ? html`<div><button type="button" class="btn sm secondary" id="add-ho">+ THÊM CÔNG VIỆC</button></div>` : (R.handover || []).length ? '' : html`<div class="st-meta">Không có.</div>`}`);
 
-  // G. Nhập hàng
-  const gs = R.goods_status || '';
-  const secGoods = sec('7. Nhập hàng từ kho tổng', ['nhap_hang'], html`
-    <div id="hd-box" class="stack" style="gap:10px"></div>
-    <div class="seg" role="tablist"><a href="javascript:void 0" class="on" data-tab="photo" role="tab">Ảnh hàng & hóa đơn (${goodsPhotos.length})</a><a href="javascript:void 0" data-tab="report" role="tab">Báo cáo nhận hàng</a></div>
-    <div data-pane="photo" class="stack" style="gap:10px">
-      <div class="photos">${goodsPhotos.map((p) => phFig(p, 'Ảnh hàng nhận'))}</div>
-      ${goodsPhotos.length || edShared ? '' : html`<div class="st-meta">Không có ảnh.</div>`}
-      ${edShared ? html`<label class="btn sm secondary" style="align-self:flex-start">📷 Chụp / chọn ảnh<input type="file" class="ph-input" data-kind="hang" id="photo-input" accept="image/*" multiple hidden></label><div id="photo-status" class="st-meta ph-status"></div>` : ''}
-    </div>
-    <div data-pane="report" class="stack" style="gap:10px" hidden>
-      <div class="pc-line" role="radiogroup" aria-label="Kết quả nhận hàng">
-        ${[['khong', 'Ca này không nhận hàng'], ['du', 'ĐỦ so với hóa đơn'], ['thieu', 'THIẾU so với hóa đơn']].map(([v, l]) => html`
-          <label class="radio-pill"><input type="radio" name="goods" value="${v}" ${gs === v ? 'checked' : ''} ${ed ? '' : 'disabled'}> ${l}</label>`)}</div>
-      <div id="goods-missing" ${gs === 'thieu' ? '' : 'hidden'}>
-        <div class="pc-sub">MẶT HÀNG THIẾU</div>
-        <div id="goods">${(R.goods || []).map((g) => goodRow(g, ed))}</div>
-        ${ed ? html`<button type="button" class="btn sm secondary" id="add-good">+ Thêm mặt hàng thiếu</button>` : ''}</div>
-      <label class="pc-f"><span>Ghi chú nhận hàng</span><textarea class="input" id="goods_note" rows="2" ${ed ? '' : 'disabled'}>${R.goods_note || ''}</textarea></label>
-    </div>`);
+  // G. Nhập hàng từ kho tổng (bước 31): hóa đơn kế toán gửi → nhân viên kiểm từng món + ảnh; quản lý đối soát từng ảnh
+  const legacyGoods = ['du', 'thieu'].includes(R.goods_status) || goodsPhotos.length > 0 || (R.goods || []).length > 0;
+  const secGoods = sec('7. Nhập hàng từ kho tổng', ['nhap_hang'], html`${NH_CSS}
+    <div id="hd-box" class="stack" style="gap:10px"><div class="st-meta">Đang tải hàng kho tổng…</div></div>
+    <input type="hidden" id="goods-keep" value="${R.goods_status || ''}">
+    ${legacyGoods ? html`<details class="pc-legacy"><summary>Ghi nhận nhập hàng kiểu cũ (trước 11/11/2026)</summary>
+      <div class="stack" style="gap:8px;margin-top:8px"><div>Kết quả: <strong>${GOODS_LABEL[R.goods_status] || '—'}</strong></div>
+        ${(R.goods || []).length ? html`<div class="pc-sub" style="margin:0">MẶT HÀNG THIẾU</div><div id="goods">${R.goods.map((g) => goodRow(g, false))}</div>` : ''}
+        ${R.goods_note ? html`<div class="st-meta">Ghi chú: ${R.goods_note}</div>` : ''}
+        ${goodsPhotos.length ? html`<div class="photos">${goodsPhotos.map((p) => phFig(p, 'Ảnh hàng nhận'))}</div>` : ''}</div></details>` : ''}`);
 
   const nChecks = Object.keys(R.checks || {}).length; const nItems = (R.check_items || []).length;
   const head = html`<div class="page-head pc-head"><div>
@@ -399,8 +390,6 @@ function missingList(v, c, R) {
     if (x.worked && (!x.time_in || !x.time_out)) m(2, `Giờ đến / về của ${nm}`);
     if (!x.worked && !x.absent_reason) m(2, `Lý do nghỉ của ${nm}`);
   });
-  if (!v.goods_status) m(3, 'Nhập hàng: chọn Không nhận / Đủ / Thiếu (mục Báo cáo nhận hàng)');
-  if (v.goods_status === 'thieu' && !v.goods.some((g) => g.item)) m(3, 'Nhập hàng THIẾU: ghi mặt hàng thiếu');
   return out;
 }
 
@@ -414,7 +403,7 @@ function collect() {
     ipos_opening: parseMoney(v('#ipos_opening')),
     cups: v('#cups').replace(/\D/g, '') === '' ? null : Number(v('#cups').replace(/\D/g, '')),
     opening_note: v('#opening_note').trim() || null,
-    goods_status: $('input[name=goods]:checked')?.value || null,
+    goods_status: $('input[name=goods]:checked')?.value || $('#goods-keep')?.value || null,
     goods_note: v('#goods_note').trim() || null,
     moves: $$('.mv-row').map((r) => ({ kind: r.querySelector('.mv-kind').value, amount: (parseMoney(r.querySelector('.mv-amt').value) || 0) * (r.querySelector('.mv-sign').value === '-' ? -1 : 1), note: r.querySelector('.mv-note').value.trim() })),
     staff: $$('.st-row').map((r) => ({ employee_id: Number(r.dataset.emp), source: r.dataset.src, role: r.dataset.role || null, worked: r.querySelector('.st-worked').value === '1',
@@ -526,51 +515,13 @@ function mount(R, ed, C0, ctx = {}) {
     show(0);
   }
 
-  // ---------- Hóa đơn kế toán gửi (nhân viên báo nhận khi phiếu đang chốt)
-  const canRecv = !isDs && !!(R0 || R).can_edit;
-  const hdCard = (i) => html`<div class="hd-card ${i.status === 'chua_nhan' ? 'todo' : ''}" data-id="${i.id}">
-    <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>Hóa đơn kế toán gửi · ngày ${dmy(i.work_date)}</strong><span class="pill ${HD_STATUS[i.status][1]}">${HD_STATUS[i.status][0]}</span></div>
-    ${i.note ? html`<div style="font-size:14px">${i.note}</div>` : ''}
-    <div>${fileLinks(i.files, false)}</div>
-    <div class="pc-sub" style="margin:0">ẢNH HÀNG THỰC NHẬN (${i.photos.length})</div>
-    ${photoThumbs(i.photos, canRecv)}
-    ${canRecv ? html`<label class="btn sm secondary" style="align-self:flex-start">📷 Chụp / chọn ảnh hàng<input type="file" class="hd-ph-in" accept="image/*" multiple hidden></label><span class="st-meta hd-ph-st"></span>
-      <div class="pc-line" role="radiogroup" aria-label="Kết quả nhận hàng">
-        ${[['du', 'ĐỦ so với hóa đơn'], ['thieu', 'THIẾU so với hóa đơn']].map(([v, l]) => html`<label class="radio-pill"><input type="radio" name="hd-res-${i.id}" value="${v}" ${i.result === v ? 'checked' : ''}> ${l}</label>`)}</div>
-      <div class="hd-miss" ${i.result === 'thieu' ? '' : 'hidden'}><div class="pc-sub">MẶT HÀNG THIẾU</div>
-        <div class="hd-items">${(i.items.length ? i.items : [{}]).map((x) => html`<div class="pc-line hd-it"><input class="input sm grow hd-it-name" placeholder="Mặt hàng" value="${x.item || ''}"><input class="input sm hd-it-qty" placeholder="Số lượng thiếu" value="${x.qty || ''}" style="width:140px"></div>`)}</div>
-        <button type="button" class="btn sm secondary hd-it-add">+ Thêm mặt hàng thiếu</button></div>
-      <input class="input sm hd-note" placeholder="Ghi chú nhận hàng (không bắt buộc)" value="${i.receive_note || ''}">
-      <div><button type="button" class="btn sm hd-send">${i.status === 'chua_nhan' ? 'Gửi báo cáo nhận hàng' : 'Cập nhật báo cáo nhận hàng'}</button></div>` : ''}
-    ${i.status !== 'chua_nhan' ? receiptText(i) : ''}</div>`;
-  const loadHd = async () => {
-    const box = $('#hd-box'); if (!box) return;
-    let list = [];
-    try { list = await rpc('app_hd_for_report', { p_report: R.id }); } catch (_) { return; }
-    box.innerHTML = list.length ? str(html`<div class="pc-sub" style="margin:0">HÓA ĐƠN KẾ TOÁN GỬI (${list.length})</div>${list.map(hdCard)}<div class="pc-sub" style="margin:4px 0 0">TỰ GHI NHẬN NHẬP HÀNG CỦA CA</div>`) : '';
-    signLinks(box);
-    box.querySelectorAll('.hd-card').forEach((c) => {
-      const id = Number(c.dataset.id);
-      c.querySelectorAll('input[type=radio]').forEach((r) => r.addEventListener('change', () => { c.querySelector('.hd-miss').hidden = r.value !== 'thieu' || !r.checked; }));
-      c.querySelector('.hd-it-add')?.addEventListener('click', () => c.querySelector('.hd-items').insertAdjacentHTML('beforeend', '<div class="pc-line hd-it"><input class="input sm grow hd-it-name" placeholder="Mặt hàng"><input class="input sm hd-it-qty" placeholder="Số lượng thiếu" style="width:140px"></div>'));
-      c.querySelector('.hd-ph-in')?.addEventListener('change', async (ev) => {
-        try { await uploadFiles('nhan' + id, [...ev.target.files], (path) => rpc('app_hd_photo_add', { p_invoice: id, p_path: path }), c.querySelector('.hd-ph-st')); loadHd(); }
-        catch (e) { showSaved('Không tải được ảnh: ' + e.message, true); }
-      });
-      c.querySelectorAll('.hd-pdel').forEach((b) => b.addEventListener('click', async () => {
-        if (!confirm('Xóa ảnh này?')) return;
-        try { const path = await rpc('app_hd_photo_del', { p_photo: Number(b.dataset.id) }); if (path) await sb.storage.from(HD_BUCKET).remove([path]); loadHd(); } catch (e) { showSaved(e.message, true); }
-      }));
-      c.querySelector('.hd-send')?.addEventListener('click', async () => {
-        const res = c.querySelector('input[type=radio]:checked')?.value;
-        if (!res) { showSaved('Chọn ĐỦ hoặc THIẾU.', true); return; }
-        const items = [...c.querySelectorAll('.hd-it')].map((x) => ({ item: x.querySelector('.hd-it-name').value.trim(), qty: x.querySelector('.hd-it-qty').value.trim() })).filter((x) => x.item);
-        try { await rpc('app_hd_receive', { p_invoice: id, p_report: R.id, p_result: res, p_note: c.querySelector('.hd-note').value, p_items: items }); showSaved('Đã gửi báo cáo nhận hàng · ' + hhmm()); loadHd(); }
-        catch (e) { showSaved(e.message, true); }
-      });
-    });
-  };
-  loadHd();
+  // ---------- Nhập hàng kho tổng (bước 31)
+  mountDeliveries($('#hd-box'), R0 || R, {
+    canRecv: !isDs && !!(R0 || R).can_edit,
+    canPhoto: can('chot_ca') || can('doi_soat'),
+    canRecon: !!R.can_recon && (R0 || R).recon_status !== 'hoan_thanh' && (R0 || R).status === 'hoan_thanh',
+    onRecon: () => rerender(),
+  });
   // ---------- Bản đối soát: chuyển khoản thực nhận do kế toán nhập
   if (isDs && $('#bank-box')) {
     rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {

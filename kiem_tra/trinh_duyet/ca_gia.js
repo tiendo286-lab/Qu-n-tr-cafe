@@ -123,7 +123,7 @@ export function makeCa(T, me) {
     app_ca_save({ p_id, p }) {
       const r = needEdit(p_id); const f = forced(r);
       Object.assign(r, { rev_start: f || p.rev_start, rev_end: p.rev_end, total_revenue: p.total_revenue, pos_cash: p.pos_cash, pos_transfer: p.pos_transfer, reported_transfer: p.reported_transfer,
-        cash_counted: p.cash_counted, opening_cash: r.shift === shifts()[0] ? 1000000 : r.opening_cash ?? null, opening_note: p.opening_note || null, ipos_opening: 'ipos_opening' in p ? p.ipos_opening : r.ipos_opening, cups: p.cups, goods_status: p.goods_status, goods_note: p.goods_note, updated_at: now(), updated_by: me.account_id });
+        cash_counted: p.cash_counted, opening_cash: r.shift === shifts()[0] ? 1000000 : r.opening_cash ?? null, opening_note: p.opening_note || null, ipos_opening: 'ipos_opening' in p ? p.ipos_opening : r.ipos_opening, cups: p.cups, goods_status: p.goods_status || r.goods_status || 'khong', goods_note: p.goods_note, updated_at: now(), updated_by: me.account_id });
       T.shift_report_moves = T.shift_report_moves.filter((m) => m.report_id !== r.id).concat(p.moves.map((m, i) => ({ id: 1000 + Math.random(), report_id: r.id, ...m, sort_order: i })));
       T.shift_report_staff = T.shift_report_staff.filter((m) => m.report_id !== r.id).concat(p.staff.map((m) => ({ id: Math.random(), report_id: r.id, ...m, worked: m.worked ? 1 : 0 })));
       T.shift_report_goods = T.shift_report_goods.filter((m) => m.report_id !== r.id).concat(p.goods.filter((g) => g.item).map((g) => ({ id: Math.random(), report_id: r.id, ...g })));
