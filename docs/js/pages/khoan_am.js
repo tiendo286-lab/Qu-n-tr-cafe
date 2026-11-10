@@ -7,7 +7,7 @@ import { $, $$, dialog, flash, html, norm, str } from '../ui.js';
 import { KA_STATUS } from './phieu_ca.js';
 
 export const perm = 'doi_soat';
-const F = { st: 'chua_xu_ly', emp: '', br: '', q: '' };
+const F = { st: '', emp: '', br: '', q: '' };
 
 export async function render({ params }) {
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7);
@@ -28,7 +28,7 @@ export async function render({ params }) {
       ${k.reply ? html`<div class="ka-rep">Giải trình: ${k.reply} <span class="st-meta">${dt(k.reply_at)}</span></div>` : ''}
       ${k.status_note ? html`<div class="st-meta">Ghi chú: ${k.status_note}</div>` : ''}</div>
     <div class="ka-a">−${fmt(k.amount)}đ</div>
-    <div class="ka-s"><span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}</span><div class="st-meta">${k.seen_at ? 'NV đã xem' : 'NV chưa xem'}</div></div>
+    <div class="ka-s"><span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}${k.auto_tru ? ' (mặc định)' : ''}</span><div class="st-meta">${k.seen_at ? 'NV đã xem' : 'NV chưa xem'}</div></div>
     <div><button type="button" class="btn sm secondary ka-set">Xử lý</button></div></div>`;
 
   return {

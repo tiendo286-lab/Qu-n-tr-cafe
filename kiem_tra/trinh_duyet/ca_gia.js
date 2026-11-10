@@ -238,8 +238,8 @@ export function makeCa(T, me) {
         if (!(p_people || []).length) throw new Error('Chọn nhân viên chịu khoản thiếu.');
         const tot = p_people.reduce((a, x) => a + x.amount, 0); if (tot !== amt) throw new Error(`Tổng tiền chia cho nhân viên (${tot}) phải bằng số tiền thiếu (${amt}).`);
       }
-      for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && SF[i].status === 'chua_xu_ly') SF.splice(i, 1);
-      if (p_result === 'thieu') p_people.forEach((x) => SF.push({ id: sfSeq++, report_id: p_id, item: p_item, employee_id: x.employee_id, amount: x.amount, reason: p_reason, status: 'chua_xu_ly', created_by: me.account_id, created_at: now() }));
+      for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && (SF[i].status === 'chua_xu_ly' || SF[i].auto_tru)) SF.splice(i, 1);
+      if (p_result === 'thieu') p_people.forEach((x) => SF.push({ id: sfSeq++, report_id: p_id, item: p_item, employee_id: x.employee_id, amount: x.amount, reason: p_reason, status: 'tru_luong', auto_tru: true, status_note: 'Mặc định trừ lương khi đối soát', created_by: me.account_id, created_at: now() }));
       RES[p_id + '|' + p_item] = { result: p_result, amount: amt, reason: p_reason || null, by: name(me.account_id), at: now() };
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item)).concat([{ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() }]);
       RLOG.push({ report_id: p_id, action: 'ket_qua', field: p_item, after: { result: p_result, amount: amt, people: p_people || [] }, reason: p_reason || null, by: name(me.account_id), at: now() });
@@ -247,14 +247,14 @@ export function makeCa(T, me) {
     },
     app_ca_result_clear({ p_id, p_item }) {
       delete RES[p_id + '|' + p_item];
-      for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && SF[i].status === 'chua_xu_ly') SF.splice(i, 1);
+      for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && (SF[i].status === 'chua_xu_ly' || SF[i].auto_tru)) SF.splice(i, 1);
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
     },
     app_ka_mine: () => SF.filter((k) => k.employee_id === me.employee_id).map(kaJson).reverse(),
     app_ka_seen({ p_id }) { const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (k && !k.seen_at) k.seen_at = now(); },
     app_ka_reply({ p_id, p_text }) { if (!(p_text || '').trim()) throw new Error('Nhập nội dung giải trình.'); const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (!k) throw new Error('Không tìm thấy khoản âm của bạn.'); Object.assign(k, { reply: p_text.trim(), reply_at: now(), seen_at: k.seen_at || now() }); },
     app_ka_all: ({ p_from, p_to }) => SF.filter((k) => k.status !== 'huy').map(kaJson).filter((k) => (!p_from || k.work_date >= p_from) && (!p_to || k.work_date <= p_to)),
-    app_ka_set_status({ p_id, p_status, p_note }) { if (p_status === 'mien' && !(p_note || '').trim()) throw new Error('Miễn khoản âm phải ghi lý do.'); Object.assign(SF.find((x) => x.id === p_id), { status: p_status, status_note: p_note || null, status_by: me.account_id, status_at: now() }); },
+    app_ka_set_status({ p_id, p_status, p_note }) { if (p_status === 'mien' && !(p_note || '').trim()) throw new Error('Miễn khoản âm phải ghi lý do.'); Object.assign(SF.find((x) => x.id === p_id), { status: p_status, auto_tru: false, status_note: p_note || null, status_by: me.account_id, status_at: now() }); },
     app_ca_report({ p_from, p_to }) {
       const rs = T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.work_date >= p_from && r.work_date <= p_to);
       return { reports: rs.map((r) => { const d = eff(r.id); const b = T.branches.find((x) => x.id === r.branch_id) || {};
@@ -264,7 +264,7 @@ export function makeCa(T, me) {
         shifts: shifts(), branches: T.branches.filter((b) => b.status === 'Đang hoạt động').map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) };
     },
     app_ca_reopen({ p_id }) { const r = rep(p_id); Object.assign(r, { status: 'dang_chot', recon_status: 'chua', completed_at: null, completed_by: null }); T.shift_report_checks = T.shift_report_checks.filter((c) => c.report_id !== p_id); delete RECON[p_id];
-      SF.forEach((k) => { if (k.report_id === p_id && k.status === 'chua_xu_ly') k.status = 'huy'; }); MONEY.forEach((it) => delete RES[p_id + '|' + it]); RLOG.push({ report_id: p_id, action: 'lam_lai', by: name(me.account_id), at: now() }); },
+      SF.forEach((k) => { if (k.report_id === p_id && (k.status === 'chua_xu_ly' || k.auto_tru)) { k.status = 'huy'; k.auto_tru = false; } }); MONEY.forEach((it) => delete RES[p_id + '|' + it]); RLOG.push({ report_id: p_id, action: 'lam_lai', by: name(me.account_id), at: now() }); },
     app_ca_recon({ p_id }) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
       if (!RECON[p_id]) RECON[p_id] = snap(p_id);

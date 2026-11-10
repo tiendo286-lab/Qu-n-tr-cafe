@@ -617,7 +617,7 @@ function mount(R, ed, C0, ctx = {}) {
         <label class="pc-f"><span>Lý do (bắt buộc)</span><input class="input" name="why" value="${cur?.reason || ''}" placeholder="vd: thiếu tiền két, chưa rõ nguyên nhân" autocomplete="off"></label>
       </div>
       <div class="rs-people" ${sug === 'thieu' ? '' : 'hidden'}>
-        <div class="pc-sub">NHÂN VIÊN CHỊU KHOẢN THIẾU <span class="st-meta">— web chia đều, sửa được số từng người; mỗi người nhận thông báo</span></div>
+        <div class="pc-sub">NHÂN VIÊN CHỊU KHOẢN THIẾU <span class="st-meta">— web chia đều cho người được tích (sửa được số từng người); mặc định ghi <strong>TRỪ LƯƠNG</strong>, mỗi người nhận thông báo</span></div>
         ${staff.length ? staff.map((p) => { const h = had.find((k) => k.employee_id === p.id); return html`<div class="pc-line rs-p" data-emp="${p.id}"><label class="grow" style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${h ? 'checked' : ''}> ${p.name}</label>
           <input class="input sm money rs-pa" inputmode="numeric" value="${h ? fmt(h.amount) : ''}" style="width:130px" aria-label="Số tiền của ${p.name}"></div>`; })
           : html`<div class="st-meta">Phiếu chưa có nhân viên làm trong ca.</div>`}
@@ -641,12 +641,17 @@ function mount(R, ed, C0, ctx = {}) {
       const el = d.querySelector('#rs-sum'); if (el) el.textContent = `Đã chia ${fmt(got)}đ / ${fmt(tot)}đ${got !== tot ? ' — chưa khớp' : ''}`;
     };
     f.addEventListener('change', (e) => {
-      if (e.target.name === 'res') { d.querySelector('.rs-more').hidden = val() === 'khop'; d.querySelector('.rs-people').hidden = val() !== 'thieu'; }
+      if (e.target.name === 'res') {
+        d.querySelector('.rs-more').hidden = val() === 'khop'; d.querySelector('.rs-people').hidden = val() !== 'thieu';
+        if (val() === 'thieu' && !d.querySelector('.rs-p input[type=checkbox]:checked')) tickAll();
+      }
       if (e.target.type === 'checkbox') split();
     });
     f.amt.addEventListener('input', split);
     d.querySelectorAll('.rs-pa').forEach((x) => x.addEventListener('input', sumTxt));
-    if (sug === 'thieu' && !had.length && staff.length === 1) { d.querySelector('.rs-p input[type=checkbox]').checked = true; split(); } else sumTxt();
+    // mặc định tích hết nhân viên làm trong ca rồi chia đều
+    function tickAll() { d.querySelectorAll('.rs-p input[type=checkbox]').forEach((x) => { x.checked = true; }); split(); }
+    if (sug === 'thieu' && !had.length && staff.length) tickAll(); else sumTxt();
     d.querySelector('#rs-x').addEventListener('click', () => d.close());
     d.querySelector('#rs-clear')?.addEventListener('click', async () => {
       try { await rpc('app_ca_result_clear', { p_id: R.id, p_item: item }); d.close(); flash('Đã bỏ kết quả.'); rerender(); }
@@ -659,7 +664,7 @@ function mount(R, ed, C0, ctx = {}) {
       try {
         if (saveNow) await saveNow().catch(() => {});
         await rpc('app_ca_result_set', { p_id: R.id, p_item: item, p_result: res, p_amount: res === 'khop' ? null : parseMoney(f.amt.value), p_reason: f.why.value, p_people: people });
-        d.close(); flash(res === 'thieu' && people?.length ? `Đã lưu. ${people.length} nhân viên đã được báo khoản âm.` : 'Đã lưu kết quả đối soát.'); rerender();
+        d.close(); flash(res === 'thieu' && people?.length ? `Đã lưu. ${people.length} nhân viên đã được báo khoản âm — mặc định trừ lương.` : 'Đã lưu kết quả đối soát.'); rerender();
       } catch (e) { btn.disabled = false; d.querySelector('#rs-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
     });
   }

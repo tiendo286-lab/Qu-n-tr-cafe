@@ -236,7 +236,7 @@ async function refreshBadges() {
     try { sessionStorage.setItem('nh_tick', vnToday()); } catch (_) { /* bỏ qua */ }
     rpc('app_nh_tick').catch(() => {});
   }
-  if (state.me.employee_id) { try { state.ka = (await rpc('app_ka_mine')).filter((k) => k.status === 'chua_xu_ly' && !k.seen_at).length; } catch (_) { /* bỏ qua */ } }
+  if (state.me.employee_id) { try { state.ka = (await rpc('app_ka_mine')).filter((k) => (k.status === 'chua_xu_ly' || k.auto_tru) && !k.seen_at).length; } catch (_) { /* bỏ qua */ } }
   if (can('nhan_viec') || can('hop_giao_viec')) {
     try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
   }
