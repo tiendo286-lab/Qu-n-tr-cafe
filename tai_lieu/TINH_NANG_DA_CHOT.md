@@ -132,17 +132,19 @@ Làm 3 đợt. **Đợt 1 ĐÃ LÀM 11/11/2026** (tệp supabase/29_so_quy.sql, 
 | Quỹ ngoài (đợt 2) | Chỉ Chủ. Tiền vào = phiếu rút Chủ đã nhận (có danh sách phiếu chờ nhận ngay ở Quỹ ngoài); Chủ ghi thu chi ngoài (tiền nhà, lương, kho tổng…) tiền mặt / chuyển khoản; mỗi khoản chọn cách chia: theo tỉ lệ doanh thu tháng (mặc định) / chia đều / 1 cơ sở / tự nhập (tổng phải bằng số tiền). Phần chia tính vào chi phí (thu) của cơ sở ở Chốt tháng; quản lý chỉ thấy phần của cơ sở mình. Phải chia hết mới chốt tháng. Cơ sở đầu tiên chốt tháng thì số chia của tháng đó được giữ cố định và khoản ngoài tháng đó bị khóa; mở lại hết các cơ sở thì tính lại. |
 | Đối chiếu (đợt 3) | Tiền phải rút về = Lãi tạm tính − khách nợ phát sinh + thu được nợ + chi phí chia từ quỹ ngoài (không lấy tiền quán) + thu chi phiếu ca "Không tính" − khoản âm NV + NV bù khoản âm + số dư quỹ đầu tháng. So với tiền đã rút (phiếu rút trong tháng) → KHỚP / LỆCH; web chỉ ra lệch do đâu (còn trong quỹ chưa rút, tiền mặt nộp quỹ chênh phiếu ca, chuyển khoản về chênh phiếu ca). Lệch thì phải ghi lý do mới chốt tháng. Bảng Tổng hợp Chốt tháng có cột "Đối chiếu tiền". |
 
-## 5h. Nhập hàng từ kho tổng — anh Tiến chốt quy trình 11/11/2026, CHƯA LÀM (chờ mẫu hóa đơn thật; anh dặn chưa viết code)
+## 5h. Nhập hàng từ kho tổng — anh Tiến CHỐT TÍNH NĂNG 11/11/2026, CHƯA LÀM (chờ file Excel hóa đơn mẫu, anh gửi 12/11)
 
-Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Không nhận / Đủ / Thiếu cho mọi ca, và báo nhận theo hóa đơn kế toán).
+Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Không nhận / Đủ / Thiếu cho mọi ca, và báo nhận theo hóa đơn kế toán). Phiếu cũ giữ nguyên để xem.
 
 | Điểm | Anh Tiến chốt |
 |---|---|
-| Kế toán | **Trước khi giao** phải tải file hóa đơn chuyển hàng cho từng cơ sở → trạng thái **ĐANG CHUYỂN**. Web **đọc hóa đơn, tự lên danh sách hàng** (tên, đơn vị, số lượng) + tổng bill; kế toán soát / sửa rồi gửi. |
-| Nhân viên | Mục 7 chỉ hiện khi có hóa đơn đang chuyển tới cơ sở. Nhân viên **chỉ kiểm hàng, không thấy tiền**. Từng món: nhập **số lượng thực nhận** + **chụp ảnh thấy đủ số lượng** (bắt buộc từng món). |
-| Kết quả | Đủ hết → ĐÃ NHẬN ĐỦ. Có món thiếu → NHẬN THIẾU: báo cáo (đúng số lượng nhận được) **đẩy về quản lý và kế toán**. Không cần bước xử lý giao bù / trừ hóa đơn. |
-| Tiền hàng | Có tổng bill → tính vào chi phí "Nguyên liệu (kho tổng)" của cơ sở ở Chốt tháng (đề xuất: coi như Chủ trả từ Quỹ ngoài — chờ anh xác nhận). |
-| Còn chờ | Anh gửi 1–2 file hóa đơn thật để chọn cách đọc: Excel (đọc thẳng) · PDF có chữ (đọc theo mẫu) · ảnh / PDF scan (nhận dạng chữ, có thể cần AI, kế toán soát lại). Dữ liệu thật không đưa lên GitHub. |
+| Kế toán tải hóa đơn | **Trước khi giao** phải tải **file Excel** hóa đơn chuyển hàng cho từng cơ sở → trạng thái **ĐANG CHUYỂN**. Web **đọc Excel, tự lên danh sách hàng** (tên, đơn vị, số lượng) + tổng bill; kế toán soát / sửa rồi gửi. Đang chuyển thì kế toán còn sửa / hủy được; nhân viên đã báo nhận thì khóa. Một ngày có thể nhiều hóa đơn. Cơ sở được báo có hàng đang chuyển tới. |
+| Nhân viên kiểm hàng | Mục 7 phiếu ca chỉ hiện khi có hóa đơn đang chuyển tới cơ sở (ca không có hàng không phải làm gì). Nhân viên **chỉ kiểm hàng, không thấy tiền**. Từng món: nhập **số lượng thực nhận** + **chụp ảnh thấy đủ số lượng** (bắt buộc từng món mới gửi được). Nhận nhiều hơn hóa đơn thì cứ nhập đúng số đếm → báo **THỪA**. |
+| Sửa báo cáo | Nhân viên **sửa được tới hết ngày giao**; sang ngày sau thì khóa. |
+| Kết quả | Đủ hết → **ĐÃ NHẬN ĐỦ**. Có món thiếu / thừa → **NHẬN THIẾU / THỪA**: báo cáo (đúng số lượng nhận được) **đẩy về quản lý và kế toán**. Không có bước xử lý giao bù / trừ hóa đơn. |
+| Chưa báo nhận | **Không chặn** hoàn thành phiếu chốt ca (hàng có thể tới ca sau). Hết ngày giao mà hóa đơn chưa báo nhận đủ → đẩy về quản lý và kế toán. |
+| Tiền hàng | Tiền hàng **cuối tháng thanh toán 1 lần**. Tổng bill các hóa đơn trong tháng của từng cơ sở → chi phí "Nguyên liệu (kho tổng)" của cơ sở đó ở Chốt tháng (không trừ quỹ cơ sở; bảng đối chiếu cộng lại như chi phí quỹ ngoài). Trang Kế toán có tổng phải trả kho tổng theo tháng / cơ sở. Cuối tháng ghi **một lần thanh toán** (ở Quỹ ngoài: khoản "Thanh toán kho tổng tháng X", điền sẵn tổng tiền, không chia lại cho cơ sở vì đã tính theo từng hóa đơn). |
+| Còn chờ | File Excel hóa đơn mẫu để biết cột tên hàng / đơn vị / số lượng / đơn giá / tổng bill. Dữ liệu thật không đưa lên GitHub (để trong du_lieu/). |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
