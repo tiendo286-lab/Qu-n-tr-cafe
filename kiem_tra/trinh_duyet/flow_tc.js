@@ -13,10 +13,16 @@ export default async ({ sleep, out }) => {
   location.hash = '#/quan-ly/thu-chi'; await wait('.tc-r.todo', 900); await sleep(400);
   r.push(`menu Quản lý ca: ${$$('.hub-tabs a').map((a) => a.innerText.trim()).join(' · ')}`);
   r.push(`ban đầu: ${$$('.tc-r').length} dòng, chờ: ${$$('.tc-r.todo').length} · ô Chờ đối soát: ${txt('#tc-pend')}`);
-  let row = $$('.tc-r.todo').find((x) => x.innerText.includes('Mua đá'));
-  row.querySelector('.tc-ok').click(); await sleep(400);
+  r.push(`nút trong Thu chi: ${$$('.tc-r.todo a.btn').map((a) => a.innerText.trim()).join(', ')} · còn nút Đối soát cũ: ${!!$('.tc-ok')}`);
+  // đối soát dòng thu chi ở trang Đối soát (gom việc)
+  location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat'; await wait('.dt-r.todo', 900); await sleep(400);
+  r.push(`trang Đối soát: ${$$('.td-k').map((k) => k.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
+  let row = $$('.dt-r.todo').find((x) => x.innerText.includes('Mua đá'));
+  row.querySelector('.dt-ok').click(); await sleep(400);
   r.push(`đối soát khi chưa chọn nhóm: ${txt('#saved-indicator') || '(không báo)'}`);
-  const sel = row.querySelector('.tc-cat'); sel.value = sel.options[1].value; row.querySelector('.tc-ok').click(); await sleep(1200); await wait('.tc-r', 50);
+  const sel = row.querySelector('.dt-cat'); sel.value = sel.options[1].value; row.querySelector('.dt-ok').click(); await sleep(1500); await wait('.td-card', 300); await sleep(300);
+  r.push(`sau đối soát: còn ${$$('.dt-r.todo').length} dòng chờ ở trang Đối soát`);
+  location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/thu-chi'; await wait('.tc-r', 900); await sleep(400);
   row = $$('.tc-r').find((x) => x.innerText.includes('Mua đá'));
   r.push(`sau đối soát "Mua đá": ${row.querySelector('.pill').innerText} · ${row.querySelector('.st-meta').innerText.split('·').pop().trim()}`);
   $('#tc-add').click(); await wait('.tc-dlg', 30);

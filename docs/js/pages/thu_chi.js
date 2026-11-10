@@ -60,8 +60,8 @@ export async function render(ctx) {
     const src = r.src === 'ca' ? html`<a href="#/ca/phieu?id=${r.report_id}">Phiếu ca ${r.shift}</a>${r.by ? ` (${r.by})` : ''}` : html`Quản lý tạo · ${r.by || ''}`;
     const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
       : r.src === 'tay' ? html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary tc-ed">Sửa</button><button type="button" class="btn sm secondary danger tc-del" aria-label="Xóa">×</button></span>`
-      : r.status === 'cho' ? html`<span class="tc-do">${catSel(r)}<button type="button" class="btn sm tc-ok">Đối soát</button></span>`
-      : html`<button type="button" class="btn sm secondary tc-undo">Bỏ đối soát</button>`;
+      : r.status === 'cho' ? html`<a class="btn sm secondary" href="#/quan-ly/doi-soat">Đối soát ›</a>`
+      : html`<a class="st-meta" href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Xem đối soát ca</a>`;
     return html`<div class="tc-r ${r.status === 'cho' ? 'todo' : r.excluded ? 'off' : ''}" data-i="${r.i}" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-q="${norm(`${r.note} ${r.category || ''} ${br?.code || ''}`)}">
       <div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
         <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · ${src} · ${PAY[r.pay] || ''}${r.status === 'da' ? html` · ${r.excluded ? 'Không tính' : r.category || 'Chưa phân nhóm'}` : ''}</div></div>
@@ -75,7 +75,7 @@ export async function render(ctx) {
     title: 'Thu chi',
     html: html`${STYLE}
       <div class="page-head"><div><h1>Thu chi</h1>
-        <div class="sub">Khoản quản lý tự tạo thì đã đối soát. Khoản thu chi ghi ở phiếu chốt ca thì chờ đối soát: chọn nhóm (hoặc "Không tính") rồi bấm Đối soát. Phải đối soát hết thì mới chốt tháng được. Đối soát ca ra thiếu tiền → mỗi người chịu có 1 <strong>phiếu chi trừ lương</strong> (không tính vào chi phí quán), sửa / xóa được.</div></div>
+        <div class="sub">Khoản quản lý tự tạo thì đã đối soát. Khoản thu chi ghi ở phiếu chốt ca thì chờ đối soát — làm ở tab <a href="#/quan-ly/doi-soat">Đối soát</a> (chọn nhóm hoặc "Không tính"). Phải đối soát hết thì mới chốt tháng được. Đối soát ca ra thiếu tiền → mỗi người chịu có 1 <strong>phiếu chi trừ lương</strong> (không tính vào chi phí quán), sửa / xóa được.</div></div>
         <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div><button type="button" class="btn" id="tc-add">+ Thêm khoản thu / chi</button></div></div>
       <section class="card tc-bar">
         <div class="tc-month"><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a>
@@ -112,19 +112,6 @@ export async function render(ctx) {
       $('#tc-pend').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; $('#f-st').value = F.st; apply(); });
       apply();
       const rowOf = (b) => rows[Number(b.closest('.tc-r').dataset.i)];
-      const check = async (b, r, catVal, ok) => {
-        b.disabled = true;
-        try {
-          await rpc('app_tc_check', { p_report: r.report_id, p_mkey: r.mkey, p_category: catVal && catVal !== 'x' ? Number(catVal) : null, p_excluded: catVal === 'x', p_checked: ok });
-          showSaved(ok ? 'Đã đối soát' : 'Đã chuyển về chờ đối soát'); rerender();
-        } catch (e) { b.disabled = false; showSaved(e.message, true); }
-      };
-      $$('.tc-ok').forEach((b) => b.addEventListener('click', () => {
-        const r = rowOf(b); const v = b.closest('.tc-r').querySelector('.tc-cat').value;
-        if (!v) { showSaved('Chọn nhóm (hoặc "Không tính") trước khi đối soát.', true); b.closest('.tc-r').querySelector('.tc-cat').focus(); return; }
-        check(b, r, v, true);
-      }));
-      $$('.tc-undo').forEach((b) => b.addEventListener('click', () => { const r = rowOf(b); check(b, r, r.excluded ? 'x' : r.category_id, false); }));
       $$('.tc-ed').forEach((b) => b.addEventListener('click', () => entryForm(rowOf(b))));
       $$('.tc-del').forEach((b) => b.addEventListener('click', async () => {
         const r = rowOf(b);

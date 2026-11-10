@@ -32,6 +32,7 @@ const PAGES = {
   '/ca': 'chot_ca',
   '/ca/phieu': 'phieu_ca',
   '/quan-ly/doi-soat': 'doi_soat',
+  '/quan-ly/doi-soat/ca': 'doi_soat_ca',
   '/quan-ly/hop': 'giao_viec', // đường dẫn cũ (thông báo cũ) → Công việc
   '/viec': 'viec',
   '/quan-ly/giao-viec': 'giao_viec',

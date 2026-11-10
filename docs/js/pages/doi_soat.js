@@ -1,16 +1,22 @@
-// Đối soát: từng ca theo ngày + đối soát tiền mặt cuối ngày theo cơ sở
+// Đối soát (bước 35): Bảng ca theo ngày + VIỆC CHỜ ĐỐI SOÁT gom 1 chỗ (phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm)
+// + đối soát tiền mặt cuối ngày theo cơ sở. Đối soát từng phiếu ca làm ở trang riêng #/quan-ly/doi-soat/ca.
 import { render as rerender } from '../app.js';
 import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, result, signed, vnd } from '../tien.js';
-import { $$, flash, html, showSaved } from '../ui.js';
+import { $, $$, flash, html, showSaved } from '../ui.js';
+import { DT_CSS, tcList } from '../doi_soat_tc.js';
+import { KA_STATUS } from './phieu_ca.js';
 import { STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker } from './chot_ca.js';
 
 export const perm = 'doi_soat';
 
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
-  const [rows, days] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day })]);
+  const [rows, days, T] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null })]);
+  const brById = new Map((T.branches || []).map((b) => [b.id, b]));
+  const bcode = (id) => brById.get(id)?.code || '';
+  const TB = { cn: '' };
   const total = rows.length;
   const staffDone = rows.filter((r) => r.status === 'hoan_thanh').length;
   const reconDone = rows.filter((r) => r.recon_status === 'hoan_thanh').length;
@@ -34,7 +40,8 @@ export async function render({ params }) {
       ${s.hand_state === 'lech' || s.hand_state === 'can_dem_lai' ? html`<div class="bc-m bc-hand">⚠ Nhận két lệch ${signed(s.hand_gap)}${s.hand_state === 'can_dem_lai' ? ' · chờ đếm lại' : ''}</div>` : ''}
       ${s.status === 'dang_chot' && s.created_by ? html`<div class="bc-m">${s.created_by}</div>` : ''}
       ${s.has_debt ? html`<div class="bc-m">Có công nợ</div>` : ''}`;
-    return s.report_id ? html`<a class="bc ${cls}" href="#/ca/phieu?id=${s.report_id}">${inner}</a>` : html`<div class="bc ${cls}">${inner}</div>`;
+    const href = s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
+    return s.report_id ? html`<a class="bc ${cls}" href="${href}">${inner}</a>` : html`<div class="bc ${cls}">${inner}</div>`;
   };
   const shifts = [...new Set(rows.map((r) => r.shift))];
 
@@ -67,9 +74,39 @@ export async function render({ params }) {
     </section>`;
   };
 
+  // ---------- VIỆC CHỜ ĐỐI SOÁT
+  const sumAmt = (a) => a.reduce((x, r) => x + Number(r.amount || 0), 0);
+  const repRow = (r) => html`<div class="td-r" data-br="${r.branch_id}">
+      <div class="td-m"><strong>${dmy(r.date)} · ${bcode(r.branch_id)} · Ca ${r.shift}</strong>
+        <div class="st-meta">${r.recon_status === 'mo_lai' ? 'Đang đối soát lại · ' : ''}${r.checks}/9 hạng mục · TM ${result(r.cash_left)} · CK ${result(r.transfer_left)}${r.ck_basis === 'nhan_vien' ? ' (tạm)' : ''}${r.completed_by ? ` · ${r.completed_by}` : ''}</div></div>
+      <a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${r.id}">Đối soát ›</a></div>`;
+  const goodRow = (g) => html`<div class="td-r" data-br="${g.branch_id}">
+      <div class="td-m"><strong>${g.kind === 'khong_hd' ? 'Nhận không hóa đơn' : `Hóa đơn ${g.doc_no || ''}`} · ${bcode(g.branch_id)}</strong>
+        <div class="st-meta">Ca ${g.shift} ${dmy(g.date)} · ${g.received_by || ''} · còn ${g.n_unchecked}/${g.n_lines} món chưa đối soát</div></div>
+      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${g.report_id}&buoc=3">Đối soát hàng ›</a>`
+        : html`<a class="btn sm secondary" href="#/ca/phieu?id=${g.report_id}">Phiếu ca chưa hoàn thành</a>`}</div>`;
+  const kaRow = (k, i) => html`<div class="td-r" data-br="${k.branch_id}" data-i="${i}">
+      <div class="td-m"><strong>${k.employee} · −${fmt(k.amount)}đ</strong> <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}${k.auto_tru ? ' (mặc định)' : ''}</span>
+        <div class="st-meta">Ca ${k.shift} ${k.branch} ${dmy(k.work_date)} · ${k.item_label}${k.reason ? ` · ${k.reason}` : ''}</div>
+        <div class="td-rep">Giải trình ${dt(k.reply_at)}: ${k.reply}</div></div>
+      <span class="toolbar" style="gap:6px"><button type="button" class="btn sm td-keep">Giữ trừ lương</button><a class="btn sm secondary" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${String(k.work_date).slice(0, 7)}">Sửa / xóa</a></span></div>`;
+  const todo = html`<section class="card stack td-card" id="td">
+      <div class="bc-head"><h2 style="margin:0">Việc chờ đối soát</h2>
+        <select class="input sm" id="td-br" aria-label="Cơ sở" style="margin-left:auto"><option value="">Mọi cơ sở</option>${(T.branches || []).map((b) => html`<option value="${b.id}">${b.code}</option>`)}</select></div>
+      <div class="td-kpis">
+        <button type="button" class="td-k" data-to="td-rep"><span>Phiếu ca chờ đối soát</span><b>${T.reports.length}</b></button>
+        <button type="button" class="td-k" data-to="td-mv"><span>Dòng thu chi chờ</span><b>${T.moves.length}</b><small>${T.moves.length ? vnd(sumAmt(T.moves)) : ''}</small></button>
+        <button type="button" class="td-k" data-to="td-hang"><span>Hàng chưa đối soát</span><b>${T.goods.length}</b></button>
+        <button type="button" class="td-k" data-to="td-ka"><span>Giải trình khoản âm mới</span><b>${T.ka.length}</b></button></div>
+      <div class="td-sec" id="td-rep"><h3>1. Phiếu ca chờ đối soát</h3>${T.reports.length ? T.reports.map(repRow) : html`<div class="st-meta">Không có phiếu nào chờ.</div>`}</div>
+      <div class="td-sec" id="td-mv"><h3>2. Dòng thu chi ở phiếu ca chờ đối soát <span class="st-meta">(từ ${dmy(T.from)})</span></h3><div id="td-moves"></div></div>
+      <div class="td-sec" id="td-hang"><h3>3. Hàng nhận chưa đối soát</h3>${T.goods.length ? T.goods.map(goodRow) : html`<div class="st-meta">Không có.</div>`}</div>
+      <div class="td-sec" id="td-ka"><h3>4. Nhân viên giải trình khoản âm</h3>${T.ka.length ? T.ka.map(kaRow) : html`<div class="st-meta">Không có giải trình mới.</div>`}</div>
+    </section>`;
+
   return {
     title: 'Đối soát',
-    html: html`${CA_STYLE}<style>
+    html: html`${CA_STYLE}${DT_CSS}<style>
         .ds-link { display: block; text-decoration: none; color: inherit; }
         .ds-money { font-size: 12px; margin-top: 4px; }
         .ds-table td { vertical-align: top; min-width: 150px; }
@@ -98,9 +135,21 @@ export async function render({ params }) {
         .bc-cho { --c: var(--info-line); --bg: var(--info-bg); --fg: var(--info-ink); }
         .bc-xong { --c: var(--ok-line); --bg: var(--ok-bg); --fg: var(--ok-ink); }
         .bc-am { --c: #dc2626; --bg: #fee2e2; --fg: #991b1b; }
+        .td-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+        .ds-day { min-width: 0; } .ds-day .kv { grid-template-columns: minmax(0, 1fr) minmax(0, auto); } .ds-day .kv > div { min-width: 0; overflow-wrap: anywhere; }
+        .ds-form .input.money { max-width: 100%; }
+        .td-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+        .td-k { font: inherit; text-align: left; border: none; cursor: pointer; background: var(--subtle, var(--line-soft)); border-radius: 12px; padding: 10px 12px; text-decoration: none; color: inherit; display: flex; flex-direction: column; gap: 2px; border-top: 4px solid var(--primary); min-width: 0; }
+        .td-k span { font-size: 12px; font-weight: 700; color: var(--ink-2); text-transform: uppercase; } .td-k b { font-size: 20px; } .td-k small { font-size: 12px; color: var(--ink-2); }
+        .td-sec h3 { margin: 4px 0 6px; font-size: 15px; }
+        .td-r { display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding: 8px 4px; border-top: 1px solid var(--line-soft, var(--line)); }
+        .td-r[hidden] { display: none; }
+        .td-m { min-width: 0; flex: 1 1 240px; overflow-wrap: anywhere; }
+        .td-rep { font-size: 13px; background: var(--warn-bg); border-radius: 6px; padding: 3px 6px; margin-top: 3px; }
+        @media (max-width: 760px) { .td-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .bc-grid { gap: 5px; grid-template-columns: 40px repeat(3, minmax(0, 1fr)) !important; } .bc { padding: 7px; border-left-width: 4px; } .bc-lbl { font-size: 11.5px; } .bc-m, .bc-rev { font-size: 11px; } }
       </style>
-      <div class="page-head"><div><h1>Đối soát</h1><div class="sub">Kiểm tra từng phiếu chốt ca rồi đối soát tiền mặt cuối ngày theo cơ sở.</div></div>
+      <div class="page-head"><div><h1>Đối soát</h1><div class="sub">Mọi việc chờ đối soát gom ở đây: phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm. Bấm vào để làm ngay.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:1100px;gap:12px">
         ${datePicker('/quan-ly/doi-soat', day)}
@@ -116,12 +165,26 @@ export async function render({ params }) {
               return html`<div class="bc-br">${rs[0].branch_code}</div>${shifts.map((s) => { const x = rs.find((r) => r.shift === s); return x ? shiftCell(x) : html`<div class="bc bc-none">—</div>`; })}`;
             })}
           </div>
-          <div class="st-meta">TM / CK: tiền mặt / chuyển khoản còn chưa giải trình. “tạm”: kế toán chưa nhập đủ số dư ngân hàng. Bấm vào ô để mở phiếu và đối soát.</div></section>
+          <div class="st-meta">TM / CK: tiền mặt / chuyển khoản còn chưa giải trình. “tạm”: kế toán chưa nhập đủ số dư ngân hàng. Bấm vào ô ca đã hoàn thành để mở trang Đối soát ca.</div></section>
+        ${todo}
         <h2 style="margin:8px 0 0">Đối soát tiền mặt cuối ngày</h2>
         <div class="grid2">${days.map(dayCard)}</div>
       </div>`,
     mount() {
       bindDatePicker();
+      $$('.td-k[data-to]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+      const mvBox = $('#td-moves');
+      const drawMv = () => tcList(mvBox, T.moves, { cats: T.categories || [], brById, onChange: () => rerender() });
+      drawMv();
+      $('#td-br').addEventListener('change', (e) => {
+        TB.cn = e.target.value;
+        $$('#td [data-br]').forEach((el) => { el.hidden = !!TB.cn && el.dataset.br !== TB.cn; });
+      });
+      $$('.td-keep').forEach((b) => b.addEventListener('click', async () => {
+        const k = T.ka[Number(b.closest('.td-r').dataset.i)]; b.disabled = true;
+        try { await rpc('app_ka_edit', { p_id: k.id, p_employee: k.employee_id, p_amount: k.amount, p_status: 'tru_luong', p_note: 'Đã xem giải trình — giữ trừ lương' }); flash('Đã giữ trừ lương. Nhân viên đã được báo.'); rerender(); }
+        catch (e) { b.disabled = false; showSaved(e.message, true); }
+      }));
       bindMoneyInputs(document);
       $$('.ds-form').forEach((f) => f.addEventListener('submit', async (ev) => {
         ev.preventDefault();

@@ -74,6 +74,29 @@ export function makeFin(T, me) {
   const tc = {
     app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
       branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && tcCan(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
+    // Bước 35: gom việc chờ đối soát
+    app_ds_todo() {
+      const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+      const d = new Date(today + 'T00:00:00Z'); d.setUTCDate(1); d.setUTCMonth(d.getUTCMonth() - 2); const from = d.toISOString().slice(0, 10);
+      const brs = T.branches.filter((x) => x.status === 'Đang hoạt động');
+      const lbl = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
+      const emp = (id) => T.employees.find((x) => x.id === id) || {};
+      return {
+        from, today, branches: brs.map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })),
+        categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
+        reports: T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh').map((r) => ({ id: r.id, branch_id: r.branch_id, date: r.work_date, shift: r.shift,
+          recon_status: r.recon_status || 'chua', checks: T.shift_report_checks.filter((c) => c.report_id === r.id).length, cash_left: null, transfer_left: null, ck_basis: 'nhan_vien', revenue: r.total_revenue })),
+        moves: tcRows(null, from, today).filter((x) => x.src === 'ca' && x.status === 'cho'),
+        goods: (T.delivery_invoices || []).filter((i) => i.state !== 'dang_chuyen' && i.received_report_id && (T.delivery_lines || []).some((l) => l.invoice_id === i.id && !l.checked_at)).map((i) => {
+          const r = T.shift_reports.find((x) => x.id === i.received_report_id) || {}; const ls = (T.delivery_lines || []).filter((l) => l.invoice_id === i.id);
+          return { id: i.id, branch_id: i.branch_id, doc_no: i.doc_no, kind: i.kind, report_id: i.received_report_id, report_status: r.status, date: r.work_date, shift: r.shift, n_lines: ls.length, n_unchecked: ls.filter((l) => !l.checked_at).length };
+        }),
+        ka: (T.__SF || []).filter((k) => k.reply && (k.auto_tru || k.status === 'chua_xu_ly')).map((k) => {
+          const r = T.shift_reports.find((x) => x.id === k.report_id) || {}; const e = emp(k.employee_id);
+          return { ...k, employee: `${e.code} – ${e.name}`, item_label: lbl[k.item], branch_id: r.branch_id, branch: (T.branches.find((b) => b.id === r.branch_id) || {}).code, work_date: r.work_date, shift: r.shift };
+        }),
+      };
+    },
     app_tc_check({ p_report, p_mkey, p_category, p_excluded, p_checked }) {
       const r = T.shift_reports.find((x) => x.id === p_report); if (!tcCan(r.branch_id)) throw new Error('Bạn không được xem / sửa thu chi của cơ sở này.'); guard(r.branch_id, r.work_date);
       if (p_checked && !p_excluded && !p_category) throw new Error('Chọn nhóm (hoặc "Không tính") rồi mới đối soát.');

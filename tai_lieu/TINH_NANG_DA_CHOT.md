@@ -165,7 +165,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Nhắc trên máy chủ | Máy chủ tự chạy 5 phút/lần (hẹn giờ `nhac-phieu-ca`), gửi thông báo trong web; không nhắc từ 0h đến 6h; dừng sau 24 giờ kể từ hết ca. |
 | Ghi chú | Dòng chi do quản lý tự làm đã tính "đã đối soát" nhưng vẫn phải chọn nhóm chi ở Thu chi / Chốt tháng. Ảnh hàng: máy chủ chưa khóa theo người nhận phần (giao diện đã ẩn nút với người không nhận phần). |
 
-## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026, CHƯA LÀM (chờ lệnh bắt đầu; phần đánh giá chờ bảng tiêu chí của anh)
+## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026. ĐÃ LÀM 11/11/2026 phần tách đối soát (`supabase/35_doi_soat_rieng.sql`, trang `#/quan-ly/doi-soat` và `#/quan-ly/doi-soat/ca?id=`). CHƯA LÀM phần đánh giá nhân viên (chờ bảng tiêu chí của anh)
 
 | Điểm | Anh Tiến chốt |
 |---|---|

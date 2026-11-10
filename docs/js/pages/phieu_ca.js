@@ -1,6 +1,7 @@
 // Phiếu chốt ca: nhân viên chốt ca (tự động lưu) → Hoàn thành → quản lý đối soát trên BẢN ĐỐI SOÁT riêng (phiếu gốc giữ nguyên)
 import { render as rerender, isManager, can } from '../app.js';
 import { mountDeliveries, NH_CSS } from '../nhap_hang.js';
+import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
@@ -153,8 +154,14 @@ export async function render({ params }) {
   const R0 = await rpc('app_ca_get', { p_id: id });
   const done = R0.status === 'hoan_thanh';
   const canRc = !!R0.can_recon && done;
-  // Quản lý mở phiếu đã hoàn thành: mặc định xem BẢN ĐỐI SOÁT; ?ban=goc để xem phiếu nhân viên
-  const RC = canRc && params.ban !== 'goc' ? await rpc('app_ca_recon', { p_id: id }).catch(() => null) : null;
+  // Bước 35: bản đối soát chỉ mở ở trang riêng #/quan-ly/doi-soat/ca (từng bước); #/ca/phieu luôn là phiếu nhân viên (chỉ xem khi đã hoàn thành)
+  const wantDs = String(params.__ds || '') === '1';
+  if (wantDs && !canRc) {
+    return { title: 'Đối soát ca', html: html`<div class="card stack" style="gap:10px;max-width:640px"><h1 style="margin:0">Đối soát ca ${R0.shift}</h1>
+      <div>${done ? 'Bạn không có quyền đối soát phiếu này.' : `Nhân viên chưa hoàn thành phiếu chốt ca ${R0.shift} nên chưa đối soát được.`}</div>
+      <div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/quan-ly/doi-soat">‹ Về trang Đối soát</a></div></div>` };
+  }
+  const RC = canRc && wantDs ? await rpc('app_ca_recon', { p_id: id }).catch(() => null) : null;
   const isDs = !!RC;
   const R = isDs ? mergeRecon(R0, RC) : R0;
   const cat = await catalog().catch(() => null);
@@ -162,6 +169,7 @@ export async function render({ params }) {
   const ed = isDs ? !!RC.editable : !!R.can_edit;
   // Bước 32: phiếu chia 3 phần việc — chỉ người nhận phần (chưa bấm Xong) được sửa phần đó
   const P = !isDs && R0.status === 'dang_chot' ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;
+  const PD = isDs ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;   // ai làm từng phần (trang đối soát)
   const PT = P ? Object.fromEntries((P.parts || []).map((p) => [p.part, p])) : {};
   const edFor = (k) => (P ? ed && !!PT[k]?.mine && !PT[k]?.done_at : ed && isDs);
   const edT = edFor('tien'); const edN = edFor('nhan_su'); const edH = edFor('nhan_hang');
@@ -172,7 +180,7 @@ export async function render({ params }) {
   const prev = R.prev;
 
   const chip = (item) => {
-    if (!done) return '';
+    if (!done || !isDs) return '';   // phiếu nhân viên chỉ xem: không còn nút đối soát
     if (MONEY_ITEMS.includes(item)) {
       const x = (R.results || {})[item]; const cls = x ? RES[x.result][1] : '';
       const t = x ? `${x.by || ''} · ${dt(x.at)}${x.reason ? ' · ' + x.reason : ''}` : 'Bấm để chọn KHỚP / THIẾU / THỪA';
@@ -352,14 +360,14 @@ export async function render({ params }) {
 
   const nChecks = Object.keys(R.checks || {}).length; const nItems = (R.check_items || []).length;
   const head = html`<div class="page-head pc-head"><div>
-      <h1>Chốt ca ${R.shift} · ${R.branch_code}</h1>
+      <h1>${isDs ? 'Đối soát ca' : 'Chốt ca'} ${R.shift} · ${R.branch_code}</h1>
       <div class="sub">${dayName(R.work_date)} ${dmy(R.work_date)} · ${R.branch_name}</div>
       <div class="toolbar" style="gap:6px;margin-top:6px">
         <span class="pill ${STAFF_LABEL[R.status][1]}">Nhân viên: ${STAFF_LABEL[R.status][0]}</span>
         ${done ? html`<span class="pill ${R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH ĐỐI SOÁT' : R0.recon_status === 'mo_lai' ? `ĐANG ĐỐI SOÁT LẠI ${nChecks}/${nItems}` : `Đối soát ${nChecks}/${nItems}`}</span>` : ''}
       </div>
-      ${canRc ? html`<nav class="seg pc-ban" aria-label="Chọn bản"><a href="#/ca/phieu?id=${R0.id}&ban=goc" class="${isDs ? '' : 'on'}">Phiếu nhân viên (gốc)</a><a href="#/ca/phieu?id=${R0.id}" class="${isDs ? 'on' : ''}">Bản đối soát</a></nav>` : ''}</div>
-    <div class="toolbar"><a class="btn sm secondary" href="#${isManager() && done ? '/quan-ly/doi-soat' : '/ca'}?ngay=${R.work_date}">‹ Danh sách ca</a>
+      ${canRc ? html`<nav class="seg pc-ban" aria-label="Chọn bản"><a href="#/ca/phieu?id=${R0.id}" class="${isDs ? '' : 'on'}">Phiếu nhân viên (gốc)</a><a href="#/quan-ly/doi-soat/ca?id=${R0.id}" class="${isDs ? 'on' : ''}">Đối soát ca này</a></nav>` : ''}</div>
+    <div class="toolbar"><a class="btn sm secondary" href="#${isDs || (isManager() && done) ? '/quan-ly/doi-soat' : '/ca'}?ngay=${R.work_date}">${isDs ? '‹ Về trang Đối soát' : '‹ Danh sách ca'}</a>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div></div>`;
 
   const logRow = (l) => html`<div class="rc-log"><span class="st-meta">${dt(l.at)} · ${l.by || ''}</span> <strong>${LOG_ACTION[l.action] || l.action}</strong>${l.action === 'ket_qua' || l.action === 'bo_ket_qua' ? html` ${CHECK_LABEL[l.field] || l.field}${l.after ? html`: <strong>${showVal(l.field, l.after)}</strong>` : ''}` : l.field ? html` ${FIELD_LABEL[l.field] || l.field}: ${showVal(l.field, l.before)} → <strong>${showVal(l.field, l.after)}</strong>` : ''}${l.reason ? html` <span class="st-meta">· Lý do: ${l.reason}</span>` : ''}</div>`;
@@ -380,12 +388,32 @@ export async function render({ params }) {
     ? partPanel
     : html`<section class="card stack" style="gap:8px">
         ${done && R.recon_status === 'hoan_thanh' ? html`<div class="alert ok">Hoàn thành đối soát: ${R.recon_by_name} · ${dt(R.recon_at)}</div>` : ''}
-        ${canRc ? html`<div class="st-meta">Đây là phiếu nhân viên (bản gốc, giữ nguyên). Đối soát và sửa số liệu ở <a href="#/ca/phieu?id=${R0.id}">Bản đối soát</a>.</div>` : ''}
+        ${canRc ? html`<div class="pc-line"><span class="st-meta grow">Đây là phiếu nhân viên (bản gốc, chỉ xem). Đối soát và sửa số liệu ở trang Đối soát ca.</span><a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${R0.id}">Đối soát ca này ›</a></div>` : ''}
         ${R.can_reopen ? html`<div><button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button></div>` : ''}</section>`;
+
+  // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước
+  const dsLeft = (i) => (DS_ITEMS[i] || []).filter((it) => !(R.checks || {})[it]);
+  const dsHd = (i) => html`<div class="ds-hd"><span>BƯỚC ${i + 1} · ${DS_STEPS[i].toUpperCase()}</span>${i < 3
+    ? (dsLeft(i).length ? html`<span class="pill off">Còn ${dsLeft(i).length}/${DS_ITEMS[i].length} hạng mục</span>` : html`<span class="pill ok">✓ Đã đối soát</span>`) : ''}</div>`;
+  const PDT = PD ? Object.fromEntries((PD.parts || []).map((p) => [p.part, p])) : {};
+  const whoPart = (k) => { const p = PDT[k]; if (!p || !p.done_at) return ''; return html`<div class="st-meta ds-who">Phần ${p.label}: ${p.done_name || p.claimed_name || ''}${p.done_ql ? html` · <strong>quản lý tự làm — đã tự đối soát</strong>` : ''}</div>`; };
+  const dsSum = isDs ? html`<section class="card stack pc-sec"><div class="pc-sec-head"><h2>Tóm tắt đối soát</h2></div>
+      ${[0, 1, 2].map((i) => html`<div class="pc-line ds-sum"><strong class="grow">Bước ${i + 1} · ${DS_STEPS[i]}</strong>${dsLeft(i).length
+        ? html`<span class="st-meta">Còn: ${dsLeft(i).map((it) => CHECK_LABEL[it]).join(', ')}</span><button type="button" class="btn sm secondary" data-ds-go="${i}">Làm bước ${i + 1}</button>`
+        : html`<span class="pill ok">✓ Xong</span>`}</div>`)}
+      <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
+  const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
+  const dsBody = isDs ? html`${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
+      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('tien')}${secTime}${secMoney}${secDiff}${secDebt}
+        <section class="card stack pc-sec"><div class="pc-sec-head"><h2>Phân nhóm thu chi của ca</h2></div><div class="st-meta">Chọn nhóm (hoặc "Không tính") cho từng dòng thu chi rồi bấm Đối soát — làm ở đây hay ở trang Đối soát đều được.</div><div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section></div>
+      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_su')}${secStaff}${secHand}</div>
+      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('nhan_hang')}${secGoods}</div>
+      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${dsSum}${dsFoot}</div>
+      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Tiếp ›</button></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
   const wizard = !isDs && ed && (!isManager() || window.matchMedia('(max-width: 760px)').matches);
-  const body = wizard
+  const body = isDs ? dsBody : wizard
     ? html`<nav class="wz-steps" aria-label="Các bước">${WZ_STEPS.map((t, i) => html`<button type="button" class="wz-st" data-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" hidden></i></button>`)}</nav>
       <div class="wz-pane" data-step="0">${partBar('tien')}${secTime}${secMoney}</div>
       <div class="wz-pane" data-step="1" hidden>${partBar('tien')}${secDiff}${secDebt}${partDone('tien')}</div>
@@ -397,13 +425,15 @@ export async function render({ params }) {
     : html`${partBar('tien')}${secTime}${secMoney}${secDiff}${secDebt}${partDone('tien')}${partBar('nhan_su')}${secStaff}${secHand}${partDone('nhan_su')}${partBar('nhan_hang')}${secGoods}${partDone('nhan_hang')}${foot}`;
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
-    html: html`${STYLE}${HD_CSS}${head}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''}" onsubmit="return false">${body}</form>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH }); },
+    html: html`${STYLE}${HD_CSS}${DT_CSS}${head}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form>`,
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0 }); },
   };
 }
 
 const WZ_STEPS = ['Tiền: số liệu', 'Tiền: thu chi', 'Nhân sự & bàn giao', 'Nhận hàng', 'Tiến độ'];
 const STEP_PART = ['tien', 'tien', 'nhan_su'];
+const DS_STEPS = ['Tiền', 'Nhân sự & bàn giao', 'Nhận hàng', 'Hoàn thành'];
+const DS_ITEMS = [['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], ['nhan_su', 'ban_giao'], ['nhap_hang']];
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
 function missingList(v, c, R) {
   const out = []; const m = (step, t) => out.push([step, t]);
@@ -452,7 +482,7 @@ function collect() {
 }
 
 function mount(R, ed, C0, ctx = {}) {
-  const { isDs, RC, R0, wizard, P, PT = {}, edH } = ctx;
+  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep } = ctx;
   let saveNow = null;
   const form = $('#pc-form');
   bindMoneyInputs(form);
@@ -564,9 +594,35 @@ function mount(R, ed, C0, ctx = {}) {
   mountDeliveries($('#hd-box'), R0 || R, {
     canRecv: !isDs && !!(R0 || R).can_edit && (P ? !!edH : true),
     canPhoto: can('chot_ca') || can('doi_soat'),
-    canRecon: !!R.can_recon && (R0 || R).recon_status !== 'hoan_thanh' && (R0 || R).status === 'hoan_thanh',
+    canRecon: !!isDs && !!R.can_recon && (R0 || R).recon_status !== 'hoan_thanh' && (R0 || R).status === 'hoan_thanh',
     onRecon: () => rerender(),
   });
+  // ---------- Trang Đối soát ca: các bước + phân nhóm thu chi của ca
+  if (isDs) {
+    const key = 'ds_step:' + R.id;
+    const go = (i) => {
+      const st = Math.max(0, Math.min(3, i));
+      try { sessionStorage.setItem(key, String(st)); } catch (_) { /* bỏ qua */ }
+      if (!dsPhone) { $(`.ds-pane[data-ds="${st}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      $$('.ds-pane').forEach((p) => { p.hidden = Number(p.dataset.ds) !== st; });
+      $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
+      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === 3; $('#ds-pos').textContent = `Bước ${st + 1}/4`;
+      window.scrollTo({ top: 0 });
+    };
+    let cur = 0; try { cur = Number(sessionStorage.getItem(key)) || 0; } catch (_) { /* bỏ qua */ }
+    if (dsStep) cur = dsStep - 1;
+    form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-ds-go]'); if (g) { cur = Number(g.dataset.dsGo); go(cur); } });
+    if (dsPhone) {
+      $('#ds-prev').addEventListener('click', () => { cur = Math.max(0, cur - 1); go(cur); });
+      $('#ds-next').addEventListener('click', () => { cur = Math.min(3, cur + 1); go(cur); });
+      go(cur);
+    } else if (dsStep) setTimeout(() => go(cur), 300);
+    const loadTc = () => rpc('app_tc_list', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }).then((D) => {
+      const box = $('#ds-tc'); if (!box) return;
+      tcList(box, (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id), { cats: D.categories || [], showReport: false, onChange: loadTc });
+    }).catch((e) => { const box = $('#ds-tc'); if (box) box.textContent = 'Không tải được thu chi: ' + e.message; });
+    loadTc();
+  }
   // ---------- Bản đối soát: chuyển khoản thực nhận do kế toán nhập
   if (isDs && $('#bank-box')) {
     rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {
@@ -945,7 +1001,13 @@ const STYLE = html`<style>
   .wz-foot { position: sticky; bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 4; }
   .wz-foot .btn { min-height: 44px; white-space: nowrap; padding: 0 14px; flex: 1 1 0; min-width: 0; font-size: 15px; }
   .wz-foot #wz-pos { flex: 0 0 auto; }
-  .wz-foot [hidden], .wz-pane[hidden] { display: none !important; }
+  .wz-foot [hidden], .wz-pane[hidden], .ds-pane[hidden] { display: none !important; }
+  .ds-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .ds-pane { gap: 12px; }
+  .ds-hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 800; letter-spacing: .03em; padding: 10px 14px; border-radius: 12px; background: var(--caramel-soft, #f6ead9); }
+  .pc.ds:not(.wz) .ds-pane + .ds-pane { margin-top: 10px; }
+  .ds-who { padding: 0 4px; }
+  .ds-sum { padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
   .wz-miss { padding: 6px 0; border-bottom: 1px dashed var(--line-soft); }
   .hand-blind { display: flex; flex-direction: column; gap: 8px; border: 2px dashed var(--caramel, #b07a4a); border-radius: 12px; padding: 10px 12px; background: var(--caramel-soft, #f6ead9); }
   .hand-kv, .diff-card .kv { font-size: 14px; grid-template-columns: minmax(0, max-content) minmax(0, 1fr); }

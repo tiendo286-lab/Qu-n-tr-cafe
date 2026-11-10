@@ -22,16 +22,16 @@ export default async ({ settle, sleep, out }) => {
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }); for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     return 'phiếu ' + id + ' · ' + (await rpc('app_ca_get', { p_id: id })).status;
   });
-  await step('Mở phiếu: mặc định Bản đối soát', async () => { await open('#/ca/phieu?id=' + id); return txt('.pc-ban') + ' · đang chọn: ' + txt('.pc-ban a.on') + ' · sửa được pos_cash: ' + !$('#pos_cash').disabled + ' · ' + txt('.pc-foot, #pc-form > section:last-of-type').slice(0, 160); });
+  await step('Mở trang Đối soát ca (riêng, từng bước)', async () => { await open('#/quan-ly/doi-soat/ca?id=' + id); return txt('.pc-ban') + ' · đang chọn: ' + txt('.pc-ban a.on') + ' · sửa được pos_cash: ' + !$('#pos_cash').disabled + ' · ' + txt('.pc-foot, #pc-form > section:last-of-type').slice(0, 160); });
   await step('Sửa Mục 2 trên bản đối soát (kèm lý do)', async () => {
     setv($('#rc-reason'), 'NV nhập nhầm'); setv($('#pos_cash'), '1.250.000'); await sleep(2000);
-    await open('#/ca/phieu?id=' + id);
+    await open('#/quan-ly/doi-soat/ca?id=' + id);
     return 'ĐS pos_cash=' + $('#pos_cash').value + ' · ghi chú: ' + txt('#pos_cash')?.slice(0, 0) + ($('#pos_cash').closest('.pc-f').querySelector('.pc-orig')?.innerText || 'KHÔNG CÓ "Phiếu NV"') + ' · lịch sử: ' + txt('details summary');
   });
-  await step('Phiếu gốc không đổi', async () => { await open('#/ca/phieu?id=' + id + '&ban=goc'); return 'gốc pos_cash=' + $('#pos_cash').value + ' · khóa: ' + $('#pos_cash').disabled + ' · ' + txt('.pc-ban a.on'); });
+  await step('Phiếu gốc không đổi', async () => { await open('#/ca/phieu?id=' + id); return 'gốc pos_cash=' + $('#pos_cash').value + ' · khóa: ' + $('#pos_cash').disabled + ' · ' + txt('.pc-ban a.on'); });
   let resLog = '';
   await step('Hạng mục tiền: KHỚP / THIẾU (gán nhân viên) / THỪA', async () => {
-    await open('#/ca/phieu?id=' + id);
+    await open('#/quan-ly/doi-soat/ca?id=' + id);
     // Tiền mặt: web gợi ý THIẾU 50.000 (két 2.150.000 − 1.000.000 − 1.250.000 + chi 50.000)
     $('.rc-res[data-item=tien_mat]').click(); await sleep(300);
     let d = $('dialog[open]'); const sug = d.querySelector('input[name=res]:checked').value + ' ' + d.querySelector('input[name=amt]').value + ' · ' + d.querySelector('.diff-card').innerText.replace(/\s+/g, ' ').slice(0, 60);
@@ -72,7 +72,7 @@ export default async ({ settle, sleep, out }) => {
     location.hash = '#/quan-ly/thu-chi'; await wait('.tc-kpis'); await sleep(400);
     return txt('.tc-kpis') + ' · ' + $$('.tc-r').length + ' dòng';
   });
-  await step('Quay lại phiếu', async () => { await open('#/ca/phieu?id=' + id); return txt('.pc-head .pill'); });
+  await step('Quay lại phiếu', async () => { await open('#/quan-ly/doi-soat/ca?id=' + id); return txt('.pc-head .pill'); });
   await step('Mở lại đối soát → ĐANG ĐỐI SOÁT LẠI → hoàn thành lại', async () => {
     $('#rc-reopen').click(); await sleep(800); await wait('#pc-form'); await sleep(400);
     const a = txt('.pc-head') + ' · sửa được: ' + !$('#pos_cash').disabled;
@@ -92,9 +92,9 @@ export default async ({ settle, sleep, out }) => {
     let again2 = ''; try { await rpc('app_ca_cash_recount', { p_id: id2, p_amount: 2150000, p_giver: giver }); again2 = 'ĐẾM LẠI LẦN 2 KHÔNG BỊ CHẶN'; } catch (e) { again2 = 'đếm lại lần 2: chặn'; }
     return `lần đầu ${h1.state} ${h1.gap} · ${again} · đếm lại ${h2.state} ${h2.gap} · ${again2} · báo: ${JSON.stringify(window.__LOG.filter((x) => x[0] === 'notify'))}`;
   });
-  await step('Phiếu Chiều (quản lý xem): kết quả nhận két', async () => { await open('#/ca/phieu?id=' + id2 + '&ban=goc'); return txt('.hand-kv') + ' · ' + txt('#pc-form .alert.error'); });
+  await step('Phiếu Chiều (quản lý xem): kết quả nhận két', async () => { await open('#/ca/phieu?id=' + id2); return txt('.hand-kv') + ' · ' + txt('#pc-form .alert.error'); });
   await step('Bản đối soát ca Sáng: lệch bàn giao cộng vào tiền mặt', async () => {
-    await open('#/ca/phieu?id=' + id);
+    await open('#/quan-ly/doi-soat/ca?id=' + id);
     return txt('#diff-box .diff-card') + ' || ' + txt('.diff-card.hand-bad');
   });
   await step('Bảng ca: ô ca Chiều có cảnh báo nhận két lệch', async () => {
