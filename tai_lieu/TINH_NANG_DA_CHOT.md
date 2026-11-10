@@ -13,7 +13,7 @@ Từ ngày 07/11/2026, **web là nơi duy nhất** lưu lịch, order và các d
 | Nhóm | Mục | Tab con | Ghi chú |
 |---|---|---|---|
 | — | **Tổng quan** | | **Tạm ẩn 11/11/2026** — đăng nhập vào thẳng tab đầu tiên (Quản lý ca › Chốt ca). Sẽ làm lại thành bảng "Việc cần xử lý" (phương án đã gửi: việc GẤP đỏ / CẦN LÀM vàng theo nhóm Vận hành · Tiền · Nhân sự, Số liệu nhanh cho Chủ + QL tổng) khi đủ tính năng — CHỜ CHỐT. |
-| VẬN HÀNH | **Quản lý ca** | Chốt ca · Đối soát · Thu chi | Phiếu chốt ca theo ngày, đối soát 9 mục; Thu chi (có phần Khoản âm). Tab Báo cáo đã bỏ (10/11/2026). |
+| VẬN HÀNH | **Quản lý ca** | Chốt ca · Đối soát · Thu chi | Phiếu chốt ca theo ngày, đối soát 9 mục; Thu chi (gồm phiếu chi trừ lương = khoản âm). Tab Báo cáo đã bỏ (10/11/2026); phần Khoản âm riêng đã bỏ (11/11/2026). |
 | | **Xếp lịch tuần** | Order · Lịch cơ sở · Lịch tổng · Cảnh báo · Chốt & báo cáo | Xem bảng chi tiết ở mục 2 |
 | | **Công việc** | Công việc · Việc của tôi | Xem bảng chi tiết ở mục 3 |
 | TIỀN | **Sổ quỹ & chốt tháng** | Sổ quỹ · Chốt tháng | Sổ quỹ có ô Quỹ ngoài (chỉ Chủ) — mục 5g |
@@ -109,7 +109,7 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 
 | Điểm | Anh Tiến chốt |
 |---|---|
-| Vị trí | Mục **Quản lý ca**: Chốt ca · Đối soát · **Thu chi**. Bỏ tab Báo cáo; tab Khoản âm gộp vào Thu chi (nút chuyển THU CHI / KHOẢN ÂM ở đầu trang). Đường dẫn cũ #/quan-ly/khoan-am vẫn mở đúng phần Khoản âm. |
+| Vị trí | Mục **Quản lý ca**: Chốt ca · Đối soát · **Thu chi**. Bỏ tab Báo cáo. **11/11/2026 (`34_phieu_chi_tru_luong.sql`): bỏ hẳn phần Khoản âm** — mỗi người chịu thiếu tiền (từ đối soát ca) là 1 **phiếu chi "Thiếu tiền ca – <nhân viên>"** ngay trong danh sách Thu chi (ô tổng "Trừ lương (khoản âm)", lọc "Phiếu trừ lương"). Không tính vào tổng chi của quán. Quản lý + Chủ bấm **Sửa** (người chịu, số tiền, Trừ lương / Đã bù / Miễn — Miễn phải ghi lý do) hoặc **×** xóa (thành Đã hủy, báo nhân viên) tới khi tháng bị chốt. Đường dẫn cũ #/quan-ly/khoan-am mở Thu chi lọc sẵn phiếu trừ lương. Nhân viên vẫn xem và giải trình ở **Khoản âm của tôi**. |
 | Nguồn khoản thu chi | (1) **Quản lý tự tạo** (nút "+ Thêm khoản thu / chi": cơ sở, ngày, thu / chi, nhóm bắt buộc, nội dung, số tiền, tiền mặt / chuyển khoản) → **Đã đối soát**. (2) **Từng dòng thu chi ở phiếu chốt ca** đã hoàn thành → **Chờ đối soát**. |
 | Đối soát 1 dòng | Quản lý chọn nhóm (hoặc "Không tính" nếu không phải thu / chi thật, vd giải trình lệch tiền) rồi bấm **Đối soát**. Có nút **Bỏ đối soát** để trả về chờ. Phiếu ca bị sửa dòng đó thì dòng mới lại chờ đối soát. Chọn nhóm ở trang Chốt tháng cũng tính là đã đối soát. |
 | Ai dùng | Người có quyền Đối soát (mọi cơ sở) + quản lý được giao cơ sở ở Chốt tháng. |

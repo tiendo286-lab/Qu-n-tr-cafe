@@ -10,7 +10,7 @@ export default async ({ sleep, out }) => {
   await sb.from('shift_reports').insert({ id: 9901, branch_id: 1, work_date: today, shift: 'Sáng', status: 'hoan_thanh', recon_status: 'chua', total_revenue: 1000000 });
   await sb.from('shift_report_moves').insert([{ id: 99011, report_id: 9901, kind: 'tien_mat', amount: -50000, note: 'Mua đá', sort_order: 1 },
     { id: 99012, report_id: 9901, kind: 'tien_mat', amount: 20000, note: 'Bán bã cafe', sort_order: 2 }]);
-  location.hash = '#/quan-ly/thu-chi'; await wait('.tc-r', 200); await sleep(400);
+  location.hash = '#/quan-ly/thu-chi'; await wait('.tc-r.todo', 900); await sleep(400);
   r.push(`menu Quản lý ca: ${$$('.hub-tabs a').map((a) => a.innerText.trim()).join(' · ')}`);
   r.push(`ban đầu: ${$$('.tc-r').length} dòng, chờ: ${$$('.tc-r.todo').length} · ô Chờ đối soát: ${txt('#tc-pend')}`);
   let row = $$('.tc-r.todo').find((x) => x.innerText.includes('Mua đá'));
@@ -31,9 +31,9 @@ export default async ({ sleep, out }) => {
   $('#f-st').value = 'cho'; $('#f-st').dispatchEvent(new Event('change')); await sleep(100);
   r.push(`lọc chờ đối soát: ${txt('#f-n')}`);
   r.push(`rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);
-  location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('#ka-list', 200); await sleep(300);
-  r.push(`phần Khoản âm: ${txt('.tc-switch a.on')} · ${txt('#root h1:not(.x)')} · menu ${$$('.hub-tabs a.on').map((a) => a.innerText.trim())}`);
-  location.hash = '#/quan-ly/khoan-am?thang=2026-10'; await sleep(1500); await wait('#ka-list', 100);
+  location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('.tc-kpis', 200); await sleep(300);
+  r.push(`đường dẫn Khoản âm cũ → lọc: ${$('#f-src').value} · không còn nút chuyển: ${!$('.tc-switch')} · ${txt('#root h1:not(.x)')} · menu ${$$('.hub-tabs a.on').map((a) => a.innerText.trim())}`);
+  location.hash = '#/quan-ly/khoan-am?thang=2026-10'; await sleep(1500); await wait('.tc-kpis', 100);
   r.push(`đường dẫn cũ khoan-am → ${location.hash}`);
   location.hash = '#/quan-ly/bao-cao-ca'; await sleep(1500);
   r.push(`đường dẫn cũ bao-cao-ca → ${location.hash} · rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);

@@ -58,6 +58,14 @@ export function makeFin(T, me) {
           status: c?.checked ? 'da' : 'cho', checked_by: c?.checked ? name(c.checked_by) : null, checked_at: c?.checked_at || null, by: 'NV chốt ca', locked: locked(r.branch_id, r.work_date) });
       });
     });
+    (T.__SF || []).filter((k) => k.status !== 'huy').forEach((k) => {
+      const r = T.shift_reports.find((x) => x.id === k.report_id); if (!r || !brs.includes(r.branch_id) || r.work_date < from || r.work_date > to) return;
+      const e = T.employees.find((x) => x.id === k.employee_id) || {};
+      out.push({ src: 'ka', id: k.id, report_id: r.id, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: 'chi', pay: null, amount: k.amount, note: `Thiếu tiền ca – ${e.code} – ${e.name}`,
+        item: k.item, item_label: { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' }[k.item], employee_id: k.employee_id, employee: `${e.code} – ${e.name}`,
+        reason: k.reason, ka_status: k.status, auto_tru: !!k.auto_tru, status_note: k.status_note, reply: k.reply || null, seen_at: k.seen_at || null,
+        category_id: null, category: null, excluded: true, status: 'da', by: name(k.created_by), locked: locked(r.branch_id, r.work_date) });
+    });
     T.fin_entries.filter((e) => brs.includes(e.branch_id) && e.entry_date >= from && e.entry_date <= to).forEach((e) => out.push({ src: 'tay', id: e.id, branch_id: e.branch_id, date: e.entry_date, shift: null,
       kind: e.kind, pay: e.pay_method, amount: e.amount, note: e.note, category_id: e.category_id, category: T.fin_categories.find((k) => k.id === e.category_id)?.name || null, excluded: false,
       status: 'da', checked_by: name(e.created_by), checked_at: e.created_at, by: name(e.created_by), locked: locked(e.branch_id, e.entry_date) }));

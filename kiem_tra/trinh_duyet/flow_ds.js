@@ -58,13 +58,15 @@ export default async ({ settle, sleep, out }) => {
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat'; await wait('.bc-grid'); await sleep(500);
     return txt('.bc-legend') + ' || ' + $$('.bc-grid .bc').slice(0, 4).map((b) => b.className.replace('bc ', '') + ':' + b.innerText.replace(/\s+/g, ' ')).join(' / ');
   });
-  await step('Khoản âm (quản lý)', async () => {
-    location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('#ka-list'); await sleep(400);
-    const a = txt('.ka-sum') + ' · ' + txt('#f-n');
-    const b = $('.ka-set'); if (!b) return a + ' · (không có khoản âm)';
-    b.click(); await sleep(200); const d = $('dialog[open]'); d.querySelector('input[value=mien]').click(); d.querySelector('form').requestSubmit(); await sleep(300);
-    const err = d.querySelector('#ka-err').innerText; d.querySelector('input[value=da_bu]').click(); d.querySelector('form').requestSubmit(); await sleep(600);
-    return `${a} · miễn không lý do: "${err}" → ${txt('#root .alert')}`;
+  await step('Phiếu chi trừ lương trong Thu chi: sửa, xóa', async () => {
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('.tc-kpis'); await sleep(400);
+    const a = `${txt('#tc-ka')} · lọc: ${txt('#f-n')} · ${$$('.tc-r.ka:not([hidden])').map((r) => r.innerText.replace(/\s+/g, ' ').slice(0, 110)).join(' / ')}`;
+    const b = $('.ka-ed'); if (!b) return a + ' · (không có phiếu)';
+    b.click(); await sleep(400); const d = $('dialog[open]'); d.querySelector('input[value=mien]').click(); d.querySelector('form').requestSubmit(); await sleep(300);
+    const err = d.querySelector('#tc-err').innerText; d.querySelector('input[value=da_bu]').click(); d.querySelector('[name=amt]').value = '20.000'; d.querySelector('form').requestSubmit(); await sleep(800); await wait('.tc-kpis');
+    const after = `${txt('#root .alert')} · ${$$('.tc-r.ka').map((r) => r.querySelector('.tc-a').innerText + ' ' + r.querySelector('.pill').innerText).join(', ')}`;
+    $$('.ka-del').at(-1).click(); await sleep(800); await wait('.tc-kpis'); await sleep(300);
+    return `${a} · miễn không lý do: "${err}" → ${after} → xóa: ${txt('#root .alert')} · còn ${$$('.tc-r.ka').length} phiếu · tổng chi (không tính trừ lương): ${txt('.tc-k.neg b')}`;
   });
   await step('Thu chi', async () => {
     location.hash = '#/quan-ly/thu-chi'; await wait('.tc-kpis'); await sleep(400);

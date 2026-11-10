@@ -16,7 +16,7 @@ export function makeCa(T, me) {
     return p ? eff(p.id).rev_end : null;
   };
   const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
-  const RES = {}; const SF = []; let sfSeq = 1;
+  const RES = {}; const SF = []; let sfSeq = 1; T.__SF = SF;   // Thu chi (fin_gia) đọc phiếu trừ lương
   const LBL = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
   const eff = (id) => RECON[id] || snap(id);
   const money = (id) => {
@@ -254,6 +254,13 @@ export function makeCa(T, me) {
     app_ka_seen({ p_id }) { const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (k && !k.seen_at) k.seen_at = now(); },
     app_ka_reply({ p_id, p_text }) { if (!(p_text || '').trim()) throw new Error('Nhập nội dung giải trình.'); const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (!k) throw new Error('Không tìm thấy khoản âm của bạn.'); Object.assign(k, { reply: p_text.trim(), reply_at: now(), seen_at: k.seen_at || now() }); },
     app_ka_all: ({ p_from, p_to }) => SF.filter((k) => k.status !== 'huy').map(kaJson).filter((k) => (!p_from || k.work_date >= p_from) && (!p_to || k.work_date <= p_to)),
+    app_ka_edit({ p_id, p_employee, p_amount, p_status, p_note }) {
+      const k = SF.find((x) => x.id === p_id); if (!k || k.status === 'huy') throw new Error('Không tìm thấy phiếu (có thể đã bị xóa).');
+      if (p_status === 'mien' && !(p_note || '').trim()) throw new Error('Miễn khoản âm phải ghi lý do.');
+      if (!(p_amount > 0)) throw new Error('Số tiền phải lớn hơn 0.');
+      Object.assign(k, { employee_id: p_employee, amount: p_amount, status: p_status, auto_tru: false, status_note: (p_note || '').trim() || null, status_by: me.account_id, status_at: now() });
+    },
+    app_ka_delete({ p_id, p_note }) { const k = SF.find((x) => x.id === p_id); if (k) Object.assign(k, { status: 'huy', auto_tru: false, status_note: (p_note || '').trim() || 'Quản lý xóa phiếu', status_at: now() }); },
     app_ka_set_status({ p_id, p_status, p_note }) { if (p_status === 'mien' && !(p_note || '').trim()) throw new Error('Miễn khoản âm phải ghi lý do.'); Object.assign(SF.find((x) => x.id === p_id), { status: p_status, auto_tru: false, status_note: p_note || null, status_by: me.account_id, status_at: now() }); },
     app_ca_report({ p_from, p_to }) {
       const rs = T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.work_date >= p_from && r.work_date <= p_to);

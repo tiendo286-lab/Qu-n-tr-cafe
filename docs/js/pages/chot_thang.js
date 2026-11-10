@@ -152,7 +152,7 @@ export async function render({ params }) {
   const S = D.shortfalls;
   const secKa = html`<section class="card stack ct-sec"><h2>5. Khoản âm của nhân viên</h2>
     ${S.count ? html`<div class="kv"><div><strong>Tổng khoản âm (${S.count})</strong></div><div><strong>${vnd(S.total)}</strong></div>${KA.map(([k, l]) => html`<div>${l}</div><div>${vnd(S[k])}</div>`)}</div>
-      <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${month}">Mở danh sách khoản âm ›</a>` : html`<div class="st-meta">Không có khoản âm trong tháng.</div>`}</section>`;
+      <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${month}">Mở phiếu trừ lương trong Thu chi ›</a>` : html`<div class="st-meta">Không có khoản âm trong tháng.</div>`}</section>`;
 
   const secEnd = html`<section class="card stack ct-sec"><h2>6. Kết quả và chốt tháng</h2>
     <div class="kv">
