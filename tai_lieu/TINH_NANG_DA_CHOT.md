@@ -180,6 +180,15 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Đánh giá — lịch sử khi trừ điểm (anh Tiến chốt 11/11/2026) | Khi quản lý chọn nhân viên để trừ điểm, **hiện toàn bộ lịch sử bị trừ điểm / nhắc nhở** của người đó (từ trước tới nay, mới nhất ở trên) để quản lý chọn mức trừ hợp lý. Đầu danh sách tóm tắt tháng này bị trừ bao nhiêu điểm, mấy lần; lỗi cùng tiêu chí đang chọn được tô nổi (vd "lần thứ 3"). Thêm lựa chọn **Nhắc nhở** = ghi lỗi, 0 điểm, vẫn báo nhân viên và lưu lịch sử (nhân viên giải trình được như lần trừ điểm). **Không** hiện các lần trừ lương vì thiếu tiền ca. **Không** tự gợi ý mức trừ — quản lý tự xem và quyết. |
 | Đánh giá — bộ tiêu chí Quản lý | **ĐỂ SAU** (anh Tiến 11/11/2026: anh tự làm sau). Bản offline không có bộ này. Em đã soạn nháp 20 tiêu chí QL001–QL020 (tác phong; điều hành ca; tiền & sổ sách; hàng hóa; nhân sự; báo cáo & đóng góp) để anh tham khảo. Chưa chốt: ai trừ điểm quản lý (đề xuất: chỉ Chủ, hoặc Chủ + quản lý tổng; quản lý không tự trừ mình) và ngưỡng xếp loại. Khi làm phần đánh giá, chỉ làm 2 bộ Pha chế + Chạy bàn trước, thiết kế để thêm bộ Quản lý sau. |
 
+## 5k. Phiếu đào tạo: bấm hạng mục mở hướng dẫn — anh Tiến chốt 11/11/2026, CHƯA LÀM (chờ anh đưa bản quy trình lên + lệnh bắt đầu)
+
+| Mục | Đã chốt |
+|---|---|
+| Nội dung | Lấy từ **các bài Quy trình** anh Tiến tự đưa lên web (mục Nội quy / Quy trình › Quy trình). Hiện mỗi hạng mục chỉ ghi số trang sổ tay (vd "SOP 01 – Bước 1 · Tr. 35"). |
+| Cách mở | Bấm vào hạng mục → **cửa sổ nổi ngay trên phiếu**, đọc xong bấm Đóng là về đúng chỗ; có nút ‹ › sang hạng mục trước / sau. |
+| Ai xem | Mọi người mở được phiếu (nhân viên học, người hướng dẫn, quản lý, Chủ). |
+| Em đề xuất, chờ anh xác nhận | Tự ghép hạng mục với bài theo mã SOP trong tên (hạng mục "SOP 01 – Bước 1" → bài có tên bắt đầu "SOP 01", nhảy tới đoạn có tiêu đề "Bước 1"); Chủ đổi được bài gắn cho từng hạng mục. Hạng mục chưa có bài thì báo "Chưa có hướng dẫn — xem sổ tay trang 35". |
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
