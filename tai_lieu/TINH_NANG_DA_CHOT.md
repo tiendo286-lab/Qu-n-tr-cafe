@@ -150,7 +150,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Tiền hàng | Tiền hàng **cuối tháng thanh toán 1 lần**. Tổng bill các hóa đơn trong tháng của từng cơ sở → chi phí "Nguyên liệu (kho tổng)" của cơ sở đó ở Chốt tháng (không trừ quỹ cơ sở; bảng đối chiếu cộng lại như chi phí quỹ ngoài). Trang Kế toán có tổng phải trả kho tổng theo tháng / cơ sở. Cuối tháng ghi **một lần thanh toán** (ở Quỹ ngoài: khoản "Thanh toán kho tổng tháng X", điền sẵn tổng tiền, không chia lại cho cơ sở vì đã tính theo từng hóa đơn). |
 | File Excel | Đọc "Phiếu xuất điều chuyển": các dòng đầu dạng "Nhãn: giá trị" (Số đơn, Ngày tạo, Người tạo, Kho xuất, Thời gian xuất, Kho nhập "Tên (MÃ KHO)", Tham chiếu) + bảng cột Mã hàng · Tên hàng · Tên đơn vị tính · Số lượng · Đơn giá · Tổng, dòng cuối "Tổng". Kho nhập tự nhận ra cơ sở (lần đầu đoán theo chữ cái đầu tên, kế toán xác nhận, lần sau nhớ). Trùng số đơn bị chặn. Đã làm theo đề xuất: 1 ảnh gắn được nhiều món (tick các món trong ảnh); mỗi món có nút "Đủ" điền sẵn số hóa đơn; số lượng cho phép số lẻ. Quản lý xem được trang Hóa đơn giao hàng (không tải / ghép / xóa). |
 
-## 5i. Chia phiếu chốt ca thành phần việc — anh Tiến chốt 11/11/2026, CHƯA LÀM (đã chốt đủ, chờ lệnh bắt đầu)
+## 5i. Chia phiếu chốt ca thành phần việc — anh Tiến chốt 11/11/2026, ĐÃ LÀM 11/11/2026 (tệp `supabase/32_chia_phan_phieu_ca.sql`)
 
 | Điểm | Anh Tiến chốt |
 |---|---|
@@ -161,6 +161,9 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Giờ nhắc | Nhắc lần đầu **30 phút trước khi hết ca**; sau đó còn phần chưa xong thì nhắc lại mỗi giờ tới khi xong. |
 | Ai được nhận phần | Nhân viên có tên trong ca đó + quản lý. |
 | Quản lý tự làm thì khỏi đối soát | Phần nào do **người có quyền đối soát** (quản lý, quản lý tổng, chủ) nhận và bấm Xong thì các hạng mục đối soát của phần đó **tự tính là đã đối soát** (ghi "QL tự làm"): TIỀN → doanh thu / iPOS, công nợ, thu chi (từng dòng thu chi của phiếu thành đã đối soát); NHÂN SỰ & BÀN GIAO → nhân sự, bàn giao; NHẬN HÀNG → từng món hàng đã đối soát (số quản lý nhập là số chính thức). Phần do nhân viên làm vẫn phải đối soát như cũ. Nếu sau đó nhân viên "Nhận lại phần này" và sửa thì phần đó quay về chờ đối soát. (11/11/2026) |
+| Cách làm trên web | Đầu mỗi phần có thanh "PHẦN 1 · TIỀN / PHẦN 2 · NHÂN SỰ & BÀN GIAO / PHẦN 3 · NHẬN HÀNG" với nút **Tôi nhận phần này** / **Bỏ nhận** / **Nhận lại phần này** / **Sửa lại**; ô của phần chưa nhận bị khóa. Cuối phần có nút **XONG PHẦN …** (phần TIỀN hiện bảng xác nhận tiền như trước). Điện thoại: 5 bước Tiền: số liệu · Tiền: thu chi · Nhân sự & bàn giao · Nhận hàng · Tiến độ (bước Tiến độ liệt kê chỗ còn thiếu của phần mình). Phiếu chưa có ai trong ca thì ai chốt ca cũng nhận được phần. Mở lại phiếu → các phần phải bấm Xong lại (người nhận giữ nguyên). |
+| Nhắc trên máy chủ | Máy chủ tự chạy 5 phút/lần (hẹn giờ `nhac-phieu-ca`), gửi thông báo trong web; không nhắc từ 0h đến 6h; dừng sau 24 giờ kể từ hết ca. |
+| Ghi chú | Dòng chi do quản lý tự làm đã tính "đã đối soát" nhưng vẫn phải chọn nhóm chi ở Thu chi / Chốt tháng. Ảnh hàng: máy chủ chưa khóa theo người nhận phần (giao diện đã ẩn nút với người không nhận phần). |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 

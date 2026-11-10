@@ -33,7 +33,8 @@ export default async ({ sleep, out }) => {
   await step('Nhân viên kiểm hàng trong phiếu ca', async () => {
     const ov = await rpc('app_ca_overview', { p_date: day }); const o = ov.find((x) => x.branch_id === 1) || ov[0];
     id = await rpc('app_ca_open', { p_branch: 1, p_date: day, p_shift: o.shift });
-    location.hash = '#/ca/phieu?id=' + id; await wait('.nh-card', 300); await sleep(500);
+    await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_hang', p_force: false });
+    location.hash = '#/ca/phieu?id=' + id; await wait('.nh-card', 900); await sleep(500);
     const c = $('.nh-card'); const head = txt('.nh-head', c);
     $('.nh-duall', c).click(); const q = $$('.nh-q', c); q[2].value = '2'; q[2].dispatchEvent(new Event('input'));
     $('.nh-send', c).click(); await sleep(1500); await wait('.nh-card', 50);
@@ -57,7 +58,7 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 23:00', total_revenue: 1000000, pos_cash: 600000, pos_transfer: 400000, reported_transfer: 400000, cash_counted: 1600000, opening_cash: 1000000, ipos_opening: 1000000, cups: 10,
       moves: [], staff: (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:30' })), handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
-    await rpc('app_ca_complete', { p_id: id });
+    for (const k of ['tien', 'nhan_su', 'nhan_hang']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }); for (const k of ['tien', 'nhan_su', 'nhan_hang']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     return (await rpc('app_ca_get', { p_id: id })).status;
   });
   await step('Quản lý đối soát từng ảnh', async () => {

@@ -51,6 +51,9 @@ export function makeCa(T, me) {
   const kaJson = (k) => { const r = rep(k.report_id); const b = T.branches.find((x) => x.id === r.branch_id) || {};
     return { ...k, item_label: LBL[k.item], employee: `${emp(k.employee_id).code} – ${emp(k.employee_id).name}`, work_date: r.work_date, shift: r.shift, branch: b.display_code || b.code, branch_id: r.branch_id, created_by: name(k.created_by) }; };
   const RECON = {}; const RLOG = [];
+  const PARTS = {}; const partsOf = (id) => (PARTS[id] ||= {});
+  const PLBL = { tien: 'TIỀN', nhan_su: 'NHÂN SỰ & BÀN GIAO', nhan_hang: 'NHẬN HÀNG' };
+  const need = (id) => ['tien', 'nhan_su'].concat(partsOf(id).nhan_hang?.claimed_by || (T.delivery_invoices || []).some((d) => d.received_report_id === id) ? ['nhan_hang'] : []);
   const sumMoves = (rid, k) => T.shift_report_moves.filter((m) => m.report_id === rid && m.kind === k).reduce((a, m) => a + m.amount, 0);
 
   const FIELDS = ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status', 'goods_note', 'moves', 'staff', 'goods'];
@@ -135,8 +138,10 @@ export function makeCa(T, me) {
       const dIds = p.debts.map((d) => { if (!d.table_name.trim()) return null; if (d.id) { Object.assign(T.shift_debts.find((x) => x.id === d.id), { table_name: d.table_name, amount: d.amount || 0, note: d.note }); return d.id; } const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: d.table_name, amount: d.amount || 0, note: d.note, created_by: me.account_id, created_at: now() }); return id; });
       return { at: now(), rev_start: r.rev_start, handover_ids: hIds, debt_ids: dIds };
     },
-    app_ca_complete({ p_id }) {
+    app_ca_complete({ p_id, __only }) {
       const r = needEdit(p_id); const f = forced(r); if (f) r.rev_start = f;
+      if (!__only && need(p_id).some((k) => !partsOf(p_id)[k]?.done_at)) throw new Error('Phiếu chốt ca đã chia phần việc: còn phần chưa bấm Xong.');
+      if (__only !== 'nhan_su') {
       const miss = [];
       if (r.opening_cash == null) miss.push('Đếm nhận két đầu ca');
       if (r.ipos_opening == null) miss.push('Số dư đầu trên phiếu iPOS');
@@ -153,11 +158,42 @@ export function makeCa(T, me) {
       if (r.ipos_opening !== r.opening_cash && !r.opening_note) throw new Error('Số dư đầu trên iPOS khác tiền nhận két. Ghi lý do trước khi hoàn thành.');
       if (r.goods_status === 'thieu' && !T.shift_report_goods.some((g) => g.report_id === r.id)) throw new Error('Nhập hàng THIẾU: hãy ghi mặt hàng.');
       if (T.shift_report_moves.some((m) => m.report_id === r.id && (!m.amount || !m.note))) throw new Error('Mỗi dòng thu chi cần số tiền khác 0 và nội dung.');
-      for (const s of T.shift_report_staff.filter((x) => x.report_id === r.id)) {
+      }
+      if (__only !== 'tien') for (const s of T.shift_report_staff.filter((x) => x.report_id === r.id)) {
         if (s.worked && (!s.time_in || !s.time_out)) throw new Error('Nhập giờ đến và giờ về của NV ' + s.employee_id + '.');
         if (!s.worked && !s.absent_reason) throw new Error('Ghi lý do nghỉ của NV ' + s.employee_id + '.');
       }
+      if (__only) return;
       Object.assign(r, { status: 'hoan_thanh', completed_by: me.account_id, completed_at: now() });
+      const AUTO = { tien: ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], nhan_su: ['nhan_su', 'ban_giao'], nhan_hang: ['nhap_hang'] };
+      const items = Object.entries(partsOf(p_id)).filter(([, x]) => x.done_at && x.done_ql).flatMap(([k]) => AUTO[k]);
+      if (!(T.delivery_invoices || []).some((d) => d.received_report_id === p_id)) items.push('nhap_hang');
+      for (const it of new Set(items)) if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({ report_id: p_id, item: it, checked_by: me.account_id, checked_at: now() });
+    },
+    // Bước 32: phần việc của phiếu
+    app_ca_parts({ p_id }) {
+      const r = rep(p_id); const ps = partsOf(p_id); const nd = need(p_id);
+      return { status: r.status, me: me.account_id, can_claim: true, is_ql: !!me.perms.doi_soat, end_at: r.work_date + ' 12:30', remind_at: r.work_date + ' 12:00',
+        parts: ['tien', 'nhan_su', 'nhan_hang'].map((k) => { const x = ps[k] || {}; return { part: k, label: PLBL[k], need: nd.includes(k), claimed_by: x.claimed_by || null,
+          claimed_name: name(x.claimed_by), claimed_at: x.claimed_at || null, mine: !!x.claimed_by && x.claimed_by === me.account_id, done_at: x.done_at || null,
+          done_name: name(x.done_by), done_ql: !!x.done_ql, prev_name: name(x.prev_by) }; }) };
+    },
+    app_ca_part_claim({ p_id, p_part, p_force }) {
+      needEdit(p_id); const ps = partsOf(p_id); const x = ps[p_part] || {};
+      if (x.claimed_by && x.claimed_by !== me.account_id && !p_force) throw new Error(`Phần ${PLBL[p_part]} đã có người nhận. Muốn làm thay, bấm "Nhận lại phần này".`);
+      if (x.claimed_by !== me.account_id) ps[p_part] = { claimed_by: me.account_id, claimed_at: now(), prev_by: x.claimed_by || null };
+      return F.app_ca_parts({ p_id });
+    },
+    app_ca_part_release({ p_id, p_part }) { needEdit(p_id); delete partsOf(p_id)[p_part]; return F.app_ca_parts({ p_id }); },
+    app_ca_part_done({ p_id, p_part, p_on, p_as_staff }) {
+      needEdit(p_id); const x = partsOf(p_id)[p_part];
+      if (!x || x.claimed_by !== me.account_id) throw new Error('Chỉ người nhận phần bấm Xong được.');
+      if (p_on === false) { Object.assign(x, { done_at: null, done_by: null, done_ql: false }); return { completed: false }; }
+      if (p_part !== 'nhan_hang') F.app_ca_complete({ p_id, __only: p_part });
+      Object.assign(x, { done_at: now(), done_by: me.account_id, done_ql: !!me.perms.doi_soat && !p_as_staff });
+      const left = need(p_id).filter((k) => !partsOf(p_id)[k]?.done_at);
+      if (!left.length) F.app_ca_complete({ p_id });
+      return { completed: !left.length, left: left.map((k) => PLBL[k]) };
     },
     app_ca_handover_done({ p_item, p_report, p_done }) { needEdit(p_report); const h = T.handover_items.find((x) => x.id === p_item); Object.assign(h, p_done ? { done_at: now(), done_by: me.account_id, done_report_id: p_report } : { done_at: null, done_by: null, done_report_id: null }); },
     app_ca_debt_collect({ p_debt, p_report, p_kind, p_note }) { needEdit(p_report); const d = T.shift_debts.find((x) => x.id === p_debt); Object.assign(d, p_kind === null ? { closed_at: null, closed_by: null, closed_report_id: null, close_note: null, collect_kind: null } : { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || 'Đã thu', collect_kind: p_kind }); },

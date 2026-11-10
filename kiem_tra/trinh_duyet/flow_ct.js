@@ -18,7 +18,7 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_save', { p_id: id, p: { rev_end: pm + ' 12:30', total_revenue: 3000000, pos_cash: 1800000, pos_transfer: 1200000, reported_transfer: 1200000, cash_counted: 2750000, ipos_opening: 1000000, cups: 100, goods_status: 'khong', goods_note: null,
       moves: [{ kind: 'tien_mat', amount: -50000, note: 'Mua đá' }, { kind: 'tien_mat', amount: 20000, note: 'Khách gửi thêm' }], staff: [], handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
-    await rpc('app_ca_complete', { p_id: id });
+    for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }); for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     return `phiếu ${id} ngày ${pm}`;
   });
   await step('Tổng hợp tất cả cơ sở', async () => { await go(`#/quan-ly/chot-thang?thang=${M}&cn=all`); return txt('.ct-month') + ' · ' + txt('.branch-tabs') + ' || ' + $$('.table tbody tr').slice(0, 2).map((r) => r.innerText.replace(/\s+/g, ' ')).join(' / '); });
@@ -40,7 +40,7 @@ export default async ({ sleep, out }) => {
   await step('Chốt khi còn ca chưa đối soát → bị chặn', async () => { $('#ct-close').click(); await sleep(600); return txt('#saved-indicator, .saved') || 'KHÔNG BÁO'; });
   await step('Đối soát xong ca → Chốt tháng → khóa', async () => {
     for (const it of ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no']) await rpc('app_ca_result_set', { p_id: id, p_item: it, p_result: 'khop', p_amount: null, p_reason: null, p_people: null });
-    for (const it of ['thoi_gian', 'doanh_thu', 'nhan_su', 'ban_giao', 'nhap_hang']) await rpc('app_ca_check', { p_id: id, p_item: it, p_on: true });
+    for (const it of ['thoi_gian', 'doanh_thu', 'nhan_su', 'ban_giao']) await rpc('app_ca_check', { p_id: id, p_item: it, p_on: true });
     await go(`#/quan-ly/chot-thang?thang=${M}&cn=${br}`);
     $('#ct-close').click(); await sleep(800); await wait('.ct-bar'); await sleep(500);
     let blocked = ''; try { await rpc('app_fin_entry_save', { p_id: null, p: { branch_id: br, entry_date: pm, kind: 'chi', amount: 1000, note: 'x' } }); blocked = 'KHÔNG KHÓA'; } catch (e) { blocked = e.message; }

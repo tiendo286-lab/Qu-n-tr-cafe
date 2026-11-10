@@ -1,4 +1,5 @@
-// Phiếu chốt ca TỪNG BƯỚC (nhân viên, khung điện thoại): 5 bước, chấm đỏ ở bước còn thiếu, bước 5 liệt kê chỗ thiếu → sửa → HOÀN THÀNH
+// Phiếu chốt ca TỪNG BƯỚC (nhân viên, khung điện thoại): 3 phần việc (Tiền / Nhân sự & bàn giao / Nhận hàng) — nhận phần, chấm đỏ ở bước còn thiếu,
+// bước Tiến độ liệt kê chỗ thiếu → sửa → Xong từng phần → đủ phần thì phiếu tự HOÀN THÀNH
 // + công nợ tính vào công thức, ca sau: giờ bắt đầu tự lấy, tiền đầu ca lệch phải ghi lý do, khách trả nợ bằng tiền mặt
 export default async ({ sleep, out }) => {
   const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
@@ -9,7 +10,10 @@ export default async ({ sleep, out }) => {
   const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const { rpc } = await import('../js/sb.js');
   const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
-  const open = async (id) => { location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id; await wait('#pc-form', 600); await sleep(700); };
+  const open = async (id, claim = true) => {
+    if (claim) for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id; await wait('#pc-form', 600); await sleep(700);
+  };
   const go = async (i) => { $(`.wz-st[data-go="${i}"]`).click(); await sleep(250); };
   const vis = () => $$('.wz-pane').findIndex((p) => !p.hidden);
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(2500);
@@ -17,8 +21,14 @@ export default async ({ sleep, out }) => {
   let r1; let r2;
   await step('Mở phiếu Sáng: có 5 bước', async () => {
     r1 = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[0].shift });
-    await open(r1); document.querySelector('dialog[open]')?.close();
-    return `${$$('.wz-st').length} bước: ${txt('.wz-steps')} · đang ở bước ${vis() + 1} · ${txt('#wz-pos')} · nút HOÀN THÀNH ẩn: ${$('#finish').hidden}`;
+    await open(r1, false); document.querySelector('dialog[open]')?.close();
+    return `${$$('.wz-st').length} bước: ${txt('.wz-steps')} · đang ở bước ${vis() + 1} · ${txt('#wz-pos')} · thanh phần: ${txt('.wz-pane:not([hidden]) .pt-bar')} · ô Mục 1 khóa: ${$('#total_revenue').disabled} · nút HOÀN THÀNH cũ: ${!!$('#finish')}`;
+  });
+  await step('Bấm "Tôi nhận phần này" (TIỀN) rồi nhận NHÂN SỰ', async () => {
+    $('.wz-pane:not([hidden]) .pt-claim').click(); await sleep(1200); await wait('#pc-form'); await sleep(500);
+    const a = `${txt('.wz-pane:not([hidden]) .pt-bar')} · ô Mục 1 mở: ${!$('#total_revenue').disabled}`;
+    await go(2); $('.wz-pane:not([hidden]) .pt-claim').click(); await sleep(1200); await wait('#pc-form'); await sleep(500);
+    return `${a} | nhân sự: ${txt('.wz-pane:not([hidden]) .pt-bar')} · ô giờ mở: ${!$('.st-in').disabled}`;
   });
   await step('Bước 1: nhập số liệu, Mục 1 lệch 200.000 (chưa ghi nợ)', async () => {
     for (const [id, v] of Object.entries({ rev_end: day + 'T12:30', total_revenue: '1700000', pos_cash: '1000000', pos_transfer: '500000', reported_transfer: '500000', cash_counted: '2000000', cups: '50', ipos_opening: '1.000.000' })) setv($('#' + id), v);
@@ -33,27 +43,29 @@ export default async ({ sleep, out }) => {
     return `đang ở bước ${vis() + 1} · ${txt('#diff-box').slice(0, 120)} · bước 1 giờ: ${(await (async () => { await go(0); return txt('#sum-check'); })())}`;
   });
   await step('Bước 5: liệt kê chỗ còn thiếu → bấm Sửa nhảy đúng bước', async () => {
-    await go(4); const a = txt('#wz-check');
-    const btn = $$('#wz-check [data-go]')[0]; const target = btn?.dataset.go; btn?.click(); await sleep(250);
+    await go(4); const a = txt('.pt-prog');
+    const btn = $$('.pt-prog [data-go]')[0]; const target = btn?.dataset.go; btn?.click(); await sleep(250);
     return `${a.slice(0, 260)} · bấm Sửa → bước ${vis() + 1} (đúng: ${Number(target) + 1})`;
   });
   await step('Chụp ảnh phiếu chốt ca iPOS (bắt buộc)', async () => {
-    await go(4); const before = $$('#wz-check .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /iPOS/.test(t)).join(';');
+    await go(4); const before = $$('.pt-prog .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /iPOS/.test(t)).join(';');
     await go(0); const inp = $('#ipos-input');
     const c = document.createElement('canvas'); c.width = c.height = 40; c.getContext('2d').fillRect(0, 0, 20, 20);
     const blob = await new Promise((res) => c.toBlob(res, 'image/png'));
     const dtf = new DataTransfer(); dtf.items.add(new File([blob], 'ipos.png', { type: 'image/png' })); inp.files = dtf.files;
     inp.dispatchEvent(new Event('change', { bubbles: true })); await sleep(2500); await wait('#pc-form'); await sleep(500);
-    await go(4); const after = $$('#wz-check .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /iPOS/.test(t)).join(';');
+    await go(4); const after = $$('.pt-prog .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /iPOS/.test(t)).join(';');
     await go(0);
     return `trước: "${before}" · ảnh iPOS: ${$$('#ipos-input').length && $('#ipos-input').closest('.pc-f').querySelectorAll('.ph').length} · sau: "${after || 'hết thiếu'}" · ${txt('#ipos-check')}`;
   });
-  await step('Bước 4: không có hàng kho tổng (không phải chọn gì) → bước 5 đủ → HOÀN THÀNH', async () => {
-    await go(3); const nh = txt('#hd-box'); await sleep(400); await go(4);
-    const a = txt('#wz-check');
-    $('#finish').click(); await sleep(1500); const d = $('dialog[open]'); const sum = d ? d.innerText.replace(/\s+/g, ' ').slice(0, 260) : 'KHÔNG HIỆN HỘP';
-    d?.querySelector('#confirm-finish').click(); await sleep(1200); await wait('#pc-form');
-    return `mục 7: ${nh.slice(0, 60)} || ${a.slice(0, 120)} || ${sum} || ${txt("#root .alert")} · ${(await rpc("app_ca_get", { p_id: r1 })).status}`;
+  await step('Nhận hàng: không có hàng kho tổng → phần không bắt buộc; Xong TIỀN → Xong NHÂN SỰ → phiếu tự HOÀN THÀNH', async () => {
+    await go(3); const nh = `${txt('.wz-pane:not([hidden]) .pt-bar')} · ${txt('#hd-box').slice(0, 60)}`; await sleep(400); await go(4);
+    const a = txt('.pt-prog');
+    $('.pt-prog .pt-done[data-part="tien"]').click(); await sleep(1500); const d = $('dialog[open]'); const sum = d ? d.innerText.replace(/\s+/g, ' ').slice(0, 200) : 'KHÔNG HIỆN HỘP';
+    d?.querySelector('#confirm-finish').click(); await sleep(1200); await wait('#pc-form'); await sleep(500);
+    const mid = `${txt('#root .alert')} · ${(await rpc('app_ca_get', { p_id: r1 })).status}`;
+    await go(2); $('.wz-pane:not([hidden]) .pt-done').click(); await sleep(1500); await wait('#pc-form'); await sleep(500);
+    return `mục 7: ${nh} || ${a.slice(0, 160)} || ${sum} || sau Xong TIỀN: ${mid} || sau Xong NHÂN SỰ: ${txt('#root .alert')} · ${(await rpc('app_ca_get', { p_id: r1 })).status}`;
   });
   let r3;
   await step('Ca Tối mở trước khi ca Chiều hoàn thành: chưa cho đếm nhận két', async () => {
@@ -71,8 +83,8 @@ export default async ({ sleep, out }) => {
   });
   await step('Đếm 1.900.000 → lệch −100.000 → phải 2 người đếm lại', async () => {
     setv($('#hand-count'), '1.900.000'); $('#hand-ok').click(); await sleep(1500); await wait('#pc-form'); await sleep(500);
-    const a = txt('.hand-kv') + ' · ' + txt('#pc-form .alert.error');
-    await go(4); const miss = $$('#wz-check .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /két|lý do/.test(t)).join(';'); await go(0);
+    const a = txt('.hand-kv') + ' · ' + txt('#pc-form .alert.error') + ' · báo: ' + txt('#saved-indicator');
+    await go(4); const miss = $$('.pt-prog .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /két|lý do/.test(t)).join(';'); await go(0);
     return `${a} · bước 5: ${miss} · còn ô đếm mù: ${!!$('#hand-count')}`;
   });
   await step('2 người đếm lại 1.950.000 → vẫn lệch −50.000 → báo quản lý, phải ghi lý do', async () => {
@@ -89,7 +101,7 @@ export default async ({ sleep, out }) => {
   });
   await step('Ca Chiều: lý do lệch, khách trả nợ tiền mặt', async () => {
     const oc = 'ô lý do hiện: ' + !$('#open-note-box').hidden; const start = '';
-    await go(4); const miss = $$('#wz-check .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /lý do/.test(t)).join(';');
+    await go(4); const miss = $$('.pt-prog .wz-miss').map((x) => x.innerText.split('\n')[0]).filter((t) => /lý do/.test(t)).join(';');
     await go(1); const b = $('.debt-close'); let col = 'không có nợ cũ';
     if (b) { b.click(); await sleep(200); const d = $('dialog[open]'); d.querySelector('input[value=tien_mat]').click(); d.querySelector('form').requestSubmit(); await sleep(1500); await wait('#pc-form'); await sleep(500); await go(1); col = txt('#diff-box').slice(0, 200) + ' · ' + txt('.pc-line.carried'); }
     return `${start} | ${oc} | bước 5: ${miss} | ${col}`;

@@ -19,7 +19,7 @@ export default async ({ settle, sleep, out }) => {
     await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2150000, opening_cash: 1000000, ipos_opening: 1000000, cups: 80, goods_status: 'khong', goods_note: null,
       moves: [{ kind: 'tien_mat', amount: -50000, note: 'chi đá' }], staff: (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:30' })), handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
-    await rpc('app_ca_complete', { p_id: id });
+    for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }); for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     return 'phiếu ' + id + ' · ' + (await rpc('app_ca_get', { p_id: id })).status;
   });
   await step('Mở phiếu: mặc định Bản đối soát', async () => { await open('#/ca/phieu?id=' + id); return txt('.pc-ban') + ' · đang chọn: ' + txt('.pc-ban a.on') + ' · sửa được pos_cash: ' + !$('#pos_cash').disabled + ' · ' + txt('.pc-foot, #pc-form > section:last-of-type').slice(0, 160); });
