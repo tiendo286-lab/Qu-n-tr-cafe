@@ -165,6 +165,18 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Nhắc trên máy chủ | Máy chủ tự chạy 5 phút/lần (hẹn giờ `nhac-phieu-ca`), gửi thông báo trong web; không nhắc từ 0h đến 6h; dừng sau 24 giờ kể từ hết ca. |
 | Ghi chú | Dòng chi do quản lý tự làm đã tính "đã đối soát" nhưng vẫn phải chọn nhóm chi ở Thu chi / Chốt tháng. Ảnh hàng: máy chủ chưa khóa theo người nhận phần (giao diện đã ẩn nút với người không nhận phần). |
 
+## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026, CHƯA LÀM (chờ lệnh bắt đầu; phần đánh giá chờ bảng tiêu chí của anh)
+
+| Điểm | Anh Tiến chốt |
+|---|---|
+| Trang gom việc | Tab **Đối soát** (Quản lý ca) = nơi duy nhất quản lý vào đối soát. Đầu trang: chọn ngày/tháng, cơ sở; 4 ô đếm: Phiếu ca chờ đối soát · Dòng thu chi chờ · Hàng chưa đối soát · Giải trình khoản âm mới. 4 danh sách, mỗi dòng có nút làm ngay: (1) phiếu ca → mở trang Đối soát ca; (2) dòng thu chi từ phiếu ca → chọn nhóm + Đối soát tại chỗ; (3) hàng nhận chưa đối soát → hộp đối soát từng ảnh; (4) phiếu trừ lương có giải trình → Giữ trừ lương / Sửa / Xóa. Bảng ca hôm nay giữ ở đầu trang. |
+| Thu chi | Chỉ còn là **sổ thu chi** (không còn nút Đối soát); dòng chờ ghi "Chờ đối soát" + đường dẫn sang trang Đối soát. |
+| Trang Đối soát ca | Tách khỏi phiếu nhân viên. Phiếu nhân viên chỉ xem (bỏ các nút đỏ/xanh), quản lý có nút "Đối soát ca này". Trang đối soát ca: đầu trang ca, cơ sở, ai làm từng phần, phần nào quản lý tự làm (đã tự đối soát). **Bước 1 Tiền** (sửa số liệu như bản đối soát, giữ "Phiếu NV: …"; tiền mặt / chuyển khoản chưa giải trình, chuyển khoản kế toán nhập; KHỚP / THIẾU / THỪA — thiếu thì chia đều + mặc định trừ lương; chọn nhóm các dòng thu chi của ca) · **Bước 2 Nhân sự & bàn giao** · **Bước 3 Nhận hàng** (đối soát từng ảnh; không nhận hàng thì tự qua) · **Bước 4 Hoàn thành** (tóm tắt → HOÀN THÀNH ĐỐI SOÁT; Mở lại đối soát, Mở lại phiếu cho NV sửa ở đây). |
+| Dòng thu chi của ca | Đối soát được ở **cả 2 chỗ** (bước Tiền và trang gom việc), làm ở đâu cũng tính. |
+| Ai đối soát | Người có quyền Đối soát (quản lý, quản lý tổng, chủ) — như hiện nay. |
+| Điện thoại / máy tính | Điện thoại: từng bước như phiếu nhân viên. Máy tính: hiện cả 4 bước trên 1 trang. |
+| Đánh giá nhân viên | Thêm phần **đánh giá từng nhân viên làm trong ca** ngay trong trang Đối soát ca. **Tiêu chí và cách chấm theo bảng tiêu chí đánh giá nhân viên anh Tiến sẽ gửi sau** (chưa có). **Không bắt buộc** — không cần đánh giá vẫn HOÀN THÀNH ĐỐI SOÁT được. **Nhân viên xem được** đánh giá của mình (mục Của tôi); quản lý / Chủ xem tổng hợp. Chi tiết (thang chấm, có báo / giải trình khi bị chấm thấp, tổng hợp tháng) chốt khi có bảng tiêu chí. |
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
