@@ -165,7 +165,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Nhắc trên máy chủ | Máy chủ tự chạy 5 phút/lần (hẹn giờ `nhac-phieu-ca`), gửi thông báo trong web; không nhắc từ 0h đến 6h; dừng sau 24 giờ kể từ hết ca. |
 | Ghi chú | Dòng chi do quản lý tự làm đã tính "đã đối soát" nhưng vẫn phải chọn nhóm chi ở Thu chi / Chốt tháng. Ảnh hàng: máy chủ chưa khóa theo người nhận phần (giao diện đã ẩn nút với người không nhận phần). |
 
-## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026. ĐÃ LÀM 11/11/2026 phần tách đối soát (`supabase/35_doi_soat_rieng.sql`, trang `#/quan-ly/doi-soat` và `#/quan-ly/doi-soat/ca?id=`). CHƯA LÀM phần đánh giá nhân viên (chờ bảng tiêu chí của anh)
+## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026. ĐÃ LÀM 11/11/2026 phần tách đối soát (`supabase/35_doi_soat_rieng.sql`, trang `#/quan-ly/doi-soat` và `#/quan-ly/doi-soat/ca?id=`). CHƯA LÀM phần đánh giá nhân viên (đã chốt cách trừ điểm, chờ lệnh bắt đầu)
 
 | Điểm | Anh Tiến chốt |
 |---|---|
@@ -175,7 +175,8 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Dòng thu chi của ca | Đối soát được ở **cả 2 chỗ** (bước Tiền và trang gom việc), làm ở đâu cũng tính. |
 | Ai đối soát | Người có quyền Đối soát (quản lý, quản lý tổng, chủ) — như hiện nay. |
 | Điện thoại / máy tính | Điện thoại: từng bước như phiếu nhân viên. Máy tính: hiện cả 4 bước trên 1 trang. |
-| Đánh giá nhân viên | Thêm phần **đánh giá từng nhân viên làm trong ca** ngay trong trang Đối soát ca. **Tiêu chí và cách chấm theo bảng tiêu chí đánh giá nhân viên anh Tiến sẽ gửi sau** (chưa có). **Không bắt buộc** — không cần đánh giá vẫn HOÀN THÀNH ĐỐI SOÁT được. **Nhân viên xem được** đánh giá của mình (mục Của tôi); quản lý / Chủ xem tổng hợp. Chi tiết (thang chấm, có báo / giải trình khi bị chấm thấp, tổng hợp tháng) chốt khi có bảng tiêu chí. |
+| Đánh giá nhân viên (chốt 11/11/2026) | **Trừ điểm theo 20 tiêu chí đã có ở bản offline** (Pha chế 20 tiêu chí, Chạy bàn 20 tiêu chí, mỗi tiêu chí tối đa 5 điểm, tổng 100 — danh sách xem `app/legacy/constants.py` EVALUATION_CRITERIA). **Theo tháng**: đầu tháng mỗi nhân viên đủ 100 điểm; phạm lỗi thì quản lý trừ vào đúng tiêu chí, **chọn trừ 1–5 điểm**, bắt buộc ghi lỗi gì (kèm ảnh nếu có); mỗi tiêu chí không xuống dưới 0. Cuối tháng xếp loại theo ngưỡng cũ: Xuất sắc ≥ 91 · Tốt ≥ 80 · Khá ≥ 65 · Trung bình ≥ 50 · Yếu < 50; sang tháng mới đủ 100 lại. **Trừ ở 2 chỗ**: trong trang Đối soát ca (cho người làm ca đó, gắn với ca) và trang **Đánh giá nhân viên** riêng (trừ bất cứ lúc nào + bảng điểm tháng từng người). **Nhân viên** nhận thông báo, xem điểm của mình ở Của tôi, **gửi giải trình được**; quản lý / Chủ xem giải trình rồi **giữ hoặc hoàn lại điểm**. Không bắt buộc khi hoàn thành đối soát. **Bỏ voucher** (tạm thời). **Không chuyển dữ liệu đánh giá cũ** của bản offline lên web. |
+| Đánh giá — em đề xuất, chờ anh xác nhận | Bộ tiêu chí theo vị trí của nhân viên trong ca (Pha chế / Chạy bàn); người làm cả 2 vị trí thì quản lý chọn. Người trừ điểm: người có quyền Đối soát (quản lý, quản lý tổng, Chủ). Sửa / xóa / hoàn điểm được trong tháng đó và tới hết ngày 5 tháng sau, sau đó khóa. Chủ sửa được tên tiêu chí ở Cài đặt. |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
