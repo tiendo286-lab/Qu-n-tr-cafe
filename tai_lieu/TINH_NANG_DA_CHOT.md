@@ -12,7 +12,7 @@ Từ ngày 07/11/2026, **web là nơi duy nhất** lưu lịch, order và các d
 
 | Nhóm | Mục | Tab con | Ghi chú |
 |---|---|---|---|
-| — | **Tổng quan** | | |
+| — | **Tổng quan** | | **Tạm ẩn 11/11/2026** — đăng nhập vào thẳng tab đầu tiên (Quản lý ca › Chốt ca). Sẽ làm lại thành bảng "Việc cần xử lý" (phương án đã gửi: việc GẤP đỏ / CẦN LÀM vàng theo nhóm Vận hành · Tiền · Nhân sự, Số liệu nhanh cho Chủ + QL tổng) khi đủ tính năng — CHỜ CHỐT. |
 | VẬN HÀNH | **Quản lý ca** | Chốt ca · Đối soát · Thu chi | Phiếu chốt ca theo ngày, đối soát 9 mục; Thu chi (có phần Khoản âm). Tab Báo cáo đã bỏ (10/11/2026). |
 | | **Xếp lịch tuần** | Order · Lịch cơ sở · Lịch tổng · Cảnh báo · Chốt & báo cáo | Xem bảng chi tiết ở mục 2 |
 | | **Công việc** | Công việc · Việc của tôi | Xem bảng chi tiết ở mục 3 |

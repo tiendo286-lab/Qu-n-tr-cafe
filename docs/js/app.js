@@ -104,6 +104,12 @@ const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
 const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka });
 
+// Trang mở đầu cho quản lý khi Tổng quan đang tạm ẩn: tab đầu tiên mình có quyền
+function homePath() {
+  for (const [, all] of HUBS) { const tabs = visibleTabs(all); if (tabs.length) return tabs[0][1]; }
+  return '/order';
+}
+
 function menuHtml(path) {
   const b = badges();
   let grp;
@@ -148,7 +154,7 @@ function layout(path, body, flashMsg) {
         <div class="who">${me.code} – ${me.name} · ${ROLE_LABELS[me.role]}</div>
         <details class="navd" open><summary>☰ Menu</summary>
         <div class="nav">
-          ${me.role === 'ke_toan' ? '' : html`<a class="item ${path === '/' ? 'active' : ''}" href="#/">Tổng quan</a>`}
+          ${''/* Tổng quan tạm ẩn (11/11/2026) — anh Tiến chốt lại sau khi đủ tính năng; trang tong_quan.js vẫn giữ */}
           ${me.must_change ? '' : menuHtml(path)}
         </div>
         <div class="bottom">
@@ -248,6 +254,7 @@ export async function render() {
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
   if (path === '/' && me && !isManager()) return go('/order');
   if (path === '/' && me && me.role === 'ke_toan') return go('/ke-toan/hoa-don');
+  if (path === '/' && me && !me.must_change) return go(homePath());   // Tổng quan tạm ẩn: vào thẳng tab đầu tiên của menu
   // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
   if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());
   if (path === '/quan-ly/bao-cao-ca') return go('/quan-ly/thu-chi');
