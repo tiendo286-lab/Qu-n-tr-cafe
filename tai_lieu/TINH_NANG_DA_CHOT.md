@@ -160,6 +160,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Chưa xong | Còn phần chưa xong → phiếu chưa hoàn thành và **treo nhắc nhân viên** (người nhận phần; phần chưa ai nhận thì nhắc cả nhân viên trong ca). |
 | Giờ nhắc | Nhắc lần đầu **30 phút trước khi hết ca**; sau đó còn phần chưa xong thì nhắc lại mỗi giờ tới khi xong. |
 | Ai được nhận phần | Nhân viên có tên trong ca đó + quản lý. |
+| Quản lý tự làm thì khỏi đối soát | Phần nào do **người có quyền đối soát** (quản lý, quản lý tổng, chủ) nhận và bấm Xong thì các hạng mục đối soát của phần đó **tự tính là đã đối soát** (ghi "QL tự làm"): TIỀN → doanh thu / iPOS, công nợ, thu chi (từng dòng thu chi của phiếu thành đã đối soát); NHÂN SỰ & BÀN GIAO → nhân sự, bàn giao; NHẬN HÀNG → từng món hàng đã đối soát (số quản lý nhập là số chính thức). Phần do nhân viên làm vẫn phải đối soát như cũ. Nếu sau đó nhân viên "Nhận lại phần này" và sửa thì phần đó quay về chờ đối soát. (11/11/2026) |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
