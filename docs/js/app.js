@@ -12,13 +12,13 @@ export const HUBS = [
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']], null, 'Vận hành'],
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
   ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', ['ke_toan', 'doi_soat']], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']], null, 'Tiền'],
-  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
+  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
   ['Cài đặt xếp lịch', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']], null, 'Hệ thống'],
   ['Dữ liệu & LOG', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'], ['LOG hệ thống', '/quan-ly/log', 'phan_quyen']], null, 'Hệ thống'],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]], null, 'Hệ thống'],
-  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],
+  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Điểm đánh giá', '/cua-toi/danh-gia', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
@@ -61,6 +61,8 @@ const PAGES = {
   '/ke-toan/chuyen-khoan': 'ke_toan_ck',
   '/quan-ly/thu-chi': 'thu_chi',
   '/cua-toi/khoan-am': 'khoan_am_toi',
+  '/cua-toi/danh-gia': 'danh_gia_toi',
+  '/quan-ly/danh-gia': 'danh_gia',
   '/quan-ly/chot-thang': 'chot_thang',
   '/quan-ly/so-quy': 'so_quy',
 };

@@ -45,8 +45,27 @@ export async function fillImages(root) {
   try {
     const { data } = await sb.storage.from(DOC_BUCKET).createSignedUrls(paths, 3600);
     const url = new Map((data || []).map((d) => [d.path, d.signedUrl]));
-    imgs.forEach((i) => { const u = url.get(i.dataset.path); if (u) i.src = u; });
+    imgs.forEach((i) => { const u = url.get(i.dataset.path); if (u) { i.loading = 'lazy'; i.src = u; } });
   } catch (_) { /* bỏ qua */ }
+}
+
+// Bấm ảnh trong tài liệu → xem to (sổ tay có nhiều ảnh nhỏ xếp lưới)
+export function zoomImages(root) {
+  if (root.dataset.zoom) return;          // gắn 1 lần (root dùng lại giữa các trang)
+  root.dataset.zoom = '1';
+  root.addEventListener('click', (e) => {
+    const img = e.target.closest('.doc img');
+    if (!img || !img.src || img.closest('.ed-area')) return;
+    const d = document.createElement('dialog');
+    d.className = 'img-zoom';
+    d.innerHTML = '<form method="dialog"><button class="btn sm secondary" aria-label="Đóng ảnh">✕ Đóng</button></form>';
+    const big = document.createElement('img'); big.src = img.src; big.alt = img.alt || '';
+    d.prepend(big);
+    document.body.appendChild(d);
+    d.addEventListener('close', () => d.remove());
+    d.addEventListener('click', (ev) => { if (ev.target === d || ev.target === big) d.close(); });
+    d.showModal();
+  });
 }
 
 // HTML để lưu: lọc + bỏ src tạm của ảnh
@@ -133,6 +152,14 @@ export const DOC_STYLE = `<style>
   .doc th { background: var(--subtle); text-align: left; }
   .doc img { max-width: 100%; height: auto; border-radius: 8px; display: block; margin: 8px 0; background: var(--line-soft); min-height: 40px; }
   .doc blockquote { border-left: 4px solid var(--line); margin: 8px 0; padding: 4px 12px; color: var(--ink-2); }
+  .doc img { cursor: zoom-in; }
+  .doc p:has(> img + img) { display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); gap: 6px; }
+  .doc p:has(> img + img) img { margin: 0; width: 100%; aspect-ratio: 4 / 3; object-fit: cover; }
+  .ed-area img { cursor: default; }
+  dialog.img-zoom { padding: 8px; border: 0; border-radius: 12px; max-width: min(96vw, 1200px); background: #111; }
+  dialog.img-zoom::backdrop { background: rgba(0, 0, 0, .75); }
+  dialog.img-zoom img { display: block; max-width: 100%; max-height: 82vh; margin: 0 auto 8px; border-radius: 8px; }
+  dialog.img-zoom form { text-align: center; }
   .ed-area { min-height: 360px; border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; background: #fff; outline: none; }
   .ed-area:focus { border-color: var(--primary); box-shadow: 0 0 0 3px var(--info-bg); }
   .ed-tools { display: flex; flex-wrap: wrap; gap: 4px; position: sticky; top: 0; z-index: 5; background: var(--bg, var(--subtle)); padding: 6px 0; }

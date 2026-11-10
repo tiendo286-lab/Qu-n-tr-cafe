@@ -2,6 +2,7 @@
 import { render as rerender, isManager, can } from '../app.js';
 import { mountDeliveries, NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
+import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
@@ -406,7 +407,7 @@ export async function render({ params }) {
   const dsBody = isDs ? html`${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('tien')}${secTime}${secMoney}${secDiff}${secDebt}
         <section class="card stack pc-sec"><div class="pc-sec-head"><h2>Phân nhóm thu chi của ca</h2></div><div class="st-meta">Chọn nhóm (hoặc "Không tính") cho từng dòng thu chi rồi bấm Đối soát — làm ở đây hay ở trang Đối soát đều được.</div><div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section></div>
-      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_su')}${secStaff}${secHand}</div>
+      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_su')}${secStaff}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('nhan_hang')}${secGoods}</div>
       <div class="ds-pane stack" data-ds="3">${dsHd(3)}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Tiếp ›</button></section>` : ''}` : '';
@@ -484,6 +485,7 @@ function collect() {
 function mount(R, ed, C0, ctx = {}) {
   const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep } = ctx;
   let saveNow = null;
+  if (isDs) mountReportEval($('#ds-dg'), R);
   const form = $('#pc-form');
   bindMoneyInputs(form);
   // Bản đối soát: ghi "Phiếu NV: …" ở ô khác phiếu nhân viên

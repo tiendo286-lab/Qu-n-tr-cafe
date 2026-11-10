@@ -165,7 +165,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Nhắc trên máy chủ | Máy chủ tự chạy 5 phút/lần (hẹn giờ `nhac-phieu-ca`), gửi thông báo trong web; không nhắc từ 0h đến 6h; dừng sau 24 giờ kể từ hết ca. |
 | Ghi chú | Dòng chi do quản lý tự làm đã tính "đã đối soát" nhưng vẫn phải chọn nhóm chi ở Thu chi / Chốt tháng. Ảnh hàng: máy chủ chưa khóa theo người nhận phần (giao diện đã ẩn nút với người không nhận phần). |
 
-## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026. ĐÃ LÀM 11/11/2026 phần tách đối soát (`supabase/35_doi_soat_rieng.sql`, trang `#/quan-ly/doi-soat` và `#/quan-ly/doi-soat/ca?id=`). CHƯA LÀM phần đánh giá nhân viên (đã chốt cách trừ điểm, chờ lệnh bắt đầu)
+## 5j. Tách riêng phần đối soát + đánh giá nhân viên — anh Tiến chốt 11/11/2026. ĐÃ LÀM 11/11/2026 phần tách đối soát (`supabase/35_doi_soat_rieng.sql`, trang `#/quan-ly/doi-soat` và `#/quan-ly/doi-soat/ca?id=`). ĐÃ LÀM 11/11/2026 phần đánh giá nhân viên (`supabase/36_danh_gia_nhan_vien.sql`, `38_danh_gia_lich_su.sql`; trang `#/quan-ly/danh-gia`, `#/cua-toi/danh-gia`, phần đánh giá ở bước Nhân sự của Đối soát ca)
 
 | Điểm | Anh Tiến chốt |
 |---|---|
@@ -180,7 +180,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Đánh giá — lịch sử khi trừ điểm (anh Tiến chốt 11/11/2026) | Khi quản lý chọn nhân viên để trừ điểm, **hiện toàn bộ lịch sử bị trừ điểm / nhắc nhở** của người đó (từ trước tới nay, mới nhất ở trên) để quản lý chọn mức trừ hợp lý. Đầu danh sách tóm tắt tháng này bị trừ bao nhiêu điểm, mấy lần; lỗi cùng tiêu chí đang chọn được tô nổi (vd "lần thứ 3"). Thêm lựa chọn **Nhắc nhở** = ghi lỗi, 0 điểm, vẫn báo nhân viên và lưu lịch sử (nhân viên giải trình được như lần trừ điểm). **Không** hiện các lần trừ lương vì thiếu tiền ca. **Không** tự gợi ý mức trừ — quản lý tự xem và quyết. |
 | Đánh giá — bộ tiêu chí Quản lý | **ĐỂ SAU** (anh Tiến 11/11/2026: anh tự làm sau). Bản offline không có bộ này. Em đã soạn nháp 20 tiêu chí QL001–QL020 (tác phong; điều hành ca; tiền & sổ sách; hàng hóa; nhân sự; báo cáo & đóng góp) để anh tham khảo. Chưa chốt: ai trừ điểm quản lý (đề xuất: chỉ Chủ, hoặc Chủ + quản lý tổng; quản lý không tự trừ mình) và ngưỡng xếp loại. Khi làm phần đánh giá, chỉ làm 2 bộ Pha chế + Chạy bàn trước, thiết kế để thêm bộ Quản lý sau. |
 
-## 5k. Phiếu đào tạo: bấm hạng mục mở hướng dẫn — anh Tiến chốt 11/11/2026, CHƯA LÀM (anh đã đưa sổ tay vào `quy_trinh_goc/`; chờ lệnh bắt đầu)
+## 5k. Phiếu đào tạo: bấm hạng mục mở hướng dẫn — anh Tiến chốt 11/11/2026, ĐÃ LÀM 11/11/2026 (`supabase/37_so_tay_quy_trinh.sql`, công cụ `cong_cu/cap_nhat_quy_trinh.py`; 19 bài + 205 ảnh đã lên mục Quy trình, 80 đoạn hướng dẫn cho đủ 68 hạng mục, sửa số trang 51 hạng mục)
 
 | Mục | Đã chốt |
 |---|---|
@@ -189,6 +189,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Cách mở | Bấm vào hạng mục → **cửa sổ nổi ngay trên phiếu**, đọc xong bấm Đóng là về đúng chỗ; có nút ‹ › sang hạng mục trước / sau. |
 | Ai xem | Mọi người mở được phiếu (nhân viên học, người hướng dẫn, quản lý, Chủ). |
 | Sổ tay gốc (anh đưa vào 11/11/2026) | 1 file Word "Sổ tay nhân viên chạy bàn" (~40MB, 205 ảnh): Phần 1 công việc theo ca (1.1–1.7 + sơ đồ bàn), Phần 2 – 9 SOP, Phần 3 ghi nhớ, Phần 4 chương trình đào tạo 8 ngày. Mỗi thẻ công việc / bước SOP có dòng **"◆ Đào tạo: Ngày X · STT Y"** → **ghép hạng mục đào tạo với hướng dẫn theo STT** (đủ cả 68 hạng mục; có hạng mục có 2–3 thẻ, vd việc làm ở nhiều ca thì hiện hết). Phần 4 trùng 68 hạng mục trên web (tên, ngày giống hệt), chỉ khác số trang ở 51 hạng mục. |
+| Cập nhật về sau | Anh sửa / thay file Word trong `quy_trinh_goc/` rồi nhắn "cập nhật quy trình" → Claude chạy `python3 -I cong_cu/cap_nhat_quy_trinh.py --xem <thư mục tạm>` (xem thử) rồi `--gui --ma <file mã sbp_>`. Chỉ bài có nội dung đổi mới lên phiên bản mới và báo cho mọi người 1 lần; ảnh đã có không tải lại. Nếu cấu trúc sổ tay đổi (thêm phần mới, đổi tiêu đề phần) công cụ sẽ báo để sửa. |
 | Cách đưa lên web (chốt 11/11/2026) | **Chia nhiều bài nhỏ** trong mục Quy trình (~18 bài: Cách đọc + sơ đồ bàn · 7 bài công việc theo ca 1.1–1.7 · 9 bài SOP · Ghi nhớ); ảnh thu nhỏ cho điện thoại; **không đưa Phần 4** (đã có phiếu đào tạo). **Giữ nguyên** mục tài khoản thu ngân Fabi POS (cả mật khẩu) như sổ tay — chỉ người đăng nhập mới đọc được. **Cập nhật số trang** của hạng mục đào tạo theo sổ tay mới; mỗi lần "cập nhật quy trình" em tự so và sửa số trang. Cửa sổ hướng dẫn trong phiếu đào tạo hiện đúng thẻ của STT đó, có link mở cả bài. |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)

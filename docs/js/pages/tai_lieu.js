@@ -1,6 +1,6 @@
 // Nội quy / Quy trình: nhân viên đọc bản đã đăng (nội quy có nút "Tôi đã đọc"); người có quyền soạn thấy cả bản nháp
 import { render as rerender, can, isManager } from '../app.js';
-import { DOC_STYLE, fillImages, sanitize } from '../editor.js';
+import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { rpc } from '../sb.js';
 import { dt } from '../tien.js';
 import { $$, html, raw, showSaved } from '../ui.js';
@@ -28,7 +28,11 @@ export async function render({ params, me }) {
         <div class="doc">${raw(sanitize(d.published_html))}</div>` : html`<div class="st-meta">Tài liệu này chưa đăng nên nhân viên chưa thấy. Bấm Sửa để soạn và đăng.</div>`}
       ${kind === 'noi_quy' && me.employee_id && published ? (read ? html`<div class="alert ok">Bạn đã xác nhận đọc lúc ${dt(d.read_at)}.</div>`
         : html`<div><button type="button" class="btn read-btn" data-id="${d.id}">Tôi đã đọc và hiểu nội quy này</button></div>`) : ''}
-      ${editor ? html`<div class="toolbar" style="gap:6px"><a class="btn sm secondary" href="#/tai-lieu/soan?id=${d.id}">Sửa</a>
+      ${editor && d.from_file ? html`<div class="toolbar" style="gap:6px"><span class="pill mute">Từ sổ tay gốc (file Word)</span>
+        <button type="button" class="btn sm secondary mv" data-id="${d.id}" data-dir="-1" aria-label="Đưa lên">↑</button>
+        <button type="button" class="btn sm secondary mv" data-id="${d.id}" data-dir="1" aria-label="Đưa xuống">↓</button>
+        <span class="st-meta">Muốn sửa: sửa file Word trong thư mục quy_trinh_goc rồi nhắn "cập nhật quy trình".</span></div>` : ''}
+      ${editor && !d.from_file ? html`<div class="toolbar" style="gap:6px"><a class="btn sm secondary" href="#/tai-lieu/soan?id=${d.id}">Sửa</a>
         <button type="button" class="btn sm secondary mv" data-id="${d.id}" data-dir="-1" aria-label="Đưa lên">↑</button>
         <button type="button" class="btn sm secondary mv" data-id="${d.id}" data-dir="1" aria-label="Đưa xuống">↓</button>
         <span class="st-meta">Sửa gần nhất ${dt(d.updated_at)}${d.updated_by ? ' · ' + d.updated_by : ''}</span></div>` : ''}
@@ -60,6 +64,7 @@ export async function render({ params, me }) {
         try { await rpc('app_tl_move', { p_id: Number(b.dataset.id), p_dir: Number(b.dataset.dir) }); rerender(); } catch (e) { showSaved(e.message, true); }
       }));
       if (focus) document.getElementById(`doc-${focus}`)?.scrollIntoView({ block: 'start' });
+      zoomImages(root);
       await fillImages(root);
     },
   };

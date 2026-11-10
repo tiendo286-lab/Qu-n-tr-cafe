@@ -2,7 +2,8 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
-import { $, $$, flash, go, hhmm, html, showSaved } from '../ui.js';
+import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
+import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { DT_STATUS, dtLabel } from './dao_tao.js';
 import { STATUS as TASK_STATUS } from './viec.js';
 
@@ -10,6 +11,9 @@ const LEVEL = { tb: 'Trung bình', kha: 'Khá', tot: 'Tốt' };
 
 export async function render({ params }) {
   const T = await rpc('app_dt_get', { p_id: Number(params.id) });
+  const PROG = T.program.code || 'chay_ban';
+  let guided = []; try { guided = (await rpc('app_dt_guide_items', { p_program: PROG })) || []; } catch (_) { /* chưa có sổ tay */ }
+  const hasGuide = new Set(guided.map(Number));
   const opt = T.can_admin ? await rpc('app_dt_options') : null;
   const ed = !!T.can_edit; const adm = !!T.can_admin;
   const days = T.program.days;
@@ -19,7 +23,8 @@ export async function render({ params }) {
   const empName = (id) => { const e = opt?.employees.find((x) => x.id === id); return e ? `${e.code} – ${e.name}` : ''; };
 
   const itemRow = (i) => html`<div class="dt-item ${i.level ? 'done' : ''}" data-no="${i.no}">
-    <div class="dt-it-title"><strong>${i.no}.</strong> ${i.title} <span class="st-meta">Tr. ${i.page}</span></div>
+    <div class="dt-it-title">${hasGuide.has(i.no) ? html`<button type="button" class="it-guide" data-no="${i.no}" title="Mở hướng dẫn trong sổ tay"><strong>${i.no}.</strong> ${i.title} <span class="it-book">📖 Hướng dẫn</span></button>`
+      : html`<strong>${i.no}.</strong> ${i.title}`} <span class="st-meta">Tr. ${i.page}</span></div>
     <div class="dt-it-ctl">
       <label><input type="checkbox" class="check it-intro" ${i.introduced ? 'checked' : ''} ${ed ? '' : 'disabled'}> Giới thiệu</label>
       <label><input type="checkbox" class="check it-prac" ${i.practiced ? 'checked' : ''} ${ed && i.introduced ? '' : 'disabled'}> Thực hành</label>
@@ -54,7 +59,7 @@ export async function render({ params }) {
   const st = T.status;
   return {
     title: `Đào tạo ${T.employee.code}`,
-    html: html`${STYLE}
+    html: html`${STYLE}${raw(DOC_STYLE)}
       <div class="page-head"><div><h1>Phiếu đào tạo chạy bàn</h1>
         <div class="sub"><strong>${T.employee.code} – ${T.employee.name}</strong> · ${T.employee.rank}</div>
         <div class="toolbar" style="gap:6px;margin-top:6px"><span class="pill ${DT_STATUS[st][1]}" id="dt-status">${dtLabel(T)}</span></div></div>
@@ -143,6 +148,33 @@ export async function render({ params }) {
         let last = lv.value;
         lv.addEventListener('change', () => { sync(); send({ level: lv.value || null }, () => { lv.value = last; }); last = lv.value; });
       });
+      // hướng dẫn trong sổ tay: cửa sổ nổi ngay trên phiếu, ‹ › sang hạng mục trước / sau
+      const order = items.map((i) => i.no).filter((n) => hasGuide.has(n));
+      async function openGuide(no, d) {
+        let G;
+        try { G = await rpc('app_dt_guide', { p_program: PROG, p_item: no }); } catch (e) { showSaved(e.message, true); return; }
+        const k = order.indexOf(no); const prev = order[k - 1]; const next = order[k + 1];
+        const it = G.item || {};
+        const inner = html`<div class="dg-head"><div><div class="st-meta">Ngày ${it.day} · Tr. ${it.page || '—'} · ${k + 1}/${order.length}</div><strong>${it.no}. ${it.title}</strong></div>
+            <button type="button" class="btn sm secondary dg-x" aria-label="Đóng hướng dẫn">✕</button></div>
+          <div class="dg-body">${G.guides.length ? G.guides.map((g) => html`<section class="dg-sec">${G.guides.length > 1 ? html`<div class="pc-sub">${g.heading}</div>` : ''}
+              <div class="doc">${raw(sanitize(g.html))}</div>
+              ${g.doc_id ? html`<a class="dg-full" href="#/quy-trinh?id=${g.doc_id}">Mở cả bài “${g.doc_title || 'Quy trình'}” ›</a>` : ''}</section>`)
+            : html`<div class="alert warn">Chưa có hướng dẫn trên web — xem sổ tay trang ${it.page || '?'}.</div>`}</div>
+          <div class="dg-foot"><button type="button" class="btn sm secondary dg-go" data-no="${prev || ''}" ${prev ? '' : 'disabled'}>‹ Trước</button>
+            <button type="button" class="btn sm secondary dg-x">Đóng</button>
+            <button type="button" class="btn sm secondary dg-go" data-no="${next || ''}" ${next ? '' : 'disabled'}>Sau ›</button></div>`;
+        if (!d) {
+          d = dialog(html`<div class="dg-wrap"></div>`); d.classList.add('dt-guide'); zoomImages(d);
+          d.addEventListener('click', (ev) => {
+            if (ev.target.closest('.dg-x') || ev.target.closest('.dg-full')) { d.close(); d.remove(); return; }
+            const g = ev.target.closest('.dg-go'); if (g && g.dataset.no) openGuide(Number(g.dataset.no), d);
+          });
+        }
+        const w = d.querySelector('.dg-wrap'); w.innerHTML = str(inner); w.querySelector('.dg-body').scrollTop = 0;
+        await fillImages(w);
+      }
+      $$('.it-guide').forEach((b) => b.addEventListener('click', () => openGuide(Number(b.dataset.no))));
       $('#dt-del')?.addEventListener('click', async () => {
         if (!confirm(`Xóa hẳn phiếu đào tạo của ${T.employee.code} – ${T.employee.name}? Mọi kết quả đã ghi sẽ mất.`)) return;
         try { await rpc('app_dt_delete', { p_id: T.id }); flash('Đã xóa phiếu đào tạo.'); go('/quan-ly/nhan-vien'); } catch (e) { showSaved(e.message, true); }
@@ -172,4 +204,16 @@ const STYLE = html`<style>
   .dt-it-ctl label { display: inline-flex; gap: 4px; align-items: center; }
   .dt-it-ctl select { width: 150px; }
   .dt-confirm { display: flex; gap: 8px; flex-wrap: wrap; }
+  .it-guide { all: unset; cursor: pointer; text-align: left; }
+  .it-guide:hover { color: var(--primary); }
+  .it-guide:focus-visible { outline: 2px solid var(--primary); border-radius: 4px; }
+  .it-book { display: inline-block; font-size: 12px; font-weight: 600; color: var(--primary); background: var(--info-bg); border-radius: 999px; padding: 1px 8px; margin-left: 4px; white-space: nowrap; }
+  dialog.dt-guide { padding: 0; border: 0; border-radius: 14px; width: min(760px, 96vw); max-height: 92vh; }
+  dialog.dt-guide::backdrop { background: rgba(15, 23, 42, .55); }
+  .dg-wrap { display: flex; flex-direction: column; max-height: 92vh; }
+  .dg-head, .dg-foot { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--subtle, #f3f4f6); }
+  .dg-head { border-bottom: 1px solid var(--line); } .dg-foot { border-top: 1px solid var(--line); }
+  .dg-body { overflow-y: auto; padding: 8px 16px 16px; flex: 1 1 auto; }
+  .dg-sec + .dg-sec { border-top: 1px dashed var(--line); margin-top: 12px; padding-top: 10px; }
+  .dg-full { display: inline-block; margin-top: 6px; font-weight: 600; font-size: 14px; }
 </style>`;
