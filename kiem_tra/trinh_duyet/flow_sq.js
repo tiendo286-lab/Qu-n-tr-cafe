@@ -1,0 +1,45 @@
+// Chốt tháng › Sổ quỹ: số dư đầu, nhập bổ sung theo ngày, phiếu rút (chờ → Chủ đã nhận → khóa), kiểm quỹ, nhắc vượt 20 triệu.
+export default async ({ sleep, out }) => {
+  const $ = (s, r = document) => r.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
+  const wait = async (sel, n = 300) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
+  const txt = (s) => ($(s)?.innerText || '').replace(/\s+/g, ' ').trim();
+  const kpi = () => $$('.sq-k').map((k) => k.innerText.replace(/\s+/g, ' ')).slice(0, 2).join(' | ');
+  const r = []; window.confirm = () => true;
+  const dlg = () => $('dialog[open]');
+  const reload = async () => { await sleep(1200); await wait('.sq-k', 100); };
+  await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
+  location.hash = '#/quan-ly/so-quy'; await wait('.sq-ov, .sq-k', 200); await sleep(300);
+  r.push(`menu Chốt tháng: ${$$('.hub-tabs a').map((a) => a.innerText.trim()).join(' · ')} · tổng hợp: ${$$('.sq-ov tbody tr').length} dòng`);
+  location.hash = '#/quan-ly/so-quy?cn=1'; await wait('.sq-k', 200); await sleep(300);
+  r.push(`LHP ban đầu: ${kpi()}`);
+  $('#sq-open').click(); await wait('dialog[open]', 30); $('[name=tm]', dlg()).value = '500.000'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`số dư đầu 500k: ${kpi()}`);
+  $$('.sq-day[data-m=tien_mat]').pop().click(); await wait('dialog[open]', 30); $('[name=amt]', dlg()).value = '3.000.000'; $('[name=note]', dlg()).value = 'nhập bù'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`nhập bù ngày đầu 3tr: ${kpi()}`);
+  $('#sq-new').click(); await wait('dialog[open]', 30); await sleep(300);
+  r.push(`phiếu rút mở: ${txt('#sq-bal')}`);
+  $('[name=amt]', dlg()).value = '2.000.000'; $('[name=note]', dlg()).value = 'QL giao'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`rút 2tr: ${kpi()} · ${txt('.sq-w .pill')}`);
+  $('.sq-wed').click(); await wait('dialog[open]', 30); await sleep(200);
+  $('input[name=k][value=cuoi_thang]', dlg()).click(); $('input[name=k][value=cuoi_thang]', dlg()).dispatchEvent(new Event('change', { bubbles: true })); await sleep(400);
+  r.push(`đổi sang rút cuối tháng → tự điền ${$('[name=amt]', dlg()).value}`);
+  $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`sau rút hết: ${kpi()}`);
+  $('.sq-ok').click(); await reload();
+  r.push(`Chủ bấm Đã nhận: ${txt('.sq-w .pill')} · nút Sửa còn: ${!!$('.sq-wed')}`);
+  $('#sq-count').click(); await wait('dialog[open]', 30); await sleep(300);
+  $('[name=amt]', dlg()).value = '100.000'; $('[name=amt]', dlg()).dispatchEvent(new Event('input')); await sleep(100);
+  const cmp = txt('#sq-cmp'); $('button[type=submit]', dlg()).click(); await sleep(300);
+  const err = txt('dialog[open] .sq-err');
+  $('[name=note]', dlg()).value = 'thiếu tiền lẻ'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`kiểm quỹ: ${cmp} · không lý do: "${err}" → ${txt('.alert')} · lịch sử: ${txt('.sq-sec:last-of-type .pill')}`);
+  $$('.sq-lt')[1].click(); await sleep(100);
+  r.push(`sổ chi tiết TK: ${$$('#sq-led tbody tr').length} dòng`);
+  $$('.sq-lt')[0].click(); await sleep(100);
+  r.push(`sổ chi tiết TM: ${$$('#sq-led tbody tr').length} dòng`);
+  $$('.sq-day[data-m=tien_mat]')[0].click(); await wait('dialog[open]', 30); $('[name=amt]', dlg()).value = '25.000.000'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`quỹ > 20tr: ${txt('.alert.warn').slice(0, 90)}`);
+  if (new URLSearchParams(location.search).get('sqshot')) return;   // dừng ở trang Sổ quỹ để chụp màn hình
+  r.push(`rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);
+  out.push({ route: 'sổ quỹ', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
+};

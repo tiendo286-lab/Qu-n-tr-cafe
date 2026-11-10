@@ -115,6 +115,22 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 | Trang | Theo tháng, lọc cơ sở (Tất cả / từng cơ sở), ô Tổng thu · Tổng chi · Thu − chi · Chờ đối soát (bấm để lọc); lọc trạng thái, thu / chi, nguồn, tìm chữ. Dùng chung dữ liệu với Chốt tháng (không tính 2 lần). |
 | Chốt tháng | Phải đối soát hết khoản thu chi từ phiếu ca của tháng mới chốt được. Tháng đã chốt thì không sửa / đối soát được. |
 
+## 5g. Sổ quỹ (Chốt tháng › Sổ quỹ) — anh Tiến chốt 11/11/2026
+
+Làm 3 đợt. **Đợt 1 ĐÃ LÀM 11/11/2026** (tệp supabase/29_so_quy.sql, trang #/quan-ly/so-quy). Đợt 2 (Quỹ ngoài + phân bổ) và đợt 3 (bảng đối chiếu trong Chốt tháng) chưa làm.
+
+| Điểm | Anh Tiến chốt |
+|---|---|
+| Hai quỹ mỗi cơ sở | **Tiền mặt** (ngoài két — 1.000.000đ đầu ca sáng để nguyên trong két) và **Tài khoản**. Hằng tháng rút hết về 0 (tài khoản chuyển hết). Sổ bắt đầu 01/11/2026; số dư đầu (nếu còn) quản lý nhập 1 lần. |
+| Tiền vào | Tiền mặt: **nộp quỹ cuối ngày** tự tính = số đếm cuối ngày − 1.000.000đ (quản lý sửa / nhập tay được, nhập bổ sung các ngày tháng 11) + NV bù khoản âm. Tài khoản: chuyển khoản thực nhận theo số dư kế toán nhập (ngày chưa có thì quản lý nhập tay). |
+| Thu chi | Mọi khoản thu chi quản lý tạo (tab Thu chi) đi qua sổ theo hình thức tiền mặt / chuyển khoản. Thu chi ghi trên phiếu chốt ca không tính lại (đã nằm trong số đếm két). |
+| Phiếu rút | Quản lý hoặc Chủ tạo: tiền mặt / chuyển khoản, "Rút giữ hộ" (giữa tháng) hoặc "Rút cuối tháng" (tự điền toàn bộ số dư). Quản lý tạo thì Chủ được báo. **Chủ bấm "Đã nhận tiền" → khóa**, không ai sửa / xóa được. Tiền rút không phải chi phí. |
+| Kiểm quỹ | Nhập số đếm / số dư app ngân hàng → KHỚP / THIẾU / THỪA so với sổ; lệch phải ghi lý do. Ô Tài khoản cũng so với số dư kế toán nhập ở ca gần nhất. |
+| Nhắc rút bớt | Quỹ tiền mặt vượt **20.000.000đ** → báo Chủ, Quản lý tổng và quản lý của cơ sở (mỗi ngày tối đa 1 lần). |
+| Ai dùng | Người có quyền Đối soát + quản lý được giao cơ sở. Tháng đã chốt thì sổ chỉ xem. |
+| Quỹ ngoài (đợt 2) | Chỉ Chủ. Tiền vào = phiếu rút Chủ đã nhận; Chủ ghi thu chi ngoài (tiền nhà, lương, kho tổng…); khi chốt tháng phân bổ từng khoản cho cơ sở (1 cơ sở / chia đều / theo tỉ lệ doanh thu — mặc định / tự nhập). Phải phân bổ hết mới chốt tháng. |
+| Đối chiếu (đợt 3) | Lãi tạm tính − khách nợ chưa trả + thu nợ cũ + chi phí phân bổ từ quỹ ngoài − thiếu tiền chưa bù + số dư đầu tháng = Tiền phải rút về; so với tiền đã rút → KHỚP / LỆCH (lệch phải ghi lý do); số dư 2 quỹ phải về 0. |
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.

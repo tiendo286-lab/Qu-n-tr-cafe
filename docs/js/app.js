@@ -8,7 +8,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 export const HUBS = [
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat']], 'ngay'],
   ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']]],
-  ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']]],
+  ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang'], ['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang']], 'thang'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']]],
@@ -62,6 +62,7 @@ const PAGES = {
   '/quan-ly/thu-chi': 'thu_chi',
   '/cua-toi/khoan-am': 'khoan_am_toi',
   '/quan-ly/chot-thang': 'chot_thang',
+  '/quan-ly/so-quy': 'so_quy',
 };
 
 export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0, ka: 0 };
