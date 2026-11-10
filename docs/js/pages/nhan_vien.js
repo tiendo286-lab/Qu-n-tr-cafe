@@ -89,7 +89,9 @@ export async function render({ params, me }) {
               ${dts ? html`<td data-label="Đào tạo">${e.dt ? html`<a class="pill ${DT_STATUS[e.dt.status][1]}" href="#/dao-tao/phieu?id=${e.dt.id}" title="Bấm để mở phiếu${e.dt.status !== 'hoan_thanh' ? ' · còn thiếu: ' + e.dt.missing.join(', ') : ''}">${dtLabel(e.dt)}</a>
                   ${e.dt.instructor ? html`<div class="st-meta" style="font-size:11px;color:var(--muted);margin-top:2px">HD: ${e.dt.instructor}</div>` : ''}`
                 : dtAdmin && !stopped ? html`<button type="button" class="btn sm secondary new-dt" data-id="${e.id}" data-name="${e.code} – ${e.name}" data-b="${e.branches[0] || ''}" title="Chưa đào tạo">+ Tạo phiếu</button>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
-              <td></td></tr>`;
+              <td class="st-cell">${full && canStop(e, me) ? (stopped
+                ? html`<button type="button" class="btn sm secondary st-btn" data-id="${e.id}" data-to="Đang làm" data-name="${e.code} – ${e.name}">Đi làm lại</button>`
+                : html`<button type="button" class="btn sm secondary danger st-btn" data-id="${e.id}" data-to="Ngừng làm" data-name="${e.code} – ${e.name}">Ngừng làm</button>`) : ''}</td></tr>`;
           })}</tbody></table></div>
       </section>
       ${full ? standaloneSection(standalone, me, can('phan_quyen')) : ''}${ACC_CSS}`,
@@ -126,14 +128,33 @@ export async function render({ params, me }) {
         try { await rpc('app_set_rank', { p_id: Number(s.dataset.id), p_rank: s.value }); last = s.value; showSaved('Đã lưu · ' + hhmm()); } catch (e) { s.value = last; showSaved(e.message, true); }
       }); });
       $$('.acc-chip').forEach((c) => c.addEventListener('click', () => { const f = $('#ef-state'); f.value = f.value === c.dataset.st ? '' : c.dataset.st; apply(); }));
+      $$('.st-btn').forEach((b) => b.addEventListener('click', () => setStatus(Number(b.dataset.id), b.dataset.to, b.dataset.name)));
       bindAccountActions(); bindBulk();
     },
   };
 }
 
+// Người được đổi trạng thái: không phải chính mình, không phải Chủ; Quản lý tổng thì chỉ Chủ đổi được.
+function canStop(e, me) {
+  return e.acc?.id !== me.account_id && e.system_role !== 'chu' && (me.role === 'chu' || e.system_role !== 'ql_tong');
+}
+
+async function setStatus(id, to, name) {
+  const stop = to === 'Ngừng làm';
+  if (stop && !confirm(`Chuyển ${name} sang NGỪNG LÀM?\n\n• Tài khoản bị khóa ngay, không đăng nhập được nữa.\n• Không còn hiện trong order và xếp lịch mới.\n• Lịch sử (lịch đã làm, phiếu ca, đào tạo…) vẫn giữ nguyên.\n\nKhi người này quay lại, bấm “Đi làm lại”.`)) return;
+  if (!stop && !confirm(`Cho ${name} ĐI LÀM LẠI?\n\nTài khoản mở lại với mật khẩu cũ (nếu quên thì cấp mật khẩu tạm).`)) return;
+  try {
+    const r = await rpc('app_set_employee_status', { p_id: id, p_status: to });
+    const n = (stop && r?.future_shifts) || 0;
+    flash(stop ? `Đã chuyển ${name} sang Ngừng làm, tài khoản đã khóa.${n ? ` Lưu ý: người này còn ${n} ca đã xếp từ hôm nay trở đi — vào Xếp lịch để thay người.` : ''}`
+      : `${name} đã đi làm lại, tài khoản mở lại.`, n ? 'warn' : 'ok');
+  } catch (e) { flash(e.message, 'error'); }
+  rerender();
+}
+
 async function renderForm(params, me) {
   const cat = await catalog();
-  let v = { status: 'Đang làm', roles: [], branch_ids: [] }; let emp = null;
+  let v = { status: 'Đang làm', roles: [], branch_ids: [] }; let emp = null; let acc = null;
   if (params.id) {
     const id = Number(params.id);
     const [e, c, eb, er] = await Promise.all([
@@ -142,6 +163,7 @@ async function renderForm(params, me) {
     ]);
     emp = e[0];
     if (!emp) return { title: 'Nhân viên', html: html`<div class="card">Không tìm thấy nhân viên. <a href="#/quan-ly/nhan-vien">Về danh sách</a></div>` };
+    acc = (await sel('accounts', 'id, system_role', (b) => b.eq('employee_id', id)))[0] || null;
     v = { ...emp, email: c[0]?.email, phone: c[0]?.phone, branch_ids: eb.map((x) => x.branch_id), roles: er.map((x) => x.role) };
   }
   return {
@@ -172,6 +194,9 @@ async function renderForm(params, me) {
         </div>
         <div class="toolbar"><button class="btn" type="submit">${emp ? 'Lưu thay đổi' : 'Thêm nhân viên'}</button><a class="btn secondary" href="#/quan-ly/nhan-vien">Hủy</a></div>
       </form>
+      ${emp && canStop({ acc: { id: acc?.id }, system_role: acc?.system_role }, me) ? html`<section class="card" style="margin-top:16px;max-width:860px"><h2 style="margin-top:0;font-size:16px">${v.status === 'Đang làm' ? 'Nghỉ việc' : 'Đi làm lại'}</h2>
+        <p style="font-size:14px;color:var(--ink-2)">${v.status === 'Đang làm' ? 'Nhân viên nghỉ việc thì bấm Ngừng làm: tài khoản bị khóa ngay, lịch sử vẫn giữ. Khi quay lại thì bấm Đi làm lại.' : 'Nhân viên này đang ở trạng thái Ngừng làm (tài khoản đã khóa).'}</p>
+        <button class="btn sm secondary ${v.status === 'Đang làm' ? 'danger' : ''}" type="button" id="st-emp">${v.status === 'Đang làm' ? 'Ngừng làm' : 'Đi làm lại'}</button></section>` : ''}
       ${emp ? html`<section class="card" style="margin-top:16px;max-width:860px"><h2 style="margin-top:0;font-size:16px">Xóa nhân viên</h2>
         <p style="font-size:14px;color:var(--ink-2)">Chỉ xóa được nhân viên nhập nhầm, chưa có order, lịch cố định, lịch làm hay đánh giá. Nhân viên đã nghỉ việc thì chuyển trạng thái sang <strong>Ngừng làm</strong> để giữ lịch sử.</p>
         <button class="btn sm secondary danger" type="button" id="del-emp">Xóa nhân viên này</button></section>` : ''}`,
@@ -187,6 +212,7 @@ async function renderForm(params, me) {
           go('/quan-ly/nhan-vien');
         } catch (e) { const el = $('#emp-err'); el.textContent = e.message; el.hidden = false; window.scrollTo(0, 0); }
       });
+      $('#st-emp')?.addEventListener('click', () => setStatus(emp.id, v.status === 'Đang làm' ? 'Ngừng làm' : 'Đang làm', `${emp.code} – ${emp.name}`));
       $('#del-emp')?.addEventListener('click', async () => {
         if (!confirm(`Xóa hoàn toàn ${emp.code} – ${emp.name}?`)) return;
         try { await rpc('app_delete_employee', { p_id: emp.id }); flash(`Đã xóa ${emp.code} – ${emp.name}.`); go('/quan-ly/nhan-vien'); }

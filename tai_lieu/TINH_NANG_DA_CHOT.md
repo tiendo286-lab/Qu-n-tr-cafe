@@ -72,6 +72,7 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 |---|---|
 | Trang Nhân viên | Danh sách, bộ lọc, sửa nhanh cấp bậc, các cột Nội quy / Cam kết / Đào tạo, tạo phiếu đào tạo. **Đã bỏ:** Nhập file Excel, Tải file mẫu, Xuất danh sách cho Google Form. |
 | Tài khoản đăng nhập | **Gộp vào bảng Nhân viên**: cột Tài khoản (trạng thái, vai trò, lần đăng nhập cuối) + nút **Tài khoản ▾** (cấp mật khẩu tạm, khóa / mở khóa, đăng xuất mọi nơi). Nút **Cấp & in mật khẩu hàng loạt**. Cuối trang: **Tài khoản riêng** (kế toán, chủ thứ hai…). |
+| Ngừng làm / Đi làm lại | Nút **Ngừng làm** ở cột cuối danh sách Nhân viên và ở trang sửa nhân viên (mục "Nghỉ việc"). Bấm thì web hỏi lại, sau đó tài khoản bị khóa ngay, người đó không còn hiện trong order và xếp lịch mới, lịch sử giữ nguyên. Nếu người đó còn ca đã xếp từ hôm nay trở đi thì web nhắc vào Xếp lịch thay người (không tự xóa ca). Người đã ngừng làm có nút **Đi làm lại** (tick "Hiện cả người ngừng làm"). Không tự chuyển chính mình, không chuyển Chủ; Quản lý tổng thì chỉ Chủ đổi được. (10/11/2026) |
 | Phân quyền | Bật / tắt quyền theo vai trò: Quản lý tổng, Quản lý, Nhân viên. |
 
 ---

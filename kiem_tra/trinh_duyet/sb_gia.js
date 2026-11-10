@@ -122,6 +122,7 @@ export async function rpc(name, args = {}) {
   if (name === 'app_reapply_order') return { updated: 0, added: 0, removed: 0, synced: 0 };
   if (name === 'app_order_form_import') return { imported: 1, unknown: [], multi: [] };
   if (name === 'app_import_employees') return { added: 1, updated: 0 };
+  if (name === 'app_set_employee_status') { const e = T.employees.find((x) => x.id === args.p_id); if (e) e.status = args.p_status; return { status: args.p_status, future_shifts: args.p_status === 'Ngừng làm' ? 2 : 0 }; }
   return null;
 }
 export async function sel(table, cols = '*', q = (b) => b) { const { data, error } = await q(sb.from(table).select(cols)); if (error) throw new Error(error.message); return data || []; }
