@@ -204,3 +204,8 @@ h1, .appbar .t2 { letter-spacing: .04em; }
 input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirror { text-transform: none; }
 /* chữ in hoa rộng hơn: nhãn dài được xuống dòng trên điện thoại, không tràn ngang */
 @media (max-width: 760px) { .pill, .chip, .vst, .vk { white-space: normal; max-width: 100%; } }
+
+/* Menu chia nhóm có tiêu đề (phương án C, 11/11/2026) */
+.sidebar .nav-grp { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a9b89a; padding: 14px 12px 4px; }
+.sidebar .nav-grp.sep { padding: 6px 0 0; margin: 8px 12px 4px; border-top: 1px solid rgba(255, 255, 255, .12); }
+@media (max-width: 900px) { .sidebar .nav-grp { flex-basis: 100%; padding: 8px 4px 2px; } .sidebar .nav-grp.sep { margin: 6px 4px 2px; } }

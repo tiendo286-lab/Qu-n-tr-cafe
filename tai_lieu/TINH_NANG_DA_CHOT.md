@@ -8,21 +8,22 @@ Từ ngày 07/11/2026, **web là nơi duy nhất** lưu lịch, order và các d
 
 ---
 
-## 1. Menu của Chủ và Quản lý (10 mục)
+## 1. Menu của Chủ và Quản lý — phương án C: chia nhóm có tiêu đề (anh Tiến chọn 11/11/2026)
 
-| Mục | Tab con | Ghi chú |
-|---|---|---|
-| **Quản lý ca** | Chốt ca · Đối soát · Thu chi | Phiếu chốt ca theo ngày, đối soát 9 mục; Thu chi (có phần Khoản âm). Tab Báo cáo đã bỏ (10/11/2026). |
-| **Xếp lịch tuần** | Order · Lịch cơ sở · Lịch tổng · Cảnh báo · Chốt & báo cáo | Xem bảng chi tiết ở mục 2 |
-| **Công việc** | Công việc · Việc của tôi | Xem bảng chi tiết ở mục 3 |
-| **Nhân viên & tài khoản** | Nhân viên · Phân quyền | Tài khoản đăng nhập nằm ngay trong danh sách nhân viên |
-| **Nội quy & quy trình** | Nội quy · Quy trình | Soạn, đăng; nhân viên bấm "Tôi đã đọc" |
-| **Hỗ trợ** | Yêu cầu hỗ trợ | Nhắn qua lại giữa nhân viên và quản lý |
-| **Cài đặt xếp lịch** | Định biên · Chi nhánh, ca & vai trò · Giờ order · Lịch cố định | |
-| **Dữ liệu & sao lưu** | — | Chỉ Chủ: xem số liệu, tải gói sao lưu ZIP |
-| **Kế toán** | Hóa đơn giao hàng · Chuyển khoản thực nhận | Chỉ Kế toán và Chủ |
-| **LOG hệ thống** | Tổng quan · Lịch sử cập nhật web · Lịch sử thao tác | Chỉ Chủ |
-| **Của tôi** | Order ca · Lịch của tôi · Phiếu đào tạo | |
+| Nhóm | Mục | Tab con | Ghi chú |
+|---|---|---|---|
+| — | **Tổng quan** | | |
+| VẬN HÀNH | **Quản lý ca** | Chốt ca · Đối soát · Thu chi | Phiếu chốt ca theo ngày, đối soát 9 mục; Thu chi (có phần Khoản âm). Tab Báo cáo đã bỏ (10/11/2026). |
+| | **Xếp lịch tuần** | Order · Lịch cơ sở · Lịch tổng · Cảnh báo · Chốt & báo cáo | Xem bảng chi tiết ở mục 2 |
+| | **Công việc** | Công việc · Việc của tôi | Xem bảng chi tiết ở mục 3 |
+| TIỀN | **Sổ quỹ & chốt tháng** | Sổ quỹ · Chốt tháng | Sổ quỹ có ô Quỹ ngoài (chỉ Chủ) — mục 5g |
+| | **Kế toán** | Hóa đơn giao hàng · Chuyển khoản thực nhận | Chỉ Kế toán và Chủ |
+| NHÂN SỰ | **Nhân viên & tài khoản** | Nhân viên · Phân quyền | Tài khoản đăng nhập nằm ngay trong danh sách nhân viên |
+| | **Nội quy & quy trình** | Nội quy · Quy trình | Soạn, đăng; nhân viên bấm "Tôi đã đọc" |
+| HỆ THỐNG | **Cài đặt xếp lịch** | Định biên · Chi nhánh, ca & vai trò · Giờ order · Lịch cố định | |
+| | **Dữ liệu & LOG** | Dữ liệu & sao lưu · LOG hệ thống | Gộp 11/11/2026. Chỉ Chủ |
+| | **Hỗ trợ** | Yêu cầu hỗ trợ | Nhắn qua lại giữa nhân viên và quản lý |
+| — | **Của tôi** | Order ca · Lịch của tôi · Phiếu đào tạo · Khoản âm của tôi | |
 
 Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · Lịch làm · Việc · Chốt ca · Nội quy · Hỗ trợ**.
 

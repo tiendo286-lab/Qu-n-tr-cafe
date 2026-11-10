@@ -3,23 +3,22 @@ import { addDays, focusWeek, notifyTick, unreadCount, vnToday, weekStart } from 
 import { rpc, sb, viError } from './sb.js';
 import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
-// Menu quản lý (phương án A): mỗi mục là 1 trang có các tab con.
-// [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab]
+// Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
+// [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat']], 'ngay'],
-  ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']]],
-  ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang'], ['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang']], 'thang'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat']], 'ngay', 'Vận hành'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
-    ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan'],
-  ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']]],
-  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']]],
-  ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]]],
-  ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]]],
+    ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
+  ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']], null, 'Vận hành'],
+  ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
+  ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']], null, 'Tiền'],
+  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
+  ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
   ['Cài đặt xếp lịch', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
-    ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']]],
-  ['Dữ liệu & sao lưu', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu']]],
-  ['LOG hệ thống', [['LOG hệ thống', '/quan-ly/log', 'phan_quyen']]],
-  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]]],
+    ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']], null, 'Hệ thống'],
+  ['Dữ liệu & LOG', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'], ['LOG hệ thống', '/quan-ly/log', 'phan_quyen']], null, 'Hệ thống'],
+  ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]], null, 'Hệ thống'],
+  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
@@ -107,12 +106,14 @@ const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.w
 
 function menuHtml(path) {
   const b = badges();
-  return HUBS.map(([label, all]) => {
+  let grp;
+  return HUBS.map(([label, all, , g]) => {
     const tabs = visibleTabs(all);
     if (!tabs.length) return '';
     const n = tabs.reduce((sum, [, href]) => sum + (b[href] || 0), 0);
     const active = tabs.some(([, href]) => onPath(path, href));
-    return html`<a class="item ${active ? 'active' : ''}" href="#${tabs[0][1]}"><span>${label}${n ? html` <span class="badge">${n}</span>` : ''}</span></a>`;
+    const head = g !== grp ? (grp = g, g ? html`<div class="nav-grp" role="presentation">${g}</div>` : html`<div class="nav-grp sep" role="presentation"></div>`) : '';
+    return html`${head}<a class="item ${active ? 'active' : ''}" href="#${tabs[0][1]}"><span>${label}${n ? html` <span class="badge">${n}</span>` : ''}</span></a>`;
   });
 }
 
