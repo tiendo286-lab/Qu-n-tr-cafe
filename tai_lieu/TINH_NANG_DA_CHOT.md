@@ -117,7 +117,7 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 
 ## 5g. Sổ quỹ (Chốt tháng › Sổ quỹ) — anh Tiến chốt 11/11/2026
 
-Làm 3 đợt. **Đợt 1 ĐÃ LÀM 11/11/2026** (tệp supabase/29_so_quy.sql, trang #/quan-ly/so-quy). Đợt 2 (Quỹ ngoài + phân bổ) và đợt 3 (bảng đối chiếu trong Chốt tháng) chưa làm.
+Làm 3 đợt. **Đợt 1 ĐÃ LÀM 11/11/2026** (tệp supabase/29_so_quy.sql, trang #/quan-ly/so-quy). **Đợt 2 + 3 ĐÃ LÀM 11/11/2026** (tệp supabase/30_quy_ngoai_doi_chieu.sql): Quỹ ngoài ở Sổ quỹ › ô "Quỹ ngoài" (chỉ Chủ thấy), bảng đối chiếu ở Chốt tháng mục 6.
 
 | Điểm | Anh Tiến chốt |
 |---|---|
@@ -128,8 +128,8 @@ Làm 3 đợt. **Đợt 1 ĐÃ LÀM 11/11/2026** (tệp supabase/29_so_quy.sql, 
 | Kiểm quỹ | Nhập số đếm / số dư app ngân hàng → KHỚP / THIẾU / THỪA so với sổ; lệch phải ghi lý do. Ô Tài khoản cũng so với số dư kế toán nhập ở ca gần nhất. |
 | Nhắc rút bớt | Quỹ tiền mặt vượt **20.000.000đ** → báo Chủ, Quản lý tổng và quản lý của cơ sở (mỗi ngày tối đa 1 lần). |
 | Ai dùng | Người có quyền Đối soát + quản lý được giao cơ sở. Tháng đã chốt thì sổ chỉ xem. |
-| Quỹ ngoài (đợt 2) | Chỉ Chủ. Tiền vào = phiếu rút Chủ đã nhận; Chủ ghi thu chi ngoài (tiền nhà, lương, kho tổng…); khi chốt tháng phân bổ từng khoản cho cơ sở (1 cơ sở / chia đều / theo tỉ lệ doanh thu — mặc định / tự nhập). Phải phân bổ hết mới chốt tháng. |
-| Đối chiếu (đợt 3) | Lãi tạm tính − khách nợ chưa trả + thu nợ cũ + chi phí phân bổ từ quỹ ngoài − thiếu tiền chưa bù + số dư đầu tháng = Tiền phải rút về; so với tiền đã rút → KHỚP / LỆCH (lệch phải ghi lý do); số dư 2 quỹ phải về 0. |
+| Quỹ ngoài (đợt 2) | Chỉ Chủ. Tiền vào = phiếu rút Chủ đã nhận (có danh sách phiếu chờ nhận ngay ở Quỹ ngoài); Chủ ghi thu chi ngoài (tiền nhà, lương, kho tổng…) tiền mặt / chuyển khoản; mỗi khoản chọn cách chia: theo tỉ lệ doanh thu tháng (mặc định) / chia đều / 1 cơ sở / tự nhập (tổng phải bằng số tiền). Phần chia tính vào chi phí (thu) của cơ sở ở Chốt tháng; quản lý chỉ thấy phần của cơ sở mình. Phải chia hết mới chốt tháng. Cơ sở đầu tiên chốt tháng thì số chia của tháng đó được giữ cố định và khoản ngoài tháng đó bị khóa; mở lại hết các cơ sở thì tính lại. |
+| Đối chiếu (đợt 3) | Tiền phải rút về = Lãi tạm tính − khách nợ phát sinh + thu được nợ + chi phí chia từ quỹ ngoài (không lấy tiền quán) + thu chi phiếu ca "Không tính" − khoản âm NV + NV bù khoản âm + số dư quỹ đầu tháng. So với tiền đã rút (phiếu rút trong tháng) → KHỚP / LỆCH; web chỉ ra lệch do đâu (còn trong quỹ chưa rút, tiền mặt nộp quỹ chênh phiếu ca, chuyển khoản về chênh phiếu ca). Lệch thì phải ghi lý do mới chốt tháng. Bảng Tổng hợp Chốt tháng có cột "Đối chiếu tiền". |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 

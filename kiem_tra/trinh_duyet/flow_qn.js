@@ -1,0 +1,31 @@
+// Sổ quỹ › Quỹ ngoài (chỉ Chủ): nhận phiếu rút, khoản chi ngoài + cách chia; Chốt tháng: mục đối chiếu tiền phải rút / đã rút.
+export default async ({ sleep, out }) => {
+  const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+  const wait = async (sel, n = 300) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
+  const txt = (s) => ($(s)?.innerText || '').replace(/\s+/g, ' ').trim();
+  const { rpc } = await import('../js/sb.js');
+  const r = []; window.confirm = () => true; const dlg = () => $('dialog[open]');
+  const reload = async () => { await sleep(1200); await wait('.sq-k, .ct-k', 100); };
+  await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  await rpc('app_fund_withdraw_save', { p_id: null, p: { branch_id: 1, method: 'tien_mat', kind: 'giua_thang', wdate: today, amount: 5000000, note: 'QL giao' } });
+  location.hash = '#/quan-ly/so-quy?cn=ngoai'; await wait('.sq-k', 200); await sleep(300);
+  r.push(`tab Quỹ ngoài: ${txt('.sq-ext-tab')} · ${$$('.sq-k').map((k) => k.innerText.replace(/\s+/g, ' ')).slice(0, 3).join(' | ')}`);
+  $('.ex-ok').click(); await reload();
+  r.push(`nhận phiếu 5tr → ${txt('.sq-k')}`);
+  $('#ex-add').click(); await wait('dialog[open]', 30);
+  let f = $('form', dlg()); f.cat.value = f.cat.options[1].value; f.note.value = 'Tiền nhà'; f.amt.value = '500.000'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`khoản chi ngoài (mặc định chia theo doanh thu): ${txt('.sq-sec .sq-w .st-meta + .st-meta, .sq-sec .grow .st-meta')}`);
+  $('#ex-add').click(); await wait('dialog[open]', 30);
+  f = $('form', dlg()); f.cat.value = f.cat.options[1].value; f.note.value = 'Sửa máy'; f.amt.value = '300.000';
+  f.mode.value = 'tu_nhap'; f.mode.dispatchEvent(new Event('change', { bubbles: true })); await sleep(100);
+  const ms = $$('.ex-m', dlg()); ms[0].value = '100.000'; ms[0].dispatchEvent(new Event('input', { bubbles: true })); await sleep(50);
+  const sumTxt = txt('#ex-msum'); $('button[type=submit]', dlg()).click(); await sleep(400);
+  const err = txt('dialog[open] .sq-err');
+  ms[1].value = '200.000'; $('button[type=submit]', dlg()).click(); await reload();
+  r.push(`tự nhập: "${sumTxt}" · sai tổng: "${err}" → ${$$('.sq-sec .sq-w').length} khoản`);
+  location.hash = '#/quan-ly/chot-thang?cn=1'; await wait('.ct-k', 200); await sleep(400);
+  r.push(`Chốt tháng LHP: đối chiếu ${$('.ct-rc') ? 'CÓ' : 'KHÔNG'} · ${txt('.ct-rc').slice(-60)}`);
+  r.push(`rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);
+  out.push({ route: 'quỹ ngoài', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
+};

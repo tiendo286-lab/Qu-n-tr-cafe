@@ -41,7 +41,7 @@ export async function render({ params }) {
     const T = (k) => sum(rows, (r) => r.totals[k]);
     const body = html`<section class="card flush"><div class="card-head"><h2>Tổng hợp ${monthLabel(month)}</h2><span class="st-meta">Bấm tên cơ sở để xem chi tiết và chốt</span></div>
       <div class="table-wrap"><table class="table rt ct-ov">
-        <thead><tr><th>Cơ sở</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Thu khác</th><th class="r">Lãi tạm tính</th><th class="r">Lệch tiền mặt</th><th class="r">Khoản âm</th><th title="Ca đã chốt / số ca dự kiến · ĐS = đã đối soát">Phiếu ca</th><th>Trạng thái</th></tr></thead>
+        <thead><tr><th>Cơ sở</th><th class="r">Doanh thu</th><th class="r">Chi phí</th><th class="r">Thu khác</th><th class="r">Lãi tạm tính</th><th class="r">Lệch tiền mặt</th><th class="r">Khoản âm</th><th class="r" title="Tiền đã rút về so với tiền phải rút về">Đối chiếu tiền</th><th title="Ca đã chốt / số ca dự kiến · ĐS = đã đối soát">Phiếu ca</th><th>Trạng thái</th></tr></thead>
         <tbody>${rows.map((r) => html`<tr>
           <th scope="row"><a href="${q({ cn: r.branch_id })}" title="${r.name}">${r.code}</a></th>
           <td class="r" data-label="Doanh thu">${vnd(r.totals.revenue)}</td><td class="r" data-label="Chi phí">${vnd(r.totals.chi)}</td>
@@ -49,11 +49,12 @@ export async function render({ params }) {
           <td class="r ${r.totals.profit < 0 ? 'ct-neg' : 'ct-pos'}" data-label="Lãi tạm tính"><strong>${signed(r.totals.profit)}</strong></td>
           <td class="r" data-label="Lệch tiền mặt">${r.cash.gap ? signed(r.cash.gap) : '0đ'}</td>
           <td class="r" data-label="Khoản âm">${vnd(r.shortfalls.total)}</td>
+          <td class="r" data-label="Đối chiếu tiền">${!r.recon?.active ? '—' : Number(r.recon.gap) === 0 ? html`<span class="pill ok">KHỚP</span>` : html`<span class="pill warn">Lệch ${signed(r.recon.gap)}</span>`}</td>
           <td data-label="Phiếu ca">${r.revenue.done}/${r.revenue.expect} · ĐS ${r.revenue.recon}</td>
           <td data-label="Trạng thái">${r.closed ? html`<span class="pill ok">Đã chốt</span>` : html`<span class="pill mute">Chưa chốt</span>`}</td></tr>`)}
           <tr class="ct-total"><th scope="row">Tổng</th><td class="r" data-label="Doanh thu">${vnd(T('revenue'))}</td><td class="r" data-label="Chi phí">${vnd(T('chi'))}</td>
             <td class="r" data-label="Thu khác">${vnd(T('thu'))}</td><td class="r" data-label="Lãi tạm tính"><strong>${signed(T('profit'))}</strong></td>
-            <td class="r" data-label="Lệch tiền mặt">${signed(sum(rows, (r) => r.cash.gap))}</td><td class="r" data-label="Khoản âm">${vnd(sum(rows, (r) => r.shortfalls.total))}</td><td></td>
+            <td class="r" data-label="Lệch tiền mặt">${signed(sum(rows, (r) => r.cash.gap))}</td><td class="r" data-label="Khoản âm">${vnd(sum(rows, (r) => r.shortfalls.total))}</td><td></td><td></td>
             <td data-label="Đã chốt">${rows.filter((r) => r.closed).length}/${rows.length}</td></tr></tbody></table></div></section>`;
     return { title: 'Chốt tháng', html: html`${STYLE}${head}${body}`, mount: () => mountSettings(B) };
   }
@@ -65,6 +66,8 @@ export async function render({ params }) {
   if (R.in_progress) warn.push(`${R.in_progress} phiếu chốt ca đang chốt dở`);
   if (R.recon < R.done) warn.push(`${R.done - R.recon} ca chưa hoàn thành đối soát`);
   if (Tt.uncat) warn.push(`${Tt.uncat} khoản chi ở phiếu ca chưa phân nhóm`);
+  if (D.ext_bad) warn.push(`${D.ext_bad} khoản ở Quỹ ngoài chưa chia hết cho cơ sở`);
+  const RC = D.recon || {}; const gap = Number(RC.gap || 0);
   const note = R.done < R.expect ? `Mới có ${R.done}/${R.expect} ca có phiếu chốt ca hoàn thành (tính tới hôm nay) — kiểm tra ngày nào thiếu phiếu.` : '';
   const dayRows = D.days.map((d) => { const gap = d.counted !== null && d.expected !== null ? d.counted - d.expected : null; return { ...d, gap }; });
 
@@ -137,7 +140,12 @@ export async function render({ params }) {
         <div class="grow"><strong>${e.note}</strong><div class="st-meta">${dmy(e.entry_date)} · ${e.kind === 'chi' ? 'Chi' : 'Thu'} · ${e.category || 'Chưa phân nhóm'} · ${PAY[e.pay_method]} · ${e.by || ''}</div></div>
         <div class="ct-amt ${e.kind === 'chi' ? 'ct-neg' : ''}">${e.kind === 'chi' ? '−' : '+'}${vnd(e.amount)}</div>
         ${locked ? '' : html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary ct-ed" data-id="${e.id}">Sửa</button><button type="button" class="btn sm secondary danger ct-del" data-id="${e.id}" aria-label="Xóa">×</button></span>`}</div>`)}</div>`
-      : html`<div class="st-meta">Chưa nhập khoản nào.</div>`}</section>`;
+      : html`<div class="st-meta">Chưa nhập khoản nào.</div>`}
+    <div class="pc-sub" style="margin-top:8px">CHI PHÍ / THU CHIA TỪ QUỸ NGOÀI (${(D.ext || []).length}) <span class="st-meta">— Chủ ghi ở Sổ quỹ › Quỹ ngoài, chia cho cơ sở; không lấy tiền của quán</span></div>
+    ${(D.ext || []).length ? html`<div class="ct-list">${D.ext.map((x) => html`<div class="ct-row">
+        <div class="grow"><strong>${x.note}</strong><div class="st-meta">${dmy(x.date)} · ${x.kind === 'chi' ? 'Chi' : 'Thu'} · ${x.category || ''} · phần của cơ sở / tổng ${vnd(x.total)}</div></div>
+        <div class="ct-amt ${x.kind === 'chi' ? 'ct-neg' : ''}">${x.kind === 'chi' ? '−' : '+'}${vnd(x.amount)}</div></div>`)}</div>`
+      : html`<div class="st-meta">Không có.</div>`}</section>`;
 
   const S = D.shortfalls;
   const secKa = html`<section class="card stack ct-sec"><h2>5. Khoản âm của nhân viên</h2>
@@ -148,9 +156,23 @@ export async function render({ params }) {
     <div class="kv">
       <div>Doanh thu</div><div>${vnd(Tt.revenue)}</div>
       <div>+ Thu khác</div><div>${vnd(Tt.thu)}</div>
-      <div>− Chi phí</div><div>${vnd(Tt.chi)} <span class="st-meta">(ở phiếu ca ${vnd(Tt.chi_ca)} · nhập thêm ${vnd(Tt.chi_tay)})</span></div>
+      <div>− Chi phí</div><div>${vnd(Tt.chi)} <span class="st-meta">(ở phiếu ca ${vnd(Tt.chi_ca)} · nhập thêm ${vnd(Tt.chi_tay)}${Tt.chi_ngoai ? ` · chia từ quỹ ngoài ${vnd(Tt.chi_ngoai)}` : ''})</span></div>
       <div><strong>Lãi tạm tính</strong></div><div class="${Tt.profit < 0 ? 'ct-neg' : 'ct-pos'}"><strong>${signed(Tt.profit)}</strong></div></div>
     <div class="st-meta">"Tạm tính" vì chỉ gồm các khoản đã nhập. Khoản âm của nhân viên không trừ vào lãi (đã nằm trong tiền thiếu của ca).</div>
+    ${RC.active ? html`<div class="pc-sub" style="margin-top:6px">ĐỐI CHIẾU: LÃI TẠM TÍNH → TIỀN PHẢI RÚT VỀ</div>
+      <div class="kv ct-rc">
+        <div>Lãi tạm tính</div><div>${signed(RC.profit)}</div>
+        ${RC.debt_new ? html`<div>− Khách nợ phát sinh (chưa thu)</div><div>−${vnd(RC.debt_new)}</div>` : ''}
+        ${RC.debt_col ? html`<div>+ Thu được nợ</div><div>+${vnd(RC.debt_col)}</div>` : ''}
+        ${RC.ext_cost ? html`<div>+ Chi phí chia từ Quỹ ngoài (không lấy tiền quán)</div><div>${signed(RC.ext_cost)}</div>` : ''}
+        ${RC.moves_excluded ? html`<div>+ Thu chi phiếu ca "Không tính"</div><div>${signed(RC.moves_excluded)}</div>` : ''}
+        ${RC.shortfalls ? html`<div>− Khoản âm nhân viên (tiền thiếu)</div><div>−${vnd(RC.shortfalls)}</div>` : ''}
+        ${RC.bu ? html`<div>+ Nhân viên bù khoản âm vào quỹ</div><div>+${vnd(RC.bu)}</div>` : ''}
+        ${RC.opening ? html`<div>+ Số dư quỹ đầu tháng</div><div>+${vnd(RC.opening)}</div>` : ''}
+        <div><strong>= Tiền phải rút về</strong></div><div><strong>${vnd(RC.must)}</strong></div>
+        <div><strong>Tiền đã rút về</strong> <a class="st-meta" href="#/quan-ly/so-quy?thang=${month}&cn=${cn}">Sổ quỹ ›</a></div><div><strong>${vnd(RC.withdrawn)}</strong> <span class="st-meta">(TM ${vnd(RC.withdrawn_tm)} · CK ${vnd(RC.withdrawn_ck)})</span></div>
+        <div><strong>Kết quả</strong></div><div>${gap === 0 ? html`<span class="pill ok">KHỚP</span>` : html`<span class="pill warn">LỆCH ${signed(gap)}</span>`}</div></div>
+      ${gap !== 0 ? html`<div class="st-meta">Lệch do: ${[RC.closing ? `còn trong quỹ chưa rút ${vnd(RC.closing)}` : '', RC.cash_diff ? `tiền mặt nộp quỹ chênh so với phiếu ca ${signed(RC.cash_diff)}` : '', RC.bank_diff ? `chuyển khoản về chênh so với phiếu ca ${signed(RC.bank_diff)}` : ''].filter(Boolean).join(' · ') || 'xem Sổ quỹ'}. Khi chốt tháng phải ghi lý do lệch.</div>` : ''}` : ''}
     <div class="toolbar">
       ${locked ? (D.can_reopen ? html`<button type="button" class="btn secondary danger" id="ct-reopen">Mở lại tháng (Chủ)</button>` : '')
         : month >= cur ? html`<button type="button" class="btn" disabled title="Chỉ chốt được tháng đã kết thúc">Chốt tháng (sau khi hết tháng)</button>`
@@ -199,8 +221,10 @@ function mountBranch(D, cn, month, cats, catOpts) {
     try { await rpc('app_fin_entry_delete', { p_id: Number(b.dataset.id) }); rerender(); } catch (e) { showSaved(e.message, true); }
   }));
   $('#ct-close')?.addEventListener('click', async () => {
-    const note = prompt(`Chốt ${D.branch_code} tháng ${month.slice(5)}/${month.slice(0, 4)}?\nSau khi chốt, phiếu ca, đối soát, kiểm đếm cuối ngày và chi phí của tháng này bị khóa.\nGhi chú (không bắt buộc):`, '');
+    const g = D.recon?.active ? Number(D.recon.gap) : 0;
+    const note = prompt(`Chốt ${D.branch_code} tháng ${month.slice(5)}/${month.slice(0, 4)}?\nSau khi chốt, phiếu ca, đối soát, kiểm đếm cuối ngày, chi phí và sổ quỹ của tháng này bị khóa.\n${g ? `Tiền đã rút về LỆCH ${fmt(g)}đ so với tiền phải rút về — ghi lý do (bắt buộc):` : 'Ghi chú (không bắt buộc):'}`, '');
     if (note === null) return;
+    if (g && !note.trim()) { showSaved('Phải ghi lý do lệch tiền rồi mới chốt tháng.', true); return; }
     try { await rpc('app_fin_close', { p_branch: cn, p_month: month, p_note: note }); flash('Đã chốt tháng.'); rerender(); } catch (e) { showSaved(e.message, true); }
   });
   $('#ct-reopen')?.addEventListener('click', async () => {

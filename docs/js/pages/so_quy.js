@@ -21,7 +21,8 @@ export async function render({ params }) {
   const O = await rpc('app_fund_overview', { p_month: month });
   if (!O.branches.length) return { title: 'Sổ quỹ', html: html`${STYLE}<div class="page-head"><div><h1>Sổ quỹ</h1></div></div><div class="card">Bạn chưa được giao cơ sở nào.</div>` };
   const many = O.branches.length > 1;
-  const cn = params.cn && params.cn !== 'all' && O.branches.some((b) => String(b.id) === params.cn) ? Number(params.cn) : many ? 'all' : O.branches[0].id;
+  const cn = params.cn === 'ngoai' && O.owner ? 'ngoai'
+    : params.cn && params.cn !== 'all' && O.branches.some((b) => String(b.id) === params.cn) ? Number(params.cn) : many ? 'all' : O.branches[0].id;
   const q = (o) => '#/quan-ly/so-quy?' + Object.entries({ thang: month, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
   const head = html`<div class="page-head"><div><h1>Sổ quỹ</h1>
       <div class="sub">Quỹ tiền mặt (ngoài két — 1.000.000đ đầu ca sáng để nguyên trong két) và tài khoản của từng cơ sở. Cuối tháng rút hết về 0. Phiếu rút Chủ đã bấm "Đã nhận tiền" thì bị khóa.</div></div>
@@ -31,9 +32,12 @@ export async function render({ params }) {
         <strong>${monthLabel(month)}</strong>${month === cur ? html`<span class="pill info">Tháng này</span>` : ''}
         <a class="btn sm secondary" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
       <nav class="branch-tabs" aria-label="Cơ sở">${many ? html`<a class="${cn === 'all' ? 'on' : ''}" href="${q({ cn: 'all' })}">Tất cả</a>` : ''}
-        ${O.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav></section>`;
+        ${O.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}
+        ${O.owner ? html`<a class="sq-ext-tab ${cn === 'ngoai' ? 'on' : ''}" href="${q({ cn: 'ngoai' })}" title="Quỹ ngoài của Chủ">Quỹ ngoài</a>` : ''}</nav></section>`;
 
   if (month < O.start.slice(0, 7)) return { title: 'Sổ quỹ', html: html`${STYLE}${head}<div class="card">Sổ quỹ bắt đầu từ ${dmy(O.start)}.</div>` };
+
+  if (cn === 'ngoai') return renderExt(month, head);
 
   if (cn === 'all') {
     const tot = (k) => O.branches.reduce((s, b) => s + Number(b[k] || 0), 0);
@@ -231,7 +235,124 @@ export async function render({ params }) {
   };
 }
 
+// ---------------------------------------------------------------- Quỹ ngoài (chỉ Chủ)
+const MODE = { doanh_thu: 'Theo tỉ lệ doanh thu', deu: 'Chia đều', mot: 'Cho 1 cơ sở', tu_nhap: 'Tự nhập số' };
+async function renderExt(month, head) {
+  const E = await rpc('app_ext_month', { p_month: month });
+  const cats = (k) => E.categories.filter((c) => c.kind === k && c.active);
+  const sumK = (k) => E.entries.filter((e) => e.kind === k).reduce((s, e) => s + Number(e.amount), 0);
+  const recv = E.rows.filter((r) => r.type === 'nhan').reduce((s, r) => s + Number(r.amount), 0);
+  const bad = E.entries.filter((e) => !e.ok);
+  const ledger = (m) => {
+    let bal = Number(E.open[m] || 0);
+    const rows = E.rows.filter((r) => r.method === m).map((r) => { bal += Number(r.amount); return { ...r, bal }; });
+    return html`<div class="table-wrap"><table class="table rt sq-led"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="r">Vào</th><th class="r">Ra</th><th class="r">Còn</th></tr></thead>
+      <tbody><tr class="sq-total"><td data-label="Ngày">${dmy(E.from)}</td><td data-label="Nội dung">Số dư đầu tháng</td><td></td><td></td><td class="r" data-label="Còn">${vnd(E.open[m])}</td></tr>
+      ${rows.map((r) => html`<tr><td data-label="Ngày">${dmy(r.date)}</td><td data-label="Nội dung">${r.label}</td>
+        <td class="r sq-in" data-label="Vào">${r.amount > 0 ? fmt(r.amount) : ''}</td><td class="r sq-out" data-label="Ra">${r.amount < 0 ? fmt(-r.amount) : ''}</td><td class="r" data-label="Còn"><strong>${vnd(r.bal)}</strong></td></tr>`)}
+      </tbody></table></div>`;
+  };
+  return {
+    title: 'Quỹ ngoài',
+    html: html`${STYLE}${head}
+      <div class="alert info">Quỹ ngoài chỉ anh (Chủ) thấy. Tiền vào = các phiếu rút anh đã bấm "Đã nhận tiền". Khoản chi / thu ngoài được chia cho cơ sở và tính vào chi phí (thu) của cơ sở ở Chốt tháng.</div>
+      ${E.locked ? html`<div class="alert ok">Tháng này đã có cơ sở chốt — các khoản ngoài và số chia của tháng đã cố định.</div>` : ''}
+      ${bad.length ? html`<div class="alert warn">${bad.length} khoản chưa chia hết cho cơ sở — chưa chốt tháng được.</div>` : ''}
+      <div class="sq-kpis">
+        <div class="sq-k"><span>Quỹ ngoài · tiền mặt</span><b>${vnd(E.balance.tien_mat)}</b><small>đến ${dmy(E.upto)}</small></div>
+        <div class="sq-k"><span>Quỹ ngoài · tài khoản</span><b>${vnd(E.balance.chuyen_khoan)}</b><small>đến ${dmy(E.upto)}</small></div>
+        <div class="sq-k pos"><span>Nhận từ cơ sở trong tháng</span><b>${vnd(recv)}</b><small>${E.pending.length ? `${E.pending.length} phiếu chờ anh nhận` : 'Không có phiếu chờ'}</small></div>
+        <div class="sq-k neg"><span>Chi ngoài trong tháng</span><b>${vnd(sumK('chi'))}</b><small>Thu ngoài ${vnd(sumK('thu'))}</small></div></div>
+      ${E.locked ? '' : html`<div class="toolbar" style="margin-bottom:12px"><button type="button" class="btn" id="ex-add">+ Khoản chi / thu ngoài</button>
+        ${E.is_start_month ? html`<button type="button" class="btn secondary" id="ex-open">Số dư đầu ${dmy(E.start).slice(0, 5)}</button>` : ''}</div>`}
+      ${E.pending.length ? html`<section class="card stack sq-sec"><h2>Phiếu rút chờ anh xác nhận</h2>
+        ${E.pending.map((w) => html`<div class="sq-w todo"><div class="grow"><strong>${w.code} · ${M[w.method]}</strong>${w.note ? ` — ${w.note}` : ''}<div class="st-meta">${dmy(w.wdate)} · ${w.by || ''}</div></div>
+          <div class="sq-amt" style="color:var(--ok-ink)">+${fmt(w.amount)}đ</div><button type="button" class="btn sm ex-ok" data-id="${w.id}" data-a="${w.amount}">Đã nhận tiền</button></div>`)}</section>` : ''}
+      <section class="card stack sq-sec"><h2>Khoản chi / thu ngoài · ${monthLabel(month)}</h2>
+        <div class="st-meta">Doanh thu tháng để chia theo tỉ lệ: ${E.revenue.map((r) => `${r.code} ${vnd(r.revenue)}`).join(' · ')}</div>
+        ${E.entries.length ? E.entries.map((e) => html`<div class="sq-w ${e.ok ? '' : 'todo'}">
+            <div class="grow"><strong>${e.note}</strong> <span class="st-meta">· ${e.category || ''} · ${e.pay_method === 'tien_mat' ? 'Tiền mặt' : 'Chuyển khoản'} · ${dmy(e.entry_date)}</span>
+              <div class="st-meta">${MODE[e.alloc_mode]}${e.fixed ? ' (đã cố định)' : ''}: ${e.alloc.length ? e.alloc.map((a) => `${a.code} ${fmt(a.amount)}đ`).join(' · ') : 'chưa chia'}${e.ok ? '' : html` · <strong class="sq-out">chưa chia hết</strong>`}</div></div>
+            <div class="sq-amt ${e.kind === 'thu' ? 'sq-in' : ''}">${e.kind === 'chi' ? '−' : '+'}${fmt(e.amount)}đ</div>
+            ${E.locked ? '' : html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary ex-ed" data-id="${e.id}">Sửa</button><button type="button" class="btn sm secondary danger ex-del" data-id="${e.id}" aria-label="Xóa">×</button></span>`}</div>`)
+          : html`<div class="st-meta">Tháng này chưa có khoản ngoài nào.</div>`}</section>
+      <section class="card stack sq-sec"><div class="sq-subhead"><h2>Sổ Quỹ ngoài</h2>
+          <nav class="branch-tabs" aria-label="Quỹ">${Object.entries(M).map(([k, l]) => html`<a href="javascript:void 0" class="sq-lt ${LEDGER === k ? 'on' : ''}" data-m="${k}">${l}</a>`)}</nav></div>
+        <div id="sq-led">${ledger(LEDGER)}</div></section>`,
+    mount() {
+      $$('.sq-lt').forEach((a) => a.addEventListener('click', () => { LEDGER = a.dataset.m; $$('.sq-lt').forEach((x) => x.classList.toggle('on', x === a)); $('#sq-led').innerHTML = str(ledger(LEDGER)); }));
+      const errBox = (d, e) => { d.querySelector('.sq-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); };
+      $$('.ex-ok').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm(`Xác nhận anh ĐÃ NHẬN ĐỦ ${vnd(b.dataset.a)}?\n\nXác nhận xong phiếu bị khóa, không ai sửa hay xóa được nữa.`)) return;
+        try { await rpc('app_fund_withdraw_confirm', { p_id: Number(b.dataset.id) }); flash('Đã xác nhận nhận tiền. Phiếu đã khóa.'); rerender(); } catch (e) { showSaved(e.message, true); }
+      }));
+      $$('.ex-del').forEach((b) => b.addEventListener('click', async () => {
+        const e = E.entries.find((x) => x.id === Number(b.dataset.id));
+        if (!confirm(`Xóa khoản "${e.note}" (${vnd(e.amount)})?`)) return;
+        try { await rpc('app_ext_entry_delete', { p_id: e.id }); flash('Đã xóa khoản.'); rerender(); } catch (err) { showSaved(err.message, true); }
+      }));
+      const form = (e = {}) => {
+        const kind = e.kind || 'chi'; const mode = e.alloc_mode || 'doanh_thu'; const man = e.manual || {};
+        const opts = (k, sel) => html`<option value="">— Chọn nhóm —</option>${cats(k).map((c) => html`<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}`;
+        const d = dialog(html`<form class="stack sq-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản ngoài' : 'Khoản chi / thu ngoài'}</h2>
+          <div class="pc-line" role="radiogroup" aria-label="Loại"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Khoản chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Khoản thu</label></div>
+          <label class="field"><span>Ngày</span><input class="input" type="date" name="date" value="${e.entry_date || (vnToday().startsWith(month) ? vnToday() : month + '-01')}" min="${E.start}"></label>
+          <label class="field"><span>Nhóm</span><select class="input" name="cat">${opts(kind, e.category_id || '')}</select></label>
+          <label class="field"><span>Nội dung</span><input class="input" name="note" value="${e.note || ''}" placeholder="vd: Tiền nhà LHP tháng 11, lương quản lý…" autocomplete="off"></label>
+          <label class="field"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${e.amount ? fmt(e.amount) : ''}" autocomplete="off"></label>
+          <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" ${(e.pay_method || 'tien_mat') === 'tien_mat' ? 'checked' : ''}> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan" ${e.pay_method === 'chuyen_khoan' ? 'checked' : ''}> Chuyển khoản</label></div>
+          <label class="field"><span>Chia cho cơ sở</span><select class="input" name="mode">${Object.entries(MODE).map(([k, l]) => html`<option value="${k}" ${mode === k ? 'selected' : ''}>${l}</option>`)}</select></label>
+          <label class="field ex-one" ${mode === 'mot' ? '' : 'hidden'}><span>Cơ sở</span><select class="input" name="br"><option value="">— Chọn cơ sở —</option>${E.branches.map((b) => html`<option value="${b.id}" ${String(e.alloc_branch) === String(b.id) ? 'selected' : ''}>${b.code} – ${b.name}</option>`)}</select></label>
+          <div class="ex-man stack" style="gap:6px" ${mode === 'tu_nhap' ? '' : 'hidden'}>${E.branches.map((b) => html`<label class="ex-mrow"><span>${b.code}</span><input class="input money ex-m" data-b="${b.id}" inputmode="numeric" value="${man[b.id] ? fmt(man[b.id]) : ''}" autocomplete="off"></label>`)}
+            <div class="st-meta" id="ex-msum"></div></div>
+          <div class="sq-err"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+        bindMoneyInputs(d); const f = d.querySelector('form');
+        const msum = () => { const t = $$('.ex-m', d).reduce((s, i) => s + (parseMoney(i.value) || 0), 0); const a = parseMoney(f.amt.value) || 0;
+          $('#ex-msum', d).textContent = `Tổng đã nhập ${vnd(t)} / ${vnd(a)}${t === a ? ' ✓' : ` — còn ${signed(a - t)}`}`; };
+        f.addEventListener('input', (ev) => { if (ev.target.classList.contains('ex-m') || ev.target.name === 'amt') msum(); });
+        f.addEventListener('change', (ev) => {
+          if (ev.target.name === 'kind') f.cat.innerHTML = str(opts(ev.target.value, ''));
+          if (ev.target.name === 'mode') { $('.ex-one', d).hidden = f.mode.value !== 'mot'; $('.ex-man', d).hidden = f.mode.value !== 'tu_nhap'; msum(); }
+        });
+        msum();
+        d.querySelector('[data-x]').addEventListener('click', () => d.close());
+        f.addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          const manual = {}; $$('.ex-m', d).forEach((i) => { const v = parseMoney(i.value); if (v) manual[i.dataset.b] = String(v); });
+          const p = { entry_date: f.date.value, kind: f.querySelector('input[name=kind]:checked').value, category_id: f.cat.value || null, note: f.note.value, amount: parseMoney(f.amt.value),
+            pay_method: f.querySelector('input[name=pay]:checked').value, alloc_mode: f.mode.value, alloc_branch: f.br.value || null, manual };
+          try { await rpc('app_ext_entry_save', { p_id: e.id || null, p }); d.close(); flash('Đã lưu khoản ngoài.'); rerender(); } catch (err) { errBox(d, err); }
+        });
+      };
+      $('#ex-add')?.addEventListener('click', () => form());
+      $$('.ex-ed').forEach((b) => b.addEventListener('click', () => form(E.entries.find((x) => x.id === Number(b.dataset.id)))));
+      $('#ex-open')?.addEventListener('click', () => {
+        const o = E.openings || {};
+        const d = dialog(html`<form class="stack sq-dlg" style="gap:12px"><h2 style="margin:0">Số dư đầu Quỹ ngoài · ${dmy(E.start)}</h2>
+          <label class="field"><span>Tiền mặt</span><input class="input money" name="tm" inputmode="numeric" value="${fmt(o.tien_mat?.amount || 0)}" autocomplete="off"></label>
+          <label class="field"><span>Tài khoản</span><input class="input money" name="ck" inputmode="numeric" value="${fmt(o.chuyen_khoan?.amount || 0)}" autocomplete="off"></label>
+          <div class="sq-err"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+        bindMoneyInputs(d); const f = d.querySelector('form');
+        d.querySelector('[data-x]').addEventListener('click', () => d.close());
+        f.addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          try {
+            await rpc('app_ext_opening_set', { p_method: 'tien_mat', p_amount: parseMoney(f.tm.value) ?? 0, p_note: null });
+            await rpc('app_ext_opening_set', { p_method: 'chuyen_khoan', p_amount: parseMoney(f.ck.value) ?? 0, p_note: null });
+            d.close(); flash('Đã lưu số dư đầu Quỹ ngoài.'); rerender();
+          } catch (err) { errBox(d, err); }
+        });
+      });
+    },
+  };
+}
+
 const STYLE = html`<style>
+  .sq-ext-tab { border-style: dashed !important; }
+  .alert.info { background: var(--info-bg, #eef4fb); color: var(--info-ink, #1e3a5f); }
+  .ex-mrow { display: grid; grid-template-columns: 60px minmax(0, 1fr); align-items: center; gap: 8px; font-weight: 600; }
   .sq-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 12px; }
   .sq-month { display: flex; align-items: center; gap: 10px; }
   .sq-month strong { font-size: 17px; min-width: 120px; text-align: center; }

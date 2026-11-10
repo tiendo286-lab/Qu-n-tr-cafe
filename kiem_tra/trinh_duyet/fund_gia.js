@@ -1,6 +1,6 @@
 // Giả lập các hàm app_fund_* (Sổ quỹ) trong bộ nhớ — chỉ để chạy thử giao diện (chuyển khoản tự động luôn trống)
 export function makeFund(T, me) {
-  for (const t of ['fund_openings', 'fund_day_values', 'fund_withdrawals', 'fund_counts', 'fin_entries', 'fin_month_closes', 'daily_cash_closings']) T[t] = T[t] || [];
+  for (const t of ['fund_openings', 'fund_day_values', 'fund_withdrawals', 'fund_counts', 'fin_entries', 'fin_month_closes', 'daily_cash_closings', 'ext_entries', 'ext_openings']) T[t] = T[t] || [];
   const START = '2026-11-01'; const FLOAT = 1000000; const ALERT = 20000000;
   const now = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
   const today = () => now().slice(0, 10);
@@ -26,7 +26,46 @@ export function makeFund(T, me) {
   const opening = (b, m) => Number(T.fund_openings.find((o) => o.branch_id === b && o.method === m)?.amount || 0);
   const balance = (b, m, upto) => opening(b, m) + rows(b, START, upto).filter((r) => r.method === m).reduce((s, r) => s + r.amount, 0);
   const brs = () => T.branches.filter((b) => b.status === 'Đang hoạt động' && can()).sort((a, c) => a.sort_order - c.sort_order);
+  // Quỹ ngoài (giả lập: "theo doanh thu" chia như chia đều)
+  const exNeed = () => { if (me.role !== 'chu') throw new Error('Chỉ Chủ xem / sửa được Quỹ ngoài.'); };
+  const act = () => T.branches.filter((b) => b.status === 'Đang hoạt động').sort((a, c) => a.sort_order - c.sort_order);
+  const alloc = (e) => {
+    if (e.alloc_mode === 'mot') return e.alloc_branch ? [{ branch_id: Number(e.alloc_branch), amount: e.amount }] : [];
+    if (e.alloc_mode === 'tu_nhap') return Object.entries(e.manual || {}).map(([b, a]) => ({ branch_id: Number(b), amount: Number(a) })).filter((x) => x.amount > 0);
+    const bs = act(); const base = Math.floor(e.amount / bs.length); let r = e.amount - base * bs.length;
+    return bs.map((b) => ({ branch_id: b.id, amount: base + (r-- > 0 ? 1 : 0) }));
+  };
+  const exRows = (from, to) => [
+    ...T.fund_withdrawals.filter((w) => w.status === 'da_nhan' && w.wdate >= from && w.wdate <= to).map((w) => ({ date: w.wdate, method: w.method, type: 'nhan', label: 'Nhận từ cơ sở ' + w.branch_id, amount: w.amount })),
+    ...T.ext_entries.filter((e) => e.entry_date >= from && e.entry_date <= to).map((e) => ({ date: e.entry_date, method: e.pay_method, type: 'thu_chi', label: (e.kind === 'chi' ? 'Chi: ' : 'Thu: ') + e.note, amount: e.kind === 'chi' ? -e.amount : e.amount })),
+  ].sort((x, y) => (x.date < y.date ? -1 : 1));
+  const exBal = (m, upto) => Number(T.ext_openings.find((o) => o.method === m)?.amount || 0) + exRows(START, upto).filter((r) => r.method === m).reduce((s, r) => s + r.amount, 0);
+  const ext = {
+    app_ext_month({ p_month }) {
+      exNeed(); const d0 = p_month + '-01'; const d1 = last(p_month); const upto = d1 < today() ? d1 : today();
+      const code = (id) => { const b = T.branches.find((x) => x.id === id); return b?.display_code || b?.code; };
+      return { month: p_month, from: d0, to: d1, upto, start: START, is_start_month: START.slice(0, 7) === p_month, locked: T.fin_month_closes.some((c) => c.month === p_month),
+        openings: Object.fromEntries(T.ext_openings.map((o) => [o.method, o])), open: { tien_mat: exBal('tien_mat', new Date(Date.parse(d0) - 864e5).toISOString().slice(0, 10)), chuyen_khoan: exBal('chuyen_khoan', new Date(Date.parse(d0) - 864e5).toISOString().slice(0, 10)) },
+        balance: { tien_mat: exBal('tien_mat', upto), chuyen_khoan: exBal('chuyen_khoan', upto) }, rows: exRows(d0, d1),
+        pending: T.fund_withdrawals.filter((w) => w.status === 'cho_nhan').map((w) => ({ ...w, code: code(w.branch_id), by: name(w.created_by) })),
+        entries: T.ext_entries.filter((e) => e.entry_date >= d0 && e.entry_date <= d1).map((e) => { const a = alloc(e); return { ...e, category: T.fin_categories?.find((c) => c.id === e.category_id)?.name,
+          ok: a.reduce((s, x) => s + x.amount, 0) === e.amount, fixed: false, alloc: a.map((x) => ({ ...x, code: code(x.branch_id) })) }; }),
+        revenue: act().map((b) => ({ branch_id: b.id, code: b.display_code || b.code, revenue: 0 })), branches: act().map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })),
+        categories: (T.fin_categories || []).map((c) => ({ ...c, active: !!c.active })) };
+    },
+    app_ext_entry_save({ p_id, p }) {
+      exNeed(); if (!(p.amount > 0)) throw new Error('Nhập số tiền lớn hơn 0.'); if (!(p.note || '').trim()) throw new Error(`Ghi nội dung khoản ${p.kind}.`); if (!p.category_id) throw new Error(`Chọn nhóm ${p.kind} đúng loại.`);
+      if (p.alloc_mode === 'mot' && !p.alloc_branch) throw new Error('Chọn cơ sở nhận khoản này.');
+      if (p.alloc_mode === 'tu_nhap') { const t = Object.values(p.manual || {}).reduce((s, v) => s + Number(v), 0); if (t !== p.amount) throw new Error(`Tổng số tự nhập (${t}đ) phải bằng số tiền khoản (${p.amount}đ).`); }
+      const row = { entry_date: p.entry_date, kind: p.kind, category_id: Number(p.category_id), amount: p.amount, note: p.note.trim(), pay_method: p.pay_method || 'tien_mat', alloc_mode: p.alloc_mode || 'doanh_thu', alloc_branch: p.alloc_branch ? Number(p.alloc_branch) : null, manual: p.alloc_mode === 'tu_nhap' ? p.manual : {} };
+      const old = p_id ? T.ext_entries.find((e) => e.id === p_id) : null; if (old) { Object.assign(old, row); return old.id; }
+      const id = Math.max(0, ...T.ext_entries.map((e) => e.id)) + 1; T.ext_entries.push({ id, ...row, created_by: me.account_id }); return id;
+    },
+    app_ext_entry_delete({ p_id }) { exNeed(); T.ext_entries = T.ext_entries.filter((e) => e.id !== p_id); },
+    app_ext_opening_set({ p_method, p_amount }) { exNeed(); T.ext_openings = T.ext_openings.filter((o) => o.method !== p_method).concat([{ method: p_method, amount: p_amount }]); },
+  };
   return {
+    ...ext,
     app_fund_overview({ p_month }) {
       const d0 = p_month + '-01'; const d1 = last(p_month); const upto = d1 < today() ? d1 : today();
       const outs = (b, m) => T.fund_withdrawals.filter((w) => w.branch_id === b && w.method === m && w.wdate >= d0 && w.wdate <= d1).reduce((s, w) => s + w.amount, 0);

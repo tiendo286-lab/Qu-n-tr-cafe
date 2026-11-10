@@ -85,7 +85,8 @@ export function makeFin(T, me) {
   return {
     ...tc,
     app_fin_branches: () => ({ admin: admin(), owner: me.role === 'chu', branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && canB(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
-    app_fin_month({ p_branch, p_month }) { need(p_branch); return { ...calc(p_branch, p_month), categories: T.fin_categories, log: T.fin_close_log.filter((l) => l.branch_id === p_branch && l.month === p_month).slice().reverse(), can_reopen: me.role === 'chu' }; },
+    app_fin_month({ p_branch, p_month }) { need(p_branch); const c = calc(p_branch, p_month); const wd = (T.fund_withdrawals || []).filter((w) => w.branch_id === p_branch && w.wdate.startsWith(p_month)).reduce((s, w) => s + w.amount, 0);
+      return { ...c, ext: [], ext_bad: 0, recon: { active: p_month >= '2026-11', profit: c.totals.profit, must: c.totals.profit, withdrawn: wd, withdrawn_tm: wd, withdrawn_ck: 0, gap: wd - c.totals.profit, closing: 0, cash_diff: 0, bank_diff: 0 }, categories: T.fin_categories, log: T.fin_close_log.filter((l) => l.branch_id === p_branch && l.month === p_month).slice().reverse(), can_reopen: me.role === 'chu' }; },
     app_fin_overview: ({ p_month }) => T.branches.filter((b) => b.status === 'Đang hoạt động' && canB(b.id)).map((b) => { const c = calc(b.id, p_month); return { branch_id: b.id, code: c.branch_code, name: c.branch_name, revenue: c.revenue, totals: c.totals, cash: c.cash, shortfalls: c.shortfalls, closed: c.closed }; }),
     app_fin_entry_save({ p_id, p }) {
       const old = p_id ? T.fin_entries.find((e) => e.id === p_id) : null; const b = old ? old.branch_id : p.branch_id; need(b);
