@@ -6,7 +6,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 // Menu quản lý (phương án A): mỗi mục là 1 trang có các tab con.
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab]
 export const HUBS = [
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Khoản âm', '/quan-ly/khoan-am', 'doi_soat'], ['Báo cáo', '/quan-ly/bao-cao-ca', 'bao_cao_ca']], 'ngay'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat']], 'ngay'],
   ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', 'ke_toan'], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan']]],
   ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']]],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
@@ -59,9 +59,8 @@ const PAGES = {
   '/quan-ly/log': 'he_thong',
   '/ke-toan/hoa-don': 'ke_toan_hoa_don',
   '/ke-toan/chuyen-khoan': 'ke_toan_ck',
-  '/quan-ly/khoan-am': 'khoan_am',
+  '/quan-ly/thu-chi': 'thu_chi',
   '/cua-toi/khoan-am': 'khoan_am_toi',
-  '/quan-ly/bao-cao-ca': 'bao_cao_ca',
   '/quan-ly/chot-thang': 'chot_thang',
 };
 
@@ -69,8 +68,6 @@ export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind
 const root = () => document.getElementById('root');
 
 export function can(p) {
-  // Báo cáo ca: chỉ Chủ và Quản lý tổng (máy chủ cũng kiểm tra)
-  if (p === 'bao_cao_ca') return ['chu', 'ql_tong'].includes(state.me?.role) && !!state.me?.perms?.doi_soat;
   // Chốt tháng: Chủ, Quản lý tổng, Quản lý (máy chủ chỉ cho cơ sở được giao)
   if (p === 'chot_thang') return ['chu', 'ql_tong', 'ql'].includes(state.me?.role);
   return !!state.me?.perms?.[p];
@@ -249,6 +246,9 @@ export async function render() {
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
   if (path === '/' && me && !isManager()) return go('/order');
   if (path === '/' && me && me.role === 'ke_toan') return go('/ke-toan/hoa-don');
+  // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
+  if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());
+  if (path === '/quan-ly/bao-cao-ca') return go('/quan-ly/thu-chi');
   if (cleanup) { try { cleanup(); } catch (_) { /* bỏ qua */ } cleanup = null; }
   if (me) await refreshBadges();
 

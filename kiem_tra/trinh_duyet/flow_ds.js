@@ -59,16 +59,16 @@ export default async ({ settle, sleep, out }) => {
     return txt('.bc-legend') + ' || ' + $$('.bc-grid .bc').slice(0, 4).map((b) => b.className.replace('bc ', '') + ':' + b.innerText.replace(/\s+/g, ' ')).join(' / ');
   });
   await step('Khoản âm (quản lý)', async () => {
-    location.hash = '#/quan-ly/khoan-am'; await wait('#ka-list'); await sleep(400);
+    location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('#ka-list'); await sleep(400);
     const a = txt('.ka-sum') + ' · ' + txt('#f-n');
     const b = $('.ka-set'); if (!b) return a + ' · (không có khoản âm)';
     b.click(); await sleep(200); const d = $('dialog[open]'); d.querySelector('input[value=mien]').click(); d.querySelector('form').requestSubmit(); await sleep(300);
     const err = d.querySelector('#ka-err').innerText; d.querySelector('input[value=da_bu]').click(); d.querySelector('form').requestSubmit(); await sleep(600);
     return `${a} · miễn không lý do: "${err}" → ${txt('#root .alert')}`;
   });
-  await step('Báo cáo ca', async () => {
-    location.hash = '#/quan-ly/bao-cao-ca'; await wait('.rp-kpis'); await sleep(400);
-    return txt('.rp-kpis') + ' · cột: ' + $$('.rp-bar').length + ' · ' + txt('.rp-wrap table tbody tr:last-child');
+  await step('Thu chi', async () => {
+    location.hash = '#/quan-ly/thu-chi'; await wait('.tc-kpis'); await sleep(400);
+    return txt('.tc-kpis') + ' · ' + $$('.tc-r').length + ' dòng';
   });
   await step('Quay lại phiếu', async () => { await open('#/ca/phieu?id=' + id); return txt('.pc-head .pill'); });
   await step('Mở lại đối soát → ĐANG ĐỐI SOÁT LẠI → hoàn thành lại', async () => {

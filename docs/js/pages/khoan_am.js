@@ -1,4 +1,4 @@
-// Quản lý ca › Khoản âm: các khoản thiếu tiền đã gán cho nhân viên khi đối soát — lọc, tổng theo người, đánh dấu Đã bù / Trừ lương / Miễn
+// Quản lý ca › Thu chi › Khoản âm (thu_chi.js gọi trang này): các khoản thiếu tiền đã gán cho nhân viên khi đối soát — lọc, tổng theo người, đánh dấu Đã bù / Trừ lương / Miễn
 import { render as rerender } from '../app.js';
 import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
@@ -45,8 +45,8 @@ export async function render({ params }) {
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:1000px;gap:12px">
         <section class="card toolbar" style="padding:12px 14px;gap:8px">
-          <a class="btn sm secondary" href="#/quan-ly/khoan-am?thang=${shift(-1)}">‹ Tháng trước</a><strong>Tháng ${m}/${y}</strong>
-          <a class="btn sm secondary" href="#/quan-ly/khoan-am?thang=${shift(1)}">Tháng sau ›</a></section>
+          <a class="btn sm secondary" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${shift(-1)}">‹ Tháng trước</a><strong>Tháng ${m}/${y}</strong>
+          <a class="btn sm secondary" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${shift(1)}">Tháng sau ›</a></section>
         <section class="card flush ka-sum"><div class="card-head"><h2>Tổng theo nhân viên</h2></div>
           ${byEmp.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>Nhân viên</th><th>Số khoản</th><th>Tổng</th><th>Chưa xử lý</th><th>Đã bù</th><th>Trừ lương</th><th>Miễn</th></tr></thead>
             <tbody>${byEmp.map((e) => html`<tr><td>${e.name}</td><td>${e.n}</td><td><strong>${vnd(e.total)}</strong></td><td style="color:#b91c1c">${e.open ? vnd(e.open) : '—'}</td><td>${e.bu ? vnd(e.bu) : '—'}</td><td>${e.luong ? vnd(e.luong) : '—'}</td><td>${e.mien ? vnd(e.mien) : '—'}</td></tr>`)}</tbody></table></div>`

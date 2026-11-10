@@ -89,8 +89,7 @@ export async function render({ params }) {
       ${R.debt_new ? html`<div>Nợ phát sinh (chưa thu)</div><div>${vnd(R.debt_new)}</div>` : ''}
       ${R.debt_col_tm || R.debt_col_ck ? html`<div>Khách trả nợ</div><div>TM ${vnd(R.debt_col_tm)} · CK ${vnd(R.debt_col_ck)}</div>` : ''}
       <div>Số cốc</div><div>${fmt(R.cups)}</div>
-      <div>Phiếu chốt ca</div><div>${R.done}/${R.expect} ca đã chốt · ${R.recon} ca đã đối soát${R.in_progress ? ` · ${R.in_progress} đang chốt` : ''}</div></div>
-    <a class="st-meta" href="#/quan-ly/bao-cao-ca?kieu=thang&ngay=${month}-01&cn=${cn}">Xem biểu đồ doanh thu theo ngày ›</a></section>`;
+      <div>Phiếu chốt ca</div><div>${R.done}/${R.expect} ca đã chốt · ${R.recon} ca đã đối soát${R.in_progress ? ` · ${R.in_progress} đang chốt` : ''}</div></div></section>`;
 
   const C = D.cash;
   const secCash = html`<section class="card stack ct-sec"><h2>2. Tiền mặt</h2>
@@ -124,7 +123,7 @@ export async function render({ params }) {
       <div><div class="pc-sub">CHI PHÍ THEO NHÓM</div>${byChi.length ? html`<div class="kv">${byChi.map((x) => html`<div>${x.name}</div><div>${vnd(x.amount)}</div>`)}<div><strong>Tổng chi</strong></div><div><strong>${vnd(Tt.chi)}</strong></div></div>` : html`<div class="st-meta">Chưa có khoản chi.</div>`}</div>
       <div><div class="pc-sub">THU KHÁC THEO NHÓM</div>${byThu.length ? html`<div class="kv">${byThu.map((x) => html`<div>${x.name}</div><div>${vnd(x.amount)}</div>`)}<div><strong>Tổng thu khác</strong></div><div><strong>${vnd(Tt.thu)}</strong></div></div>` : html`<div class="st-meta">Chưa có khoản thu khác.</div>`}</div></div>
 
-    <div class="pc-sub">KHOẢN THU CHI GHI Ở PHIẾU CHỐT CA (${D.moves.length}) <span class="st-meta">— khoản chi (−) tự tính vào chi phí; chọn nhóm, hoặc "Không tính" nếu không phải chi phí (vd: giải trình lệch tiền)</span></div>
+    <div class="pc-sub">KHOẢN THU CHI GHI Ở PHIẾU CHỐT CA (${D.moves.length}) <span class="st-meta">— chọn nhóm (hoặc "Không tính" nếu không phải chi phí, vd: giải trình lệch tiền) là đã đối soát khoản đó. Xem đầy đủ ở <a href="#/quan-ly/thu-chi?thang=${month}&cn=${cn}">Quản lý ca › Thu chi</a></span></div>
     ${D.moves.length ? html`<div class="ct-list">${D.moves.map((m) => { const k = m.amount < 0 ? 'chi' : 'thu'; const v = m.excluded ? 'x' : m.category_id || '';
       return html`<div class="ct-row ${!m.excluded && !m.category_id ? 'todo' : ''} ${m.excluded ? 'off' : ''}">
         <div class="grow"><strong>${m.note || '(không ghi nội dung)'}</strong><div class="st-meta"><a href="#/ca/phieu?id=${m.report_id}">Ca ${m.shift} ${dmy(m.date)}</a> · ${PAY[m.kind]}</div></div>
@@ -143,7 +142,7 @@ export async function render({ params }) {
   const S = D.shortfalls;
   const secKa = html`<section class="card stack ct-sec"><h2>5. Khoản âm của nhân viên</h2>
     ${S.count ? html`<div class="kv"><div><strong>Tổng khoản âm (${S.count})</strong></div><div><strong>${vnd(S.total)}</strong></div>${KA.map(([k, l]) => html`<div>${l}</div><div>${vnd(S[k])}</div>`)}</div>
-      <a class="st-meta" href="#/quan-ly/khoan-am">Mở danh sách khoản âm ›</a>` : html`<div class="st-meta">Không có khoản âm trong tháng.</div>`}</section>`;
+      <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${month}">Mở danh sách khoản âm ›</a>` : html`<div class="st-meta">Không có khoản âm trong tháng.</div>`}</section>`;
 
   const secEnd = html`<section class="card stack ct-sec"><h2>6. Kết quả và chốt tháng</h2>
     <div class="kv">

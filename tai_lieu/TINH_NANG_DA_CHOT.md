@@ -12,7 +12,7 @@ Từ ngày 07/11/2026, **web là nơi duy nhất** lưu lịch, order và các d
 
 | Mục | Tab con | Ghi chú |
 |---|---|---|
-| **Quản lý ca** | Chốt ca · Đối soát | Phiếu chốt ca theo ngày, đối soát 9 mục |
+| **Quản lý ca** | Chốt ca · Đối soát · Thu chi | Phiếu chốt ca theo ngày, đối soát 9 mục; Thu chi (có phần Khoản âm). Tab Báo cáo đã bỏ (10/11/2026). |
 | **Xếp lịch tuần** | Order · Lịch cơ sở · Lịch tổng · Cảnh báo · Chốt & báo cáo | Xem bảng chi tiết ở mục 2 |
 | **Công việc** | Công việc · Việc của tôi | Xem bảng chi tiết ở mục 3 |
 | **Nhân viên & tài khoản** | Nhân viên · Phân quyền | Tài khoản đăng nhập nằm ngay trong danh sách nhân viên |
@@ -102,7 +102,18 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 | 6 | Giờ bắt đầu ca Tối | Tự lấy giờ kết thúc ca Chiều (như ca Chiều lấy theo ca Sáng). |
 | A | Bảng ca hôm nay | 5 cơ sở × 3 ca, ô tô màu theo trạng thái (chưa mở · đang chốt · chờ đối soát · đối soát xong · có lệch). |
 | F | Phiếu ca từng bước trên điện thoại | Số liệu → Thu chi → Nhân sự → Bàn giao → Nhập hàng → Hoàn thành. |
-| G | Báo cáo tuần / tháng | Doanh thu, số cốc theo cơ sở / ca, tổng khoản âm theo nhân viên, so sánh cơ sở. |
+| G | Báo cáo tuần / tháng | **Đã bỏ 10/11/2026** (thay bằng tab Thu chi, xem 5f). Doanh thu theo tháng xem ở Chốt tháng. |
+
+## 5f. Tab Thu chi (Quản lý ca) — chốt và ĐÃ LÀM 10/11/2026 (tệp supabase/28_thu_chi.sql, trang #/quan-ly/thu-chi)
+
+| Điểm | Anh Tiến chốt |
+|---|---|
+| Vị trí | Mục **Quản lý ca**: Chốt ca · Đối soát · **Thu chi**. Bỏ tab Báo cáo; tab Khoản âm gộp vào Thu chi (nút chuyển THU CHI / KHOẢN ÂM ở đầu trang). Đường dẫn cũ #/quan-ly/khoan-am vẫn mở đúng phần Khoản âm. |
+| Nguồn khoản thu chi | (1) **Quản lý tự tạo** (nút "+ Thêm khoản thu / chi": cơ sở, ngày, thu / chi, nhóm bắt buộc, nội dung, số tiền, tiền mặt / chuyển khoản) → **Đã đối soát**. (2) **Từng dòng thu chi ở phiếu chốt ca** đã hoàn thành → **Chờ đối soát**. |
+| Đối soát 1 dòng | Quản lý chọn nhóm (hoặc "Không tính" nếu không phải thu / chi thật, vd giải trình lệch tiền) rồi bấm **Đối soát**. Có nút **Bỏ đối soát** để trả về chờ. Phiếu ca bị sửa dòng đó thì dòng mới lại chờ đối soát. Chọn nhóm ở trang Chốt tháng cũng tính là đã đối soát. |
+| Ai dùng | Người có quyền Đối soát (mọi cơ sở) + quản lý được giao cơ sở ở Chốt tháng. |
+| Trang | Theo tháng, lọc cơ sở (Tất cả / từng cơ sở), ô Tổng thu · Tổng chi · Thu − chi · Chờ đối soát (bấm để lọc); lọc trạng thái, thu / chi, nguồn, tìm chữ. Dùng chung dữ liệu với Chốt tháng (không tính 2 lần). |
+| Chốt tháng | Phải đối soát hết khoản thu chi từ phiếu ca của tháng mới chốt được. Tháng đã chốt thì không sửa / đối soát được. |
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
@@ -134,7 +145,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 | Chi phí | Khoản CHI ghi ở phiếu chốt ca tự vào tháng (quản lý chọn nhóm hoặc "Không tính"); khoản thu (+) ở phiếu ca mặc định "Không tính". Quản lý nhập thêm (mặt bằng, lương, điện nước, nguyên liệu…). |
 | Nhóm chi / thu | Mẫu: Nguyên liệu · Lương · Mặt bằng · Điện nước · Sửa chữa & thiết bị · Marketing · Vật dụng · Khác / Thu khác. Chủ, Quản lý tổng thêm / đổi tên / tắt. |
 | Kết quả | Lãi tạm tính = Doanh thu + Thu khác − Chi phí. Khoản âm nhân viên chỉ hiển thị, không trừ vào lãi. |
-| Chốt tháng | Chỉ sau khi hết tháng; phải hết phiếu đang chốt dở, đối soát xong mọi ca, phân nhóm hết khoản chi ở phiếu ca. Chốt xong **khóa** phiếu ca, bản đối soát, kiểm đếm cuối ngày, chi phí của tháng đó. **Chỉ Chủ mở lại**, bắt buộc lý do, có lịch sử. |
+| Chốt tháng | Chỉ sau khi hết tháng; phải hết phiếu đang chốt dở, đối soát xong mọi ca, phân nhóm hết khoản chi ở phiếu ca, **đối soát hết khoản thu chi từ phiếu ca** (thêm 10/11/2026). Chốt xong **khóa** phiếu ca, bản đối soát, kiểm đếm cuối ngày, chi phí của tháng đó. **Chỉ Chủ mở lại**, bắt buộc lý do, có lịch sử. |
 
 ---
 

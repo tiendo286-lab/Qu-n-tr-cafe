@@ -43,7 +43,47 @@ export function makeFin(T, me) {
       totals: { revenue: rev, chi_ca: chiCa, thu_ca: thuCa, chi_tay: chiTay, thu_tay: thuTay, chi: chiCa + chiTay, thu: thuCa + thuTay, profit: rev + thuCa + thuTay - chiCa - chiTay, uncat: inc.filter((x) => !x.category_id).length },
       closed: cl ? { by: name(cl.closed_by), at: cl.closed_at, note: cl.note } : null };
   };
+  // Thu chi (Quản lý ca): người có quyền Đối soát xem mọi cơ sở
+  const tcCan = (b) => !!me.perms?.doi_soat || canB(b);
+  const tcRows = (b, from, to) => {
+    const brs = T.branches.filter((x) => x.status === 'Đang hoạt động' && tcCan(x.id) && (!b || x.id === b)).map((x) => x.id);
+    const out = [];
+    T.shift_reports.filter((r) => brs.includes(r.branch_id) && r.status === 'hoan_thanh' && r.work_date >= from && r.work_date <= to).forEach((r) => {
+      const seen = {};
+      T.shift_report_moves.filter((x) => x.report_id === r.id && x.amount).forEach((x) => {
+        const h = `${x.kind}|${x.amount}|${x.note}`; seen[h] = (seen[h] || 0) + 1; const mkey = h + '#' + seen[h];
+        const c = T.fin_move_cats.find((z) => z.report_id === r.id && z.mkey === mkey);
+        out.push({ src: 'ca', report_id: r.id, mkey, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: x.amount < 0 ? 'chi' : 'thu', pay: x.kind, amount: Math.abs(x.amount), note: x.note,
+          category_id: c ? c.category_id : null, category: T.fin_categories.find((k) => k.id === c?.category_id)?.name || null, excluded: c ? !!c.excluded : x.amount > 0,
+          status: c?.checked ? 'da' : 'cho', checked_by: c?.checked ? name(c.checked_by) : null, checked_at: c?.checked_at || null, by: 'NV chốt ca', locked: locked(r.branch_id, r.work_date) });
+      });
+    });
+    T.fin_entries.filter((e) => brs.includes(e.branch_id) && e.entry_date >= from && e.entry_date <= to).forEach((e) => out.push({ src: 'tay', id: e.id, branch_id: e.branch_id, date: e.entry_date, shift: null,
+      kind: e.kind, pay: e.pay_method, amount: e.amount, note: e.note, category_id: e.category_id, category: T.fin_categories.find((k) => k.id === e.category_id)?.name || null, excluded: false,
+      status: 'da', checked_by: name(e.created_by), checked_at: e.created_at, by: name(e.created_by), locked: locked(e.branch_id, e.entry_date) }));
+    return out.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
+  };
+  const tc = {
+    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
+      branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && tcCan(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
+    app_tc_check({ p_report, p_mkey, p_category, p_excluded, p_checked }) {
+      const r = T.shift_reports.find((x) => x.id === p_report); if (!tcCan(r.branch_id)) throw new Error('Bạn không được xem / sửa thu chi của cơ sở này.'); guard(r.branch_id, r.work_date);
+      if (p_checked && !p_excluded && !p_category) throw new Error('Chọn nhóm (hoặc "Không tính") rồi mới đối soát.');
+      T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === p_report && z.mkey === p_mkey)).concat([{ report_id: p_report, mkey: p_mkey, category_id: p_excluded ? null : p_category,
+        excluded: p_excluded ? 1 : 0, checked: p_checked ? 1 : 0, checked_by: p_checked ? me.account_id : null, checked_at: p_checked ? now() : null }]);
+    },
+    app_tc_entry_save({ p_id, p }) {
+      const b = Number(p.branch_id); if (!b) throw new Error('Chọn cơ sở.'); if (!tcCan(b)) throw new Error('Bạn không được xem / sửa thu chi của cơ sở này.'); guard(b, p.entry_date);
+      if (!(p.amount > 0)) throw new Error('Nhập số tiền lớn hơn 0.'); if (!(p.note || '').trim()) throw new Error(`Ghi nội dung khoản ${p.kind}.`);
+      if (!p.category_id) throw new Error(`Chọn nhóm ${p.kind}.`);
+      const row = { branch_id: b, entry_date: p.entry_date, kind: p.kind, category_id: Number(p.category_id), amount: p.amount, note: p.note.trim(), pay_method: p.pay_method || 'tien_mat' };
+      const old = p_id ? T.fin_entries.find((e) => e.id === p_id) : null;
+      if (old) { Object.assign(old, row); return old.id; } const id = nid('fin_entries'); T.fin_entries.push({ id, ...row, created_by: me.account_id, created_at: now() }); return id;
+    },
+    app_tc_entry_delete({ p_id }) { const e = T.fin_entries.find((x) => x.id === p_id); if (!e) return; guard(e.branch_id, e.entry_date); T.fin_entries = T.fin_entries.filter((x) => x !== e); },
+  };
   return {
+    ...tc,
     app_fin_branches: () => ({ admin: admin(), owner: me.role === 'chu', branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && canB(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
     app_fin_month({ p_branch, p_month }) { need(p_branch); return { ...calc(p_branch, p_month), categories: T.fin_categories, log: T.fin_close_log.filter((l) => l.branch_id === p_branch && l.month === p_month).slice().reverse(), can_reopen: me.role === 'chu' }; },
     app_fin_overview: ({ p_month }) => T.branches.filter((b) => b.status === 'Đang hoạt động' && canB(b.id)).map((b) => { const c = calc(b.id, p_month); return { branch_id: b.id, code: c.branch_code, name: c.branch_name, revenue: c.revenue, totals: c.totals, cash: c.cash, shortfalls: c.shortfalls, closed: c.closed }; }),
