@@ -13,3 +13,7 @@ __pycache__/
 *.pyc
 kiem_tra/_tam/
 .DS_Store
+
+# Bản gốc quy trình (Word) của anh Tiến — chỉ ở máy, đưa lên web qua Supabase (cần đăng nhập), KHÔNG lên GitHub
+quy_trinh_goc/
+*.docx
