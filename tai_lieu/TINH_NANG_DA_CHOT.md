@@ -192,6 +192,18 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Cập nhật về sau | Anh sửa / thay file Word trong `quy_trinh_goc/` rồi nhắn "cập nhật quy trình" → Claude chạy `python3 -I cong_cu/cap_nhat_quy_trinh.py --xem <thư mục tạm>` (xem thử) rồi `--gui --ma <file mã sbp_>`. Chỉ bài có nội dung đổi mới lên phiên bản mới và báo cho mọi người 1 lần; ảnh đã có không tải lại. Nếu cấu trúc sổ tay đổi (thêm phần mới, đổi tiêu đề phần) công cụ sẽ báo để sửa. |
 | Cách đưa lên web (chốt 11/11/2026) | **Chia nhiều bài nhỏ** trong mục Quy trình (~18 bài: Cách đọc + sơ đồ bàn · 7 bài công việc theo ca 1.1–1.7 · 9 bài SOP · Ghi nhớ); ảnh thu nhỏ cho điện thoại; **không đưa Phần 4** (đã có phiếu đào tạo). **Giữ nguyên** mục tài khoản thu ngân Fabi POS (cả mật khẩu) như sổ tay — chỉ người đăng nhập mới đọc được. **Cập nhật số trang** của hạng mục đào tạo theo sổ tay mới; mỗi lần "cập nhật quy trình" em tự so và sửa số trang. Cửa sổ hướng dẫn trong phiếu đào tạo hiện đúng thẻ của STT đó, có link mở cả bài. |
 
+## 5l. Nhân sự thực tế từ phiếu chốt ca → lịch + bảng công; người trả lương tiền mặt — anh Tiến chốt 11/11/2026, CHƯA LÀM (chờ lệnh bắt đầu)
+
+| Mục | Đã chốt |
+|---|---|
+| Hiện trạng (em kiểm tra 11/11) | Lịch cơ sở / Lịch tổng chỉ đọc lịch đã xếp (`weekly_schedule_entries`), chưa lấy người làm thực tế từ phiếu chốt ca. Phiếu ca có mục "5. Nhân viên thực tế làm trong ca" (theo lịch + người hỗ trợ phát sinh, Có làm / Phát sinh nghỉ, giờ đến–về). Trang Đối soát ca: Tiền → Nhân sự & bàn giao → Nhận hàng → Hoàn thành; khoản âm chia đều cho người được tích trong ca. Mọi nhân viên trên web (59 đang làm + 54 đã nghỉ) đều có tài khoản; nhóm Lương đã có trong nhóm chi. |
+| Hiện trên lịch | **Đánh dấu ngay trên ô lịch** ở Lịch cơ sở và Lịch tổng: ✓ đã làm (kèm giờ đến–về), ✗ phát sinh nghỉ, + người phát sinh thêm (hỗ trợ / người trả lương tiền mặt). Thêm **bảng công tháng** (mỗi người bao nhiêu ca / giờ thực tế) để anh đối chiếu khi chốt lương trên HRM. |
+| Lúc nào | Nhân viên bấm hoàn thành phiếu → lịch hiện ngay kèm nhãn **"chờ quản lý xác nhận"**; quản lý đối soát xong bước Nhân sự → thành **số chính thức** (dùng cho bảng công và chia tiền âm). |
+| Thứ tự đối soát của quản lý | **Nhân sự làm đầu tiên** (vì liên quan chia tiền âm, phải biết rõ tổng số người): Nhân sự & bàn giao → Tiền → Nhận hàng → Hoàn thành. Phiếu chốt ca của nhân viên giữ thứ tự cũ. |
+| Nhân viên không dùng app | **Thêm vào danh sách Nhân viên**, đánh dấu **"trả lương tiền mặt"** (có mã, tên; không đăng nhập). Chọn vào ca như người hỗ trợ; hiện trên lịch như người phát sinh; bảng công tách riêng nhóm trả tiền mặt. |
+| Chi lương tiền mặt | Ngay dòng người đó trong ca có ô **"Đã trả lương tiền mặt: … đ"** do người chốt ca nhập → web tự tạo khoản chi tiền mặt **"Chi lương – tên"** trong thu chi của ca (trừ vào tiền két, nhóm **Lương**); quản lý đối soát như khoản chi khác. |
+| Em đề xuất, chờ anh xác nhận | (1) Bước Tiền chỉ cho chọn THIẾU (chia tiền âm) sau khi đã đối soát bước Nhân sự. (2) Người "trả lương tiền mặt" không bị trừ điểm đánh giá / không có phiếu đào tạo trừ khi quản lý tự thêm. (3) Bảng công tháng đặt trong Xếp lịch tuần › Chốt & báo cáo, tải được file Excel. |
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
