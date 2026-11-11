@@ -1,5 +1,6 @@
 import { rpc, sel, selAll } from '../sb.js';
 import { $, $$, ROLE_LABELS, hhmm, html, norm, showSaved } from '../ui.js';
+import { bindPwButtons, canTouch, pwButton } from './tai_khoan_chung.js';
 
 export const perm = 'phan_quyen';
 
@@ -29,10 +30,10 @@ const EDITABLE_ROLES = ['ql_tong', 'ql', 'nv'];
 const ACCOUNT_ROLES = ['ql_tong', 'ql', 'nv', 'ke_toan'];
 const ORDER = { chu: 0, ql_tong: 1, ql: 2, nv: 3, ke_toan: 4 };
 
-export async function render() {
+export async function render({ me } = {}) {
   const [rp, accounts, emps, extra] = await Promise.all([
     sel('role_permissions', 'role, perm, allowed'),
-    selAll('accounts', 'id, employee_id, login_name, display_name, system_role'),
+    selAll('accounts', 'id, employee_id, login_name, display_name, system_role, has_password, must_change, locked'),
     selAll('employees', 'id, code, name, rank, status'),
     rpc('app_account_perms').catch(() => []),
   ]);
@@ -81,7 +82,7 @@ export async function render() {
             <input class="input sm" id="user-search" type="search" placeholder="Tìm mã hoặc tên" aria-label="Tìm người dùng" style="width:240px">
           </div></div>
         <div class="table-wrap"><table class="table" aria-label="Người dùng">
-          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Vai trò hệ thống</th><th title="Giữ vai trò cũ, thêm tab Kế toán">Thêm quyền Kế toán</th><th>Trạng thái</th></tr></thead>
+          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Vai trò hệ thống</th><th title="Giữ vai trò cũ, thêm tab Kế toán">Thêm quyền Kế toán</th><th>Trạng thái</th><th>Mật khẩu</th></tr></thead>
           <tbody>${users.map((u) => html`
             <tr class="user-row ${u.stopped ? 'muted stopped' : ''}" data-search="${norm(u.code + ' ' + u.name)}" ${u.stopped ? 'hidden' : ''}>
               <td style="font-weight:600">${u.code || '—'}</td><td>${u.name}</td><td>${u.rank || '—'}</td>
@@ -90,10 +91,13 @@ export async function render() {
                   ${ACCOUNT_ROLES.map((r) => html`<option value="${r}" ${r === u.system_role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`)}</select>`}</td>
               <td>${['chu', 'ke_toan'].includes(u.system_role) ? html`<span class="st-meta" style="font-size:13px;color:var(--muted)">Có sẵn</span>`
                 : html`<label style="display:inline-flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" class="check kt-box" data-account="${u.id}" ${kt.has(u.id) ? 'checked' : ''} aria-label="Thêm quyền Kế toán cho ${u.name}"> Kế toán</label>`}</td>
-              <td>${u.stopped ? html`<span class="pill mute">Ngừng làm</span>` : html`<span class="pill ok">${u.system_role === 'chu' ? 'Đang dùng' : 'Đang làm'}</span>`}</td></tr>`)}
+              <td>${u.stopped ? html`<span class="pill mute">Ngừng làm</span>` : html`<span class="pill ok">${u.system_role === 'chu' ? 'Đang dùng' : 'Đang làm'}</span>`}</td>
+              <td style="white-space:nowrap">${me && canTouch(u, me, u.stopped) ? html`${pwButton(u, `${u.code || ''} – ${u.name}`)}${!u.has_password ? html`<div class="st-meta" style="font-size:12px;color:var(--muted)">Chưa có mật khẩu</div>` : u.must_change ? html`<div class="st-meta" style="font-size:12px;color:var(--muted)">Đang dùng mật khẩu tạm</div>` : ''}`
+                : html`<span style="color:var(--muted)">—</span>`}</td></tr>`)}
           </tbody></table></div>
       </section>`,
     mount() {
+      bindPwButtons();
       $$('.perm-box').forEach((box) => box.addEventListener('change', async () => {
         try { await rpc('app_set_perm', { p_role: box.dataset.role, p_perm: box.dataset.perm, p_allowed: box.checked }); showSaved('Đã lưu · ' + hhmm()); }
         catch (e) { box.checked = !box.checked; showSaved(e.message, true); }

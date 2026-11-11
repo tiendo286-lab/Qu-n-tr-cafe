@@ -3,7 +3,7 @@ import { render as rerender, can } from '../app.js';
 import { RANKS, catalog } from '../data.js';
 import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js';
 import { rpc, sel, selAll } from '../sb.js';
-import { ACC_CSS, ACC_STATES, accCell, accMenu, accState, bindAccountActions, bindBulk, bulkButton, canTouch, standaloneSection } from './tai_khoan_chung.js';
+import { ACC_CSS, ACC_STATES, accCell, accMenu, accState, bindAccountActions, bindBulk, bindPwButtons, bulkButton, canTouch, pwButton, standaloneSection } from './tai_khoan_chung.js';
 import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
 
 // Người có quyền Quản lý nhân viên: đầy đủ. Người chỉ có quyền Đào tạo: xem danh sách + cột Đào tạo, tạo phiếu đào tạo.
@@ -163,7 +163,7 @@ async function renderForm(params, me) {
     ]);
     emp = e[0];
     if (!emp) return { title: 'Nhân viên', html: html`<div class="card">Không tìm thấy nhân viên. <a href="#/quan-ly/nhan-vien">Về danh sách</a></div>` };
-    acc = (await sel('accounts', 'id, system_role', (b) => b.eq('employee_id', id)))[0] || null;
+    acc = (await sel('accounts', 'id, system_role, has_password, must_change, locked, last_login_at', (b) => b.eq('employee_id', id)))[0] || null;
     v = { ...emp, email: c[0]?.email, phone: c[0]?.phone, branch_ids: eb.map((x) => x.branch_id), roles: er.map((x) => x.role) };
   }
   return {
@@ -172,6 +172,9 @@ async function renderForm(params, me) {
       <div class="page-head"><div><a href="#/quan-ly/nhan-vien" style="font-size:14px;font-weight:600">‹ Danh sách nhân viên</a>
         <h1 style="margin-top:6px">${emp ? `Sửa: ${emp.code} – ${emp.name}` : 'Thêm nhân viên'}</h1></div></div>
       <div class="alert error" role="alert" id="emp-err" hidden></div>
+      ${emp && acc ? html`<section class="card" style="max-width:860px;display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px">
+        <div style="min-width:0"><div style="font-weight:600">Tài khoản đăng nhập</div><div style="margin-top:4px">${accCell(accState(acc, emp.status !== 'Đang làm'), acc)}</div></div>
+        ${canTouch(acc, me, emp.status !== 'Đang làm') ? pwButton(acc, `${emp.code} – ${emp.name}`) : ''}</section>` : ''}
       <form class="card stack" id="emp-form" style="max-width:860px">
         <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px">
           <div class="field"><label for="code">Mã nhân viên</label><input class="input" id="code" name="code" value="${v.code || ''}" maxlength="20" required autocapitalize="off">
@@ -203,6 +206,7 @@ async function renderForm(params, me) {
         <p style="font-size:14px;color:var(--ink-2)">Chỉ xóa được nhân viên nhập nhầm, chưa có order, lịch cố định, lịch làm hay đánh giá. Nhân viên đã nghỉ việc thì chuyển trạng thái sang <strong>Ngừng làm</strong> để giữ lịch sử.</p>
         <button class="btn sm secondary danger" type="button" id="del-emp">Xóa nhân viên này</button></section>` : ''}`,
     mount() {
+      bindPwButtons();
       $('#emp-form').addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const f = new FormData(ev.target);

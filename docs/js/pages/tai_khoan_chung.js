@@ -36,9 +36,22 @@ export function canTouch(a, me, stopped) {
 // Nút "Tài khoản ▾" mở các thao tác
 export function accMenu(a, label, extra = '') {
   return html`<details class="acc-menu"><summary class="btn sm secondary">Tài khoản ▾</summary><div class="acc-pop">
-    <button type="button" class="act-temp" data-id="${a.id}" data-name="${label}">Cấp mật khẩu tạm</button>
+    <button type="button" class="act-temp" data-id="${a.id}" data-name="${label}">${a.has_password ? 'Cấp lại mật khẩu' : 'Cấp mật khẩu tạm'}</button>
     <button type="button" class="act-lock" data-id="${a.id}" data-locked="${a.locked ? 1 : 0}">${a.locked ? 'Mở khóa tài khoản' : 'Khóa tài khoản'}</button>
     ${a.has_password ? html`<button type="button" class="act-out" data-id="${a.id}">Đăng xuất mọi nơi</button>` : ''}${extra}</div></details>`;
+}
+
+// Nút "Cấp lại mật khẩu" đứng riêng (trang Phân quyền, trang sửa nhân viên)
+export function pwButton(a, label) {
+  return html`<button type="button" class="btn sm secondary act-temp" data-id="${a.id}" data-name="${label}">${a.has_password ? 'Cấp lại mật khẩu' : 'Cấp mật khẩu'}</button>`;
+}
+
+export function bindPwButtons() {
+  $$('.act-temp').forEach((b) => b.addEventListener('click', async () => {
+    if (!confirm(`Cấp mật khẩu tạm mới cho ${b.dataset.name}? Mật khẩu cũ sẽ hết hiệu lực và người đó bị đăng xuất khỏi mọi thiết bị.`)) return;
+    b.disabled = true;
+    try { showPassword(await adminFn('temp_password', { account_id: Number(b.dataset.id) }), b.dataset.name); } catch (e) { showSaved(e.message, true); b.disabled = false; }
+  }));
 }
 
 function showPassword(r, name) {
@@ -59,11 +72,7 @@ export function bindAccountActions() {
     const box = (m.closest('.table-wrap') || document.documentElement).getBoundingClientRect();
     if (pop.bottom > Math.min(box.bottom, window.innerHeight)) m.classList.add('up');
   }));
-  $$('.act-temp').forEach((b) => b.addEventListener('click', async () => {
-    if (!confirm(`Cấp mật khẩu tạm mới cho ${b.dataset.name}? Mật khẩu cũ sẽ hết hiệu lực và người đó bị đăng xuất khỏi mọi thiết bị.`)) return;
-    b.disabled = true;
-    try { showPassword(await adminFn('temp_password', { account_id: Number(b.dataset.id) }), b.dataset.name); } catch (e) { showSaved(e.message, true); b.disabled = false; }
-  }));
+  bindPwButtons();
   $$('.act-lock').forEach((b) => b.addEventListener('click', async () => {
     const locking = b.dataset.locked === '0';
     if (!confirm(locking ? 'Khóa tài khoản này? Người dùng sẽ bị đăng xuất và không đăng nhập được.' : 'Mở khóa tài khoản này?')) return;
