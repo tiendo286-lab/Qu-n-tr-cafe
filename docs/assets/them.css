@@ -35,10 +35,22 @@ a.pill { text-decoration: none; }
 textarea.input { font-family: inherit; height: auto; padding-top: 10px; padding-bottom: 10px; line-height: 1.5; }
 .m-foot button { background: none; border: none; color: var(--primary); font: inherit; font-size: 13px; cursor: pointer; padding: 0; text-decoration: underline; }
 
-/* Hộp thoại: ô nhập vừa khung, không tràn ra ngoài */
-dialog { max-width: min(480px, calc(100vw - 24px)); }
-dialog .input { width: 100%; }
+/* Hộp thoại (sửa 11/11/2026): luôn vừa màn hình — máy tính rộng tối đa 520px (khung nhiều nội dung rộng hơn),
+   điện thoại cách mép 12px; KHÔNG bao giờ cuộn ngang, nội dung dài thì cuộn dọc bên trong khung */
+dialog { box-sizing: border-box; width: calc(100vw - 24px); max-width: 520px; max-height: calc(100dvh - 24px); overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+dialog:has(> .nh-dlg) { max-width: 680px; }
+@media (max-width: 480px) { dialog { padding: 16px; } }
+dialog > * { max-width: 100%; min-width: 0; box-sizing: border-box; }
+dialog > [class*="-dlg"] { width: auto; }
+dialog h2, dialog h3, dialog .pc-sub, dialog .st-meta, dialog strong { overflow-wrap: anywhere; }
+dialog .input { width: 100%; max-width: 100%; box-sizing: border-box; }
+dialog .pc-line { flex-wrap: wrap; min-width: 0; }
+dialog .pc-line > * { min-width: 0; max-width: 100%; }
+dialog .pc-line > .input:not(.grow) { width: auto; flex: 0 1 auto; }
+dialog .pc-line > .grow { flex: 1 1 160px; }
+dialog .toolbar { flex-wrap: wrap; }
 dialog .toolbar .btn { flex: 0 0 auto; }
+dialog img, dialog table, dialog video { max-width: 100%; }
 
 /* Menu phương án A: thanh tab con ở đầu trang + chuông thông báo ở thanh bên */
 .hub-tabs { display: flex; gap: 2px; overflow-x: auto; margin: -4px 0 18px; border-bottom: 2px solid var(--line); scrollbar-width: thin; }

@@ -208,7 +208,7 @@ const STYLE = html`<style>
   .it-guide:hover { color: var(--primary); }
   .it-guide:focus-visible { outline: 2px solid var(--primary); border-radius: 4px; }
   .it-book { display: inline-block; font-size: 12px; font-weight: 600; color: var(--primary); background: var(--info-bg); border-radius: 999px; padding: 1px 8px; margin-left: 4px; white-space: nowrap; }
-  dialog.dt-guide { padding: 0; border: 0; border-radius: 14px; width: min(760px, 96vw); max-height: 92vh; }
+  dialog.dt-guide { padding: 0; border: 0; border-radius: 14px; width: calc(100vw - 16px); max-width: 760px; max-height: 92vh; overflow: hidden; }
   dialog.dt-guide::backdrop { background: rgba(15, 23, 42, .55); }
   .dg-wrap { display: flex; flex-direction: column; max-height: 92vh; }
   .dg-head, .dg-foot { display: flex; gap: 8px; align-items: center; justify-content: space-between; padding: 10px 14px; background: var(--subtle, #f3f4f6); }

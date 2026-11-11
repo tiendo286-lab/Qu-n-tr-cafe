@@ -28,7 +28,7 @@ export const DG_CSS = html`<style>
   .dg-pts { display: flex; gap: 6px; flex-wrap: wrap; }
   .dg-pts label { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 999px; padding: 4px 10px; font-size: 14px; font-weight: 600; cursor: pointer; }
   .dg-pts label:has(input:checked) { border-color: var(--primary); background: var(--info-bg); color: var(--primary); }
-  dialog.dg-dlg { width: min(720px, 96vw); max-height: 92vh; padding: 0; border: 0; border-radius: 14px; }
+  dialog.dg-dlg { width: calc(100vw - 16px); max-width: 720px; max-height: 92vh; padding: 0; border: 0; border-radius: 14px; overflow: hidden; }
   dialog.dg-dlg::backdrop { background: rgba(15, 23, 42, .55); }
   .dg-in { display: flex; flex-direction: column; max-height: 92vh; }
   .dg-in > header { padding: 12px 16px; border-bottom: 1px solid var(--line); display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; background: var(--subtle, #f3f4f6); }
