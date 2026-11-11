@@ -176,7 +176,7 @@ function layout(path, body, flashMsg) {
         ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
       ${weekStrip(path)}</header>
     <div class="content">${alert}${body}
-      <div class="m-foot"><a href="#/cua-toi/khoan-am">Khoản âm${state.ka ? html` <span class="badge">${state.ka}</span>` : ''}</a><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
+      <div class="m-foot"><a href="#/cua-toi/khoan-am">Khoản âm${state.ka ? html` <span class="badge">${state.ka}</span>` : ''}</a><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/cua-toi/cong">Công của tôi</a><a href="#/cua-toi/danh-gia">Điểm đánh giá</a>${can('ke_toan') ? html`<a href="#/ke-toan/hoa-don">Kế toán</a>` : ''}<a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
     </div>
     <nav class="tabbar pillbar" aria-label="Menu nhân viên">
       <div class="tb-side">

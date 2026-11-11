@@ -25,16 +25,18 @@ const NV_ALWAYS = ['order_ca', 'xem_lich_minh'];
 const EVERYONE = [['Chốt ca (điền phiếu chốt ca)', 'Luôn có cho mọi người (kể cả Nhân viên)'], ['Nhận việc được giao, gửi báo cáo xử lý', 'Luôn có cho Quản lý tổng và Quản lý'], ['Gửi yêu cầu hỗ trợ', 'Luôn có cho mọi người'], ['Xem mọi yêu cầu hỗ trợ và trả lời', 'Luôn có cho Chủ, Quản lý tổng và Quản lý']];
 const NV_EDITABLE = ['xem_tat_ca'];
 const EDITABLE_ROLES = ['ql_tong', 'ql', 'nv'];
-// Vai trò chọn được cho từng tài khoản (Kế toán có quyền cố định: chỉ tab Kế toán, không nằm trong bảng quyền)
+// Vai trò chọn được cho từng tài khoản (vai trò Kế toán: chỉ tab Kế toán). Muốn nhân viên vẫn làm việc cũ + kế toán: tích cột "Thêm quyền Kế toán" (bước 40)
 const ACCOUNT_ROLES = ['ql_tong', 'ql', 'nv', 'ke_toan'];
 const ORDER = { chu: 0, ql_tong: 1, ql: 2, nv: 3, ke_toan: 4 };
 
 export async function render() {
-  const [rp, accounts, emps] = await Promise.all([
+  const [rp, accounts, emps, extra] = await Promise.all([
     sel('role_permissions', 'role, perm, allowed'),
     selAll('accounts', 'id, employee_id, login_name, display_name, system_role'),
     selAll('employees', 'id, code, name, rank, status'),
+    rpc('app_account_perms').catch(() => []),
   ]);
+  const kt = new Set((extra || []).filter((x) => x.perm === 'ke_toan').map((x) => x.account_id));
   const allowed = new Map(rp.map((r) => [`${r.role}.${r.perm}`, r.allowed === 1]));
   const empById = new Map(emps.map((e) => [e.id, e]));
   const users = accounts.map((a) => {
@@ -79,13 +81,15 @@ export async function render() {
             <input class="input sm" id="user-search" type="search" placeholder="Tìm mã hoặc tên" aria-label="Tìm người dùng" style="width:240px">
           </div></div>
         <div class="table-wrap"><table class="table" aria-label="Người dùng">
-          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Vai trò hệ thống</th><th>Trạng thái</th></tr></thead>
+          <thead><tr><th>Mã NV</th><th>Tên</th><th>Cấp bậc</th><th>Vai trò hệ thống</th><th title="Giữ vai trò cũ, thêm tab Kế toán">Thêm quyền Kế toán</th><th>Trạng thái</th></tr></thead>
           <tbody>${users.map((u) => html`
             <tr class="user-row ${u.stopped ? 'muted stopped' : ''}" data-search="${norm(u.code + ' ' + u.name)}" ${u.stopped ? 'hidden' : ''}>
               <td style="font-weight:600">${u.code || '—'}</td><td>${u.name}</td><td>${u.rank || '—'}</td>
               <td>${u.system_role === 'chu' ? html`<span style="font-weight:600;color:var(--primary-dark)">Chủ (cố định)</span>` : html`
                 <select class="input sm role-select" data-account="${u.id}" aria-label="Vai trò của ${u.name}" style="width:180px">
                   ${ACCOUNT_ROLES.map((r) => html`<option value="${r}" ${r === u.system_role ? 'selected' : ''}>${ROLE_LABELS[r]}</option>`)}</select>`}</td>
+              <td>${['chu', 'ke_toan'].includes(u.system_role) ? html`<span class="st-meta" style="font-size:13px;color:var(--muted)">Có sẵn</span>`
+                : html`<label style="display:inline-flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" class="check kt-box" data-account="${u.id}" ${kt.has(u.id) ? 'checked' : ''} aria-label="Thêm quyền Kế toán cho ${u.name}"> Kế toán</label>`}</td>
               <td>${u.stopped ? html`<span class="pill mute">Ngừng làm</span>` : html`<span class="pill ok">${u.system_role === 'chu' ? 'Đang dùng' : 'Đang làm'}</span>`}</td></tr>`)}
           </tbody></table></div>
       </section>`,
@@ -93,6 +97,10 @@ export async function render() {
       $$('.perm-box').forEach((box) => box.addEventListener('change', async () => {
         try { await rpc('app_set_perm', { p_role: box.dataset.role, p_perm: box.dataset.perm, p_allowed: box.checked }); showSaved('Đã lưu · ' + hhmm()); }
         catch (e) { box.checked = !box.checked; showSaved(e.message, true); }
+      }));
+      $$('.kt-box').forEach((b) => b.addEventListener('change', async () => {
+        try { await rpc('app_set_account_perm', { p_account: Number(b.dataset.account), p_perm: 'ke_toan', p_on: b.checked }); showSaved(b.checked ? 'Đã thêm quyền Kế toán · ' + hhmm() : 'Đã bỏ quyền Kế toán · ' + hhmm()); }
+        catch (e) { b.checked = !b.checked; showSaved(e.message, true); }
       }));
       $$('.role-select').forEach((s) => {
         let prev = s.value;

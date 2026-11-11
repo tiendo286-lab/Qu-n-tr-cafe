@@ -26,7 +26,14 @@ export function makeCv(T, me) {
       return { id: Date.now() + k, report_id: id, absent_id: i.absent_id || null, reason: i.reason, helper_id: i.helper_id || null, helper_name: i.helper_id ? null : i.helper_name || null, hours: h, x2: !!i.x2, deduct_hours: i.reason === 'nho_ql' ? h : 0 }; }));
   };
   const isOwner = me.role === 'chu'; const canCls = ['chu', 'ql_tong'].includes(me.role);
+  T.account_perms = T.account_perms || [];
   return {
+    app_account_perms: () => T.account_perms.map((x) => ({ ...x, granted_by: 'Chủ' })),
+    app_set_account_perm({ p_account, p_perm, p_on }) {
+      if (me.role !== 'chu') throw new Error('Bạn không có quyền thực hiện thao tác này.');
+      T.account_perms = T.account_perms.filter((x) => !(x.account_id === p_account && x.perm === p_perm));
+      if (p_on) T.account_perms.push({ account_id: p_account, perm: p_perm, granted_at: now() });
+    },
     app_cv_get({ p_id }) {
       const r = T.shift_reports.find((x) => x.id === p_id); const rv = T.cover_reviews[p_id] || {};
       return { state: state(p_id), can_classify: canCls, is_owner: isOwner, open: true, recon_status: r.recon_status, people: people(p_id),
