@@ -102,7 +102,7 @@ export async function openEmployee(empId, ctx = {}) {
   function draw(keepForm) {
     const E = H.employee; const marks = H.marks; const nth = nthMap(marks);
     const old = keepForm ? collect() : null;
-    const set = old?.set || E.set_code || '';
+    const set = E.set_saved ? E.set_code : '';
     const crits = H.criteria.filter((c) => c.set_code === set);
     const mon = (old?.date || (ctx.report ? ctx.report.date : defDate())).slice(0, 7);
     const used = {}; marks.filter((m) => m.status === 'tru' && m.month === mon && (!editing || m.id !== editing.id)).forEach((m) => { used[m.criterion] = (used[m.criterion] || 0) + Number(m.points); });
@@ -120,11 +120,11 @@ export async function openEmployee(empId, ctx = {}) {
           <span class="st-meta">${inMon.filter((m) => m.points > 0).length} lần trừ · ${inMon.filter((m) => Number(m.points) === 0).length} nhắc nhở trong tháng · ${marks.length} lần từ trước tới nay</span></div>
         ${E.is_me ? html`<div class="alert warn">Bạn không tự trừ điểm của mình được.</div>` : html`<form class="card stack dg-form" style="gap:10px;padding:12px">
           <strong>${ed ? `Sửa lần đánh giá ngày ${dmy(ed.date)}` : 'Trừ điểm / nhắc nhở'}</strong>
-          ${ed ? '' : html`<label class="field"><span>Bộ tiêu chí ${E.set_saved ? '' : html`<span class="st-meta">(gợi ý theo vị trí — lưu khi trừ điểm lần đầu)</span>`}</span>
-            <select class="input" name="set">${E.set_code ? '' : html`<option value="">— Chọn bộ tiêu chí —</option>`}${H.sets.map((s) => html`<option value="${s.code}" ${s.code === set ? 'selected' : ''}>${s.name}</option>`)}</select></label>`}
+          ${ed ? '' : html`<label class="field"><span>Bộ tiêu chí của nhân viên <span class="st-meta">(mỗi người một bộ, chọn một lần — đổi ở đây là đổi luôn)</span></span>
+            <select class="input dg-setsel" name="set">${E.set_saved ? '' : html`<option value="" selected>— Chọn Pha chế hoặc Chạy bàn${E.set_code ? ` (gợi ý: ${(H.sets.find((s) => s.code === E.set_code) || {}).name})` : ''} —</option>`}${H.sets.map((s) => html`<option value="${s.code}" ${s.code === set ? 'selected' : ''}>${s.name}</option>`)}</select></label>`}
           ${ed || ctx.report ? html`<div class="st-meta">${ed ? `Ngày ${dmy(ed.date)}` : `Ca ${ctx.report.shift} ${ctx.report.branch || ''} · ${dmy(ctx.report.date)}`}</div>`
             : html`<label class="field"><span>Ngày phạm lỗi</span><input class="input" type="date" name="date" value="${old?.date || defDate()}" max="${H.today}"></label>`}
-          <label class="field"><span>Tiêu chí</span><select class="input" name="crit"><option value="">— Chọn tiêu chí —</option>
+          <label class="field"><span>Tiêu chí</span><select class="input" name="crit" ${!ed && !set ? 'disabled' : ''}><option value="">${!ed && !set ? '— Chọn bộ tiêu chí ở trên trước —' : '— Chọn tiêu chí —'}</option>
             ${(ed ? H.criteria.filter((c) => c.set_code === H.criteria.find((x) => x.code === ed.criterion)?.set_code) : crits).map((c) => html`<option value="${c.code}" ${c.code === sel ? 'selected' : ''}>${c.name} (còn ${Math.max(0, 5 - (used[c.code] || 0))}/5)</option>`)}</select></label>
           <div class="field"><span>Mức</span><div class="dg-pts" role="radiogroup" aria-label="Mức trừ">${['0', '1', '2', '3', '4', '5'].map((v) => html`<label><input type="radio" name="pts" value="${v}" ${pts === v ? 'checked' : ''}> ${v === '0' ? 'Nhắc nhở' : '−' + v}</label>`)}</div></div>
           <label class="field"><span>Lỗi gì (bắt buộc)</span><textarea class="input" name="note" rows="2" placeholder="vd: Đi muộn 15 phút, không báo trước">${old?.note ?? (ed ? ed.note : '')}</textarea></label>
@@ -146,7 +146,16 @@ export async function openEmployee(empId, ctx = {}) {
   async function reload() { H = await rpc('app_dg_history', { p_employee: empId }); changed = true; }
   const err = (m) => { const x = $('#dg-err', d); if (x) x.innerHTML = str(html`<div class="alert error">${m}</div>`); };
 
-  d.addEventListener('change', (ev) => { if (ev.target.name === 'set' || ev.target.name === 'crit' || ev.target.name === 'date') draw(true); });
+  d.addEventListener('change', async (ev) => {
+    if (ev.target.name === 'set') {
+      if (!ev.target.value) return;
+      ev.target.disabled = true;
+      try { await rpc('app_dg_set', { p_employee: empId, p_set: ev.target.value }); await reload(); draw(true); }
+      catch (e2) { err(e2.message); ev.target.disabled = false; }
+      return;
+    }
+    if (ev.target.name === 'crit' || ev.target.name === 'date') draw(true);
+  });
   d.addEventListener('click', async (ev) => {
     const t = ev.target;
     if (t.closest('.dg-x')) { finish(); return; }
@@ -165,6 +174,7 @@ export async function openEmployee(empId, ctx = {}) {
   d.addEventListener('submit', async (ev) => {
     ev.preventDefault();
     const f = ev.target; const v = collect();
+    if (!editing && !H.employee.set_saved) { err('Chọn bộ tiêu chí (Pha chế hoặc Chạy bàn) cho nhân viên trước.'); return; }
     if (!v.pts) { err('Chọn Nhắc nhở hoặc mức trừ 1–5 điểm.'); return; }
     const btn = f.querySelector('[type=submit]'); btn.disabled = true;
     try {
@@ -181,7 +191,7 @@ export async function openEmployee(empId, ctx = {}) {
           if (error) throw new Error('Không tải được ảnh: ' + error.message);
         }
         await rpc('app_dg_add', { p_employee: empId, p_date: date, p_criterion: v.crit, p_points: Number(v.pts), p_note: v.note, p_photo: photo,
-          p_report: ctx.report ? ctx.report.id : null, p_branch: ctx.report ? null : (ctx.branch || null), p_set: v.set || null });
+          p_report: ctx.report ? ctx.report.id : null, p_branch: ctx.report ? null : (ctx.branch || null), p_set: null });
       }
       editing = null; await reload(); draw(false);
       const top = $('.dg-scroll', d); if (top) top.scrollTop = 0;

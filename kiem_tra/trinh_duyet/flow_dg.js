@@ -24,6 +24,17 @@ export default async ({ sleep, out }) => {
     r.push(`Trang Đánh giá: ${$$('.dg-row').length} người · KPI: ${$$('.dg-kpi .card').map((c) => c.innerText.replace(/\s+/g, ' ')).join(' | ')} · chờ xem: ${$$('.dg-keep').length} · ${txt('.alert')} · ${W()}`);
     $('.dg-keep').click(); await sleep(1500); await wait('.dg-row');
     r.push(`Giữ điểm → còn chờ ${$$('.dg-keep').length}`);
+    // 1b. chọn bộ tiêu chí trên bảng (mỗi người 1 bộ)
+    r.push(`Bộ tiêu chí: ô chọn ${$$('.dg-set').length} · chưa chọn ${$$('.dg-set.unset').length} · ${txt('#dg-unset')}`);
+    const ss = $('.dg-set.unset'); const sid = Number(ss.dataset.emp); ss.value = 'pc'; ss.dispatchEvent(new Event('change')); await sleep(600);
+    r.push(`chọn Pha chế cho NV ${sid} → ${(await rpc('app_dg_history', { p_employee: sid })).employee.set_code} · ${txt('#saved-indicator')}`);
+    { const u = $('.dg-row.no-set'); u.querySelector('.dg-rb').click(); await wait('dialog.dg-dlg .dg-form'); await sleep(400); const dd = $('dialog.dg-dlg');
+      const before = `tiêu chí ${$('.dg-form', dd).crit.disabled ? 'khóa' : 'mở'} (${txt('select[name=crit] option', dd)})`;
+      const s2 = $('.dg-form', dd).set; s2.value = 'cb'; s2.dispatchEvent(new Event('change', { bubbles: true })); await sleep(800);
+      r.push(`Khung người chưa có bộ: ${before} → chọn Chạy bàn → ${$('.dg-form', dd).crit.disabled ? 'khóa' : 'mở'}, ${$('.dg-form', dd).crit.options.length - 1} tiêu chí, lưu: ${(await rpc('app_dg_history', { p_employee: Number(u.dataset.emp) })).employee.set_saved}`);
+      $('.dg-x', dd).click(); await sleep(300); $$('dialog').forEach((x) => x.remove()); await wait('.dg-row'); await sleep(800); }
+    $('#dg-only-unset').click(); await sleep(200); r.push(`lọc chưa chọn → hiện ${$$('.dg-row').filter((x) => !x.hidden).length}`); $('#dg-only-unset').click();
+    if ($('#dg-guess')) { $('#dg-guess').click(); for (let i = 0; i < 300 && $('#dg-unset'); i++) await sleep(100); await wait('.dg-row'); await sleep(500); r.push(`chọn theo gợi ý → còn chưa chọn ${$$('.dg-set.unset').length}`); }
     // 2. khung trừ điểm nhân viên 3
     $('.dg-row[data-emp="3"]').click(); await wait('dialog.dg-dlg .dg-mk'); await sleep(500);
     const d = $('dialog.dg-dlg');

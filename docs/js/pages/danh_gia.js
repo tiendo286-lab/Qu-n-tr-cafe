@@ -20,14 +20,20 @@ export async function render({ params }) {
     ? html`<div class="alert ${D.reopened ? 'warn' : 'info'}">${D.reopened ? html`Chủ đã <strong>mở lại</strong> tháng ${monthLabel(D.month)} để đánh giá tiếp.` : html`Tháng ${monthLabel(D.month)} còn sửa được tới hết <strong>${dmy(D.deadline)}</strong>, sau đó tự khóa.`}
         ${D.is_owner && D.reopened ? html` <button type="button" class="btn sm secondary" id="dg-lock">Khóa lại tháng này</button>` : ''}</div>`
     : html`<div class="alert warn">Tháng ${monthLabel(D.month)} <strong>đã khóa</strong> (quá ngày ${dmy(D.deadline)}). ${D.is_owner ? html`<button type="button" class="btn sm" id="dg-open">Mở lại cho quản lý đánh giá tiếp</button>` : 'Cần sửa thì nhờ Chủ mở lại.'}</div>`;
-  const row = (e) => { const r = rating(e.score); return html`<button type="button" class="dg-row" data-emp="${e.id}">
-      <span class="dg-who"><strong>${e.code} – ${e.name}</strong><span class="st-meta">${e.rank || ''} · ${e.set_code ? setName[e.set_code] : 'chưa xếp bộ tiêu chí'}${e.set_code && !e.set_saved ? ' (gợi ý)' : ''}${e.status !== 'Đang làm' ? ' · ' + e.status : ''}</span></span>
+  const unset = D.employees.filter((e) => e.status === 'Đang làm' && !e.set_saved);
+  const guessable = unset.filter((e) => e.set_code);
+  const setSel = (e) => html`<select class="input sm dg-set ${e.set_saved ? '' : 'unset'}" data-emp="${e.id}" aria-label="Bộ tiêu chí của ${e.name}">
+      ${e.set_saved ? '' : html`<option value="" selected>Chưa chọn bộ${e.set_code ? ` (gợi ý: ${setName[e.set_code]})` : ''}</option>`}
+      ${D.sets.map((s) => html`<option value="${s.code}" ${e.set_saved && s.code === e.set_code ? 'selected' : ''}>${s.name}</option>`)}</select>`;
+  const row = (e) => { const r = rating(e.score); return html`<div class="dg-row ${e.set_saved ? '' : 'no-set'}" data-emp="${e.id}">
+      <button type="button" class="dg-rb" data-emp="${e.id}">
+      <span class="dg-who"><strong>${e.code} – ${e.name}</strong><span class="st-meta">${e.rank || ''}${e.status !== 'Đang làm' ? ' · ' + e.status : ''}</span></span>
       <span class="dg-cnt st-meta">${e.n_tru ? `${e.n_tru} lần trừ` : ''}${e.n_tru && e.n_nhac ? ' · ' : ''}${e.n_nhac ? `${e.n_nhac} nhắc nhở` : ''}${e.pending ? html` <span class="pill warn">${e.pending} giải trình</span>` : ''}</span>
-      <span class="dg-pt"><strong>${e.score}</strong><span class="pill ${r[2]}">${r[1]}</span></span></button>`; };
+      <span class="dg-pt"><strong>${e.score}</strong><span class="pill ${r[2]}">${r[1]}</span></span></button>${setSel(e)}</div>`; };
   return {
     title: 'Đánh giá nhân viên',
     html: html`${DG_CSS}${STYLE}
-      <div class="page-head"><div><h1>Đánh giá nhân viên</h1><div class="sub">Đầu tháng mỗi người 100 điểm (20 tiêu chí × 5). Phạm lỗi thì trừ 1–5 điểm vào đúng tiêu chí hoặc nhắc nhở; nhân viên được báo và gửi giải trình được.</div></div>
+      <div class="page-head"><div><h1>Đánh giá nhân viên</h1><div class="sub">Mỗi nhân viên chọn một bộ tiêu chí: Pha chế hoặc Chạy bàn. Đầu tháng mỗi người 100 điểm (20 tiêu chí × 5). Phạm lỗi thì trừ 1–5 điểm vào đúng tiêu chí hoặc nhắc nhở; nhân viên được báo và gửi giải trình được.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:960px;gap:12px">
         <div class="toolbar" style="gap:8px;flex-wrap:wrap">
@@ -39,7 +45,10 @@ export async function render({ params }) {
         <div class="dg-kpi">${counts.map(([l, n, c]) => html`<div class="card"><div class="st-meta">${l}</div><strong class="${c}">${n}</strong></div>`)}</div>
         ${D.pending.length ? html`<section class="card stack" style="gap:8px"><h2 style="margin:0">Giải trình chờ xem (${D.pending.length})</h2>
           ${D.pending.map((m) => html`<div class="stack" style="gap:4px" data-emp="${m.employee_id}"><div class="st-meta"><button type="button" class="dg-link dg-who-l" data-emp="${m.employee_id}">${m.employee}</button></div>${markCard(m, { acts: true })}</div>`)}</section>` : ''}
-        <section class="card stack" style="gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><h2 style="margin:0">Bảng điểm tháng ${monthLabel(D.month)}</h2><span class="st-meta">${emps.length} nhân viên · bấm vào tên để trừ điểm / xem lịch sử</span></div>
+        <section class="card stack" style="gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><h2 style="margin:0">Bảng điểm tháng ${monthLabel(D.month)}</h2><span class="st-meta">${emps.length} nhân viên · bấm vào tên để trừ điểm / xem lịch sử · ô bên phải: bộ tiêu chí của người đó</span></div>
+          ${unset.length ? html`<div class="alert warn" id="dg-unset">Còn <strong>${unset.length}</strong> nhân viên đang làm chưa chọn bộ tiêu chí (Pha chế hoặc Chạy bàn). Mỗi người chỉ một bộ, giữ cố định tới khi quản lý đổi.
+            <div class="toolbar" style="margin-top:6px;gap:8px;flex-wrap:wrap"><label style="display:inline-flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" class="check" id="dg-only-unset"> Chỉ hiện người chưa chọn</label>
+            ${guessable.length ? html`<button type="button" class="btn sm secondary" id="dg-guess">Chọn theo gợi ý cho ${guessable.length} người</button>` : ''}</div></div>` : ''}
           ${emps.length ? emps.map(row) : html`<div class="st-meta">Không có nhân viên phù hợp.</div>`}</section>
         ${D.is_owner ? html`<details class="card"><summary style="cursor:pointer;font-weight:700">Cài đặt tiêu chí (chỉ Chủ)</summary>
           <div class="st-meta" style="margin:6px 0">Sửa tên tiêu chí rồi bấm ra ngoài ô là lưu. Đổi tên không làm thay đổi các lần đánh giá đã ghi.</div>
@@ -52,7 +61,22 @@ export async function render({ params }) {
       $('#dg-br').addEventListener('change', (ev) => nav({ cn: ev.target.value }));
       let t; $('#dg-q').addEventListener('input', (ev) => { clearTimeout(t); t = setTimeout(() => nav({ q: ev.target.value.trim() }), 500); });
       const open = (id) => openEmployee(id, { month: D.month, branch: br, onChange: () => rerender() });
-      $$('.dg-row').forEach((b) => b.addEventListener('click', () => open(Number(b.dataset.emp))));
+      $$('.dg-row').forEach((b) => b.addEventListener('click', (ev) => { if (!ev.target.closest('.dg-set')) open(Number(b.dataset.emp)); }));
+      $$('.dg-set').forEach((s) => s.addEventListener('change', async () => {
+        if (!s.value) return;
+        try {
+          await rpc('app_dg_set', { p_employee: Number(s.dataset.emp), p_set: s.value });
+          s.classList.remove('unset'); s.closest('.dg-row').classList.remove('no-set'); s.querySelector('option[value=""]')?.remove();
+          showSaved(`Đã chọn bộ ${setName[s.value]}`);
+        } catch (e) { showSaved(e.message, true); }
+      }));
+      $('#dg-only-unset')?.addEventListener('change', (ev) => { $$('.dg-row').forEach((r) => { r.hidden = ev.target.checked && !r.classList.contains('no-set'); }); });
+      $('#dg-guess')?.addEventListener('click', async (ev) => {
+        if (!confirm(`Chọn bộ tiêu chí theo vị trí (gợi ý) cho ${guessable.length} người chưa chọn? Sau này vẫn đổi được từng người.`)) return;
+        ev.target.disabled = true;
+        try { for (const e of guessable) await rpc('app_dg_set', { p_employee: e.id, p_set: e.set_code }); flash(`Đã chọn bộ tiêu chí cho ${guessable.length} người.`); rerender(); }
+        catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
+      });
       $$('.dg-who-l').forEach((a) => a.addEventListener('click', () => open(Number(a.dataset.emp))));
       $$('.dg-mk').forEach((c) => c.addEventListener('click', async (ev) => {
         const id = Number(c.dataset.id); const t2 = ev.target;
@@ -85,11 +109,14 @@ function RATING_COUNT(emps) {
 const STYLE = html`<style>
   .dg-kpi { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
   .dg-kpi .card { padding: 10px 12px; } .dg-kpi strong { font-size: 20px; } .dg-kpi .bad { color: #b91c1c; } .dg-kpi .warn { color: #b45309; } .dg-kpi .ok { color: #15803d; }
-  .dg-row { all: unset; box-sizing: border-box; cursor: pointer; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; align-items: center; padding: 10px 8px; border-top: 1px solid var(--line-soft); }
-  .dg-row:hover { background: var(--line-soft); } .dg-row:focus-visible { outline: 2px solid var(--primary); }
+  .dg-row { display: grid; grid-template-columns: minmax(0, 1fr) 150px; gap: 6px 12px; align-items: center; padding: 6px 8px; border-top: 1px solid var(--line-soft); cursor: pointer; }
+  .dg-row:hover { background: var(--line-soft); } .dg-row[hidden] { display: none; }
+  .dg-rb { all: unset; box-sizing: border-box; cursor: pointer; min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 4px 12px; align-items: center; padding: 4px 0; }
+  .dg-rb:focus-visible { outline: 2px solid var(--primary); }
+  .dg-set { width: 100%; } .dg-set.unset { border-color: #d97706; color: #b45309; }
   .dg-who { display: flex; flex-direction: column; min-width: 0; } .dg-who strong { overflow-wrap: anywhere; }
   .dg-pt { display: flex; gap: 6px; align-items: center; white-space: nowrap; } .dg-pt strong { font-size: 18px; min-width: 32px; text-align: right; }
-  @media (max-width: 640px) { .dg-row { grid-template-columns: minmax(0, 1fr) auto; } .dg-cnt { grid-column: 1 / -1; grid-row: 2; } }
+  @media (max-width: 640px) { .dg-row { grid-template-columns: minmax(0, 1fr); } .dg-rb { grid-template-columns: minmax(0, 1fr) auto; } .dg-cnt { grid-column: 1 / -1; grid-row: 2; } .dg-set { width: auto; max-width: 100%; justify-self: start; } }
   .dg-crit { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 6px 12px; }
   .dg-crit label { display: flex; gap: 6px; align-items: center; } .dg-crit input { flex: 1 1 auto; min-width: 0; }
   .dg-link { all: unset; cursor: pointer; color: var(--primary); font-weight: 600; font-size: 14px; }
