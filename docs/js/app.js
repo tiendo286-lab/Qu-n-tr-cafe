@@ -18,7 +18,7 @@ export const HUBS = [
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc']], null, 'Hệ thống'],
   ['Dữ liệu & LOG', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'], ['LOG hệ thống', '/quan-ly/log', 'phan_quyen']], null, 'Hệ thống'],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]], null, 'Hệ thống'],
-  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Điểm đánh giá', '/cua-toi/danh-gia', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],
+  ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Công của tôi', '/cua-toi/cong', null], ['Điểm đánh giá', '/cua-toi/danh-gia', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
@@ -62,6 +62,7 @@ const PAGES = {
   '/quan-ly/thu-chi': 'thu_chi',
   '/cua-toi/khoan-am': 'khoan_am_toi',
   '/cua-toi/danh-gia': 'danh_gia_toi',
+  '/cua-toi/cong': 'cong_toi',
   '/quan-ly/danh-gia': 'danh_gia',
   '/quan-ly/chot-thang': 'chot_thang',
   '/quan-ly/so-quy': 'so_quy',

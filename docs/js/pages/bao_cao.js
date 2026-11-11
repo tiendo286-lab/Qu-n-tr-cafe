@@ -2,13 +2,14 @@
 import { render as rerender, can } from '../app.js';
 import { ST_CHOT, addDays, dmy, focusWeek, ftShort, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { downloadXlsx } from '../excel.js';
+import { renderBangCong } from '../bang_cong.js';
 import { rpc, sel } from '../sb.js';
 import { $, flash, html, norm, raw } from '../ui.js';
 import { loadReport, isShort } from '../reports.js';
 
 export const perm = 'bao_cao';
 const WARN_CATS = ['THIẾU TỔNG', 'THỪA TỔNG', 'LỆCH VỊ TRÍ', 'THIẾU CẤP 1+', 'XẾP CA ĐÃ NGHỈ', 'XẾP KHI CHƯA ORDER', 'LÀM THÔNG 3 CA', 'CHƯA CÓ CA'];
-const TABS = [['lich', 'Xem lịch tuần'], ['canh-bao', 'Cảnh báo'], ['dinh-bien', 'Định biên'], ['nhan-vien', 'Nhân viên'], ['order', 'Order'], ['co-so', 'Cơ sở'], ['lich-su', 'Lịch 30 ngày']];
+const TABS = [['lich', 'Xem lịch tuần'], ['bang-cong', 'Bảng công tháng'], ['canh-bao', 'Cảnh báo'], ['dinh-bien', 'Định biên'], ['nhan-vien', 'Nhân viên'], ['order', 'Order'], ['co-so', 'Cơ sở'], ['lich-su', 'Lịch 30 ngày']];
 const roleCode = (r) => String(r || '').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase();
 
 export async function render({ params }) {
@@ -25,6 +26,7 @@ export async function render({ params }) {
       <a class="btn sm secondary" href="#/quan-ly/bao-cao?tuan=${addDays(start, 7)}&tab=${tab}">Tuần sau ›</a></div></div>`;
   const tabsNav = html`<nav class="tabs-nav" aria-label="Mục báo cáo">${TABS.map(([k, l]) => html`<a href="#/quan-ly/bao-cao?tuan=${start}&tab=${k}" class="${tab === k ? 'on' : ''}">${l}</a>`)}</nav>`;
 
+  if (tab === 'bang-cong') return renderBangCong(params, tabsNav);
   if (tab === 'lich-su') {
     const cutoff = addDays(vnToday(), -30);
     const rows = await sel('schedule_closures', 'week_id, status, closed_at, updated_at');

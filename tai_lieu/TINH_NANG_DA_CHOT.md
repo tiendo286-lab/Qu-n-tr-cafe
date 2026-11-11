@@ -192,7 +192,7 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | Cập nhật về sau | Anh sửa / thay file Word trong `quy_trinh_goc/` rồi nhắn "cập nhật quy trình" → Claude chạy `python3 -I cong_cu/cap_nhat_quy_trinh.py --xem <thư mục tạm>` (xem thử) rồi `--gui --ma <file mã sbp_>`. Chỉ bài có nội dung đổi mới lên phiên bản mới và báo cho mọi người 1 lần; ảnh đã có không tải lại. Nếu cấu trúc sổ tay đổi (thêm phần mới, đổi tiêu đề phần) công cụ sẽ báo để sửa. |
 | Cách đưa lên web (chốt 11/11/2026) | **Chia nhiều bài nhỏ** trong mục Quy trình (~18 bài: Cách đọc + sơ đồ bàn · 7 bài công việc theo ca 1.1–1.7 · 9 bài SOP · Ghi nhớ); ảnh thu nhỏ cho điện thoại; **không đưa Phần 4** (đã có phiếu đào tạo). **Giữ nguyên** mục tài khoản thu ngân Fabi POS (cả mật khẩu) như sổ tay — chỉ người đăng nhập mới đọc được. **Cập nhật số trang** của hạng mục đào tạo theo sổ tay mới; mỗi lần "cập nhật quy trình" em tự so và sửa số trang. Cửa sổ hướng dẫn trong phiếu đào tạo hiện đúng thẻ của STT đó, có link mở cả bài. |
 
-## 5l. Nhân sự thực tế từ phiếu chốt ca → lịch + bảng công; người trả lương tiền mặt; quy định x2 — anh Tiến chốt 11/11/2026, CHƯA LÀM (đã chốt đủ, chờ lệnh bắt đầu)
+## 5l. Nhân sự thực tế từ phiếu chốt ca → lịch + bảng công; người trả lương tiền mặt; quy định x2 — anh Tiến chốt 11/11/2026, ĐÃ LÀM 11/11/2026 (`supabase/39_nhan_su_thuc_te.sql`; `docs/js/nghi_thay.js` ở bước Nhân sự của Đối soát ca, `docs/js/bang_cong.js` tab Bảng công tháng, `#/cua-toi/cong`, dấu thực tế trên Lịch cơ sở / Lịch tổng, ô "Trả lương tiền mặt" trong hồ sơ nhân viên)
 
 | Mục | Đã chốt |
 |---|---|

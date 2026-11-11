@@ -3,11 +3,14 @@ import { render as rerender, can, state } from '../app.js';
 import { ASSIGNED, NONE, OFF, RANKS, ST_CHOT, ftShort, isFT, ST_SUA, ST_XEP, addDays, focusWeek, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { typed } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
-import { $, $$, flash, hhmm, html, norm, showSaved } from '../ui.js';
+import { $, $$, flash, hhmm, html, norm, raw, showSaved } from '../ui.js';
 import { isOver, isShort, loadReport } from '../reports.js';
 
 export const perm = 'bao_cao';
 const abbr = (n) => String(n || '').split(/\s+/).filter(Boolean).map((w) => w[0]).join('').toUpperCase();
+const ACT_CSS = `<style>.act { display: inline-block; margin: 2px 0 0 4px; padding: 0 5px; border-radius: 6px; font-size: 11px; font-weight: 700; line-height: 17px; white-space: nowrap; border: 1px solid transparent; }
+  .act.ok { background: #dcfce7; color: #166534; } .act.no { background: #fee2e2; color: #b91c1c; } .act.plus { background: #e0e7ff; color: #3730a3; }
+  .act.pend { border-style: dashed; border-color: currentColor; background: transparent; }</style>`;
 const STATE_FILTERS = [['', 'Tất cả trạng thái'], ['unassigned', 'Chưa được xếp'], ['assigned', 'Đã được xếp'], ['off', 'Có ca nghỉ'], ['no_order', 'Chưa order'], ['fixed', 'Có lịch cố định'], ['manual', 'Quản lý đã sửa']];
 
 export async function render({ params, me }) {
@@ -41,7 +44,8 @@ export async function render({ params, me }) {
   let lock = null; let holds = false;
   if (editableSt && can('xep_lich')) { const r = await rpc('app_schedule_lock', { p_week: week.id, p_force: false }); holds = !!r.ok; lock = r.ok ? null : r.lock; }
   const editable = editableSt && can('xep_lich') && holds;
-  const [rep, eb, er, published] = await Promise.all([loadReport(week), selAll('employee_branches', '*'), selAll('employee_roles', '*'), hasPublished(week.id)]);
+  const [rep, eb, er, published, act] = await Promise.all([loadReport(week), selAll('employee_branches', '*'), selAll('employee_roles', '*'), hasPublished(week.id),
+    rpc('app_lich_thuc_te', { p_from: days[0].iso, p_to: days[6].iso, p_branch: null }).catch(() => [])]);
   const cat = rep.cat;
   const shifts = cat.mainShifts.map((s) => s.name);   // ca FULL TIME gộp vào ca chính
   const ftBy = new Map(cat.activeBranches.map((b) => [b.id, cat.ftOf(b.id).ft]));
@@ -90,7 +94,7 @@ export async function render({ params, me }) {
         : html`<td class="${cls} ${warn ? 'st-warn' : ''}">${text}${dot}</td>`);
     }));
     if (!flags.has('assigned')) flags.add('unassigned');
-    return html`<tr data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-br="|${(ebm[e.id] || []).map((id) => rep.bById.get(id)?.code).join('|')}|" data-roles="|${(erm[e.id] || []).join('|')}|" data-flags="|${[...flags].join('|')}|">
+    return html`<tr data-e="${e.id}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-br="|${(ebm[e.id] || []).map((id) => rep.bById.get(id)?.code).join('|')}|" data-roles="|${(erm[e.id] || []).join('|')}|" data-flags="|${[...flags].join('|')}|">
       <td class="nm"><strong>${e.code}</strong> – ${e.name}</td><td>${e.rank}</td><td class="tot"><strong>${total}</strong></td>${cells}</tr>`;
   });
   const sumRow = (label, getter) => html`<tr><td class="nm"><strong>${label}</strong></td>${days.map((d) => shifts.map((s) => {
@@ -106,7 +110,7 @@ export async function render({ params, me }) {
   return {
     title: 'Xếp lịch làm tổng',
     html: html`
-      <div class="page-head"><div><h1>Xếp lịch làm tổng <span class="pill warn">${statusLabel(cl.status, published)}</span></h1><div class="sub">${headTxt}</div></div>${nav}<div id="saved-indicator" class="saved" role="status" hidden></div></div>
+      ${raw(ACT_CSS)}<div class="page-head"><div><h1>Xếp lịch làm tổng <span class="pill warn">${statusLabel(cl.status, published)}</span></h1><div class="sub">${headTxt}</div></div>${nav}<div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="toolbar">
         ${can('xep_lich') && cl.status !== ST_CHOT ? html`
           <button class="btn sm" type="button" id="auto-btn">Xếp theo order &amp; lịch cố định</button>
@@ -139,6 +143,7 @@ export async function render({ params, me }) {
         <div style="padding:8px 20px;font-size:12px;display:flex;gap:10px;flex-wrap:wrap">
           <span class="mtx"><span class="st-free" style="padding:2px 6px">Xanh: đi làm được – chưa xếp</span></span><span class="mtx"><span class="st-off" style="padding:2px 6px">Đỏ: nghỉ</span></span>
           <span class="mtx"><span class="st-none" style="padding:2px 6px">Xám: chưa order</span></span><span class="mtx"><span class="st-ok" style="padding:2px 6px">Vàng: đã xếp</span></span>
+          <span>Thực tế: <span class="act ok">✓ đã làm</span> <span class="act no">✗ nghỉ</span> <span class="act plus">+ phát sinh</span> · nét đứt = chờ xác nhận</span>
           <span><strong>CĐ</strong>: lịch cố định</span> <span><span style="color:#dc2626">●</span> quản lý đã sửa</span><span style="color:#b91c1c">⚠ viền đỏ: xếp vào ca Nghỉ/Chưa order</span></div>
         <div class="mtx-wrap" style="border:0;border-top:1px solid var(--line);border-radius:0"><table class="mtx" id="master">
           <thead><tr><th class="nm" rowspan="2">Nhân viên</th><th rowspan="2">Cấp</th><th rowspan="2">Tổng</th>${days.map((d) => html`<th colspan="${shifts.length}">${d.short} ${d.date}</th>`)}</tr>
@@ -147,6 +152,20 @@ export async function render({ params, me }) {
       </section>`,
     mount() {
       pickMount();
+      // Thực tế từ phiếu chốt ca (bước 39): gắn dấu vào ô nhân viên × ngày × ca
+      const dIdx = Object.fromEntries(days.map((d) => [d.iso, d.index]));
+      const hmx = (t) => (t ? String(t).slice(0, 5) : '');
+      (act || []).forEach((x) => {
+        const d = dIdx[x.date]; const si = shifts.indexOf(x.shift); if (d === undefined || si < 0) return;
+        const td = document.querySelector(`#master tr[data-e="${x.employee_id}"]`)?.children[3 + d * shifts.length + si]; if (!td) return;
+        const scheduled = !!matrix.get(`${x.employee_id}|${d}|${x.shift}`) && matrix.get(`${x.employee_id}|${d}|${x.shift}`).state === ASSIGNED;
+        const sp = document.createElement('span');
+        sp.className = `act ${x.worked ? (x.source === 'ho_tro' && !scheduled ? 'plus' : 'ok') : 'no'} ${x.official ? '' : 'pend'}`;
+        const br = rep.bById.get(x.branch_id)?.code || '';
+        sp.textContent = x.worked ? `${x.source === 'ho_tro' && !scheduled ? '+ ' + br : '✓'} ${x.time_in ? `${hmx(x.time_in)}–${hmx(x.time_out)}` : ''}${x.x2 ? ' x2' : ''}`.trim() : '✗ Nghỉ';
+        sp.title = `${x.official ? 'Đã xác nhận' : 'Chờ quản lý xác nhận'}${x.reason ? ' · ' + x.reason : ''}`;
+        td.appendChild(sp);
+      });
       const rows = $$('#master tbody tr');
       const apply = () => {
         const q = norm($('#f-q').value.trim()), cap = $('#f-cap').value, cn = $('#f-cn').value, vt = $('#f-vt').value, tt = $('#f-tt').value;

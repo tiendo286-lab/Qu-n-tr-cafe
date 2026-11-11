@@ -3,6 +3,7 @@ import { render as rerender, isManager, can } from '../app.js';
 import { mountDeliveries, NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
+import { CV_CSS, mountCover } from '../nghi_thay.js';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
@@ -63,8 +64,10 @@ export function calc(v, x = {}) {
   const debtNew = x.debtNew || 0; const colTM = x.colTM || 0; const colCK = x.colCK || 0;
   const ckDiff = rt !== null && pt !== null ? rt - pt : null;
   const tmDiff = cc !== null && op !== null && pc !== null ? cc - op - pc : null;
-  const ckMoves = sum('chuyen_khoan'); const tmMoves = sum('tien_mat');
+  const sal = (v.staff || []).filter((x) => x.worked !== false && x.worked !== 0 && Number(x.cash_paid) > 0).reduce((t, x) => t + Number(x.cash_paid), 0);
+  const ckMoves = sum('chuyen_khoan'); const tmMoves = sum('tien_mat') - sal;
   return {
+    sal,
     sumGap: total !== null && pc !== null && pt !== null ? total - pc - pt - debtNew : null,
     debtNew, colTM, colCK, ckDiff, tmDiff, ckMoves, tmMoves,
     ckLeft: ckDiff === null ? null : ckDiff - ckMoves - colCK,
@@ -130,12 +133,13 @@ function staffRow(s, ed, SH) {
   const sgOut = ed && s.source === 'lich' && !s.time_out && SH ? hm(SH.end) : '';
   return html`<div class="st-row" data-emp="${s.employee_id}" data-src="${s.source}" data-role="${s.role || ''}">
     <div class="st-head"><div><strong>${s.code} – ${s.name}</strong> <span class="st-meta">${s.rank || ''}${s.role ? ' · ' + s.role : ''}</span></div>
-      <span class="pill ${s.source === 'lich' ? 'mute' : 'warn'}">${s.source === 'lich' ? 'Theo lịch' : 'Hỗ trợ phát sinh'}</span></div>
+      <span>${s.pay_cash ? html`<span class="pill info">Trả lương tiền mặt</span> ` : ''}<span class="pill ${s.source === 'lich' ? 'mute' : 'warn'}">${s.source === 'lich' ? 'Theo lịch' : 'Hỗ trợ phát sinh'}</span></span></div>
     <div class="pc-line">
       <select class="input sm st-worked" aria-label="Có làm hay nghỉ" ${ed ? '' : 'disabled'}>${opt('1', 'Có làm', worked ? '1' : '0')}${opt('0', 'Phát sinh nghỉ', worked ? '1' : '0')}</select>
       <span class="st-times" ${worked ? '' : 'hidden'}>
         <label>Đến <input class="input sm st-in ${sgIn ? 'st-sg' : ''}" type="time" value="${s.time_in || sgIn}" ${ed ? '' : 'disabled'} ${sgIn ? 'title="Gợi ý theo khung giờ ca — sửa theo thực tế"' : ''}></label>
-        <label>Về <input class="input sm st-out ${sgOut ? 'st-sg' : ''}" type="time" value="${s.time_out || sgOut}" ${ed ? '' : 'disabled'} ${sgOut ? 'title="Gợi ý theo khung giờ ca — sửa theo thực tế"' : ''}></label></span>
+        <label>Về <input class="input sm st-out ${sgOut ? 'st-sg' : ''}" type="time" value="${s.time_out || sgOut}" ${ed ? '' : 'disabled'} ${sgOut ? 'title="Gợi ý theo khung giờ ca — sửa theo thực tế"' : ''}></label>
+        ${s.pay_cash ? html`<label>Đã trả lương tiền mặt <input class="input sm money st-cash" inputmode="numeric" placeholder="0" value="${s.cash_paid ? fmt(s.cash_paid) : ''}" style="width:120px" ${ed ? '' : 'disabled'}> đ</label>` : ''}</span>
       <input class="input sm st-reason grow" placeholder="Lý do nghỉ" aria-label="Lý do nghỉ" value="${s.absent_reason || ''}" ${worked ? 'hidden' : ''} ${ed ? '' : 'disabled'}>
       <input class="input sm st-note grow" placeholder="Ghi chú" aria-label="Ghi chú" value="${s.note || ''}" ${ed ? '' : 'disabled'}>
       ${ed && s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Bỏ người hỗ trợ">×</button>` : ''}</div></div>`;
@@ -402,12 +406,13 @@ export async function render({ params }) {
       ${[0, 1, 2].map((i) => html`<div class="pc-line ds-sum"><strong class="grow">Bước ${i + 1} · ${DS_STEPS[i]}</strong>${dsLeft(i).length
         ? html`<span class="st-meta">Còn: ${dsLeft(i).map((it) => CHECK_LABEL[it]).join(', ')}</span><button type="button" class="btn sm secondary" data-ds-go="${i}">Làm bước ${i + 1}</button>`
         : html`<span class="pill ok">✓ Xong</span>`}</div>`)}
+      <div id="ds-cv-sum"></div>
       <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
   const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
   const dsBody = isDs ? html`${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
-      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('tien')}${secTime}${secMoney}${secDiff}${secDebt}
+      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
+      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('tien')}${secTime}${secMoney}${secDiff}${secDebt}
         <section class="card stack pc-sec"><div class="pc-sec-head"><h2>Phân nhóm thu chi của ca</h2></div><div class="st-meta">Chọn nhóm (hoặc "Không tính") cho từng dòng thu chi rồi bấm Đối soát — làm ở đây hay ở trang Đối soát đều được.</div><div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section></div>
-      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_su')}${secStaff}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('nhan_hang')}${secGoods}</div>
       <div class="ds-pane stack" data-ds="3">${dsHd(3)}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Tiếp ›</button></section>` : ''}` : '';
@@ -433,8 +438,8 @@ export async function render({ params }) {
 
 const WZ_STEPS = ['Tiền: số liệu', 'Tiền: thu chi', 'Nhân sự & bàn giao', 'Nhận hàng', 'Tiến độ'];
 const STEP_PART = ['tien', 'tien', 'nhan_su'];
-const DS_STEPS = ['Tiền', 'Nhân sự & bàn giao', 'Nhận hàng', 'Hoàn thành'];
-const DS_ITEMS = [['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], ['nhan_su', 'ban_giao'], ['nhap_hang']];
+const DS_STEPS = ['Nhân sự & bàn giao', 'Tiền', 'Nhận hàng', 'Hoàn thành'];   // 11/11/2026: nhân sự trước (biết đủ người để chia tiền âm)
+const DS_ITEMS = [['nhan_su', 'ban_giao'], ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], ['nhap_hang']];
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
 function missingList(v, c, R) {
   const out = []; const m = (step, t) => out.push([step, t]);
@@ -475,7 +480,8 @@ function collect() {
     goods_note: v('#goods_note').trim() || null,
     moves: $$('.mv-row').map((r) => ({ kind: r.querySelector('.mv-kind').value, amount: (parseMoney(r.querySelector('.mv-amt').value) || 0) * (r.querySelector('.mv-sign').value === '-' ? -1 : 1), note: r.querySelector('.mv-note').value.trim() })),
     staff: $$('.st-row').map((r) => ({ employee_id: Number(r.dataset.emp), source: r.dataset.src, role: r.dataset.role || null, worked: r.querySelector('.st-worked').value === '1',
-      time_in: r.querySelector('.st-in').value || null, time_out: r.querySelector('.st-out').value || null, absent_reason: r.querySelector('.st-reason').value.trim() || null, note: r.querySelector('.st-note').value.trim() || null })),
+      time_in: r.querySelector('.st-in').value || null, time_out: r.querySelector('.st-out').value || null, absent_reason: r.querySelector('.st-reason').value.trim() || null, note: r.querySelector('.st-note').value.trim() || null,
+      cash_paid: r.querySelector('.st-cash') ? (parseMoney(r.querySelector('.st-cash').value) || null) : null })),
     handover: $$('.ho-row').map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, content: r.querySelector('.ho-text').value })),
     goods: $$('.gd-row').map((r) => ({ item: r.querySelector('.gd-item').value.trim(), qty: r.querySelector('.gd-qty').value.trim() })),
     debts: $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id).map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, table_name: r.querySelector('.db-table').value, amount: parseMoney(r.querySelector('.db-amt').value), note: r.querySelector('.db-note').value.trim() })),
@@ -485,7 +491,7 @@ function collect() {
 function mount(R, ed, C0, ctx = {}) {
   const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep } = ctx;
   let saveNow = null;
-  if (isDs) mountReportEval($('#ds-dg'), R);
+  if (isDs) { mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, { sum: $('#ds-cv-sum'), onChange: () => rerender() }); }
   const form = $('#pc-form');
   bindMoneyInputs(form);
   // Bản đối soát: ghi "Phiếu NV: …" ở ô khác phiếu nhân viên
@@ -554,15 +560,15 @@ function mount(R, ed, C0, ctx = {}) {
     }
     const M = isDs ? (R0 || R).money || null : null;
     const hg = M ? Number(M.handover_gap || 0) : 0;
-    const box = (label, init, moves, col, left, formula, hand = 0) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
+    const box = (label, init, moves, col, left, formula, hand = 0, sal = 0) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
       <div class="kv"><div>Chênh lệch ban đầu</div><div>${init === null ? '—' : signed(init)} <span class="st-meta">${formula}</span></div>
-        <div>Đã kê khai thu chi</div><div>${signed(moves)}</div>
+        <div>Đã kê khai thu chi</div><div>${signed(moves)}${sal ? html`<div class="st-meta">gồm chi lương tiền mặt ${signed(-sal)} (mục Nhân viên)</div>` : ''}</div>
         ${col ? html`<div>Khách trả nợ ca trước</div><div>${signed(col)}</div>` : ''}
         ${hand ? html`<div>Ca sau nhận két lệch</div><div>${signed(hand)}</div>` : ''}
         <div><strong>Chưa giải trình</strong></div><div><strong>${left === null ? '—' : signed(left)}</strong></div>
         <div>Kết quả</div><div>${result(left)}</div></div></div>`;
     const db = $('#diff-box');
-    if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves, c.colTM, c.tmLeft === null ? null : c.tmLeft + hg, '(Mục 5 − đầu ca − Mục 2)', hg)}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
+    if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves, c.colTM, c.tmLeft === null ? null : c.tmLeft + hg, '(Mục 5 − đầu ca − Mục 2)', hg, c.sal)}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
     const sc2 = $('#staff-count');
     if (sc2) sc2.textContent = new Set($$('.st-row').filter((r) => r.querySelector('.st-worked').value === '1').map((r) => r.dataset.emp)).size;
     $('#goods-missing') && ($('#goods-missing').hidden = (ed ? collect().goods_status : R.goods_status) !== 'thieu');
@@ -795,7 +801,8 @@ function mount(R, ed, C0, ctx = {}) {
     if (!e) { showSaved('Không tìm thấy nhân viên. Chọn trong danh sách gợi ý.', true); return; }
     if ($$('.st-row').some((r) => Number(r.dataset.emp) === e.id)) { showSaved('Người này đã có trong danh sách.', true); return; }
     $('#staff-empty')?.remove();
-    add('#staff', staffRow({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, source: 'ho_tro', worked: 1 }, true), '.st-in');
+    add('#staff', staffRow({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, source: 'ho_tro', worked: 1, pay_cash: e.pay_cash }, true), '.st-in');
+    bindMoneyInputs($('#staff'));
     $('#helper').value = '';
   });
 
@@ -965,7 +972,8 @@ const STYLE = html`<style>
   .st-row { border: 1px solid var(--line-soft); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 6px; }
   .st-head { display: flex; justify-content: space-between; gap: 6px; flex-wrap: wrap; }
   .st-meta { font-size: 12px; color: var(--muted); font-weight: 400; }
-  .st-times { display: inline-flex; gap: 8px; }
+  .st-times { display: inline-flex; gap: 8px; flex-wrap: wrap; max-width: 100%; min-width: 0; }
+  .st-times[hidden] { display: none; }
   .st-times label { display: inline-flex; gap: 4px; align-items: center; font-size: 13px; }
   .st-times input { width: 110px; }
   .diff-card { border: 1px solid var(--line); border-radius: 12px; padding: 12px; display: flex; flex-direction: column; gap: 8px; }

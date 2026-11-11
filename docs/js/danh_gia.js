@@ -194,7 +194,7 @@ export async function openEmployee(empId, ctx = {}) {
 // Bước Nhân sự của trang Đối soát ca: đánh giá người làm ca (không bắt buộc)
 export async function mountReportEval(box, R) {
   if (!box) return;
-  const staff = (R.staff || []).filter((s) => s.worked === undefined || s.worked);
+  const staff = (R.staff || []).filter((s) => (s.worked === undefined || s.worked) && !s.pay_cash);   // người trả lương tiền mặt không đánh giá
   const draw = async () => {
     let marks = []; try { marks = (await rpc('app_dg_report', { p_report: R.id })) || []; } catch (_) { /* bỏ qua */ }
     box.innerHTML = str(html`<div class="pc-sec-head"><h2>Đánh giá nhân viên trong ca <span class="st-meta">(không bắt buộc)</span></h2></div>

@@ -22,7 +22,9 @@ export const DT_CSS = html`<style>
 export function tcList(box, rows, { cats = [], brById = null, showReport = true, onChange = () => {} } = {}) {
   const catsOf = (kind) => cats.filter((c) => c.kind === kind && c.active);
   const sel = (r) => {
-    const v = r.status === 'cho' ? r.category_id || '' : r.excluded ? 'x' : r.category_id || '';
+    // "Chi lương – …" (người trả lương tiền mặt, bước 39): chọn sẵn nhóm Lương
+    const luong = r.status === 'cho' && !r.category_id && /^Chi lương – /.test(r.note || '') ? (catsOf(r.kind).find((c) => c.name === 'Lương') || {}).id : null;
+    const v = r.status === 'cho' ? r.category_id || luong || '' : r.excluded ? 'x' : r.category_id || '';
     return html`<select class="input sm dt-cat" aria-label="Nhóm">${v === '' ? html`<option value="">— Chọn nhóm —</option>` : ''}${catsOf(r.kind).map((c) => html`<option value="${c.id}" ${String(v) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}<option value="x" ${v === 'x' ? 'selected' : ''}>Không tính</option></select>`;
   };
   const row = (r, i) => {

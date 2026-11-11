@@ -10,6 +10,10 @@ export const perm = 'xem_tat_ca';
 const WARN_LABEL = { off: 'NGHỈ', none: 'CHƯA ORDER' };
 
 const CSS = raw(`<style>
+  .act { display: inline-block; margin: 3px 0 0 4px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 700; line-height: 18px; text-transform: none; white-space: nowrap; border: 1px solid transparent; }
+  .act.ok { background: #dcfce7; color: #166534; } .act.no { background: #fee2e2; color: #b91c1c; } .act.plus { background: #e0e7ff; color: #3730a3; display: block; margin: 4px 2px 0; white-space: normal; text-align: left; }
+  .act.pend { border-style: dashed; border-color: currentColor; background: transparent; }
+  .act-m { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
   .grid-wrap { overflow: auto; max-height: calc(100vh - 140px); }
   .sg { border-collapse: separate; border-spacing: 0; font-size: 12px; width: 100%; }
   .sg th, .sg td { padding: 0; border-bottom: 1px solid var(--line-soft); }
@@ -121,7 +125,8 @@ export async function render({ params, me }) {
     const p = await rpc('app_schedule_poll', { p_week: week.id });
     lock = p.lock ? { who: p.lock, acquired_at: p.lock_since } : null;
   }
-  const [req, extraRows, emps, eb, er, orders, wse, published] = await Promise.all([
+  const wdays = weekDays(week.start_date);
+  const [req, extraRows, emps, eb, er, orders, wse, published, act] = await Promise.all([
     requirements(week.id, cl),
     sel('schedule_extra_rows', 'shift, role, count', (b) => b.eq('week_id', week.id).eq('branch_id', branch.id)),
     sel('employees', 'id, code, name, rank', (b) => b.eq('status', 'Đang làm')),
@@ -130,6 +135,7 @@ export async function render({ params, me }) {
     selAll('order_entries', 'employee_id, weekday, shift, status', (b) => b.eq('week_id', week.id)),
     selAll('weekly_schedule_entries', 'id, employee_id, weekday, shift, base_status, state, branch_id, role, slot, source, is_manual', (b) => b.eq('week_id', week.id).order('id')),
     hasPublished(week.id),
+    rpc('app_lich_thuc_te', { p_from: wdays[0].iso, p_to: wdays[6].iso, p_branch: branch.id }).catch(() => []),
   ]);
   const ebMap = {}; eb.forEach((r) => (ebMap[r.employee_id] ||= []).push(r.branch_id));
   const erMap = {}; er.forEach((r) => (erMap[r.employee_id] ||= []).push(r.role));
@@ -149,7 +155,7 @@ export async function render({ params, me }) {
     extra: Object.fromEntries(extraRows.map((r) => [`${r.shift}|${r.role}`, r.count])),
     employees: emps.map((e) => ({ id: e.id, code: e.code, name: e.name, rank: e.rank, rank_i: Math.max(RANKS.indexOf(e.rank), 0), senior: SENIOR.has(e.rank), branches: ebMap[e.id] || [], roles: erMap[e.id] || [] }))
       .sort((a, b) => a.name.localeCompare(b.name, 'vi')),
-    base, assign, version: cl.updated_at, can_edit: editable && holds,
+    base, assign, version: cl.updated_at, can_edit: editable && holds, act: act || [],
   };
   const canBack = status === ST_XEP && !published && !wse.some((r) => r.state === 'ĐÃ XẾP' && r.source === 'MANUAL');
   let lockBox = '';
@@ -183,7 +189,8 @@ export async function render({ params, me }) {
         Chú giải: <span class="lg empty">Trắng: chưa xếp</span> <span class="lg filled">Vàng: đã xếp ca</span> CĐ: lịch cố định ·
         <span style="color:#dc2626">•</span> quản lý đã xếp tay · <span class="lg warn">⚠ Viền đỏ: order Nghỉ / Chưa order</span> ·
         <span class="lg ft">FT: làm FULL TIME</span> (hiện ở ca chính và tính cho mọi ca chồng giờ) ·
-        Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:var(--ok-line)">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu người Cấp 2 hoặc Quản lý</div>
+        Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:var(--ok-line)">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu người Cấp 2 hoặc Quản lý<br>
+        Thực tế (từ phiếu chốt ca): <span class="act ok">✓ đã làm</span> <span class="act no">✗ nghỉ</span> <span class="act plus">+ phát sinh</span> · <span class="act ok pend">viền nét đứt</span> = chờ quản lý xác nhận</div>
       <section class="card flush"><div class="grid-wrap" id="grid"></div></section>
       <div id="picker" class="picker" role="listbox" hidden></div>
       <dialog id="extra-dialog"><form class="stack" id="extra-form"><h2>Thêm vượt định biên</h2>
@@ -205,6 +212,20 @@ function mountGrid(P, { week, start, holds }) {
   document.querySelectorAll('dialog [data-close]').forEach((b) => b.addEventListener('click', () => b.closest('dialog').close()));
   const empById = new Map(P.employees.map((e) => [e.id, e]));
   const k3 = (e, d, s) => `${e}|${d}|${s}`;
+  // Thực tế từ phiếu chốt ca (bước 39): ✓ đã làm / ✗ nghỉ / + phát sinh; chưa đối soát nhân sự = chờ xác nhận
+  const dayIdx = Object.fromEntries(P.days.map((d) => [d.iso, d.index]));
+  const ACT = new Map(); const ACT_D = new Map();
+  P.act.forEach((x) => { const d = dayIdx[x.date]; if (d === undefined) return; ACT.set(k3(x.employee_id, d, x.shift), x); if (!ACT_D.has(`${x.employee_id}|${d}`)) ACT_D.set(`${x.employee_id}|${d}`, x); });
+  const hmx = (t) => (t ? String(t).slice(0, 5) : '');
+  const actBadge = (eid, d, s) => {
+    const x = ACT.get(k3(eid, d, s)) || (P.ft[s] ? ACT_D.get(`${eid}|${d}`) : null); if (!x) return '';   // ca FULL TIME: phiếu ở ca chính
+    const tip = `${x.official ? 'Đã xác nhận' : 'Chờ quản lý xác nhận'}${x.reason ? ' · ' + x.reason : ''}`;
+    return x.worked ? `<span class="act ok ${x.official ? '' : 'pend'}" title="${esc(tip)}">✓ ${esc(x.time_in ? `${hmx(x.time_in)}–${hmx(x.time_out)}` : 'đã làm')}</span>`
+      : `<span class="act no ${x.official ? '' : 'pend'}" title="${esc(tip)}">✗ Nghỉ${x.reason ? ' · ' + esc(x.reason) : ''}</span>`;
+  };
+  const actPlus = (d, s) => P.act.filter((x) => dayIdx[x.date] === d && x.shift === s && x.worked && x.source === 'ho_tro'
+      && !P.assign.some((a) => a.eid === x.employee_id && a.d === d && a.b === P.branch.id && inBlock(a, s)))
+    .map((x) => `<span class="act plus ${x.official ? '' : 'pend'}" title="${esc(`${x.official ? 'Đã xác nhận' : 'Chờ quản lý xác nhận'}${x.reason ? ' · ' + x.reason : ''}`)}">+ ${esc(`${x.code} – ${x.name}`)}${x.time_in ? ' ' + esc(`${hmx(x.time_in)}–${hmx(x.time_out)}`) : ''}${x.pay_cash ? ' · tiền mặt' : ''}${x.x2 ? ' · x2' : ''}</span>`).join('');
   const baseOf = (e, d, s) => P.base[k3(e, d, s)] || 'none';
   const reqOf = (d, s, r) => P.req[`${d}|${s}|${r}`] || 0;
   const extraOf = (s, r) => P.extra[`${s}|${r}`] || 0;
@@ -233,7 +254,7 @@ function mountGrid(P, { week, start, holds }) {
     return `<div class="cell filled ${f ? `ftc ${away ? 'away ' : ''}` : ''}${mobile ? 'm ' : ''}${warn ? 'warnc ' : ''}${P.can_edit ? 'sel' : ''}"${attrs} data-e="${a.eid}" title="${esc(title)}">`
       + (f ? `<span class="ftb">${esc(`FT ${hm(f.start)}–${hm(f.end)}`)}</span>` : '')
       + (a.fixed && !a.manual ? 'CĐ ' : (a.manual ? '<span style="color:#dc2626;margin-right:4px">•</span>' : '')) + esc(`${e.code} – ${e.name}`.toUpperCase())
-      + (warn ? `<span class="tag">⚠ ${WARN_LABEL[b]}</span>` : '') + '</div>';
+      + (warn ? `<span class="tag">⚠ ${WARN_LABEL[b]}</span>` : '') + actBadge(a.eid, d, s) + '</div>';
   };
   function shiftTotal(d, s) {
     const asg = P.assign.filter((a) => a.b === P.branch.id && a.d === d && inBlock(a, s));
@@ -280,7 +301,7 @@ function mountGrid(P, { week, start, holds }) {
         }
       });
       h += `<tr class="r-total"><th class="lab" style="text-align:center">TỔNG CA ${esc(s.name.toUpperCase())}</th>`;
-      P.days.forEach((d) => { const t = shiftTotal(d.index, s.name); h += `<td class="c"><div class="tot ${t.cls}" title="${esc(t.tip)}">${t.label}${t.bang ? ' !' : ''}${t.segs.length ? `<small>${t.segs.map(esc).join('<br>')}</small>` : ''}</div></td>`; });
+      P.days.forEach((d) => { const t = shiftTotal(d.index, s.name); h += `<td class="c"><div class="tot ${t.cls}" title="${esc(t.tip)}">${t.label}${t.bang ? ' !' : ''}${t.segs.length ? `<small>${t.segs.map(esc).join('<br>')}</small>` : ''}</div>${actPlus(d.index, s.name)}</td>`; });
       h += '</tr>';
     });
     $('#grid').innerHTML = h + '</tbody></table>';
@@ -299,6 +320,7 @@ function mountGrid(P, { week, start, holds }) {
     P.shifts.forEach((s) => {
       const t = shiftTotal(curDay, s.name);
       h += `<section class="m-shift"><div class="m-sh-h"><div><strong>Ca ${esc(s.name)}</strong> <span class="det">${(s.start || '').slice(0, 5)}–${(s.end || '').slice(0, 5)}</span></div><span class="tot ${t.cls} m-tot">${t.label}${t.bang ? ' !' : ''}</span></div>${t.segs.length ? `<div class="m-seg">${t.segs.map(esc).join(' · ')}</div>` : ''}`;
+      { const pl = actPlus(curDay, s.name); if (pl) h += `<div class="m-row act-m">${pl}</div>`; }
       P.roles.forEach((r) => {
         const rows = rowsFor(s.name, r), mr = maxReq(s.name, r), arr = place(curDay, s.name, r, rows);
         const lines = [];

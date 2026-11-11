@@ -50,7 +50,7 @@ export function makeCa(T, me) {
   const emp = (id) => T.employees.find((e) => e.id === id) || {};
   const kaJson = (k) => { const r = rep(k.report_id); const b = T.branches.find((x) => x.id === r.branch_id) || {};
     return { ...k, item_label: LBL[k.item], employee: `${emp(k.employee_id).code} – ${emp(k.employee_id).name}`, work_date: r.work_date, shift: r.shift, branch: b.display_code || b.code, branch_id: r.branch_id, created_by: name(k.created_by) }; };
-  const RECON = {}; const RLOG = [];
+  const RECON = {}; const RLOG = []; T.__eff = (id) => eff(id); T.__checks = (id) => T.shift_report_checks.filter((c) => c.report_id === id).map((c) => c.item);
   const PARTS = {}; const partsOf = (id) => (PARTS[id] ||= {});
   const PLBL = { tien: 'TIỀN', nhan_su: 'NHÂN SỰ & BÀN GIAO', nhan_hang: 'NHẬN HÀNG' };
   const need = (id) => ['tien', 'nhan_su'].concat(partsOf(id).nhan_hang?.claimed_by || (T.delivery_invoices || []).some((d) => d.received_report_id === id) ? ['nhan_hang'] : []);
@@ -60,7 +60,7 @@ export function makeCa(T, me) {
   const snap = (id) => { const r = T.shift_reports.find((x) => x.id === id); return {
     ...Object.fromEntries(FIELDS.slice(0, 11).map((k) => [k, r[k] ?? null])),
     moves: T.shift_report_moves.filter((m) => m.report_id === id).map((m) => ({ kind: m.kind, amount: m.amount, note: m.note || '' })),
-    staff: T.shift_report_staff.filter((x) => x.report_id === id).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role || null, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null })),
+    staff: T.shift_report_staff.filter((x) => x.report_id === id).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role || null, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null, cash_paid: x.cash_paid || null })),
     goods: T.shift_report_goods.filter((g) => g.report_id === id).map((g) => ({ item: g.item, qty: g.qty || '' })) }; };
   const F = {
     app_ca_overview({ p_date }) {
@@ -112,7 +112,7 @@ export function makeCa(T, me) {
         shortfalls: SF.filter((k) => k.report_id === r.id && k.status !== 'huy').map((k) => ({ ...k, employee: `${emp(k.employee_id).code} – ${emp(k.employee_id).name}` })),
         money: r.status === 'hoan_thanh' && me.perms.doi_soat ? money(r.id) : null,
         moves: T.shift_report_moves.filter((m) => m.report_id === r.id),
-        staff: T.shift_report_staff.filter((x) => x.report_id === r.id).map((x) => ({ ...x, code: emp(x.employee_id).code, name: emp(x.employee_id).name, rank: emp(x.employee_id).rank })),
+        staff: T.shift_report_staff.filter((x) => x.report_id === r.id).map((x) => ({ ...x, code: emp(x.employee_id).code, name: emp(x.employee_id).name, rank: emp(x.employee_id).rank, pay_cash: !!emp(x.employee_id).pay_cash })),
         handover: T.handover_items.filter((h) => h.report_id === r.id).map((h) => ({ ...h, created_by_name: name(h.created_by) })),
         carried: T.handover_items.filter((h) => h.branch_id === r.branch_id && h.report_id !== r.id && before(rep(h.report_id)) && (!h.done_at || h.done_report_id === r.id))
           .map((h) => ({ ...h, from_date: rep(h.report_id).work_date, from_shift: rep(h.report_id).shift, created_by_name: name(h.created_by), done_by_name: name(h.done_by) })),
@@ -276,7 +276,7 @@ export function makeCa(T, me) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
       if (!RECON[p_id]) RECON[p_id] = snap(p_id);
       const ids = new Set([...RECON[p_id].staff, ...snap(p_id).staff].map((x) => x.employee_id));
-      const employees = Object.fromEntries([...ids].map((id) => { const e = T.employees.find((x) => x.id === id) || {}; return [String(id), { code: e.code, name: e.name, rank: e.rank }]; }));
+      const employees = Object.fromEntries([...ids].map((id) => { const e = T.employees.find((x) => x.id === id) || {}; return [String(id), { code: e.code, name: e.name, rank: e.rank, pay_cash: !!e.pay_cash }]; }));
       return { data: JSON.parse(JSON.stringify(RECON[p_id])), original: snap(p_id), employees, editable: r.recon_status !== 'hoan_thanh', recon_status: r.recon_status,
         log: RLOG.filter((l) => l.report_id === p_id).slice().reverse() };
     },
@@ -287,7 +287,7 @@ export function makeCa(T, me) {
       for (const k of FIELDS) {
         if (!(k in p)) continue;
         let v = p[k];
-        if (k === 'staff') v = (v || []).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null }));
+        if (k === 'staff') v = (v || []).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null, cash_paid: x.cash_paid || null }));
         if (k === 'moves') v = (v || []).map((x) => ({ kind: x.kind, amount: x.amount, note: x.note || '' }));
         if (k === 'goods') v = (v || []).filter((x) => x.item).map((x) => ({ item: x.item, qty: x.qty || '' }));
         if (JSON.stringify(old[k] ?? null) !== JSON.stringify(v ?? null)) { RLOG.push({ report_id: p_id, action: 'sua', field: k, before: old[k] ?? null, after: v ?? null, reason: p_reason || null, by: name(me.account_id), at: now() }); old[k] = v; }
@@ -317,7 +317,7 @@ export function makeCa(T, me) {
       T.daily_cash_closings = T.daily_cash_closings.filter((x) => !(x.branch_id === p_branch && x.work_date === p_date));
       T.daily_cash_closings.push({ branch_id: p_branch, work_date: p_date, counted: p_counted, note: p_note, done_by: me.account_id, done_at: now() });
     },
-    app_ca_employees() { return T.employees.filter((e) => e.status === 'Đang làm').map(({ id, code, name: n, rank }) => ({ id, code, name: n, rank })); },
+    app_ca_employees() { return T.employees.filter((e) => e.status === 'Đang làm').map(({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash })); },
   };
   return F;
 }

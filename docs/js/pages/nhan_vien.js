@@ -76,11 +76,11 @@ export async function render({ params, me }) {
             const stopped = e.status !== 'Đang làm';
             return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" data-nq="${e.nq}" data-ck="${e.tl.commit || 'chua_ky'}" data-dt="${e.dt ? e.dt.status : 'chua_dao_tao'}" ${stopped ? 'hidden' : ''}>
               <td style="font-weight:600">${e.code}</td>
-              <td>${full ? html`<a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a>` : html`<span class="emp-name"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</span>`}</td>
+              <td>${full ? html`<a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a>` : html`<span class="emp-name"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</span>`}${e.pay_cash ? html` <span class="pill info" title="Không dùng app, trả lương tiền mặt">Trả tiền mặt</span>` : ''}</td>
               <td>${stopped || !full ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
               <td data-label="Chi nhánh">${e.branches.length ? e.branches.map((x) => html`<span class="chip">${x}</span>`) : '—'}</td>
               <td data-label="Vai trò làm việc">${e.roles.length ? e.roles.map((x) => html`<span class="chip role">${x}</span>`) : '—'}</td>
-              ${full ? html`<td data-label="Tài khoản"><div class="acc-cell"><div>${accCell(e.state, e.acc)}</div>${canTouch(e.acc, me, stopped) ? accMenu(e.acc, `${e.code} – ${e.name}`) : ''}</div></td><td>${e.email || '—'}</td><td>${e.phone || '—'}</td>` : ''}
+              ${full ? html`<td data-label="Tài khoản"><div class="acc-cell">${e.pay_cash && !e.acc.id ? html`<div class="st-meta">Không dùng app</div>` : html`<div>${accCell(e.state, e.acc)}</div>${canTouch(e.acc, me, stopped) ? accMenu(e.acc, `${e.code} – ${e.name}`) : ''}`}</div></td><td>${e.email || '—'}</td><td>${e.phone || '—'}</td>` : ''}
               ${tl ? html`<td data-label="Nội quy">${e.nq === 'khong' ? html`<span class="st-meta" title="Chưa có nội quy nào được đăng">—</span>`
                 : html`<button type="button" class="nq-btn pill ${e.nq === 'da_doc' ? 'ok' : 'off'}" data-id="${e.id}" data-read="${e.nq === 'da_doc' ? 1 : 0}" data-name="${e.code} – ${e.name}"
                     title="${e.nq === 'da_doc' ? 'Đọc lúc ' + (e.tl.read_at || '') + ' · bấm để bỏ đánh dấu' : `Đã đọc ${e.tl.read || 0}/${nDocs} · bấm để đánh dấu đã đọc thay nhân viên`}">${e.nq === 'da_doc' ? 'Đã đọc' : nDocs > 1 && e.tl.read ? `Chưa đọc (${e.tl.read}/${nDocs})` : 'Chưa đọc'}</button>`}</td>
@@ -88,7 +88,7 @@ export async function render({ params, me }) {
                   ${Object.entries(COMMIT).map(([k, [l]]) => html`<option value="${k}" ${k === (e.tl.commit || 'chua_ky') ? 'selected' : ''}>${l}</option>`)}</select></td>` : ''}
               ${dts ? html`<td data-label="Đào tạo">${e.dt ? html`<a class="pill ${DT_STATUS[e.dt.status][1]}" href="#/dao-tao/phieu?id=${e.dt.id}" title="Bấm để mở phiếu${e.dt.status !== 'hoan_thanh' ? ' · còn thiếu: ' + e.dt.missing.join(', ') : ''}">${dtLabel(e.dt)}</a>
                   ${e.dt.instructor ? html`<div class="st-meta" style="font-size:11px;color:var(--muted);margin-top:2px">HD: ${e.dt.instructor}</div>` : ''}`
-                : dtAdmin && !stopped ? html`<button type="button" class="btn sm secondary new-dt" data-id="${e.id}" data-name="${e.code} – ${e.name}" data-b="${e.branches[0] || ''}" title="Chưa đào tạo">+ Tạo phiếu</button>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
+                : dtAdmin && !stopped && !e.pay_cash ? html`<button type="button" class="btn sm secondary new-dt" data-id="${e.id}" data-name="${e.code} – ${e.name}" data-b="${e.branches[0] || ''}" title="Chưa đào tạo">+ Tạo phiếu</button>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
               <td class="st-cell">${full && canStop(e, me) ? (stopped
                 ? html`<button type="button" class="btn sm secondary st-btn" data-id="${e.id}" data-to="Đang làm" data-name="${e.code} – ${e.name}">Đi làm lại</button>`
                 : html`<button type="button" class="btn sm secondary danger st-btn" data-id="${e.id}" data-to="Ngừng làm" data-name="${e.code} – ${e.name}">Ngừng làm</button>`) : ''}</td></tr>`;
@@ -192,6 +192,8 @@ async function renderForm(params, me) {
           <div class="field"><label for="phone">Số điện thoại</label><input class="input" id="phone" name="phone" type="tel" value="${v.phone || ''}"></div>
           <div class="field"><label for="start_date">Ngày bắt đầu vào làm</label><input class="input" id="start_date" name="start_date" type="date" value="${v.start_date || ''}"></div>
         </div>
+        <label style="display:flex;align-items:flex-start;gap:10px;min-height:44px"><input type="checkbox" class="check" name="pay_cash" ${v.pay_cash ? 'checked' : ''}>
+          <span><strong>Trả lương tiền mặt — không dùng app</strong><br><span class="hint">Nhân viên cũ không có HRM / web app. Không cấp tài khoản; người chốt ca chọn vào ca như người hỗ trợ và nhập số tiền lương đã trả (tự thành khoản chi "Chi lương" của ca). Không có phần đánh giá điểm, phiếu đào tạo.</span></span></label>
         <div class="toolbar"><button class="btn" type="submit">${emp ? 'Lưu thay đổi' : 'Thêm nhân viên'}</button><a class="btn secondary" href="#/quan-ly/nhan-vien">Hủy</a></div>
       </form>
       ${emp && canStop({ acc: { id: acc?.id }, system_role: acc?.system_role }, me) ? html`<section class="card" style="margin-top:16px;max-width:860px"><h2 style="margin-top:0;font-size:16px">${v.status === 'Đang làm' ? 'Nghỉ việc' : 'Đi làm lại'}</h2>
@@ -205,10 +207,10 @@ async function renderForm(params, me) {
         ev.preventDefault();
         const f = new FormData(ev.target);
         const p = { code: f.get('code'), name: f.get('name'), rank: f.get('rank'), status: f.get('status'), roles: f.getAll('roles'), preferred_role: f.get('preferred_role'),
-          branch_ids: f.getAll('branches').map(Number), email: f.get('email'), phone: f.get('phone'), start_date: f.get('start_date') };
+          branch_ids: f.getAll('branches').map(Number), email: f.get('email'), phone: f.get('phone'), start_date: f.get('start_date'), pay_cash: f.get('pay_cash') === 'on' };
         try {
           await rpc('app_save_employee', { p_id: emp ? emp.id : null, p });
-          flash(emp ? `Đã lưu ${p.code} – ${p.name}.` : `Đã thêm ${p.code} – ${p.name}. Hãy cấp mật khẩu tạm để nhân viên đăng nhập.`);
+          flash(emp ? `Đã lưu ${p.code} – ${p.name}.` : p.pay_cash ? `Đã thêm ${p.code} – ${p.name} (trả lương tiền mặt, không cần tài khoản).` : `Đã thêm ${p.code} – ${p.name}. Hãy cấp mật khẩu tạm để nhân viên đăng nhập.`);
           go('/quan-ly/nhan-vien');
         } catch (e) { const el = $('#emp-err'); el.textContent = e.message; el.hidden = false; window.scrollTo(0, 0); }
       });
