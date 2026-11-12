@@ -323,7 +323,8 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 ## 5z2. Bảng tuần ở Kế toán — ĐÃ LÀM 12/11/2026 (chỉ giao diện, `ke_toan_ck.js`, `ke_toan_fabi.js`)
 - **Chuyển khoản thực nhận** và **File ca Fabi** có nút "Theo ngày / Danh sách | Bảng tuần". Bảng tuần: mỗi cơ sở 1 bảng, hàng = ca + Tổng ngày, cột = T2…CN + Cả tuần; tuần trước / sau.
 - Chuyển khoản: ô = tiền ngân hàng nhận trong ca + lệch so với CK theo phiếu (đỏ khi lệch), "chưa nhập", "thiếu TK". File Fabi: ô = doanh thu NET, CK, số cốc, trạng thái so với phiếu (✓ khớp / ✗ đã sửa theo Fabi / chưa có phiếu), "chưa tải" khi có phiếu mà chưa có file. Bấm ô → mở ngày đó.
-- Lưu ý kỹ thuật: CSS chèn qua html`` bị thoát ký tự — không dùng `>` trong WEEK_CSS.
+- **Tab Đối soát** cũng có "Theo ngày | Bảng tuần": ô = tình trạng đối soát của ca (Đã đối soát / Chờ đối soát n/9 / Chờ kế toán / Đang chốt / Quá giờ chưa chốt / Có khoản âm), doanh thu, TM / CK còn lệch; hàng "Cuối ngày" = đã kiểm đếm tiền mặt cuối ngày chưa.
+- Lưu ý kỹ thuật: CSS chèn qua html`` bị thoát ký tự — không dùng `>` hay dấu nháy trong chuỗi CSS.
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.

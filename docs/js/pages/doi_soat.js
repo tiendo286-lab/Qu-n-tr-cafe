@@ -1,7 +1,8 @@
 // Đối soát (bước 35): Bảng ca theo ngày + VIỆC CHỜ ĐỐI SOÁT gom 1 chỗ (phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm)
 // + đối soát tiền mặt cuối ngày theo cơ sở. Đối soát từng phiếu ca làm ở trang riêng #/quan-ly/doi-soat/ca.
 import { render as rerender } from '../app.js';
-import { vnToday } from '../data.js';
+import { addDays, vnToday } from '../data.js';
+import { DOW, WEEK_CSS, mondayOf } from './ke_toan_ck.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, result, signed, vnd } from '../tien.js';
 import { $, $$, flash, html, showSaved } from '../ui.js';
@@ -11,8 +12,75 @@ import { STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker } from './ch
 
 export const perm = 'doi_soat';
 
+// Bảng tuần: mỗi cơ sở 1 bảng, hàng = ca + Cuối ngày, cột = 7 ngày; ô = trạng thái đối soát, doanh thu, tiền còn lệch
+const dsTabs = (day, wk) => html`<nav class="ck-view" aria-label="Cách xem"><a href="#/quan-ly/doi-soat?ngay=${day}" class="${wk ? '' : 'on'}">Theo ngày</a><a href="#/quan-ly/doi-soat?xem=tuan&ngay=${day}" class="${wk ? 'on' : ''}">Bảng tuần</a></nav>`;
+const WK_ST = { chua: ['Chưa mở', 'st-meta'], tre: ['Quá giờ chưa chốt', 'ck-w-bad'], dang: ['Đang chốt', 'ck-w-miss'], kt: ['Chờ kế toán', 'ds-w-ktx'], cho: ['Chờ đối soát', 'ck-w-miss'], xong: ['✓ Đã đối soát', 'ck-w-ok'], am: ['Có khoản âm', 'ck-w-bad'] };
+async function renderWeek(day) {
+  const mon = mondayOf(day); const days = [...Array(7)].map((_, i) => addDays(mon, i));
+  const [ovs, cds, KW] = await Promise.all([Promise.all(days.map((d) => rpc('app_ca_overview', { p_date: d }))), Promise.all(days.map((d) => rpc('app_ca_day', { p_date: d }).catch(() => []))),
+    rpc('app_ca_kt_wait').catch(() => [])]);
+  const kt = new Set((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => k.id));
+  const nowHm = new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 16); const today = vnToday();
+  const stOf = (s, d) => {
+    if (!s.report_id) return d < today || (d === today && s.end_time && String(s.end_time).slice(0, 5) < nowHm) ? 'tre' : 'chua';
+    if (s.status !== 'hoan_thanh') return 'dang';
+    if (s.recon_status !== 'hoan_thanh') return kt.has(s.report_id) ? 'kt' : 'cho';
+    return Number(s.short_total) > 0 ? 'am' : 'xong';
+  };
+  const branches = []; const shifts = [];
+  ovs.forEach((rows) => rows.forEach((r) => { if (!branches.some((b) => b.id === r.branch_id)) branches.push({ id: r.branch_id, code: r.branch_code }); if (!shifts.includes(r.shift)) shifts.push(r.shift); }));
+  const cell = (s, d) => {
+    if (!s) return html`<td class="ck-w-c"><span class="st-meta">—</span></td>`;
+    const st = stOf(s, d); const [lbl, cls] = WK_ST[st];
+    const left = (v, k) => (v !== null && v !== undefined && Number(v) !== 0 ? html`<span class="ck-w-bad">${k} ${signed(v)}</span>` : '');
+    const body = html`<span class="${cls}">${st === 'cho' && s.recon_status === 'mo_lai' ? 'Đang sửa' : lbl}${st === 'cho' ? ` ${s.checks}/9` : ''}</span>
+      ${s.status === 'hoan_thanh' && s.revenue != null ? html`<b>${fmt(s.revenue)}</b>` : ''}
+      ${st === 'am' ? html`<span class="ck-w-bad">−${fmt(s.short_total)}</span>` : ''}
+      ${s.status === 'hoan_thanh' && st !== 'xong' && st !== 'am' ? html`${left(s.cash_left, 'TM')}${left(s.transfer_left, 'CK')}` : ''}`;
+    const href = !s.report_id ? null : s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
+    return html`<td class="ck-w-c ds-w-${st}">${href ? html`<a href="${href}">${body}</a>` : body}</td>`;
+  };
+  const endCell = (c, d) => {
+    if (!c || !c.shifts || (d > today && !c.done)) return html`<td class="ck-w-c"><span class="st-meta">—</span></td>`;
+    const ready = c.done >= c.shifts;
+    return html`<td class="ck-w-c">${c.done_at ? html`<span class="ck-w-ok">✓ đã kiểm đếm</span>` : ready ? html`<span class="ck-w-miss">chưa kiểm đếm</span>` : html`<span class="st-meta">xong ${c.done}/${c.shifts} ca</span>`}</td>`;
+  };
+  const table = (b) => {
+    const get = (i, sh) => (ovs[i] || []).find((r) => r.branch_id === b.id && r.shift === sh) || null;
+    const all = days.flatMap((d, i) => shifts.map((sh) => [get(i, sh), d])).filter(([x]) => x);
+    const n = (k) => all.filter(([x, d]) => stOf(x, d) === k).length;
+    return html`<section class="card stack" style="gap:8px"><div class="ck-w-h"><h2 style="margin:0">${b.code}</h2>
+        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ đối soát <b>${n('cho')}</b>${n('kt') ? html` · chờ kế toán <b>${n('kt')}</b>` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <span class="ck-w-bad">${n('tre')} ca quá giờ chưa chốt</span>` : ''}${n('am') ? html` · <span class="ck-w-bad">${n('am')} ca có khoản âm</span>` : ''}</span></div>
+      <div class="table-wrap ck-w-wrap"><table class="ck-w ds-w">
+        <thead><tr><th>Ca</th>${days.map((d) => html`<th class="${d === today ? 'today' : ''}"><a href="#/quan-ly/doi-soat?ngay=${d}">${DOW[new Date(d + 'T00:00:00Z').getUTCDay()]}<br><span>${dmy(d).slice(0, 5)}</span></a></th>`)}</tr></thead>
+        <tbody>${shifts.map((sh) => html`<tr><th>${sh}</th>${days.map((d, i) => cell(get(i, sh), d))}</tr>`)}
+          <tr class="ck-w-tot"><th>Cuối ngày</th>${days.map((d, i) => endCell((cds[i] || []).find((c) => c.branch_id === b.id), d))}</tr></tbody></table></div></section>`;
+  };
+  return {
+    title: 'Đối soát',
+    html: html`<style>${WEEK_CSS}${DS_W_CSS}</style>
+      <div class="page-head"><div><h1>Đối soát</h1><div class="sub">Bảng tuần: mỗi ô là tình trạng đối soát của ca, doanh thu và tiền mặt (TM) / chuyển khoản (CK) còn lệch. Bấm ô để mở trang Đối soát ca; bấm tên ngày để xem ngày đó.</div></div></div>
+      <div class="stack" style="max-width:1100px;gap:12px">
+        <section class="card toolbar" style="padding:12px 14px;gap:8px">${dsTabs(day, true)}
+          <a class="btn sm secondary" href="#/quan-ly/doi-soat?xem=tuan&ngay=${addDays(mon, -7)}">‹ Tuần trước</a>
+          <input class="input sm" type="date" id="ds-wday" value="${day}" aria-label="Ngày trong tuần">
+          <a class="btn sm secondary" href="#/quan-ly/doi-soat?xem=tuan&ngay=${addDays(mon, 7)}">Tuần sau ›</a>
+          <strong>${dmy(mon)} – ${dmy(days[6])}</strong></section>
+        <div class="ck-w-legend st-meta">${Object.values(WK_ST).map(([l, c], i) => html`${i ? ' · ' : ''}<span class="${c}" style="display:inline">${l}</span>`)}</div>
+        ${branches.map(table)}
+      </div>`,
+    mount() { $('#ds-wday').addEventListener('change', (e) => { location.hash = '#/quan-ly/doi-soat?xem=tuan&ngay=' + e.target.value; }); },
+  };
+}
+const DS_W_CSS = `
+  .ds-w td { min-width: 104px; }
+  .ds-w-ktx { color: #7e22ce; font-size: 12px; font-weight: 700; }
+  .ds-w td.ds-w-xong { background: #f0fdf4; } .ds-w td.ds-w-am, .ds-w td.ds-w-tre { background: #fef2f2; } .ds-w td.ds-w-cho, .ds-w td.ds-w-dang { background: #fffbeb; } .ds-w td.ds-w-kt { background: #faf5ff; }
+`;
+
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
+  if (params.xem === 'tuan') return renderWeek(day);
   const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
     rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => [])]);
   const DM = new Map(((await rpc('app_ca_debt_marks', { p_date: day }).catch(() => null)) || []).map((x) => [x.report_id, x]));   // bước 55
@@ -177,9 +245,10 @@ export async function render({ params }) {
         @media (max-width: 760px) { .td-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .bc-grid { gap: 5px; grid-template-columns: 40px repeat(3, minmax(0, 1fr)) !important; } .bc { padding: 7px; border-left-width: 4px; } .bc-lbl { font-size: 11.5px; } .bc-m, .bc-rev { font-size: 11px; } }
       </style>
-      <div class="page-head"><div><h1>Đối soát</h1><div class="sub">Mọi việc chờ đối soát gom ở đây: phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm. Bấm vào để làm ngay.</div></div>
+      <style>${WEEK_CSS}</style><div class="page-head"><div><h1>Đối soát</h1><div class="sub">Mọi việc chờ đối soát gom ở đây: phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm. Bấm vào để làm ngay.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:1100px;gap:12px">
+        <div class="toolbar" style="gap:8px">${dsTabs(day, false)}</div>
         ${datePicker('/quan-ly/doi-soat', day)}
         <section class="card bc-card">
           <div class="bc-head"><h2 style="margin:0">Bảng ca ${day === vnToday() ? 'hôm nay' : 'ngày'} ${dmy(day)}</h2>
