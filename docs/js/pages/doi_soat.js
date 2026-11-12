@@ -15,6 +15,7 @@ export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
   const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
     rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => [])]);
+  const DM = new Map(((await rpc('app_ca_debt_marks', { p_date: day }).catch(() => null)) || []).map((x) => [x.report_id, x]));   // bước 55
   // bước 44: phần tiền chờ kế toán (thiếu file chốt ca Fabi / chuyển khoản ngân hàng)
   const ktById = new Map((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => [k.id, k]));
   const repReady = (T.reports || []).filter((r) => !ktById.has(r.id));
@@ -44,7 +45,11 @@ export async function render({ params }) {
       ${s.status === 'hoan_thanh' && s.st !== 'xong' && s.st !== 'am' ? html`<div class="bc-m">TM ${result(s.cash_left)}</div><div class="bc-m">CK ${result(s.transfer_left)}${s.ck_basis === 'nhan_vien' ? html` <span class="bc-tam">tạm</span>` : ''}</div>` : ''}
       ${s.hand_state === 'lech' || s.hand_state === 'can_dem_lai' ? html`<div class="bc-m bc-hand">⚠ Nhận két lệch ${signed(s.hand_gap)}${s.hand_state === 'can_dem_lai' ? ' · chờ đếm lại' : ''}</div>` : ''}
       ${s.status === 'dang_chot' && s.created_by ? html`<div class="bc-m">${s.created_by}</div>` : ''}
-      ${s.has_debt ? html`<div class="bc-m">Có công nợ</div>` : ''}
+      ${(() => {   // bước 55: ô ca thu ghi "Thu nợ"; ô ca nợ chỉ ghi "Có công nợ" khi còn nợ chưa thu
+        const dm = DM.get(s.report_id);
+        if (!dm) return s.has_debt ? html`<div class="bc-m">Có công nợ</div>` : '';
+        return html`${Number(dm.open_amt) > 0 ? html`<div class="bc-m">Có công nợ ${fmt(dm.open_amt)}đ</div>` : ''}${Number(dm.paid_amt) > 0 ? html`<div class="bc-m bc-paid">Thu nợ ${fmt(dm.paid_amt)}đ</div>` : ''}`;
+      })()}
       ${s.st === 'kt' ? html`<div class="bc-m">Thiếu: ${(ktById.get(s.report_id).missing || []).map((m) => (m.startsWith('file') ? 'file Fabi' : m.startsWith('chuyển') ? 'CK ngân hàng' : m)).join(', ')}</div>` : ''}`;
     const href = s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
     return s.report_id ? html`<a class="bc ${cls}" href="${href}">${inner}</a>` : html`<div class="bc ${cls}">${inner}</div>`;

@@ -241,6 +241,15 @@ export function makeCa(T, me) {
       return h2;
     },
     app_ca_photo_del({ p_photo }) { const ph = T.shift_report_photos.find((x) => x.id === p_photo); needEdit(ph.report_id); T.shift_report_photos = T.shift_report_photos.filter((x) => x !== ph); return ph.path; },
+    // bước 55: nợ đã thu ở ca nào + đánh dấu Bảng ca
+    app_ca_debts_paid({ p_id }) {
+      return T.shift_debts.filter((d) => d.report_id === p_id && d.closed_at && d.kind !== 'muon').map((d) => { const c = rep(d.closed_report_id); return { id: d.id, report_id: c.id, shift: c.shift, work_date: c.work_date, status: c.status, kind: d.collect_kind, amount: d.amount }; });
+    },
+    app_ca_debt_marks({ p_date }) {
+      return T.shift_reports.filter((r) => r.work_date === p_date).map((r) => ({ report_id: r.id,
+        open_amt: T.shift_debts.filter((d) => d.report_id === r.id && !d.closed_at && d.kind !== 'muon').reduce((a, d) => a + d.amount, 0),
+        paid_amt: T.shift_debts.filter((d) => d.closed_report_id === r.id && d.kind !== 'muon').reduce((a, d) => a + d.amount, 0) }));
+    },
     app_ca_check({ p_id, p_item, p_on }) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
       if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');

@@ -127,7 +127,7 @@ function debtRow(d, ed) {
     <input class="input sm db-table" placeholder="Bàn" aria-label="Bàn" value="${d.table_name || ''}" style="width:90px" ${lock ? 'disabled' : ''}>
     <input class="input sm money db-amt" inputmode="numeric" placeholder="Số tiền" aria-label="Số tiền nợ" value="${fmt(d.amount)}" ${lock ? 'disabled' : ''}>
     <input class="input sm db-note grow" placeholder="Thông tin bàn giao (tên khách, SĐT, hẹn trả...)" aria-label="Ghi chú" value="${d.note || ''}" ${lock ? 'disabled' : ''}>
-    ${d.closed_at ? html`<span class="pill ok">Đã thu ${dt(d.closed_at)}</span>` : ''}
+    ${d.closed_at ? html`<span class="pill ok db-paid" data-debt="${d.id}">Đã thu</span>` : ''}
     ${ed && !d.closed_at ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa khoản nợ">×</button>` : ''}</div>`;
 }
 // SH = khung giờ của ca ở cơ sở này: người theo lịch chưa có giờ thì điền sẵn làm GỢI Ý (sửa được)
@@ -308,11 +308,17 @@ export async function render({ params }) {
   // D. Công nợ
   const secDebt = sec('4. Khách chưa thanh toán (công nợ)', ['cong_no'], html`
     <div class="st-meta" style="font-size:13px">Nợ phát sinh được tính vào doanh thu: <strong>Mục 1 = Mục 2 + Mục 3 + Nợ phát sinh</strong>. Khách trả nợ của ca trước thì bấm <strong>Khách đã trả</strong> và chọn tiền mặt hay chuyển khoản — tiền đó được cộng vào ca này.</div>
-    ${(R.open_debts || []).some((d) => d.kind !== 'muon') ? html`<div class="pc-sub">NỢ TỪ CÁC CA TRƯỚC</div>${R.open_debts.filter((d) => d.kind !== 'muon').map((d) => html`<div class="pc-line carried">
-        <div class="grow"><strong>Bàn ${d.table_name}</strong> · ${vnd(d.amount)} <span class="st-meta">· ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span>
-          ${d.closed_at ? html`<div class="st-meta">Đã thu${d.collect_kind ? ` bằng ${d.collect_kind === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản'}` : ''}: ${d.close_note || ''} · ${d.closed_by_name} ${dt(d.closed_at)}</div>` : ''}</div>
+    ${(() => {   // khách trả nợ: hiện ở đúng ca thu tiền; nợ cũ chưa thu để riêng
+      const od = (R.open_debts || []).filter((d) => d.kind !== 'muon');
+      const paid = od.filter((d) => d.closed_at); const open = od.filter((d) => !d.closed_at);
+      const row = (d) => html`<div class="pc-line carried">
+        <div class="grow"><strong>Bàn ${d.table_name}</strong> · ${vnd(d.amount)} <span class="st-meta">· nợ từ ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span>
+          ${d.closed_at ? html`<div class="st-meta">Trả bằng <strong>${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}</strong> trong ca này${d.close_note && d.close_note !== 'Đã thu' ? ' · ' + d.close_note : ''} · ${d.closed_by_name || ''} ghi</div>` : ''}</div>
         ${edSharedT ? (d.closed_at ? html`<button type="button" class="btn sm secondary debt-close" data-id="${d.id}" data-undo="1">Bỏ đánh dấu</button>`
-          : html`<button type="button" class="btn sm debt-close" data-id="${d.id}" data-amt="${d.amount}" data-table="${d.table_name}">Khách đã trả</button>`) : ''}</div>`)}` : ''}
+          : html`<button type="button" class="btn sm debt-close" data-id="${d.id}" data-amt="${d.amount}" data-table="${d.table_name}">Khách đã trả</button>`) : ''}</div>`;
+      return html`${paid.length ? html`<div class="pc-sub">KHÁCH TRẢ NỢ TRONG CA NÀY <span class="st-meta">— ${vnd(paid.reduce((t, d) => t + Number(d.amount || 0), 0))}, đã cộng vào tiền của ca</span></div>${paid.map(row)}` : ''}
+        ${open.length ? html`<div class="pc-sub">NỢ TỪ CÁC CA TRƯỚC CHƯA THU</div>${open.map(row)}` : ''}`;
+    })()}
     <div class="pc-sub">NỢ PHÁT SINH CA NÀY</div>
     <div id="debts">${(R.debts || []).filter((d) => d.kind !== 'muon').map((d) => debtRow(d, edSharedT))}</div>
     ${edSharedT ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).some((d) => d.kind !== 'muon') ? '' : html`<div class="st-meta">Không có.</div>`}`);
@@ -664,6 +670,14 @@ function mount(R, ed, C0, ctx = {}) {
   }
   // ---------- Bản đối soát: chuyển khoản thực nhận do kế toán nhập
   if (isDs) mountBankOuts($('#bank-outs'), R.id, () => rerender());   // bước 54: phiếu chi chuyển khoản
+  // bước 55: nợ của ca này đã thu ở ca nào → ghi rõ ca thu, bấm mở ca đó
+  if ($$('.db-paid').length) {
+    rpc('app_ca_debts_paid', { p_id: R.id }).then((L) => (L || []).forEach((x) => {
+      const el = $(`.db-paid[data-debt="${x.id}"]`); if (!el) return;
+      const href = isDs && x.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${x.report_id}` : `#/ca/phieu?id=${x.report_id}`;
+      el.innerHTML = str(html`<a href="${href}" style="color:inherit">Đã thu ở ca ${x.shift} ${dmy(x.work_date)} · ${x.kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} ›</a>`);
+    })).catch(() => {});
+  }
   if (isDs && $('#bank-box')) {
     rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {
       const got = b.received; const ck = R.pos_transfer; const rt = R.reported_transfer;

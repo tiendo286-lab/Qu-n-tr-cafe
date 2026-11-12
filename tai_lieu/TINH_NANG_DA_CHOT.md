@@ -300,6 +300,9 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Số tiền **tự cộng vào "tiền chuyển ra"** của tài khoản ở ca đó → web tự đối soát lại (hết lệch thì tự duyệt + khoá Chuyển khoản). Xoá phiếu thì trừ lại, xoá luôn khoản ở Thu chi / Sổ quỹ; không xoá được khi Chuyển khoản đã khoá hoặc Chủ đã nhận phiếu rút.
 - Người tạo / xoá: Chủ, Quản lý tổng, Kế toán.
 - Phiếu chốt ca, bước **Chuyển khoản hotline**: lệch thì có ô nội dung + nút **"Tạo phiếu chi / thu …đ"** → thêm 1 khoản thu chi chuyển khoản (số tiền = phần lệch) vào Thu chi của ca, hết lệch ngay (không phải quay lại bước Thu chi). Không tạo phiếu thì vẫn phải ghi lý do lệch.
+
+## 5w. Công nợ đã thu hiện ở đúng ca thu — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/55_cong_no_theo_ca_thu.sql`)
+- Tiền khách trả nợ vẫn tính vào ca thu (như cũ). Hiển thị ở tab Đối soát: **ca thu** có phần "Khách trả nợ trong ca này" (bàn, số tiền, tiền mặt / chuyển khoản, nợ từ ca nào); **ca nợ** ghi "Đã thu ở ca … · tiền mặt / chuyển khoản ›" (bấm mở ca thu); **Bảng ca**: ô ca thu ghi "Thu nợ …đ", ô ca nợ chỉ ghi "Có công nợ …đ" khi còn nợ chưa thu. Chỉ tính nợ bàn (khách mượn tiền ở Thu chi).
 - Bước 53 (`supabase/53_sua_trigger_tu_doi_soat.sql`): sửa lỗi bước 51 làm lưu số dư ngân hàng / Chủ duyệt nghỉ & làm thay báo lỗi (khoảng 21:30–21:45 ngày 12/11).
 
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
