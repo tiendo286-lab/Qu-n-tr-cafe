@@ -70,6 +70,9 @@ export default async ({ sleep, out }) => {
     num('ipos_opening', '2900000'); num('total_revenue', '1500000'); num('pos_transfer', '1000000'); num('pos_cash', '472000'); num('pos_debt', '28000'); num('cash_counted', '3371000');
     $('[data-sign="-1"]').click(); await sleep(300); num('pos_diff', '1000'); await sleep(300);
     r.push(`Chiều số dư đầu lệch: ${txt('#cm-checks')} · ô lý do ${!!$('#cm-open-note')}`);
+    // bước 45: cách 2 — mở ca với tiền gối đầu 1.000.000, phần dư ca sáng để lại là nộp quỹ khi giao ca
+    num('ipos_opening', '1000000'); num('cash_counted', '1471000'); await sleep(400);
+    r.push(`Chiều mở 1 triệu: ${txt('#cm-checks')} · ô lý do ${!!$('#cm-open-note')}`);
     num('ipos_opening', '3020000'); num('cash_counted', '3491000'); await sleep(400);
     r.push(`Chiều sửa: ${txt('#cm-checks')}`);
     // khách mượn ca sáng trả 50.000 tiền mặt ở ca chiều: két thêm 50.000, Fabi không biết → chênh lệch +49.000

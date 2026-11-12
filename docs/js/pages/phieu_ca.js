@@ -84,6 +84,7 @@ function handPill(h) {
   if (h.state === 'khop') return html`<span class="pill ok">KHỚP${h.gap ? ` (lệch ${signed(h.gap)}, trong mức cho qua ${fmt(h.tol)}đ)` : ''}</span>`;
   if (h.state === 'can_dem_lai') return html`<span class="pill off">LỆCH ${signed(h.gap)} — cần 2 người đếm lại</span>`;
   if (h.state === 'lech') return html`<span class="pill off">LỆCH ${signed(h.gap)} — tính cho ca ${h.prev_shift}</span>`;
+  if (h.state === 'rut_quy') return html`<span class="pill ok">Mở ca với tiền gối đầu — ${fmt(h.rut)}đ nộp quỹ khi giao ca</span>`;
   if (h.state === 'cho_ca_truoc') return html`<span class="pill mute">Chờ ca ${h.prev_shift} hoàn thành phiếu</span>`;
   if (h.state === 'khong_ca_truoc') return html`<span class="pill mute">Không có phiếu ca trước để so</span>`;
   return html`<span class="pill mute">Chưa đếm nhận két</span>`;

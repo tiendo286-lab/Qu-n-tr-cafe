@@ -66,7 +66,9 @@ export async function renderNew(R0, P, SH) {
       tmLeft: ok('cash_counted', 'ipos_opening', 'pos_cash') ? f.cash_counted - op - f.pos_cash - (mvTM - sal - loanOut) - colTM : null,
       ckExp: (f.pos_transfer || 0) + mvCK + colCK,
       ckLeft: V.reported_transfer === null || f.pos_transfer === null ? null : V.reported_transfer - f.pos_transfer - mvCK - colCK,
-      startBad: expStart && f.ipos_opening !== null && f.ipos_opening !== expStart.v,
+      // bước 45: ca chiều / tối mở với tiền gối đầu 1.000.000 → phần dư ca trước để lại là "nộp quỹ khi giao ca" (không phải lệch)
+      rutQuy: !first && prevCash !== null && f.ipos_opening === GOI_DAU && prevCash > GOI_DAU ? prevCash - GOI_DAU : 0,
+      startBad: expStart && f.ipos_opening !== null && f.ipos_opening !== expStart.v && !(!first && prevCash !== null && f.ipos_opening === GOI_DAU && prevCash > GOI_DAU),
     };
   }
 
@@ -99,6 +101,7 @@ export async function renderNew(R0, P, SH) {
     const c = money(); const out = []; let bad = false;
     if (V.f.ipos_opening !== null && expStart) {
       out.push(c.startBad ? html`<div>🔴 Số dư đầu <b>${fmt(V.f.ipos_opening)}</b> khác ${expStart.src} (<b>${fmt(expStart.v)}</b>), lệch <b>${signed(V.f.ipos_opening - expStart.v)}</b> — ghi lý do bên dưới</div>`
+        : c.rutQuy ? html`<div>✅ Số dư đầu <b>${fmt(GOI_DAU)}</b> (tiền gối đầu) — phần dư <b>${fmt(c.rutQuy)}</b> của ${expStart.src.toLowerCase()} tính là <b>nộp quỹ khi giao ca</b></div>`
         : html`<div>✅ Số dư đầu đúng bằng ${expStart.src} (<b>${fmt(expStart.v)}</b>)</div>`);
     } else if (V.f.ipos_opening !== null && hand && hand.state === 'cho_ca_truoc') out.push(html`<div>⏳ Ca ${hand.prev_shift} chưa gửi phiếu nên chưa so được số dư đầu — web sẽ so khi ca ${hand.prev_shift} gửi.</div>`);
     if (c.sumGap !== null) {

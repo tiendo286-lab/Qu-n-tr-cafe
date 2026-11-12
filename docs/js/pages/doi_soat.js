@@ -53,7 +53,7 @@ export async function render({ params }) {
 
   const dayCard = (d) => {
     const ready = d.done >= d.shifts && d.shifts > 0;
-    const expected = d.opening === null || d.pos_cash === null ? null : Number(d.opening) + Number(d.pos_cash) + Number(d.moves_cash) + Number(d.debt_cash || 0);
+    const expected = d.opening === null || d.pos_cash === null ? null : Number(d.opening) + Number(d.pos_cash) + Number(d.moves_cash) + Number(d.debt_cash || 0) - Number(d.rut_giao_ca || 0);
     const gap = d.counted === null || expected === null ? null : Number(d.counted) - expected;
     return html`<section class="card stack ds-day" style="gap:10px;padding:16px">
       <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap"><strong>${d.branch_code} – ${d.branch_name}</strong>
@@ -65,6 +65,7 @@ export async function render({ params }) {
         <div>Tổng tiền mặt POS ${d.done} ca</div><div>${vnd(d.pos_cash)}</div>
         <div>Thu/chi tiền mặt đã kê khai</div><div>${signed(d.moves_cash)}</div>
         ${Number(d.debt_cash) ? html`<div>Khách trả nợ bằng tiền mặt</div><div>${signed(d.debt_cash)}</div>` : ''}
+        ${Number(d.rut_giao_ca) ? html`<div>Nộp quỹ khi giao ca (ca sau mở với tiền gối đầu)</div><div>${signed(-d.rut_giao_ca)}</div>` : ''}
         <div><strong>Tiền mặt phải có</strong></div><div><strong>${vnd(expected)}</strong></div>
         <div>Tiền trong két cuối ca ${d.last_shift || ''} (NV đếm)</div><div>${vnd(d.last_counted)}</div>
         <div>Tiền quản lý kiểm đếm</div><div>${d.counted === null ? '—' : html`${vnd(d.counted)} <span class="st-meta">${d.done_by} · ${dt(d.done_at)}</span>`}</div>

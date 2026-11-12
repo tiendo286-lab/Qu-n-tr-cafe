@@ -42,10 +42,10 @@ export function makeCa(T, me) {
     const cnt = eff(id).opening_cash ?? null; const pc = prev && prev.status === 'hoan_thanh' ? eff(prev.id).cash_counted : null;
     const gap = cnt !== null && pc !== null ? cnt - pc : null;
     const st = cnt === null ? (prev && prev.status !== 'hoan_thanh' ? 'cho_ca_truoc' : 'chua_dem') : !prev ? 'khong_ca_truoc' : pc === null ? 'cho_ca_truoc'
-      : Math.abs(gap) <= TOL ? 'khop' : r.open_first_count != null && !r.open_recount_at ? 'can_dem_lai' : 'lech';
+      : Math.abs(gap) <= TOL ? 'khop' : cnt === 1000000 && pc > 1000000 ? 'rut_quy' : r.open_first_count != null && !r.open_recount_at ? 'can_dem_lai' : 'lech';   // bước 45
     const ge = T.employees.find((e) => e.id === r.open_giver_emp);
     return { state: st, prev_id: prev?.id ?? null, prev_shift: ps, prev_status: prev?.status ?? null, prev_cash: pc, counted: cnt, first_count: r.open_first_count ?? null, gap,
-      gap_eff: ['lech', 'can_dem_lai'].includes(st) ? gap : 0, counted_by: name(r.open_counted_by), counted_at: r.open_counted_at || null, blind: !!r.open_counted_at,
+      gap_eff: ['lech', 'can_dem_lai'].includes(st) ? gap : 0, rut: st === 'rut_quy' ? pc - cnt : 0, counted_by: name(r.open_counted_by), counted_at: r.open_counted_at || null, blind: !!r.open_counted_at,
       giver_id: r.open_giver_emp || null, giver: ge ? `${ge.code} – ${ge.name}` : null, recount_at: r.open_recount_at || null, ipos_opening: r.ipos_opening ?? null, tol: TOL,
       prev_staff: prev ? T.shift_report_staff.filter((x) => x.report_id === prev.id && x.worked).map((x) => { const e = T.employees.find((y) => y.id === x.employee_id) || {}; return { id: e.id, name: `${e.code} – ${e.name}` }; }) : [] };
   };

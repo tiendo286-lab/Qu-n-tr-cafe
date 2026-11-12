@@ -255,6 +255,12 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - File Fabi hoặc số ngân hàng sửa sau khi đã đối soát → tự mở lại đối soát (như hiện nay).
 - **Lela Box (LLB)**: để sau — tạm đối soát như hiện nay (không chờ).
 
+## 5p. Số dư đầu ca: web nhận cả 2 cách — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/45_so_du_dau_ca_2_cach.sql`)
+- Ca sáng: Số dư đầu luôn 1.000.000 (khác thì ghi lý do — như cũ).
+- Ca chiều / tối, **cách 1**: Số dư đầu = đúng tiền ca trước để lại trong két → KHỚP.
+- Ca chiều / tối, **cách 2**: Số dư đầu = **1.000.000** (tiền gối đầu) trong khi ca trước để lại nhiều hơn → phần dư là **"Nộp quỹ khi giao ca"**: không bắt ghi lý do, không tính lệch cho ca nào; tự thành dòng nộp quỹ trong **Sổ quỹ tiền mặt**; Đối soát tiền mặt cuối ngày và Chốt tháng trừ khoản này khỏi tiền phải có trong két.
+- Số dư đầu khác cả 2 cách → báo lệch, bắt ghi lý do (như cũ). Tiền nộp quỹ mà không thực sự vào quỹ sẽ lộ ra khi **kiểm quỹ** (Sổ quỹ).
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
