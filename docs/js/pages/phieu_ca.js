@@ -505,7 +505,9 @@ function collect() {
 function mount(R, ed, C0, ctx = {}) {
   const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep } = ctx;
   let saveNow = null;
-  if (isDs) { mountLights($('#ds-lights'), R0, R); mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, { sum: $('#ds-cv-sum'), onChange: () => rerender() }); }
+  // khung Nghỉ & làm thay: trước khi lưu phân loại thì lưu danh sách nhân viên đang sửa; danh sách đổi thì vẽ lại khung
+  const cvCtx = { sum: $('#ds-cv-sum'), onChange: () => rerender(), flush: () => (saveNow ? saveNow() : null) };
+  if (isDs) { mountLights($('#ds-lights'), R0, R); mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, cvCtx); }
   const form = $('#pc-form');
   bindMoneyInputs(form);
   // Bản đối soát: ghi "Phiếu NV: …" ở ô khác phiếu nhân viên
@@ -763,6 +765,7 @@ function mount(R, ed, C0, ctx = {}) {
 
   // ---------- tự động lưu
   let timer = null; let saving = null; let dirty = false;
+  let staffKey = JSON.stringify(collect().staff);
   saveNow = async () => {
     clearTimeout(timer);
     if (saving) { await saving; if (!dirty) return; }
@@ -778,6 +781,8 @@ function mount(R, ed, C0, ctx = {}) {
         (res.debt_ids || []).forEach((nid, i) => { if (nid && dbRows[i]) dbRows[i].dataset.id = nid; });
       }
       if (!res?.skipped) showSaved((isDs ? 'Đã lưu bản đối soát · ' : 'Đã lưu · ') + hhmm());
+      const sk = JSON.stringify(payload.staff);
+      if (sk !== staffKey) { staffKey = sk; if (isDs) mountCover($('#ds-cv'), R, cvCtx); }
     }).catch((e) => { dirty = true; showSaved('Chưa lưu được: ' + e.message, true); throw e; }).finally(() => { saving = null; });
     return saving;
   };

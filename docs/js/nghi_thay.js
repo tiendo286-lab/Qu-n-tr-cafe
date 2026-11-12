@@ -115,12 +115,12 @@ export async function mountCover(box, R, ctx = {}) {
     }));
     box.querySelector('#cv-save').addEventListener('click', async () => {
       if (x2Need()) { err('Tích x2 thì chọn người được x2.'); return; }
-      try { await rpc('app_cv_save', { p_id: R.id, p_items: items() }); ctx.onChange?.(); } catch (e) { err(e.message); }
+      try { await ctx.flush?.(); await rpc('app_cv_save', { p_id: R.id, p_items: items() }); ctx.onChange?.(); } catch (e) { err(e.message); }
     });
     box.querySelector('#cv-ok')?.addEventListener('click', async () => {
       if (x2Need()) { err('Tích x2 thì chọn người được x2.'); return; }
       const note = prompt('Duyệt nghỉ / làm thay. Ghi chú (không bắt buộc):', ''); if (note === null) return;
-      try { await rpc('app_cv_approve', { p_id: R.id, p_items: items(), p_note: note }); ctx.onChange?.(); } catch (e) { err(e.message); }
+      try { await ctx.flush?.(); await rpc('app_cv_approve', { p_id: R.id, p_items: items(), p_note: note }); ctx.onChange?.(); } catch (e) { err(e.message); }
     });
   }
   draw();
