@@ -34,7 +34,8 @@ export default async ({ sleep, out }) => {
     const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg'));
     const dt = new DataTransfer(); dt.items.add(new File([blob], 'phieu.jpg', { type: 'image/jpeg' }));
     const inp = $('#cm-photo'); inp.files = dt.files; inp.dispatchEvent(new Event('change')); await sleep(1500);
-    r.push(`ảnh: ${$$('.cm-photos figure').length}`);
+    { const b = $('.cm-ph')?.getBoundingClientRect() || {}; const top = $('.cm-num[data-f="ipos_opening"]').getBoundingClientRect().top - $('#cm-body').getBoundingClientRect().top;
+      r.push(`ảnh: ${$$('.cm-photos figure').length} · ô ảnh ${Math.round(b.width || 0)}x${Math.round(b.height || 0)} · ${txt('.cm-phact')} · ô Số dư đầu cách đầu thẻ ${Math.round(top)}px`); }
     setv($('#cm-close'), '12:39');
     num('ipos_opening', '1000000'); num('total_revenue', '5000000'); num('pos_transfer', '3000000'); num('pos_cash', '2200000'); num('pos_debt', '0'); num('cash_counted', '3020000'); num('pos_diff', '20000');
     await sleep(200); r.push(`gõ nhầm tiền mặt: ${txt('#cm-checks')}`);
