@@ -47,6 +47,7 @@ export default async ({ sleep, out }) => {
     r.push(`Sau khi chọn bàn 13 trả tiền mặt: ${txt('#cm-checks')}`);
     $('#cm-next').click(); await sleep(900);
     r.push(`Bấm Tiếp → ${txt('#cm-root h2')} · ${txt('#cm-err')}`);
+    r.push(`Bước Khách nợ: ô chọn trả nợ ${document.querySelectorAll('#cm-body [data-paid]').length} · ${txt('#cm-body')} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'khách trả nợ ở bước Phiếu Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

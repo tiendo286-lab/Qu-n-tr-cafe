@@ -181,10 +181,8 @@ export async function renderNew(R0, P, SH) {
           <input class="input sm cm-wide" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="Tên khách, SĐT, hẹn trả…" ${d.closed_at ? 'disabled' : ''}>
           ${d.closed_at ? html`<span class="pill ok">Đã thu</span>` : html`<button type="button" class="btn sm secondary danger" data-dbx="${i}" aria-label="Xóa dòng">×</button>`}</div>`)}
         ${V.f.pos_debt ? html`<div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-debt">+ Thêm bàn nợ</button><span class="st-meta" id="cm-debt-sum">Đã ghi ${fmt(billSum())} / ${fmt(V.f.pos_debt)}</span></div>` : ''}
-        <h3 style="margin:8px 0 0">Khách trả nợ cũ trong ca</h3>
-        ${od.length ? od.map(debtPayRow)
-          : html`<div class="st-meta">Không có khoản nợ cũ nào đang chờ trả.</div>`}
-        <div class="st-meta">Trả tiền mặt: Fabi đã cộng vào tiền phải có trong két. Trả chuyển khoản: web cộng vào số phải thấy trên hotline.</div>`;
+        ${(() => { const paid = od.filter((d) => d.closed_report_id === R.id);   // đã chọn ở bước Phiếu Fabi — không ghi lại
+          return paid.length ? html`<div class="st-meta" style="margin-top:6px">✓ Khách trả nợ cũ (đã chọn ở bước Phiếu Fabi): ${paid.map((d) => `bàn ${d.table_name} ${fmt(d.amount)}đ · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}`).join(', ')}</div>` : ''; })()}`;
     },
     4: () => html`<div class="st-meta">Cộng các giao dịch chuyển khoản <strong>đã nhận trên hotline</strong> trong ca rồi nhập tổng.</div>
         <label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span><input class="input money" id="cm-hot" inputmode="numeric" autocomplete="off" value="${V.reported_transfer === null ? '' : fmt(V.reported_transfer)}"></label>
