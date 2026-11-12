@@ -5,6 +5,7 @@ import { render as rerender } from './app.js';
 import { rpc } from './sb.js';
 import { fmt, signed } from './tien.js';
 import { $, html, showSaved, str } from './ui.js';
+import { openBankOut } from './phieu_chi_ck.js';
 
 const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
 const LBL = { nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', thoi_gian: 'Thời gian doanh thu', doanh_thu: 'Doanh thu & số cốc', tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ', nhap_hang: 'Nhập hàng' };
@@ -60,7 +61,7 @@ export async function mountLights(box, R0, R) {
     <div class="den-list">${J.map((x) => html`<div class="den-row ${lk.has(x.item) ? 'done auto' : x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${lk.has(x.item) ? '🔒 ' : ''}${LBL[x.item]}</strong>
         <span class="st-meta">${lk.has(x.item) ? '✓ web tự đối soát — đã khoá' : x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
         ${lk.has(x.item) ? (LK.can_unlock ? html`<button type="button" class="btn sm secondary den-unlock" data-item="${x.item}">Mở khoá</button>` : '')
-          : !x.done && !x.ok && !x.wait && !locked ? html`<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button>` : ''}</div>`)}</div>
+          : !x.done && !x.ok && !x.wait && !locked ? html`<span class="den-acts">${x.item === 'chuyen_khoan' && Number((R0.money || {}).ck_left) < 0 ? html`<button type="button" class="btn sm den-pc">Tạo phiếu chi</button>` : ''}<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button></span>` : ''}</div>`)}</div>
     ${locked ? '' : html`<div class="toolbar" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="den-ok" ${green.length ? '' : 'disabled'}>Duyệt các mục xanh${green.length ? ` (${green.length})` : ''}</button>
       <span class="st-meta">${red.length ? `Còn ${red.length} mục đỏ cần xử lý — bấm "Xử lý" để tới đúng chỗ.` : waitN ? `${waitN} mục tiền chờ kế toán.` : green.length ? 'Không còn mục đỏ. Duyệt xong là hoàn thành đối soát.' : ''}</span></div>`}`);
   $('#den-ok', box)?.addEventListener('click', async (ev) => {
@@ -72,6 +73,10 @@ export async function mountLights(box, R0, R) {
       }
       showSaved(`Đã duyệt ${green.length} mục xanh`); rerender();
     } catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
+  });
+  $('.den-pc', box)?.addEventListener('click', async () => {
+    try { const D = await rpc('app_ca_bank_outs', { p_id: R0.id }); if (!D.can) { showSaved('Chỉ Chủ, Quản lý tổng, Kế toán tạo phiếu chi.', true); return; } openBankOut(R0.id, D, () => rerender()); }
+    catch (e) { showSaved(e.message, true); }
   });
   box.querySelectorAll('.den-unlock').forEach((b) => b.addEventListener('click', async () => {
     const why = prompt(`Mở khoá mục "${LBL[b.dataset.item]}" (web đã tự đối soát). Ghi lý do:`, '');
@@ -87,6 +92,7 @@ export const DEN_CSS = html`<style>
   .den-list { display: flex; flex-direction: column; gap: 6px; }
   .den-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
   .den-row.auto > :not(.den-unlock) { opacity: .5; }
+  .den-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .den-row.r { border-color: var(--off-line); } .den-row.g { border-color: var(--ok-line); } .den-row.w { border-style: dashed; opacity: .8; }
   .den-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--line-strong); }
   .den-row.g .den-dot, .den-row.done .den-dot { background: var(--ok-line); } .den-row.r .den-dot { background: var(--off-line); }

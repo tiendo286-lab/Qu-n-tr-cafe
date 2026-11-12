@@ -11,6 +11,7 @@ import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
 import { renderNew } from '../chot_ca_moi.js';
 import { DEN_CSS, mountLights } from '../doi_soat_den.js';
+import { mountBankOuts } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
 export const perm = 'chot_ca';
@@ -292,7 +293,7 @@ export async function render({ params }) {
   const secDiff = sec('3. Chênh lệch và chi tiết thu chi', ['tien_mat', 'chuyen_khoan', 'thu_chi'], html`
     <div class="pc-grid" id="diff-box"></div>
     ${isDs && R0.money && R0.money.next_hand ? nextHandCard(R0.money.next_hand, R.shift) : ''}
-    ${isDs ? html`<div id="bank-box"></div>` : ''}
+    ${isDs ? html`<div id="bank-box"></div><div id="bank-outs" class="diff-card"></div>` : ''}
     ${done && (R.shortfalls || []).length ? html`<div class="ka-box"><div class="pc-sub" style="margin:0">KHOẢN ÂM ĐÃ GÁN CHO NHÂN VIÊN</div>
       ${R.shortfalls.map((k) => html`<div class="pc-line"><strong>${k.employee}</strong> · ${CHECK_LABEL[k.item]} · ${vnd(k.amount)} <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}</span>${k.seen_at ? html`<span class="st-meta">đã xem</span>` : ''}${k.reply ? html`<span class="st-meta">· giải trình: ${k.reply}</span>` : ''}</div>`)}
       <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am">Mở phiếu trừ lương trong Thu chi</a></div>` : ''}
@@ -662,6 +663,7 @@ function mount(R, ed, C0, ctx = {}) {
     loadTc();
   }
   // ---------- Bản đối soát: chuyển khoản thực nhận do kế toán nhập
+  if (isDs) mountBankOuts($('#bank-outs'), R.id, () => rerender());   // bước 54: phiếu chi chuyển khoản
   if (isDs && $('#bank-box')) {
     rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {
       const got = b.received; const ck = R.pos_transfer; const rt = R.reported_transfer;

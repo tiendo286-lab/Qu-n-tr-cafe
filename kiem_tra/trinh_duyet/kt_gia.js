@@ -29,7 +29,32 @@ export function makeKt(T, me) {
       updated_by: last ? name(last.updated_by) : null, updated_at: last?.updated_at || null, locked: r.recon_status === 'hoan_thanh' };
   };
   T.__bankJson = (id) => bankJson(rep(id));   // bước 44: fb_gia tính tình trạng kế toán
+  // bước 54: phiếu chi chuyển khoản ở trang Đối soát (cộng vào tiền chuyển ra của tài khoản ở ca)
+  const OUTS = []; const CATS = [{ id: 901, name: 'Nguyên liệu' }, { id: 902, name: 'Sửa chữa' }];
+  const ckLeft = (r) => { const b = bankJson(r); return b.received != null && b.entered === b.account_count ? b.received - (r.pos_transfer || 0) : null; };
+  const canOut = () => me.role === 'chu' || !!me.perms.ke_toan;
   return {
+    app_ca_bank_outs({ p_id }) {
+      const r = rep(p_id); const mine = BAL[p_id] || {};
+      return { can: canOut() && r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh', ck_left: ckLeft(r), bank_ok: ckLeft(r) !== null,
+        locked: (T.__autoLock?.[p_id] || []).includes('chuyen_khoan'),
+        rows: OUTS.filter((o) => o.report_id === p_id).map((o) => ({ ...o, account: (() => { const k = ACC.find((a) => a.id === o.account_id); return `${k.bank} ${k.account_no}`; })(), category: CATS.find((c) => c.id === o.category_id)?.name || null, fund_status: o.kind === 'rut_quy' ? 'cho_nhan' : null })),
+        accounts: ACC.filter((k) => k.branch_id === r.branch_id).map((k) => ({ id: k.id, label: `${k.bank} ${k.account_no}${k.holder ? ' · ' + k.holder : ''}`, entered: mine[k.id]?.opening != null && mine[k.id]?.closing != null })),
+        categories: CATS };
+    },
+    app_ca_bank_out_save({ p_id, p }) {
+      if (!canOut()) throw new Error('Chỉ Chủ, Quản lý tổng, Kế toán tạo phiếu chi ở đây.');
+      if (!p.amount || p.amount <= 0) throw new Error('Nhập số tiền lớn hơn 0.');
+      if (!(p.note || '').trim()) throw new Error('Ghi nội dung phiếu chi (chi gì / ai rút).');
+      if (p.kind === 'chi_phi' && !p.category_id) throw new Error('Chọn nhóm chi.');
+      const x = BAL[p_id]?.[p.account_id]; if (!x || x.opening == null) throw new Error('Tài khoản chưa có số dư đầu / cuối của ca này.');
+      const id = seq++; OUTS.push({ id, report_id: p_id, account_id: p.account_id, kind: p.kind, amount: p.amount, category_id: p.category_id, note: p.note.trim(), by: name(me.account_id), at: now() });
+      x.transfers_out = (x.transfers_out || 0) + p.amount; return id;
+    },
+    app_ca_bank_out_delete({ p_out }) {
+      const o = OUTS.find((x) => x.id === p_out); if ((T.__autoLock?.[o.report_id] || []).includes('chuyen_khoan')) throw new Error('Mục Chuyển khoản web đã tự đối soát nên đã KHOÁ.');
+      BAL[o.report_id][o.account_id].transfers_out -= o.amount; OUTS.splice(OUTS.indexOf(o), 1);
+    },
     app_kt_invoices: ({ p_from, p_to, p_branch }) => INV.filter((i) => (!p_from || i.work_date >= p_from) && (!p_to || i.work_date <= p_to) && (!p_branch || i.branch_id === p_branch)).map(json).reverse(),
     app_kt_invoice_save({ p_id, p_branch, p_date, p_note }) { if (!p_branch) throw new Error('Chọn cơ sở nhận.'); if (!p_id) { const id = seq++; INV.push({ id, branch_id: p_branch, work_date: p_date, note: p_note || null, created_by: me.account_id, created_at: now() }); return id; } Object.assign(INV.find((i) => i.id === p_id), { branch_id: p_branch, work_date: p_date, note: p_note }); return p_id; },
     app_kt_invoice_file_add({ p_invoice, p_path, p_name, p_mime, p_size }) { const id = seq++; FILES.push({ id, invoice_id: p_invoice, path: p_path, name: p_name, mime: p_mime, size: p_size }); return id; },

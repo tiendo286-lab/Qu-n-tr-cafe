@@ -294,6 +294,13 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Web xét lại sau mỗi lần: tải file Fabi, số dư ngân hàng đổi, Chủ duyệt nghỉ & làm thay. Mục tự duyệt không còn khớp (vd tải lại file khác số) → web tự bỏ khoá; ca đã hoàn thành thì MỞ LẠI.
 - **Chỉ Chủ mở khoá** từng mục (nút "Mở khoá" ở Đèn đối soát, ghi lý do, lưu lịch sử). Mở lại phiếu cho nhân viên sửa vẫn xoá hết như cũ. Lela Box (không dùng Fabi) không tự đối soát.
 
+## 5v. Phiếu chi chuyển khoản ở tab Đối soát — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/54_phieu_chi_chuyen_khoan.sql`)
+- Chuyển khoản của ca lệch vì tiền đã đi ra khỏi tài khoản → trang Đối soát ca có nút **"Tạo phiếu chi"** (dòng Chuyển khoản đỏ ở Đèn đối soát) và khung **"Phiếu chi chuyển khoản của ca"** (dưới Chuyển khoản thực nhận).
+- Chọn 1 trong 2: **Chi phí của quán** (chọn nhóm chi → Thu chi của tháng, hình thức chuyển khoản) hoặc **Chủ / quản lý rút tiền** (→ Sổ quỹ, phiếu rút chuyển khoản chờ Chủ xác nhận). Chọn tài khoản tiền đi ra, số tiền (gợi ý = phần thiếu), nội dung.
+- Số tiền **tự cộng vào "tiền chuyển ra"** của tài khoản ở ca đó → web tự đối soát lại (hết lệch thì tự duyệt + khoá Chuyển khoản). Xoá phiếu thì trừ lại, xoá luôn khoản ở Thu chi / Sổ quỹ; không xoá được khi Chuyển khoản đã khoá hoặc Chủ đã nhận phiếu rút.
+- Người tạo / xoá: Chủ, Quản lý tổng, Kế toán.
+- Bước 53 (`supabase/53_sua_trigger_tu_doi_soat.sql`): sửa lỗi bước 51 làm lưu số dư ngân hàng / Chủ duyệt nghỉ & làm thay báo lỗi (khoảng 21:30–21:45 ngày 12/11).
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
