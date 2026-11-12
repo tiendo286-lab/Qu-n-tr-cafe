@@ -230,9 +230,31 @@ export async function renderNew(R0, P, SH) {
           <li>Két: số dư đầu ${fmt(V.f.ipos_opening)} → đếm cuối ca <b>${fmt(V.f.cash_counted)}</b> (chênh lệch trên phiếu ${signed(V.f.pos_diff)})</li>
           <li>${V.debts.some((d) => !isLoan(d)) ? `Khách nợ: ${V.debts.filter((d) => !isLoan(d)).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}` : 'Không có khách nợ mới'}</li>
           ${V.debts.some(isLoan) ? html`<li>Khách mượn tiền: ${V.debts.filter(isLoan).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}</li>` : ''}
-          <li>Chuyển khoản hotline ${fmt(V.reported_transfer)} ${c.ckLeft ? '(lệch, đã ghi lý do)' : '✓'}</li>
           <li>${V.moves.length ? `${V.moves.length} khoản thu chi` : 'Không có thu chi'} · ${V.cups} cốc</li></ul>
-        <div class="alert ${c.tmLeft === 0 ? 'ok' : 'error'}"><b>${c.tmLeft === 0 ? 'Tiền: KHỚP ✓' : 'Tiền: LỆCH ' + signed(c.tmLeft)}</b>${c.tmLeft ? ' · lý do: ' + V.diff_note : ''}</div>
+        ${(() => {   // tiền THỰC TẾ thu về trong ca: doanh thu trừ nợ mới chưa thu, cộng khách trả nợ cũ / trả tiền mượn, ± thu chi
+          const op = first ? GOI_DAU : V.f.ipos_opening; const tmIn = V.f.pos_cash + c.colTM + (c.mvTM - c.sal) - c.loanOut; const tmMust = op + tmIn;
+          const ln = (lbl, v, show = true) => (show ? html`<div>${lbl}</div><div>${signed(v)}</div>` : '');
+          return html`<div class="cm-real">
+            <div class="cm-rc"><div class="pc-sub" style="margin:0">TIỀN MẶT THỰC TẾ</div><div class="kv">
+              <div>Tiền mặt bán hàng (phiếu Fabi)</div><div>${fmt(V.f.pos_cash)}</div>
+              ${ln('+ Khách trả nợ cũ (tiền mặt)', c.colTMbill, !!c.colTMbill)}${ln('+ Khách trả tiền mượn (tiền mặt)', c.colTMloan, !!c.colTMloan)}
+              ${ln('Thu / chi tiền mặt trong ca', c.mvTM - c.sal, !!(c.mvTM - c.sal))}${ln('− Khách mượn tiền', -c.loanOut, !!c.loanOut)}
+              <div><strong>= Tiền mặt thực thu trong ca</strong></div><div><strong>${fmt(tmIn)}</strong></div>
+              <div>+ Số dư đầu ca</div><div>${fmt(op)}</div>
+              <div><strong>= Phải có trong két</strong></div><div><strong>${fmt(tmMust)}</strong></div>
+              <div>Đếm thực tế (Tổng tiền)</div><div>${fmt(V.f.cash_counted)}</div></div>
+              <div class="alert ${c.tmLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.tmLeft === 0 ? 'Tiền mặt: KHỚP ✓' : 'Tiền mặt: LỆCH ' + signed(c.tmLeft)}</b>${c.tmLeft ? ' · lý do: ' + V.diff_note : ''}</div></div>
+            <div class="cm-rc"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN THỰC TẾ</div><div class="kv">
+              <div>Chuyển khoản bán hàng (phiếu Fabi)</div><div>${fmt(V.f.pos_transfer)}</div>
+              ${ln('+ Khách trả nợ cũ / trả tiền mượn (chuyển khoản)', c.colCK, !!c.colCK)}${ln('Thu / chi chuyển khoản', c.mvCK, !!c.mvCK)}
+              <div><strong>= Phải nhận trên hotline</strong></div><div><strong>${fmt(c.ckExp)}</strong></div>
+              <div>Hotline nhân viên cộng</div><div>${fmt(V.reported_transfer)}</div></div>
+              <div class="alert ${c.ckLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.ckLeft === 0 ? 'Chuyển khoản: KHỚP ✓' : 'Chuyển khoản: LỆCH ' + signed(c.ckLeft)}</b>${c.ckLeft ? ' · lý do: ' + V.transfer_note : ''}</div></div>
+            <div class="cm-rc cm-rt"><div class="kv"><div><strong>Tổng tiền thực thu trong ca</strong> <span class="st-meta">(tiền mặt + chuyển khoản)</span></div><div><strong>${fmt(tmIn + c.ckExp)}</strong></div>
+              <div>Doanh thu NET (phiếu Fabi)</div><div>${fmt(V.f.total_revenue)}</div>
+              ${V.f.pos_debt ? html`<div>· trong đó khách nợ mới, chưa thu</div><div>${fmt(V.f.pos_debt)}</div>` : ''}
+              ${c.colTM + c.colCK ? html`<div>· thu thêm nợ cũ / tiền mượn của ca trước</div><div>${signed(c.colTM + c.colCK)}</div>` : ''}</div></div>
+          </div>`; })()}
         ${CV_CSS}<section class="stack" id="cm-cv" style="gap:8px" hidden></section>`;
     },
   };
@@ -479,6 +501,8 @@ const CM_CSS = html`<style>
   .cm-line2 { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 6px; align-items: center; }
   .cm-big { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .cm-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .cm-real { display: flex; flex-direction: column; gap: 10px; } .cm-rc { border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+  .cm-rc .kv { grid-template-columns: minmax(0, 1fr) auto; } .cm-rc .kv > div:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; } .cm-rt { background: var(--subtle, var(--line-soft)); }
   .cm-phrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .cm-photos { display: flex; gap: 6px; flex-wrap: wrap; }
   .cm-thumb { position: relative; margin: 0; width: 76px; height: 76px; flex: none; background: var(--line-soft); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
