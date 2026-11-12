@@ -6,24 +6,28 @@ export function makeCv(T, me) {
   { const e = T.employees.find((x) => x.status === 'Đang làm' && x.id > 10); if (e) e.pay_cash = true; }
   const emp = (id) => T.employees.find((e) => e.id === id) || { code: '?', name: '?' };
   const hrs = (a, b) => { if (!a || !b) return 0; const m = (x) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5)); return Math.round((((m(b) - m(a)) + 1440) % 1440) / 60 * 100) / 100; };
-  const LBL = { tu_tim: 'Tự tìm người thay', nho_ql: 'Nhờ quản lý tìm người', ma_chay: 'Ma chay tứ thân phụ mẫu', thieu_lich: 'Quản lý không xếp đủ lịch' };
+  const LBL = { tu_tim: 'Tự tìm người thay', nho_ql: 'Nhờ quản lý tìm người', ma_chay: 'Quản lý đồng ý cho nghỉ (không trừ lương)', thieu_lich: 'Quản lý không xếp đủ lịch', bo_ca: 'Bỏ ca (phạt 200.000đ)' };
   const people = (id) => (T.__eff(id).staff || []).filter((s) => (s.source === 'lich' && !s.worked) || (s.source === 'ho_tro' && s.worked))
     .map((s) => ({ employee_id: s.employee_id, kind: s.worked ? 'ho_tro' : 'nghi', hours: hrs(s.time_in, s.time_out), code: emp(s.employee_id).code, name: emp(s.employee_id).name, pay_cash: !!emp(s.employee_id).pay_cash }));
   const state = (id) => {
     const P = people(id); if (!P.length) return 'khong_can';
     const rows = T.shift_covers.filter((c) => c.report_id === id); if (!rows.length) return 'chua_phan_loai';
     const na = P.filter((p) => p.kind === 'nghi').map((p) => p.employee_id).sort().join(); const nh = P.filter((p) => p.kind === 'ho_tro').map((p) => p.employee_id).sort().join();
-    if (na !== rows.filter((r) => r.absent_id).map((r) => r.absent_id).sort().join() || nh !== rows.filter((r) => r.helper_id).map((r) => r.helper_id).sort().join()) return 'lech';
+    // bước 47: người làm thay có thể là người hỗ trợ hoặc người trong lịch có làm
+    const wk = (T.__eff(id).staff || []).filter((s) => s.worked).map((s) => s.employee_id); const nhA = P.filter((p) => p.kind === 'ho_tro').map((p) => p.employee_id); const rh = rows.filter((r) => r.helper_id).map((r) => r.helper_id);
+    if (na !== rows.filter((r) => r.absent_id).map((r) => r.absent_id).sort().join() || !nhA.every((h) => rh.includes(h)) || !rh.every((h) => nhA.includes(h) || wk.includes(h))) return 'lech';
+    void nh;
     return T.cover_reviews[id]?.ok_at ? 'da_duyet' : 'cho_duyet';
   };
   const js = (c) => ({ ...c, reason_label: LBL[c.reason], absent: c.absent_id ? `${emp(c.absent_id).code} – ${emp(c.absent_id).name}` : null,
     helper: c.helper_id ? `${emp(c.helper_id).code} – ${emp(c.helper_id).name}` : c.helper_name, outsider: !c.helper_id && !!c.helper_name });
   const write = (id, items) => {
     const P = people(id);
+    if (items.some((i) => i.x2 && !i.helper_id && !i.helper_name)) throw new Error('Tích x2 thì chọn người được x2.');   // bước 47
     for (const p of P.filter((x) => x.kind === 'nghi')) if (!items.some((i) => i.absent_id === p.employee_id && i.reason)) throw new Error('Còn người nghỉ chưa chọn lý do.');
     for (const p of P.filter((x) => x.kind === 'ho_tro')) if (!items.some((i) => i.helper_id === p.employee_id)) throw new Error('Còn người hỗ trợ chưa gắn vào dòng nào.');
     T.shift_covers = T.shift_covers.filter((c) => c.report_id !== id).concat(items.map((i, k) => { const h = Number(i.hours ?? (P.find((p) => p.employee_id === i.helper_id) || {}).hours ?? 0);
-      return { id: Date.now() + k, report_id: id, absent_id: i.absent_id || null, reason: i.reason, helper_id: i.helper_id || null, helper_name: i.helper_id ? null : i.helper_name || null, hours: h, x2: !!i.x2, deduct_hours: i.reason === 'nho_ql' ? h : 0 }; }));
+      return { id: Date.now() + k, report_id: id, absent_id: i.absent_id || null, reason: i.reason, helper_id: i.helper_id || null, helper_name: i.helper_id ? null : i.helper_name || null, hours: h, x2: !!i.x2, fine: i.reason === 'bo_ca' ? 200000 : 0, deduct_hours: i.reason === 'nho_ql' ? h : 0 }; }));
   };
   const isOwner = me.role === 'chu'; const canCls = ['chu', 'ql_tong'].includes(me.role);
   T.account_perms = T.account_perms || [];
@@ -36,7 +40,8 @@ export function makeCv(T, me) {
     },
     app_cv_get({ p_id }) {
       const r = T.shift_reports.find((x) => x.id === p_id); const rv = T.cover_reviews[p_id] || {};
-      return { state: state(p_id), can_classify: canCls, is_owner: isOwner, open: true, recon_status: r.recon_status, people: people(p_id),
+      const workers = (T.__eff(p_id).staff || []).filter((s) => s.source === 'lich' && s.worked).map((s) => ({ employee_id: s.employee_id, code: emp(s.employee_id).code, name: emp(s.employee_id).name, hours: hrs(s.time_in, s.time_out) }));
+      return { state: state(p_id), can_classify: canCls, is_owner: isOwner, open: true, recon_status: r.recon_status, people: people(p_id), workers, fine: 200000,
         rows: T.shift_covers.filter((c) => c.report_id === p_id).map(js), set_by: rv.set_at ? me.name : null, set_at: rv.set_at || null, ok_by: rv.ok_at ? 'admin – Chủ' : null, ok_at: rv.ok_at || null, ok_note: rv.ok_note || null };
     },
     app_cv_save({ p_id, p_items }) { if (!canCls) throw new Error('Chỉ Quản lý tổng / Chủ phân loại nghỉ và làm thay.'); write(p_id, p_items); T.cover_reviews[p_id] = { set_at: now() }; return state(p_id); },

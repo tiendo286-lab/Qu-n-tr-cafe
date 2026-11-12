@@ -26,7 +26,7 @@ export default async ({ sleep, out }) => {
     const staff = (R.staff || []).filter((s) => s.employee_id !== cashE.id && s.employee_id !== helper.id).map((s, i, arr) => { const off = i === arr.length - 1; return { ...s, worked: !off, time_in: off ? null : '06:45', time_out: off ? null : '12:30', absent_reason: off ? 'Báo nghỉ gấp' : null }; });
     staff.push({ employee_id: helper.id, source: 'ho_tro', worked: true, time_in: '06:30', time_out: '12:30' });
     staff.push({ employee_id: cashE.id, source: 'ho_tro', worked: true, time_in: '07:00', time_out: '11:00', cash_paid: 150000 });
-    await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2050000, opening_cash: 1000000, ipos_opening: 1000000, cups: 80,
+    await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2050000, opening_cash: 1000000, ipos_opening: 1000000, cups: 80, pos_debt: 0, pos_diff: -150000, diff_note: 'thử',
       moves: [], staff, handover: [], goods: [], debts: [] } });
     r.push(`Phiếu: ${staff.length} người (nghỉ: ${staff.filter((s) => !s.worked).length}, hỗ trợ 2, 1 trả tiền mặt ${cashE.code})`);
     // phiếu nhân viên: ô lương tiền mặt + tiền mặt tính cả chi lương

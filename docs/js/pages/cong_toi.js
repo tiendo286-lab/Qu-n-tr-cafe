@@ -13,6 +13,7 @@ export async function render({ params }) {
   const hours = worked.reduce((t, x) => t + Number(x.hours || 0), 0);
   const plus = D.covers.filter((c) => !c.me_absent && c.x2).reduce((t, c) => t + Number(c.hours || 0), 0);
   const minus = D.covers.filter((c) => c.me_absent).reduce((t, c) => t + Number(c.deduct_hours || 0), 0);
+  const fine = D.covers.filter((c) => c.me_absent).reduce((t, c) => t + Number(c.fine || 0), 0);   // bước 47: bỏ ca bị phạt
   const ml = `${D.month.slice(5)}/${D.month.slice(0, 4)}`;
   const myKN = (c) => (c.me_absent ? c.complaint_absent : c.complaint_helper);
   return {
@@ -27,11 +28,12 @@ export async function render({ params }) {
         <div class="cg-k"><div class="card"><div class="st-meta">Số ca tháng ${ml}</div><strong>${worked.length}</strong></div>
           <div class="card"><div class="st-meta">Giờ thực tế</div><strong>${h2(hours)}</strong></div>
           <div class="card"><div class="st-meta">Giờ x2 được cộng</div><strong style="color:#15803d">${plus ? '+' + h2(plus) : '0'}</strong></div>
-          <div class="card"><div class="st-meta">Giờ bị trừ</div><strong style="color:#b91c1c">${minus ? '−' + h2(minus) : '0'}</strong></div></div>
+          <div class="card"><div class="st-meta">Giờ bị trừ</div><strong style="color:#b91c1c">${minus ? '−' + h2(minus) : '0'}</strong></div>
+          ${fine ? html`<div class="card"><div class="st-meta">Tiền phạt</div><strong style="color:#b91c1c">${fine.toLocaleString('vi-VN')}đ</strong></div>` : ''}</div>
         ${D.covers.length ? html`<strong>Nghỉ & làm thay (Chủ đã duyệt)</strong>${D.covers.map((c) => html`<div class="cg-c ${c.me_absent ? 'minus' : ''}" data-id="${c.id}">
             <div><strong>${dmy(c.date)} · ca ${c.shift} ${c.branch}</strong></div>
             <div>${c.me_absent ? html`Bạn nghỉ · ${c.reason_label}${c.helper ? ` · người làm thay: ${c.helper}` : ''}` : html`Bạn ${c.absent ? `làm thay ${c.absent}` : 'làm thêm (quản lý không xếp đủ lịch)'} · ${h2(c.hours)} giờ`}</div>
-            <div>${c.me_absent ? (Number(c.deduct_hours) ? html`<strong style="color:#b91c1c">Bị trừ ${h2(c.deduct_hours)} giờ</strong>` : 'Không bị trừ') : c.x2 ? html`<strong style="color:#15803d">Được x2 lương (+${h2(c.hours)} giờ)</strong>` : 'Lương thường'}</div>
+            <div>${c.me_absent ? (Number(c.fine) ? html`<strong style="color:#b91c1c">Bỏ ca — bị phạt ${Number(c.fine).toLocaleString('vi-VN')}đ</strong>` : Number(c.deduct_hours) ? html`<strong style="color:#b91c1c">Bị trừ ${h2(c.deduct_hours)} giờ</strong>` : 'Không bị trừ') : c.x2 ? html`<strong style="color:#15803d">Được x2 lương (+${h2(c.hours)} giờ)</strong>` : 'Lương thường'}</div>
             ${myKN(c) ? html`<div class="st-meta">Bạn đã khiếu nại: ${myKN(c)}</div>` : ''}
             ${c.resolved_at ? html`<div class="st-meta">Đã được xem ${dt(c.resolved_at)}${c.resolve_note ? ' · ' + c.resolve_note : ''}</div>` : ''}
             <details><summary style="cursor:pointer;font-size:13px;font-weight:600;color:var(--primary)">${myKN(c) ? 'Sửa khiếu nại' : 'Không đồng ý? Gửi khiếu nại'}</summary>

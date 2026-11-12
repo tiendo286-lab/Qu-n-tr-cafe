@@ -21,6 +21,8 @@ export default async ({ sleep, out }) => {
       const staff = (R.staff || []).map((s, i) => ({ ...s, worked: i !== 0, absent_reason: i === 0 ? 'Ốm' : null, time_in: '06:45', time_out: '12:39' }));
       const h = emps.find((e) => !staff.some((s) => s.employee_id === e.id));
       staff.push({ employee_id: h.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' });
+      const l2 = emps.find((e) => e.id !== h.id && !staff.some((s) => s.employee_id === e.id));
+      if (!staff.some((s) => s.source === 'lich' && s.worked)) staff.push({ employee_id: l2.id, source: 'lich', worked: true, time_in: '06:45', time_out: '12:39' });
       await rpc('app_ca_save', { p_id: id, p: { rev_start: R.rev_start || day + ' 06:45', rev_end: day + ' ' + end, reported_transfer: 3000000, total_revenue: 5000000, pos_cash: 2000000, pos_transfer: 3000000,
         cash_counted: 3000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: 0, cups: 50, moves: [], goods: [], handover: [], debts: [], staff } });
       await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
@@ -33,11 +35,16 @@ export default async ({ sleep, out }) => {
     for (let i = 0; i < 100 && ($('#cm-cv')?.hidden ?? true); i++) await sleep(100);
     await sleep(500);
     r.push(`Bước cuối (Chủ tự chốt): ${txt('#cm-root h2')} · khung nghỉ/làm thay hiện: ${$('#cm-cv') && !$('#cm-cv').hidden} · ${txt('#cm-cv').slice(0, 160)} · ${W()}`);
-    const a = $('#cm-cv .cv-a'); a.querySelector('.cv-reason').value = 'nho_ql';
-    const hs = a.querySelector('.cv-helper'); hs.value = hs.options[1].value; hs.dispatchEvent(new Event('change')); await sleep(200);
-    a.querySelector('.cv-x').checked = true;
+    // bước 47: lý do Bỏ ca (phạt 200.000đ); tích x2 chưa chọn người → chặn; chọn người trong lịch có làm
+    const a = $('#cm-cv .cv-a'); a.querySelector('.cv-reason').value = 'bo_ca';
+    r.push(`Lý do: ${[...a.querySelectorAll('.cv-reason option')].map((o) => o.textContent).join(' | ')}`);
+    a.querySelector('.cv-x').checked = true; a.querySelector('.cv-x').dispatchEvent(new Event('change'));
+    $('#cv-ok').click(); await sleep(300); r.push(`x2 chưa chọn người: ${txt('#cv-err')}`);
+    const hs = a.querySelector('.cv-helper'); r.push(`Nhóm người chọn: ${[...hs.querySelectorAll('optgroup')].map((g) => g.label + ' ' + g.children.length).join(' · ')}`);
+    const wOpt = hs.querySelector('optgroup[label="Người trong lịch có làm"] option'); hs.value = wOpt.value; hs.dispatchEvent(new Event('change')); await sleep(200);
     $('#cv-ok').click(); for (let i = 0; i < 100 && !txt('#cm-cv').includes('Chủ đã duyệt'); i++) await sleep(100);
-    r.push(`Sau Duyệt: ${txt('#cm-cv .pc-sec-head')} · ${txt('#cm-cv .cv-row').slice(0, 140)}`);
+    r.push(`Sau Duyệt: ${txt('#cm-cv .pc-sec-head')}`);
+    { const cv = await rpc('app_cv_get', { p_id: id1 }); r.push(`Đã lưu: ${cv.rows.map((x) => `${x.reason_label || x.reason} · làm thay ${x.helper} · x2=${x.x2} · phạt ${x.fine}`).join(' | ')}`); }
     $('#cm-next').click(); for (let i = 0; i < 100 && (await rpc('app_ca_get', { p_id: id1 })).status !== 'hoan_thanh'; i++) await sleep(100);
     r.push(`GỬI → ${(await rpc('app_ca_get', { p_id: id1 })).status}`);
     // phiếu khác đã gửi (nhân viên), chưa phân loại

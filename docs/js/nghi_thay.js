@@ -4,7 +4,9 @@ import { rpc } from './sb.js';
 import { dt } from './tien.js';
 import { $$, html, str } from './ui.js';
 
-export const REASONS = [['tu_tim', 'Tự tìm người thay — không trừ'], ['nho_ql', 'Nhờ quản lý tìm — người nghỉ bị trừ giờ'], ['ma_chay', 'Ma chay tứ thân phụ mẫu — không trừ']];
+// bước 47: thêm Bỏ ca (phạt 200.000đ); ma_chay đổi tên thành Quản lý đồng ý cho nghỉ
+export const REASONS = [['tu_tim', 'Tự tìm người thay — không trừ'], ['nho_ql', 'Nhờ quản lý tìm — người nghỉ bị trừ giờ'], ['ma_chay', 'Quản lý đồng ý cho nghỉ — không trừ lương'], ['bo_ca', 'Bỏ ca — phạt 200.000đ']];
+const vnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
 export const CV_STATE = {
   khong_can: ['Không có người nghỉ / hỗ trợ', 'mute'], chua_phan_loai: ['Chưa phân loại', 'off'], lech: ['Nhân sự đã đổi — phân loại lại', 'off'],
   cho_duyet: ['Chờ Chủ duyệt', 'warn'], da_duyet: ['Chủ đã duyệt', 'ok'],
@@ -38,6 +40,8 @@ export async function mountCover(box, R, ctx = {}) {
   }
   const absents = C.people.filter((p) => p.kind === 'nghi');
   const helpers = C.people.filter((p) => p.kind === 'ho_tro');
+  const workers = C.workers || [];   // bước 47: người trong lịch có làm — chọn được làm người làm thay / được x2
+  const hoursOf = (id) => (helpers.find((h) => String(h.employee_id) === String(id)) || workers.find((w) => String(w.employee_id) === String(id)) || {}).hours;
   const pName = (id) => { const p = C.people.find((x) => x.employee_id === id); return p ? `${p.code} – ${p.name}` : ''; };
   const valid = C.state === 'cho_duyet' || C.state === 'da_duyet';
   const rowOf = (absentId) => (valid ? C.rows.find((r) => r.absent_id === absentId) : null);
@@ -47,23 +51,24 @@ export async function mountCover(box, R, ctx = {}) {
   const readOnly = () => html`${C.rows.map((r) => html`<div class="cv-row ${C.state === 'da_duyet' ? 'ok' : ''}">
       <div>${r.absent ? html`<strong>${r.absent}</strong> nghỉ · ${r.reason_label}` : html`<strong>${r.helper}</strong> làm thêm · ${r.reason_label}`}</div>
       ${r.absent && r.helper ? html`<div>Người làm thay: <strong>${r.helper}</strong>${r.outsider ? ' (người ngoài quán — chỉ ghi chú báo cáo lương)' : ''} · ${hrs(r.hours)} giờ</div>` : ''}
-      <div>${r.helper ? html`Đãi ngộ: <strong>${r.x2 ? 'x2 lương' : 'lương thường'}</strong>` : ''}${Number(r.deduct_hours) > 0 ? html` · <span style="color:#b91c1c;font-weight:700">${r.absent} bị trừ ${hrs(r.deduct_hours)} giờ</span>` : ''}</div>
+      <div>${r.helper ? html`Đãi ngộ: <strong>${r.x2 ? 'x2 lương' : 'lương thường'}</strong>` : ''}${Number(r.deduct_hours) > 0 ? html` · <span style="color:#b91c1c;font-weight:700">${r.absent} bị trừ ${hrs(r.deduct_hours)} giờ</span>` : ''}${Number(r.fine) > 0 ? html` · <span style="color:#b91c1c;font-weight:700">${r.absent} bị phạt ${vnd(r.fine)}</span>` : ''}</div>
       ${r.complaint_absent ? html`<div class="st-meta">Khiếu nại của người nghỉ: ${r.complaint_absent}</div>` : ''}
       ${r.complaint_helper ? html`<div class="st-meta">Khiếu nại của người làm thay: ${r.complaint_helper}</div>` : ''}
       ${r.resolved_at ? html`<div class="st-meta">Đã xem khiếu nại · ${r.resolved_by_name || ''} ${dt(r.resolved_at)}${r.resolve_note ? ' · ' + r.resolve_note : ''}</div>` : ''}</div>`)}`;
 
   const helperOpts = (sel, absentId) => html`<option value="">— Không có người làm thay —</option>
-    ${helpers.map((h) => html`<option value="${h.employee_id}" ${String(sel) === String(h.employee_id) ? 'selected' : ''}>${h.code} – ${h.name} (${hrs(h.hours)} giờ)</option>`)}
+    ${helpers.length ? html`<optgroup label="Người hỗ trợ phát sinh">${helpers.map((h) => html`<option value="${h.employee_id}" ${String(sel) === String(h.employee_id) ? 'selected' : ''}>${h.code} – ${h.name} (${hrs(h.hours)} giờ)</option>`)}</optgroup>` : ''}
+    ${workers.length ? html`<optgroup label="Người trong lịch có làm">${workers.map((w) => html`<option value="${w.employee_id}" ${String(sel) === String(w.employee_id) ? 'selected' : ''}>${w.code} – ${w.name} (${hrs(w.hours)} giờ)</option>`)}</optgroup>` : ''}
     <option value="ngoai" ${sel === 'ngoai' ? 'selected' : ''}>Người ngoài quán…</option>`;
   const editor = () => html`
     ${absents.map((a) => { const r = rowOf(a.employee_id) || {}; const hsel = r.helper_id || (r.outsider ? 'ngoai' : '');
       return html`<div class="cv-row cv-a" data-absent="${a.employee_id}">
         <div><strong>${a.code} – ${a.name}</strong> <span class="pill off">Nghỉ</span></div>
         <div class="cv-grid"><select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${r.reason === k ? 'selected' : ''}>${l}</option>`)}</select></div>
-        <div class="cv-grid"><select class="input sm cv-helper" aria-label="Người làm thay cho ${a.code}">${helperOpts(hsel, a.employee_id)}</select>
+        <div class="cv-grid"><label class="cv-x2"><input type="checkbox" class="check cv-x" ${r.x2 ? 'checked' : ''}> Có người được x2</label>
+          <select class="input sm cv-helper" aria-label="Người làm thay / được x2 cho ${a.code}">${helperOpts(hsel, a.employee_id)}</select>
           <input class="input sm cv-on" placeholder="Tên người ngoài quán" value="${r.outsider ? r.helper_name || r.helper || '' : ''}" ${hsel === 'ngoai' ? '' : 'hidden'} aria-label="Tên người ngoài quán">
-          <label class="cv-hl" ${hsel ? '' : 'hidden'}>Giờ làm thay <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${r.hours ?? (helpers.find((h) => String(h.employee_id) === String(hsel)) || {}).hours ?? ''}"></label>
-          <label class="cv-x2" ${hsel ? '' : 'hidden'}><input type="checkbox" class="check cv-x" ${r.x2 ? 'checked' : ''}> Người làm thay được x2</label></div>
+          <label class="cv-hl" ${hsel ? '' : 'hidden'}>Giờ làm thay <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${r.hours ?? hoursOf(hsel) ?? ''}"></label></div>
       </div>`; })}
     <div class="stack cv-extra" style="gap:8px"></div>
     <div id="cv-err"></div>
@@ -97,18 +102,23 @@ export async function mountCover(box, R, ctx = {}) {
     ...$$('.cv-e', box).map((r) => ({ absent_id: null, reason: 'thieu_lich', helper_id: Number(r.dataset.helper), x2: r.querySelector('.cv-x').checked })),
   ];
   const err = (m) => { const x = box.querySelector('#cv-err'); if (x) x.innerHTML = str(html`<div class="alert error">${m}</div>`); };
+  // tích x2 mà chưa chọn người → mở ô chọn người ngay
+  const x2Need = () => $$('.cv-a', box).find((r) => r.querySelector('.cv-x').checked && !r.querySelector('.cv-helper').value);
   function bind() {
     drawExtra();
+    $$('.cv-a .cv-x', box).forEach((c) => c.addEventListener('change', () => { const sel = c.closest('.cv-a').querySelector('.cv-helper'); if (c.checked && !sel.value) { sel.focus(); try { sel.showPicker?.(); } catch (_) { /* bỏ qua */ } } }));
     $$('.cv-helper', box).forEach((s) => s.addEventListener('change', () => {
       const r = s.closest('.cv-a'); const v = s.value;
-      r.querySelector('.cv-on').hidden = v !== 'ngoai'; r.querySelector('.cv-hl').hidden = !v; r.querySelector('.cv-x2').hidden = !v;
-      const h = helpers.find((x) => String(x.employee_id) === v); if (h) r.querySelector('.cv-h').value = h.hours;
+      r.querySelector('.cv-on').hidden = v !== 'ngoai'; r.querySelector('.cv-hl').hidden = !v;
+      const hh = hoursOf(v); if (hh !== undefined) r.querySelector('.cv-h').value = hh;
       drawExtra();
     }));
     box.querySelector('#cv-save').addEventListener('click', async () => {
+      if (x2Need()) { err('Tích x2 thì chọn người được x2.'); return; }
       try { await rpc('app_cv_save', { p_id: R.id, p_items: items() }); ctx.onChange?.(); } catch (e) { err(e.message); }
     });
     box.querySelector('#cv-ok')?.addEventListener('click', async () => {
+      if (x2Need()) { err('Tích x2 thì chọn người được x2.'); return; }
       const note = prompt('Duyệt nghỉ / làm thay. Ghi chú (không bắt buộc):', ''); if (note === null) return;
       try { await rpc('app_cv_approve', { p_id: R.id, p_items: items(), p_note: note }); ctx.onChange?.(); } catch (e) { err(e.message); }
     });

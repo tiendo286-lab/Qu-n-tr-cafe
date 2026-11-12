@@ -266,6 +266,10 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Máy chủ cho phân loại / duyệt cả khi phiếu đang chốt (`app_cv_save`, `app_cv_approve`).
 - Tab **Đối soát** có mục **"6. Nghỉ / làm thay (x2)"**: Chờ Quản lý tổng phân loại · Chờ Chủ duyệt (`app_cv_todo`), nút mở thẳng bước Nhân sự.
 
+## 5r. Lý do nghỉ — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/47_ly_do_nghi.sql`)
+- Lý do nghỉ: Tự tìm người thay (không trừ) · Nhờ quản lý tìm (trừ giờ người thay làm) · **Quản lý đồng ý cho nghỉ (không trừ lương)** (trước là "Ma chay tứ thân phụ mẫu", giữ mã `ma_chay`) · **Bỏ ca — phạt 200.000đ** (mới, `shift_covers.fine`; hiện ở Bảng công cột Phạt, Công của tôi, báo cho người nghỉ khi Chủ duyệt).
+- Ô **x2** luôn hiện ở từng người nghỉ; tích x2 thì **bắt buộc chọn người được x2**. Ô chọn người gồm người hỗ trợ phát sinh **và người trong lịch có làm ở ca** (trước chỉ chọn được người hỗ trợ), hoặc người ngoài quán.
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
