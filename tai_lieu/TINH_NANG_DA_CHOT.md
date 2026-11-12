@@ -211,6 +211,21 @@ Thay cho mục 7 phiếu ca hiện tại (đang có 2 cách song song: chọn Kh
 | x2 — chốt lại (anh Tiến 11/11/2026, thay dòng trên ở phần người làm thay) | **Người nghỉ**: trường hợp (1) Tự tìm người thay và (3) Ma chay tứ thân phụ mẫu → **không bị trừ**; trường hợp (2) Nhờ quản lý tìm → **luôn bị trừ** đúng số giờ người thay làm. **Người làm thay**: đãi ngộ **do Chủ quyết khi duyệt** — có thể x2 hoặc không (Chủ tích "x2" cho từng người). (4) Quản lý không xếp được lịch: không có người nghỉ, người làm thêm x2 hay không cũng do Chủ quyết. |
 | x2 — ai chọn đãi ngộ (anh Tiến 11/11/2026) | **Quản lý tổng** (người biết việc sắp xếp nhân sự) chọn lý do **và chọn đãi ngộ** người làm thay (x2 hay không); **Chủ duyệt** (sửa được) thì phiếu mới hoàn thành đối soát. |
 
+## 5m. Làm lại chốt ca (nhân viên) + đối soát (quản lý) — ĐANG CHỐT 12/11/2026, CHƯA LÀM (anh Tiến: "chưa viết code")
+
+Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai sót**.
+
+| Điểm | Trạng thái |
+|---|---|
+| Nguyên tắc | (em đề xuất) Nhân viên chỉ nhập / chụp / chọn, web tự tính và so khớp; mỗi màn hình 1 việc; điền sẵn tối đa (người làm + giờ từ lịch, két từ ca trước, hàng từ hóa đơn); thiếu / sai thì chỉ rõ và không cho gửi; màn hình "Kiểm tra lần cuối" trước khi GỬI. |
+| Người chốt ca | **CHỐT: 1 người chốt chính** chịu trách nhiệm cả phiếu (bỏ chia phần Tiền / Nhân sự / Nhận hàng); người khác trong ca chỉ giúp phần nhận hàng. Mặc định ai là người chốt chính — CHỜ CHỐT. |
+| Đếm tiền | **CHỐT: không đếm theo mệnh giá trên web** — tiền đã đếm trên **Fabi POS**. Web chỉ lấy số trên phiếu chốt ca Fabi + ảnh phiếu. Các ô nhập nên trùng tên / thứ tự với phiếu Fabi — CHỜ ảnh mẫu phiếu Fabi. Có giữ "đếm mù khi nhận két" trên web không — CHỜ CHỐT. |
+| Khoản chi trong ca | **CHỐT: không cần ảnh hóa đơn chi.** |
+| Lệch tiền | **CHỐT: không cho phép lệch** — lệch 1đ cũng là LỆCH (nhân viên ghi lý do, quản lý xử lý). |
+| Chế độ tập dượt (phiếu giả cho NV mới) | **ĐỂ SAU.** |
+| Quản lý đối soát | (em đề xuất, chờ duyệt) Đèn xanh / đỏ: Nhân sự (đúng lịch → xanh; nghỉ / làm hộ → đỏ, phân loại x2 như 5l) · Tiền (ảnh phiếu Fabi hiện cạnh số nhân viên nhập; khớp → xanh) · Thu chi (chọn nhóm) · Hàng (khớp hóa đơn + đủ ảnh → xanh). Nút "Duyệt các mục xanh"; hết đỏ mới HOÀN THÀNH. |
+| Chống quên | (em đề xuất) Bảng ca hôm nay ghi rõ bằng chữ còn thiếu gì (vd "Còn thiếu: ảnh phiếu, giờ về của Lan"); giữ nhắc 30 phút trước hết ca rồi mỗi giờ. |
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
