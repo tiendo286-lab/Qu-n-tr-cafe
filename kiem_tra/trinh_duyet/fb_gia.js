@@ -17,7 +17,25 @@ export function makeFb(T, me) {
     if (f.diff.length && r.recon_status === 'hoan_thanh') r.recon_status = 'mo_lai';
     return { status: f.diff.length ? 'lech' : 'khop', report_id: r.id, diff: f.diff, fixed: [] };
   };
+  // bước 44: phần tiền chờ kế toán = cơ sở dùng Fabi mà thiếu file Fabi hoặc thiếu số dư ngân hàng
+  const ktState = (id) => {
+    const r = T.shift_reports.find((x) => x.id === id); if (!r) return null;
+    const b = T.branches.find((x) => x.id === r.branch_id) || {};
+    const need = Object.values(STORES).includes(b.code);
+    const fabi = T.fabi_shifts.some((f) => f.report_id === id || (f.branch_id === r.branch_id && f.work_date === r.work_date && f.shift === r.shift));
+    const bj = T.__bankJson ? T.__bankJson(id) : { account_count: 0, entered: 0 };
+    const bank = bj.account_count > 0 && bj.entered >= bj.account_count;
+    const missing = need ? [...(fabi ? [] : ['file chốt ca Fabi']), ...(bank ? [] : [bj.account_count ? `chuyển khoản ngân hàng (${bj.entered}/${bj.account_count} tài khoản)` : 'chi nhánh chưa khai báo tài khoản ngân hàng'])] : [];
+    return { need, fabi, bank, bank_in: bj.entered, bank_accounts: bj.account_count, ready: !need || (fabi && bank), missing };
+  };
+  T.__ktState = ktState;
   return {
+    app_ca_kt_state: ({ p_id }) => ktState(p_id),
+    app_ca_kt_wait() {
+      return T.shift_reports.filter((r) => r.recon_status !== 'hoan_thanh' && !/full/i.test(r.shift)).map((r) => ({ r, k: ktState(r.id) })).filter(({ k }) => k && k.need && !k.ready)
+        .map(({ r, k }) => { const b = T.branches.find((x) => x.id === r.branch_id) || {};
+          return { id: r.id, branch_id: r.branch_id, branch: b.display_code || b.code, date: r.work_date, shift: r.shift, status: r.status, recon_status: r.recon_status, fabi: k.fabi, bank: k.bank, missing: k.missing }; });
+    },
     app_fabi_upload({ p_rows }) {
       if (!me.perms.ke_toan && me.role !== 'chu') throw new Error('Bạn không có quyền thực hiện thao tác này.');
       return p_rows.map((x) => {

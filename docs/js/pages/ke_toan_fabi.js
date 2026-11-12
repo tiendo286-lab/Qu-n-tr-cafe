@@ -41,7 +41,7 @@ export function parseDetail(X, wb) {
 export async function render({ params }) {
   const to = /^\d{4}-\d{2}-\d{2}$/.test(params.den || '') ? params.den : vnToday();
   const from = /^\d{4}-\d{2}-\d{2}$/.test(params.tu || '') ? params.tu : addDays(to, -2);
-  const D = await rpc('app_fabi_list', { p_from: from, p_to: to });
+  const [D, KW] = await Promise.all([rpc('app_fabi_list', { p_from: from, p_to: to }), rpc('app_ca_kt_wait').catch(() => [])]);   // bước 44: ca còn thiếu file Fabi / CK ngân hàng
   const nav = (p) => go('/ke-toan/fabi?' + new URLSearchParams({ tu: from, den: to, ...p }).toString());
   const row = (f) => { const st = statusOf(f); return html`<tr><td data-label="Ca"><strong>${f.branch_code || f.store}</strong> · ${f.shift || ''} ${dmy(f.work_date)}<div class="st-meta">${(f.open_at || '').slice(11)}–${(f.close_at || '').slice(11)} · mã ${f.ma_ca}</div></td>
       <td class="r" data-label="Doanh thu">${fmt(f.net)}</td><td class="r" data-label="Chuyển khoản">${fmt(f.ck)}</td><td class="r" data-label="Tiền mặt">${fmt(f.tm)}</td><td class="r" data-label="Nợ">${fmt(f.no)}</td>
@@ -57,6 +57,13 @@ export async function render({ params }) {
           <div class="st-meta">Trên Fabi: Báo cáo ca → mở từng ca → xuất Excel (file tên <strong>shift_report_detail_…xlsx</strong>). Mỗi cơ sở 3 ca mỗi ngày. Lela Box không dùng Fabi.</div>
           <label class="btn" style="align-self:flex-start">Chọn file Excel (chọn nhiều được)<input type="file" id="fb-file" accept=".xlsx,.xls" multiple hidden></label>
           <div id="fb-msg"></div></section>
+        <section class="card stack" style="gap:8px" id="kt-wait"><h2 style="margin:0">Ca còn thiếu (${KW.length})</h2>
+          <div class="st-meta">Phần tiền của các ca này đang chờ kế toán: đủ <strong>file chốt ca Fabi</strong> và <strong>chuyển khoản ngân hàng</strong> thì quản lý mới đối soát được. 10:00 sáng hằng ngày web nhắc các ca hôm trước còn thiếu.</div>
+          ${KW.length ? KW.map((k) => html`<div class="kt-w"><div><strong>${k.branch} · ca ${k.shift} ${dmy(k.date)}</strong>${k.status !== 'hoan_thanh' ? html` <span class="pill mute">nhân viên chưa gửi phiếu</span>` : ''}
+              <div class="st-meta">Thiếu: ${(k.missing || []).join(', ')}</div></div>
+              ${k.bank ? '' : html`<a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${k.date}">Nhập chuyển khoản ›</a>`}</div>`)
+            : html`<div class="alert ok">Không còn ca nào thiếu.</div>`}
+          <style>.kt-w { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--line); } .kt-w > div { min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; }</style></section>
         <div class="toolbar" style="gap:8px;flex-wrap:wrap"><label class="field" style="margin:0"><span>Từ ngày</span><input class="input" type="date" id="fb-from" value="${from}"></label>
           <label class="field" style="margin:0"><span>Đến ngày</span><input class="input" type="date" id="fb-to" value="${to}"></label></div>
         ${D.missing.length ? html`<div class="alert warn"><strong>Phiếu trên web chưa có file Fabi (${D.missing.length}):</strong> ${D.missing.map((m) => `${m.branch_code} ${m.shift} ${dmy(m.work_date)}`).join(' · ')}. Tải thêm file của các ca này.</div>`

@@ -246,7 +246,7 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Quá **3 ngày** chưa trả → báo Chủ, Quản lý tổng, Quản lý (pg_cron `nhac-khach-muon` 9:00 sáng, mỗi khoản báo 1 lần).
 - Trang **Đối soát** có mục "5. Khách mượn tiền chưa trả" (ai mượn, bao nhiêu, từ ca nào, bao nhiêu ngày).
 
-## 5o. Đối soát chờ kế toán (file Fabi + CK ngân hàng) — CHỐT 12/11/2026, CHƯA LÀM (chờ anh Tiến nói "làm")
+## 5o. Đối soát chờ kế toán (file Fabi + CK ngân hàng) — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/44_doi_soat_cho_ke_toan.sql`: app__ca_kt_state, trigger ca_kt_guard chặn ghi kết quả phần tiền, app_ca_kt_wait, pg_cron `nhac-ke-toan` 10:00)
 - **Phần tiền** của phiếu ca (Thời gian, Doanh thu, Tiền mặt, Chuyển khoản, Thu chi, Công nợ) chỉ đối soát được khi kế toán đã có **đủ 2 thứ**: file chốt ca Fabi của ca đó **và** tiền chuyển khoản thực nhận (số dư ngân hàng từng tài khoản của ca). Chưa đủ → phiếu ở trạng thái **"Chờ kế toán"** (Bảng ca có màu riêng, ghi thiếu file Fabi / thiếu CK ngân hàng), chưa vào "Phiếu ca chờ đối soát"; trang Đối soát có danh sách "Chờ kế toán".
 - **Nhân sự, Bàn giao, Nhập hàng** đối soát ngay khi nhân viên gửi (không cần số của kế toán).
 - Đủ 2 thứ → đèn tính theo **số chính thức**: Doanh thu theo file Fabi; Tiền mặt = Tổng tiền (file Fabi) so với số phải có; Chuyển khoản = tiền ngân hàng nhận thật so với CK trên file Fabi (± khách trả nợ / thu chi CK); số hotline nhân viên gõ chỉ để tham khảo (lệch ngân hàng thì báo).

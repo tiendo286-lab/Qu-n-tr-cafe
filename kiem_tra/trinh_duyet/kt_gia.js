@@ -28,6 +28,7 @@ export function makeKt(T, me) {
       accounts: accs, received: got.length ? got.reduce((t, a) => t + a.received, 0) : null, entered: got.length, account_count: accs.length,
       updated_by: last ? name(last.updated_by) : null, updated_at: last?.updated_at || null, locked: r.recon_status === 'hoan_thanh' };
   };
+  T.__bankJson = (id) => bankJson(rep(id));   // bước 44: fb_gia tính tình trạng kế toán
   return {
     app_kt_invoices: ({ p_from, p_to, p_branch }) => INV.filter((i) => (!p_from || i.work_date >= p_from) && (!p_to || i.work_date <= p_to) && (!p_branch || i.branch_id === p_branch)).map(json).reverse(),
     app_kt_invoice_save({ p_id, p_branch, p_date, p_note }) { if (!p_branch) throw new Error('Chọn cơ sở nhận.'); if (!p_id) { const id = seq++; INV.push({ id, branch_id: p_branch, work_date: p_date, note: p_note || null, created_by: me.account_id, created_at: now() }); return id; } Object.assign(INV.find((i) => i.id === p_id), { branch_id: p_branch, work_date: p_date, note: p_note }); return p_id; },

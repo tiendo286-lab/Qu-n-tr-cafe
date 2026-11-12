@@ -23,6 +23,7 @@ export default async ({ sleep, out }) => {
     r.push('phiếu thử: ' + (await rpc('app_ca_get', { p_id: id })).status);
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/fabi'; await wait('#fb-file'); await sleep(500);
     r.push(`Trang: ${txt('#root h1')} · ${txt('.alert')} · ${W()}`);
+    r.push(`Ca còn thiếu (bước 44): ${txt('#kt-wait').slice(0, 260)}`);
     const X = await (await import('../js/excel.js')).xlsx();
     const [d, m, y] = [day.slice(8, 10), day.slice(5, 7), day.slice(0, 4)];
     const mk = (store, ma, tong) => {

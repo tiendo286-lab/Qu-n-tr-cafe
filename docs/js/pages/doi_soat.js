@@ -13,8 +13,12 @@ export const perm = 'doi_soat';
 
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
-  const [rows, days, T, LO] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
-    rpc('app_ca_loans_open').catch(() => [])]);
+  const [rows, days, T, LO, KW] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
+    rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => [])]);
+  // bước 44: phần tiền chờ kế toán (thiếu file chốt ca Fabi / chuyển khoản ngân hàng)
+  const ktById = new Map((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => [k.id, k]));
+  const repReady = (T.reports || []).filter((r) => !ktById.has(r.id));
+  const repWait = (T.reports || []).filter((r) => ktById.has(r.id));
   const brById = new Map((T.branches || []).map((b) => [b.id, b]));
   const bcode = (id) => brById.get(id)?.code || '';
   const TB = { cn: '' };
@@ -27,10 +31,10 @@ export async function render({ params }) {
   const stateOf = (s) => {
     if (!s.report_id) return day < vnToday() || (day === vnToday() && s.end_time && String(s.end_time).slice(0, 5) < nowHm) ? 'tre' : 'chua';
     if (s.status !== 'hoan_thanh') return 'dang';
-    if (s.recon_status !== 'hoan_thanh') return 'cho';
+    if (s.recon_status !== 'hoan_thanh') return ktById.has(s.report_id) ? 'kt' : 'cho';
     return Number(s.short_total) > 0 ? 'am' : 'xong';
   };
-  const ST = { chua: ['Chưa mở', 'bc-chua'], tre: ['Quá giờ chưa chốt', 'bc-tre'], dang: ['Đang chốt', 'bc-dang'], cho: ['Chờ đối soát', 'bc-cho'], xong: ['Đã đối soát', 'bc-xong'], am: ['Có khoản âm', 'bc-am'] };
+  const ST = { chua: ['Chưa mở', 'bc-chua'], tre: ['Quá giờ chưa chốt', 'bc-tre'], dang: ['Đang chốt', 'bc-dang'], kt: ['Chờ kế toán', 'bc-kt'], cho: ['Chờ đối soát', 'bc-cho'], xong: ['Đã đối soát', 'bc-xong'], am: ['Có khoản âm', 'bc-am'] };
   rows.forEach((r) => { r.st = stateOf(r); });
   const shiftCell = (s) => {
     const [label, cls] = ST[s.st];
@@ -40,7 +44,8 @@ export async function render({ params }) {
       ${s.status === 'hoan_thanh' && s.st !== 'xong' && s.st !== 'am' ? html`<div class="bc-m">TM ${result(s.cash_left)}</div><div class="bc-m">CK ${result(s.transfer_left)}${s.ck_basis === 'nhan_vien' ? html` <span class="bc-tam">tạm</span>` : ''}</div>` : ''}
       ${s.hand_state === 'lech' || s.hand_state === 'can_dem_lai' ? html`<div class="bc-m bc-hand">⚠ Nhận két lệch ${signed(s.hand_gap)}${s.hand_state === 'can_dem_lai' ? ' · chờ đếm lại' : ''}</div>` : ''}
       ${s.status === 'dang_chot' && s.created_by ? html`<div class="bc-m">${s.created_by}</div>` : ''}
-      ${s.has_debt ? html`<div class="bc-m">Có công nợ</div>` : ''}`;
+      ${s.has_debt ? html`<div class="bc-m">Có công nợ</div>` : ''}
+      ${s.st === 'kt' ? html`<div class="bc-m">Thiếu: ${(ktById.get(s.report_id).missing || []).map((m) => (m.startsWith('file') ? 'file Fabi' : m.startsWith('chuyển') ? 'CK ngân hàng' : m)).join(', ')}</div>` : ''}`;
     const href = s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
     return s.report_id ? html`<a class="bc ${cls}" href="${href}">${inner}</a>` : html`<div class="bc ${cls}">${inner}</div>`;
   };
@@ -99,11 +104,15 @@ export async function render({ params }) {
       <div class="bc-head"><h2 style="margin:0">Việc chờ đối soát</h2>
         <select class="input sm" id="td-br" aria-label="Cơ sở" style="margin-left:auto"><option value="">Mọi cơ sở</option>${(T.branches || []).map((b) => html`<option value="${b.id}">${b.code}</option>`)}</select></div>
       <div class="td-kpis">
-        <button type="button" class="td-k" data-to="td-rep"><span>Phiếu ca chờ đối soát</span><b>${T.reports.length}</b></button>
+        <button type="button" class="td-k" data-to="td-rep"><span>Phiếu ca chờ đối soát</span><b>${repReady.length}</b>${repWait.length ? html`<small>+ ${repWait.length} chờ kế toán</small>` : ''}</button>
         <button type="button" class="td-k" data-to="td-mv"><span>Dòng thu chi chờ</span><b>${T.moves.length}</b><small>${T.moves.length ? vnd(sumAmt(T.moves)) : ''}</small></button>
         <button type="button" class="td-k" data-to="td-hang"><span>Hàng chưa đối soát</span><b>${T.goods.length}</b></button>
         <button type="button" class="td-k" data-to="td-ka"><span>Giải trình khoản âm mới</span><b>${T.ka.length}</b></button></div>
-      <div class="td-sec" id="td-rep"><h3>1. Phiếu ca chờ đối soát</h3>${T.reports.length ? T.reports.map(repRow) : html`<div class="st-meta">Không có phiếu nào chờ.</div>`}</div>
+      <div class="td-sec" id="td-rep"><h3>1. Phiếu ca chờ đối soát</h3>${repReady.length ? repReady.map(repRow) : html`<div class="st-meta">Không có phiếu nào chờ.</div>`}
+        ${repWait.length ? html`<h3 style="margin-top:10px">Chờ kế toán — phần tiền chưa đối soát được <span class="st-meta">(Nhân sự, Bàn giao, Nhập hàng vẫn làm được)</span></h3>
+          ${repWait.map((r) => html`<div class="td-r" data-br="${r.branch_id}"><div class="td-m"><strong>${dmy(r.date)} · ${bcode(r.branch_id)} · Ca ${r.shift}</strong>
+            <div class="st-meta">Thiếu: ${(ktById.get(r.id).missing || []).join(', ')}</div></div>
+            <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${r.id}">Đối soát nhân sự / hàng ›</a></div>`)}` : ''}</div>
       <div class="td-sec" id="td-mv"><h3>2. Dòng thu chi ở phiếu ca chờ đối soát <span class="st-meta">(từ ${dmy(T.from)})</span></h3><div id="td-moves"></div></div>
       <div class="td-sec" id="td-hang"><h3>3. Hàng nhận chưa đối soát</h3>${T.goods.length ? T.goods.map(goodRow) : html`<div class="st-meta">Không có.</div>`}</div>
       <div class="td-sec" id="td-ka"><h3>4. Nhân viên giải trình khoản âm</h3>${T.ka.length ? T.ka.map(kaRow) : html`<div class="st-meta">Không có giải trình mới.</div>`}</div>
@@ -139,6 +148,7 @@ export async function render({ params }) {
         .bc-tre { --c: #b91c1c; --bg: #fbefec; --fg: #7f1d1d; }
         .bc-dang { --c: #d97706; --bg: #fef3c7; --fg: #92400e; }
         .bc-cho { --c: var(--info-line); --bg: var(--info-bg); --fg: var(--info-ink); }
+        .bc-kt { --c: var(--plum-ink); --bg: var(--plum-bg); --fg: var(--plum-ink); }
         .bc-xong { --c: var(--ok-line); --bg: var(--ok-bg); --fg: var(--ok-ink); }
         .bc-am { --c: #dc2626; --bg: #fee2e2; --fg: #991b1b; }
         .td-card { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
@@ -163,7 +173,7 @@ export async function render({ params }) {
           <div class="bc-head"><h2 style="margin:0">Bảng ca ${day === vnToday() ? 'hôm nay' : 'ngày'} ${dmy(day)}</h2>
             <span class="st-meta">NV hoàn thành ${staffDone}/${total} · Đã đối soát ${reconDone}/${total}</span>
             <a class="btn sm secondary" href="#/ca?ngay=${day}" style="margin-left:auto">Mở trang Chốt ca</a></div>
-          <div class="bc-legend">${['chua', 'tre', 'dang', 'cho', 'xong', 'am'].map((k) => { const n = rows.filter((r) => r.st === k).length; return n || k !== 'tre' ? html`<span class="bc-lg ${ST[k][1]}"><i></i>${ST[k][0]} <b>${n}</b></span>` : ''; })}</div>
+          <div class="bc-legend">${['chua', 'tre', 'dang', 'kt', 'cho', 'xong', 'am'].map((k) => { const n = rows.filter((r) => r.st === k).length; return n || !['tre', 'kt'].includes(k) ? html`<span class="bc-lg ${ST[k][1]}"><i></i>${ST[k][0]} <b>${n}</b></span>` : ''; })}</div>
           <div class="bc-grid" style="grid-template-columns: 64px repeat(${shifts.length}, minmax(0, 1fr))">
             <div></div>${shifts.map((s) => html`<div class="bc-sh">Ca ${s}</div>`)}
             ${[...new Set(rows.map((r) => r.branch_id))].map((bid) => {

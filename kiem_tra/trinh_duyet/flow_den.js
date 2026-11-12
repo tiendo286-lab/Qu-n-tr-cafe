@@ -25,12 +25,33 @@ export default async ({ sleep, out }) => {
     };
     const o1 = ov.find((x) => x.shift === ov[0].shift && x.branch_id === ov[0].branch_id);
     const id1 = await mk(o1, { dau: 1000000, ck: 3000000, tm: 2000000, tong: 3000000 }, false);
+    const dot = () => $$('.den-row').map((x) => (x.classList.contains('r') ? '🔴' : x.classList.contains('done') ? '✓' : x.classList.contains('w') ? '⏳' : '🟢') + x.querySelector('strong').innerText).join(' ');
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id1; await wait('.den-row'); await sleep(800);
-    r.push(`Ca khớp: ${$$('.den-row').map((x) => (x.classList.contains('r') ? '🔴' : x.classList.contains('done') ? '✓' : '🟢') + x.querySelector('strong').innerText).join(' ')} · nút: ${txt('#den-ok')} · ${txt('#ds-lights .pill')} · ${W()}`);
+    // bước 44: chưa có file Fabi + CK ngân hàng → phần tiền chờ kế toán, chỉ duyệt được Nhân sự / Bàn giao / Nhập hàng
+    r.push(`Chờ KT: ${dot()} · ${txt('#ds-lights .alert.info')} · nút: ${txt('#den-ok')} · ${W()}`);
+    $('#den-ok').click(); await sleep(1500); await wait('.den-row'); await sleep(500);
+    r.push(`Sau duyệt phần không phải tiền: recon ${(await rpc('app_ca_get', { p_id: id1 })).recon_status} · ${dot()}`);
+    { let e = 'không lỗi'; try { await rpc('app_ca_result_set', { p_id: id1, p_item: 'tien_mat', p_result: 'khop', p_amount: null, p_reason: 'x', p_people: [] }); } catch (x) { e = x.message; } r.push(`Cố đối soát tiền: ${e}`); }
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat'; await wait('.td-card'); await sleep(800);
+    r.push(`Trang Đối soát: ô ca ${txt('.bc.bc-kt .bc-lbl')} ${txt('.bc.bc-kt .bc-m:last-child')} · ${($('#td-rep')?.innerText || '').replace(/\s+/g, ' ').slice(0, 160)} · ${W()}`);
+    // kế toán bổ sung: tài khoản + số dư ngân hàng + file Fabi của ca
+    const acc = await rpc('app_kt_account_save', { p_id: null, p_branch: o1.branch_id, p_bank: 'BIDV', p_no: '1234567890', p_holder: 'QUAN THU', p_label: null, p_active: true });
+    const [y, mo, d] = day.split('-'); const st = { LHP: 'Milano Coffee - Lê Hồng Phong', 'ĐK': 'Milano Coffee - Đông Khê', HS: 'Milano Coffee - Hồ Sen', LL: 'Lela Cafe' }[o1.branch_code] || 'Milano Coffee - Lê Hồng Phong';
+    const OPEN = { 'Sáng': '06:55', 'Chiều': '12:40', 'Tối': '17:10' };
+    const ktDu = async (id, shift, f, ma) => {   // kế toán: số dư ngân hàng (nhận đúng bằng CK) + file Fabi khớp phiếu
+      await rpc('app_kt_bank_save_accounts', { p_report: id, p_rows: [{ account_id: acc, opening: 1000, closing: 1000 + f.ck, transfers_out: 0, note: null }] });
+      await rpc('app_fabi_upload', { p_rows: [{ ma_ca: ma, store: st, open: `${d}/${mo}/${y} ${OPEN[shift] || '06:55'}`, close: `${d}/${mo}/${y} 23:00`, dau: f.dau, cuoi: f.dau + f.tm, net: f.ck + f.tm, hd: 50, tong: f.tong,
+        pay: [{ name: 'CHUYỂN KHOẢN', amount: f.ck }, { name: 'Tiền mặt', amount: f.tm }], tra_no: [], sua: [] }] });
+    };
+    await ktDu(id1, o1.shift, { dau: 1000000, ck: 3000000, tm: 2000000, tong: 3000000 }, 'DEN1');
+    r.push(`Kế toán đủ: ${JSON.stringify(await rpc('app_ca_kt_state', { p_id: id1 }))}`);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id1; await wait('.den-row'); await sleep(800);
+    r.push(`Ca khớp: ${dot()} · nút: ${txt('#den-ok')} · ${txt('#ds-lights .pill')} · ${W()}`);
     $('#den-ok').click(); for (let i = 0; i < 300 && (await rpc('app_ca_get', { p_id: id1 })).recon_status !== 'hoan_thanh'; i++) await sleep(100);
     await sleep(800); r.push(`Sau duyệt: recon_status ${(await rpc('app_ca_get', { p_id: id1 })).recon_status} · ${txt('#ds-lights .den-list').slice(0, 120)}`);
     const o2 = ov.find((x) => x.branch_id === ov[0].branch_id && x.shift !== ov[0].shift);
     const id2 = await mk(o2, { dau: 3000000, ck: 1000000, tm: 500000, tong: 3450000 }, true);
+    await ktDu(id2, o2.shift, { dau: 3000000, ck: 1000000, tm: 500000, tong: 3450000 }, 'DEN2');
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id2; await wait('.den-row'); await sleep(800);
     r.push(`Ca lệch: ${$$('.den-row.r').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · nút Xử lý ${$$('.den-row [data-ds-go]').length} · ${txt('#ds-lights .toolbar')} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }

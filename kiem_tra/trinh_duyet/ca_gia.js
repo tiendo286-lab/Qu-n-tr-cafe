@@ -16,6 +16,7 @@ export function makeCa(T, me) {
     return p ? eff(p.id).rev_end : null;
   };
   const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
+  const KT_ITEMS = ['thoi_gian', 'doanh_thu', ...MONEY];
   const RES = {}; const SF = []; let sfSeq = 1; T.__SF = SF;   // Thu chi (fin_gia) đọc phiếu trừ lương
   const LBL = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
   const eff = (id) => RECON[id] || snap(id);
@@ -182,7 +183,8 @@ export function makeCa(T, me) {
       if (__only) return;
       Object.assign(r, { status: 'hoan_thanh', completed_by: me.account_id, completed_at: now() });
       const AUTO = { tien: ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], nhan_su: ['nhan_su', 'ban_giao'], nhan_hang: ['nhap_hang'] };
-      const items = Object.entries(partsOf(p_id)).filter(([, x]) => x.done_at && x.done_ql).flatMap(([k]) => AUTO[k]);
+      const items = [];   // bước 44: bỏ tự đối soát khi quản lý tự gửi (AUTO giữ để tham khảo)
+      void AUTO;
       if (!(T.delivery_invoices || []).some((d) => d.received_report_id === p_id)) items.push('nhap_hang');
       for (const it of new Set(items)) if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({ report_id: p_id, item: it, checked_by: me.account_id, checked_at: now() });
     },
@@ -243,6 +245,8 @@ export function makeCa(T, me) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
       if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
       if (MONEY.includes(p_item)) throw new Error('Hạng mục tiền: chọn kết quả KHỚP / THIẾU / THỪA.');
+      const kt = T.__ktState ? T.__ktState(p_id) : null;   // bước 44: phần tiền chờ kế toán
+      if (kt && !kt.ready && KT_ITEMS.includes(p_item) && p_on) throw new Error('Phần tiền chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
       if (p_on) T.shift_report_checks.push({ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() });
       const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
@@ -250,6 +254,8 @@ export function makeCa(T, me) {
     },
     app_ca_result_set({ p_id, p_item, p_result, p_amount, p_reason, p_people }) {
       const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
+      const kt = T.__ktState ? T.__ktState(p_id) : null;   // bước 44: phần tiền chờ kế toán
+      if (kt && !kt.ready && KT_ITEMS.includes(p_item)) throw new Error('Phần tiền chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       const amt = p_result === 'khop' ? 0 : p_amount || 0;
       if (p_result !== 'khop' && amt <= 0) throw new Error('Nhập số tiền (lớn hơn 0).');
       if (p_result !== 'khop' && !(p_reason || '').trim()) throw new Error('Ghi lý do.');
