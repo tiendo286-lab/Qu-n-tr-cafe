@@ -10,6 +10,7 @@ import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
 import { renderNew } from '../chot_ca_moi.js';
+import { DEN_CSS, mountLights } from '../doi_soat_den.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
 export const perm = 'chot_ca';
@@ -416,7 +417,7 @@ export async function render({ params }) {
       <div id="ds-cv-sum"></div>
       <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
   const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
-  const dsBody = isDs ? html`${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
+  const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('tien')}${secTime}${secMoney}${secDiff}${secDebt}
         <section class="card stack pc-sec"><div class="pc-sec-head"><h2>Phân nhóm thu chi của ca</h2></div><div class="st-meta">Chọn nhóm (hoặc "Không tính") cho từng dòng thu chi rồi bấm Đối soát — làm ở đây hay ở trang Đối soát đều được.</div><div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section></div>
@@ -498,7 +499,7 @@ function collect() {
 function mount(R, ed, C0, ctx = {}) {
   const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep } = ctx;
   let saveNow = null;
-  if (isDs) { mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, { sum: $('#ds-cv-sum'), onChange: () => rerender() }); }
+  if (isDs) { mountLights($('#ds-lights'), R0, R); mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, { sum: $('#ds-cv-sum'), onChange: () => rerender() }); }
   const form = $('#pc-form');
   bindMoneyInputs(form);
   // Bản đối soát: ghi "Phiếu NV: …" ở ô khác phiếu nhân viên
