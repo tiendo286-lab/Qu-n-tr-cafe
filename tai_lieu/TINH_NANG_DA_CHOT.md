@@ -284,6 +284,10 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - **Số cốc của ca = tổng số lượng các món, trừ nhóm "Đồ ăn & thuốc lá" và "Topping".** Bảng file Fabi có cột Số cốc ("thiếu nhóm N món" khi chưa đủ).
 - **Bỏ bước "Số cốc"** ở phiếu chốt ca các cơ sở dùng Fabi; số cốc tự điền vào phiếu khi ca đã gửi và file Fabi đủ nhóm món. Lela Box (không dùng Fabi) vẫn nhập tay.
 
+## 5t. Số dư ngân hàng nhập sẵn — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/50_so_du_ngan_hang_nhap_san.sql`)
+- Kế toán trước đây ghi số dư từng tài khoản sau mỗi ca trên Google Sheet "Bảng chốt doanh thu chuyển khoản". Anh Tiến chốt: **mang lên web 1 lần** (1–10/11/2026), từ nay kế toán gõ thẳng trên web (Kế toán › Chuyển khoản thực nhận); **giữ nguyên số như bảng** (ca LHP số dư giảm do rút tiền không ghi → đối soát báo lệch, kế toán sửa "tiền chuyển ra" nếu cần).
+- Số dư giữ trong bảng `bank_balance_import` theo (tài khoản, ngày, ca); phiếu ca tạo (hoặc tạo lại) → tự điền vào phiếu, không ghi đè số kế toán đã nhập. Số liệu thật nạp riêng, không nằm trong kho mã.
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
