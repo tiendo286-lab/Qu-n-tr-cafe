@@ -42,11 +42,14 @@ export default async ({ sleep, out }) => {
     await next(); r.push(`bấm Tiếp khi nhầm: ${txt('#cm-err')}`);
     num('pos_cash', '2000000'); await sleep(200); r.push(`sửa đúng: ${txt('#cm-checks')} · ${W()}`);
     await next(); r.push(`B4 nợ: ${txt('#cm-body').slice(0, 80)}`);
-    await next(); typ($('#cm-hot'), '2900000'); await sleep(300); $('#cm-next').click(); await sleep(400); r.push(`B5 lệch: ${txt('#cm-ck-box')} | ${txt('#cm-err')}`); typ($('#cm-hot'), '3000000'); await sleep(400); r.push(`B5 hotline: ${txt('#cm-body .alert')}`);
-    await next(); $('#cm-add-loan').click(); await sleep(200); await next(); r.push(`mượn thiếu tên: ${txt('#cm-err')}`);
+    await next(); r.push(`B5 tiêu đề: ${txt('#cm-root h2')}`); $('#cm-add-loan').click(); await sleep(200); await next(); r.push(`mượn thiếu tên: ${txt('#cm-err')}`);
     setv($('[data-db="0"][data-k="table_name"]'), 'Anh Nam (thử)'); setv($('[data-db="0"][data-k="amount"]'), '50000'); setv($('[data-db="0"][data-k="note"]'), '09xx');
-    r.push(`B6 khách mượn: ${$$('#cm-body h3').map((x) => x.innerText).join(' / ')} · ${W()}`); await next();
-    setv($('#cm-cups'), '180'); await next();
+    r.push(`B5 khách mượn: ${$$('#cm-body h3').map((x) => x.innerText).join(' / ')} · ${W()}`); await next();
+    r.push(`B6 tiêu đề: ${txt('#cm-root h2')}`); setv($('#cm-cups'), '180'); await next();
+    r.push(`B7 tiêu đề: ${txt('#cm-root h2')}`);
+    typ($('#cm-hot'), '2900000'); await sleep(300); $('#cm-next').click(); await sleep(400); r.push(`B7 lệch: ${txt('#cm-ck-box')} | ${txt('#cm-err')} · nút về Thu chi ${!!$('[data-jump="5"]')}`); { $('[data-jump="5"]').click(); await sleep(800); const t1 = txt('#cm-root h2'); $('#cm-next').click(); await sleep(700); $('#cm-next').click(); await sleep(700); r.push(`Bấm Về bước Thu chi → ${t1} → Tiếp, Tiếp → ${txt('#cm-root h2')}`); }
+    typ($('#cm-hot'), '3000000'); await sleep(400); r.push(`B7 hotline: ${txt('#cm-body .alert')}`);
+    await next();
     r.push(`B8 kết quả: ${txt('#cm-body .alert')}`);
     $('#cm-next').click(); await sleep(300); r.push(`chưa lý do: ${txt('#cm-err')}`);
     setv($('#cm-diff-note'), 'Khách bo 20.000'); await next();
@@ -60,7 +63,7 @@ export default async ({ sleep, out }) => {
     const sh2 = ov.find((x) => x.branch_id === ov[0].branch_id && x.shift !== ov[0].shift);
     const id2 = await rpc('app_ca_open', { p_branch: sh2.branch_id, p_date: day, p_shift: sh2.shift });
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id2; await wait('#cm-claim'); await sleep(500);
-    $('#cm-claim').click(); await wait('#cm-helper'); await sleep(800);
+    $('#cm-claim').click(); await wait('[data-hp]'); await sleep(800);
     if (!$$('.cm-person').length) { $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); }
     $$('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '12:30' : '17:30'); });
     await next();
@@ -81,7 +84,7 @@ export default async ({ sleep, out }) => {
     await next(); await next(); r.push(`nợ chưa ghi bàn: ${txt('#cm-err')}`);
     $('#cm-add-debt').click(); await sleep(200);
     setv($('[data-db="0"][data-k="table_name"]'), 'Bàn 5'); setv($('[data-db="0"][data-k="amount"]'), '28000'); await next();
-    typ($('#cm-hot'), '1000000'); await sleep(300); await next(); r.push(`ca 2 sau hotline: ${txt('#cm-root h2')}`);
+    r.push(`ca 2 sau Khách nợ: ${txt('#cm-root h2')}`);
     $('#cm-add-move').click(); await sleep(200); setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); setv($('[data-mv="0"][data-k="amount"]'), '1000');
     $('#cm-add-move').click(); await sleep(200);
     r.push(`Thu chi 2 dòng: hàng nút ${Math.round($('#cm-body .cm-ph').getBoundingClientRect().width)}px · ${$$('#cm-body .cm-ph')[0].innerText.replace(/\s+/g, ' ')} · nút Thu vào rộng ${Math.round($('[data-mt="0"][data-v="1"]').getBoundingClientRect().width)}px · ${W()}`);
@@ -90,6 +93,7 @@ export default async ({ sleep, out }) => {
     { const sel = $('[data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change')); await sleep(1200); }
     await next();
     setv($('#cm-cups'), '61'); await next();
+    typ($('#cm-hot'), '1000000'); await sleep(300); r.push(`Chiều hotline: ${txt('#cm-ck-box')}`); await next();
     r.push(`Chiều kết quả: ${txt('#cm-body .alert')}`);
     await next(); await next(); await next(); await sleep(1500);
     const R2 = await rpc('app_ca_get', { p_id: id2 });

@@ -244,6 +244,9 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 ## 5m-bổ sung 2 (12/11/2026). Chọn người làm hộ (`supabase/48_chon_nguoi_lam_ho.sql`)
 - Bước "Ai làm ca": 2 nút **Nhân viên trong quán** (đang làm; người của cơ sở này lên trước, rồi cơ sở khác) và **Nhân viên cũ** (đã ngừng làm). Bấm nút → hiện danh sách, bấm tên để thêm; có ô lọc theo tên / mã không cần dấu.
 
+## 5m-bổ sung 3 (12/11/2026). Thứ tự bước chốt ca
+1 Nhận chốt ca · 2 Ai làm ca · 3 Phiếu Fabi (+ khách trả nợ cũ) · 4 Khách nợ mới · **5 Thu chi trong ca** (+ khách mượn / khách trả tiền mượn) · **6 Số cốc** · **7 Chuyển khoản hotline** · 8 Kết quả tiền · 9 Bàn giao & nhận hàng · 10 Kiểm tra lần cuối. Ghi hết các khoản tiền trước rồi mới đối chiếu chuyển khoản / tiền mặt, không phải lùi lại; chuyển khoản lệch có nút "Về bước Thu chi" (`ORDER` trong `docs/js/chot_ca_moi.js`).
+
 ## 5n. Khách mượn tiền quán — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/43_khach_muon.sql`)
 - Ở bước **Thu chi** của phiếu chốt ca có thêm mục **"Khách mượn tiền quán"**: khách mượn tiền mặt trong két (mua nước, chi việc riêng…). Ghi tên khách, số tiền, SĐT / hẹn trả.
 - Chỉ dùng cho tiền mặt khách mượn. **Bill khách nợ vẫn bấm "Nợ" trên Fabi** và ghi ở bước Khách nợ như cũ (anh Tiến chọn).

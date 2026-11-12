@@ -52,9 +52,9 @@ export default async ({ sleep, out }) => {
     const next = async () => { $('#cm-next').click(); await sleep(800); };
     const typ = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
     $('#cm-add-debt').click(); await sleep(200); setv($('[data-db="0"][data-k="table_name"]'), '7'); setv($('[data-db="0"][data-k="amount"]'), '28000'); await next();
-    typ($('#cm-hot'), '2298000'); await sleep(300); await next();
     $('#cm-nomoves').click(); await sleep(100); await next();
     setv($('#cm-cups'), '60'); await next();
+    typ($('#cm-hot'), '2298000'); await sleep(300); await next();
     setv($('#cm-diff-note'), 'thiếu 40.000'); await next();
     await next(); await sleep(500);
     r.push(`Bước 10: ${txt('#cm-root h2')} · ${txt('.cm-real')} · ${W()}`);

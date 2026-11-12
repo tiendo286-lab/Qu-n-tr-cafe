@@ -9,7 +9,11 @@ import { $, $$, flash, html, showSaved, str } from './ui.js';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
-const STEPS = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kiểm tra lần cuối'];
+// Nội dung từng bước theo mã (B[mã], stepError); thứ tự hiện ra theo ORDER — ghi hết các khoản tiền (Thu chi) TRƯỚC khi đối chiếu
+// chuyển khoản hotline, để không phải lùi lại khi thu chi / khách trả tiền mượn bằng chuyển khoản làm lệch (anh Tiến chốt 12/11/2026)
+const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kiểm tra lần cuối'];
+const ORDER = [0, 1, 2, 3, 5, 6, 4, 7, 8, 9];
+const STEPS = ORDER.map((k) => LABEL[k]);
 const hm = (x) => (x ? String(x).slice(0, 5) : '');
 const sum = (a, f) => (a || []).reduce((s, x) => s + (Number(f(x)) || 0), 0);
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -130,7 +134,8 @@ export async function renderNew(R0, P, SH) {
     const c = money(); const bad = c.ckLeft !== null && c.ckLeft !== 0;
     return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
         ${V.reported_transfer === null ? '' : bad ? html`<br>🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b>` : html`<br>✅ Khớp`}</div>
-      ${bad ? html`<label class="pc-f"><span>Lý do lệch chuyển khoản (bắt buộc)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
+      ${bad ? html`<div class="st-meta">Lệch thì cộng lại các giao dịch trên hotline. Quên ghi khoản thu chi / khách trả bằng chuyển khoản? <button type="button" class="btn sm secondary" data-jump="5">Về bước Thu chi</button></div>
+        <label class="pc-f"><span>Lý do lệch chuyển khoản (bắt buộc)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
   }
   const B = {
     0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Người khác trong ca chỉ giúp phần nhận hàng.</div>
@@ -271,7 +276,7 @@ export async function renderNew(R0, P, SH) {
   }
   function stepError() {
     const c = money();
-    switch (V.step) {
+    switch (ORDER[V.step]) {
       case 1: {
         if (!V.staff.some((s) => s.worked)) return 'Phải có ít nhất 1 người làm.';
         const b = V.staff.find((s) => s.worked && (!s.time_in || !s.time_out)); if (b) return `Nhập giờ đến và giờ về của ${b.name}.`;
@@ -317,7 +322,7 @@ export async function renderNew(R0, P, SH) {
     const s = V.step; const err = V.tried ? stepError() : '';
     return html`<div class="card cm-card" style="gap:8px"><div class="cm-sh"><span class="cm-n">Bước ${s + 1}/${STEPS.length}</span><span class="st-meta">${R.shift} · ${dmy(R.work_date)}${tienMine ? ' · bạn là người chốt' : ''}</span></div>
         <div class="cm-steps">${STEPS.map((_, i) => html`<i class="${i < s ? 'done' : i === s ? 'cur' : ''}"></i>`)}</div><h2 style="margin:0">${STEPS[s]}</h2></div>
-      <div class="card stack cm-card" id="cm-body">${B[s]()}${s === 0 && tienOther ? nhanHang() : ''}</div>
+      <div class="card stack cm-card" id="cm-body">${B[ORDER[s]]()}${s === 0 && tienOther ? nhanHang() : ''}</div>
       <div id="cm-err">${err ? html`<div class="alert error">${err}</div>` : ''}</div>
       ${s > 0 ? html`<div class="cm-nav"><button type="button" class="btn secondary" id="cm-back" ${s === 1 ? 'hidden' : ''}>‹ Quay lại</button><button type="button" class="btn" id="cm-next">${s === STEPS.length - 1 ? 'GỬI PHIẾU' : 'Tiếp ›'}</button></div>` : ''}`;
   }
@@ -331,7 +336,7 @@ export async function renderNew(R0, P, SH) {
       const root = $('#cm-root');
       const draw = (top) => { const y = window.scrollY; root.innerHTML = str(shell()); bind(); if (top) window.scrollTo(0, 0); else window.scrollTo(0, y); };
       const soft = () => {
-        if (V.step === 2) { $('#cm-checks').innerHTML = str(fabiChecks().h); if (!!$('#cm-open-note') !== !!money().startBad) draw(); }
+        if (ORDER[V.step] === 2) { $('#cm-checks').innerHTML = str(fabiChecks().h); if (!!$('#cm-open-note') !== !!money().startBad) draw(); }
         if (V.tried) { const e = stepError(); $('#cm-err').innerHTML = e ? str(html`<div class="alert error">${e}</div>`) : ''; }
       };
       const busy = async (fn) => { try { await fn(); } catch (e) { showSaved(e.message, true); } };
@@ -365,6 +370,11 @@ export async function renderNew(R0, P, SH) {
           try { sessionStorage.setItem(key, JSON.stringify({ step: 9 })); } catch (_) { /* bỏ qua */ }
           rerender();
         }));
+        const bindJump = () => $$('[data-jump]', root).forEach((b) => {
+          if (b.dataset.bound) return; b.dataset.bound = '1';
+          b.addEventListener('click', () => busy(async () => { await save(); V.step = ORDER.indexOf(Number(b.dataset.jump)); V.tried = false; draw(true); }));
+        });
+        bindJump();
         $('#cm-back')?.addEventListener('click', () => busy(async () => { await save(); V.step--; V.tried = false; draw(true); }));
         $('#cm-next')?.addEventListener('click', () => busy(async () => {
           const e = stepError();
@@ -460,7 +470,7 @@ export async function renderNew(R0, P, SH) {
         // bước 4
         // Ô tiền tự thêm dấu chấm khi gõ nên trình duyệt không phát 'change' → nghe 'input', chỉ vẽ lại khung so sánh (không mất cú bấm "Tiếp")
         const bindCkNote = () => $('#cm-ck-note')?.addEventListener('input', (e) => { V.transfer_note = e.target.value; soft(); });
-        $('#cm-hot')?.addEventListener('input', (e) => { V.reported_transfer = parseMoney(e.target.value); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); soft(); });
+        $('#cm-hot')?.addEventListener('input', (e) => { V.reported_transfer = parseMoney(e.target.value); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); bindJump(); soft(); });
         bindCkNote();
         // bước 5
         $('#cm-add-move')?.addEventListener('click', () => { V.moves.push({ kind: 'tien_mat', amount: null, note: '' }); V.noMoves = false; draw(); });
