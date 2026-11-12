@@ -11,7 +11,7 @@ import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
 import { renderNew } from '../chot_ca_moi.js';
 import { DEN_CSS, mountLights } from '../doi_soat_den.js';
-import { mountBankOuts } from '../phieu_chi_ck.js';
+import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
 export const perm = 'chot_ca';
@@ -190,6 +190,7 @@ export async function render({ params }) {
   // bước 51: mục web tự đối soát (khớp file Fabi + ngân hàng) → nhạt đi, khoá
   const LK = isDs ? await rpc('app_ca_auto_locks', { p_id: id }).catch(() => null) : null;
   const lkItem = (it) => !!LK && (LK.items || []).includes(it);
+  const KT = isDs ? await rpc('app_ca_kt_state', { p_id: id }).catch(() => null) : null;   // bước 57: phần tiền chờ kế toán?
   const PT = P ? Object.fromEntries((P.parts || []).map((p) => [p.part, p])) : {};
   const edFor = (k) => (P ? ed && !!PT[k]?.mine && !PT[k]?.done_at : ed && isDs);
   const edT = edFor('tien'); const edN = edFor('nhan_su'); const edH = edFor('nhan_hang');
@@ -325,6 +326,19 @@ export async function render({ params }) {
     <div id="debts">${(R.debts || []).filter((d) => d.kind !== 'muon').map((d) => debtRow(d, edSharedT))}</div>
     ${edSharedT ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).some((d) => d.kind !== 'muon') ? '' : html`<div class="st-meta">Không có.</div>`}`);
 
+  // Bước 57: trang Đối soát — khung "Tiền của ca" gộp phần 1–3 (thời gian, nhận két / doanh thu, chênh lệch / thu chi)
+  const hm = (t) => (t ? String(t).slice(11, 16) : '—');
+  const timeOk = !!(R.rev_start && R.rev_end && R.rev_end > R.rev_start);
+  const secCa = isDs ? html`<section class="card stack pc-sec ca-sec" style="gap:10px">
+    <div class="pc-sec-head"><h2>Tiền của ca</h2><span class="st-meta">so theo file Fabi + ngân hàng</span></div>
+    <div class="ca-time">Giờ doanh thu <strong>${hm(R.rev_start)} → ${hm(R.rev_end)}</strong> ${(R.checks || {}).thoi_gian ? html`<span class="pill ok">✓ đã đối soát</span>` : timeOk ? html`<span class="pill ok">✓</span>` : html`<span class="pill off">chưa đúng — sửa ở "Xem / sửa số liệu"</span>`}</div>
+    <div id="ca-box" class="stack" style="gap:8px"></div>
+    <div class="pc-sub" style="margin:4px 0 0">THU CHI CỦA CA <span class="st-meta">— chọn nhóm (hoặc "Không tính") ngay trên từng dòng</span></div>
+    <div id="ds-tc"><div class="st-meta">Đang tải…</div></div>
+    <details class="ca-more" id="ca-more"><summary>Xem / sửa số liệu <span class="st-meta">(mục 1–5, ảnh iPOS, nhận két, số dư ngân hàng, phiếu chi, sửa khoản thu chi)</span></summary>
+      <div class="stack" style="gap:12px;margin-top:10px">${secTime}${secMoney}${secDiff}</div></details>
+  </section>` : '';
+
   // E. Nhân viên
   const secStaff = sec('5. Nhân viên thực tế làm trong ca', ['nhan_su'], html`
     <div class="st-meta">Danh sách theo lịch đã xếp. Ghi nhận ở đây không sửa lịch đã xếp.</div>
@@ -437,8 +451,7 @@ export async function render({ params }) {
   const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
   const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
-      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('tien')}${secTime}${secMoney}${secDiff}${secDebt}
-        <section class="card stack pc-sec"><div class="pc-sec-head"><h2>Phân nhóm thu chi của ca</h2></div><div class="st-meta">Chọn nhóm (hoặc "Không tính") cho từng dòng thu chi rồi bấm Đối soát — làm ở đây hay ở trang Đối soát đều được.</div><div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section></div>
+      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('tien')}${secCa}${secDebt}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('nhan_hang')}${secGoods}</div>
       <div class="ds-pane stack" data-ds="3">${dsHd(3)}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Tiếp ›</button></section>` : ''}` : '';
@@ -458,7 +471,7 @@ export async function render({ params }) {
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
     html: html`${STYLE}${HD_CSS}${DT_CSS}${head}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK }); },
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT }); },
   };
 }
 
@@ -515,7 +528,7 @@ function collect() {
 }
 
 function mount(R, ed, C0, ctx = {}) {
-  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK } = ctx;
+  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT } = ctx;
   let saveNow = null;
   // bước 51: trường thuộc mục web đã tự đối soát → không sửa được (máy chủ cũng giữ nguyên số cũ)
   if (isDs && LK && (LK.fields || []).length) {
@@ -577,6 +590,38 @@ function mount(R, ed, C0, ctx = {}) {
     <div class="kv" style="margin-top:4px"><div>Tiền mặt chưa giải trình</div><div>${result(c.tmLeft)}</div><div>Chuyển khoản chưa giải trình</div><div>${result(c.ckLeft)}</div></div>
     ${P.remind_at ? html`<div class="st-meta">Phần nào chưa Xong, web nhắc lúc ${P.remind_at.slice(11)} (30 phút trước khi hết ca), sau đó mỗi giờ.</div>` : ''}
     <div class="st-meta">Đủ các phần Xong thì phiếu tự HOÀN THÀNH — không cần bấm thêm nút nào.</div>`;
+  // bước 57: 3 dòng so khớp của khung "Tiền của ca"
+  const caRows = (c, v) => {
+    const M = (R0 || R).money || {}; const hg = Number(M.handover_gap || 0);
+    const res = R.results || {}; const chk = R.checks || {};
+    const wait = !!(KT && KT.need && !KT.ready);
+    const can = !!R.can_recon && (R0 || R).recon_status !== 'hoan_thanh';
+    const n = (x) => (x === null || x === undefined || x === '' ? null : Number(x));
+    const row = (item, title, sub2, left, acts) => {
+      const done = !!chk[item] || !!res[item]; const x = res[item];
+      const badge = done ? html`<span class="pill ok">✓ ${x ? `${RES[x.result][0]}${x.amount ? ' ' + fmt(x.amount) : ''}` : 'đã đối soát'}</span>`
+        : wait ? html`<span class="pill mute">⏳ chờ kế toán</span>`
+        : left === 'tc' ? html`<span class="pill warn">chờ chọn nhóm</span>` : left === null ? html`<span class="pill mute">chưa đủ số</span>` : left === 0 ? html`<span class="pill ok">✓ khớp</span>` : html`<span class="pill off">🔴 ${signed(left)}</span>`;
+      const show = !done && can && left !== 0 && left !== null && left !== 'tc';
+      return html`<div class="ca-row ${done ? 'done' : !wait && left && left !== 'tc' ? 'bad' : ''}"><div class="ca-l"><strong>${title}</strong><span class="st-meta">${sub2}</span></div><div class="ca-r">${badge}</div>
+        ${show && acts.length ? html`<div class="ca-act">${acts}</div>` : ''}</div>`;
+    };
+    const btn = (k, label, item, main) => html`<button type="button" class="btn sm ${main ? '' : 'secondary'}" data-ca="${k}" ${item ? html`data-item="${item}"` : ''}>${label}</button>`;
+    const pc = n(v.pos_cash); const pt = n(v.pos_transfer); const cc = n(v.cash_counted); const tot = n(v.total_revenue);
+    const tmLeft = c.tmLeft === null ? null : c.tmLeft + hg;
+    const bankOk = !!M.bank_ok; const got = n(M.bank_received);
+    const ckLeft = bankOk && pt !== null ? got - pt - c.ckMoves - c.colCK : c.ckLeft;
+    const mv = (v.moves || []).filter((m) => !m.auto); const mvSum = mv.reduce((t, m) => t + (Number(m.amount) || 0), 0);
+    const paid = (R.open_debts || []).filter((d) => d.kind !== 'muon' && d.closed_report_id === R.id);
+    return html`
+      ${row('doanh_thu', 'Doanh thu', `${fmt(tot)} = TM ${fmt(pc)} + CK ${fmt(pt)}${c.debtNew ? ` + nợ ${fmt(c.debtNew)}` : ''}${v.cups != null ? ` · ${v.cups} cốc` : ''}`, c.sumGap, [btn('more', 'Xem / sửa số liệu', null, true)])}
+      ${row('tien_mat', 'Tiền mặt', `phải có ${tmLeft === null || cc === null ? '—' : fmt(cc - tmLeft)} · két đếm ${cc === null ? '—' : fmt(cc)}`, tmLeft,
+        [btn('mv', 'Thêm thu chi'), btn('res', 'Chọn KHỚP / THIẾU / THỪA', 'tien_mat', true)])}
+      ${row('chuyen_khoan', 'Chuyển khoản', `phải nhận ${pt === null ? '—' : fmt(pt + c.ckMoves + c.colCK)} · ${bankOk ? `ngân hàng nhận ${fmt(got)}` : `nhân viên báo ${fmt(v.reported_transfer)} (tạm — kế toán chưa nhập ngân hàng)`}`, ckLeft,
+        [...(ckLeft < 0 ? [btn('pc', 'Tạo phiếu chi', null, true)] : []), btn('res', 'Chọn KHỚP / THIẾU / THỪA', 'chuyen_khoan', ckLeft >= 0)])}
+      ${row('thu_chi', 'Thu chi', mv.length ? `${mv.length} khoản · ${signed(mvSum)} — chọn nhóm ở danh sách dưới` : 'không có khoản nào', mv.length ? 'tc' : 0, [])}
+      ${paid.length ? html`<div class="st-meta ca-paid">Khách trả nợ trong ca: ${paid.map((d) => `bàn ${d.table_name} ${fmt(d.amount)} (${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'})`).join(', ')} — đã tính vào tiền mặt / chuyển khoản ở trên.</div>` : ''}`;
+  };
   const recalc = () => {
     const v = ed ? collect() : R;
     const c = calc(v, debtSums(R, ed ? v.debts : null));
@@ -607,6 +652,7 @@ function mount(R, ed, C0, ctx = {}) {
         <div>Kết quả</div><div>${result(left)}</div></div></div>`;
     const db = $('#diff-box');
     if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves - (c.loanOut || 0), c.colTM, c.tmLeft === null ? null : c.tmLeft + hg, '(Mục 5 − đầu ca − Mục 2)', hg, c.sal, c.loanOut || 0)}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
+    const cab = $('#ca-box'); if (cab) cab.innerHTML = str(caRows(c, v));
     const sc2 = $('#staff-count');
     if (sc2) sc2.textContent = new Set($$('.st-row').filter((r) => r.querySelector('.st-worked').value === '1').map((r) => r.dataset.emp)).size;
     $('#goods-missing') && ($('#goods-missing').hidden = (ed ? collect().goods_status : R.goods_status) !== 'thieu');
@@ -618,6 +664,20 @@ function mount(R, ed, C0, ctx = {}) {
     }
   };
   recalc();
+  $('#ca-box')?.addEventListener('click', async (ev) => {
+    const b = ev.target.closest('[data-ca]'); if (!b) return;
+    const k = b.dataset.ca;
+    if (k === 'res') { openResult(b.dataset.item); return; }
+    if (k === 'more' || k === 'mv') {
+      const d = $('#ca-more'); if (d) d.open = true;
+      if (k === 'mv' && $('#add-move')) { $('#add-move').click(); $('#moves')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else d?.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      return;
+    }
+    if (k === 'pc') {
+      try { const D = await rpc('app_ca_bank_outs', { p_id: R.id }); if (!D.can) { showSaved('Chỉ Chủ, Quản lý tổng, Kế toán tạo phiếu chi.', true); return; } openBankOut(R.id, D, () => rerender()); }
+      catch (e) { showSaved(e.message, true); }
+    }
+  });
   // ---------- phiếu từng bước
   if (wizard) {
     let step = 0;
@@ -1033,6 +1093,13 @@ const STYLE = html`<style>
   .rc-chip.on { border-color: #b8d9ab; background: var(--ok-bg); color: var(--ok-ink); }
   button.rc-chip { cursor: pointer; }
   .rc-chip.rc-auto { opacity: .75; }
+  .ca-time { font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .ca-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; }
+  .ca-row.bad { border-color: var(--off-line); } .ca-row.done { opacity: .55; }
+  .ca-l { display: flex; flex-direction: column; min-width: 0; } .ca-l .st-meta { overflow-wrap: anywhere; }
+  .ca-act { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; }
+  .ca-paid { padding: 0 2px; }
+  .ca-more > summary { cursor: pointer; font-weight: 700; padding: 8px 0; }
   .pc-sec.pc-auto > :not(.pc-sec-head) { opacity: .5; pointer-events: none; user-select: none; }
   .pc-f.pc-lk { opacity: .5; }
   .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }

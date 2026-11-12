@@ -311,6 +311,11 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Muốn sửa: bấm **"Sửa"** ở đúng mục trong Đèn đối soát, ghi lý do → **chỉ mục đó mở lại** (các mục khác giữ nguyên). Ai có quyền đối soát làm được; mục web tự đối soát theo file Fabi vẫn chỉ Chủ sửa.
 - Duyệt lại mục đó → phiếu **tự HOÀN THÀNH ĐỐI SOÁT**. Bỏ nút "Hoàn thành đối soát" và "Mở lại đối soát"; riêng **Chủ** có "Mở lại cả phiếu" (mở lại mọi mục, có lý do).
 - Mục tiền có khoản âm: mở lại không huỷ khoản âm ngay, chọn lại kết quả thì thay danh sách; khoản âm đã xử lý (đã bù / trừ lương xác nhận / miễn) thì không mở lại được.
+
+## 5y. Trang Đối soát ca — khung "Tiền của ca" — CHỐT và ĐÃ LÀM 12/11/2026 (chỉ giao diện, `docs/js/pages/phieu_ca.js`)
+- Bước Tiền của trang Đối soát ca gộp phần 1 (thời gian), 2 (nhận két, doanh thu), 3 (chênh lệch, thu chi) thành **1 khung "Tiền của ca"**: 1 dòng giờ doanh thu; 3 dòng so khớp **Doanh thu / Tiền mặt / Chuyển khoản** (✓ khớp, 🔴 lệch kèm nút xử lý ngay: Tạo phiếu chi, Thêm thu chi, Chọn KHỚP / THIẾU / THỪA, Xem / sửa số liệu); dòng Thu chi; mục đã đối soát nhạt đi.
+- **Thu chi của ca** chỉ còn 1 danh sách, chọn nhóm ngay trên dòng (bỏ mục "Phân nhóm thu chi của ca" riêng).
+- Ô số liệu (mục 1–5, ảnh iPOS, nhận két, số dư ngân hàng, phiếu chi, sửa khoản thu chi) thu vào **"Xem / sửa số liệu"** (bấm mới mở). Phiếu chốt ca của nhân viên giữ nguyên.
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
