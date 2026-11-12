@@ -148,6 +148,7 @@ export async function renderNew(R0, P, SH) {
           : html`<input class="input sm" data-reason="${i}" placeholder="Lý do nghỉ (bắt buộc)" value="${s.absent_reason || ''}">`}</div>`)}
       <div class="pc-line"><input class="input sm grow" id="cm-helper" list="cm-emps" placeholder="Gõ mã hoặc tên người làm hộ" aria-label="Người làm hộ"><datalist id="cm-emps"></datalist>
         <button type="button" class="btn sm secondary" id="cm-add-helper">+ Thêm</button></div>
+      <div id="cm-help-list" class="cm-hlist"></div>
       <div class="st-meta">Có người nghỉ hoặc làm hộ thì quản lý tổng phân loại lý do khi đối soát.</div>`,
     2: () => {
       const ch = fabiChecks();
@@ -387,14 +388,38 @@ export async function renderNew(R0, P, SH) {
         $$('[data-reason]', root).forEach((i) => i.addEventListener('input', () => { V.staff[i.dataset.reason].absent_reason = i.value; soft(); }));
         $$('[data-rm]', root).forEach((b) => b.addEventListener('click', () => { V.staff.splice(Number(b.dataset.rm), 1); draw(); }));
         if ($('#cm-emps')) {
-          rpc('app_ca_employees').then((list) => { emps = list || []; $('#cm-emps').innerHTML = str(html`${emps.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}`); }).catch(() => {});
-          $('#cm-add-helper').addEventListener('click', () => {
-            const q = $('#cm-helper').value.trim().toLowerCase(); const code = q.split(/\s*[–-]\s*/)[0];
-            const e = emps.find((x) => `${x.code} – ${x.name}`.toLowerCase() === q) || emps.find((x) => x.code.toLowerCase() === code);
-            if (!e) { showSaved('Không tìm thấy nhân viên. Chọn trong danh sách gợi ý.', true); return; }
+          rpc('app_ca_employees').then((list) => { emps = list || []; $('#cm-emps').innerHTML = str(html`${emps.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}`); if ($('#cm-helper')?.value) showList(); }).catch(() => {});
+          // Tìm người làm hộ: gõ vài chữ của tên hoặc mã (không cần dấu) → bấm vào tên để thêm (trên điện thoại ô gợi ý của trình duyệt hay không hiện)
+          const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
+          const addEmp = (e) => {
             if (V.staff.some((s) => s.employee_id === e.id)) { showSaved('Người này đã có trong danh sách.', true); return; }
             V.staff.push({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, source: 'ho_tro', worked: true, pay_cash: e.pay_cash, time_in: SH ? hm(SH.start) : null, time_out: SH ? hm(SH.end) : null });
             draw();
+          };
+          const found = () => {
+            const q = norm($('#cm-helper').value); if (!q) return [];
+            const exact = emps.filter((x) => norm(`${x.code} – ${x.name}`) === q || norm(x.code) === q.split(/\s*[–-]\s*/)[0]);
+            if (exact.length === 1) return exact;
+            // khớp đầu chữ (gõ "yen" không ra họ "Nguyễn"); người có TÊN (chữ cuối) khớp lên trước
+            const hitW = (x) => { const w = norm(x.name).split(/\s+/); return norm(x.code).startsWith(q) || norm(x.name).startsWith(q) || w.some((y) => y.startsWith(q)); };
+            const rank = (x) => (norm(x.name).split(/\s+/).pop().startsWith(q) || norm(x.code) === q ? 0 : 1);
+            return emps.filter((x) => !V.staff.some((s) => s.employee_id === x.id) && hitW(x)).sort((a, b) => rank(a) - rank(b));
+          };
+          const showList = () => {
+            const box = $('#cm-help-list'); const q = norm($('#cm-helper').value);
+            if (!q) { box.innerHTML = ''; return; }
+            const list = found().slice(0, 8);
+            box.innerHTML = str(!emps.length ? html`<span class="st-meta">Đang tải danh sách nhân viên…</span>`
+              : list.length ? html`${list.map((x) => html`<button type="button" class="btn sm secondary" data-add-emp="${x.id}">+ ${x.code} – ${x.name}</button>`)}`
+                : html`<span class="st-meta">Không thấy nhân viên nào khớp "${$('#cm-helper').value.trim()}".</span>`);
+            $$('[data-add-emp]', box).forEach((b) => b.addEventListener('click', () => addEmp(emps.find((x) => String(x.id) === b.dataset.addEmp))));
+          };
+          $('#cm-helper').addEventListener('input', showList);
+          $('#cm-add-helper').addEventListener('click', () => {
+            const l = found();
+            if (l.length === 1) { addEmp(l[0]); return; }
+            showList();
+            if (!l.length) showSaved('Không tìm thấy nhân viên. Gõ tên hoặc mã rồi bấm vào tên trong danh sách.', true);
           });
         }
         // bước 2
@@ -501,6 +526,7 @@ const CM_CSS = html`<style>
   .cm-line2 { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 6px; align-items: center; }
   .cm-big { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .cm-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+  .cm-hlist { display: flex; flex-wrap: wrap; gap: 6px; } .cm-hlist .btn { max-width: 100%; white-space: normal; text-align: left; }
   .cm-real { display: flex; flex-direction: column; gap: 10px; } .cm-rc { border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
   .cm-rc .kv { grid-template-columns: minmax(0, 1fr) auto; } .cm-rc .kv > div:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; } .cm-rt { background: var(--subtle, var(--line-soft)); }
   .cm-phrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
