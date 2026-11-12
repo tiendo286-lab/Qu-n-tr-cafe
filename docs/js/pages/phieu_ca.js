@@ -56,14 +56,15 @@ function mergeRecon(R0, RC) {
 // Công nợ (chốt 07/11): Mục 1 = Mục 2 + Mục 3 + nợ phát sinh; tiền thu nợ cộng vào tiền mặt / chuyển khoản của ca thu
 export function debtSums(R, debtsNow) {
   const debtNew = (debtsNow || R.debts || []).filter((d) => d.kind !== 'muon').reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const loanOut = (R.debts || []).filter((d) => d.kind === 'muon').reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const col = (k) => (R.open_debts || []).filter((d) => d.closed_report_id === R.id && d.collect_kind === k).reduce((s, d) => s + (Number(d.amount) || 0), 0);
-  return { debtNew, colTM: col('tien_mat'), colCK: col('chuyen_khoan') };
+  return { debtNew, loanOut, colTM: col('tien_mat'), colCK: col('chuyen_khoan') };
 }
 export function calc(v, x = {}) {
   const n = (y) => (y === null || y === undefined || y === '' ? null : Number(y));
   const [total, pc, pt, rt, cc, op] = [n(v.total_revenue), n(v.pos_cash), n(v.pos_transfer), n(v.reported_transfer), n(v.cash_counted), n(v.opening_cash)];
   const sum = (k) => (v.moves || []).filter((m) => m.kind === k).reduce((s, m) => s + (Number(m.amount) || 0), 0);
-  const debtNew = x.debtNew || 0; const colTM = x.colTM || 0; const colCK = x.colCK || 0;
+  const debtNew = x.debtNew || 0; const colTM = x.colTM || 0; const colCK = x.colCK || 0; const loanOut = x.loanOut || 0;
   const ckDiff = rt !== null && pt !== null ? rt - pt : null;
   const tmDiff = cc !== null && op !== null && pc !== null ? cc - op - pc : null;
   const sal = (v.staff || []).filter((x) => x.worked !== false && x.worked !== 0 && Number(x.cash_paid) > 0).reduce((t, x) => t + Number(x.cash_paid), 0);
@@ -71,9 +72,9 @@ export function calc(v, x = {}) {
   return {
     sal,
     sumGap: total !== null && pc !== null && pt !== null ? total - pc - pt - debtNew : null,
-    debtNew, colTM, colCK, ckDiff, tmDiff, ckMoves, tmMoves,
+    debtNew, loanOut, colTM, colCK, ckDiff, tmDiff, ckMoves, tmMoves,
     ckLeft: ckDiff === null ? null : ckDiff - ckMoves - colCK,
-    tmLeft: tmDiff === null ? null : tmDiff - tmMoves - colTM,
+    tmLeft: tmDiff === null ? null : tmDiff - tmMoves - colTM + loanOut,
   };
 }
 
@@ -292,19 +293,23 @@ export async function render({ params }) {
       <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am">Mở phiếu trừ lương trong Thu chi</a></div>` : ''}
     <div class="pc-sub">CHI TIẾT THU CHI <span class="st-meta">— giải trình từng khoản làm tiền lệch (số âm = chi/thiếu, số dương = thu/thừa)</span></div>
     <div id="moves">${(R.moves || []).map((m) => moveRow(m, edT))}</div>
+    ${(R.debts || []).filter((d) => d.kind === 'muon').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách mượn – ${d.table_name}</strong> · ${vnd(-d.amount)} · tiền mặt
+        <div class="st-meta">Tiền ra khỏi két, không tính chi phí; các ca sau thấy để đòi${d.note ? ' · ' + d.note : ''}${d.closed_at ? ` · đã trả ${dt(d.closed_at)}` : ''}</div></div></div>`)}
+    ${(R.open_debts || []).filter((d) => d.kind === 'muon' && d.closed_report_id === R.id).map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách trả tiền mượn – ${d.table_name}</strong> · +${vnd(d.amount)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}
+        <div class="st-meta">Mượn ca ${d.from_shift} ${dmy(d.from_date)}</div></div></div>`)}
     ${edT ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`);
 
   // D. Công nợ
   const secDebt = sec('4. Khách chưa thanh toán (công nợ)', ['cong_no'], html`
     <div class="st-meta" style="font-size:13px">Nợ phát sinh được tính vào doanh thu: <strong>Mục 1 = Mục 2 + Mục 3 + Nợ phát sinh</strong>. Khách trả nợ của ca trước thì bấm <strong>Khách đã trả</strong> và chọn tiền mặt hay chuyển khoản — tiền đó được cộng vào ca này.</div>
-    ${(R.open_debts || []).length ? html`<div class="pc-sub">NỢ TỪ CÁC CA TRƯỚC</div>${R.open_debts.map((d) => html`<div class="pc-line carried">
+    ${(R.open_debts || []).some((d) => d.kind !== 'muon') ? html`<div class="pc-sub">NỢ TỪ CÁC CA TRƯỚC</div>${R.open_debts.filter((d) => d.kind !== 'muon').map((d) => html`<div class="pc-line carried">
         <div class="grow"><strong>Bàn ${d.table_name}</strong> · ${vnd(d.amount)} <span class="st-meta">· ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span>
           ${d.closed_at ? html`<div class="st-meta">Đã thu${d.collect_kind ? ` bằng ${d.collect_kind === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản'}` : ''}: ${d.close_note || ''} · ${d.closed_by_name} ${dt(d.closed_at)}</div>` : ''}</div>
         ${edSharedT ? (d.closed_at ? html`<button type="button" class="btn sm secondary debt-close" data-id="${d.id}" data-undo="1">Bỏ đánh dấu</button>`
           : html`<button type="button" class="btn sm debt-close" data-id="${d.id}" data-amt="${d.amount}" data-table="${d.table_name}">Khách đã trả</button>`) : ''}</div>`)}` : ''}
     <div class="pc-sub">NỢ PHÁT SINH CA NÀY</div>
-    <div id="debts">${(R.debts || []).map((d) => debtRow(d, edSharedT))}</div>
-    ${edSharedT ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).length ? '' : html`<div class="st-meta">Không có.</div>`}`);
+    <div id="debts">${(R.debts || []).filter((d) => d.kind !== 'muon').map((d) => debtRow(d, edSharedT))}</div>
+    ${edSharedT ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).some((d) => d.kind !== 'muon') ? '' : html`<div class="st-meta">Không có.</div>`}`);
 
   // E. Nhân viên
   const secStaff = sec('5. Nhân viên thực tế làm trong ca', ['nhan_su'], html`
@@ -568,15 +573,15 @@ function mount(R, ed, C0, ctx = {}) {
     }
     const M = isDs ? (R0 || R).money || null : null;
     const hg = M ? Number(M.handover_gap || 0) : 0;
-    const box = (label, init, moves, col, left, formula, hand = 0, sal = 0) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
+    const box = (label, init, moves, col, left, formula, hand = 0, sal = 0, loan = 0) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
       <div class="kv"><div>Chênh lệch ban đầu</div><div>${init === null ? '—' : signed(init)} <span class="st-meta">${formula}</span></div>
-        <div>Đã kê khai thu chi</div><div>${signed(moves)}${sal ? html`<div class="st-meta">gồm chi lương tiền mặt ${signed(-sal)} (mục Nhân viên)</div>` : ''}</div>
-        ${col ? html`<div>Khách trả nợ ca trước</div><div>${signed(col)}</div>` : ''}
+        <div>Đã kê khai thu chi</div><div>${signed(moves)}${sal ? html`<div class="st-meta">gồm chi lương tiền mặt ${signed(-sal)} (mục Nhân viên)</div>` : ''}${loan ? html`<div class="st-meta">gồm khách mượn tiền ${signed(-loan)}</div>` : ''}</div>
+        ${col ? html`<div>Khách trả nợ / trả tiền mượn ca trước</div><div>${signed(col)}</div>` : ''}
         ${hand ? html`<div>Ca sau nhận két lệch</div><div>${signed(hand)}</div>` : ''}
         <div><strong>Chưa giải trình</strong></div><div><strong>${left === null ? '—' : signed(left)}</strong></div>
         <div>Kết quả</div><div>${result(left)}</div></div></div>`;
     const db = $('#diff-box');
-    if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves, c.colTM, c.tmLeft === null ? null : c.tmLeft + hg, '(Mục 5 − đầu ca − Mục 2)', hg, c.sal)}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
+    if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves - (c.loanOut || 0), c.colTM, c.tmLeft === null ? null : c.tmLeft + hg, '(Mục 5 − đầu ca − Mục 2)', hg, c.sal, c.loanOut || 0)}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
     const sc2 = $('#staff-count');
     if (sc2) sc2.textContent = new Set($$('.st-row').filter((r) => r.querySelector('.st-worked').value === '1').map((r) => r.dataset.emp)).size;
     $('#goods-missing') && ($('#goods-missing').hidden = (ed ? collect().goods_status : R.goods_status) !== 'thieu');
@@ -764,6 +769,7 @@ function mount(R, ed, C0, ctx = {}) {
     dirty = false;
     const hoRows = $$('.ho-row'); const dbRows = $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id);
     const payload = collect();
+    payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: 'muon' })));
     const call = isDs ? rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: $('#rc-reason')?.value || null }) : rpc('app_ca_save', { p_id: R.id, p: payload });
     saving = call.then((res) => {
       if (!isDs) {

@@ -26,6 +26,9 @@ export default async ({ sleep, out }) => {
     r.push(`Đối soát ca: ${txt('h1')} · ${$$('.ds-st').length} bước: ${txt('.ds-steps')} · đang xem: ${txt('.ds-pane:not([hidden]) .ds-hd')} · ${txt('#ds-pos')} · ${W()}`);
     r.push(`Phân nhóm thu chi bước 1: ${$$('#ds-tc .dt-r').length} dòng`);
     $('#ds-next').click(); await sleep(300); r.push(`Tiếp → ${txt('.ds-pane:not([hidden]) .ds-hd')}`);
+    { const pane = $('.ds-pane:not([hidden])'); const t = (pane?.innerText || '').replace(/\s+/g, ' ');
+      const iTc = t.indexOf('CHI TIẾT THU CHI'); const iCn = t.indexOf('KHÁCH CHƯA THANH TOÁN');
+      r.push(`Thu chi có khách mượn: ${iTc >= 0 && t.indexOf('Khách mượn – Anh Nam', iTc) > iTc && (iCn < 0 || t.indexOf('Khách mượn – Anh Nam', iTc) < iCn || iCn < iTc)} · mục công nợ có khách mượn: ${iCn >= 0 && t.slice(iCn).includes('Anh Nam') && !t.slice(iCn).includes('Khách mượn – Anh Nam')} · đoạn: ${t.slice(Math.max(iTc, 0), Math.max(iTc, 0) + 220)}`); }
     $('#ds-next').click(); await sleep(300); $('#ds-next').click(); await sleep(300);
     r.push(`Bước 4: ${txt('.ds-pane:not([hidden]) .ds-sum')} · ${W()}`);
     const g = $('.ds-pane:not([hidden]) [data-ds-go]'); if (g) { g.click(); await sleep(300); r.push(`bấm "Làm bước" → ${txt('.ds-pane:not([hidden]) .ds-hd')}`); }
