@@ -5,6 +5,8 @@ export default async ({ sleep, out }) => {
   const wait = async (sel, n = 300) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
   const W = () => { const w = document.documentElement.clientWidth; const wide = $$('#root *').filter((el) => el.offsetParent && el.getBoundingClientRect().right > w + 1).map((el) => el.tagName + '.' + el.className).slice(0, 3); return `rộng ${w}/${document.documentElement.scrollWidth}${wide.length ? ' tràn: ' + wide.join(',') : ''}`; };
   const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+  // gõ như người thật: ô tiền tự thêm dấu chấm nên trình duyệt KHÔNG phát 'change' (lỗi 12/11: ô hotline chỉ nghe 'change' → kẹt bước 5)
+  const typ = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
   const num = (k, v) => setv($(`.cm-num[data-f="${k}"]`), v);
   const next = async () => { $('#cm-next').click(); await sleep(700); };
   const r = [];
@@ -39,7 +41,7 @@ export default async ({ sleep, out }) => {
     await next(); r.push(`bấm Tiếp khi nhầm: ${txt('#cm-err')}`);
     num('pos_cash', '2000000'); await sleep(200); r.push(`sửa đúng: ${txt('#cm-checks')} · ${W()}`);
     await next(); r.push(`B4 nợ: ${txt('#cm-body').slice(0, 80)}`);
-    await next(); setv($('#cm-hot'), '3000000'); await sleep(400); r.push(`B5 hotline: ${txt('#cm-body .alert')}`);
+    await next(); typ($('#cm-hot'), '2900000'); await sleep(300); $('#cm-next').click(); await sleep(400); r.push(`B5 lệch: ${txt('#cm-ck-box')} | ${txt('#cm-err')}`); typ($('#cm-hot'), '3000000'); await sleep(400); r.push(`B5 hotline: ${txt('#cm-body .alert')}`);
     await next(); $('#cm-nomoves').click(); await sleep(100); await next();
     setv($('#cm-cups'), '180'); await next();
     r.push(`B8 kết quả: ${txt('#cm-body .alert')}`);
@@ -70,7 +72,7 @@ export default async ({ sleep, out }) => {
     await next(); await next(); r.push(`nợ chưa ghi bàn: ${txt('#cm-err')}`);
     $('#cm-add-debt').click(); await sleep(200);
     setv($('[data-db="0"][data-k="table_name"]'), 'Bàn 5'); setv($('[data-db="0"][data-k="amount"]'), '28000'); await next();
-    setv($('#cm-hot'), '1000000'); await sleep(300); await next();
+    typ($('#cm-hot'), '1000000'); await sleep(300); await next(); r.push(`ca 2 sau hotline: ${txt('#cm-root h2')}`);
     $('#cm-add-move').click(); await sleep(200); setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); setv($('[data-mv="0"][data-k="amount"]'), '1000'); await next();
     setv($('#cm-cups'), '61'); await next();
     r.push(`Chiều kết quả: ${txt('#cm-body .alert')}`);

@@ -108,6 +108,13 @@ export async function renderNew(R0, P, SH) {
     }
     return { h: out.length ? html`<div class="alert ${bad ? 'error' : c.startBad ? 'warn' : 'ok'} cm-checks">${out}</div>` : '', bad, all: Object.values(V.f).every((x) => x !== null) };
   }
+  // Khung so sánh chuyển khoản hotline (vẽ lại riêng khi gõ)
+  function ckBox() {
+    const c = money(); const bad = c.ckLeft !== null && c.ckLeft !== 0;
+    return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
+        ${V.reported_transfer === null ? '' : bad ? html`<br>🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b>` : html`<br>✅ Khớp`}</div>
+      ${bad ? html`<label class="pc-f"><span>Lý do lệch chuyển khoản (bắt buộc)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
+  }
   const B = {
     0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Người khác trong ca chỉ giúp phần nhận hàng.</div>
       <div class="kv"><div>Cơ sở</div><div>${R.branch_code || ''} ${R.branch_name || ''}</div><div>Ca</div><div>${R.shift} · ${dmy(R.work_date)}</div></div>
@@ -162,14 +169,9 @@ export async function renderNew(R0, P, SH) {
           : html`<div class="st-meta">Không có khoản nợ cũ nào đang chờ trả.</div>`}
         <div class="st-meta">Trả tiền mặt: Fabi đã cộng vào tiền phải có trong két. Trả chuyển khoản: web cộng vào số phải thấy trên hotline.</div>`;
     },
-    4: () => {
-      const c = money(); const bad = c.ckLeft !== null && c.ckLeft !== 0;
-      return html`<div class="st-meta">Cộng các giao dịch chuyển khoản <strong>đã nhận trên hotline</strong> trong ca rồi nhập tổng.</div>
-        <label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span><input class="input money" id="cm-hot" inputmode="numeric" value="${V.reported_transfer === null ? '' : fmt(V.reported_transfer)}"></label>
-        <div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
-          ${V.reported_transfer === null ? '' : bad ? html`<br>🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b>` : html`<br>✅ Khớp`}</div>
-        ${bad ? html`<label class="pc-f"><span>Lý do lệch chuyển khoản (bắt buộc)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
-    },
+    4: () => html`<div class="st-meta">Cộng các giao dịch chuyển khoản <strong>đã nhận trên hotline</strong> trong ca rồi nhập tổng.</div>
+        <label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span><input class="input money" id="cm-hot" inputmode="numeric" autocomplete="off" value="${V.reported_transfer === null ? '' : fmt(V.reported_transfer)}"></label>
+        <div id="cm-ck-box">${ckBox()}</div>`,
     5: () => html`<div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc tiền bỏ thêm vào két (kể cả tiền quản lý rút ra). Không cần ảnh hóa đơn.</div>
       ${V.moves.map((m, i) => html`<div class="cm-person"><div class="cm-ph">${m.kind === 'chuyen_khoan' ? html`<span class="pill info">Chuyển khoản</span>` : html`<div class="cm-seg"><button type="button" data-mt="${i}" data-v="-1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) < 0}">Chi ra</button><button type="button" data-mt="${i}" data-v="1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) > 0}">Thu vào</button></div>`}
           <button type="button" class="btn sm secondary danger" data-mx="${i}">Xóa</button></div>
@@ -306,7 +308,7 @@ export async function renderNew(R0, P, SH) {
           const e = stepError();
           if (e) { V.tried = true; $('#cm-err').innerHTML = str(html`<div class="alert error">${e}</div>`); $('#cm-err').scrollIntoView({ block: 'nearest' }); return; }
           V.tried = false;
-          if (V.step < STEPS.length - 1) { V.step++; await save(); draw(true); showSaved('Đã lưu'); return; }
+          if (V.step < STEPS.length - 1) { V.step++; try { await save(); } catch (er) { V.step--; throw er; } draw(true); showSaved('Đã lưu'); return; }
           await save();
           await rpc('app_ca_part_done', { p_id: R.id, p_part: 'tien', p_on: true });
           let r = await rpc('app_ca_part_done', { p_id: R.id, p_part: 'nhan_su', p_on: true });
@@ -376,8 +378,10 @@ export async function renderNew(R0, P, SH) {
           showSaved('Đã lưu'); soft();
         })));
         // bước 4
-        $('#cm-hot')?.addEventListener('change', (e) => { V.reported_transfer = parseMoney(e.target.value); draw(); });
-        $('#cm-ck-note')?.addEventListener('input', (e) => { V.transfer_note = e.target.value; soft(); });
+        // Ô tiền tự thêm dấu chấm khi gõ nên trình duyệt không phát 'change' → nghe 'input', chỉ vẽ lại khung so sánh (không mất cú bấm "Tiếp")
+        const bindCkNote = () => $('#cm-ck-note')?.addEventListener('input', (e) => { V.transfer_note = e.target.value; soft(); });
+        $('#cm-hot')?.addEventListener('input', (e) => { V.reported_transfer = parseMoney(e.target.value); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); soft(); });
+        bindCkNote();
         // bước 5
         $('#cm-add-move')?.addEventListener('click', () => { V.moves.push({ kind: 'tien_mat', amount: null, note: '' }); V.noMoves = false; draw(); });
         $('#cm-nomoves')?.addEventListener('change', (e) => { V.noMoves = e.target.checked; soft(); });
