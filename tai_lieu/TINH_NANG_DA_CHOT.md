@@ -238,6 +238,9 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 | Quản lý đối soát | (em đề xuất, chờ duyệt) Đèn xanh / đỏ: Nhân sự (đúng lịch → xanh; nghỉ / làm hộ → đỏ, phân loại x2 như 5l) · Tiền (ảnh phiếu Fabi hiện cạnh số nhân viên nhập; khớp → xanh) · Thu chi (chọn nhóm) · Hàng (khớp hóa đơn + đủ ảnh → xanh). Nút "Duyệt các mục xanh"; hết đỏ mới HOÀN THÀNH. |
 | Chống quên | (em đề xuất) Bảng ca hôm nay ghi rõ bằng chữ còn thiếu gì (vd "Còn thiếu: ảnh phiếu, giờ về của Lan"); giữ nhắc 30 phút trước hết ca rồi mỗi giờ. |
 
+## 5m-bổ sung (12/11/2026). Khách trả nợ cũ chọn ngay ở bước Phiếu Fabi
+- Fabi cộng tiền khách trả nợ (bill nợ ca trước) bằng tiền mặt vào tiền phải có, nên phải chọn khách đã trả **trước khi** kiểm tra số phiếu. Bước "Phiếu Fabi" có mục **"Khách trả nợ cũ trong ca"** (vẫn có ở bước Khách nợ); số lệch đúng bằng 1 khoản nợ cũ thì web gợi ý tên bàn.
+
 ## 5n. Khách mượn tiền quán — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/43_khach_muon.sql`)
 - Ở bước **Thu chi** của phiếu chốt ca có thêm mục **"Khách mượn tiền quán"**: khách mượn tiền mặt trong két (mua nước, chi việc riêng…). Ghi tên khách, số tiền, SĐT / hẹn trả.
 - Chỉ dùng cho tiền mặt khách mượn. **Bill khách nợ vẫn bấm "Nợ" trên Fabi** và ghi ở bước Khách nợ như cũ (anh Tiến chọn).

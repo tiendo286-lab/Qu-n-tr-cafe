@@ -28,3 +28,4 @@
 - Bước 45 (số dư đầu ca 2 cách): `flow_cm` ca chiều nhập Số dư đầu 1.000.000 → ✅ "nộp quỹ khi giao ca", không có ô lý do. `ca_gia.js` hand() có trạng thái `rut_quy`.
 - Bước 46: `flow_cv46` (`auto=1&role=chu&confirm=1&script=flow_cv46`, điện thoại) — Chủ tự chốt ca có người nghỉ + hỗ trợ → khung Nghỉ & làm thay ở bước cuối, Duyệt → GỬI; phiếu khác chưa phân loại hiện ở mục 6 tab Đối soát. `cv_gia.js` có `app_cv_todo`.
 - Bước 47: `flow_cv46` chọn lý do Bỏ ca, tích x2 chưa chọn người bị chặn, chọn người trong lịch có làm → lưu phạt 200.000 + x2. `flow_cv` đã thêm ô Nợ / Tiền chênh lệch (bước 41) nên chạy lại được.
+- Khách trả nợ cũ ở bước Phiếu Fabi: `flow_od48` (`auto=1&role=nv&confirm=1&script=flow_od48`, điện thoại) — ca sáng có bàn nợ, ca chiều Fabi đã cộng tiền trả nợ → 🔴 + gợi ý "bàn …", chọn "Trả bằng tiền mặt" ngay ở bước 3 → ✅, qua bước Khách nợ.

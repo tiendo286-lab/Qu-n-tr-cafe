@@ -98,6 +98,12 @@ export async function renderNew(R0, P, SH) {
 
   // ------------------------------------------------------------ các bước
   const moneyIn = (k, val, label) => html`<input class="input money cm-num" data-f="${k}" inputmode="numeric" autocomplete="off" placeholder="0" value="${val === null ? '' : fmt(Math.abs(val))}" aria-label="${label}">`;
+  // Khách trả nợ cũ (bill nợ Fabi của ca trước) — chọn được ngay ở bước Phiếu Fabi vì Fabi đã cộng tiền trả nợ vào tiền phải có
+  const debtPayRow = (d) => html`<div class="cm-person"><div><strong>Bàn ${d.table_name}</strong> · ${fmt(d.amount)}đ <span class="st-meta">· ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span></div>
+            ${d.closed_at && d.closed_report_id !== R.id ? html`<span class="pill ok">Đã thu ở ca khác</span>`
+              : html`<select class="input sm" data-paid="${d.id}" aria-label="Khách bàn ${d.table_name} trả chưa"><option value="">Chưa trả</option>
+                <option value="tien_mat" ${d.closed_at && d.collect_kind === 'tien_mat' ? 'selected' : ''}>Trả bằng tiền mặt</option><option value="chuyen_khoan" ${d.closed_at && d.collect_kind === 'chuyen_khoan' ? 'selected' : ''}>Trả bằng chuyển khoản</option></select>`}</div>`;
+  const oldBills = () => (R.open_debts || []).filter((d) => !isLoan(d) && !(d.closed_at && d.closed_report_id !== R.id));
   function fabiChecks() {
     const c = money(); const out = []; let bad = false;
     if (V.f.ipos_opening !== null && expStart) {
@@ -112,7 +118,9 @@ export async function renderNew(R0, P, SH) {
     if (c.diffGap !== null) {
       const lhs = V.f.cash_counted - V.f.ipos_opening - V.f.pos_cash - c.colTMbill;
       if (c.diffGap === 0) out.push(html`<div>✅ Tổng tiền − Số dư đầu − Tiền mặt${c.colTMbill ? ' − khách trả nợ tiền mặt' : ''} = <b>${signed(lhs)}</b> = Tiền chênh lệch</div>`);
-      else { bad = true; out.push(html`<div>🔴 Tổng tiền − Số dư đầu − Tiền mặt${c.colTMbill ? ' − khách trả nợ tiền mặt' : ''} = <b>${signed(lhs)}</b>, khác Tiền chênh lệch <b>${signed(V.f.pos_diff)}</b>. Bạn gõ nhầm 1 số, xem lại phiếu (có khách trả nợ cũ bằng tiền mặt thì chọn ở bước Khách nợ).</div>`); }
+      else { bad = true; out.push(html`<div>🔴 Tổng tiền − Số dư đầu − Tiền mặt${c.colTMbill ? ' − khách trả nợ tiền mặt' : ''} = <b>${signed(lhs)}</b>, khác Tiền chênh lệch <b>${signed(V.f.pos_diff)}</b>.${(() => { const hit = oldBills().filter((d) => !d.closed_at && Number(d.amount) === c.diffGap);
+          return hit.length ? html`<br>💡 Có thể khách <b>bàn ${hit.map((d) => d.table_name).join(' / ')}</b> (${fmt(c.diffGap)}) đã trả nợ tiền mặt — chọn "Trả bằng tiền mặt" ở mục <b>Khách trả nợ cũ</b> ngay bên dưới.`
+            : oldBills().length ? ' Bạn gõ nhầm 1 số, hoặc có khách trả nợ cũ bằng tiền mặt (chọn ở mục Khách trả nợ cũ bên dưới).' : ' Bạn gõ nhầm 1 số, xem lại phiếu.'; })()}</div>`); }
     }
     return { h: out.length ? html`<div class="alert ${bad ? 'error' : c.startBad ? 'warn' : 'ok'} cm-checks">${out}</div>` : '', bad, all: Object.values(V.f).every((x) => x !== null) };
   }
@@ -160,6 +168,9 @@ export async function renderNew(R0, P, SH) {
           <div class="cm-signed"><div class="cm-seg"><button type="button" data-sign="1" aria-pressed="${V.sign > 0}" aria-label="Dương">+</button><button type="button" data-sign="-1" aria-pressed="${V.sign < 0}" aria-label="Âm">−</button></div>${moneyIn('pos_diff', V.f.pos_diff, 'Tiền chênh lệch')}</div>
         </div>
         <div id="cm-checks">${ch.h}</div>
+        ${oldBills().length ? html`<h3 style="margin:8px 0 0">Khách trả nợ cũ trong ca</h3>
+          <div class="st-meta">Phiếu Fabi có mục <strong>PHIẾU THANH TOÁN NỢ</strong> thì chọn khách đã trả ở đây (Fabi đã cộng tiền khách trả bằng tiền mặt vào tiền phải có).</div>
+          ${oldBills().map(debtPayRow)}` : ''}
         ${money().startBad ? html`<label class="pc-f"><span>Lý do số dư đầu khác ${expStart.src} (bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
     },
     3: () => {
@@ -171,10 +182,7 @@ export async function renderNew(R0, P, SH) {
           ${d.closed_at ? html`<span class="pill ok">Đã thu</span>` : html`<button type="button" class="btn sm secondary danger" data-dbx="${i}" aria-label="Xóa dòng">×</button>`}</div>`)}
         ${V.f.pos_debt ? html`<div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-debt">+ Thêm bàn nợ</button><span class="st-meta" id="cm-debt-sum">Đã ghi ${fmt(billSum())} / ${fmt(V.f.pos_debt)}</span></div>` : ''}
         <h3 style="margin:8px 0 0">Khách trả nợ cũ trong ca</h3>
-        ${od.length ? od.map((d) => html`<div class="cm-person"><div><strong>Bàn ${d.table_name}</strong> · ${fmt(d.amount)}đ <span class="st-meta">· ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span></div>
-            ${d.closed_at && d.closed_report_id !== R.id ? html`<span class="pill ok">Đã thu ở ca khác</span>`
-              : html`<select class="input sm" data-paid="${d.id}" aria-label="Khách bàn ${d.table_name} trả chưa"><option value="">Chưa trả</option>
-                <option value="tien_mat" ${d.closed_at && d.collect_kind === 'tien_mat' ? 'selected' : ''}>Trả bằng tiền mặt</option><option value="chuyen_khoan" ${d.closed_at && d.collect_kind === 'chuyen_khoan' ? 'selected' : ''}>Trả bằng chuyển khoản</option></select>`}</div>`)
+        ${od.length ? od.map(debtPayRow)
           : html`<div class="st-meta">Không có khoản nợ cũ nào đang chờ trả.</div>`}
         <div class="st-meta">Trả tiền mặt: Fabi đã cộng vào tiền phải có trong két. Trả chuyển khoản: web cộng vào số phải thấy trên hotline.</div>`;
     },
