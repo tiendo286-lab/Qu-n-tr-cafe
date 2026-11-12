@@ -55,7 +55,7 @@ function mergeRecon(R0, RC) {
 // ---------------------------------------------------------------- tính toán
 // Công nợ (chốt 07/11): Mục 1 = Mục 2 + Mục 3 + nợ phát sinh; tiền thu nợ cộng vào tiền mặt / chuyển khoản của ca thu
 export function debtSums(R, debtsNow) {
-  const debtNew = (debtsNow || R.debts || []).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const debtNew = (debtsNow || R.debts || []).filter((d) => d.kind !== 'muon').reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const col = (k) => (R.open_debts || []).filter((d) => d.closed_report_id === R.id && d.collect_kind === k).reduce((s, d) => s + (Number(d.amount) || 0), 0);
   return { debtNew, colTM: col('tien_mat'), colCK: col('chuyen_khoan') };
 }

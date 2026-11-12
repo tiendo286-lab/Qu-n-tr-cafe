@@ -13,7 +13,7 @@ const STEP = { nhan_su: 0, ban_giao: 0, thoi_gian: 1, doanh_thu: 1, tien_mat: 1,
 export function judge(R0, R, fabi) {
   const m = R0.money || {}; const checks = R.checks || {}; const res = R.results || {};
   const staff = R.staff || []; const moves = (R.moves || []).filter((x) => !x.auto);
-  const debtNew = (R0.debts || []).reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const debtNew = (R0.debts || []).filter((d) => d.kind !== 'muon').reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const fx = fabi && ((fabi.diff || []).length || (fabi.fixed || []).length);
   const h = R0.cash_hand;
   const out = [];

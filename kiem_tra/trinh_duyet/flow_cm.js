@@ -43,7 +43,9 @@ export default async ({ sleep, out }) => {
     num('pos_cash', '2000000'); await sleep(200); r.push(`sửa đúng: ${txt('#cm-checks')} · ${W()}`);
     await next(); r.push(`B4 nợ: ${txt('#cm-body').slice(0, 80)}`);
     await next(); typ($('#cm-hot'), '2900000'); await sleep(300); $('#cm-next').click(); await sleep(400); r.push(`B5 lệch: ${txt('#cm-ck-box')} | ${txt('#cm-err')}`); typ($('#cm-hot'), '3000000'); await sleep(400); r.push(`B5 hotline: ${txt('#cm-body .alert')}`);
-    await next(); $('#cm-nomoves').click(); await sleep(100); await next();
+    await next(); $('#cm-add-loan').click(); await sleep(200); await next(); r.push(`mượn thiếu tên: ${txt('#cm-err')}`);
+    setv($('[data-db="0"][data-k="table_name"]'), 'Anh Nam (thử)'); setv($('[data-db="0"][data-k="amount"]'), '50000'); setv($('[data-db="0"][data-k="note"]'), '09xx');
+    r.push(`B6 khách mượn: ${$$('#cm-body h3').map((x) => x.innerText).join(' / ')} · ${W()}`); await next();
     setv($('#cm-cups'), '180'); await next();
     r.push(`B8 kết quả: ${txt('#cm-body .alert')}`);
     $('#cm-next').click(); await sleep(300); r.push(`chưa lý do: ${txt('#cm-err')}`);
@@ -70,6 +72,9 @@ export default async ({ sleep, out }) => {
     r.push(`Chiều số dư đầu lệch: ${txt('#cm-checks')} · ô lý do ${!!$('#cm-open-note')}`);
     num('ipos_opening', '3020000'); num('cash_counted', '3491000'); await sleep(400);
     r.push(`Chiều sửa: ${txt('#cm-checks')}`);
+    // khách mượn ca sáng trả 50.000 tiền mặt ở ca chiều: két thêm 50.000, Fabi không biết → chênh lệch +49.000
+    num('cash_counted', '3541000'); $('[data-sign="1"]').click(); await sleep(300); num('pos_diff', '49000'); await sleep(300);
+    r.push(`Chiều có tiền trả mượn: ${txt('#cm-checks')}`);
     await next(); await next(); r.push(`nợ chưa ghi bàn: ${txt('#cm-err')}`);
     $('#cm-add-debt').click(); await sleep(200);
     setv($('[data-db="0"][data-k="table_name"]'), 'Bàn 5'); setv($('[data-db="0"][data-k="amount"]'), '28000'); await next();
@@ -77,11 +82,15 @@ export default async ({ sleep, out }) => {
     $('#cm-add-move').click(); await sleep(200); setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); setv($('[data-mv="0"][data-k="amount"]'), '1000');
     $('#cm-add-move').click(); await sleep(200);
     r.push(`Thu chi 2 dòng: hàng nút ${Math.round($('#cm-body .cm-ph').getBoundingClientRect().width)}px · ${$$('#cm-body .cm-ph')[0].innerText.replace(/\s+/g, ' ')} · nút Thu vào rộng ${Math.round($('[data-mt="0"][data-v="1"]').getBoundingClientRect().width)}px · ${W()}`);
-    $('[data-mx="1"]').click(); await sleep(200); await next();
+    $('[data-mx="1"]').click(); await sleep(200);
+    r.push(`Chiều thấy khách mượn: ${$$('#cm-body .cm-person').map((x) => x.innerText.replace(/\s+/g, ' ')).pop()} · danh sách QL ${(await rpc('app_ca_loans_open')).length}`);
+    { const sel = $('[data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change')); await sleep(1200); }
+    await next();
     setv($('#cm-cups'), '61'); await next();
     r.push(`Chiều kết quả: ${txt('#cm-body .alert')}`);
     await next(); await next(); await next(); await sleep(1500);
     const R2 = await rpc('app_ca_get', { p_id: id2 });
+    r.push(`còn khách mượn chưa trả: ${(await rpc('app_ca_loans_open')).length}`);
     r.push(`Chiều GỬI → ${R2.status} · nợ ${R2.debts.map((d) => d.table_name + ' ' + d.amount).join(',')} · chi ${R2.moves.map((m) => m.amount).join(',')} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'chốt ca mới', title: r.join(' || '), len: 0, errs: [...window.__ERR] });

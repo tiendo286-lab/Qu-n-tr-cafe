@@ -13,7 +13,8 @@ export const perm = 'doi_soat';
 
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
-  const [rows, days, T] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null })]);
+  const [rows, days, T, LO] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
+    rpc('app_ca_loans_open').catch(() => [])]);
   const brById = new Map((T.branches || []).map((b) => [b.id, b]));
   const bcode = (id) => brById.get(id)?.code || '';
   const TB = { cn: '' };
@@ -90,6 +91,10 @@ export async function render({ params }) {
         <div class="st-meta">Ca ${k.shift} ${k.branch} ${dmy(k.work_date)} · ${k.item_label}${k.reason ? ` · ${k.reason}` : ''}</div>
         <div class="td-rep">Giải trình ${dt(k.reply_at)}: ${k.reply}</div></div>
       <span class="toolbar" style="gap:6px"><button type="button" class="btn sm td-keep">Giữ trừ lương</button><a class="btn sm secondary" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${String(k.work_date).slice(0, 7)}">Sửa / xóa</a></span></div>`;
+  const loanRow = (d) => html`<div class="td-r" data-br="${d.branch_id}">
+      <div class="td-m"><strong>${d.name} · ${fmt(d.amount)}đ</strong> ${d.days >= 3 ? html`<span class="pill off">${d.days} ngày</span>` : html`<span class="pill mute">${d.days} ngày</span>`}
+        <div class="st-meta">${d.branch} · mượn ca ${d.shift} ${dmy(d.date)}${d.by ? ` · ${d.by} ghi` : ''}${d.note ? ` · ${d.note}` : ''}</div></div>
+      <a class="btn sm secondary" href="#/ca/phieu?id=${d.report_id}">Xem phiếu ca</a></div>`;
   const todo = html`<section class="card stack td-card" id="td">
       <div class="bc-head"><h2 style="margin:0">Việc chờ đối soát</h2>
         <select class="input sm" id="td-br" aria-label="Cơ sở" style="margin-left:auto"><option value="">Mọi cơ sở</option>${(T.branches || []).map((b) => html`<option value="${b.id}">${b.code}</option>`)}</select></div>
@@ -102,6 +107,7 @@ export async function render({ params }) {
       <div class="td-sec" id="td-mv"><h3>2. Dòng thu chi ở phiếu ca chờ đối soát <span class="st-meta">(từ ${dmy(T.from)})</span></h3><div id="td-moves"></div></div>
       <div class="td-sec" id="td-hang"><h3>3. Hàng nhận chưa đối soát</h3>${T.goods.length ? T.goods.map(goodRow) : html`<div class="st-meta">Không có.</div>`}</div>
       <div class="td-sec" id="td-ka"><h3>4. Nhân viên giải trình khoản âm</h3>${T.ka.length ? T.ka.map(kaRow) : html`<div class="st-meta">Không có giải trình mới.</div>`}</div>
+      <div class="td-sec" id="td-muon"><h3>5. Khách mượn tiền chưa trả</h3>${(LO || []).length ? LO.map(loanRow) : html`<div class="st-meta">Không có.</div>`}</div>
     </section>`;
 
   return {

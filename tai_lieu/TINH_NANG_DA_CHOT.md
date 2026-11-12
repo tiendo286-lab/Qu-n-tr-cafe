@@ -238,6 +238,14 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 | Quản lý đối soát | (em đề xuất, chờ duyệt) Đèn xanh / đỏ: Nhân sự (đúng lịch → xanh; nghỉ / làm hộ → đỏ, phân loại x2 như 5l) · Tiền (ảnh phiếu Fabi hiện cạnh số nhân viên nhập; khớp → xanh) · Thu chi (chọn nhóm) · Hàng (khớp hóa đơn + đủ ảnh → xanh). Nút "Duyệt các mục xanh"; hết đỏ mới HOÀN THÀNH. |
 | Chống quên | (em đề xuất) Bảng ca hôm nay ghi rõ bằng chữ còn thiếu gì (vd "Còn thiếu: ảnh phiếu, giờ về của Lan"); giữ nhắc 30 phút trước hết ca rồi mỗi giờ. |
 
+## 5n. Khách mượn tiền quán — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/43_khach_muon.sql`)
+- Ở bước **Thu chi** của phiếu chốt ca có thêm mục **"Khách mượn tiền quán"**: khách mượn tiền mặt trong két (mua nước, chi việc riêng…). Ghi tên khách, số tiền, SĐT / hẹn trả.
+- Chỉ dùng cho tiền mặt khách mượn. **Bill khách nợ vẫn bấm "Nợ" trên Fabi** và ghi ở bước Khách nợ như cũ (anh Tiến chọn).
+- Tiền mượn coi như đã lấy ra khỏi két → két vẫn KHỚP. Không phải doanh thu, không phải chi phí: web tự thêm dòng thu chi "Khách mượn – tên" (tự ghi **Không tính**, đã đối soát); chốt tháng "nợ phát sinh" chỉ gồm bill nợ.
+- Mọi **ca sau cùng cơ sở** thấy "Khách mượn chưa trả" ở bước Thu chi; khách **trả hết 1 lần** (không trả một phần): chọn "Đã trả bằng tiền mặt (bỏ vào két)" hoặc "chuyển khoản" → web cộng vào két / số hotline phải thấy. Fabi không biết khoản trả này nên Tiền chênh lệch trên phiếu Fabi sẽ dương đúng bằng số tiền trả.
+- Quá **3 ngày** chưa trả → báo Chủ, Quản lý tổng, Quản lý (pg_cron `nhac-khach-muon` 9:00 sáng, mỗi khoản báo 1 lần).
+- Trang **Đối soát** có mục "5. Khách mượn tiền chưa trả" (ai mượn, bao nhiêu, từ ca nào, bao nhiêu ngày).
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
