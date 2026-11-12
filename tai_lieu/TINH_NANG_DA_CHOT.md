@@ -246,6 +246,15 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Quá **3 ngày** chưa trả → báo Chủ, Quản lý tổng, Quản lý (pg_cron `nhac-khach-muon` 9:00 sáng, mỗi khoản báo 1 lần).
 - Trang **Đối soát** có mục "5. Khách mượn tiền chưa trả" (ai mượn, bao nhiêu, từ ca nào, bao nhiêu ngày).
 
+## 5o. Đối soát chờ kế toán (file Fabi + CK ngân hàng) — CHỐT 12/11/2026, CHƯA LÀM (chờ anh Tiến nói "làm")
+- **Phần tiền** của phiếu ca (Thời gian, Doanh thu, Tiền mặt, Chuyển khoản, Thu chi, Công nợ) chỉ đối soát được khi kế toán đã có **đủ 2 thứ**: file chốt ca Fabi của ca đó **và** tiền chuyển khoản thực nhận (số dư ngân hàng từng tài khoản của ca). Chưa đủ → phiếu ở trạng thái **"Chờ kế toán"** (Bảng ca có màu riêng, ghi thiếu file Fabi / thiếu CK ngân hàng), chưa vào "Phiếu ca chờ đối soát"; trang Đối soát có danh sách "Chờ kế toán".
+- **Nhân sự, Bàn giao, Nhập hàng** đối soát ngay khi nhân viên gửi (không cần số của kế toán).
+- Đủ 2 thứ → đèn tính theo **số chính thức**: Doanh thu theo file Fabi; Tiền mặt = Tổng tiền (file Fabi) so với số phải có; Chuyển khoản = tiền ngân hàng nhận thật so với CK trên file Fabi (± khách trả nợ / thu chi CK); số hotline nhân viên gõ chỉ để tham khảo (lệch ngân hàng thì báo).
+- **Phiếu do Chủ / quản lý tự gửi cũng chờ kế toán rồi đối soát như thường** — bỏ kiểu tự ghi "đã đối soát" (app__ca_auto_recon).
+- Kế toán: thêm danh sách "Ca còn thiếu"; **10:00 sáng hôm sau** web báo kế toán các ca hôm trước còn thiếu file Fabi / CK ngân hàng.
+- File Fabi hoặc số ngân hàng sửa sau khi đã đối soát → tự mở lại đối soát (như hiện nay).
+- **Lela Box (LLB)**: để sau — tạm đối soát như hiện nay (không chờ).
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
