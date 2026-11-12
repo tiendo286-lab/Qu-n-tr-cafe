@@ -227,6 +227,7 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 | Khoản chi trong ca | **CHỐT: không cần ảnh hóa đơn chi.** |
 | Lệch tiền | **CHỐT: không cho phép lệch** — lệch 1đ cũng là LỆCH (nhân viên ghi lý do, quản lý xử lý). |
 | Chế độ tập dượt (phiếu giả cho NV mới) | **ĐỂ SAU.** |
+| Chốt thêm (anh Tiến 12/11/2026) | (1) **Đồng ý cách C**: nhân viên gõ theo ảnh phiếu in → biết KHỚP / LỆCH ngay; kế toán tải file "danh sách ca" Fabi **ngày hôm sau hoặc sau nữa** → web so lại từng ca (gõ nhầm → sửa theo Fabi + tô đỏ; ca có trên Fabi mà thiếu phiếu web → báo). (2) **Ca sáng luôn bắt đầu bằng tiền gối đầu cố định** ở mọi cơ sở (số do Chủ cài). (3) **Lela Box (LLB) không dùng Fabi** — tính sau. (4) **Khách nợ**: phiếu Fabi có phương thức **"Nợ"**; Chuyển khoản + Tiền mặt + Nợ = Doanh thu (net). File danh sách ca không tách được chuyển khoản / nợ (chỉ kiểm được tổng 2 khoản). (5) **Giữ "Chuyển khoản thực tế"**: nhân viên tự cộng các giao dịch đã nhận trên hotline. (6) **Giữ "Số cốc"** (không thay bằng số hóa đơn). |
 | Quản lý đối soát | (em đề xuất, chờ duyệt) Đèn xanh / đỏ: Nhân sự (đúng lịch → xanh; nghỉ / làm hộ → đỏ, phân loại x2 như 5l) · Tiền (ảnh phiếu Fabi hiện cạnh số nhân viên nhập; khớp → xanh) · Thu chi (chọn nhóm) · Hàng (khớp hóa đơn + đủ ảnh → xanh). Nút "Duyệt các mục xanh"; hết đỏ mới HOÀN THÀNH. |
 | Chống quên | (em đề xuất) Bảng ca hôm nay ghi rõ bằng chữ còn thiếu gì (vd "Còn thiếu: ảnh phiếu, giờ về của Lan"); giữ nhắc 30 phút trước hết ca rồi mỗi giờ. |
 
