@@ -590,7 +590,8 @@ function mount(R, ed, C0, ctx = {}) {
     <div class="kv" style="margin-top:4px"><div>Tiền mặt chưa giải trình</div><div>${result(c.tmLeft)}</div><div>Chuyển khoản chưa giải trình</div><div>${result(c.ckLeft)}</div></div>
     ${P.remind_at ? html`<div class="st-meta">Phần nào chưa Xong, web nhắc lúc ${P.remind_at.slice(11)} (30 phút trước khi hết ca), sau đó mỗi giờ.</div>` : ''}
     <div class="st-meta">Đủ các phần Xong thì phiếu tự HOÀN THÀNH — không cần bấm thêm nút nào.</div>`;
-  // bước 57: 3 dòng so khớp của khung "Tiền của ca"
+  // bước 57: 3 dòng so khớp của khung "Tiền của ca"; bước 60: số do máy chủ tính (srvFresh) — đang sửa chưa lưu thì tạm tính trên trình duyệt
+  let srvFresh = true;
   const caRows = (c, v) => {
     const M = (R0 || R).money || {}; const hg = Number(M.handover_gap || 0);
     const res = R.results || {}; const chk = R.checks || {};
@@ -608,9 +609,11 @@ function mount(R, ed, C0, ctx = {}) {
     };
     const btn = (k, label, item, main) => html`<button type="button" class="btn sm ${main ? '' : 'secondary'}" data-ca="${k}" ${item ? html`data-item="${item}"` : ''}>${label}</button>`;
     const pc = n(v.pos_cash); const pt = n(v.pos_transfer); const cc = n(v.cash_counted); const tot = n(v.total_revenue);
-    const tmLeft = c.tmLeft === null ? null : c.tmLeft + hg;
+    const SV = srvFresh && M.tm_left !== undefined && M.tm_left !== null;
+    const tmLeft = SV ? Number(M.tm_left) : c.tmLeft === null ? null : c.tmLeft + hg;
     const bankOk = !!M.bank_ok; const got = n(M.bank_received);
-    const ckLeft = bankOk && pt !== null ? got - pt - c.ckMoves - c.colCK : c.ckLeft;
+    const ckLeft = SV && M.ck_left !== null && M.ck_left !== undefined ? Number(M.ck_left) : bankOk && pt !== null ? got - pt - c.ckMoves - c.colCK : c.ckLeft;
+    if (SV && M.sum_gap !== null && M.sum_gap !== undefined) c = { ...c, sumGap: Number(M.sum_gap) };
     const mv = (v.moves || []).filter((m) => !m.auto); const mvSum = mv.reduce((t, m) => t + (Number(m.amount) || 0), 0);
     const paid = (R.open_debts || []).filter((d) => d.kind !== 'muon' && d.closed_report_id === R.id);
     return html`
@@ -872,12 +875,13 @@ function mount(R, ed, C0, ctx = {}) {
         (res.debt_ids || []).forEach((nid, i) => { if (nid && dbRows[i]) dbRows[i].dataset.id = nid; });
       }
       if (!res?.skipped) showSaved((isDs ? 'Đã lưu bản đối soát · ' : 'Đã lưu · ') + hhmm());
+      if (isDs && R0) rpc('app_ca_money', { p_id: R.id }).then((m) => { if (m && !dirty) { R0.money = m; srvFresh = true; recalc(); } }).catch(() => {});
       const sk = JSON.stringify(payload.staff);
       if (sk !== staffKey) { staffKey = sk; if (isDs) mountCover($('#ds-cv'), R, cvCtx); }
     }).catch((e) => { dirty = true; showSaved('Chưa lưu được: ' + e.message, true); throw e; }).finally(() => { saving = null; });
     return saving;
   };
-  const changed = () => { dirty = true; recalc(); clearTimeout(timer); timer = setTimeout(() => saveNow().catch(() => {}), 1200); };
+  const changed = () => { dirty = true; srvFresh = false; recalc(); clearTimeout(timer); timer = setTimeout(() => saveNow().catch(() => {}), 1200); };
   form.addEventListener('input', changed);
   form.addEventListener('change', (ev) => {
     if (ev.target.classList.contains('st-worked')) {

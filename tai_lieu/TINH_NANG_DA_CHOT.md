@@ -381,6 +381,15 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 
 ---
 
+## 5r2. Rà soát toàn app 13/11/2026 — Giai đoạn 1 + 2 (`supabase/59_an_toan_nhe_may_chu.sql`, `60_tang_toc.sql`)
+- **Sao lưu**: gói ZIP đủ mọi bảng (tự lấy danh sách); máy chủ tự sao lưu 02:30 hằng ngày, giữ 7 bản (gói Supabase Free không có sao lưu); Thứ Hai nhắc Chủ tải ZIP nếu 7 ngày chưa tải.
+- **Bảo mật**: thu hồi quyền bảng không có luật cho phép (khách 0 quyền), bảng mới mặc định không cấp quyền; đóng hàm nhắc phiếu ca + hàm nội bộ.
+- **Sổ tệp máy chủ đã chạy** `app_migrations` (LOG › Tệp máy chủ đã chạy); mỗi tệp SQL mới tự ghi (quy tắc trong CLAUDE.md).
+- **Tốc độ**: thông báo đến hạn chạy bằng lịch máy chủ mỗi phút; Lịch cơ sở hỏi máy chủ 60 giây/lần, ngừng khi thẻ ẩn; chỉ mục cho mọi cột nối bảng; "Ca chờ kế toán" 117 ms → 6 ms; bảng tuần 1 lần gọi (`app_ds_week`, `app_kt_bank_week`).
+- **Đúng số**: trang Đối soát ca hiện số tiền do máy chủ tính sau mỗi lần lưu (`app_ca_money`); máy chủ tự so 2 cách tính tiền mỗi đêm (02:45), lệch thì báo Chủ.
+- **Bản mới**: `docs/version.json` — web đang mở hiện "Có bản cập nhật mới — Tải lại".
+- Còn lại (Giai đoạn 3): kế toán chỉ nhập số dư cuối + lưu cả ngày; trang chủ theo vai trò; chốt các điểm logic để ngỏ.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

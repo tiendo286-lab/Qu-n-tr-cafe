@@ -17,8 +17,12 @@ const dsTabs = (day, wk) => html`<nav class="ck-view" aria-label="Cách xem"><a 
 const WK_ST = { chua: ['Chưa mở', 'st-meta'], tre: ['Quá giờ chưa chốt', 'ck-w-bad'], dang: ['Đang chốt', 'ck-w-miss'], kt: ['Chờ kế toán', 'ds-w-ktx'], cho: ['Chờ đối soát', 'ck-w-miss'], xong: ['✓ Đã đối soát', 'ck-w-ok'], am: ['Có khoản âm', 'ck-w-bad'] };
 async function renderWeek(day) {
   const mon = mondayOf(day); const days = [...Array(7)].map((_, i) => addDays(mon, i));
-  const [ovs, cds, KW] = await Promise.all([Promise.all(days.map((d) => rpc('app_ca_overview', { p_date: d }))), Promise.all(days.map((d) => rpc('app_ca_day', { p_date: d }).catch(() => []))),
-    rpc('app_ca_kt_wait').catch(() => [])]);
+  let ovs; let cds; let KW;
+  try { const W = await rpc('app_ds_week', { p_from: mon }); ovs = W.days.map((x) => x.ov || []); cds = W.days.map((x) => x.cd || []); KW = W.kt || []; }
+  catch (_) {   // máy chủ chưa có bước 60
+    [ovs, cds, KW] = await Promise.all([Promise.all(days.map((d) => rpc('app_ca_overview', { p_date: d }))), Promise.all(days.map((d) => rpc('app_ca_day', { p_date: d }).catch(() => []))),
+      rpc('app_ca_kt_wait').catch(() => [])]);
+  }
   const kt = new Set((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => k.id));
   const nowHm = new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 16); const today = vnToday();
   const stOf = (s, d) => {

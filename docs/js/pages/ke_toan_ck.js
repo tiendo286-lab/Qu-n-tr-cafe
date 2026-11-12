@@ -21,7 +21,9 @@ const viewTabs = (day, wk) => html`<nav class="ck-view" aria-label="Cách xem"><
 
 async function renderWeek(day) {
   const mon = mondayOf(day); const days = [...Array(7)].map((_, i) => addDays(mon, i));
-  const all = await Promise.all(days.map((d) => rpc('app_kt_bank_day', { p_date: d })));
+  let all;
+  try { all = (await rpc('app_kt_bank_week', { p_from: mon })).map((x) => x.rows || []); }
+  catch (_) { all = await Promise.all(days.map((d) => rpc('app_kt_bank_day', { p_date: d }))); }   // máy chủ chưa có bước 60
   const branches = []; const shifts = [];
   all.forEach((rows) => rows.forEach((r) => { if (!branches.some((b) => b.id === r.branch_id)) branches.push({ id: r.branch_id, code: r.branch_code, name: r.branch_name }); if (!shifts.includes(r.shift)) shifts.push(r.shift); }));
   const get = (bid, i, sh) => (all[i] || []).find((r) => r.branch_id === bid && r.shift === sh)?.row || null;

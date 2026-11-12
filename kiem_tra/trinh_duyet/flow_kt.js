@@ -20,24 +20,12 @@ export default async ({ sleep, out }) => {
   const { rpc } = await import('../js/sb.js');
   let rid;
   await step('Menu Kế toán', async () => { await go('#/ke-toan/hoa-don', '#hd-new'); return txt('.nav').includes('Kế toán') + ' · tab: ' + txt('.hub-tabs'); });
-  await step('Tải hóa đơn (PDF + Excel) cho cơ sở đầu, hôm nay', async () => {
-    const f = $('#hd-new'); f.branch.selectedIndex = 1; f.note.value = 'Giao sữa, đá';
-    setFiles(f.files, [new File(['%PDF-1.4'], 'hoadon.pdf', { type: 'application/pdf' }), new File(['a,b'], 'chitiet.xlsx', { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })]);
-    f.requestSubmit(); await sleep(1500); await wait('.hd'); await sleep(400);
-    return txt('#root .alert') + ' · ' + $$('.hd').map((c) => c.innerText.replace(/\s+/g, ' ').slice(0, 160)).join(' / ');
-  });
-  await step('Phiếu chốt ca: thấy hóa đơn, chụp ảnh, báo THIẾU', async () => {
+  // 13/11/2026: bỏ 3 bước hoá đơn giao hàng kiểu cũ (giao diện hoá đơn đã đổi ở bước 31 — xem flow_nh.js); tạo phiếu ca trực tiếp cho các bước số dư
+  await step('Tạo phiếu ca hôm nay (cơ sở đầu, ca đầu)', async () => {
     const ov = await rpc('app_ca_overview', { p_date: day });
     rid = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[0].shift });
-    location.hash = '#/ca/phieu?id=' + rid; await wait('.hd-card', 600); await sleep(600); const a = txt('.hd-card');
-    $('.hd-send').click(); await sleep(300); const err1 = txt('#saved-indicator');
-    setFiles($('.hd-ph-in'), [await png()]); await sleep(1500); await wait('.hd-card .ph'); await sleep(300);
-    const c = $('.hd-card'); c.querySelector('input[value=thieu]').click(); await sleep(100);
-    setv(c.querySelector('.hd-it-name'), 'Sữa đặc'); setv(c.querySelector('.hd-it-qty'), '2 hộp');
-    c.querySelector('.hd-send').click(); await sleep(1000);
-    return `${a.slice(0, 120)} · bấm khi chưa chọn: "${err1}" · ảnh: ${$$('.hd-card .ph').length} · sau gửi: ${txt('.hd-card .pill')} · ${txt('.hd-card .hd-rec')}`;
+    return 'phiếu ' + rid;
   });
-  await step('Kế toán thấy trạng thái', async () => { await go('#/ke-toan/hoa-don', '.hd'); return $$('.hd').map((c) => c.innerText.replace(/\s+/g, ' ').slice(0, 220)).join(' / '); });
   await step('Thêm tài khoản nhận tiền (2 TK cho cơ sở đầu) + chặn số sai', async () => {
     await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-row');
     const note = `trang CK: còn khung tài khoản ${!!$('.ck-accf')} · nhắc: ${txt('.alert.warn')}`;
