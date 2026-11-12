@@ -27,8 +27,86 @@ function accountForm(branches, a = {}) {
 }
 const BANKS = html`<datalist id="ck-banks">${['BIDV', 'Vietcombank', 'VietinBank', 'Agribank', 'Techcombank', 'MB', 'ACB', 'VPBank', 'TPBank', 'Sacombank'].map((b) => html`<option value="${b}"></option>`)}</datalist>`;
 
+// Bảng tuần: mỗi cơ sở 1 bảng, hàng = ca + tổng ngày, cột = 7 ngày + cả tuần; ô = tiền ngân hàng nhận và lệch so với CK theo phiếu
+export const DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
+export const mondayOf = (d) => { const w = new Date(d + 'T00:00:00Z').getUTCDay(); return addDays(d, w === 0 ? -6 : 1 - w); };
+const viewTabs = (day, wk) => html`<nav class="ck-view" aria-label="Cách xem"><a href="#/ke-toan/chuyen-khoan?ngay=${day}" class="${wk ? '' : 'on'}">Theo ngày</a><a href="#/ke-toan/chuyen-khoan?xem=tuan&ngay=${day}" class="${wk ? 'on' : ''}">Bảng tuần</a></nav>`;
+
+async function renderWeek(day) {
+  const mon = mondayOf(day); const days = [...Array(7)].map((_, i) => addDays(mon, i));
+  const all = await Promise.all(days.map((d) => rpc('app_kt_bank_day', { p_date: d })));
+  const branches = []; const shifts = [];
+  all.forEach((rows) => rows.forEach((r) => { if (!branches.some((b) => b.id === r.branch_id)) branches.push({ id: r.branch_id, code: r.branch_code, name: r.branch_name }); if (!shifts.includes(r.shift)) shifts.push(r.shift); }));
+  const get = (bid, i, sh) => (all[i] || []).find((r) => r.branch_id === bid && r.shift === sh)?.row || null;
+  // ô 1 ca: tiền nhận + lệch; trả về số để cộng dồn
+  const val = (row) => {
+    if (!row) return { st: 'none' };
+    const n = Number(row.account_count || 0); const e = Number(row.entered || 0);
+    if (!n) return { st: 'noacc' };
+    if (!e) return { st: 'empty' };
+    const got = Number(row.received || 0); const pt = row.pos_transfer === null || row.pos_transfer === undefined ? null : Number(row.pos_transfer);
+    return { st: e < n ? 'part' : 'ok', got, pt, gap: pt === null ? null : got - pt, lock: row.locked };
+  };
+  const cell = (v, href) => {
+    const body = v.st === 'none' ? html`<span class="st-meta">—</span>` : v.st === 'noacc' ? html`<span class="st-meta">chưa có TK</span>` : v.st === 'empty' ? html`<span class="ck-w-miss">chưa nhập</span>`
+      : html`<b>${fmt(v.got)}</b>${v.gap === null ? '' : v.gap === 0 ? html`<span class="ck-w-ok">✓ khớp</span>` : html`<span class="ck-w-bad">${signed(v.gap)}</span>`}${v.st === 'part' ? html`<span class="ck-w-miss">thiếu TK</span>` : ''}`;
+    return html`<td class="ck-w-c ${v.st} ${v.gap ? 'bad' : ''}">${href ? html`<a href="${href}">${body}</a>` : body}</td>`;
+  };
+  const sumOf = (vs) => { const ok = vs.filter((v) => v.st === 'ok' || v.st === 'part'); if (!ok.length) return { st: vs.some((v) => v.st === 'empty' || v.st === 'part') ? 'empty' : 'none' };
+    const got = ok.reduce((t, v) => t + v.got, 0); const hasPt = ok.every((v) => v.pt !== null); const pt = ok.reduce((t, v) => t + (v.pt || 0), 0);
+    return { st: vs.some((v) => v.st === 'empty' || v.st === 'part') ? 'part' : 'ok', got, pt, gap: hasPt ? got - pt : null }; };
+  const table = (b) => {
+    const V = shifts.map((sh) => days.map((d, i) => val(get(b.id, i, sh))));
+    const dayTot = days.map((d, i) => sumOf(V.map((row) => row[i])));
+    const shTot = V.map((row) => sumOf(row)); const wk = sumOf(dayTot);
+    const missing = V.flat().filter((v) => v.st === 'empty' || v.st === 'part').length;
+    return html`<section class="card stack" style="gap:8px"><div class="ck-w-h"><h2 style="margin:0">${b.code} – ${b.name}</h2>
+        ${wk.st === 'none' ? '' : html`<span class="st-meta">Cả tuần nhận <b>${fmt(wk.got)}đ</b>${wk.gap === null ? '' : wk.gap === 0 ? ' · ✓ khớp CK theo phiếu' : html` · lệch <b class="${wk.gap < 0 ? 'neg' : ''}">${signed(wk.gap)}</b>`}${missing ? html` · <span class="ck-w-miss">${missing} ca chưa nhập đủ</span>` : ''}</span>`}</div>
+      <div class="table-wrap ck-w-wrap"><table class="ck-w">
+        <thead><tr><th>Ca</th>${days.map((d) => html`<th class="${d === vnToday() ? 'today' : ''}"><a href="#/ke-toan/chuyen-khoan?ngay=${d}">${DOW[new Date(d + 'T00:00:00Z').getUTCDay()]}<br><span>${dmy(d).slice(0, 5)}</span></a></th>`)}<th>Cả tuần</th></tr></thead>
+        <tbody>${shifts.map((sh, k) => html`<tr><th>${sh}</th>${V[k].map((v, i) => cell(v, `#/ke-toan/chuyen-khoan?ngay=${days[i]}`))}${cell(shTot[k])}</tr>`)}
+          <tr class="ck-w-tot"><th>Tổng ngày</th>${dayTot.map((v) => cell(v))}${cell(wk)}</tr></tbody></table></div></section>`;
+  };
+  return {
+    title: 'Chuyển khoản thực nhận',
+    html: html`<style>${WEEK_CSS}</style>
+      <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub">Bảng tuần: mỗi ô là tiền ngân hàng nhận trong ca (tổng các tài khoản) và lệch so với chuyển khoản theo phiếu (POS). Bấm vào ô để mở ngày đó và nhập / sửa số dư.</div></div></div>
+      <div class="stack" style="max-width:1100px;gap:12px">
+        <section class="card toolbar" style="padding:12px 14px;gap:8px">${viewTabs(day, true)}
+          <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?xem=tuan&ngay=${addDays(mon, -7)}">‹ Tuần trước</a>
+          <input class="input sm" type="date" id="ck-wday" value="${day}" aria-label="Ngày trong tuần">
+          <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?xem=tuan&ngay=${addDays(mon, 7)}">Tuần sau ›</a>
+          <strong>${dmy(mon)} – ${dmy(days[6])}</strong></section>
+        <div class="ck-w-legend st-meta"><span class="ck-w-ok">✓ khớp</span> · <span class="ck-w-bad">−50.000</span> lệch (âm = ngân hàng nhận ít hơn phiếu) · <span class="ck-w-miss">chưa nhập</span> · — chưa có phiếu ca</div>
+        ${branches.map(table)}
+      </div>`,
+    mount() { $('#ck-wday').addEventListener('change', (e) => { location.hash = '#/ke-toan/chuyen-khoan?xem=tuan&ngay=' + e.target.value; }); },
+  };
+}
+export const WEEK_CSS = `
+  .ck-view { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .ck-view a { padding: 6px 12px; font-weight: 700; font-size: 14px; text-decoration: none; color: var(--ink-2); background: var(--card); }
+  .ck-view a + a { border-left: 1px solid var(--line); } .ck-view a.on { background: var(--primary); color: #fff; }
+  @media (max-width: 760px) { .ck-view { display: flex; width: 100%; } .ck-view a { flex: 1 1 0; text-align: center; } }
+  .ck-w-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+  .ck-w-wrap { overflow-x: auto; }
+  .ck-w { border-collapse: collapse; width: 100%; min-width: 760px; font-size: 13px; font-variant-numeric: tabular-nums; }
+  .ck-w th, .ck-w td { border: 1px solid var(--line); padding: 6px; text-align: right; vertical-align: top; }
+  .ck-w thead th { background: var(--subtle); text-align: center; font-weight: 700; } .ck-w thead th span { font-weight: 500; color: var(--ink-2); }
+  .ck-w thead th.today { background: #fef3c7; } .ck-w thead a { color: inherit; text-decoration: none; }
+  .ck-w tbody th { text-align: left; background: var(--subtle); white-space: nowrap; position: sticky; left: 0; z-index: 1; }
+  .ck-w td a { display: flex; flex-direction: column; align-items: flex-end; gap: 1px; color: inherit; text-decoration: none; }
+  .ck-w td { min-width: 92px; } .ck-w td b { font-size: 13px; }
+  .ck-w td.bad { background: #fef2f2; }
+  .ck-w-ok { color: var(--ok-ink); font-size: 12px; } .ck-w-bad { color: #b91c1c; font-weight: 700; font-size: 12px; } .ck-w-miss { color: #b45309; font-size: 12px; }
+  .ck-w-tot th, .ck-w-tot td { background: var(--subtle); font-weight: 700; } .ck-w-tot td.bad { background: #fee2e2; }
+  .ck-w td span, .ck-w td b { display: block; }
+  b.neg { color: #b91c1c; }
+`;
+
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
+  if (params.xem === 'tuan') return renderWeek(day);
   const [rows, accounts] = await Promise.all([rpc('app_kt_bank_day', { p_date: day }), rpc('app_kt_accounts')]);
   const byBranch = [];
   rows.forEach((r) => { let b = byBranch.find((x) => x.id === r.branch_id); if (!b) byBranch.push(b = { id: r.branch_id, code: r.branch_code, name: r.branch_name, shifts: [] }); b.shifts.push(r); });
@@ -119,7 +197,7 @@ export async function render({ params }) {
         details.ck-accs > summary { cursor: pointer; font-weight: 700; font-size: 17px; }
         details.ck-late > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); }
         .ck-lf { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
-      </style>${BANKS}
+      ${WEEK_CSS}</style>${BANKS}
       <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub">Nhập số dư từng tài khoản nhận tiền của cơ sở theo đúng mốc giờ của phiếu ca. Tiền nhận trong ca = tổng các tài khoản (Số dư cuối − Số dư đầu + Tiền chuyển ra). Đây là tiền nhận trong ca, chưa mặc định là doanh thu.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:980px;gap:12px">
@@ -131,7 +209,7 @@ export async function render({ params }) {
             <div id="ck-alist">${accList}</div>
           </div>
         </details>
-        <section class="card toolbar" style="padding:12px 14px;gap:8px">
+        <section class="card toolbar" style="padding:12px 14px;gap:8px">${viewTabs(day, false)}
           <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${addDays(day, -1)}">‹ Hôm trước</a>
           <input class="input sm" type="date" id="ck-day" value="${day}" aria-label="Ngày">
           <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${addDays(day, 1)}">Hôm sau ›</a>

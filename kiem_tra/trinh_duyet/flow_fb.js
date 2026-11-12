@@ -50,6 +50,11 @@ export default async ({ sleep, out }) => {
     r.push(`Nhóm món: ${txt('#fb-menu h2')} · gợi ý: ${[...document.querySelectorAll('#fb-menu [data-mn]')].map((x) => `${x.dataset.mn}→${x.value || '?'}`).join(', ')} · ${W()}`);
     $('#fb-menu-save').click(); for (let i = 0; i < 300 && !document.querySelector('#fb-menu .pill.ok'); i++) await sleep(50); await sleep(500);
     r.push(`Sau Lưu: ${txt('#fb-menu h2')} · cột Số cốc: ${[...document.querySelectorAll('tbody td[data-label="Số cốc"]')].map((x) => x.innerText).join(' / ')} · phiếu số cốc ${(await rpc('app_ca_get', { p_id: id })).cups}`);
+    // bảng tuần
+    r.push(`Nút xem: ${txt('.ck-view')}`);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/fabi?xem=tuan&ngay=' + day; await wait('.ck-w-legend'); await sleep(800);
+    r.push(`Bảng tuần: ${txt('.toolbar strong')} · ${$$('table.ck-w').length} bảng (${$$('.ck-w-h h2').map((h) => h.innerText).join(', ')}) · ${txt('.alert')} · ${txt('.ck-w-h .st-meta')}`);
+    r.push(`Ô có số: ${$$('table.ck-w td.ck-w-c').map((x) => x.innerText.replace(/\s+/g, ' ')).filter((t) => t && t !== '—').slice(0, 3).join(' | ')} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'file ca Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

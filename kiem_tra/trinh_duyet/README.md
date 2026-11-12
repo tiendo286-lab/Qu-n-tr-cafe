@@ -36,4 +36,5 @@
 - Công nợ theo ca thu (bước 55): `flow_no55` (`auto=1&role=chu&confirm=1&script=flow_no55`) — ca 1 nợ, ca 2 thu → Bảng ca "Thu nợ", ca nợ ghi "Đã thu ở ca …", ca thu có "Khách trả nợ trong ca này". `ca_gia.js` có `app_ca_debts_paid` / `app_ca_debt_marks`.
 - Sửa từng mục đối soát (bước 56): `flow_sua56` (`auto=1&role=chu&confirm=1&script=flow_sua56`) — ca khớp → duyệt → hoàn thành; Sửa Bàn giao → chỉ mục đó mở, mục khác nhạt + khoá; duyệt lại → tự hoàn thành. `ca_gia.js` có `app_ca_item_reopen`.
 - Khung Tiền của ca (bước 57): `flow_ca57` (`auto=1&role=chu&confirm=1&script=flow_ca57`) — 3 dòng so khớp, thu chi trong khung, "Xem / sửa số liệu" đóng sẵn, nút Tạo phiếu chi.
+- Bảng tuần Kế toán: `flow_ck59` (Chuyển khoản thực nhận, `auto=1&role=chu&confirm=1&script=flow_ck59`); `flow_fb` cuối bài mở bảng tuần File ca Fabi.
 - Bước 49 (số cốc theo Fabi): `flow_fb` — file giả có MÓN / NHÓM MÓN → "4 món chưa có nhóm", gợi ý theo tên, Lưu → cột Số cốc + phiếu = 40. `flow_cm`: cơ sở dùng Fabi không còn bước Số cốc. `fb_gia.js` có `app_fabi_menu` / `app_fabi_menu_set`.
