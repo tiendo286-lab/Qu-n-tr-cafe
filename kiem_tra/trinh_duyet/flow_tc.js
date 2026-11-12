@@ -37,6 +37,16 @@ export default async ({ sleep, out }) => {
   r.push(`nhãn dòng: ${$$('.tc-r').map((x) => x.querySelector('.tc-pm')?.innerText + ' ' + x.querySelector('strong').innerText).join(', ')}`);
   $('[data-fpay="chuyen_khoan"]').click(); await sleep(150); r.push(`lọc Chuyển khoản: ${txt('#f-n')} · thẻ CK sáng ${$('.tc-pk.ck').getAttribute('aria-pressed')}`);
   $('.tc-pk.tm').click(); await sleep(150); r.push(`bấm thẻ Tiền mặt: ${txt('#f-n')}`); $('[data-fpay=""]').click(); await sleep(100);
+  // bước 57: loại › nhóm
+  r.push(`Chi theo loại: ${txt('.tc-types')}`);
+  r.push(`dòng ghi loại: ${$$('.tc-r .st-meta b').map((b) => b.innerText).join(' | ')}`);
+  $$('[data-ft]').find((b) => b.dataset.ft)?.click(); await sleep(150); r.push(`bấm loại "${txt('.tc-tyb[aria-pressed="true"] b')}": ${txt('#f-n')} · ô lọc Loại = ${$('#f-type').selectedOptions[0]?.text}`);
+  $('#f-type').value = ''; $('#f-type').dispatchEvent(new Event('change')); await sleep(100);
+  location.hash = '#/cai-dat/thu-chi'; await wait('.tc-tb', 100); await sleep(400);
+  r.push(`Cài đặt loại & nhóm: ${txt('#root h1')} · menu ${txt('.hub-tabs a.on')} · ${$$('.tc-tb').length} khối · ${$$('.tc-tb').map((b) => b.querySelector('.tc-th').innerText.replace(/\s+/g, ' ').trim()).join(' / ')}`);
+  { const row = $$('.tc-cr').find((x) => x.querySelector('.tc-cn').value === 'Marketing'); const sel = row.querySelector('.tc-ct'); sel.value = sel.options[2].value; $('#tc-save').click(); await sleep(1200); await wait('.tc-tb', 100); await sleep(300);
+    r.push(`chuyển Marketing → ${$$('.tc-tb').find((b) => [...b.querySelectorAll('.tc-cn')].some((i) => i.value === 'Marketing'))?.querySelector('.tc-tn')?.value} · ${txt('.alert')}`); }
+  location.hash = '#/quan-ly/thu-chi'; await wait('.tc-r', 300); await sleep(400);
   $('#f-st').value = 'cho'; $('#f-st').dispatchEvent(new Event('change')); await sleep(100);
   r.push(`lọc chờ đối soát: ${txt('#f-n')}`);
   r.push(`rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);

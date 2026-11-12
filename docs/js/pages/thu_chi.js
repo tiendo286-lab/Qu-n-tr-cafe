@@ -12,7 +12,7 @@ import { KA_STATUS } from './phieu_ca.js';
 
 export const perm = 'doi_soat';
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
-const F = { st: '', kind: '', src: '', q: '', pay: '' };
+const F = { st: '', kind: '', src: '', q: '', pay: '', type: '', cat: '' };
 const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 7); };
 const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
@@ -28,7 +28,11 @@ export async function render(ctx) {
   const month = monthOf(params);
   if (params.xem === 'khoan-am') F.src = 'ka';   // đường dẫn cũ "Khoản âm" → lọc phiếu trừ lương
   const cn = params.cn && params.cn !== 'all' ? Number(params.cn) : null;
-  const D = await rpc('app_tc_list', { p_branch: cn, p_from: `${month}-01`, p_to: lastDay(month) });
+  const [D, FT] = await Promise.all([rpc('app_tc_list', { p_branch: cn, p_from: `${month}-01`, p_to: lastDay(month) }), rpc('app_fin_types').catch(() => ({ types: [], cats: [] }))]);
+  // bước 57: loại (tầng trên nhóm)
+  const typeById = new Map(FT.types.map((t) => [t.id, t])); const catById = new Map(FT.cats.map((c) => [c.id, c]));
+  const typeOf = (r) => (r.category_id ? typeById.get(catById.get(r.category_id)?.type_id) || null : null);
+  const path = (r) => { const t = typeOf(r); return `${t ? t.name + ' › ' : ''}${r.category || 'Chưa phân nhóm'}`; };
   const brById = new Map(D.branches.map((b) => [b.id, b]));
   const cats = (kind) => D.categories.filter((c) => c.kind === kind && c.active);
   const q = (o) => '#/quan-ly/thu-chi?' + Object.entries({ thang: month, cn: cn || 'all', ...o }).map(([k, v]) => `${k}=${v}`).join('&');
@@ -41,6 +45,16 @@ export async function render(ctx) {
   // tách tiền mặt / chuyển khoản (phiếu trừ lương không phải tiền thật ra khỏi quỹ → không tính vào 2 thẻ)
   const byPay = (pm) => { const a = counted.filter((r) => r.src !== 'ka' && (r.pay || 'tien_mat') === pm); const t = sum(a.filter((r) => r.kind === 'thu')); const c = sum(a.filter((r) => r.kind === 'chi')); return { thu: t, chi: c, n: a.length }; };
   const PM = { tien_mat: byPay('tien_mat'), chuyen_khoan: byPay('chuyen_khoan') };
+  const chiRows = counted.filter((r) => r.kind === 'chi' && r.src !== 'ka');
+  const byType = []; chiRows.forEach((r) => {
+    const t = typeOf(r); const tk = t ? t.id : 0; let g = byType.find((x) => x.id === tk);
+    if (!g) byType.push(g = { id: tk, name: t ? t.name : (r.category_id ? 'Chưa có loại' : 'Chưa phân nhóm (chờ đối soát)'), sort: t ? t.sort_order : 999, sum: 0, cats: [] });
+    g.sum += Number(r.amount); const ck = r.category_id || 0; let c = g.cats.find((x) => x.id === ck);
+    if (!c) g.cats.push(c = { id: ck, name: r.category || '—', sum: 0, n: 0 }); c.sum += Number(r.amount); c.n += 1;
+  });
+  byType.sort((a, b) => a.sort - b.sort); byType.forEach((g) => g.cats.sort((a, b) => b.sum - a.sum));
+  const chiTot = byType.reduce((t, g) => t + g.sum, 0);
+  const pct = (v) => (chiTot ? Math.round((v / chiTot) * 100) : 0);
   const pmTag = (r) => (r.src === 'ka' ? html`<span class="tc-pm ka" title="Phiếu trừ lương">TL</span>` : (r.pay || 'tien_mat') === 'chuyen_khoan' ? html`<span class="tc-pm ck" title="Chuyển khoản">CK</span>` : html`<span class="tc-pm tm" title="Tiền mặt">TM</span>`);
 
   const catSel = (r) => { const v = r.status === 'cho' ? r.category_id || '' : r.excluded ? 'x' : r.category_id || '';
@@ -49,7 +63,7 @@ export async function render(ctx) {
     const br = brById.get(r.branch_id); const st = KA_STATUS[r.ka_status] || [r.ka_status, 'mute'];
     const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
       : html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary ka-ed">Sửa</button><button type="button" class="btn sm secondary danger ka-del" aria-label="Xóa phiếu">×</button></span>`;
-    return html`<div class="tc-r ka" data-i="${r.i}" data-st="da" data-kind="chi" data-src="ka" data-pay="ka" data-q="${norm(`${r.note} ${r.reason || ''} ${br?.code || ''} tru luong khoan am`)}">
+    return html`<div class="tc-r ka" data-i="${r.i}" data-st="da" data-kind="chi" data-src="ka" data-pay="ka" data-type="" data-cat="" data-q="${norm(`${r.note} ${r.reason || ''} ${br?.code || ''} tru luong khoan am`)}">
       ${pmTag(r)}<div class="tc-m"><strong>${r.note}</strong>
         <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · <a href="#/ca/phieu?id=${r.report_id}">Phiếu ca ${r.shift}</a> · ${r.item_label}${r.reason ? ` · ${r.reason}` : ''}</div>
         ${r.reply ? html`<div class="st-meta ka-rep">Nhân viên giải trình: ${r.reply}</div>` : ''}
@@ -66,9 +80,9 @@ export async function render(ctx) {
       : r.src === 'tay' ? html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary tc-ed">Sửa</button><button type="button" class="btn sm secondary danger tc-del" aria-label="Xóa">×</button></span>`
       : r.status === 'cho' ? html`<a class="btn sm secondary" href="#/quan-ly/doi-soat">Đối soát ›</a>`
       : html`<a class="st-meta" href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Xem đối soát ca</a>`;
-    return html`<div class="tc-r ${r.status === 'cho' ? 'todo' : r.excluded ? 'off' : ''}" data-i="${r.i}" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-q="${norm(`${r.note} ${r.category || ''} ${br?.code || ''} ${PAY[r.pay] || ''}`)}">
+    return html`<div class="tc-r ${r.status === 'cho' ? 'todo' : r.excluded ? 'off' : ''}" data-i="${r.i}" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-type="${typeOf(r)?.id || ''}" data-cat="${r.category_id || ''}" data-q="${norm(`${r.note} ${r.category || ''} ${typeOf(r)?.name || ''} ${br?.code || ''} ${PAY[r.pay] || ''}`)}">
       ${pmTag(r)}<div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
-        <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · ${src}${r.status === 'da' ? html` · <b>${r.excluded ? 'Không tính' : r.category || 'Chưa phân nhóm'}</b>` : ''}</div></div>
+        <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · ${src}${r.status === 'da' ? html` · <b>${r.excluded ? 'Không tính' : path(r)}</b>` : ''}</div></div>
       <div class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ</div>
       <div class="tc-s">${r.status === 'cho' ? html`<span class="pill warn">Chờ đối soát</span>` : html`<span class="pill ok" title="${r.src === 'ca' ? `${r.checked_by || ''} · ${dt(r.checked_at)}` : ''}">✓ Đã đối soát</span>`}</div>
       <div class="tc-act">${act}</div></div>`;
@@ -92,12 +106,17 @@ export async function render(ctx) {
         <button type="button" class="tc-chip warn" id="tc-pend">Chờ đối soát: <b>${pend.length} khoản</b>${pend.length ? ` · ${vnd(sum(pend))}` : ' · đã hết'}</button>
         <button type="button" class="tc-chip neg" id="tc-ka">Trừ lương: <b>${vnd(luong)}</b> · ${kaRows.length} phiếu</button>
         <span class="st-meta">Tổng cả 2: thu ${vnd(thu)} · chi ${vnd(chi)}</span></div>
+      ${byType.length ? html`<section class="card stack tc-types" style="gap:8px"><div class="tc-ty-h"><h2 style="margin:0">Chi theo loại</h2><span class="st-meta">${vnd(chiTot)} · bấm để lọc · <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></span></div>
+        ${byType.map((g) => html`<div class="tc-ty"><button type="button" class="tc-tyb" data-ft="${g.id || ''}" aria-pressed="${String(F.type) === String(g.id || '') && !!g.id}"><span class="grow"><b>${g.name}</b></span><span class="tc-meter"><i style="width:${pct(g.sum)}%"></i></span><b class="tc-tys">${fmt(g.sum)}</b><span class="st-meta">${pct(g.sum)}%</span></button>
+          <div class="tc-tyc">${g.cats.map((c) => html`<button type="button" class="tc-cb" data-fc="${c.id || ''}" aria-pressed="${String(F.cat) === String(c.id || '') && !!c.id}"><span class="grow">${c.name} <span class="st-meta">· ${c.n} khoản</span></span><span>${fmt(c.sum)}</span></button>`)}</div></div>`)}</section>` : ''}
       <section class="card stack" style="padding:14px;gap:10px">
         <div class="tc-seg" role="group" aria-label="Hình thức">${[['', 'Tất cả'], ['tien_mat', 'Tiền mặt'], ['chuyen_khoan', 'Chuyển khoản']].map(([k, l]) => html`<button type="button" data-fpay="${k}" aria-pressed="${F.pay === k}">${l}</button>`)}</div>
         <div class="toolbar" style="gap:8px">
           <select class="input sm" id="f-st" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="cho" ${F.st === 'cho' ? 'selected' : ''}>Chờ đối soát</option><option value="da" ${F.st === 'da' ? 'selected' : ''}>Đã đối soát</option></select>
           <select class="input sm" id="f-kind" aria-label="Loại"><option value="">Thu và chi</option><option value="thu" ${F.kind === 'thu' ? 'selected' : ''}>Chỉ khoản thu</option><option value="chi" ${F.kind === 'chi' ? 'selected' : ''}>Chỉ khoản chi</option></select>
           <select class="input sm" id="f-src" aria-label="Nguồn"><option value="">Mọi nguồn</option><option value="ca" ${F.src === 'ca' ? 'selected' : ''}>Từ phiếu chốt ca</option><option value="tay" ${F.src === 'tay' ? 'selected' : ''}>Quản lý tạo</option><option value="ka" ${F.src === 'ka' ? 'selected' : ''}>Phiếu trừ lương (khoản âm)</option></select>
+          <select class="input sm" id="f-type" aria-label="Loại"><option value="">Mọi loại</option>${FT.types.filter((t) => t.active).map((t) => html`<option value="${t.id}" ${String(F.type) === String(t.id) ? 'selected' : ''}>${t.kind === 'chi' ? 'Chi' : 'Thu'} · ${t.name}</option>`)}</select>
+          <select class="input sm" id="f-cat" aria-label="Nhóm"><option value="">Mọi nhóm</option>${FT.cats.filter((c) => c.active).map((c) => html`<option value="${c.id}" data-t="${c.type_id || ''}" ${String(F.cat) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}</select>
           <input class="input sm" type="search" id="f-q" placeholder="Tìm nội dung, nhóm" value="${F.q}" style="flex:1 1 160px;min-width:0">
           <span class="st-meta" id="f-n"></span></div>
         <div id="tc-list">${rows.map(row)}</div>
@@ -107,15 +126,23 @@ export async function render(ctx) {
       const apply = () => {
         const s = norm(F.q.trim()); let n = 0;
         $$('.tc-r').forEach((el) => {
-          const ok = (!F.st || el.dataset.st === F.st) && (!F.kind || el.dataset.kind === F.kind) && (!F.src || el.dataset.src === F.src) && (!F.pay || el.dataset.pay === F.pay) && (!s || el.dataset.q.includes(s));
+          const ok = (!F.st || el.dataset.st === F.st) && (!F.kind || el.dataset.kind === F.kind) && (!F.src || el.dataset.src === F.src) && (!F.pay || el.dataset.pay === F.pay) && (!F.type || el.dataset.type === String(F.type)) && (!F.cat || el.dataset.cat === String(F.cat)) && (!s || el.dataset.q.includes(s));
           el.hidden = !ok; if (ok) n++;
         });
         $('#f-n').textContent = `${n} khoản`; $('#tc-empty').hidden = n > 0;
         $$('[data-fpay]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fpay === F.pay)));
         $$('.tc-pk').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pay === F.pay)));
+        $$('[data-ft]').forEach((b) => b.setAttribute('aria-pressed', String(!!F.type && b.dataset.ft === String(F.type))));
+        $$('[data-fc]').forEach((b) => b.setAttribute('aria-pressed', String(!!F.cat && b.dataset.fc === String(F.cat))));
+        $('#f-type').value = F.type; $('#f-cat').value = F.cat;
+        [...$('#f-cat').options].forEach((o) => { o.hidden = !!F.type && !!o.value && o.dataset.t !== String(F.type); });
       };
       [['#f-st', 'st'], ['#f-kind', 'kind'], ['#f-src', 'src']].forEach(([sl, k]) => $(sl).addEventListener('change', (e) => { F[k] = e.target.value; apply(); }));
       $('#f-q').addEventListener('input', (e) => { F.q = e.target.value; apply(); });
+      $('#f-type').addEventListener('change', (e) => { F.type = e.target.value; F.cat = ''; apply(); });
+      $('#f-cat').addEventListener('change', (e) => { F.cat = e.target.value; apply(); });
+      $$('[data-ft]').forEach((b) => b.addEventListener('click', () => { if (!b.dataset.ft) return; F.type = F.type === b.dataset.ft ? '' : b.dataset.ft; F.cat = ''; F.kind = ''; $('#f-kind').value = ''; apply(); }));
+      $$('[data-fc]').forEach((b) => b.addEventListener('click', () => { if (!b.dataset.fc) return; F.cat = F.cat === b.dataset.fc ? '' : b.dataset.fc; F.type = ''; apply(); }));
       $$('[data-fpay]').forEach((b) => b.addEventListener('click', () => { F.pay = b.dataset.fpay; apply(); }));
       $$('.tc-pk').forEach((b) => b.addEventListener('click', () => { F.pay = F.pay === b.dataset.pay ? '' : b.dataset.pay; apply(); }));
       $('#tc-pend').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; $('#f-st').value = F.st; apply(); });
@@ -165,7 +192,9 @@ export async function render(ctx) {
 
       function entryForm(e) {
         const kind = e.kind || 'chi'; const br0 = e.branch_id || cn || (D.branches.length === 1 ? D.branches[0].id : '');
-        const opts = (k, sel) => html`<option value="">— Chọn nhóm —</option>${cats(k).map((c) => html`<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}`;
+        const opts = (k, sel) => { const cs = cats(k); const ts = FT.types.filter((t) => t.kind === k); const loose = cs.filter((c) => !ts.some((t) => t.id === catById.get(c.id)?.type_id));
+          const o = (c) => html`<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${c.name}</option>`;
+          return html`<option value="">— Chọn nhóm —</option>${ts.map((t) => { const g = cs.filter((c) => catById.get(c.id)?.type_id === t.id); return g.length ? html`<optgroup label="${t.name}">${g.map(o)}</optgroup>` : ''; })}${loose.map(o)}`; };
         const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản thu / chi' : 'Thêm khoản thu / chi'}</h2>
           <div class="st-meta">Khoản quản lý tạo được tính là <strong>đã đối soát</strong>.</div>
           <div class="pc-line" role="radiogroup" aria-label="Loại"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Khoản chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Khoản thu</label></div>
@@ -211,6 +240,16 @@ const STYLE = html`<style>
   .tc-seg button { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 12px; border: none; background: var(--card); color: var(--ink-2); cursor: pointer; }
   .tc-seg button + button { border-left: 1px solid var(--line); }
   .tc-seg button[aria-pressed="true"] { background: var(--primary); color: #fff; }
+  .tc-types { padding: 14px; margin-bottom: 12px; }
+  .tc-ty-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+  .tc-ty { border-top: 1px solid var(--line); padding-top: 6px; }
+  .tc-tyb, .tc-cb { display: flex; gap: 10px; align-items: center; width: 100%; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; cursor: pointer; text-align: left; }
+  .tc-tyb[aria-pressed="true"], .tc-cb[aria-pressed="true"] { border-color: var(--primary); background: var(--subtle); }
+  .tc-tyb .grow, .tc-cb .grow { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .tc-meter { flex: 0 0 90px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; } .tc-meter i { display: block; height: 100%; background: #b91c1c; opacity: .7; }
+  .tc-tys { font-variant-numeric: tabular-nums; min-width: 96px; text-align: right; }
+  .tc-tyc { display: flex; flex-direction: column; padding-left: 14px; font-size: 14px; } .tc-cb span:last-child { font-variant-numeric: tabular-nums; }
+  @media (max-width: 560px) { .tc-meter { display: none; } .tc-tys { min-width: 0; } }
   .tc-pm { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .03em; }
   .tc-pm.tm { background: #fef3c7; color: #92400e; } .tc-pm.ck { background: #dbeafe; color: #1e40af; } .tc-pm.ka { background: #fee2e2; color: #991b1b; }
   .tc-r.ka { border-left: 3px solid #fca5a5; }

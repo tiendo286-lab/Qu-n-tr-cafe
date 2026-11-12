@@ -329,6 +329,11 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 ## 5z3. Mục Cài đặt — ĐÃ LÀM 12/11/2026 (chỉ giao diện)
 - Mục menu "Cài đặt xếp lịch" đổi tên **"Cài đặt"**, thêm 2 tab (quyền Kế toán): **Tài khoản ngân hàng** (`/cai-dat/tai-khoan`, chuyển từ trang Chuyển khoản thực nhận) và **Nhóm món Fabi** (`/cai-dat/nhom-mon`, chuyển từ trang File ca Fabi) — vì rất ít khi dùng.
 - Trang cũ chỉ còn dòng nhắc kèm link khi cần: cơ sở chưa có tài khoản / còn món chưa có nhóm (chưa tính được số cốc).
+
+## 5z4. Loại thu chi (2 tầng Loại › Nhóm) — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/57_loai_thu_chi.sql`)
+- Bảng `fin_cat_types`; mỗi nhóm (`fin_categories.type_id`) thuộc 1 loại. Tạo sẵn: **Chi phí cố định** (Lương, Mặt bằng, Điện nước) · **Chi phí bán hàng** (Nguyên liệu, Nguyên liệu (kho tổng), Vật dụng) · **Chi phí khác** (Sửa chữa & thiết bị, Internet, Khác) · **Thu khác**.
+- Trang Thu chi: khung **Chi theo loại** (tổng từng loại + % + từng nhóm, bấm để lọc), ô lọc Loại / Nhóm, mỗi dòng ghi "Loại › Nhóm"; hộp thêm khoản xếp nhóm theo loại.
+- **Cài đặt › Loại & nhóm thu chi**: thêm / đổi tên / ngừng dùng loại và nhóm, chuyển nhóm sang loại khác (Chủ / Quản lý tổng; người khác chỉ xem).
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.

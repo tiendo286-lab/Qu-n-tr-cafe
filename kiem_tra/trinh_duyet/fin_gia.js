@@ -3,6 +3,10 @@ export function makeFin(T, me) {
   for (const t of ['fin_entries', 'fin_move_cats', 'fin_month_closes', 'fin_close_log', 'fin_branch_managers']) T[t] = T[t] || [];
   T.fin_categories = T.fin_categories || [['chi', 'Nguyên liệu'], ['chi', 'Lương'], ['chi', 'Mặt bằng'], ['chi', 'Điện nước'], ['chi', 'Sửa chữa & thiết bị'], ['chi', 'Marketing'], ['chi', 'Vật dụng'], ['chi', 'Khác'], ['thu', 'Thu khác']]
     .map(([kind, name], i) => ({ id: i + 1, kind, name, sort_order: i, active: 1 }));
+  // bước 57: loại thu chi (tầng trên nhóm)
+  T.fin_cat_types = T.fin_cat_types || [{ id: 1, kind: 'chi', name: 'Chi phí cố định', sort_order: 1, active: true }, { id: 2, kind: 'chi', name: 'Chi phí bán hàng', sort_order: 2, active: true },
+    { id: 3, kind: 'chi', name: 'Chi phí khác', sort_order: 3, active: true }, { id: 4, kind: 'thu', name: 'Thu khác', sort_order: 1, active: true }];
+  T.fin_categories.forEach((c) => { if (c.type_id === undefined) c.type_id = c.kind === 'thu' ? 4 : /^(Mặt bằng|Lương|Điện nước)/.test(c.name) ? 1 : /^(Nguyên liệu|Vật dụng)/.test(c.name) ? 2 : 3; });
   const now = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
   const today = () => now().slice(0, 10);
   const nid = (t) => Math.max(0, ...T[t].map((x) => x.id || 0)) + 1;
@@ -149,8 +153,15 @@ export function makeFin(T, me) {
     app_fin_category_save({ p_id, p_kind, p_name, p_sort, p_active }) {
       if (!admin()) throw new Error('Chỉ Chủ và Quản lý tổng sửa được nhóm chi / thu.'); if (!(p_name || '').trim()) throw new Error('Nhập tên nhóm.');
       if (p_id) { Object.assign(T.fin_categories.find((c) => c.id === p_id), { name: p_name.trim(), active: p_active ? 1 : 0 }); return p_id; }
-      const id = nid('fin_categories'); T.fin_categories.push({ id, kind: p_kind, name: p_name.trim(), sort_order: p_sort || 50, active: 1 }); return id;
+      const id = nid('fin_categories'); T.fin_categories.push({ id, kind: p_kind, name: p_name.trim(), sort_order: p_sort || 50, active: 1, type_id: null }); return id;
     },
+    app_fin_types: () => ({ types: T.fin_cat_types, cats: T.fin_categories.map((c) => ({ id: c.id, kind: c.kind, name: c.name, type_id: c.type_id, sort_order: c.sort_order, active: !!c.active })), can_edit: admin() }),
+    app_fin_type_save({ p_id, p_kind, p_name, p_sort, p_active }) {
+      if (!admin()) throw new Error('Chỉ Chủ và Quản lý tổng sửa được loại thu chi.'); if (!(p_name || '').trim()) throw new Error('Nhập tên loại.');
+      if (p_id) { Object.assign(T.fin_cat_types.find((t) => t.id === p_id), { name: p_name.trim(), active: !!p_active }); return p_id; }
+      const id = Math.max(0, ...T.fin_cat_types.map((t) => t.id)) + 1; T.fin_cat_types.push({ id, kind: p_kind, name: p_name.trim(), sort_order: p_sort || 50, active: true }); return id;
+    },
+    app_fin_category_type_set({ p_cat, p_type }) { if (!admin()) throw new Error('Chỉ Chủ và Quản lý tổng sửa được loại thu chi.'); T.fin_categories.find((c) => c.id === p_cat).type_id = p_type; },
     app_fin_managers() { if (me.role !== 'chu') throw new Error('Chỉ Chủ giao cơ sở cho quản lý.'); return [{ account_id: 5, name: '5 – Quản lý thử', branches: T.fin_branch_managers.filter((m) => m.account_id === 5).map((m) => m.branch_id) }]; },
     app_fin_manager_set({ p_account, p_branches }) { T.fin_branch_managers = T.fin_branch_managers.filter((m) => m.account_id !== p_account).concat((p_branches || []).map((b) => ({ account_id: p_account, branch_id: b }))); },
     __fin_guard: guard,
