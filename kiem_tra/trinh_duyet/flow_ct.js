@@ -11,14 +11,21 @@ export default async ({ sleep, out }) => {
   const go = async (h) => { location.hash = '#/__tam'; await sleep(200); location.hash = h; await wait('.ct-bar', 600); await sleep(600); };
   await wait('#root .page-head, #root h1', 600); await sleep(2500);
   const t = new Date(Date.now() + 7 * 3600e3); const pm = new Date(Date.UTC(t.getUTCFullYear(), t.getUTCMonth() - 1, 15)).toISOString().slice(0, 10); const M = pm.slice(0, 7);
-  let id; let br;
+  let id; let br; let shift; let branchCode;
   await step('Tạo phiếu ca tháng trước (đã hoàn thành, chưa đối soát)', async () => {
-    const ov = await rpc('app_ca_overview', { p_date: pm }); br = ov[0].branch_id;
+    const ov = await rpc('app_ca_overview', { p_date: pm }); br = ov[0].branch_id; shift = ov[0].shift; branchCode = ov[0].branch_code;
     id = await rpc('app_ca_open', { p_branch: br, p_date: pm, p_shift: ov[0].shift });
-    await rpc('app_ca_save', { p_id: id, p: { rev_end: pm + ' 12:30', total_revenue: 3000000, pos_cash: 1800000, pos_transfer: 1200000, reported_transfer: 1200000, cash_counted: 2750000, ipos_opening: 1000000, cups: 100, goods_status: 'khong', goods_note: null,
+    await rpc('app_ca_save', { p_id: id, p: { rev_end: pm + ' 12:30', total_revenue: 3000000, pos_cash: 1800000, pos_transfer: 1200000, reported_transfer: 1200000, cash_counted: 2750000, opening_cash: 1000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: -50000, diff_note: 'Mua đá trong ca', cups: 100, goods_status: 'khong', goods_note: null,
       moves: [{ kind: 'tien_mat', amount: -50000, note: 'Mua đá' }, { kind: 'tien_mat', amount: 20000, note: 'Khách gửi thêm' }], staff: [], handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }); for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
+    // Kế toán đã nhập đủ dữ liệu nhưng quản lý chưa đối soát: đúng tình huống cần thử ở Chốt tháng.
+    const acc = await rpc('app_kt_account_save', { p_id: null, p_branch: br, p_bank: 'BIDV', p_no: '1234567890', p_holder: 'QUAN THU', p_label: null, p_active: true });
+    await rpc('app_kt_bank_save_accounts', { p_report: id, p_rows: [{ account_id: acc, opening: 1000, closing: 1201000, transfers_out: 0, note: null }] });
+    const [y, mo, d] = pm.split('-');
+    const store = { LHP: 'Milano Coffee - Lê Hồng Phong', 'ĐK': 'Milano Coffee - Đông Khê', HS: 'Milano Coffee - Hồ Sen', LL: 'Lela Cafe', LLB: 'Lela Cafe' }[branchCode] || 'Milano Coffee - Lê Hồng Phong';
+    await rpc('app_fabi_upload', { p_rows: [{ ma_ca: 'CT-' + pm, store, open: `${d}/${mo}/${y} 06:45`, close: `${d}/${mo}/${y} 12:30`, dau: 1000000, cuoi: 2800000, net: 3000000, hd: 100, tong: 2750000,
+      pay: [{ name: 'CHUYỂN KHOẢN', amount: 1200000 }, { name: 'Tiền mặt', amount: 1800000 }], tra_no: [], sua: [] }] });
     return `phiếu ${id} ngày ${pm}`;
   });
   await step('Tổng hợp tất cả cơ sở', async () => { await go(`#/quan-ly/chot-thang?thang=${M}&cn=all`); return txt('.ct-month') + ' · ' + txt('.branch-tabs') + ' || ' + $$('.table tbody tr').slice(0, 2).map((r) => r.innerText.replace(/\s+/g, ' ')).join(' / '); });

@@ -104,7 +104,8 @@ export function makeNh(T, me) {
       T.delivery_lines = T.delivery_lines.filter((l) => l.invoice_id !== id || keep.includes(l.id));
       return id;
     },
-    app_nh_photo_add({ p_id, p_path, p_lines }) {
+    app_nh_photo_add({ p_id, p_report, p_path, p_lines }) {
+      const i = T.delivery_invoices.find((x) => x.id === p_id); const r = T.shift_reports.find((x) => x.id === p_report); staffCan(i, r);
       const id = nid('delivery_receipt_photos'); T.delivery_receipt_photos.push({ id, invoice_id: p_id, path: p_path, created_by: me.account_id, created_at: now() });
       (p_lines || []).forEach((l) => T.delivery_photo_lines.push({ photo_id: id, line_id: l })); return id;
     },

@@ -56,7 +56,7 @@ export default async ({ sleep, out }) => {
     const ov = await rpc('app_ca_overview', { p_date: day });
     const id = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[0].shift });
     const R = await rpc('app_ca_get', { p_id: id });
-    await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2200000, opening_cash: 1000000, ipos_opening: 1000000, cups: 80,
+    await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 12:30', total_revenue: 2000000, pos_cash: 1200000, pos_transfer: 800000, reported_transfer: 800000, cash_counted: 2200000, opening_cash: 1000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: 0, diff_note: null, cups: 80,
       moves: [], staff: (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:30' })), handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });

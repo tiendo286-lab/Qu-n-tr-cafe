@@ -950,10 +950,11 @@ function mount(R, ed, C0, ctx = {}) {
       for (let i = 0; i < files.length; i++) {
         if (st) st.textContent = `Đang tải ảnh ${i + 1}/${files.length}…`;
         const blob = await compressImage(files[i]);
-        const path = `r${R.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const kind = inp.dataset.kind || 'hang';
+        const path = `r${R.id}/${kind}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
         const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
         if (error) throw new Error(error.message);
-        await rpc('app_ca_photo_add', { p_id: R.id, p_path: path, p_kind: inp.dataset.kind || 'hang' });
+        await rpc('app_ca_photo_add', { p_id: R.id, p_path: path, p_kind: kind });
       }
       rerender();
     } catch (e) { if (st) st.textContent = ''; showSaved('Không tải được ảnh: ' + e.message, true); }

@@ -30,11 +30,12 @@ export default async ({ sleep, out }) => {
       moves: [], staff, handover: [], goods: [], debts: [] } });
     r.push(`Phiếu: ${staff.length} người (nghỉ: ${staff.filter((s) => !s.worked).length}, hỗ trợ 2, 1 trả tiền mặt ${cashE.code})`);
     // phiếu nhân viên: ô lương tiền mặt + tiền mặt tính cả chi lương
-    await go('#/ca/phieu?id=' + id, '#pc-form');
-    await wait('.st-cash', 300);
-    r.push(`Phiếu NV: ô "Đã trả lương tiền mặt" ${$$('.st-cash').length} · giá trị ${$('.st-cash')?.value} · nhãn: ${$$('.st-row .pill.info').length} · ô tiền mặt: ${txt('#diff-box .diff-card')}`);
-    await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
+    await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/flow-cv.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
+    sessionStorage.setItem('cm:' + id, JSON.stringify({ step: 1 }));
+    await go('#/ca/phieu?id=' + id, '#cm-body');
+    await wait('[data-cash]', 300);
+    r.push(`Phiếu NV: ô "Đã trả lương tiền mặt" ${$$('[data-cash]').length} · giá trị ${$('[data-cash]')?.value} · nhãn: ${$$('.cm-person .pill.info').length}`);
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     // đối soát ca: nhân sự đầu tiên + phân loại
     await go('#/quan-ly/doi-soat/ca?id=' + id + '&buoc=1', '#ds-cv .cv-a, #ds-cv h2');
@@ -51,10 +52,12 @@ export default async ({ sleep, out }) => {
     r.push(`Bảng công: ${$$('.table.rt').length} bảng · ${txt('.card-head h2')} · x2: ${$$('td[data-label="Giờ x2 được cộng"] strong').map((x) => x.innerText).join(',')} · trừ: ${$$('td[data-label="Giờ bị trừ"] strong').map((x) => x.innerText).join(',')} · tiền mặt: ${$$('td[data-label="Lương tiền mặt"]').map((x) => x.innerText).filter((x) => x !== '—').join(',')} · nghỉ&làm thay: ${$$('tr[data-id]').length} dòng · ${W()}`);
     $('.bc-fix')?.click(); await sleep(400); r.push(`Sửa / xem khiếu nại: ${$('dialog[open]') ? 'mở khung' : 'KHÔNG'}`); document.querySelectorAll('dialog').forEach((d) => { d.close(); d.remove(); });
     // lịch cơ sở + lịch tổng
-    await go(`#/quan-ly/lich-co-so?tuan=${day}&cn=${R.branch_code || 'LHP'}`, '#grid .cell, #grid');
+    await go(`#/quan-ly/lich-co-so?tuan=${day}&cn=${R.branch_id}`, '#grid .cell, #grid');
     await sleep(1500);
+    const dayBtn = $$('.m-day').find((b) => /\b04\b/.test(b.innerText));
+    if (dayBtn) { dayBtn.click(); await sleep(300); }
     r.push(`Lịch cơ sở: dấu ✓ ${$$('#grid .act.ok').length} · ✗ ${$$('#grid .act.no').length} · + ${$$('#grid .act.plus').length} · ${W()}`);
-    { const tr = $('#grid .act.plus')?.closest('tr'); const nx = tr?.nextElementSibling; r.push(`dòng + nằm ở hàng: ${tr?.querySelector('th')?.innerText} · hàng sau: ${nx?.querySelector('th')?.innerText}`); }
+    { const plus = $('#grid .act.plus'); const row = plus?.closest('tr, .m-shift'); const nx = row?.nextElementSibling; r.push(`dòng + nằm ở: ${row?.querySelector('.lab, .m-sh-h strong')?.innerText} · hàng sau: ${nx?.querySelector('.lab, .m-sh-h strong')?.innerText || '—'}`); }
     await go(`#/quan-ly/lich-tong?tuan=${day}`, '#master');
     await sleep(800);
     r.push(`Lịch tổng: dấu ✓ ${$$('#master .act.ok').length} · ✗ ${$$('#master .act.no').length} · + ${$$('#master .act.plus').length}`);

@@ -4,7 +4,7 @@ Bản web đang chạy theo các giả định dưới đây cho những điểm
 
 ## Quản lý ca
 1. **Công nợ**: mới chỉ ghi sổ (bàn, số tiền, thông tin bàn giao, đánh dấu đã thu kèm ghi chú). Chưa đưa vào công thức doanh thu / tiền. Phiếu có công nợ phát sinh thì **không bị chặn** bởi công thức Mục 1 = Mục 2 + Mục 3.
-2. **Tab kế toán nhập chuyển khoản**: chưa làm.
+2. **Tab kế toán nhập chuyển khoản**: đã làm; số dư được nhập theo từng tài khoản ngân hàng và từng ca. Xem `TINH_NANG_DA_CHOT.md`, mục 5.
 3. **Giờ bắt đầu ca Tối**: nhân viên tự chọn (phiếu có hiện giờ kết thúc ca Chiều để tham khảo). Ca Chiều chưa hoàn thành ca Sáng thì tạm nhập tay.
 4. **Tiền đầu ca lệch ca trước / ca trước chưa chốt**: chỉ báo đỏ hoặc báo "chưa có số liệu", vẫn cho hoàn thành.
 5. **Sửa / mở lại phiếu**: phiếu đã hoàn thành thì khóa. Quyền "Mở lại phiếu chốt ca" (mặc định Chủ, Quản lý tổng). Mở lại thì phải đối soát lại từ đầu.
@@ -34,4 +34,4 @@ Bản web đang chạy theo các giả định dưới đây cho những điểm
 21. **Trạng thái**: Đang mở / Đã xong; nhắn vào yêu cầu đã xong thì tự mở lại.
 
 ## Ma trận quyền
-22. Chưa có vai trò **Kế toán** (mục 8.11). Các quyền mới đều chỉnh được ở tab Phân quyền, trừ các quyền "luôn có" ghi rõ trong bảng.
+22. Đã có tài khoản hệ thống **Kế toán** và quyền Kế toán cộng thêm cho từng người. Các quyền khác chỉnh ở tab Phân quyền, trừ các quyền "luôn có" ghi rõ trong bảng.

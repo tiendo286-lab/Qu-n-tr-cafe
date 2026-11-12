@@ -2,12 +2,7 @@ import { loadMe } from '../app.js';
 import { rpc, sb, viError } from '../sb.js';
 import { $, go, html } from '../ui.js';
 
-const ERRORS = {
-  sai: 'Mã nhân viên hoặc mật khẩu không đúng.',
-  ngung: 'Tài khoản đã bị khóa vì nhân viên đã ngừng làm.',
-  khoa: 'Tài khoản đang bị khóa. Hãy liên hệ quản lý.',
-  chua_co: 'Tài khoản chưa có mật khẩu. Hãy nhờ quản lý cấp mật khẩu tạm.',
-};
+const LOGIN_ERROR = 'Mã nhân viên hoặc mật khẩu không đúng. Nếu chưa có mật khẩu, hãy liên hệ quản lý.';
 
 export async function render() {
   return {
@@ -37,7 +32,7 @@ export async function render() {
         btn.textContent = 'Đang đăng nhập…';
         try {
           const r = await rpc('app_login_email', { p_login: $('#ma').value.trim() });
-          if (r.error) throw new Error(ERRORS[r.error] || r.error);
+          if (r.error) throw new Error(LOGIN_ERROR);
           const { error } = await sb.auth.signInWithPassword({ email: r.email, password: $('#mat_khau').value });
           if (error) throw new Error(viError(error));
           await rpc('app_touch_login');

@@ -192,7 +192,7 @@ export async function mountDeliveries(box, R, opts) {
   const byId = (id) => rows.find((x) => x.id === Number(id));
   const uploadFor = async (d, files, st, lineIds) => {
     const ids = [];
-    await uploadFiles('nhan' + d.id, files, async (path) => { ids.push({ id: await rpc('app_nh_photo_add', { p_id: d.id, p_path: path, p_lines: lineIds || [] }), path }); }, st);
+    await uploadFiles(`nhan${d.id}/r${R.id}`, files, async (path) => { ids.push({ id: await rpc('app_nh_photo_add', { p_id: d.id, p_report: R.id, p_path: path, p_lines: lineIds || [] }), path }); }, st);
     return ids;
   };
   const bindRc = (c, d) => {

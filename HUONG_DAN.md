@@ -1,4 +1,6 @@
-# Web Quản trị lịch làm – hướng dẫn chạy thử
+# Bản FastAPI/SQLite cũ – hướng dẫn chạy thử
+
+> Tài liệu này chỉ dành cho bản cũ trong `app/`. Web đang sử dụng nằm trong `docs/` và lưu dữ liệu trên Supabase. Xem `README.md` và `tai_lieu/HUONG_DAN_SUPABASE.md` khi làm web hiện tại.
 
 ## Chạy trên máy Mac
 1. Mở thư mục này trong Finder, **bấm đúp `chay_thu.command`**.

@@ -440,7 +440,7 @@ export async function renderNew(R0, P, SH) {
           for (let i = 0; i < files.length; i++) {
             $('#cm-ph-st').textContent = `Đang tải ảnh ${i + 1}/${files.length}…`;
             const blob = await compressImage(files[i]);
-            const path = `r${R.id}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+            const path = `r${R.id}/ipos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
             const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
             if (error) throw new Error(error.message);
             const id = await rpc('app_ca_photo_add', { p_id: R.id, p_path: path, p_kind: 'ipos' });
