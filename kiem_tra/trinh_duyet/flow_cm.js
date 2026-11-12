@@ -24,7 +24,7 @@ export default async ({ sleep, out }) => {
     r.push(`Mở phiếu: ${txt('#root').slice(0, 300)} · ${W()}`);
     $('#cm-claim').click(); await wait('.cm-person, #cm-helper'); await sleep(800);
     r.push(`B2 Ai làm ca: ${$$('.cm-person').length} người · giờ gợi ý ${$$('[data-t]').map((i) => i.value).join(',')} · ${txt('.cm-sh')}`);
-    if (!$$('.cm-person').length) { await sleep(500); setv($('#cm-helper'), $('#cm-emps option')?.value || ''); $('#cm-add-helper').click(); await sleep(300); r.push('thêm người làm hộ: ' + $$('.cm-person').length); }
+    if (!$$('.cm-person').length) { await sleep(500); $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); r.push('thêm người làm hộ: ' + $$('.cm-person').length); }
     $$('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '06:45' : '12:45'); });
     await next();
     r.push(`B3 tiêu đề: ${txt('#cm-root h2')}`);
@@ -61,7 +61,7 @@ export default async ({ sleep, out }) => {
     const id2 = await rpc('app_ca_open', { p_branch: sh2.branch_id, p_date: day, p_shift: sh2.shift });
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id2; await wait('#cm-claim'); await sleep(500);
     $('#cm-claim').click(); await wait('#cm-helper'); await sleep(800);
-    if (!$$('.cm-person').length) { setv($('#cm-helper'), $('#cm-emps option')?.value || ''); $('#cm-add-helper').click(); await sleep(300); }
+    if (!$$('.cm-person').length) { $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); }
     $$('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '12:30' : '17:30'); });
     await next();
     const inp2 = $('#cm-photo'); inp2.files = dt.files; inp2.dispatchEvent(new Event('change')); await sleep(1500);

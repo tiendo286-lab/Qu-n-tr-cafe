@@ -30,7 +30,7 @@ export default async ({ sleep, out }) => {
     const id2 = await rpc('app_ca_open', { p_branch: o2.branch_id, p_date: day, p_shift: o2.shift });
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id2; await wait('#cm-claim'); await sleep(500);
     $('#cm-claim').click(); await wait('#cm-helper'); await sleep(800);
-    if (!document.querySelectorAll('.cm-person').length) { setv($('#cm-helper'), $('#cm-emps option')?.value || ''); $('#cm-add-helper').click(); await sleep(300); }
+    if (!document.querySelectorAll('.cm-person').length) { $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); }
     document.querySelectorAll('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '12:40' : '17:10'); });
     $('#cm-next').click(); await sleep(700);
     const cv = document.createElement('canvas'); cv.width = 40; cv.height = 60; cv.getContext('2d').fillRect(0, 0, 40, 60);

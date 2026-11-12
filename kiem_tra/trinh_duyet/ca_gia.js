@@ -343,6 +343,11 @@ export function makeCa(T, me) {
       T.daily_cash_closings = T.daily_cash_closings.filter((x) => !(x.branch_id === p_branch && x.work_date === p_date));
       T.daily_cash_closings.push({ branch_id: p_branch, work_date: p_date, counted: p_counted, note: p_note, done_by: me.account_id, done_at: now() });
     },
+    app_ca_helpers() {   // bước 48: nhân viên trong quán (kèm cơ sở) / nhân viên cũ
+      const br = (id) => (T.employee_branches || []).filter((x) => x.employee_id === id).map((x) => x.branch_id);
+      const js = ({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash, branches: br(id) });
+      return { active: T.employees.filter((e) => e.status === 'Đang làm').map(js), former: T.employees.filter((e) => e.status !== 'Đang làm').map(js) };
+    },
     app_ca_employees() { return T.employees.filter((e) => e.status === 'Đang làm').map(({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash })); },
   };
   return F;

@@ -46,6 +46,7 @@ export async function renderNew(R0, P, SH) {
     handover: (R.handover || []).map((h) => ({ ...h })), tried: false,
   };
   const photos = (R.photos || []).filter((p) => p.kind === 'ipos');
+  const HP = { tab: '', q: '' }; let HELP = null;   // bước 48: chọn người làm hộ — mục đang mở, chữ lọc, danh sách nhân viên
   const billSum = () => sum(V.debts.filter((d) => !isLoan(d)), (d) => d.amount);
   const prevCash = hand && hand.prev_cash !== null && hand.prev_cash !== undefined ? Number(hand.prev_cash) : null;
   const expStart = first ? { v: GOI_DAU, src: 'tiền gối đầu ca sáng' } : prevCash !== null ? { v: prevCash, src: `Tổng tiền ca ${hand.prev_shift} để lại` } : null;
@@ -146,9 +147,10 @@ export async function renderNew(R0, P, SH) {
             ${s.pay_cash ? html`<label>Đã trả lương tiền mặt <input class="input sm money" data-cash="${i}" inputmode="numeric" placeholder="0" value="${s.cash_paid ? fmt(parseMoney(s.cash_paid)) : ''}" style="width:120px"></label>` : ''}
             ${s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger" data-rm="${i}">Bỏ</button>` : ''}</div>`
           : html`<input class="input sm" data-reason="${i}" placeholder="Lý do nghỉ (bắt buộc)" value="${s.absent_reason || ''}">`}</div>`)}
-      <div class="pc-line"><input class="input sm grow" id="cm-helper" list="cm-emps" placeholder="Gõ mã hoặc tên người làm hộ" aria-label="Người làm hộ"><datalist id="cm-emps"></datalist>
-        <button type="button" class="btn sm secondary" id="cm-add-helper">+ Thêm</button></div>
-      <div id="cm-help-list" class="cm-hlist"></div>
+      <div class="cm-hp"><div class="pc-sub" style="margin:0">THÊM NGƯỜI LÀM HỘ</div>
+        <div class="cm-seg cm-hp-tabs" role="group" aria-label="Chọn nhóm nhân viên"><button type="button" data-hp="in" aria-pressed="${HP.tab === 'in'}">Nhân viên trong quán</button><button type="button" data-hp="old" aria-pressed="${HP.tab === 'old'}">Nhân viên cũ</button></div>
+        ${HP.tab ? html`<input class="input sm" id="cm-helper" placeholder="Lọc theo tên hoặc mã (không cần dấu)" aria-label="Lọc người làm hộ" value="${HP.q}" autocomplete="off">
+          <div id="cm-help-list" class="cm-hlist"><span class="st-meta">Đang tải danh sách…</span></div>` : ''}</div>
       <div class="st-meta">Có người nghỉ hoặc làm hộ thì quản lý tổng phân loại lý do khi đối soát.</div>`,
     2: () => {
       const ch = fabiChecks();
@@ -387,40 +389,33 @@ export async function renderNew(R0, P, SH) {
         $$('[data-cash]', root).forEach((i) => i.addEventListener('input', () => { V.staff[i.dataset.cash].cash_paid = parseMoney(i.value); }));
         $$('[data-reason]', root).forEach((i) => i.addEventListener('input', () => { V.staff[i.dataset.reason].absent_reason = i.value; soft(); }));
         $$('[data-rm]', root).forEach((b) => b.addEventListener('click', () => { V.staff.splice(Number(b.dataset.rm), 1); draw(); }));
-        if ($('#cm-emps')) {
-          rpc('app_ca_employees').then((list) => { emps = list || []; $('#cm-emps').innerHTML = str(html`${emps.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}`); if ($('#cm-helper')?.value) showList(); }).catch(() => {});
-          // Tìm người làm hộ: gõ vài chữ của tên hoặc mã (không cần dấu) → bấm vào tên để thêm (trên điện thoại ô gợi ý của trình duyệt hay không hiện)
+        // bước 48: người làm hộ — "Nhân viên trong quán" (người của cơ sở này lên trước) / "Nhân viên cũ" (đã ngừng làm); bấm tên để thêm
+        $$('[data-hp]', root).forEach((b) => b.addEventListener('click', () => { HP.tab = HP.tab === b.dataset.hp ? '' : b.dataset.hp; HP.q = ''; draw(); }));
+        if ($('#cm-help-list')) {
           const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
+          const hit = (x, q) => !q || norm(x.code).startsWith(q) || norm(x.name).startsWith(q) || norm(x.name).split(/\s+/).some((y) => y.startsWith(q));
           const addEmp = (e) => {
-            if (V.staff.some((s) => s.employee_id === e.id)) { showSaved('Người này đã có trong danh sách.', true); return; }
+            if (V.staff.some((st) => st.employee_id === e.id)) { showSaved('Người này đã có trong danh sách.', true); return; }
             V.staff.push({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, source: 'ho_tro', worked: true, pay_cash: e.pay_cash, time_in: SH ? hm(SH.start) : null, time_out: SH ? hm(SH.end) : null });
-            draw();
-          };
-          const found = () => {
-            const q = norm($('#cm-helper').value); if (!q) return [];
-            const exact = emps.filter((x) => norm(`${x.code} – ${x.name}`) === q || norm(x.code) === q.split(/\s*[–-]\s*/)[0]);
-            if (exact.length === 1) return exact;
-            // khớp đầu chữ (gõ "yen" không ra họ "Nguyễn"); người có TÊN (chữ cuối) khớp lên trước
-            const hitW = (x) => { const w = norm(x.name).split(/\s+/); return norm(x.code).startsWith(q) || norm(x.name).startsWith(q) || w.some((y) => y.startsWith(q)); };
-            const rank = (x) => (norm(x.name).split(/\s+/).pop().startsWith(q) || norm(x.code) === q ? 0 : 1);
-            return emps.filter((x) => !V.staff.some((s) => s.employee_id === x.id) && hitW(x)).sort((a, b) => rank(a) - rank(b));
+            showSaved(`Đã thêm ${e.code} – ${e.name}`); draw();
           };
           const showList = () => {
-            const box = $('#cm-help-list'); const q = norm($('#cm-helper').value);
-            if (!q) { box.innerHTML = ''; return; }
-            const list = found().slice(0, 8);
-            box.innerHTML = str(!emps.length ? html`<span class="st-meta">Đang tải danh sách nhân viên…</span>`
-              : list.length ? html`${list.map((x) => html`<button type="button" class="btn sm secondary" data-add-emp="${x.id}">+ ${x.code} – ${x.name}</button>`)}`
-                : html`<span class="st-meta">Không thấy nhân viên nào khớp "${$('#cm-helper').value.trim()}".</span>`);
-            $$('[data-add-emp]', box).forEach((b) => b.addEventListener('click', () => addEmp(emps.find((x) => String(x.id) === b.dataset.addEmp))));
+            const box = $('#cm-help-list'); if (!box || !HELP) return;
+            const q = norm(HP.q); const free = (x) => !V.staff.some((st) => st.employee_id === x.id) && hit(x, q);
+            const item = (x) => html`<button type="button" class="cm-hp-it" data-add-emp="${x.id}"><strong>${x.code} – ${x.name}</strong><span class="st-meta">${x.rank || ''}</span></button>`;
+            const grp = (lbl, list) => (list.length ? html`<div class="cm-hp-g">${lbl} (${list.length})</div>${list.map(item)}` : '');
+            const pool = HP.tab === 'old' ? HELP.former : HELP.active;
+            const mine = pool.filter((x) => free(x) && (x.branches || []).includes(R.branch_id));
+            const other = pool.filter((x) => free(x) && !(x.branches || []).includes(R.branch_id));
+            box.innerHTML = str(mine.length + other.length
+              ? html`${grp(HP.tab === 'old' ? `Từng làm ở ${R.branch_code || 'cơ sở này'}` : `Cơ sở ${R.branch_code || 'này'}`, mine)}${grp(HP.tab === 'old' ? 'Từng làm ở cơ sở khác' : 'Cơ sở khác', other)}`
+              : html`<span class="st-meta">${q ? `Không thấy ai khớp "${HP.q}".` : 'Không còn ai để thêm.'}</span>`);
+            const all = [...HELP.active, ...HELP.former];
+            $$('[data-add-emp]', box).forEach((b) => b.addEventListener('click', () => addEmp(all.find((x) => String(x.id) === b.dataset.addEmp))));
           };
-          $('#cm-helper').addEventListener('input', showList);
-          $('#cm-add-helper').addEventListener('click', () => {
-            const l = found();
-            if (l.length === 1) { addEmp(l[0]); return; }
-            showList();
-            if (!l.length) showSaved('Không tìm thấy nhân viên. Gõ tên hoặc mã rồi bấm vào tên trong danh sách.', true);
-          });
+          $('#cm-helper').addEventListener('input', (e) => { HP.q = e.target.value; showList(); });
+          if (HELP) showList();
+          else rpc('app_ca_helpers').then((h) => { HELP = { active: h?.active || [], former: h?.former || [] }; showList(); }).catch((e) => { const b = $('#cm-help-list'); if (b) b.textContent = e.message; });
         }
         // bước 2
         $('#cm-photo')?.addEventListener('change', (ev) => busy(async () => {
@@ -489,7 +484,6 @@ export async function renderNew(R0, P, SH) {
           const h = R.carried.find((x) => String(x.id) === b.dataset.hodone); h.done_at = b.dataset.undo ? null : 'x'; draw();
         })));
       }
-      let emps = [];
       async function loadPhotos() {
         const figs = $$('.cm-photos figure[data-path]', root); if (!figs.length) return;
         const { data } = await sb.storage.from(BUCKET).createSignedUrls(figs.map((f) => f.dataset.path), 3600);
@@ -526,7 +520,13 @@ const CM_CSS = html`<style>
   .cm-line2 { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 6px; align-items: center; }
   .cm-big { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .cm-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
-  .cm-hlist { display: flex; flex-wrap: wrap; gap: 6px; } .cm-hlist .btn { max-width: 100%; white-space: normal; text-align: left; }
+  .cm-hp { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; }
+  .cm-hp-tabs { align-self: flex-start; max-width: 100%; } .cm-hp-tabs button { white-space: nowrap; }
+  .cm-hlist { display: flex; flex-direction: column; gap: 4px; max-height: 55vh; overflow-y: auto; border: 1px solid var(--line); border-radius: 10px; padding: 6px; }
+  .cm-hp-g { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--muted); padding: 6px 4px 2px; }
+  .cm-hp-it { display: flex; justify-content: space-between; gap: 8px; align-items: center; text-align: left; font: inherit; font-size: 14px; background: var(--card); color: var(--ink);
+    border: 1px solid var(--line-soft, var(--line)); border-radius: 8px; padding: 9px 10px; cursor: pointer; min-height: 42px; }
+  .cm-hp-it:active { background: var(--line-soft); } .cm-hp-it strong { min-width: 0; overflow-wrap: anywhere; }
   .cm-real { display: flex; flex-direction: column; gap: 10px; } .cm-rc { border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
   .cm-rc .kv { grid-template-columns: minmax(0, 1fr) auto; } .cm-rc .kv > div:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; } .cm-rt { background: var(--subtle, var(--line-soft)); }
   .cm-phrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
