@@ -41,8 +41,8 @@ const releaseCard = (r, open) => html`<details class="card sys-rel" ${open ? 'op
   ${[['Thêm', r.added], ['Thay đổi', r.changed], ['Sửa lỗi', r.fixed], ['Loại bỏ', r.removed]].filter(([, a]) => a && a.length).map(([t, a]) => html`<div class="sys-sub">${t}</div><ul>${a.map((x) => html`<li>${x}</li>`)}</ul>`)}</details>`;
 
 export async function render({ params }) {
-  const tab = ['phat-hanh', 'thao-tac'].includes(params.tab) ? params.tab : 'tong-quan';
-  const nav = html`<nav class="tabs-nav" aria-label="LOG"><a class="${tab === 'tong-quan' ? 'on' : ''}" href="#/quan-ly/log">Tổng quan</a><a class="${tab === 'phat-hanh' ? 'on' : ''}" href="#/quan-ly/log?tab=phat-hanh">Lịch sử cập nhật web</a><a class="${tab === 'thao-tac' ? 'on' : ''}" href="#/quan-ly/log?tab=thao-tac">Lịch sử thao tác</a></nav>`;
+  const tab = ['phat-hanh', 'thao-tac', 'may-chu'].includes(params.tab) ? params.tab : 'tong-quan';
+  const nav = html`<nav class="tabs-nav" aria-label="LOG"><a class="${tab === 'tong-quan' ? 'on' : ''}" href="#/quan-ly/log">Tổng quan</a><a class="${tab === 'phat-hanh' ? 'on' : ''}" href="#/quan-ly/log?tab=phat-hanh">Lịch sử cập nhật web</a><a class="${tab === 'thao-tac' ? 'on' : ''}" href="#/quan-ly/log?tab=thao-tac">Lịch sử thao tác</a><a class="${tab === 'may-chu' ? 'on' : ''}" href="#/quan-ly/log?tab=may-chu">Tệp máy chủ đã chạy</a></nav>`;
   let body;
   if (tab === 'tong-quan') {
     const o = await rpc('app_sys_overview');
@@ -56,6 +56,11 @@ export async function render({ params }) {
           <div class="st-meta">Web chạy trên GitHub Pages + Supabase nên không có "RAM chung" của cả hệ thống. Lưu lượng tải xem ở trang Supabase → Usage.</div></section>
         <section class="card stack" style="gap:10px"><h2 style="margin:0">Phiên bản hiện tại</h2>
           ${o.current ? html`<div style="font-size:22px;font-weight:700">${o.current.version}</div><div class="st-meta">Cập nhật ${o.current.released_at} · ${o.current.released_by}</div>${releaseCard(o.current, true)}` : html`<div>Không có số liệu</div>`}</section></div>`;
+  } else if (tab === 'may-chu') {
+    const M = (await rpc('app_migrations_list').catch(() => null)) || [];
+    body = html`<div class="st-meta">Mỗi lần thay đổi máy chủ (tệp trong thư mục supabase/) tự ghi 1 dòng ở đây khi chạy — biết chắc tệp nào đã chạy, lúc nào.</div>
+      <section class="card flush"><div class="table-wrap"><table class="table"><thead><tr><th>Tệp</th><th>Lúc chạy</th><th>Ghi chú</th></tr></thead>
+        <tbody>${M.map((m) => html`<tr><td>${m.file}</td><td style="white-space:nowrap">${m.at}</td><td class="st-meta">${m.note || ''}</td></tr>`)}</tbody></table></div></section>`;
   } else if (tab === 'phat-hanh') {
     const list = await rpc('app_sys_releases');
     body = list.length ? html`${list.map((r, i) => releaseCard(r, i === 0))}` : html`<div class="card">Chưa có lần cập nhật nào được ghi.</div>`;

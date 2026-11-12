@@ -226,13 +226,8 @@ export async function requirements(weekId, cl) {
   return Object.fromEntries(rows.map((r) => [`${r.branch_id}|${r.weekday}|${r.shift}|${r.role}`, r.required_count]));
 }
 
-// ---------------- Thông báo: chạy sự kiện đến hạn (tối đa 1 lần/phút mỗi trình duyệt)
-let lastTick = 0;
-export async function notifyTick() {
-  if (Date.now() - lastTick < 60000) return;
-  lastTick = Date.now();
-  try { await rpc('app_notify_tick'); } catch (_) { /* không làm hỏng trang */ }
-}
+// ---------------- Thông báo đến hạn: từ 13/11/2026 máy chủ tự chạy mỗi phút (bước 59) — trình duyệt không gọi nữa
+export async function notifyTick() { /* để trống: giữ tên cho chỗ cũ còn gọi */ }
 export async function unreadCount(accountId) {
   const { sb } = await import('./sb.js');
   const { count } = await sb.from('notifications').select('id', { count: 'exact', head: true }).eq('account_id', accountId).is('read_at', null);

@@ -325,6 +325,24 @@ function remindOnce(path) {
 }
 
 window.addEventListener('hashchange', render);
+
+// Bản mới: so docs/version.json lúc mở trang với bản trên máy chủ (mỗi 10 phút, và khi quay lại thẻ) → báo "Có bản mới — Tải lại"
+let appVer = null;
+async function checkVersion() {
+  try {
+    const v = (await (await fetch('version.json?t=' + Date.now(), { cache: 'no-store' })).json()).v;
+    if (!appVer) { appVer = v; return; }
+    if (v && v !== appVer && !document.getElementById('ver-bar')) {
+      const b = document.createElement('div'); b.id = 'ver-bar'; b.setAttribute('role', 'status');
+      b.innerHTML = '<span>Web vừa có bản cập nhật mới.</span><button type="button" class="btn sm">Tải lại</button>';
+      b.querySelector('button').addEventListener('click', () => location.reload());
+      document.body.appendChild(b);
+    }
+  } catch (_) { /* mất mạng: bỏ qua */ }
+}
+checkVersion();
+setInterval(() => { if (!document.hidden) checkVersion(); }, 600000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) checkVersion(); });
 sb.auth.onAuthStateChange((event) => {
   if (event === 'SIGNED_OUT' && state.me) { state.me = null; go('/dang-nhap'); }
 });

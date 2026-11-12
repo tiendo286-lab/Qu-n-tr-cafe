@@ -40,6 +40,7 @@ export async function render({ params }) {
       const scroll = () => { const last = $('#msgs').lastElementChild; if (last) last.scrollIntoView({ block: 'end' }); };
       scroll();
       const refresh = async () => {
+        if (document.hidden) return;
         try { const N = await rpc('app_ht_get', { p_id: R.id }); if (N.messages.length !== count) { count = N.messages.length; $('#msgs').innerHTML = str(bubbles(N)); scroll(); } } catch (_) { /* bỏ qua */ }
       };
       const timer = setInterval(refresh, 15000);

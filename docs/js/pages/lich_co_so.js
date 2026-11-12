@@ -493,21 +493,26 @@ function mountGrid(P, { week, start, holds }) {
     catch (e) { flash(e.message, 'error'); rerender(); }
   });
 
-  // Tự cập nhật (20 giây) & giữ quyền xếp
-  const timer = setInterval(async () => {
+  // Tự cập nhật (60 giây, bỏ qua khi thẻ đang ẩn — quyền xếp giữ được 15 phút) & giữ quyền xếp
+  const poll = async () => {
+    if (document.hidden) return;
     try {
       const r = await rpc('app_schedule_poll', { p_week: P.week_id });
       if (P.can_edit && !r.mine) { showSaved(`Quyền xếp lịch đã chuyển cho ${r.lock || 'người khác'}. Đang chuyển sang chỉ xem…`, true); setTimeout(rerender, 1500); }
       else if (P.can_edit) await rpc('app_schedule_lock', { p_week: P.week_id, p_force: false });
       else if (r.version !== P.version && picker.hidden) rerender();
     } catch (_) { /* mất mạng tạm thời */ }
-  }, 20000);
+  };
+  const timer = setInterval(poll, 60000);
+  const onVis = () => { if (!document.hidden) poll(); };
+  document.addEventListener('visibilitychange', onVis);
   const release = () => { if (P.can_edit) rpc('app_schedule_release', { p_week: P.week_id }).catch(() => {}); };
   window.addEventListener('pagehide', release);
   draw();
   // Gỡ khi rời trang
   return () => {
     clearInterval(timer);
+    document.removeEventListener('visibilitychange', onVis);
     document.removeEventListener('click', docClick);
     document.removeEventListener('keydown', docKey);
     window.removeEventListener('pagehide', release);

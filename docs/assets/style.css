@@ -366,3 +366,7 @@ details.navd { display: flex; flex-direction: column; flex-grow: 1; }
 .mtx .st-warn { outline: 2px solid #dc2626; outline-offset: -2px; }
 .mtx-wrap { overflow: auto; max-height: 75vh; border: 1px solid var(--line); border-radius: 10px; background: #fff; }
 .mtx select { font-size: 12px; padding: 2px; border: 0; background: transparent; max-width: 110px; }
+
+/* Bản mới (13/11/2026): thanh báo dưới màn hình */
+#ver-bar { position: fixed; left: 50%; bottom: 16px; transform: translateX(-50%); z-index: 1000; display: flex; gap: 12px; align-items: center; background: #1f2937; color: #fff; padding: 10px 14px; border-radius: 12px; box-shadow: 0 6px 24px rgba(0,0,0,.25); max-width: calc(100vw - 32px); font-size: 14px; }
+#ver-bar .btn { background: #fff; color: #1f2937; border-color: #fff; }

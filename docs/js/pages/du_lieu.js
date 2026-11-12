@@ -22,7 +22,7 @@ async function count(table) {
 
 export async function render() {
   const keys = Object.keys(LABELS);
-  const [nums, extra] = await Promise.all([Promise.all(keys.map((k) => count(k).catch(() => null))), rpc('app_backup_counts').catch(() => ({}))]);
+  const [nums, extra, AB] = await Promise.all([Promise.all(keys.map((k) => count(k).catch(() => null))), rpc('app_backup_counts').catch(() => ({})), rpc('app_auto_backups').catch(() => null)]);
   return {
     title: 'Dữ liệu & sao lưu',
     html: html`
@@ -41,10 +41,28 @@ export async function render() {
             Nên tải hằng tuần và cất ở nơi an toàn (máy tính, Google Drive).</div>
           <div><button class="btn" type="button" id="export-btn">Tải gói dữ liệu ZIP</button></div>
           <div id="export-status" style="font-size:13px;color:var(--muted)"></div>
+          ${AB ? html`<div class="st-meta">Lần tải gói ZIP gần nhất: <strong>${AB.last_zip || 'chưa tải lần nào'}</strong>. Thứ Hai hằng tuần web nhắc nếu 7 ngày chưa tải.</div>` : ''}
         </section>
-      </div>`,
+      </div>
+      ${AB ? html`<section class="card stack" style="margin-top:12px">
+        <h2 style="margin:0">Sao lưu tự động hằng ngày (trên máy chủ)</h2>
+        <div style="font-size:14px;color:var(--ink-2);line-height:1.6">Máy chủ tự chụp <strong>toàn bộ dữ liệu lúc 02:30 sáng mỗi ngày</strong>, giữ 7 bản gần nhất — phòng khi lỡ xóa / sửa sai thì lấy lại được.
+          Bản này nằm cùng máy chủ nên <strong>vẫn cần tải gói ZIP về máy</strong> hằng tuần. Bấm "Tải về" để lưu 1 bản (tệp JSON).</div>
+        ${AB.list.length ? html`<div class="table-wrap"><table class="table"><thead><tr><th>Lúc chụp</th><th class="r">Số bảng</th><th class="r">Số dòng</th><th class="r">Dung lượng</th><th></th></tr></thead>
+          <tbody>${AB.list.map((b) => html`<tr><td>${b.at}</td><td class="r">${b.tables}</td><td class="r">${b.rows}</td><td class="r">${b.kb} KB</td><td><button type="button" class="btn sm secondary ab-get" data-id="${b.id}">Tải về</button></td></tr>`)}</tbody></table></div>`
+          : html`<div class="st-meta">Chưa có bản nào — bản đầu tiên chụp lúc 02:30 sáng.</div>`}
+      </section>` : ''}`,
     mount() {
       $('#export-btn').addEventListener('click', () => exportZip($('#export-btn'), $('#export-status')));
+      document.querySelectorAll('.ab-get').forEach((b) => b.addEventListener('click', async () => {
+        b.disabled = true;
+        try {
+          const d = await rpc('app_auto_backup_get', { p_id: Number(b.dataset.id) });
+          const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([JSON.stringify(d)], { type: 'application/json' }));
+          a.download = `SAO_LUU_TU_DONG_${String(d.at).slice(0, 16).replace(/[-: ]/g, '')}.json`; document.body.appendChild(a); a.click(); a.remove();
+        } catch (e) { alert(e.message); }
+        b.disabled = false;
+      }));
     },
   };
 }

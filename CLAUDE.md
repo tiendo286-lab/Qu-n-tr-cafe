@@ -18,6 +18,10 @@
 - **Mỗi lần cập nhật web** (đẩy lên `main`), ghi/cập nhật một dòng trong bảng `app_releases` trên Supabase: `version` = ngày phát hành `YYYY.MM.DD` (nhiều lần trong ngày thì gộp vào dòng của ngày, hoặc `.2`, `.3`), các mảng `added` / `changed` / `fixed` / `removed` viết tiếng Việt dễ hiểu, `released_by`. Trang LOG hệ thống đọc bảng này.
 - Commit với tên `Tien Do <tiendo286@gmail.com>`, cuối thông điệp có dòng `Co-Authored-By: Claude <noreply@anthropic.com>`.
 - Khi làm trên đám mây: làm trên nhánh riêng và mở PR; anh Tiến gộp (merge) vào `main` để lên web. Đổi CSDL thì phải cập nhật Supabase **trước** khi gộp giao diện cần nó.
+- **Sổ tệp đã chạy** (từ bước 59): mỗi tệp SQL mới, dòng cuối cùng là `insert into public.app_migrations(file) values ('NN_ten_tep.sql') on conflict (file) do nothing;`. Trước khi đặt số thứ tự mới, xem `select max(file) from app_migrations` (trang LOG › Tệp máy chủ đã chạy) để không trùng số.
+- **Mỗi lần đẩy giao diện lên `main`**: tăng số trong `docs/version.json` (vd `2026.11.13.2`) — web đang mở sẽ hiện "Có bản mới — Tải lại".
+- Bảng mới: mặc định không cấp quyền cho `anon` / `authenticated` (bước 59); web đọc / ghi qua hàm `app_*`. Sao lưu tự lấy mọi bảng (`app__backup_tables`), không cần thêm tay.
+- **Chỉ một phiên AI làm việc trên dự án tại một thời điểm** (tránh sửa trùng tệp / trùng số thứ tự SQL). Bắt đầu phiên: `git pull`, xem `git log -5` và sổ tệp đã chạy.
 
 ## Kiểm tra
 - Giao diện chạy thử với Supabase giả lập: `kiem_tra/trinh_duyet/` (xem README ở đó). Không có dữ liệu thật thì bỏ qua bước dựng dữ liệu, chỉ kiểm tra cú pháp + logic.
