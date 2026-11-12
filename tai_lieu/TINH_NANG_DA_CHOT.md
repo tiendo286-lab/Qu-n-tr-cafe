@@ -316,6 +316,9 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Bước Tiền của trang Đối soát ca gộp phần 1 (thời gian), 2 (nhận két, doanh thu), 3 (chênh lệch, thu chi) thành **1 khung "Tiền của ca"**: 1 dòng giờ doanh thu; 3 dòng so khớp **Doanh thu / Tiền mặt / Chuyển khoản** (✓ khớp, 🔴 lệch kèm nút xử lý ngay: Tạo phiếu chi, Thêm thu chi, Chọn KHỚP / THIẾU / THỪA, Xem / sửa số liệu); dòng Thu chi; mục đã đối soát nhạt đi.
 - **Thu chi của ca** chỉ còn 1 danh sách, chọn nhóm ngay trên dòng (bỏ mục "Phân nhóm thu chi của ca" riêng).
 - Ô số liệu (mục 1–5, ảnh iPOS, nhận két, số dư ngân hàng, phiếu chi, sửa khoản thu chi) thu vào **"Xem / sửa số liệu"** (bấm mới mở). Phiếu chốt ca của nhân viên giữ nguyên.
+
+## 5z. Trang Thu chi tách tiền mặt / chuyển khoản — ĐÃ LÀM 12/11/2026 (chỉ giao diện, `docs/js/pages/thu_chi.js`)
+- 2 thẻ **Tiền mặt** và **Chuyển khoản** (thu, chi, thu − chi; bấm thẻ để lọc); "Chờ đối soát" và "Trừ lương" thành 2 nút nhỏ; nút lọc Tất cả / Tiền mặt / Chuyển khoản; mỗi dòng có nhãn TM / CK (phiếu trừ lương: TL, không tính vào 2 thẻ).
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.

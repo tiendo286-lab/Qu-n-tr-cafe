@@ -27,19 +27,22 @@ export default async ({ sleep, out }) => {
   r.push(`sau đối soát "Mua đá": ${row.querySelector('.pill').innerText} · ${row.querySelector('.st-meta').innerText.split('·').pop().trim()}`);
   $('#tc-add').click(); await wait('.tc-dlg', 30);
   const f = $('.tc-dlg'); f.querySelector('[name=cat]').value = f.querySelector('[name=cat]').options[2].value;
-  f.querySelector('[name=note]').value = 'Tiền điện'; f.querySelector('[name=amt]').value = '300.000';
+  f.querySelector('[name=note]').value = 'Tiền điện'; f.querySelector('[name=amt]').value = '300.000'; f.querySelector('[name=pay][value=chuyen_khoan]').checked = true;
   if (f.querySelector('[name=br]').value === '') f.querySelector('[name=br]').value = f.querySelector('[name=br]').options[1].value;
   f.querySelector('button[type=submit]').click(); await sleep(1200); await wait('.tc-r', 50);
   row = $$('.tc-r').find((x) => x.innerText.includes('Tiền điện'));
   r.push(`khoản tự tạo: ${row ? row.querySelector('.pill').innerText + ' · ' + txt('.alert') : 'KHÔNG THẤY'}`);
   if (new URLSearchParams(location.search).get('tcshot')) return;   // dừng ở trang Thu chi để chụp màn hình
-  r.push(`ô tổng: ${$$('.tc-k').map((k) => k.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
+  r.push(`2 thẻ: ${$$('.tc-pk').map((k) => k.innerText.replace(/\s+/g, ' ')).join(' | ')} · ${txt('.tc-chips')}`);
+  r.push(`nhãn dòng: ${$$('.tc-r').map((x) => x.querySelector('.tc-pm')?.innerText + ' ' + x.querySelector('strong').innerText).join(', ')}`);
+  $('[data-fpay="chuyen_khoan"]').click(); await sleep(150); r.push(`lọc Chuyển khoản: ${txt('#f-n')} · thẻ CK sáng ${$('.tc-pk.ck').getAttribute('aria-pressed')}`);
+  $('.tc-pk.tm').click(); await sleep(150); r.push(`bấm thẻ Tiền mặt: ${txt('#f-n')}`); $('[data-fpay=""]').click(); await sleep(100);
   $('#f-st').value = 'cho'; $('#f-st').dispatchEvent(new Event('change')); await sleep(100);
   r.push(`lọc chờ đối soát: ${txt('#f-n')}`);
   r.push(`rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);
-  location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('.tc-kpis', 200); await sleep(300);
+  location.hash = '#/quan-ly/thu-chi?xem=khoan-am'; await wait('.tc-pays', 200); await sleep(300);
   r.push(`đường dẫn Khoản âm cũ → lọc: ${$('#f-src').value} · không còn nút chuyển: ${!$('.tc-switch')} · ${txt('#root h1:not(.x)')} · menu ${$$('.hub-tabs a.on').map((a) => a.innerText.trim())}`);
-  location.hash = '#/quan-ly/khoan-am?thang=2026-10'; await sleep(1500); await wait('.tc-kpis', 100);
+  location.hash = '#/quan-ly/khoan-am?thang=2026-10'; await sleep(1500); await wait('.tc-pays', 100);
   r.push(`đường dẫn cũ khoan-am → ${location.hash}`);
   location.hash = '#/quan-ly/bao-cao-ca'; await sleep(1500);
   r.push(`đường dẫn cũ bao-cao-ca → ${location.hash} · rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`);
