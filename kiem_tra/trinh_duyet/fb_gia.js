@@ -35,7 +35,22 @@ export function makeFb(T, me) {
     return { need, fabi, bank, bank_in: bj.entered, bank_accounts: bj.account_count, ready: !need || (fabi && bank), missing };
   };
   T.__ktState = ktState;
+  // bước 51: mục web tự đối soát (khoá). Trình duyệt thử không tự xét như máy chủ — bài thử gọi app__test_auto_lock để giả lập.
+  const LKF = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'],
+    chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
+  T.__autoLock = T.__autoLock || {};
   return {
+    app_ca_auto_locks({ p_id }) { const it = T.__autoLock[p_id] || []; return { items: it, fields: [...new Set(it.flatMap((i) => LKF[i] || []))], can_unlock: me.role === 'chu' }; },
+    app_ca_auto_unlock({ p_id, p_item, p_reason }) {
+      if (me.role !== 'chu') throw new Error('Chỉ Chủ mở khoá mục web đã tự đối soát.');
+      if (!(p_reason || '').trim()) throw new Error('Ghi lý do mở khoá.');
+      T.__autoLock[p_id] = (T.__autoLock[p_id] || []).filter((x) => x !== p_item);
+      T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
+    },
+    app__test_auto_lock({ p_id, p_items }) {
+      T.__autoLock[p_id] = p_items;
+      p_items.forEach((it) => { if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({ report_id: p_id, item: it, checked_by: null, checked_at: '2026-11-12 10:00' }); });
+    },
     app_ca_kt_state: ({ p_id }) => ktState(p_id),
     app_ca_kt_wait() {
       return T.shift_reports.filter((r) => r.recon_status !== 'hoan_thanh' && !/full/i.test(r.shift)).map((r) => ({ r, k: ktState(r.id) })).filter(({ k }) => k && k.need && !k.ready)

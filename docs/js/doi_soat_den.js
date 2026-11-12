@@ -41,6 +41,8 @@ export async function mountLights(box, R0, R) {
   if (!box) return;
   let fabi = null; try { fabi = await rpc('app_fabi_for_report', { p_id: R0.id }); } catch (_) { /* chưa có bước 42 */ }
   let kt = null; try { kt = await rpc('app_ca_kt_state', { p_id: R0.id }); } catch (_) { /* chưa có bước 44 */ }
+  let LK = null; try { LK = await rpc('app_ca_auto_locks', { p_id: R0.id }); } catch (_) { /* chưa có bước 51 */ }
+  const lk = new Set(LK?.items || []);
   const J = judge(R0, R, fabi, kt);
   const green = J.filter((x) => x.ok && !x.done);
   const red = J.filter((x) => !x.ok && !x.wait && !x.done);
@@ -54,9 +56,11 @@ export async function mountLights(box, R0, R) {
     ${kt && kt.need && !kt.ready && waitN ? html`<div class="alert info"><strong>Phần tiền chờ kế toán</strong> — còn thiếu: ${(kt.missing || []).join(', ')}. Nhân sự, Bàn giao, Nhập hàng đối soát được ngay.</div>`
       : kt && kt.need && kt.ready ? html`<div class="st-meta">✓ Kế toán đã đủ file Fabi và chuyển khoản ngân hàng — phần tiền tính theo số chính thức.</div>` : ''}
     ${extra.length ? html`<div class="alert warn">${extra.join(' · ')}</div>` : ''}
-    <div class="den-list">${J.map((x) => html`<div class="den-row ${x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${LBL[x.item]}</strong>
-        <span class="st-meta">${x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
-        ${!x.done && !x.ok && !x.wait && !locked ? html`<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button>` : ''}</div>`)}</div>
+    ${lk.size ? html`<div class="st-meta">🔒 ${lk.size} mục web đã <strong>tự đối soát</strong> (khớp file Fabi và ngân hàng) — đã khoá, không sửa được.${LK.can_unlock ? ' Chủ bấm "Mở khoá" nếu thật sự cần sửa.' : ' Chỉ Chủ mở khoá được.'}</div>` : ''}
+    <div class="den-list">${J.map((x) => html`<div class="den-row ${lk.has(x.item) ? 'done auto' : x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${lk.has(x.item) ? '🔒 ' : ''}${LBL[x.item]}</strong>
+        <span class="st-meta">${lk.has(x.item) ? '✓ web tự đối soát — đã khoá' : x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
+        ${lk.has(x.item) ? (LK.can_unlock ? html`<button type="button" class="btn sm secondary den-unlock" data-item="${x.item}">Mở khoá</button>` : '')
+          : !x.done && !x.ok && !x.wait && !locked ? html`<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button>` : ''}</div>`)}</div>
     ${locked ? '' : html`<div class="toolbar" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="den-ok" ${green.length ? '' : 'disabled'}>Duyệt các mục xanh${green.length ? ` (${green.length})` : ''}</button>
       <span class="st-meta">${red.length ? `Còn ${red.length} mục đỏ cần xử lý — bấm "Xử lý" để tới đúng chỗ.` : waitN ? `${waitN} mục tiền chờ kế toán.` : green.length ? 'Không còn mục đỏ. Duyệt xong là hoàn thành đối soát.' : ''}</span></div>`}`);
   $('#den-ok', box)?.addEventListener('click', async (ev) => {
@@ -69,11 +73,20 @@ export async function mountLights(box, R0, R) {
       showSaved(`Đã duyệt ${green.length} mục xanh`); rerender();
     } catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
   });
+  box.querySelectorAll('.den-unlock').forEach((b) => b.addEventListener('click', async () => {
+    const why = prompt(`Mở khoá mục "${LBL[b.dataset.item]}" (web đã tự đối soát). Ghi lý do:`, '');
+    if (why === null) return;
+    if (!why.trim()) { showSaved('Ghi lý do mở khoá.', true); return; }
+    b.disabled = true;
+    try { await rpc('app_ca_auto_unlock', { p_id: R0.id, p_item: b.dataset.item, p_reason: why }); showSaved('Đã mở khoá — mục trở lại chờ đối soát.'); rerender(); }
+    catch (e) { showSaved(e.message, true); b.disabled = false; }
+  }));
 }
 
 export const DEN_CSS = html`<style>
   .den-list { display: flex; flex-direction: column; gap: 6px; }
   .den-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
+  .den-row.auto > :not(.den-unlock) { opacity: .5; }
   .den-row.r { border-color: var(--off-line); } .den-row.g { border-color: var(--ok-line); } .den-row.w { border-style: dashed; opacity: .8; }
   .den-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--line-strong); }
   .den-row.g .den-dot, .den-row.done .den-dot { background: var(--ok-line); } .den-row.r .den-dot { background: var(--off-line); }

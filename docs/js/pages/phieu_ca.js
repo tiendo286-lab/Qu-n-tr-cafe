@@ -185,6 +185,9 @@ export async function render({ params }) {
   // Bước 32: phiếu chia 3 phần việc — chỉ người nhận phần (chưa bấm Xong) được sửa phần đó
   const P = !isDs && R0.status === 'dang_chot' ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;
   const PD = isDs ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;   // ai làm từng phần (trang đối soát)
+  // bước 51: mục web tự đối soát (khớp file Fabi + ngân hàng) → nhạt đi, khoá
+  const LK = isDs ? await rpc('app_ca_auto_locks', { p_id: id }).catch(() => null) : null;
+  const lkItem = (it) => !!LK && (LK.items || []).includes(it);
   const PT = P ? Object.fromEntries((P.parts || []).map((p) => [p.part, p])) : {};
   const edFor = (k) => (P ? ed && !!PT[k]?.mine && !PT[k]?.done_at : ed && isDs);
   const edT = edFor('tien'); const edN = edFor('nhan_su'); const edH = edFor('nhan_hang');
@@ -196,6 +199,7 @@ export async function render({ params }) {
 
   const chip = (item) => {
     if (!done || !isDs) return '';   // phiếu nhân viên chỉ xem: không còn nút đối soát
+    if (lkItem(item)) return html`<span class="rc-chip on rc-auto" title="Web tự đối soát: khớp file Fabi và ngân hàng. Chỉ Chủ mở khoá được (Đèn đối soát).">🔒 ${CHECK_LABEL[item]}: WEB TỰ ĐỐI SOÁT</span>`;
     if (MONEY_ITEMS.includes(item)) {
       const x = (R.results || {})[item]; const cls = x ? RES[x.result][1] : '';
       const t = x ? `${x.by || ''} · ${dt(x.at)}${x.reason ? ' · ' + x.reason : ''}` : 'Bấm để chọn KHỚP / THIẾU / THỪA';
@@ -210,7 +214,7 @@ export async function render({ params }) {
       ? html`<button type="button" class="rc-chip ${c ? 'on' : ''}" data-item="${item}" title="${t}" aria-pressed="${c ? 'true' : 'false'}">${c ? '✓ ' : ''}${CHECK_LABEL[item]}: ${label}</button>`
       : html`<span class="rc-chip ${c ? 'on' : ''}" title="${t}">${CHECK_LABEL[item]}: ${label}</span>`;
   };
-  const sec = (title, items, inner, idAttr = '') => html`<section class="card stack pc-sec" ${idAttr ? html`id="${idAttr}"` : ''}>
+  const sec = (title, items, inner, idAttr = '') => html`<section class="card stack pc-sec ${items.length && items.every(lkItem) ? 'pc-auto' : ''}" ${idAttr ? html`id="${idAttr}"` : ''}>
     <div class="pc-sec-head"><h2>${title}</h2><div class="rc-chips">${items.map(chip)}</div></div>${inner}</section>`;
 
   // A. Thời gian
@@ -446,7 +450,7 @@ export async function render({ params }) {
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
     html: html`${STYLE}${HD_CSS}${DT_CSS}${head}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0 }); },
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK }); },
   };
 }
 
@@ -503,8 +507,18 @@ function collect() {
 }
 
 function mount(R, ed, C0, ctx = {}) {
-  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep } = ctx;
+  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK } = ctx;
   let saveNow = null;
+  // bước 51: trường thuộc mục web đã tự đối soát → không sửa được (máy chủ cũng giữ nguyên số cũ)
+  if (isDs && LK && (LK.fields || []).length) {
+    const lock = (el) => { if (!el) return; el.disabled = true; el.closest('.pc-f')?.classList.add('pc-lk'); };
+    LK.fields.forEach((f) => {
+      if (f === 'moves') { $$('#moves input, #moves select, #moves button').forEach(lock); $('#add-move')?.remove(); }
+      else if (f === 'staff') { $$('#staff input, #staff select, #staff button').forEach(lock); $('#helper')?.closest('.pc-line')?.remove(); }
+      else if (f === 'goods') { $$('#goods input, #goods button').forEach(lock); $('#add-good')?.remove(); }
+      else lock($('#' + f));
+    });
+  }
   // khung Nghỉ & làm thay: trước khi lưu phân loại thì lưu danh sách nhân viên đang sửa; danh sách đổi thì vẽ lại khung
   const cvCtx = { sum: $('#ds-cv-sum'), onChange: () => rerender(), flush: () => (saveNow ? saveNow() : null) };
   if (isDs) { mountLights($('#ds-lights'), R0, R); mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, cvCtx); }
@@ -1001,6 +1015,9 @@ const STYLE = html`<style>
   .rc-chip { font: inherit; font-size: 12px; font-weight: 700; padding: 5px 9px; border-radius: 8px; border: 1px solid #fca5a5; background: #fef2f2; color: #b91c1c; }
   .rc-chip.on { border-color: #b8d9ab; background: var(--ok-bg); color: var(--ok-ink); }
   button.rc-chip { cursor: pointer; }
+  .rc-chip.rc-auto { opacity: .75; }
+  .pc-sec.pc-auto > :not(.pc-sec-head) { opacity: .5; pointer-events: none; user-select: none; }
+  .pc-f.pc-lk { opacity: .5; }
   .photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 8px; }
   .ph { position: relative; margin: 0; aspect-ratio: 1; background: var(--line-soft); border-radius: 10px; overflow: hidden; }
   .ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
