@@ -39,13 +39,17 @@ export default async ({ sleep, out }) => {
   });
   await step('Kế toán thấy trạng thái', async () => { await go('#/ke-toan/hoa-don', '.hd'); return $$('.hd').map((c) => c.innerText.replace(/\s+/g, ' ').slice(0, 220)).join(' / '); });
   await step('Thêm tài khoản nhận tiền (2 TK cho cơ sở đầu) + chặn số sai', async () => {
-    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-accf');
-    const f = () => $('.ck-accs .ck-accf');
-    const before = txt('.ck-accs summary');
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-row');
+    const note = `trang CK: còn khung tài khoản ${!!$('.ck-accf')} · nhắc: ${txt('.alert.warn')}`;
+    await go('#/cai-dat/tai-khoan', '.ck-accf');   // 12/11: tài khoản chuyển sang Cài đặt
+    const f = () => $('.ck-accf');
+    const before = txt('#ck-alist').slice(0, 60);
     f().branch.selectedIndex = 1; setv(f().no, '12ab'); f().requestSubmit(); await sleep(400); const err = txt('#saved-indicator');
     f().branch.selectedIndex = 1; setv(f().no, '1234 5678 90'); setv(f().label, 'QR quầy'); f().requestSubmit(); await sleep(1200); await wait('.ck-al');
     f().branch.selectedIndex = 1; setv(f().bank, 'Vietcombank'); setv(f().no, '0011223344'); f().requestSubmit(); await sleep(1200);
-    return `trước: ${before} · số sai: "${err}" · sau: ${txt('.ck-accs summary')} · ${$$('.ck-al').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')}`;
+    const out = `${note} · Cài đặt: ${txt('#root h1')} · menu ${txt('.hub-tabs a.on')} · trước: ${before} · số sai: "${err}" · sau: ${$$('.ck-al').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')}`;
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-row');
+    return out;
   });
   await step('Nhập số dư theo từng tài khoản', async () => {
     const row = $('.ck-row[data-report]'); if (!row) return 'KHÔNG CÓ HÀNG CÓ PHIẾU · ' + txt('.ck-row');
@@ -65,9 +69,12 @@ export default async ({ sleep, out }) => {
     return r2 ? [...r2.querySelectorAll('.ck-open')].map((i) => i.value + (i.classList.contains('st-sg') ? '(vàng)' : '')).join(' , ') : 'KHÔNG THẤY CA 2';
   });
   await step('Ngừng dùng TK thứ 2 → ca mới chỉ còn 1 TK; đã có số dư thì không có nút Xóa', async () => {
+    await go('#/cai-dat/tai-khoan', '.ck-al');
     const al = $$('.ck-al')[1]; const hasDel = !!al.querySelector('.ck-del');
     al.querySelector('.ck-toggle').click(); await sleep(1200); await wait('.ck-al');
+    const head = txt('.card h2:last-of-type');
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ck-row');
     const r2 = $$('.ck-row[data-report]')[1];
-    return `nút xóa TK đã dùng: ${hasDel} · ${txt('.ck-accs summary')} · ca 2 còn ${r2.querySelectorAll('.ck-acc').length} TK · ca 1 còn ${$$('.ck-row[data-report]')[0].querySelectorAll('.ck-acc').length} TK`;
+    return `nút xóa TK đã dùng: ${hasDel} · ${head} · ca 2 còn ${r2.querySelectorAll('.ck-acc').length} TK · ca 1 còn ${$$('.ck-row[data-report]')[0].querySelectorAll('.ck-acc').length} TK`;
   });
 };

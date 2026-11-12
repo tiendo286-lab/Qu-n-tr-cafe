@@ -14,19 +14,6 @@ export const perm = 'ke_toan';
 const money = (cls, v, dis, extra = '') => html`<input class="input sm money ${cls}" inputmode="numeric" autocomplete="off" placeholder="0" value="${v === null || v === undefined ? '' : fmt(v)}" ${dis ? 'disabled' : ''} ${extra}>`;
 export const accName = (a) => `${a.bank} ${a.account_no}${a.label ? ' · ' + a.label : ''}`;
 
-function accountForm(branches, a = {}) {
-  return html`<form class="ck-accf" autocomplete="off">
-    <label class="pc-f"><span>Chi nhánh</span><select class="input sm" name="branch" required>
-      <option value="">— Chọn —</option>${branches.map((b) => html`<option value="${b.id}" ${a.branch_id === b.id ? 'selected' : ''}>${b.code} – ${b.name}</option>`)}</select></label>
-    <label class="pc-f"><span>Ngân hàng</span><input class="input sm" name="bank" value="${a.bank || 'BIDV'}" required list="ck-banks"></label>
-    <label class="pc-f"><span>Số tài khoản</span><input class="input sm" name="no" value="${a.account_no || ''}" inputmode="numeric" required placeholder="Chỉ chữ số"></label>
-    <label class="pc-f"><span>Chủ tài khoản</span><input class="input sm" name="holder" value="${a.holder || ''}" placeholder="Không bắt buộc"></label>
-    <label class="pc-f"><span>Tên gọi / ghi chú</span><input class="input sm" name="label" value="${a.label || ''}" placeholder="vd: TK quét QR quầy"></label>
-    <div class="pc-f" style="justify-content:flex-end"><button class="btn sm" type="submit">${a.id ? 'Lưu' : '+ Thêm tài khoản'}</button></div>
-  </form>`;
-}
-const BANKS = html`<datalist id="ck-banks">${['BIDV', 'Vietcombank', 'VietinBank', 'Agribank', 'Techcombank', 'MB', 'ACB', 'VPBank', 'TPBank', 'Sacombank'].map((b) => html`<option value="${b}"></option>`)}</datalist>`;
-
 // Bảng tuần: mỗi cơ sở 1 bảng, hàng = ca + tổng ngày, cột = 7 ngày + cả tuần; ô = tiền ngân hàng nhận và lệch so với CK theo phiếu
 export const DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
 export const mondayOf = (d) => { const w = new Date(d + 'T00:00:00Z').getUTCDay(); return addDays(d, w === 0 ? -6 : 1 - w); };
@@ -155,26 +142,12 @@ export async function render({ params }) {
         <span class="st-meta">${r.rev_start ? dt(r.rev_start) : '?'} → ${r.rev_end ? dt(r.rev_end) : '?'}</span>
         ${lock ? html`<span class="pill ok">Đã đối soát — khóa</span>` : r.recon_status === 'mo_lai' ? html`<span class="pill warn">Đang đối soát lại</span>` : r.status !== 'hoan_thanh' ? html`<span class="pill mute">Nhân viên đang chốt</span>` : ''}
         <a class="st-meta" href="#/ca/phieu?id=${r.report_id}" style="margin-left:auto">Mở phiếu ca</a></div>
-      ${r.accounts.length ? r.accounts.map((a) => accRow(a, lock)) : html`<div class="st-meta">Chi nhánh chưa có tài khoản nhận tiền — thêm ở mục <strong>Tài khoản nhận tiền</strong> phía trên.</div>`}
+      ${r.accounts.length ? r.accounts.map((a) => accRow(a, lock)) : html`<div class="st-meta">Chi nhánh chưa có tài khoản nhận tiền — thêm ở <a href="#/cai-dat/tai-khoan">Cài đặt › Tài khoản ngân hàng</a>.</div>`}
       ${r.accounts.length ? lateBox(r, s) : ''}
       <div class="ck-res"></div>
       ${lock || !r.accounts.length ? '' : html`<div class="toolbar"><button type="button" class="btn sm ck-save">Lưu ca ${s.shift}</button>${r.updated_at ? html`<span class="st-meta">Sửa lần cuối: ${r.updated_by || ''} · ${dt(r.updated_at)}</span>` : ''}</div>`}
     </div>`;
   };
-
-  const accList = byBranch.map((b) => {
-    const list = accounts.filter((a) => a.branch_id === b.id);
-    return html`<div class="ck-ab"><div class="ck-abh">${b.code} – ${b.name}</div>
-      ${list.length ? list.map((a) => html`<div class="ck-al ${a.active ? '' : 'off'}" data-id="${a.id}">
-        <div class="ck-ali"><strong>${a.bank} ${a.account_no}</strong>
-          <span class="st-meta">${[a.holder, a.label].filter(Boolean).join(' · ')}</span>
-          ${a.active ? html`<span class="pill ok">Đang dùng</span>` : html`<span class="pill mute">Ngừng dùng</span>`}</div>
-        <div class="ck-alb">
-          <button type="button" class="btn sm secondary ck-edit">Sửa</button>
-          <button type="button" class="btn sm secondary ck-toggle">${a.active ? 'Ngừng dùng' : 'Dùng lại'}</button>
-          ${a.used ? '' : html`<button type="button" class="btn sm secondary ck-del" style="color:#b91c1c;border-color:#fca5a5">Xóa</button>`}</div></div>`)
-        : html`<div class="st-meta">Chưa có tài khoản.</div>`}</div>`;
-  });
 
   return {
     title: 'Chuyển khoản thực nhận',
@@ -187,28 +160,13 @@ export async function render({ params }) {
         .ck-res { font-size: 14px; }
         .st-sg { background: #fef9c3; }
         .pc-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; }
-        .ck-accf { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; align-items: end; }
-        .ck-ab { display: flex; flex-direction: column; gap: 6px; padding: 10px 0; border-top: 1px solid var(--line-soft); }
-        .ck-abh { font-weight: 700; }
-        .ck-al { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; padding: 8px 10px; background: var(--subtle); border-radius: 12px; }
-        .ck-al.off { opacity: .65; }
-        .ck-ali { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; min-width: 0; }
-        .ck-alb { display: flex; gap: 6px; flex-wrap: wrap; }
-        details.ck-accs > summary { cursor: pointer; font-weight: 700; font-size: 17px; }
         details.ck-late > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); }
         .ck-lf { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
-      ${WEEK_CSS}</style>${BANKS}
+      ${WEEK_CSS}</style>
       <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub">Nhập số dư từng tài khoản nhận tiền của cơ sở theo đúng mốc giờ của phiếu ca. Tiền nhận trong ca = tổng các tài khoản (Số dư cuối − Số dư đầu + Tiền chuyển ra). Đây là tiền nhận trong ca, chưa mặc định là doanh thu.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:980px;gap:12px">
-        <details class="card ck-accs" ${noAcc.length || params.tk ? 'open' : ''}>
-          <summary>Tài khoản nhận tiền (${accounts.filter((a) => a.active).length} đang dùng)${noAcc.length ? html` <span class="pill warn">${noAcc.map((b) => b.code).join(', ')} chưa có tài khoản</span>` : ''}</summary>
-          <div class="stack" style="gap:10px;margin-top:12px">
-            ${accountForm(byBranch)}
-            <div class="st-meta">Một chi nhánh có thể có nhiều tài khoản. Tài khoản đã có số dư theo ca thì không xóa được (giữ lịch sử) — chọn <strong>Ngừng dùng</strong>.</div>
-            <div id="ck-alist">${accList}</div>
-          </div>
-        </details>
+        ${noAcc.length ? html`<div class="alert warn">${noAcc.map((b) => b.code).join(', ')} chưa có tài khoản nhận tiền — thêm ở <a href="#/cai-dat/tai-khoan">Cài đặt › Tài khoản ngân hàng</a>.</div>` : ''}
         <section class="card toolbar" style="padding:12px 14px;gap:8px">${viewTabs(day, false)}
           <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${addDays(day, -1)}">‹ Hôm trước</a>
           <input class="input sm" type="date" id="ck-day" value="${day}" aria-label="Ngày">
@@ -219,48 +177,6 @@ export async function render({ params }) {
       </div>`,
     mount() {
       $('#ck-day').addEventListener('change', (e) => { location.hash = '#/ke-toan/chuyen-khoan?ngay=' + e.target.value; });
-      // ---- Tài khoản nhận tiền (sau khi đổi: mở lại trang, giữ mục tài khoản đang mở)
-      const reload = () => { const h = '#/ke-toan/chuyen-khoan?ngay=' + day + '&tk=1'; if (location.hash === h) rerender(); else location.hash = h; };
-      const saveAcc = async (f, a = {}) => {
-        const btn = f.querySelector('button[type=submit]'); btn.disabled = true;
-        try {
-          await rpc('app_kt_account_save', { p_id: a.id || null, p_branch: Number(f.branch.value) || null, p_bank: f.bank.value, p_no: f.no.value,
-            p_holder: f.holder.value, p_label: f.label.value, p_active: a.id ? a.active : true });
-          flash(a.id ? 'Đã lưu tài khoản.' : 'Đã thêm tài khoản nhận tiền.');
-          reload();
-          return true;
-        } catch (e) { showSaved(e.message, true); btn.disabled = false; return false; }
-      };
-      $('.ck-accs .ck-accf').addEventListener('submit', (e) => { e.preventDefault(); saveAcc(e.target); });
-      $$('.ck-al').forEach((el) => {
-        const a = accounts.find((x) => x.id === Number(el.dataset.id));
-        el.querySelector('.ck-edit').addEventListener('click', () => {
-          const d = dialog(html`<div class="stack" style="gap:12px"><h2 style="margin:0">Sửa tài khoản</h2>
-            ${a.used ? html`<div class="st-meta">Tài khoản đã có số dư theo ca: chỉ sửa được chủ tài khoản và tên gọi.</div>` : ''}
-            ${accountForm(byBranch, a)}<div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Đóng</button></div></div>`);
-          if (a.used) ['branch', 'bank', 'no'].forEach((k) => { d.querySelector('form')[k].disabled = true; });
-          d.querySelector('[data-x]').addEventListener('click', () => d.close());
-          d.querySelector('form').addEventListener('submit', async (e) => {
-            e.preventDefault(); const f = e.target;
-            if (a.used) { f.branch.disabled = false; f.bank.disabled = false; f.no.disabled = false; }
-            if (await saveAcc(f, a)) d.close();
-          });
-        });
-        el.querySelector('.ck-toggle').addEventListener('click', async (ev) => {
-          ev.target.disabled = true;
-          try {
-            await rpc('app_kt_account_save', { p_id: a.id, p_branch: a.branch_id, p_bank: a.bank, p_no: a.account_no, p_holder: a.holder, p_label: a.label, p_active: !a.active });
-            flash(a.active ? 'Đã ngừng dùng tài khoản (vẫn giữ số dư các ca cũ).' : 'Đã dùng lại tài khoản.');
-            reload();
-          } catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
-        });
-        el.querySelector('.ck-del')?.addEventListener('click', async (ev) => {
-          if (!confirm(`Xóa tài khoản ${a.bank} ${a.account_no}?`)) return;
-          ev.target.disabled = true;
-          try { await rpc('app_kt_account_delete', { p_id: a.id }); flash('Đã xóa tài khoản.'); reload(); }
-          catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
-        });
-      });
       // ---- Tiền về chậm
       $$('.ck-late-add').forEach((b) => b.addEventListener('click', async () => {
         const row = b.closest('.ck-row'); const f = b.closest('.ck-lf');

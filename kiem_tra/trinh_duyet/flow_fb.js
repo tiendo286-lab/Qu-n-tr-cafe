@@ -47,6 +47,8 @@ export default async ({ sleep, out }) => {
     const Rr = await rpc('app_ca_get', { p_id: id });
     r.push(`phiếu sau file: recon_status ${Rr.recon_status}`);
     // bước 49: số cốc — món chưa có nhóm → gợi ý theo tên → Lưu → số cốc = món không thuộc đồ ăn / thuốc lá / topping
+    r.push(`Trang Fabi nhắc: ${txt('#fb-menu-warn')} · còn khung nhóm món ${!!$('#fb-menu')}`);
+    location.hash = '#/cai-dat/nhom-mon'; await wait('#fb-menu'); await sleep(600);   // 12/11: nhóm món chuyển sang Cài đặt
     r.push(`Nhóm món: ${txt('#fb-menu h2')} · gợi ý: ${[...document.querySelectorAll('#fb-menu [data-mn]')].map((x) => `${x.dataset.mn}→${x.value || '?'}`).join(', ')} · ${W()}`);
     $('#fb-menu-save').click(); for (let i = 0; i < 300 && !document.querySelector('#fb-menu .pill.ok'); i++) await sleep(50); await sleep(500);
     r.push(`Sau Lưu: ${txt('#fb-menu h2')} · cột Số cốc: ${[...document.querySelectorAll('tbody td[data-label="Số cốc"]')].map((x) => x.innerText).join(' / ')} · phiếu số cốc ${(await rpc('app_ca_get', { p_id: id })).cups}`);

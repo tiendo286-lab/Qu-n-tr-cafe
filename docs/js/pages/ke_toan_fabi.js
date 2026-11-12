@@ -120,9 +120,7 @@ export async function render({ params }) {
   const from = /^\d{4}-\d{2}-\d{2}$/.test(params.tu || '') ? params.tu : addDays(to, -2);
   const [D, KW, MN] = await Promise.all([rpc('app_fabi_list', { p_from: from, p_to: to }), rpc('app_ca_kt_wait').catch(() => []),
     rpc('app_fabi_menu').catch(() => ({ groups: [], items: [] }))]);
-  const unk = MN.items.filter((x) => !x.grp); const known = MN.items.filter((x) => x.grp);
-  const grpSel = (it, val) => html`<select class="input sm" data-mn="${it.name}" data-orig="${it.grp || ''}" aria-label="Nhóm của ${it.name}"><option value="">— Chọn nhóm —</option>${MN.groups.map((g) => html`<option value="${g}" ${g === val ? 'selected' : ''}>${g}</option>`)}</select>`;
-  const mnRow = (it, val) => html`<div class="mn-r"><div><strong>${it.name}</strong><div class="st-meta">${fmt(it.qty)} phần · ${it.files} ca${it.grp ? (it.cup ? ' · tính cốc' : ' · không tính cốc') : ''}</div></div>${grpSel(it, val)}</div>`;   // bước 44: ca còn thiếu file Fabi / CK ngân hàng
+  const unk = MN.items.filter((x) => !x.grp);
   const nav = (p) => go('/ke-toan/fabi?' + new URLSearchParams({ tu: from, den: to, ...p }).toString());
   const row = (f) => { const st = statusOf(f); return html`<tr><td data-label="Ca"><strong>${f.branch_code || f.store}</strong> · ${f.shift || ''} ${dmy(f.work_date)}<div class="st-meta">${(f.open_at || '').slice(11)}–${(f.close_at || '').slice(11)} · mã ${f.ma_ca}</div></td>
       <td class="r" data-label="Doanh thu">${fmt(f.net)}</td><td class="r" data-label="Chuyển khoản">${fmt(f.ck)}</td><td class="r" data-label="Tiền mặt">${fmt(f.tm)}</td><td class="r" data-label="Nợ">${fmt(f.no)}</td>
@@ -146,13 +144,7 @@ export async function render({ params }) {
               ${k.bank ? '' : html`<a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${k.date}">Nhập chuyển khoản ›</a>`}</div>`)
             : html`<div class="alert ok">Không còn ca nào thiếu.</div>`}
           <style>.kt-w { display: flex; gap: 10px; justify-content: space-between; align-items: center; flex-wrap: wrap; padding: 6px 0; border-top: 1px solid var(--line); } .kt-w > div { min-width: 0; flex: 1 1 220px; overflow-wrap: anywhere; }</style></section>
-        <section class="card stack" style="gap:8px" id="fb-menu"><h2 style="margin:0">Nhóm món — tính số cốc ${unk.length ? html`<span class="pill warn">${unk.length} món chưa có nhóm</span>` : MN.items.length ? html`<span class="pill ok">đủ nhóm</span>` : ''}</h2>
-          <div class="st-meta">Số cốc của ca = tổng số lượng các món, <strong>trừ nhóm Đồ ăn & thuốc lá và Topping</strong>. Món mới chưa có nhóm: chọn nhóm <strong>1 lần</strong> (web đã gợi ý theo tên — xem lại), bấm Lưu; các ca có món đó tự tính lại số cốc.</div>
-          ${unk.length ? html`<div class="mn-list">${unk.map((it) => mnRow(it, guessGroup(it.name, MN.groups)))}</div>` : MN.items.length ? '' : html`<div class="st-meta">Chưa có món nào — tải file Fabi trước.</div>`}
-          ${known.length ? html`<details><summary style="cursor:pointer;font-weight:600">Món đã có nhóm (${known.length}) — sửa nếu chọn nhầm</summary><div class="mn-list" style="margin-top:6px">${known.map((it) => mnRow(it, it.grp))}</div></details>` : ''}
-          ${MN.items.length ? html`<div><button type="button" class="btn" id="fb-menu-save">Lưu nhóm món</button></div>` : ''}
-          <style>.mn-list { display: flex; flex-direction: column; gap: 4px; } .mn-r { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 220px); gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); }
-            .mn-r > div { min-width: 0; overflow-wrap: anywhere; } .mn-r select { width: 100%; } @media (max-width: 520px) { .mn-r { grid-template-columns: minmax(0, 1fr); } }</style></section>
+        ${unk.length ? html`<div class="alert warn" id="fb-menu-warn"><strong>${unk.length} món chưa có nhóm</strong> nên chưa tính được số cốc — chọn nhóm 1 lần ở <a href="#/cai-dat/nhom-mon">Cài đặt › Nhóm món Fabi</a> (web đã gợi ý sẵn).</div>` : ''}
         <div class="toolbar" style="gap:8px;flex-wrap:wrap">${fbTabs(to, false)}<label class="field" style="margin:0"><span>Từ ngày</span><input class="input" type="date" id="fb-from" value="${from}"></label>
           <label class="field" style="margin:0"><span>Đến ngày</span><input class="input" type="date" id="fb-to" value="${to}"></label></div>
         ${D.missing.length ? html`<div class="alert warn"><strong>Phiếu trên web chưa có file Fabi (${D.missing.length}):</strong> ${D.missing.map((m) => `${m.branch_code} ${m.shift} ${dmy(m.work_date)}`).join(' · ')}. Tải thêm file của các ca này.</div>`
@@ -164,13 +156,6 @@ export async function render({ params }) {
     mount() {
       $('#fb-from').addEventListener('change', (e) => { if (e.target.value) nav({ tu: e.target.value }); });
       $('#fb-to').addEventListener('change', (e) => { if (e.target.value) nav({ den: e.target.value }); });
-      $('#fb-menu-save')?.addEventListener('click', async (ev) => {
-        const items = [...document.querySelectorAll('[data-mn]')].filter((x) => x.value !== x.dataset.orig).map((x) => ({ name: x.dataset.mn, grp: x.value || null }));
-        if (!items.length) { showSaved('Chưa đổi nhóm món nào.', true); return; }
-        ev.target.disabled = true;
-        try { const n = await rpc('app_fabi_menu_set', { p_items: items }); flash(`Đã lưu nhóm cho ${n} món — số cốc các ca có món đó đã tính lại.`, 'ok'); rerender(); }
-        catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
-      });
       $('#fb-file').addEventListener('change', async (e) => {
         const files = [...e.target.files]; if (!files.length) return;
         const msg = $('#fb-msg'); msg.innerHTML = str(html`<div class="st-meta">Đang đọc ${files.length} file…</div>`);
@@ -187,7 +172,7 @@ export async function render({ params }) {
           showSaved('Đã tải file Fabi');
           const days = res.map((x) => x.work_date).filter(Boolean).sort();
           const nu = new Set(res.flatMap((x) => x.cups_unknown || [])).size;
-          if (nu) lines.push(`${nu} món chưa có nhóm — chọn ở khung "Nhóm món" để tính số cốc`);
+          if (nu) lines.push(`${nu} món chưa có nhóm — chọn ở Cài đặt › Nhóm món Fabi để tính số cốc`);
           flash(lines.filter(Boolean).join(' · ') + '.', cnt('lech') || cnt('chua_phieu') || nu ? 'warn' : 'ok');
           if (days.length) nav({ tu: days[0] < from ? days[0] : from, den: days[days.length - 1] > to ? days[days.length - 1] : to }); else rerender();
         } catch (err) { msg.innerHTML = str(html`<div class="alert error">Không tải được: ${err.message}</div>`); }
