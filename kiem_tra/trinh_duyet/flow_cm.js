@@ -34,7 +34,7 @@ export default async ({ sleep, out }) => {
     const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg'));
     const dt = new DataTransfer(); dt.items.add(new File([blob], 'phieu.jpg', { type: 'image/jpeg' }));
     const inp = $('#cm-photo'); inp.files = dt.files; inp.dispatchEvent(new Event('change')); await sleep(1500);
-    { const b = $('.cm-ph')?.getBoundingClientRect() || {}; const top = $('.cm-num[data-f="ipos_opening"]').getBoundingClientRect().top - $('#cm-body').getBoundingClientRect().top;
+    { const b = $('.cm-thumb')?.getBoundingClientRect() || {}; const top = $('.cm-num[data-f="ipos_opening"]').getBoundingClientRect().top - $('#cm-body').getBoundingClientRect().top;
       r.push(`ảnh: ${$$('.cm-photos figure').length} · ô ảnh ${Math.round(b.width || 0)}x${Math.round(b.height || 0)} · ${txt('.cm-phact')} · ô Số dư đầu cách đầu thẻ ${Math.round(top)}px`); }
     setv($('#cm-close'), '12:39');
     num('ipos_opening', '1000000'); num('total_revenue', '5000000'); num('pos_transfer', '3000000'); num('pos_cash', '2200000'); num('pos_debt', '0'); num('cash_counted', '3020000'); num('pos_diff', '20000');
@@ -74,7 +74,10 @@ export default async ({ sleep, out }) => {
     $('#cm-add-debt').click(); await sleep(200);
     setv($('[data-db="0"][data-k="table_name"]'), 'Bàn 5'); setv($('[data-db="0"][data-k="amount"]'), '28000'); await next();
     typ($('#cm-hot'), '1000000'); await sleep(300); await next(); r.push(`ca 2 sau hotline: ${txt('#cm-root h2')}`);
-    $('#cm-add-move').click(); await sleep(200); setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); setv($('[data-mv="0"][data-k="amount"]'), '1000'); await next();
+    $('#cm-add-move').click(); await sleep(200); setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); setv($('[data-mv="0"][data-k="amount"]'), '1000');
+    $('#cm-add-move').click(); await sleep(200);
+    r.push(`Thu chi 2 dòng: hàng nút ${Math.round($('#cm-body .cm-ph').getBoundingClientRect().width)}px · ${$$('#cm-body .cm-ph')[0].innerText.replace(/\s+/g, ' ')} · nút Thu vào rộng ${Math.round($('[data-mt="0"][data-v="1"]').getBoundingClientRect().width)}px · ${W()}`);
+    $('[data-mx="1"]').click(); await sleep(200); await next();
     setv($('#cm-cups'), '61'); await next();
     r.push(`Chiều kết quả: ${txt('#cm-body .alert')}`);
     await next(); await next(); await next(); await sleep(1500);

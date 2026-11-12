@@ -136,7 +136,7 @@ export async function renderNew(R0, P, SH) {
     2: () => {
       const ch = fabiChecks();
       return html`<div class="st-meta">Chụp phiếu chốt ca Fabi trước, rồi gõ <strong>lần lượt từ trên xuống</strong> đúng như trên phiếu.</div>
-        <div class="cm-phrow"><div class="cm-photos">${photos.map((p) => html`<figure class="cm-ph" data-path="${p.path}"><a target="_blank" rel="noopener" aria-label="Xem ảnh to"><img alt="Ảnh phiếu Fabi" loading="lazy"></a><button type="button" class="ph-del" data-id="${p.id}" aria-label="Xóa ảnh">×</button></figure>`)}</div>
+        <div class="cm-phrow"><div class="cm-photos">${photos.map((p) => html`<figure class="cm-thumb" data-path="${p.path}"><a target="_blank" rel="noopener" aria-label="Xem ảnh to"><img alt="Ảnh phiếu Fabi" loading="lazy"></a><button type="button" class="ph-del" data-id="${p.id}" aria-label="Xóa ảnh">×</button></figure>`)}</div>
           <div class="cm-phact">${photos.length ? html`<span class="pill ok">Đã có ${photos.length} ảnh ✓</span>` : ''}
             <label class="btn sm secondary">📷 ${photos.length ? 'Chụp thêm ảnh' : 'Chụp phiếu chốt ca Fabi'}<input type="file" id="cm-photo" accept="image/*" multiple hidden></label><span class="st-meta" id="cm-ph-st"></span></div></div>
         <div class="cm-fabi">
@@ -444,10 +444,10 @@ const CM_CSS = html`<style>
   .cm-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
   .cm-phrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
   .cm-photos { display: flex; gap: 6px; flex-wrap: wrap; }
-  .cm-ph { position: relative; margin: 0; width: 76px; height: 76px; flex: none; background: var(--line-soft); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
-  .cm-ph a { display: block; width: 100%; height: 100%; }
-  .cm-ph img { width: 100%; height: 100%; object-fit: cover; display: block; }
-  .cm-ph .ph-del { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; padding: 0; }
+  .cm-thumb { position: relative; margin: 0; width: 76px; height: 76px; flex: none; background: var(--line-soft); border-radius: 10px; overflow: hidden; border: 1px solid var(--line); }
+  .cm-thumb a { display: block; width: 100%; height: 100%; }
+  .cm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cm-thumb .ph-del { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; padding: 0; }
   .cm-phact { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
   @media (max-width: 420px) { .cm-fabi { grid-template-columns: minmax(0, 1fr) minmax(0, 140px); } .cm-line { grid-template-columns: minmax(0, 1fr) 105px auto; } .cm-line2 { grid-template-columns: minmax(0, 1fr) 110px; } }
 </style>`;
