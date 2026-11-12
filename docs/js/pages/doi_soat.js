@@ -13,8 +13,8 @@ export const perm = 'doi_soat';
 
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
-  const [rows, days, T, LO, KW] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
-    rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => [])]);
+  const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
+    rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => [])]);
   // bước 44: phần tiền chờ kế toán (thiếu file chốt ca Fabi / chuyển khoản ngân hàng)
   const ktById = new Map((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => [k.id, k]));
   const repReady = (T.reports || []).filter((r) => !ktById.has(r.id));
@@ -117,6 +117,12 @@ export async function render({ params }) {
       <div class="td-sec" id="td-mv"><h3>2. Dòng thu chi ở phiếu ca chờ đối soát <span class="st-meta">(từ ${dmy(T.from)})</span></h3><div id="td-moves"></div></div>
       <div class="td-sec" id="td-hang"><h3>3. Hàng nhận chưa đối soát</h3>${T.goods.length ? T.goods.map(goodRow) : html`<div class="st-meta">Không có.</div>`}</div>
       <div class="td-sec" id="td-ka"><h3>4. Nhân viên giải trình khoản âm</h3>${T.ka.length ? T.ka.map(kaRow) : html`<div class="st-meta">Không có giải trình mới.</div>`}</div>
+      <div class="td-sec" id="td-cv"><h3>6. Nghỉ / làm thay (x2)</h3>
+        ${[['Chờ Quản lý tổng phân loại', (CVT || []).filter((c) => c.state !== 'cho_duyet')], ['Chờ Chủ duyệt', (CVT || []).filter((c) => c.state === 'cho_duyet')]].map(([lbl, list]) => html`
+          <div class="st-meta" style="font-weight:700;margin-top:4px">${lbl} (${list.length})</div>
+          ${list.length ? list.map((c) => html`<div class="td-r" data-br="${c.branch_id}"><div class="td-m"><strong>${dmy(c.date)} · ${c.branch} · Ca ${c.shift}</strong>${c.state === 'lech' ? html` <span class="pill off">nhân sự đã đổi — phân loại lại</span>` : ''}
+              <div class="st-meta">${c.absent ? `Nghỉ: ${c.absent}` : ''}${c.absent && c.helper ? ' · ' : ''}${c.helper ? `Hỗ trợ: ${c.helper}` : ''}${c.x2 ? ` · x2: ${c.x2}` : ''}${c.set_by ? ` · phân loại: ${c.set_by}` : ''}</div></div>
+            <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${c.id}&buoc=1">Mở bước Nhân sự ›</a></div>`) : html`<div class="st-meta">Không có.</div>`}`)}</div>
       <div class="td-sec" id="td-muon"><h3>5. Khách mượn tiền chưa trả</h3>${(LO || []).length ? LO.map(loanRow) : html`<div class="st-meta">Không có.</div>`}</div>
     </section>`;
 

@@ -40,6 +40,11 @@ export function makeCv(T, me) {
         rows: T.shift_covers.filter((c) => c.report_id === p_id).map(js), set_by: rv.set_at ? me.name : null, set_at: rv.set_at || null, ok_by: rv.ok_at ? 'admin – Chủ' : null, ok_at: rv.ok_at || null, ok_note: rv.ok_note || null };
     },
     app_cv_save({ p_id, p_items }) { if (!canCls) throw new Error('Chỉ Quản lý tổng / Chủ phân loại nghỉ và làm thay.'); write(p_id, p_items); T.cover_reviews[p_id] = { set_at: now() }; return state(p_id); },
+    app_cv_todo() {
+      return T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh' && ['chua_phan_loai', 'lech', 'cho_duyet'].includes(state(r.id))).map((r) => {
+        const b = T.branches.find((x) => x.id === r.branch_id) || {}; const P = people(r.id); const nm = (k) => P.filter((p) => p.kind === k).map((p) => `${p.code} – ${p.name}`).join(', ') || null;
+        return { id: r.id, branch_id: r.branch_id, branch: b.display_code || b.code, date: r.work_date, shift: r.shift, state: state(r.id), absent: nm('nghi'), helper: nm('ho_tro'), x2: null, set_by: null }; });
+    },
     app_cv_approve({ p_id, p_items, p_note }) {
       if (!isOwner) throw new Error('Chỉ Chủ duyệt nghỉ / làm thay.');
       if (p_items) write(p_id, p_items);

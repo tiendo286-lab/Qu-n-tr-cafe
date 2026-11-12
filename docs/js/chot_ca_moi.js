@@ -1,6 +1,7 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender } from './app.js';
+import { CV_CSS, mountCover } from './nghi_thay.js';
 import { mountDeliveries, NH_CSS } from './nhap_hang.js';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, parseMoney, signed } from './tien.js';
@@ -225,7 +226,8 @@ export async function renderNew(R0, P, SH) {
           ${V.debts.some(isLoan) ? html`<li>Khách mượn tiền: ${V.debts.filter(isLoan).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}</li>` : ''}
           <li>Chuyển khoản hotline ${fmt(V.reported_transfer)} ${c.ckLeft ? '(lệch, đã ghi lý do)' : '✓'}</li>
           <li>${V.moves.length ? `${V.moves.length} khoản thu chi` : 'Không có thu chi'} · ${V.cups} cốc</li></ul>
-        <div class="alert ${c.tmLeft === 0 ? 'ok' : 'error'}"><b>${c.tmLeft === 0 ? 'Tiền: KHỚP ✓' : 'Tiền: LỆCH ' + signed(c.tmLeft)}</b>${c.tmLeft ? ' · lý do: ' + V.diff_note : ''}</div>`;
+        <div class="alert ${c.tmLeft === 0 ? 'ok' : 'error'}"><b>${c.tmLeft === 0 ? 'Tiền: KHỚP ✓' : 'Tiền: LỆCH ' + signed(c.tmLeft)}</b>${c.tmLeft ? ' · lý do: ' + V.diff_note : ''}</div>
+        ${CV_CSS}<section class="stack" id="cm-cv" style="gap:8px" hidden></section>`;
     },
   };
   function nhanHang() {
@@ -305,6 +307,12 @@ export async function renderNew(R0, P, SH) {
       function bind() {
         bindMoneyInputs(root);
         loadPhotos();
+        // bước 46: Chủ / Quản lý tổng tự chốt ca → phân loại (Chủ duyệt luôn) nghỉ / làm thay ngay tại đây
+        const cvBox = $('#cm-cv');
+        if (cvBox) {
+          const cvCtx = { onChange: () => mountCover(cvBox, R, cvCtx) };
+          rpc('app_cv_get', { p_id: R.id }).then((C) => { if (C && C.can_classify && C.state !== 'khong_can') { cvBox.hidden = false; mountCover(cvBox, R, cvCtx); } }).catch(() => {});
+        }
         if ($('#cm-hd')) mountDeliveries($('#cm-hd'), R, { canRecv: !!PT.nhan_hang?.mine && !PT.nhan_hang?.done_at, canPhoto: true, canRecon: false, onRecon: () => rerender() });
         $('#cm-claim')?.addEventListener('click', () => busy(async () => {
           await rpc('app_ca_part_claim', { p_id: R.id, p_part: 'tien', p_force: false });

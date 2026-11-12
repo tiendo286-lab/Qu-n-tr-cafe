@@ -261,6 +261,11 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Ca chiều / tối, **cách 2**: Số dư đầu = **1.000.000** (tiền gối đầu) trong khi ca trước để lại nhiều hơn → phần dư là **"Nộp quỹ khi giao ca"**: không bắt ghi lý do, không tính lệch cho ca nào; tự thành dòng nộp quỹ trong **Sổ quỹ tiền mặt**; Đối soát tiền mặt cuối ngày và Chốt tháng trừ khoản này khỏi tiền phải có trong két.
 - Số dư đầu khác cả 2 cách → báo lệch, bắt ghi lý do (như cũ). Tiền nộp quỹ mà không thực sự vào quỹ sẽ lộ ra khi **kiểm quỹ** (Sổ quỹ).
 
+## 5q. Nghỉ & làm thay (x2) gọn thao tác — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/46_nghi_thay_gon.sql`)
+- **Chủ / Quản lý tổng tự chốt ca** → ở bước "Kiểm tra lần cuối" của phiếu hiện luôn khung **Nghỉ & làm thay**: chọn lý do nghỉ, người làm thay, x2; Chủ bấm **Duyệt** luôn (Quản lý tổng phân loại thì vẫn chờ Chủ duyệt). Nhân viên chốt ca không thấy khung này.
+- Máy chủ cho phân loại / duyệt cả khi phiếu đang chốt (`app_cv_save`, `app_cv_approve`).
+- Tab **Đối soát** có mục **"6. Nghỉ / làm thay (x2)"**: Chờ Quản lý tổng phân loại · Chờ Chủ duyệt (`app_cv_todo`), nút mở thẳng bước Nhân sự.
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.
