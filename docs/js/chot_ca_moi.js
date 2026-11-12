@@ -137,7 +137,11 @@ export async function renderNew(R0, P, SH) {
     return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
         ${V.reported_transfer === null ? '' : bad ? html`<br>🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b>` : html`<br>✅ Khớp`}</div>
       ${bad ? html`<div class="st-meta">Lệch thì cộng lại các giao dịch trên hotline. Quên ghi khoản thu chi / khách trả bằng chuyển khoản? <button type="button" class="btn sm secondary" data-jump="5">Về bước Thu chi</button></div>
-        <label class="pc-f"><span>Lý do lệch chuyển khoản (bắt buộc)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
+        <div class="cm-ckmv"><div class="st-meta">${c.ckLeft < 0 ? 'Tiền đã chuyển đi từ tài khoản (hoàn tiền khách huỷ đơn, trả tiền hàng…)?' : 'Tiền vào tài khoản mà phiếu Fabi không có?'} Tạo phiếu ${c.ckLeft < 0 ? 'chi' : 'thu'} chuyển khoản ngay — ghi vào Thu chi của ca, hết lệch.</div>
+          <div class="pc-line"><input class="input sm grow" id="cm-ckmv-note" autocomplete="off" value="${V.transfer_note}" placeholder="${c.ckLeft < 0 ? 'vd: hoàn tiền khách huỷ đơn' : 'vd: khách chuyển tiền đặt bàn'}" aria-label="Nội dung phiếu">
+            <button type="button" class="btn sm" id="cm-ckmv">Tạo phiếu ${c.ckLeft < 0 ? 'chi' : 'thu'} ${fmt(Math.abs(c.ckLeft))}đ</button></div><div id="cm-ckmv-err"></div></div>
+        <label class="pc-f"><span>Hoặc ghi lý do lệch chuyển khoản (bắt buộc nếu không tạo phiếu)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}
+      ${V.moves.some((m) => m.kind === 'chuyen_khoan') ? html`<div class="st-meta">Phiếu chuyển khoản của ca: ${V.moves.filter((m) => m.kind === 'chuyen_khoan').map((m) => `${m.note} ${signed(m.amount)}`).join(' · ')} — sửa / xoá ở bước Thu chi.</div>` : ''}`;
   }
   const B = {
     0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Người khác trong ca chỉ giúp phần nhận hàng.</div>
@@ -472,8 +476,17 @@ export async function renderNew(R0, P, SH) {
         // bước 4
         // Ô tiền tự thêm dấu chấm khi gõ nên trình duyệt không phát 'change' → nghe 'input', chỉ vẽ lại khung so sánh (không mất cú bấm "Tiếp")
         const bindCkNote = () => $('#cm-ck-note')?.addEventListener('input', (e) => { V.transfer_note = e.target.value; soft(); });
-        $('#cm-hot')?.addEventListener('input', (e) => { V.reported_transfer = parseMoney(e.target.value); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); bindJump(); soft(); });
-        bindCkNote();
+        // lệch chuyển khoản → tạo phiếu chi / thu chuyển khoản ngay (thêm vào Thu chi của ca)
+        const bindCkMv = () => $('#cm-ckmv')?.addEventListener('click', () => busy(async () => {
+          const note = ($('#cm-ckmv-note')?.value || '').trim(); const gap = money().ckLeft;
+          if (!note) { $('#cm-ckmv-err').innerHTML = str(html`<div class="alert error">Ghi nội dung phiếu (chi gì / thu gì).</div>`); return; }
+          if (!gap) return;
+          V.moves.push({ kind: 'chuyen_khoan', amount: gap, note }); V.noMoves = false;
+          await save(); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); bindJump(); bindCkMv(); soft();
+          showSaved(`Đã tạo phiếu ${gap < 0 ? 'chi' : 'thu'} chuyển khoản ${fmt(Math.abs(gap))}đ`);
+        }));
+        $('#cm-hot')?.addEventListener('input', (e) => { V.reported_transfer = parseMoney(e.target.value); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); bindJump(); bindCkMv(); soft(); });
+        bindCkNote(); bindCkMv();
         // bước 5
         $('#cm-add-move')?.addEventListener('click', () => { V.moves.push({ kind: 'tien_mat', amount: null, note: '' }); V.noMoves = false; draw(); });
         $('#cm-nomoves')?.addEventListener('change', (e) => { V.noMoves = e.target.checked; soft(); });

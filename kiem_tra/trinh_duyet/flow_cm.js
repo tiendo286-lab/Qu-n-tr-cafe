@@ -47,7 +47,11 @@ export default async ({ sleep, out }) => {
     r.push(`B5 khách mượn: ${$$('#cm-body h3').map((x) => x.innerText).join(' / ')} · ${W()}`); await next();
     r.push(`B6 tiêu đề (bỏ bước Số cốc ở cơ sở dùng Fabi): ${txt('#cm-root h2')} · ô số cốc ${!!$('#cm-cups')}`);
     typ($('#cm-hot'), '2900000'); await sleep(300); $('#cm-next').click(); await sleep(400); r.push(`B7 lệch: ${txt('#cm-ck-box')} | ${txt('#cm-err')} · nút về Thu chi ${!!$('[data-jump="5"]')}`); { $('[data-jump="5"]').click(); await sleep(800); const t1 = txt('#cm-root h2'); $('#cm-next').click(); await sleep(700); $('#cm-next').click(); await sleep(700); r.push(`Bấm Về bước Thu chi → ${t1} → Tiếp, Tiếp → ${txt('#cm-root h2')}`); }
-    typ($('#cm-hot'), '3000000'); await sleep(400); r.push(`B7 hotline: ${txt('#cm-body .alert')}`);
+    // lệch −65.000 → tạo phiếu chi chuyển khoản ngay ở bước hotline
+    typ($('#cm-hot'), '2935000'); await sleep(400); r.push(`B7 lệch 65k: nút ${txt('#cm-ckmv')} · ${txt('.cm-ckmv .st-meta')}`);
+    $('#cm-ckmv').click(); await sleep(500); r.push(`Tạo phiếu thiếu nội dung: ${txt('#cm-ckmv-err')}`);
+    typ($('#cm-ckmv-note'), 'hoàn tiền khách huỷ đơn'); $('#cm-ckmv').click(); for (let i = 0; i < 50 && $('#cm-ckmv'); i++) await sleep(100); await sleep(500);
+    r.push(`B7 sau tạo phiếu: ${txt('#cm-ck-box')} · ${W()}`);
     await next();
     r.push(`B8 kết quả: ${txt('#cm-body .alert')}`);
     $('#cm-next').click(); await sleep(300); r.push(`chưa lý do: ${txt('#cm-err')}`);
