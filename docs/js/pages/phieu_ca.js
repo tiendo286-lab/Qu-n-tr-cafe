@@ -9,6 +9,7 @@ import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMone
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
+import { renderNew } from '../chot_ca_moi.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
 export const perm = 'chot_ca';
@@ -165,6 +166,12 @@ export async function render({ params }) {
     return { title: 'Đối soát ca', html: html`<div class="card stack" style="gap:10px;max-width:640px"><h1 style="margin:0">Đối soát ca ${R0.shift}</h1>
       <div>${done ? 'Bạn không có quyền đối soát phiếu này.' : `Nhân viên chưa hoàn thành phiếu chốt ca ${R0.shift} nên chưa đối soát được.`}</div>
       <div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/quan-ly/doi-soat">‹ Về trang Đối soát</a></div></div>` };
+  }
+  // Bước 41: phiếu đang chốt → màn hình chốt ca mới theo phiếu Fabi (?cu=1 để xem phiếu kiểu cũ)
+  if (!wantDs && R0.status === 'dang_chot' && R0.can_edit && String(params.cu || '') !== '1') {
+    const [P41, cat41] = await Promise.all([rpc('app_ca_parts', { p_id: id }), catalog().catch(() => null)]);
+    const SH41 = cat41 ? cat41.branchShifts(R0.branch_id).find((x) => x.name === R0.shift) || null : null;
+    return renderNew(R0, P41, SH41);
   }
   const RC = canRc && wantDs ? await rpc('app_ca_recon', { p_id: id }).catch(() => null) : null;
   const isDs = !!RC;
