@@ -54,6 +54,7 @@ export default async ({ sleep, out }) => {
     await go(`#/quan-ly/lich-co-so?tuan=${day}&cn=${R.branch_code || 'LHP'}`, '#grid .cell, #grid');
     await sleep(1500);
     r.push(`Lịch cơ sở: dấu ✓ ${$$('#grid .act.ok').length} · ✗ ${$$('#grid .act.no').length} · + ${$$('#grid .act.plus').length} · ${W()}`);
+    { const tr = $('#grid .act.plus')?.closest('tr'); const nx = tr?.nextElementSibling; r.push(`dòng + nằm ở hàng: ${tr?.querySelector('th')?.innerText} · hàng sau: ${nx?.querySelector('th')?.innerText}`); }
     await go(`#/quan-ly/lich-tong?tuan=${day}`, '#master');
     await sleep(800);
     r.push(`Lịch tổng: dấu ✓ ${$$('#master .act.ok').length} · ✗ ${$$('#master .act.no').length} · + ${$$('#master .act.plus').length}`);

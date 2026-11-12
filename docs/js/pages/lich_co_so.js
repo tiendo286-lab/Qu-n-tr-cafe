@@ -300,8 +300,13 @@ function mountGrid(P, { week, start, holds }) {
           h += '</tr>';
         }
       });
+      // người làm thêm / làm thay (phát sinh từ phiếu chốt ca) — hàng riêng trong khối ca, trước hàng tổng (trước đây nằm dưới ô tổng nên trông như thuộc ca sau)
+      const plus = P.days.map((d) => actPlus(d.index, s.name));
+      if (plus.some(Boolean)) {
+        h += `<tr class="r-plus"><th class="lab">${esc(`${s.name.toUpperCase()} – LÀM THÊM / LÀM THAY`)}</th>${plus.map((x) => `<td class="c">${x}</td>`).join('')}</tr>`;
+      }
       h += `<tr class="r-total"><th class="lab" style="text-align:center">TỔNG CA ${esc(s.name.toUpperCase())}</th>`;
-      P.days.forEach((d) => { const t = shiftTotal(d.index, s.name); h += `<td class="c"><div class="tot ${t.cls}" title="${esc(t.tip)}">${t.label}${t.bang ? ' !' : ''}${t.segs.length ? `<small>${t.segs.map(esc).join('<br>')}</small>` : ''}</div>${actPlus(d.index, s.name)}</td>`; });
+      P.days.forEach((d) => { const t = shiftTotal(d.index, s.name); h += `<td class="c"><div class="tot ${t.cls}" title="${esc(t.tip)}">${t.label}${t.bang ? ' !' : ''}${t.segs.length ? `<small>${t.segs.map(esc).join('<br>')}</small>` : ''}</div></td>`; });
       h += '</tr>';
     });
     $('#grid').innerHTML = h + '</tbody></table>';
