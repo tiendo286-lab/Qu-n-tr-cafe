@@ -1,6 +1,12 @@
 // Giả lập bước 42: kế toán tải file chi tiết ca Fabi (app_fabi_*) — chỉ để chạy thử giao diện
 export function makeFb(T, me) {
-  T.fabi_shifts = T.fabi_shifts || [];
+  T.fabi_shifts = T.fabi_shifts || []; T.fabi_menu = T.fabi_menu || {};   // bước 49: nhóm món (tên món → nhóm)
+  const cupGrp = (g) => !/(ĐỒ ĂN|THUỐC|TOPPING)/i.test(g || '');
+  const cups = (f) => {
+    const unk = [...new Set((f.items || []).filter((x) => !T.fabi_menu[x.name]).map((x) => x.name))];
+    f.cups_unknown = unk; f.cups = unk.length || !(f.items || []).length ? null : f.items.filter((x) => cupGrp(T.fabi_menu[x.name])).reduce((s, x) => s + x.qty, 0);
+    const r = T.shift_reports.find((x) => x.id === f.report_id); if (r && r.status === 'hoan_thanh' && f.cups !== null) r.cups = f.cups;
+  };
   const STORES = { 'milano coffee - lê hồng phong': 'LHP', 'milano coffee - đông khê': 'ĐK', 'milano coffee - hồ sen': 'HS', 'lela cafe': 'LL' };
   const ts = (p) => (/^\d{2}\/\d{2}\/\d{4}/.test(p || '') ? `${p.slice(6, 10)}-${p.slice(3, 5)}-${p.slice(0, 2)} ${p.slice(11, 16)}`.trim() : null);
   const shiftOf = (op) => { const h = Number(op.slice(11, 13)); return h < 11 ? 'Sáng' : h < 16 ? 'Chiều' : 'Tối'; };
@@ -42,11 +48,18 @@ export function makeFb(T, me) {
         const op = ts(x.open);
         const f = { ma_ca: x.ma_ca, store: x.store, code: STORES[x.store.toLowerCase()] || null, work_date: op.slice(0, 10), shift: shiftOf(op), open_at: op, close_at: ts(x.close),
           dau: x.dau, cuoi: x.cuoi, net: x.net, hd: x.hd, tong: x.tong, tra_no: x.tra_no || [], sua: x.sua || [],
-          ck: sumPay(x.pay, (n) => n.includes('chuyển khoản')), tm: sumPay(x.pay, (n) => n === 'tiền mặt'), no: sumPay(x.pay, (n) => n === 'nợ'), uploaded_at: '2026-11-12 10:00' };
+          items: x.items || [], groups: x.groups || [], ck: sumPay(x.pay, (n) => n.includes('chuyển khoản')), tm: sumPay(x.pay, (n) => n === 'tiền mặt'), no: sumPay(x.pay, (n) => n === 'nợ'), uploaded_at: '2026-11-12 10:00' };
         T.fabi_shifts = T.fabi_shifts.filter((y) => y.ma_ca !== f.ma_ca).concat(f);
-        return { ma_ca: f.ma_ca, store: f.store, branch_code: f.code, work_date: f.work_date, shift: f.shift, ...apply(f) };
+        const res = apply(f); cups(f);
+        return { ma_ca: f.ma_ca, store: f.store, branch_code: f.code, work_date: f.work_date, shift: f.shift, cups: f.cups, cups_unknown: f.cups_unknown, ...res };
       });
     },
+    app_fabi_menu() {
+      const by = {}; T.fabi_shifts.forEach((f) => (f.items || []).forEach((x) => { const o = (by[x.name] ||= { name: x.name, files: 0, qty: 0 }); o.files += 1; o.qty += x.qty; }));
+      const groups = [...new Set([...T.fabi_shifts.flatMap((f) => (f.groups || []).map((g) => g.name)), ...Object.values(T.fabi_menu)])].sort();
+      return { groups, items: Object.values(by).map((o) => ({ ...o, grp: T.fabi_menu[o.name] || null, cup: !!T.fabi_menu[o.name] && cupGrp(T.fabi_menu[o.name]) })) };
+    },
+    app_fabi_menu_set({ p_items }) { p_items.forEach((x) => { if (x.grp) T.fabi_menu[x.name] = x.grp; else delete T.fabi_menu[x.name]; }); T.fabi_shifts.forEach(cups); return p_items.length; },
     app_fabi_list({ p_from, p_to }) {
       const files = T.fabi_shifts.filter((f) => f.work_date >= p_from && f.work_date <= p_to).map((f) => {
         const r = T.shift_reports.find((x) => x.id === f.report_id);

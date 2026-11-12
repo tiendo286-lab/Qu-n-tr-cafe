@@ -150,7 +150,7 @@ export function makeCa(T, me) {
       if (r.opening_cash == null) miss.push('Đếm nhận két đầu ca');
       if (r.ipos_opening == null) miss.push('Số dư đầu trên phiếu iPOS');
       if (!r.rev_start || !r.rev_end) miss.push('giờ doanh thu');
-      for (const k of ['total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'cups', 'goods_status']) if (r[k] === null || r[k] === undefined) miss.push(k);
+      for (const k of ['total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'cups', 'goods_status']) if ((r[k] === null || r[k] === undefined) && !(k === 'cups' && T.__ktState?.(r.id)?.need)) miss.push(k);   // bước 49: cơ sở dùng Fabi lấy số cốc theo file
       if (!T.shift_report_photos.some((p) => p.report_id === r.id && p.kind === 'ipos')) miss.push('Ảnh phiếu chốt ca iPOS');
       if (miss.length) throw new Error('Còn thiếu: ' + miss.join(', ') + '.');
       if (r.rev_end <= r.rev_start) throw new Error('Giờ kết thúc doanh thu phải sau giờ bắt đầu.');

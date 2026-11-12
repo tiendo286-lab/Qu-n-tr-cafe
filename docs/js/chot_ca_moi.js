@@ -12,8 +12,7 @@ const GOI_DAU = 1000000;
 // Nội dung từng bước theo mã (B[mã], stepError); thứ tự hiện ra theo ORDER — ghi hết các khoản tiền (Thu chi) TRƯỚC khi đối chiếu
 // chuyển khoản hotline, để không phải lùi lại khi thu chi / khách trả tiền mượn bằng chuyển khoản làm lệch (anh Tiến chốt 12/11/2026)
 const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kiểm tra lần cuối'];
-const ORDER = [0, 1, 2, 3, 5, 6, 4, 7, 8, 9];
-const STEPS = ORDER.map((k) => LABEL[k]);
+const ORDER_ALL = [0, 1, 2, 3, 5, 6, 4, 7, 8, 9];   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
 const hm = (x) => (x ? String(x).slice(0, 5) : '');
 const sum = (a, f) => (a || []).reduce((s, x) => s + (Number(f(x)) || 0), 0);
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -28,6 +27,9 @@ function toDT(date, time) {
 
 export async function renderNew(R0, P, SH) {
   const R = R0;
+  let fabiBranch = true; try { fabiBranch = !!(await rpc('app_ca_kt_state', { p_id: R0.id }))?.need; } catch (_) { /* chưa có bước 44 */ }
+  const ORDER = fabiBranch ? ORDER_ALL.filter((k) => k !== 6) : ORDER_ALL;
+  const STEPS = ORDER.map((k) => LABEL[k]);
   const PT = Object.fromEntries((P.parts || []).map((p) => [p.part, p]));
   const first = R.shift === R.first_shift;
   const hand = R.cash_hand || null;
@@ -38,7 +40,7 @@ export async function renderNew(R0, P, SH) {
 
   // Dữ liệu đang sửa
   const V = {
-    step: tienMine && !waiting ? Math.max(1, Number(mem.step) || 1) : 0,
+    step: tienMine && !waiting ? Math.min(STEPS.length - 1, Math.max(1, Number(mem.step) || 1)) : 0,
     staff: (R.staff || []).map((s) => ({ ...s, worked: s.worked === undefined ? true : !!s.worked,
       time_in: s.time_in || (s.source === 'lich' && SH ? hm(SH.start) : null), time_out: s.time_out || (s.source === 'lich' && SH ? hm(SH.end) : null) })),
     open: hm(R.rev_start ? R.rev_start.slice(11) : ''), close: hm(R.rev_end ? R.rev_end.slice(11) : ''),
@@ -238,7 +240,7 @@ export async function renderNew(R0, P, SH) {
           <li>Két: số dư đầu ${fmt(V.f.ipos_opening)} → đếm cuối ca <b>${fmt(V.f.cash_counted)}</b> (chênh lệch trên phiếu ${signed(V.f.pos_diff)})</li>
           <li>${V.debts.some((d) => !isLoan(d)) ? `Khách nợ: ${V.debts.filter((d) => !isLoan(d)).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}` : 'Không có khách nợ mới'}</li>
           ${V.debts.some(isLoan) ? html`<li>Khách mượn tiền: ${V.debts.filter(isLoan).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}</li>` : ''}
-          <li>${V.moves.length ? `${V.moves.length} khoản thu chi` : 'Không có thu chi'} · ${V.cups} cốc</li></ul>
+          <li>${V.moves.length ? `${V.moves.length} khoản thu chi` : 'Không có thu chi'}${fabiBranch ? ' · số cốc lấy theo file Fabi' : ` · ${V.cups} cốc`}</li></ul>
         ${(() => {   // tiền THỰC TẾ thu về trong ca: doanh thu trừ nợ mới chưa thu, cộng khách trả nợ cũ / trả tiền mượn, ± thu chi
           const op = first ? GOI_DAU : V.f.ipos_opening; const tmIn = V.f.pos_cash + c.colTM + (c.mvTM - c.sal) - c.loanOut; const tmMust = op + tmIn;
           const ln = (lbl, v, show = true) => (show ? html`<div>${lbl}</div><div>${signed(v)}</div>` : '');
@@ -367,7 +369,7 @@ export async function renderNew(R0, P, SH) {
         $('#cm-nh-done')?.addEventListener('click', () => busy(async () => { const r = await rpc('app_ca_part_done', { p_id: R.id, p_part: 'nhan_hang', p_on: true }); flash(r.completed ? 'Phiếu đã hoàn thành.' : 'Đã xong phần nhận hàng.'); rerender(); }));
         $('#cm-undo')?.addEventListener('click', () => busy(async () => {
           await rpc('app_ca_part_done', { p_id: R.id, p_part: 'tien', p_on: false }); await rpc('app_ca_part_done', { p_id: R.id, p_part: 'nhan_su', p_on: false }).catch(() => {});
-          try { sessionStorage.setItem(key, JSON.stringify({ step: 9 })); } catch (_) { /* bỏ qua */ }
+          try { sessionStorage.setItem(key, JSON.stringify({ step: STEPS.length - 1 })); } catch (_) { /* bỏ qua */ }
           rerender();
         }));
         const bindJump = () => $$('[data-jump]', root).forEach((b) => {

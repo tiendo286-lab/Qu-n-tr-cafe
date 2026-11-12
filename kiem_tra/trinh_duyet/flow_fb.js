@@ -30,6 +30,8 @@ export default async ({ sleep, out }) => {
       const aoa = [[`BÁO CÁO CA CHI TIẾT — ${store}`], [`Mã ca: ${ma}`, null, `Mở: ${d}/${m}/${y} 06:55`, null, `Đóng: ${d}/${m}/${y} 12:39`, 'NV: thungan@x'], [],
         ['TIỀN TRONG KÉT'], ['Số dư đầu ca', 1000000], ['Số dư cuối ca', 3000000], [], ['CHỈ SỐ DOANH THU'], ['Doanh thu (net)', 5000000], ['Tổng số hoá đơn', 100], [],
         ['PHƯƠNG THỨC THANH TOÁN'], ['Phương thức', 'Doanh thu'], ['CHUYỂN KHOẢN', 3000000], ['Tiền mặt', 2000000], ['TỔNG', 5000000], [],
+        ['MÓN'], ['Món', 'Số lượng', 'Doanh thu'], ['Café sữa - đá', 30, 750000], ['Trà mạn', 10, 150000], ['Craven điếu nhỏ', 2, 40000], ['Món thêm', 5, 25000], [],
+        ['NHÓM MÓN'], ['Nhóm', 'Doanh thu'], ['CÀ PHÊ TRUYỀN THỐNG', 750000], ['TRÀ', 150000], ['ĐỒ ĂN & THUỐC LÁ', 40000], ['TOPPING', 25000], [],
         ['HOÁ ĐƠN SỬA/XOÁ'], ['Hoá đơn', 'Số tiền'], ['#EDT_1 - EDIT', 33000], [],
         ['THÔNG TIN TỜ TIỀN'], ['Mệnh giá', 'Số lượng', 'Tổng'], [500000, 6, tong - 20000], [10000, 2, 20000]];
       const wb = X.utils.book_new(); X.utils.book_append_sheet(wb, X.utils.aoa_to_sheet(aoa), 'Báo cáo ca');
@@ -44,6 +46,10 @@ export default async ({ sleep, out }) => {
     r.push(`Bảng: ${$$('tbody tr').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' || ')} · ${W()}`);
     const Rr = await rpc('app_ca_get', { p_id: id });
     r.push(`phiếu sau file: recon_status ${Rr.recon_status}`);
+    // bước 49: số cốc — món chưa có nhóm → gợi ý theo tên → Lưu → số cốc = món không thuộc đồ ăn / thuốc lá / topping
+    r.push(`Nhóm món: ${txt('#fb-menu h2')} · gợi ý: ${[...document.querySelectorAll('#fb-menu [data-mn]')].map((x) => `${x.dataset.mn}→${x.value || '?'}`).join(', ')} · ${W()}`);
+    $('#fb-menu-save').click(); for (let i = 0; i < 300 && !document.querySelector('#fb-menu .pill.ok'); i++) await sleep(50); await sleep(500);
+    r.push(`Sau Lưu: ${txt('#fb-menu h2')} · cột Số cốc: ${[...document.querySelectorAll('tbody td[data-label="Số cốc"]')].map((x) => x.innerText).join(' / ')} · phiếu số cốc ${(await rpc('app_ca_get', { p_id: id })).cups}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'file ca Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

@@ -45,8 +45,7 @@ export default async ({ sleep, out }) => {
     await next(); r.push(`B5 tiêu đề: ${txt('#cm-root h2')}`); $('#cm-add-loan').click(); await sleep(200); await next(); r.push(`mượn thiếu tên: ${txt('#cm-err')}`);
     setv($('[data-db="0"][data-k="table_name"]'), 'Anh Nam (thử)'); setv($('[data-db="0"][data-k="amount"]'), '50000'); setv($('[data-db="0"][data-k="note"]'), '09xx');
     r.push(`B5 khách mượn: ${$$('#cm-body h3').map((x) => x.innerText).join(' / ')} · ${W()}`); await next();
-    r.push(`B6 tiêu đề: ${txt('#cm-root h2')}`); setv($('#cm-cups'), '180'); await next();
-    r.push(`B7 tiêu đề: ${txt('#cm-root h2')}`);
+    r.push(`B6 tiêu đề (bỏ bước Số cốc ở cơ sở dùng Fabi): ${txt('#cm-root h2')} · ô số cốc ${!!$('#cm-cups')}`);
     typ($('#cm-hot'), '2900000'); await sleep(300); $('#cm-next').click(); await sleep(400); r.push(`B7 lệch: ${txt('#cm-ck-box')} | ${txt('#cm-err')} · nút về Thu chi ${!!$('[data-jump="5"]')}`); { $('[data-jump="5"]').click(); await sleep(800); const t1 = txt('#cm-root h2'); $('#cm-next').click(); await sleep(700); $('#cm-next').click(); await sleep(700); r.push(`Bấm Về bước Thu chi → ${t1} → Tiếp, Tiếp → ${txt('#cm-root h2')}`); }
     typ($('#cm-hot'), '3000000'); await sleep(400); r.push(`B7 hotline: ${txt('#cm-body .alert')}`);
     await next();
@@ -92,7 +91,6 @@ export default async ({ sleep, out }) => {
     r.push(`Chiều thấy khách mượn: ${$$('#cm-body .cm-person').map((x) => x.innerText.replace(/\s+/g, ' ')).pop()} · danh sách QL ${(await rpc('app_ca_loans_open')).length}`);
     { const sel = $('[data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change')); await sleep(1200); }
     await next();
-    setv($('#cm-cups'), '61'); await next();
     typ($('#cm-hot'), '1000000'); await sleep(300); r.push(`Chiều hotline: ${txt('#cm-ck-box')}`); await next();
     r.push(`Chiều kết quả: ${txt('#cm-body .alert')}`);
     await next(); await next(); await next(); await sleep(1500);

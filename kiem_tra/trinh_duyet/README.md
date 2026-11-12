@@ -30,3 +30,4 @@
 - Bước 47: `flow_cv46` chọn lý do Bỏ ca, tích x2 chưa chọn người bị chặn, chọn người trong lịch có làm → lưu phạt 200.000 + x2. `flow_cv` đã thêm ô Nợ / Tiền chênh lệch (bước 41) nên chạy lại được.
 - Khách trả nợ cũ ở bước Phiếu Fabi: `flow_od48` (`auto=1&role=nv&confirm=1&script=flow_od48`, điện thoại) — ca sáng có bàn nợ, ca chiều Fabi đã cộng tiền trả nợ → 🔴 + gợi ý "bàn …", chọn "Trả bằng tiền mặt" ngay ở bước 3 → ✅, qua bước Khách nợ.
 - Thêm người làm hộ (bước 48): `flow_hl49` (`auto=1&role=ql&confirm=1&script=flow_hl49`, điện thoại) — 2 mục "Nhân viên trong quán" (cơ sở này lên trước) / "Nhân viên cũ", bấm mục → danh sách, bấm tên để thêm, ô lọc không dấu. `ca_gia.js` có `app_ca_helpers`.
+- Bước 49 (số cốc theo Fabi): `flow_fb` — file giả có MÓN / NHÓM MÓN → "4 món chưa có nhóm", gợi ý theo tên, Lưu → cột Số cốc + phiếu = 40. `flow_cm`: cơ sở dùng Fabi không còn bước Số cốc. `fb_gia.js` có `app_fabi_menu` / `app_fabi_menu_set`.

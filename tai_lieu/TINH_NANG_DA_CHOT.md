@@ -279,6 +279,11 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Lý do nghỉ: Tự tìm người thay (không trừ) · Nhờ quản lý tìm (trừ giờ người thay làm) · **Quản lý đồng ý cho nghỉ (không trừ lương)** (trước là "Ma chay tứ thân phụ mẫu", giữ mã `ma_chay`) · **Bỏ ca — phạt 200.000đ** (mới, `shift_covers.fine`; hiện ở Bảng công cột Phạt, Công của tôi, báo cho người nghỉ khi Chủ duyệt).
 - Ô **x2** luôn hiện ở từng người nghỉ; tích x2 thì **bắt buộc chọn người được x2**. Ô chọn người gồm người hỗ trợ phát sinh **và người trong lịch có làm ở ca** (trước chỉ chọn được người hỗ trợ), hoặc người ngoài quán.
 
+## 5s. Số cốc theo file Fabi — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/49_so_coc_fabi.sql`)
+- File chi tiết ca Fabi có mục MÓN (số lượng từng món) và NHÓM MÓN (chỉ doanh thu). Web **tự học** nhóm của từng món (bảng `fabi_menu`): món mới chưa có nhóm → Kế toán › File ca Fabi › khung **"Nhóm món"** chọn nhóm 1 lần (web gợi ý theo tên món), bấm Lưu → các ca có món đó tự tính lại.
+- **Số cốc của ca = tổng số lượng các món, trừ nhóm "Đồ ăn & thuốc lá" và "Topping".** Bảng file Fabi có cột Số cốc ("thiếu nhóm N món" khi chưa đủ).
+- **Bỏ bước "Số cốc"** ở phiếu chốt ca các cơ sở dùng Fabi; số cốc tự điền vào phiếu khi ca đã gửi và file Fabi đủ nhóm món. Lela Box (không dùng Fabi) vẫn nhập tay.
+
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.

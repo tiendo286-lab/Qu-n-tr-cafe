@@ -28,7 +28,7 @@ export function judge(R0, R, fabi, kt) {
   const sumOk = Number(R.total_revenue) === Number(R.pos_cash) + Number(R.pos_transfer) + debtNew;
   const startBad = h && h.state === 'lech';
   add('doanh_thu', sumOk && R.cups != null && !startBad && !fx,
-    !sumOk ? 'Doanh thu ≠ tiền mặt + chuyển khoản + nợ' : startBad ? `Tiền đầu ca lệch ${signed(h.gap)} so với ca ${h.prev_shift}${R0.opening_note ? ' · lý do NV: ' + R0.opening_note : ''}` : fx ? 'Số trên phiếu khác file Fabi (đã sửa theo Fabi) — xem lại' : 'Thiếu số cốc');
+    !sumOk ? 'Doanh thu ≠ tiền mặt + chuyển khoản + nợ' : startBad ? `Tiền đầu ca lệch ${signed(h.gap)} so với ca ${h.prev_shift}${R0.opening_note ? ' · lý do NV: ' + R0.opening_note : ''}` : fx ? 'Số trên phiếu khác file Fabi (đã sửa theo Fabi) — xem lại' : kt && kt.need ? 'Chưa có số cốc — file Fabi còn món chưa chọn nhóm (Kế toán › File ca Fabi › Nhóm món)' : 'Thiếu số cốc');
   add('tien_mat', Number(m.tm_left) === 0, `Tiền mặt còn lệch ${signed(m.tm_left)}${R0.diff_note ? ' · lý do NV: ' + R0.diff_note : ''}`);
   add('chuyen_khoan', Number(m.ck_left) === 0, `Chuyển khoản còn lệch ${signed(m.ck_left)}${R0.transfer_note ? ' · lý do NV: ' + R0.transfer_note : ''}`);
   add('thu_chi', !moves.length, `${moves.length} khoản thu chi — xem từng khoản và chọn nhóm (tiền quản lý rút: chọn "Không tính")`);
