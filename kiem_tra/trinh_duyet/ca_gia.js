@@ -241,6 +241,15 @@ export function makeCa(T, me) {
       return h2;
     },
     app_ca_photo_del({ p_photo }) { const ph = T.shift_report_photos.find((x) => x.id === p_photo); needEdit(ph.report_id); T.shift_report_photos = T.shift_report_photos.filter((x) => x !== ph); return ph.path; },
+    // bước 56: sửa 1 mục đã đối soát → chỉ mục đó mở lại
+    app_ca_item_reopen({ p_id, p_item, p_reason }) {
+      if (!(p_reason || '').trim()) throw new Error('Ghi lý do sửa.');
+      const r = rep(p_id); if ((T.__autoLock?.[p_id] || []).includes(p_item) && me.role !== 'chu') throw new Error('Mục này web đã tự đối soát — chỉ Chủ mở lại được.');
+      delete RES[p_id + '|' + p_item]; T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
+      if (T.__autoLock?.[p_id]) T.__autoLock[p_id] = T.__autoLock[p_id].filter((x) => x !== p_item);
+      if (r.recon_status === 'hoan_thanh') Object.assign(r, { recon_status: 'mo_lai', recon_by: null, recon_at: null });
+      RLOG.push({ report_id: p_id, action: 'mo_lai_muc', field: p_item, reason: p_reason, by: name(me.account_id), at: now() });
+    },
     // bước 55: nợ đã thu ở ca nào + đánh dấu Bảng ca
     app_ca_debts_paid({ p_id }) {
       return T.shift_debts.filter((d) => d.report_id === p_id && d.closed_at && d.kind !== 'muon').map((d) => { const c = rep(d.closed_report_id); return { id: d.id, report_id: c.id, shift: c.shift, work_date: c.work_date, status: c.status, kind: d.collect_kind, amount: d.amount }; });
@@ -259,7 +268,7 @@ export function makeCa(T, me) {
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
       if (p_on) T.shift_report_checks.push({ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() });
       const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
-      if (r.recon_status === 'chua' && n >= ITEMS.length) { Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() }); RLOG.push({ report_id: p_id, action: 'hoan_thanh_doi_soat', by: name(me.account_id), at: now() }); }
+      if (['chua', 'mo_lai'].includes(r.recon_status) && n >= ITEMS.length) { Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() }); RLOG.push({ report_id: p_id, action: 'hoan_thanh_doi_soat', by: name(me.account_id), at: now() }); }
     },
     app_ca_result_set({ p_id, p_item, p_result, p_amount, p_reason, p_people }) {
       const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
@@ -278,7 +287,7 @@ export function makeCa(T, me) {
       RES[p_id + '|' + p_item] = { result: p_result, amount: amt, reason: p_reason || null, by: name(me.account_id), at: now() };
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item)).concat([{ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() }]);
       RLOG.push({ report_id: p_id, action: 'ket_qua', field: p_item, after: { result: p_result, amount: amt, people: p_people || [] }, reason: p_reason || null, by: name(me.account_id), at: now() });
-      if (r.recon_status === 'chua' && T.shift_report_checks.filter((c) => c.report_id === p_id).length >= ITEMS.length) Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() });
+      if (['chua', 'mo_lai'].includes(r.recon_status) && T.shift_report_checks.filter((c) => c.report_id === p_id).length >= ITEMS.length) Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() });
     },
     app_ca_result_clear({ p_id, p_item }) {
       delete RES[p_id + '|' + p_item];

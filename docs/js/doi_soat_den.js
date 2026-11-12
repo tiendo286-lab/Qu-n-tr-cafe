@@ -57,10 +57,10 @@ export async function mountLights(box, R0, R) {
     ${kt && kt.need && !kt.ready && waitN ? html`<div class="alert info"><strong>Phần tiền chờ kế toán</strong> — còn thiếu: ${(kt.missing || []).join(', ')}. Nhân sự, Bàn giao, Nhập hàng đối soát được ngay.</div>`
       : kt && kt.need && kt.ready ? html`<div class="st-meta">✓ Kế toán đã đủ file Fabi và chuyển khoản ngân hàng — phần tiền tính theo số chính thức.</div>` : ''}
     ${extra.length ? html`<div class="alert warn">${extra.join(' · ')}</div>` : ''}
-    ${lk.size ? html`<div class="st-meta">🔒 ${lk.size} mục web đã <strong>tự đối soát</strong> (khớp file Fabi và ngân hàng) — đã khoá, không sửa được.${LK.can_unlock ? ' Chủ bấm "Mở khoá" nếu thật sự cần sửa.' : ' Chỉ Chủ mở khoá được.'}</div>` : ''}
+    ${lk.size ? html`<div class="st-meta">🔒 ${lk.size} mục web đã <strong>tự đối soát</strong> (khớp file Fabi và ngân hàng) — đã khoá.${LK.can_unlock ? ' Chủ bấm "Sửa" ở mục đó nếu thật sự cần sửa.' : ' Chỉ Chủ sửa được.'}</div>` : ''}
     <div class="den-list">${J.map((x) => html`<div class="den-row ${lk.has(x.item) ? 'done auto' : x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${lk.has(x.item) ? '🔒 ' : ''}${LBL[x.item]}</strong>
         <span class="st-meta">${lk.has(x.item) ? '✓ web tự đối soát — đã khoá' : x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
-        ${lk.has(x.item) ? (LK.can_unlock ? html`<button type="button" class="btn sm secondary den-unlock" data-item="${x.item}">Mở khoá</button>` : '')
+        ${lk.has(x.item) || x.done ? (!lk.has(x.item) || LK?.can_unlock ? html`<button type="button" class="btn sm secondary den-edit" data-item="${x.item}">Sửa</button>` : '')
           : !x.done && !x.ok && !x.wait && !locked ? html`<span class="den-acts">${x.item === 'chuyen_khoan' && Number((R0.money || {}).ck_left) < 0 ? html`<button type="button" class="btn sm den-pc">Tạo phiếu chi</button>` : ''}<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button></span>` : ''}</div>`)}</div>
     ${locked ? '' : html`<div class="toolbar" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="den-ok" ${green.length ? '' : 'disabled'}>Duyệt các mục xanh${green.length ? ` (${green.length})` : ''}</button>
       <span class="st-meta">${red.length ? `Còn ${red.length} mục đỏ cần xử lý — bấm "Xử lý" để tới đúng chỗ.` : waitN ? `${waitN} mục tiền chờ kế toán.` : green.length ? 'Không còn mục đỏ. Duyệt xong là hoàn thành đối soát.' : ''}</span></div>`}`);
@@ -78,12 +78,13 @@ export async function mountLights(box, R0, R) {
     try { const D = await rpc('app_ca_bank_outs', { p_id: R0.id }); if (!D.can) { showSaved('Chỉ Chủ, Quản lý tổng, Kế toán tạo phiếu chi.', true); return; } openBankOut(R0.id, D, () => rerender()); }
     catch (e) { showSaved(e.message, true); }
   });
-  box.querySelectorAll('.den-unlock').forEach((b) => b.addEventListener('click', async () => {
-    const why = prompt(`Mở khoá mục "${LBL[b.dataset.item]}" (web đã tự đối soát). Ghi lý do:`, '');
+  // bước 56: sửa 1 mục đã đối soát → chỉ mục đó mở lại; duyệt lại là phiếu tự hoàn thành
+  box.querySelectorAll('.den-edit').forEach((b) => b.addEventListener('click', async () => {
+    const why = prompt(`Sửa mục "${LBL[b.dataset.item]}": chỉ mục này mở lại, các mục khác giữ nguyên. Duyệt lại mục này là phiếu tự hoàn thành.\nLý do sửa:`, '');
     if (why === null) return;
-    if (!why.trim()) { showSaved('Ghi lý do mở khoá.', true); return; }
+    if (!why.trim()) { showSaved('Ghi lý do sửa.', true); return; }
     b.disabled = true;
-    try { await rpc('app_ca_auto_unlock', { p_id: R0.id, p_item: b.dataset.item, p_reason: why }); showSaved('Đã mở khoá — mục trở lại chờ đối soát.'); rerender(); }
+    try { await rpc('app_ca_item_reopen', { p_id: R0.id, p_item: b.dataset.item, p_reason: why }); showSaved(`Đã mở mục ${LBL[b.dataset.item]} để sửa.`); rerender(); }
     catch (e) { showSaved(e.message, true); b.disabled = false; }
   }));
 }
@@ -91,7 +92,7 @@ export async function mountLights(box, R0, R) {
 export const DEN_CSS = html`<style>
   .den-list { display: flex; flex-direction: column; gap: 6px; }
   .den-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
-  .den-row.auto > :not(.den-unlock) { opacity: .5; }
+  .den-row.done > :not(.den-edit) { opacity: .5; }
   .den-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }
   .den-row.r { border-color: var(--off-line); } .den-row.g { border-color: var(--ok-line); } .den-row.w { border-style: dashed; opacity: .8; }
   .den-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; background: var(--line-strong); }

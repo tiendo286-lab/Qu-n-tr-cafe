@@ -24,15 +24,15 @@ export default async ({ sleep, out }) => {
     await rpc('app__test_auto_lock', { p_id: id, p_items: ['thoi_gian', 'doanh_thu', 'ban_giao', 'nhan_su'] });
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id; await wait('.den-row'); await sleep(1200);
     r.push(`${me.role}: Đèn: ${$$('.den-row').map((x) => (x.classList.contains('auto') ? '🔒' : x.classList.contains('done') ? '✓' : x.classList.contains('r') ? '🔴' : '·') + x.querySelector('strong').innerText.replace('🔒 ', '')).join(' ')}`);
-    r.push(`ghi chú: ${txt('#ds-lights > .st-meta')} · nút Mở khoá ${$$('.den-unlock').length}`);
+    r.push(`ghi chú: ${txt('#ds-lights > .st-meta')} · nút Sửa ${$$('.den-edit').length}`);
     const secs = $$('.pc-sec.pc-auto').map((s) => s.querySelector('h2')?.innerText.split('\n')[0]);
     r.push(`Mục nhạt + khoá: ${secs.join(' | ') || 'không'} · chip: ${$$('.rc-auto').map((x) => x.innerText).join(' / ')}`);
     r.push(`Ô bị khoá: rev_end ${$('#rev_end')?.disabled} · total_revenue ${$('#total_revenue')?.disabled} · cash_counted ${$('#cash_counted')?.disabled} · nhân viên ${$$('#staff select').every((x) => x.disabled)} · thêm hỗ trợ ${!!$('#add-helper')} · thu chi ${$$('#moves input').some((x) => x.disabled)} · ${W()}`);
     if (me.role === 'chu') {
-      const b = $$('.den-unlock').find((x) => x.dataset.item === 'doanh_thu');
+      const b = $$('.den-edit').find((x) => x.dataset.item === 'doanh_thu');
       window.prompt = () => 'kế toán tải nhầm file';
-      b.click(); for (let i = 0; i < 100 && $$('.den-unlock').length === 4; i++) await sleep(100); await sleep(1500); await wait('.den-row');
-      r.push(`Sau Mở khoá Doanh thu: nút Mở khoá ${$$('.den-unlock').length} · ô total_revenue khoá ${$('#total_revenue')?.disabled} · mục 2 nhạt ${$$('.pc-sec.pc-auto').some((s) => /Nhận két/.test(s.innerText))} · ${W()}`);
+      b.click(); for (let i = 0; i < 100 && $$('.den-row.auto').length === 4; i++) await sleep(100); await sleep(1500); await wait('.den-row');
+      r.push(`Sau Sửa Doanh thu: mục 🔒 còn ${$$('.den-row.auto').length} · ô total_revenue khoá ${$('#total_revenue')?.disabled} · mục 2 nhạt ${$$('.pc-sec.pc-auto').some((s) => /Nhận két/.test(s.innerText))} · ${W()}`);
     }
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'tự đối soát + khoá', title: r.join(' || '), len: 0, errs: [...window.__ERR] });

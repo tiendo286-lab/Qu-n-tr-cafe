@@ -40,7 +40,7 @@ export function makeFb(T, me) {
     chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
   T.__autoLock = T.__autoLock || {};
   return {
-    app_ca_auto_locks({ p_id }) { const it = T.__autoLock[p_id] || []; return { items: it, fields: [...new Set(it.flatMap((i) => LKF[i] || []))], can_unlock: me.role === 'chu' }; },
+    app_ca_auto_locks({ p_id }) { const it = T.__autoLock[p_id] || []; const done = T.shift_report_checks.filter((c) => c.report_id === p_id).map((c) => c.item); return { items: it, fields: [...new Set(done.flatMap((i) => LKF[i] || []))], done, can_unlock: me.role === 'chu', is_chu: me.role === 'chu' }; },
     app_ca_auto_unlock({ p_id, p_item, p_reason }) {
       if (me.role !== 'chu') throw new Error('Chỉ Chủ mở khoá mục web đã tự đối soát.');
       if (!(p_reason || '').trim()) throw new Error('Ghi lý do mở khoá.');

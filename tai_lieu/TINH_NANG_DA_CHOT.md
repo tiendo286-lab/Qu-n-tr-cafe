@@ -305,6 +305,12 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Tiền khách trả nợ vẫn tính vào ca thu (như cũ). Hiển thị ở tab Đối soát: **ca thu** có phần "Khách trả nợ trong ca này" (bàn, số tiền, tiền mặt / chuyển khoản, nợ từ ca nào); **ca nợ** ghi "Đã thu ở ca … · tiền mặt / chuyển khoản ›" (bấm mở ca thu); **Bảng ca**: ô ca thu ghi "Thu nợ …đ", ô ca nợ chỉ ghi "Có công nợ …đ" khi còn nợ chưa thu. Chỉ tính nợ bàn (khách mượn tiền ở Thu chi).
 - Bước 53 (`supabase/53_sua_trigger_tu_doi_soat.sql`): sửa lỗi bước 51 làm lưu số dư ngân hàng / Chủ duyệt nghỉ & làm thay báo lỗi (khoảng 21:30–21:45 ngày 12/11).
 
+
+## 5x. Đối soát — sửa từng mục — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/56_sua_tung_muc_doi_soat.sql`)
+- Mục đã đối soát (quản lý duyệt hoặc web tự duyệt) **nhạt đi và khoá** ô nhập liên quan; trang chỉ còn mục chưa xong là sửa được.
+- Muốn sửa: bấm **"Sửa"** ở đúng mục trong Đèn đối soát, ghi lý do → **chỉ mục đó mở lại** (các mục khác giữ nguyên). Ai có quyền đối soát làm được; mục web tự đối soát theo file Fabi vẫn chỉ Chủ sửa.
+- Duyệt lại mục đó → phiếu **tự HOÀN THÀNH ĐỐI SOÁT**. Bỏ nút "Hoàn thành đối soát" và "Mở lại đối soát"; riêng **Chủ** có "Mở lại cả phiếu" (mở lại mọi mục, có lý do).
+- Mục tiền có khoản âm: mở lại không huỷ khoản âm ngay, chọn lại kết quả thì thay danh sách; khoản âm đã xử lý (đã bù / trừ lương xác nhận / miễn) thì không mở lại được.
 ## 5c. Kiểm soát tiền từng ca (két gối đầu) — chốt và ĐÃ LÀM 07/11/2026 (tệp supabase/23_ban_giao_ket.sql)
 
 Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày mới rút. Ca đầu ngày nhận 1.000.000đ cố định. Máy POS là **iPOS**.

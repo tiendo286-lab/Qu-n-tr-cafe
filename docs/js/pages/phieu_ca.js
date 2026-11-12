@@ -30,7 +30,8 @@ const FIELD_LABEL = {
   bank_late_in: 'Tiền về chậm (cộng vào ca này)', bank_late_out: 'Tiền về chậm của ca trước (trừ khỏi ca này)',
 };
 const LOG_ACTION = { sua: 'Sửa', mo_lai_doi_soat: 'Mở lại đối soát', hoan_thanh_doi_soat: 'Hoàn thành đối soát', lam_lai: 'Mở lại phiếu cho nhân viên sửa — bản đối soát làm lại từ đầu',
-  ket_qua: 'Kết quả đối soát', bo_ket_qua: 'Bỏ kết quả đối soát', ke_toan: 'Kế toán', ql_tu_lam: 'Quản lý tự làm phần việc — tự đối soát' };
+  ket_qua: 'Kết quả đối soát', bo_ket_qua: 'Bỏ kết quả đối soát', ke_toan: 'Kế toán', ql_tu_lam: 'Quản lý tự làm phần việc — tự đối soát',
+  mo_lai_muc: 'Sửa lại mục', mo_khoa: 'Mở khoá mục', tu_duyet: 'Web tự đối soát', tu_bo_khoa: 'Web bỏ khoá', phieu_chi: 'Phiếu chi chuyển khoản', xoa_phieu_chi: 'Xoá phiếu chi' };
 const RES = { khop: ['KHỚP', 'on'], thieu: ['THIẾU', 'bad'], thua: ['THỪA', 'warn'] };
 const MONEY_ITEMS = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
 export const KA_STATUS = { chua_xu_ly: ['Chưa xử lý', 'off'], da_bu: ['Đã bù', 'ok'], tru_luong: ['Trừ lương', 'info'], mien: ['Miễn', 'mute'], huy: ['Đã hủy', 'mute'] };
@@ -204,18 +205,19 @@ export async function render({ params }) {
     if (MONEY_ITEMS.includes(item)) {
       const x = (R.results || {})[item]; const cls = x ? RES[x.result][1] : '';
       const t = x ? `${x.by || ''} · ${dt(x.at)}${x.reason ? ' · ' + x.reason : ''}` : 'Bấm để chọn KHỚP / THIẾU / THỪA';
-      return rcEdit
+      return rcEdit && !x
         ? html`<button type="button" class="rc-chip rc-res ${cls}" data-item="${item}" title="${t}">${x ? '✓ ' : ''}${CHECK_LABEL[item]}: ${resText(x)}</button>`
         : html`<span class="rc-chip ${cls}" title="${t}">${CHECK_LABEL[item]}: ${resText(x)}</span>`;
     }
     const c = R.checks[item];
     const label = c ? `ĐÃ ĐỐI SOÁT` : 'CHƯA ĐỐI SOÁT';
     const t = c ? `${c.by} · ${dt(c.at)}` : '';
-    return R.can_recon && R0.recon_status !== 'hoan_thanh'
+    return R.can_recon && R0.recon_status !== 'hoan_thanh' && !c
       ? html`<button type="button" class="rc-chip ${c ? 'on' : ''}" data-item="${item}" title="${t}" aria-pressed="${c ? 'true' : 'false'}">${c ? '✓ ' : ''}${CHECK_LABEL[item]}: ${label}</button>`
       : html`<span class="rc-chip ${c ? 'on' : ''}" title="${t}">${CHECK_LABEL[item]}: ${label}</span>`;
   };
-  const sec = (title, items, inner, idAttr = '') => html`<section class="card stack pc-sec ${items.length && items.every(lkItem) ? 'pc-auto' : ''}" ${idAttr ? html`id="${idAttr}"` : ''}>
+  const doneItem = (it) => lkItem(it) || !!(R.checks || {})[it];   // bước 56: mục đã đối soát → nhạt + khoá, sửa bằng nút "Sửa"
+  const sec = (title, items, inner, idAttr = '') => html`<section class="card stack pc-sec ${isDs && items.length && items.every(doneItem) ? 'pc-auto' : ''}" ${idAttr ? html`id="${idAttr}"` : ''}>
     <div class="pc-sec-head"><h2>${title}</h2><div class="rc-chips">${items.map(chip)}</div></div>${inner}</section>`;
 
   // A. Thời gian
@@ -400,16 +402,15 @@ export async function render({ params }) {
     <div class="toolbar"><a class="btn sm secondary" href="#${isDs || (isManager() && done) ? '/quan-ly/doi-soat' : '/ca'}?ngay=${R.work_date}">${isDs ? '‹ Về trang Đối soát' : '‹ Danh sách ca'}</a>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div></div>`;
 
-  const logRow = (l) => html`<div class="rc-log"><span class="st-meta">${dt(l.at)} · ${l.by || ''}</span> <strong>${LOG_ACTION[l.action] || l.action}</strong>${l.action === 'ket_qua' || l.action === 'bo_ket_qua' ? html` ${CHECK_LABEL[l.field] || l.field}${l.after ? html`: <strong>${showVal(l.field, l.after)}</strong>` : ''}` : l.field ? html` ${FIELD_LABEL[l.field] || l.field}: ${showVal(l.field, l.before)} → <strong>${showVal(l.field, l.after)}</strong>` : ''}${l.reason ? html` <span class="st-meta">· Lý do: ${l.reason}</span>` : ''}</div>`;
+  const logRow = (l) => html`<div class="rc-log"><span class="st-meta">${dt(l.at)} · ${l.by || ''}</span> <strong>${LOG_ACTION[l.action] || l.action}</strong>${['ket_qua', 'bo_ket_qua', 'mo_lai_muc', 'mo_khoa'].includes(l.action) ? html` ${CHECK_LABEL[l.field] || l.field}${l.after ? html`: <strong>${showVal(l.field, l.after)}</strong>` : ''}` : l.field ? html` ${FIELD_LABEL[l.field] || l.field}: ${showVal(l.field, l.before)} → <strong>${showVal(l.field, l.after)}</strong>` : ''}${l.reason ? html` <span class="st-meta">· Lý do: ${l.reason}</span>` : ''}</div>`;
   const dsFoot = isDs ? html`<section class="card stack" style="gap:10px">
       <h2 style="margin:0">Bản đối soát</h2>
       ${R0.recon_status === 'hoan_thanh' ? html`<div class="alert ok">HOÀN THÀNH ĐỐI SOÁT: ${R0.recon_by_name || ''} · ${dt(R0.recon_at)}. Số liệu trên đây là số chính thức của ca.</div>`
-        : R0.recon_status === 'mo_lai' ? html`<div class="alert warn"><strong>ĐANG ĐỐI SOÁT LẠI</strong> — số liệu đang được sửa, chưa phải số chính thức. Sửa xong bấm “Hoàn thành đối soát lại”.</div>`
-        : html`<div class="st-meta">Sửa trực tiếp trên bản này (phiếu nhân viên giữ nguyên). Ô nào khác phiếu nhân viên sẽ ghi “Phiếu NV: …”. Bấm từng hạng mục màu đỏ để xác nhận ĐÃ ĐỐI SOÁT; đủ ${nItems} hạng mục thì phiếu thành HOÀN THÀNH ĐỐI SOÁT.</div>`}
+        : R0.recon_status === 'mo_lai' ? html`<div class="alert warn"><strong>ĐANG SỬA</strong>: ${(R.check_items || []).filter((it) => !(R.checks || {})[it]).map((it) => CHECK_LABEL[it]).join(', ')} — duyệt lại ${(R.check_items || []).filter((it) => !(R.checks || {})[it]).length > 1 ? 'các mục này' : 'mục này'} là phiếu tự hoàn thành đối soát.</div>`
+        : html`<div class="st-meta">Sửa trực tiếp trên bản này (phiếu nhân viên giữ nguyên). Mục đã đối soát nhạt đi và khoá; muốn sửa bấm “Sửa” ở mục đó (Đèn đối soát). Đủ ${nItems} hạng mục thì phiếu tự HOÀN THÀNH ĐỐI SOÁT.</div>`}
       ${ed ? html`<label class="pc-f"><span>Lý do sửa (không bắt buộc)</span><input class="input" id="rc-reason" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label>` : ''}
       <div class="toolbar" style="gap:8px">
-        ${R0.recon_status === 'hoan_thanh' ? html`<button type="button" class="btn sm secondary" id="rc-reopen">Mở lại đối soát</button>` : ''}
-        ${R0.recon_status === 'mo_lai' ? html`<button type="button" class="btn sm" id="rc-finish">Hoàn thành đối soát lại</button>` : ''}
+        ${LK?.is_chu && (LK.done || []).length ? html`<button type="button" class="btn sm secondary" id="rc-reopen">Mở lại cả phiếu</button>` : ''}
         ${R0.can_reopen ? html`<button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button>` : ''}</div>
       <details ${RC.log.length ? '' : 'hidden'}><summary style="cursor:pointer;font-weight:600">Lịch sử sửa (${RC.log.length})</summary><div class="stack" style="gap:4px;margin-top:6px">${RC.log.map(logRow)}</div></details>
     </section>` : '';
@@ -779,7 +780,7 @@ function mount(R, ed, C0, ctx = {}) {
     });
   }
   $('#rc-reopen')?.addEventListener('click', async () => {
-    const why = prompt('Mở lại đối soát để sửa? Phiếu sẽ ở trạng thái ĐANG ĐỐI SOÁT LẠI cho tới khi bấm hoàn thành lại.\nLý do (không bắt buộc):', '');
+    const why = prompt('Mở lại CẢ PHIẾU: mọi mục trở lại chờ đối soát (muốn sửa 1 mục thì bấm “Sửa” ở mục đó).\nLý do:', '');
     if (why === null) return;
     try { await rpc('app_ca_recon_reopen', { p_id: R.id, p_reason: why }); flash('Đã mở lại đối soát.'); rerender(); } catch (e) { showSaved(e.message, true); }
   });
