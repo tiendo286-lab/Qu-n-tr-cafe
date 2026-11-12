@@ -289,8 +289,8 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Số dư giữ trong bảng `bank_balance_import` theo (tài khoản, ngày, ca); phiếu ca tạo (hoặc tạo lại) → tự điền vào phiếu, không ghi đè số kế toán đã nhập. Số liệu thật nạp riêng, không nằm trong kho mã.
 
 ## 5u. Tự đối soát theo file Fabi — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/51_tu_doi_soat_theo_fabi.sql`)
-- Ca đã gửi + có file chốt ca Fabi + đủ số dư ngân hàng → web **tự xét** các hạng mục theo đúng quy tắc Đèn đối soát; **mọi mục xanh** (cả Nhân viên, Bàn giao) được tự duyệt (mục tiền = KHỚP) và **khoá**: nhạt đi, không bỏ duyệt / đổi kết quả / sửa số liên quan được (máy chủ giữ nguyên số cũ). Nhân viên xanh khi không ai nghỉ / làm hộ hoặc Chủ đã duyệt nghỉ & làm thay.
-- Mọi mục xong + nghỉ & làm thay xong → **tự HOÀN THÀNH ĐỐI SOÁT**.
+- Ca đã gửi + có file chốt ca Fabi + đủ số dư ngân hàng → web **tự xét** các hạng mục theo đúng quy tắc Đèn đối soát; **chỉ 6 mục tiền** (thời gian, doanh thu & số cốc, tiền mặt, chuyển khoản, thu chi, công nợ) xanh thì tự duyệt (mục tiền = KHỚP) và **khoá**: nhạt đi, không bỏ duyệt / đổi kết quả / sửa số liên quan được (máy chủ giữ nguyên số cũ). Nhân viên trong ca, Bàn giao, Nhập hàng do quản lý duyệt (file Fabi / ngân hàng không kiểm được) — bước 52 (`supabase/52_tu_doi_soat_chi_phan_tien.sql`) đổi lại sau khi anh Tiến thấy ca 1/11 Chiều tự duyệt Nhân viên.
+- Mọi mục xong (phần tiền web tự duyệt, phần còn lại quản lý duyệt) + nghỉ & làm thay xong → **tự HOÀN THÀNH ĐỐI SOÁT**.
 - Web xét lại sau mỗi lần: tải file Fabi, số dư ngân hàng đổi, Chủ duyệt nghỉ & làm thay. Mục tự duyệt không còn khớp (vd tải lại file khác số) → web tự bỏ khoá; ca đã hoàn thành thì MỞ LẠI.
 - **Chỉ Chủ mở khoá** từng mục (nút "Mở khoá" ở Đèn đối soát, ghi lý do, lưu lịch sử). Mở lại phiếu cho nhân viên sửa vẫn xoá hết như cũ. Lela Box (không dùng Fabi) không tự đối soát.
 
