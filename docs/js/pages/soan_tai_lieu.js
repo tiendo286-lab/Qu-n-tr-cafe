@@ -4,21 +4,27 @@ import { DOC_BUCKET, DOC_STYLE, TOOLBAR, bindEditor, fillImages, sanitize, toSto
 import { rpc, sb } from '../sb.js';
 import { dt } from '../tien.js';
 import { $, flash, go, hhmm, html, raw, showSaved } from '../ui.js';
-import { KINDS } from './tai_lieu.js';
+import { KINDS, DEFAULT_PROCEDURE } from './tai_lieu.js';
 
 export const perm = 'soan_tai_lieu';
 
 export async function render({ params }) {
   let D = params.id ? await rpc('app_tl_get', { p_id: Number(params.id) }) : { id: null, kind: params.loai === 'quy_trinh' ? 'quy_trinh' : 'noi_quy', title: '', draft_html: '', published_version: 0 };
   const [label, back] = KINDS[D.kind];
+  const isProcedure = D.kind === 'quy_trinh';
+  const procedure = D.procedure_title || (D.id ? DEFAULT_PROCEDURE : params.nhom || '');
+  const siblings = isProcedure ? await rpc('app_tl_list', { p_kind: 'quy_trinh' }) : [];
+  const groups = [...new Set(siblings.map((d) => d.procedure_title || DEFAULT_PROCEDURE))];
+  const backLink = isProcedure && procedure ? `${back}?nhom=${encodeURIComponent(procedure)}` : back;
   return {
     title: D.id ? `Sửa: ${D.title}` : `Soạn ${label.toLowerCase()} mới`,
     html: html`${raw(DOC_STYLE)}
       <div class="page-head"><div><h1>${D.id ? 'Sửa ' + label.toLowerCase() : 'Soạn ' + label.toLowerCase() + ' mới'}</h1>
         <div class="sub" id="ed-status">${D.published_version ? `Đang đăng phiên bản ${D.published_version} (${dt(D.published_at)}). Sửa ở đây là bản nháp — nhân viên chỉ thấy sau khi bấm Đăng.` : 'Chưa đăng — nhân viên chưa thấy tài liệu này.'}</div></div>
-        <div class="toolbar"><a class="btn sm secondary" href="#${back}">‹ ${label}</a><div id="saved-indicator" class="saved" role="status" hidden></div></div></div>
+        <div class="toolbar"><a class="btn sm secondary" href="#${backLink}">‹ ${label}</a><div id="saved-indicator" class="saved" role="status" hidden></div></div></div>
       <div class="stack" style="max-width:900px;gap:10px">
-        <input class="input" id="ed-title" placeholder="Tiêu đề (vd: Nội quy giờ giấc và đồng phục)" value="${D.title}" aria-label="Tiêu đề">
+        ${isProcedure ? html`<label for="ed-procedure">Tên quy trình</label><input class="input" id="ed-procedure" list="ed-procedures" maxlength="160" placeholder="Ví dụ: Quy trình pha chế" value="${procedure}"><datalist id="ed-procedures">${groups.map((name) => html`<option value="${name}"></option>`)}</datalist><div class="st-meta">Chọn quy trình có sẵn hoặc nhập tên mới. Quy trình mới được tạo khi lưu bài đầu tiên; nhân viên chỉ thấy bài đã đăng.</div><label for="ed-title">Tên bài hướng dẫn</label>` : ''}
+        <input class="input" id="ed-title" placeholder="${isProcedure ? 'Ví dụ: Mở cửa ca sáng' : 'Tiêu đề (vd: Nội quy giờ giấc và đồng phục)'}" value="${D.title}" aria-label="Tiêu đề">
         <div class="ed-tools" id="ed-tools" role="toolbar" aria-label="Định dạng">${TOOLBAR.map(([c, t, l]) => html`<button type="button" data-cmd="${c}" title="${t}" aria-label="${t}">${l}</button>`)}</div>
         <div class="ed-area doc" id="ed-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Nội dung">${raw(sanitize(D.draft_html) || '<p><br></p>')}</div>
         <div class="toolbar" style="gap:8px">
@@ -31,15 +37,18 @@ export async function render({ params }) {
         <section class="card" id="ed-prev" hidden><div class="st-meta" style="margin-bottom:8px">XEM TRƯỚC — nhân viên sẽ thấy như sau</div><h2 id="prev-title" style="margin:0 0 6px"></h2><div class="doc" id="prev-body"></div></section>
       </div>`,
     async mount() {
-      const area = $('#ed-area'); const title = $('#ed-title');
+      const area = $('#ed-area'); const title = $('#ed-title'); const group = $('#ed-procedure');
       let timer = null; let saving = null; let dirty = false;
       const save = async (force) => {
         clearTimeout(timer);
         if (saving) await saving;
         if (!dirty && !force) return D.id;
         if (!title.value.trim()) { showSaved('Nhập tiêu đề để lưu.', true); throw new Error('Nhập tiêu đề tài liệu.'); }
+        if (group && !group.value.trim()) { showSaved('Nhập tên quy trình để lưu.', true); throw new Error('Nhập tên quy trình.'); }
         dirty = false;
-        saving = rpc('app_tl_save', { p_id: D.id, p_kind: D.kind, p_title: title.value, p_html: toStore(area) })
+        saving = (isProcedure
+          ? rpc('app_tl_save_procedure', { p_id: D.id, p_title: title.value, p_html: toStore(area), p_procedure: group.value.trim() })
+          : rpc('app_tl_save', { p_id: D.id, p_kind: D.kind, p_title: title.value, p_html: toStore(area) }))
           .then((id) => { if (!D.id) { D.id = id; history.replaceState(null, '', `#/tai-lieu/soan?id=${id}`); } showSaved('Đã lưu nháp · ' + hhmm()); return id; })
           .catch((e) => { dirty = true; showSaved('Chưa lưu được: ' + e.message, true); throw e; })
           .finally(() => { saving = null; });
@@ -48,6 +57,7 @@ export async function render({ params }) {
       const changed = () => { dirty = true; clearTimeout(timer); timer = setTimeout(() => { if (title.value.trim()) save().catch(() => {}); }, 2000); };
       bindEditor({ toolbar: $('#ed-tools'), area, getDocId: () => save(true), onChange: changed, onError: (m) => showSaved(m, true) });
       title.addEventListener('input', changed);
+      group?.addEventListener('input', changed);
       await fillImages(area);
       $('#ed-save').addEventListener('click', () => save(true).catch(() => {}));
       $('#ed-preview').addEventListener('click', async () => {

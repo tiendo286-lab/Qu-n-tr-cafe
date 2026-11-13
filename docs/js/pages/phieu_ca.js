@@ -445,7 +445,7 @@ export async function render({ params }) {
 
   // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước
   const dsLeft = (i) => (DS_ITEMS[i] || []).filter((it) => !(R.checks || {})[it]);
-  const dsHd = (i) => html`<div class="ds-hd"><span>BƯỚC ${i + 1} · ${DS_STEPS[i].toUpperCase()}</span>${i < 3
+  const dsHd = (i) => html`${i === 0 || i === 2 ? html`<div class="pc-part-h">${DS_PART[i]}</div>` : ''}<div class="ds-hd"><span>BƯỚC ${i + 1} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${i < 3
     ? (dsLeft(i).length ? html`<span class="pill off">Còn ${dsLeft(i).length}/${DS_ITEMS[i].length} hạng mục</span>` : html`<span class="pill ok">✓ Đã đối soát</span>`) : ''}</div>`;
   const PDT = PD ? Object.fromEntries((PD.parts || []).map((p) => [p.part, p])) : {};
   const whoPart = (k) => { const p = PDT[k]; if (!p || !p.done_at) return ''; return html`<div class="st-meta ds-who">Phần ${p.label}: ${p.done_name || p.claimed_name || ''}${p.done_ql ? html` · <strong>quản lý tự làm — đã tự đối soát</strong>` : ''}</div>`; };
@@ -458,8 +458,8 @@ export async function render({ params }) {
   const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
   const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
-      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('tien')}${secCa}${secDebt}</div>
-      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('nhan_hang')}${secGoods}</div>
+      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_hang')}${secGoods}</div>
+      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('tien')}${secCa}${secDebt}</div>
       <div class="ds-pane stack" data-ds="3">${dsHd(3)}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Tiếp ›</button></section>` : ''}` : '';
 
@@ -474,7 +474,8 @@ export async function render({ params }) {
       <div class="wz-pane" data-step="4" hidden>${partPanel}</div>
       <section class="card wz-foot"><button type="button" class="btn secondary" id="wz-prev">‹ Quay lại</button><span class="st-meta" id="wz-pos"></span>
         <button type="button" class="btn" id="wz-next">Tiếp ›</button></section>`
-    : html`${partBar('tien')}${secTime}${secMoney}${secDiff}${secDebt}${partDone('tien')}${partBar('nhan_su')}${secStaff}${secHand}${partDone('nhan_su')}${partBar('nhan_hang')}${secGoods}${partDone('nhan_hang')}${foot}`;
+    : html`<div class="pc-part-h">① Phần việc</div>${partBar('nhan_su')}${secStaff}${secHand}${partDone('nhan_su')}${partBar('nhan_hang')}${secGoods}${partDone('nhan_hang')}
+      <div class="pc-part-h">② Phần tiền</div>${partBar('tien')}${secTime}${secMoney}${secDiff}${secDebt}${partDone('tien')}${foot}`;   // bước 78
   // bước 70: nhắc khách đang nợ ở đầu phiếu chốt ca (nhân viên nhớ thu)
   const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
   const nhacNo = !isDs && ed && odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ / mượn ${R.branch_code}: ${odOpen.length} khoản · ${vnd(odOpen.reduce((t, d) => t + Number(d.amount || 0), 0))}</strong>
@@ -488,8 +489,10 @@ export async function render({ params }) {
 
 const WZ_STEPS = ['Tiền: số liệu', 'Tiền: thu chi', 'Nhân sự & bàn giao', 'Nhận hàng', 'Tiến độ'];
 const STEP_PART = ['tien', 'tien', 'nhan_su'];
-const DS_STEPS = ['Nhân sự & bàn giao', 'Tiền', 'Nhận hàng', 'Hoàn thành'];   // 11/11/2026: nhân sự trước (biết đủ người để chia tiền âm)
-const DS_ITEMS = [['nhan_su', 'ban_giao'], ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], ['nhap_hang']];
+// 11/11/2026: nhân sự trước (biết đủ người để chia tiền âm). Bước 78 (13/11): ① Phần việc (nhân sự & bàn giao, nhận hàng) → ② Phần tiền
+const DS_STEPS = ['Nhân sự & bàn giao', 'Nhận hàng', 'Tiền', 'Hoàn thành'];
+const DS_ITEMS = [['nhan_su', 'ban_giao'], ['nhap_hang'], ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no']];
+const DS_PART = ['① Phần việc', '① Phần việc', '② Phần tiền', ''];
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
 function missingList(v, c, R) {
   const out = []; const m = (step, t) => out.push([step, t]);
@@ -1113,6 +1116,7 @@ function mount(R, ed, C0, ctx = {}) {
 }
 
 const STYLE = html`<style>
+  .pc-part-h { font-size: 15px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); padding: 8px 2px 0; border-top: 2px solid var(--caramel-line); margin-top: 4px; }   /* bước 78 */
   .pc { max-width: 860px; gap: 12px; }
   .pc-sec { gap: 12px; padding: 16px; }
   .pc-sec-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 8px; flex-wrap: wrap; }

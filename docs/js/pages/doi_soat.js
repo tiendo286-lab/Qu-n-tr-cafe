@@ -201,7 +201,7 @@ export async function render({ params }) {
   const goodRow = (g) => html`<div class="td-r" data-br="${g.branch_id}">
       <div class="td-m"><strong>${g.kind === 'khong_hd' ? 'Nhận không hóa đơn' : `Hóa đơn ${g.doc_no || ''}`} · ${bcode(g.branch_id)}</strong>
         <div class="st-meta">Ca ${g.shift} ${dmy(g.date)} · ${g.received_by || ''} · còn ${g.n_unchecked}/${g.n_lines} món chưa đối soát</div></div>
-      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${g.report_id}&buoc=3">Đối soát hàng ›</a>`
+      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${g.report_id}&buoc=2">Đối soát hàng ›</a>`
         : html`<a class="btn sm secondary" href="#/ca/phieu?id=${g.report_id}">Phiếu ca chưa hoàn thành</a>`}</div>`;
   const kaRow = (k, i) => html`<div class="td-r" data-br="${k.branch_id}" data-i="${i}">
       <div class="td-m"><strong>${k.employee} · −${fmt(k.amount)}đ</strong> <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}${k.auto_tru ? ' (mặc định)' : ''}</span>

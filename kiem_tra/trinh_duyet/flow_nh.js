@@ -66,7 +66,7 @@ export default async ({ sleep, out }) => {
     return (await rpc('app_ca_get', { p_id: id })).status;
   });
   await step('Quản lý đối soát từng ảnh', async () => {
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=3'; await wait('.nh-recon', 900); await sleep(500);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=2'; await wait('.nh-recon', 900); await sleep(500);
     const btn = $('.nh-recon'); const before = btn.innerText; btn.click(); await wait('dialog[open] .nh-rcd h2', 50); await sleep(300);
     const first = txt('dialog[open] .nh-rcd .nh-head');
     const w = $('dialog[open] .nh-wrong'); w.click(); const row = w.closest('.nh-rcl'); row.querySelector('.nh-fq').value = '9'; row.querySelector('.nh-fn').value = 'đếm lại thiếu 1'; row.querySelector('.nh-fsave').click(); await sleep(600);
@@ -74,7 +74,7 @@ export default async ({ sleep, out }) => {
     const end = txt('dialog[open] .nh-rcd .nh-head'); $('dialog[open] [data-x]')?.click(); await sleep(3000); await wait('.nh-recon', 80);
     const S = await rpc('app_nh_for_report', { p_report: id });
     const after = $$('.nh-recon').map((b) => b.innerText).join(' / ');
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=3'; await wait('.nh-recon', 900); await sleep(800);
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=2'; await wait('.nh-recon', 900); await sleep(800);
     r.push(`ngay sau khi đóng: ${after} · mở lại trang: ${$$('.nh-recon').map((b) => b.innerText).join(' / ')}`);
     return `${before} · mở: ${first} · cuối: ${end} → máy chủ: còn ${S.rows.map((x) => x.n_unchecked).join('/')} món chưa đối soát · nút: ${txt('.nh-recon')} · hạng mục Nhập hàng: ${$$('.rc-chip').map((c) => c.innerText).find((t) => /nhập hàng/i.test(t)) || '?'}`;
   });

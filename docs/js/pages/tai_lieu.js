@@ -5,6 +5,9 @@ import { rpc } from '../sb.js';
 import { dt } from '../tien.js';
 import { $$, html, raw, showSaved } from '../ui.js';
 
+export const DEFAULT_PROCEDURE = 'Quy trình nhân viên order';
+export const procedureOf = (d) => d.procedure_title || DEFAULT_PROCEDURE;
+
 export const KINDS = { noi_quy: ['Nội quy', '/noi-quy'], quy_trinh: ['Quy trình', '/quy-trinh'] };
 
 export async function render({ params, me }) {
@@ -13,7 +16,13 @@ export async function render({ params, me }) {
   const editor = can('soan_tai_lieu');
   const docs = await rpc('app_tl_list', { p_kind: kind });
   const focus = Number(params.id) || null;
-  const shown = docs.filter((d) => d.published_version > 0 || editor);
+  const visible = docs.filter((d) => d.published_version > 0 || editor);
+  const groups = [...new Set(visible.map(procedureOf))];
+  const selected = kind === 'quy_trinh' ? (focus ? procedureOf(visible.find((d) => d.id === focus) || {}) : params.nhom || '') : '';
+  const shown = selected ? visible.filter((d) => procedureOf(d) === selected) : visible;
+  const groupUrl = (name) => `/quy-trinh?nhom=${encodeURIComponent(name)}`;
+  const groupHome = kind === 'quy_trinh' && !selected;
+  const createUrl = `/tai-lieu/soan?loai=${kind}${selected ? '&nhom=' + encodeURIComponent(selected) : ''}`;
   const seg = html`<div class="seg" role="tablist">${Object.entries(KINDS).map(([k, [l, p]]) => html`<a href="#${p}" class="${k === kind ? 'on' : ''}">${l}</a>`)}</div>`;
 
   const card = (d, i) => {
@@ -43,13 +52,18 @@ export async function render({ params, me }) {
       .st-meta { font-size: 12px; color: var(--muted); }
     </style>
     ${isManager() ? '' : seg}
-    ${editor ? html`<div class="toolbar"><a class="btn" href="#/tai-lieu/soan?loai=${kind}">+ Soạn ${label.toLowerCase()} mới</a></div>` : ''}
+    ${kind === 'quy_trinh' && selected ? html`<div><a href="#/quy-trinh">‹ Tất cả quy trình</a><h2 style="overflow-wrap:anywhere">${selected}</h2></div>` : ''}
+    ${editor ? html`<div class="toolbar"><a class="btn" href="#${createUrl}">${kind === 'quy_trinh' ? (groupHome ? '+ Tạo quy trình mới' : '+ Thêm bài vào quy trình') : '+ Soạn nội quy mới'}</a></div>` : ''}
     ${unread ? html`<div class="alert warn">Bạn còn ${unread} nội quy chưa xác nhận đã đọc.</div>` : ''}
-    ${shown.length ? shown.map(card) : html`<div class="card">Chưa có ${label.toLowerCase()} nào được đăng.</div>`}`;
+    ${groupHome ? (groups.length ? groups.map((name) => {
+      const items = visible.filter((d) => procedureOf(d) === name);
+      const published = items.filter((d) => d.published_version > 0).length;
+      return html`<a class="card stack procedure-card" href="#${groupUrl(name)}" style="padding:18px;text-decoration:none;color:inherit;overflow-wrap:anywhere"><strong style="font-size:18px">${name}</strong><span class="st-meta">${items.length} bài${editor ? ` · ${published} bài đã đăng` : ''}</span><span>Xem các bài ›</span></a>`;
+    }) : html`<div class="card">Chưa có quy trình nào được đăng.</div>`) : (shown.length ? shown.map(card) : html`<div class="card">Chưa có bài nào trong mục này.</div>`)}`;
   return {
     title: label,
     html: isManager()
-      ? html`<div class="page-head"><div><h1>${label}</h1><div class="sub">${kind === 'noi_quy' ? 'Nhân viên đọc và bấm “Tôi đã đọc”. Trạng thái hiện ở cột Nội quy trong tab Nhân viên.' : 'Quy trình làm việc cho nhân viên xem.'}</div></div>
+      ? html`<div class="page-head"><div><h1>${label}</h1><div class="sub">${kind === 'noi_quy' ? 'Nhân viên đọc và bấm “Tôi đã đọc”. Trạng thái hiện ở cột Nội quy trong tab Nhân viên.' : 'Chọn quy trình để xem các bài hướng dẫn.'}</div></div>
           <div id="saved-indicator" class="saved" role="status" hidden></div></div><div class="stack" style="max-width:860px;gap:12px">${body}</div>`
       : html`<div class="stack" style="gap:12px">${body}</div>`,
     async mount(root) {

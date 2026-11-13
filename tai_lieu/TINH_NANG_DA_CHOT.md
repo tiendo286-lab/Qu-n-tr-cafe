@@ -468,6 +468,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Tab Chốt ca** (bảng tuần, 1 cơ sở): chỉ **trạng thái phiếu** (Xong / Đang chốt / Chưa mở / Thiếu phiếu) — tiền lệch xem ở tab Đối soát.
 - **Tab Đối soát** mặc định **theo tuần, 1 cơ sở** (nút chọn cơ sở, ‹ › đổi tuần): bảng **① Trạng thái đối soát** (hàng ngày × cột ca + cột Cuối ngày: Đã đối soát / Chờ đối soát x/9 / Đang sửa / Chờ kế toán / Đang chốt / Thiếu phiếu / Có khoản âm; bấm ô mở Đối soát ca, ô Cuối ngày mở trang kiểm đếm theo ngày) và bảng **② Tiền** (TM / CK lệch từng ca + cột Cả ngày + hàng Cả tuần). **Việc chờ đối soát** của cơ sở đặt dưới 2 bảng. Kiểu **Theo ngày** vẫn giữ (kiểm đếm tiền mặt cuối ngày).
 - **Phiếu chốt ca** (nhân viên) chia **2 phần**: **① Phần việc** (Ai làm ca · Số cốc · Bàn giao & nhận hàng) → nút **"Xong phần việc"**; **② Phần tiền** (Phiếu Fabi · Khách nợ · Thu chi · Chuyển khoản hotline · Kết quả tiền · Kiểm tra → GỬI PHIẾU) **chỉ mở khi xong phần việc**. Đầu phiếu có 2 khối phần (tiến độ riêng, bấm để chuyển phần). **Nhận hàng không chặn phần tiền.**
+- Bước 78: **phiếu đã hoàn thành (xem lại)** và **trang Đối soát ca** cũng chia **① Phần việc** (Nhân sự & bàn giao, Nhận hàng) → **② Phần tiền**; các bước đối soát đổi thứ tự: 1 Nhân sự & bàn giao · 2 Nhận hàng · 3 Tiền · 4 Hoàn thành (link `buoc=2` = hàng, `buoc=3` = tiền).
 
 ## 6. Đã bỏ hẳn
 

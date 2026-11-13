@@ -24,7 +24,7 @@ export default async ({ sleep, out }) => {
     const [y, mo, d] = day.split('-');
     await rpc('app_fabi_upload', { p_rows: [{ ma_ca: 'CA57', store: 'Milano Coffee - Lê Hồng Phong', open: `${d}/${mo}/${y} 06:55`, close: `${d}/${mo}/${y} 12:39`, dau: 1000000, cuoi: 3000000, net: 5000000, hd: 50, tong: 2950000,
       pay: [{ name: 'CHUYỂN KHOẢN', amount: 3000000 }, { name: 'Tiền mặt', amount: 2000000 }], tra_no: [], sua: [] }] });
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=2'; await wait('#ca-box .ca-row'); await sleep(1500);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=3'; await wait('#ca-box .ca-row'); await sleep(1500);
     r.push(`Khung: ${txt('.ca-sec .pc-sec-head')} · ${txt('.ca-time')}`);
     r.push(`Dòng: ${$$('#ca-box .ca-row').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
     r.push(`Thu chi trong khung: ${!!$('.ca-sec #ds-tc')} · còn mục "Phân nhóm" riêng: ${$$('.pc-sec h2').some((h) => /Phân nhóm thu chi/.test(h.innerText))} · "Xem / sửa số liệu" đóng: ${!$('#ca-more').open} · ${W()}`);
