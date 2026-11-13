@@ -24,8 +24,8 @@ export function makeDg(T, me) {
   const need = () => { if (!me.perms.doi_soat) throw new Error('Bạn không có quyền thực hiện thao tác này.'); };
   const lockChk = (d) => { if (!isOpen(d.slice(0, 7))) throw new Error(`Tháng ${d.slice(0, 7)} đã khóa đánh giá. Nhờ Chủ mở lại.`); };
   const dl = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 5)).toISOString().slice(0, 10); };
-  // sổ tay: 1 bài từ file Word + hướng dẫn cho hạng mục 1–3, 15
-  if (T.docs && !T.docs.some((d) => d.from_file)) T.docs.push({ id: 90, kind: 'quy_trinh', title: 'SOP 01 – Đón khách và sắp xếp chỗ ngồi', sort_order: 1, from_file: true,
+  // 1 bài quy trình có hướng dẫn cho hạng mục 1–3, 15; bài sửa trực tiếp trên web như trước
+  if (T.docs && !T.docs.some((d) => d.id === 90)) T.docs.push({ id: 90, kind: 'quy_trinh', title: 'SOP 01 – Đón khách và sắp xếp chỗ ngồi', sort_order: 1, from_file: false,
     draft_html: null, published_html: '<h2>SOP 01 · Đón khách</h2><h3>Bước 1 · Phát hiện và chào khách</h3><p><em>◆ Đào tạo: Ngày 1 · STT 1</em></p><p><strong>LHP · 2 ảnh</strong></p><p><img data-path="so-tay/a.jpg" alt=""><img data-path="so-tay/b.jpg" alt=""></p><table><tbody><tr><td>Khách vừa bước vào</td><td>“Em chào anh/chị ạ!”</td></tr></tbody></table><blockquote><p><strong>✔ Tiêu chuẩn đạt:</strong> Chủ động chào.</p></blockquote>',
     published_title: 'SOP 01 – Đón khách và sắp xếp chỗ ngồi', published_version: 1, published_at: now(), updated_at: now() });
   { const x = T.docs && T.docs.find((d) => d.id === 90); if (x && !x.draft_html) x.draft_html = x.published_html; }

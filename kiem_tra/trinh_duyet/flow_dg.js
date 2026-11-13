@@ -82,10 +82,10 @@ export default async ({ sleep, out }) => {
     $$('.dg-go', gd)[1].click(); await sleep(600); r.push(`Sau › ${txt('.dg-head strong', gd)} · ${$$('.dg-sec', gd).length} đoạn`);
     $$('.dg-go', gd)[0].click(); await sleep(600); r.push(`‹ Trước ${txt('.dg-head strong', gd)}`);
     $$('.dg-x', gd)[0].click(); await sleep(300); r.push(`đóng: ${$('dialog.dt-guide') ? 'CÒN MỞ' : 'ok'}`);
-    // 5. Quy trình: bài từ file Word không có nút Sửa
+    // 5. Quy trình: bài sổ tay sửa trực tiếp trên web như các bài khác
     await go('#/quy-trinh', '.doc-card');
     const c = $$('.doc-card').find((x) => /SOP 01/.test(x.innerText));
-    r.push(`Quy trình: ${$$('.doc-card').length} bài · bài sổ tay: ${c ? txt('.pill', c) : 'KHÔNG THẤY'} · nút Sửa: ${c && $('a[href*="soan"]', c) ? 'CÒN' : 'không'} · lưới ảnh: ${c ? getComputedStyle($('.doc p:has(img + img)', c)).display : '?'}`);
+    r.push(`Quy trình: ${$$('.doc-card').length} bài · bài SOP: ${c ? 'có' : 'KHÔNG THẤY'} · nút Sửa: ${c && $('a[href*="soan"]', c) ? 'có' : 'KHÔNG'} · lưới ảnh: ${c ? getComputedStyle($('.doc p:has(img + img)', c)).display : '?'}`);
     c.open = true; await sleep(300); $('.doc img', c).click(); await sleep(300); r.push(`bấm ảnh → ${$('dialog.img-zoom') ? 'xem to' : 'KHÔNG'}`); $('dialog.img-zoom')?.close();
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'đánh giá + sổ tay', title: r.join(' || '), len: 0, errs: [...window.__ERR] });

@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Cập nhật sổ tay quy trình từ file Word (thư mục quy_trinh_goc/, KHÔNG lên GitHub) lên mục Quy trình của web.
+"""Dựng bản xem thử sổ tay quy trình từ file Word.
 
-Dùng (Claude chạy khi anh Tiến nhắn "cập nhật quy trình"):
+Dùng:
     python3 -I cong_cu/cap_nhat_quy_trinh.py --xem <thư mục tạm>          # chỉ dựng bản xem thử (không gửi gì)
-    python3 -I cong_cu/cap_nhat_quy_trinh.py --gui --ma <file chứa mã sbp_>  # gửi lên Supabase
+
+Từ 13/11/2026, trang Quy trình trên web là bản chính và sửa trực tiếp như trước. Chế độ --gui đã ngừng dùng để
+không ghi đè nội dung trên web; công cụ chỉ còn phục vụ xem lại file Word cũ.
 
 - Chia sổ tay thành các bài nhỏ (cách đọc + sơ đồ bàn · 1.1–1.7 · giới thiệu SOP · SOP 01–09 · ghi nhớ); bỏ Phần 4
   (chương trình đào tạo đã có trên web dưới dạng phiếu đào tạo).
@@ -579,6 +581,8 @@ def main():
     ap.add_argument('--ma', help='file chứa mã sbp_')
     ap.add_argument('--cache', help='thư mục giữ ảnh đã thu nhỏ')
     a = ap.parse_args()
+    if a.gui:
+        raise SystemExit('Quy trình đã chuyển về sửa trực tiếp trên web; --gui không còn được dùng.')
     f = Path(a.file) if a.file else max((p for p in (GOC / 'quy_trinh_goc').glob('*.docx') if not p.name.startswith('~$')), key=lambda p: p.stat().st_mtime)
     doc, arts, guides, pages = build(f)
     items = sorted({g['item'] for g in guides})
