@@ -4,18 +4,18 @@ import { render as rerender } from './app.js';
 import { CV_CSS, mountCover } from './nghi_thay.js';
 import { mountDeliveries, NH_CSS } from './nhap_hang.js';
 import { rpc, sb } from './sb.js';
-import { bindMoneyInputs, compressImage, dmy, dt, fmt, parseMoney, signed } from './tien.js';
+import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed } from './tien.js';
 import { $, $$, flash, html, showSaved, str } from './ui.js';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
 // Nội dung từng bước theo mã (B[mã], stepError); thứ tự hiện ra theo ORDER — ghi hết các khoản tiền (Thu chi) TRƯỚC khi đối chiếu
 // chuyển khoản hotline, để không phải lùi lại khi thu chi / khách trả tiền mượn bằng chuyển khoản làm lệch (anh Tiến chốt 12/11/2026)
-const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Nợ HĐ', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kiểm tra lần cuối'];
+const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ trong ca', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kết quả tiền & gửi phiếu'];
 // Bước 77 (anh Tiến chốt 13/11): phiếu chia 2 phần — ① PHẦN VIỆC (Ai làm ca · Số cốc · Bàn giao & nhận hàng) làm trước,
 // ② PHẦN TIỀN (Fabi · Khách nợ · Thu chi · Chuyển khoản · Kết quả tiền · Kiểm tra) mở khi xong phần việc. Nhận hàng không chặn phần tiền.
-const ORDER_ALL = [0, 1, 6, 8, 2, 3, 5, 4, 7, 9];   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
-const VIEC = [1, 6, 8]; const TIEN = [2, 3, 5, 4, 7, 9];
+const ORDER_ALL = [0, 1, 6, 8, 2, 3, 5, 4, 9];   // bước 84: gộp Kết quả tiền (7) vào bước cuối (9)   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
+const VIEC = [1, 6, 8]; const TIEN = [2, 3, 5, 4, 9];
 const hm = (x) => (x ? String(x).slice(0, 5) : '');
 const sum = (a, f) => (a || []).reduce((s, x) => s + (Number(f(x)) || 0), 0);
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -64,27 +64,28 @@ export async function renderNew(R0, P, SH) {
   if (tienMine && !waiting && mem.code != null && ORDER.includes(Number(mem.code))) V.step = ORDER.indexOf(Number(mem.code));
   if (V.step >= firstTien && !V.viecDone) V.step = Math.min(1, V.step);
   const HP = { tab: '', q: '' }; let HELP = null;   // bước 48: chọn người làm hộ — mục đang mở, chữ lọc, danh sách nhân viên
-  const billSum = () => sum(V.debts.filter((d) => !isLoan(d)), (d) => d.amount);
+  const billSum = () => sum(V.debts.filter(isBill), (d) => d.amount);
   const prevCash = hand && hand.prev_cash !== null && hand.prev_cash !== undefined ? Number(hand.prev_cash) : null;
   const expStart = first ? { v: GOI_DAU, src: 'tiền gối đầu ca sáng' } : prevCash !== null ? { v: prevCash, src: `Tổng tiền ca ${hand.prev_shift} để lại` } : null;
   // khoản khách nợ: kind 'bill' (Nợ trên Fabi) hoặc 'muon' (bước 43: khách mượn tiền quán, ghi ở bước Thu chi)
-  const isLoan = (d) => d.kind === 'muon';
-  const col = (k, loan) => sum((R.open_debts || []).filter((d) => d.closed_report_id === R.id && d.collect_kind === k && (loan === undefined || isLoan(d) === loan)), (d) => d.amount);
+  // bước 84: thêm Nợ CK (kind 'ck') — Fabi ghi chuyển khoản nhưng khách chưa chuyển → trừ khỏi tiền phải nhận trên hotline
+  const isLoan = (d) => d.kind === 'muon'; const isCK = (d) => d.kind === 'ck'; const isBill = (d) => !d.kind || d.kind === 'bill';
+  const col = (k, billOnly) => sum((R.open_debts || []).filter((d) => d.closed_report_id === R.id && d.collect_kind === k && (!billOnly || isBill(d))), (d) => d.amount);
 
   function money() {
-    const f = V.f; const colTM = col('tien_mat'); const colTMbill = col('tien_mat', false); const colTMloan = colTM - colTMbill; const colCK = col('chuyen_khoan');
-    const loanOut = sum(V.debts.filter(isLoan), (d) => d.amount);
+    const f = V.f; const colTM = col('tien_mat'); const colTMbill = col('tien_mat', true); const colTMloan = colTM - colTMbill; const colCK = col('chuyen_khoan');
+    const loanOut = sum(V.debts.filter(isLoan), (d) => d.amount); const ckOut = sum(V.debts.filter(isCK), (d) => d.amount);
     const sal = sum(V.staff.filter((s) => s.worked && s.pay_cash), (s) => parseMoney(s.cash_paid) || 0);
     const mvTM = sum(V.moves.filter((m) => m.kind === 'tien_mat'), (m) => m.amount); const mvCK = sum(V.moves.filter((m) => m.kind === 'chuyen_khoan'), (m) => m.amount);
     const op = first ? GOI_DAU : f.ipos_opening;
     const ok = (...k) => k.every((x) => f[x] !== null);
     return {
-      colTM, colTMbill, colTMloan, loanOut, colCK, sal, mvTM, mvCK,
+      colTM, colTMbill, colTMloan, loanOut, ckOut, colCK, sal, mvTM, mvCK,
       sumGap: ok('total_revenue', 'pos_cash', 'pos_transfer', 'pos_debt') ? f.pos_cash + f.pos_transfer + f.pos_debt - f.total_revenue : null,
       diffGap: ok('cash_counted', 'ipos_opening', 'pos_cash', 'pos_diff') ? f.cash_counted - f.ipos_opening - f.pos_cash - colTMbill - f.pos_diff : null,
       tmLeft: ok('cash_counted', 'ipos_opening', 'pos_cash') ? f.cash_counted - op - f.pos_cash - (mvTM - sal - loanOut) - colTM : null,
-      ckExp: (f.pos_transfer || 0) + mvCK + colCK,
-      ckLeft: V.reported_transfer === null || f.pos_transfer === null ? null : V.reported_transfer - f.pos_transfer - mvCK - colCK,
+      ckExp: (f.pos_transfer || 0) + mvCK + colCK - ckOut,
+      ckLeft: V.reported_transfer === null || f.pos_transfer === null ? null : V.reported_transfer - f.pos_transfer - mvCK - colCK + ckOut,
       // bước 45: ca chiều / tối mở với tiền gối đầu 1.000.000 → phần dư ca trước để lại là "nộp quỹ khi giao ca" (không phải lệch)
       rutQuy: !first && prevCash !== null && f.ipos_opening === GOI_DAU && prevCash > GOI_DAU ? prevCash - GOI_DAU : 0,
       startBad: expStart && f.ipos_opening !== null && f.ipos_opening !== expStart.v && !(!first && prevCash !== null && f.ipos_opening === GOI_DAU && prevCash > GOI_DAU),
@@ -119,17 +120,17 @@ export async function renderNew(R0, P, SH) {
   // Khách trả nợ cũ (bill nợ Fabi của ca trước) — chọn được ngay ở bước Phiếu Fabi vì Fabi đã cộng tiền trả nợ vào tiền phải có
   // bước 70: khách nợ quản lý ghi (tên, SĐT), số ngày nợ, trả một phần (ô số tiền)
   const dDays = (x) => { const n = Math.max(0, Math.round((Date.parse(new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)) - Date.parse(x)) / 864e5)); return n ? `${n} ngày` : 'hôm nay'; };
-  const debtPayRow = (d) => html`<div class="cm-person"><div><strong>${(d.kind === 'muon' ? 'Nợ TM – ' + d.table_name : 'Nợ HĐ – ' + (d.by_ql ? d.table_name : 'Bàn ' + d.table_name))}</strong>${d.phone ? ` · ${d.phone}` : ''} · ${fmt(d.amount)}đ <span class="st-meta">· ${d.by_ql ? `quản lý ghi ${dmy(d.from_date)}` : `ca ${d.from_shift} ${dmy(d.from_date)}`}${d.closed_at ? '' : ` · ${dDays(d.from_date)}`}${d.note ? ' · ' + d.note : ''}</span></div>
+  const debtPayRow = (d) => html`<div class="cm-person"><div><strong>${noName(d)}</strong>${d.phone ? ` · ${d.phone}` : ''} · ${fmt(d.amount)}đ <span class="st-meta">· ${d.by_ql ? `quản lý ghi ${dmy(d.from_date)}` : `ca ${d.from_shift} ${dmy(d.from_date)}`}${d.closed_at ? '' : ` · ${dDays(d.from_date)}`}${d.note ? ' · ' + d.note : ''}</span></div>
             ${d.closed_at && d.closed_report_id !== R.id ? html`<span class="pill ok">Đã thu ở ca khác</span>`
               : html`<span class="cm-pay">${d.closed_at ? '' : html`<input class="input sm money cm-paidamt" data-paidamt="${d.id}" inputmode="numeric" autocomplete="off" value="${fmt(d.amount)}" aria-label="Số tiền khách trả" title="Trả thiếu thì sửa số này — phần còn lại vẫn nhắc ở ca sau">`}<select class="input sm" data-paid="${d.id}" aria-label="Khách ${d.table_name} trả chưa"><option value="">Chưa trả</option>
                 <option value="tien_mat" ${d.closed_at && d.collect_kind === 'tien_mat' ? 'selected' : ''}>Trả bằng tiền mặt</option><option value="chuyen_khoan" ${d.closed_at && d.collect_kind === 'chuyen_khoan' ? 'selected' : ''}>Trả bằng chuyển khoản</option></select></span>`}</div>`;
-  const oldBills = () => (R.open_debts || []).filter((d) => !isLoan(d) && !(d.closed_at && d.closed_report_id !== R.id));
+  const oldBills = () => (R.open_debts || []).filter((d) => isBill(d) && !(d.closed_at && d.closed_report_id !== R.id));
   // bước 75: anh chốt "nhắc chung nợ + mượn" — danh sách khách trả ở bước Phiếu Fabi hiện cả khách mượn tiền két
   const oldAll = () => (R.open_debts || []).filter((d) => !(d.closed_at && d.closed_report_id !== R.id));
   function fabiChecks() {
     const c = money(); const out = []; let bad = false;
     if (V.f.ipos_opening !== null && expStart) {
-      out.push(c.startBad ? html`<div>🔴 Số dư đầu <b>${fmt(V.f.ipos_opening)}</b> khác ${expStart.src} (<b>${fmt(expStart.v)}</b>), lệch <b>${signed(V.f.ipos_opening - expStart.v)}</b> — ghi lý do bên dưới</div>`
+      out.push(c.startBad ? html`<div>🔴 Số dư đầu <b>${fmt(V.f.ipos_opening)}</b> khác ${expStart.src} (<b>${fmt(expStart.v)}</b>), lệch <b>${signed(V.f.ipos_opening - expStart.v)}</b> — quản lý sẽ kiểm tra khi đối soát</div>`
         : c.rutQuy ? html`<div>✅ Số dư đầu <b>${fmt(GOI_DAU)}</b> (tiền gối đầu) — phần dư <b>${fmt(c.rutQuy)}</b> của ${expStart.src.toLowerCase()} tính là <b>nộp quỹ khi giao ca</b></div>`
         : html`<div>✅ Số dư đầu đúng bằng ${expStart.src} (<b>${fmt(expStart.v)}</b>)</div>`);
     } else if (V.f.ipos_opening !== null && hand && hand.state === 'cho_ca_truoc') out.push(html`<div>⏳ Ca ${hand.prev_shift} chưa gửi phiếu nên chưa so được số dư đầu — web sẽ so khi ca ${hand.prev_shift} gửi.</div>`);
@@ -147,16 +148,50 @@ export async function renderNew(R0, P, SH) {
     return { h: out.length ? html`<div class="alert ${bad ? 'error' : c.startBad ? 'warn' : 'ok'} cm-checks">${out}</div>` : '', bad, all: Object.values(V.f).every((x) => x !== null) };
   }
   // Khung so sánh chuyển khoản hotline (vẽ lại riêng khi gõ)
-  function ckBox() {
+  function ckBox() {   // bước 84: tính cả Nợ CK mới; lệch không bắt ghi lý do — quản lý kiểm tra khi đối soát
     const c = money(); const bad = c.ckLeft !== null && c.ckLeft !== 0;
-    return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
+    return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''}${c.ckOut ? html` − Nợ CK mới <b>${fmt(c.ckOut)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
         ${V.reported_transfer === null ? '' : bad ? html`<br>🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b>` : html`<br>✅ Khớp`}</div>
-      ${bad ? html`<div class="st-meta">Lệch thì cộng lại các giao dịch trên hotline. Quên ghi khoản thu chi / khách trả bằng chuyển khoản? <button type="button" class="btn sm secondary" data-jump="5">Về bước Thu chi</button></div>
-        <div class="cm-ckmv"><div class="st-meta">${c.ckLeft < 0 ? 'Tiền đã chuyển đi từ tài khoản (hoàn tiền khách huỷ đơn, trả tiền hàng…)?' : 'Tiền vào tài khoản mà phiếu Fabi không có?'} Tạo phiếu ${c.ckLeft < 0 ? 'chi' : 'thu'} chuyển khoản ngay — ghi vào Thu chi của ca, hết lệch.</div>
-          <div class="pc-line"><input class="input sm grow" id="cm-ckmv-note" autocomplete="off" value="${V.transfer_note}" placeholder="${c.ckLeft < 0 ? 'vd: hoàn tiền khách huỷ đơn' : 'vd: khách chuyển tiền đặt bàn'}" aria-label="Nội dung phiếu">
-            <button type="button" class="btn sm" id="cm-ckmv">Tạo phiếu ${c.ckLeft < 0 ? 'chi' : 'thu'} ${fmt(Math.abs(c.ckLeft))}đ</button></div><div id="cm-ckmv-err"></div></div>
-        <label class="pc-f"><span>Hoặc ghi lý do lệch chuyển khoản (bắt buộc nếu không tạo phiếu)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}
-      ${V.moves.some((m) => m.kind === 'chuyen_khoan') ? html`<div class="st-meta">Phiếu chuyển khoản của ca: ${V.moves.filter((m) => m.kind === 'chuyen_khoan').map((m) => `${m.note} ${signed(m.amount)}`).join(' · ')} — sửa / xoá ở bước Thu chi.</div>` : ''}`;
+      ${bad ? html`<div class="st-meta">Lệch thì cộng lại các giao dịch trên hotline. Quên ghi khoản thu / chi chuyển khoản? <button type="button" class="btn sm secondary" data-jump="5">Về bước Thu chi</button> · Khách ấn nhầm chuyển khoản mà chưa chuyển? <button type="button" class="btn sm secondary" data-jump="3">Về bước Khách nợ</button></div>
+        <label class="pc-f"><span>Ghi chú (không bắt buộc — quản lý kiểm tra khi đối soát)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
+  }
+  // bước 84: một dòng thu / chi (tiền mặt hoặc chuyển khoản)
+  const mvRow = (m, i) => html`<div class="cm-person"><div class="cm-ph"><div class="cm-seg"><button type="button" data-mt="${i}" data-v="-1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) < 0}">Chi ra</button><button type="button" data-mt="${i}" data-v="1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) > 0}">Thu vào</button></div>
+      <button type="button" class="btn sm secondary danger" data-mx="${i}">Xóa</button></div>
+    <div class="cm-line2"><input class="input sm" data-mv="${i}" data-k="note" value="${m.note || ''}" placeholder="${m.kind === 'chuyen_khoan' ? 'Nội dung, vd: hoàn tiền khách huỷ đơn' : 'Nội dung, vd: mua đá'}"><input class="input sm money" data-mv="${i}" data-k="amount" inputmode="numeric" value="${m.amount ? fmt(Math.abs(m.amount)) : ''}" placeholder="Số tiền"></div></div>`;
+  // bước 84: bảng tính chi tiết từng dòng (bước Kết quả tiền & gửi phiếu)
+  function resultBox() {
+    const c = money(); const op = first ? GOI_DAU : V.f.ipos_opening;
+    const paidOld = (R.open_debts || []).filter((d) => d.closed_report_id === R.id);
+    const tmIn = V.moves.filter((m) => m.kind === 'tien_mat' && Number(m.amount) > 0); const tmOut = V.moves.filter((m) => m.kind === 'tien_mat' && Number(m.amount) < 0);
+    const ckIn = V.moves.filter((m) => m.kind === 'chuyen_khoan' && Number(m.amount) > 0); const ckOutMv = V.moves.filter((m) => m.kind === 'chuyen_khoan' && Number(m.amount) < 0);
+    const salRows = V.staff.filter((s) => s.worked && s.pay_cash && parseMoney(s.cash_paid) > 0);
+    const sg = (n) => (Number(n) < 0 ? '−' : Number(n) > 0 ? '+' : '') + fmt(Math.abs(Number(n) || 0));
+    const row = (l, v, cls = '') => html`<div class="${cls}">${l}</div><div class="${cls}">${v}</div>`;
+    const sub = (list) => list.map(([l, v]) => row(l, fmt(Math.abs(v)), 'cm-sub'));
+    const tmChi = sum(tmOut, (m) => m.amount) - c.sal; const tmThu = sum(tmIn, (m) => m.amount);
+    const ckChi = sum(ckOutMv, (m) => m.amount); const ckThu = sum(ckIn, (m) => m.amount);
+    const tmMust = op + V.f.pos_cash + c.colTM + tmThu + tmChi - c.loanOut;
+    const paidOf = (k) => paidOld.filter((d) => d.collect_kind === k).map((d) => [`${noName(d)} (${d.by_ql ? 'QL ghi' : 'ca ' + (d.from_shift || '')} ${dmy(d.from_date).slice(0, 5)})`, d.amount]);
+    return html`<div class="cm-real">
+      <div class="cm-rc"><div class="pc-sub" style="margin:0">TIỀN MẶT PHẢI CÓ TRONG KÉT</div><div class="st-meta" style="margin:2px 0 6px">= Số dư đầu + Doanh thu TM + Khách trả nợ TM + Thu TM − Chi TM − Nợ TM mới</div><div class="kv">
+        ${row(first ? 'Số dư đầu ca (tiền gối đầu)' : 'Số dư đầu ca (Phiếu Fabi)', fmt(op))}
+        ${row('+ Doanh thu tiền mặt (Phiếu Fabi)', fmt(V.f.pos_cash), 'cm-p')}
+        ${row('+ Khách trả nợ tiền mặt (Phiếu Fabi)', fmt(c.colTM), 'cm-p')}${sub(paidOf('tien_mat'))}
+        ${row('+ Thu tiền mặt (Thu chi)', fmt(tmThu), 'cm-p')}${sub(tmIn.map((m) => [m.note, m.amount]))}
+        ${row('− Chi tiền mặt (Thu chi)', sg(tmChi), 'cm-m')}${sub(tmOut.map((m) => [m.note, m.amount]))}${sub(salRows.map((s) => [`Lương ${s.name} (trả tiền mặt)`, parseMoney(s.cash_paid)]))}
+        ${row('− Nợ TM mới (Khách nợ)', sg(-c.loanOut), 'cm-m')}${sub(V.debts.filter(isLoan).map((d) => [d.table_name, d.amount]))}
+        ${row('= PHẢI CÓ TRONG KÉT', fmt(tmMust), 'cm-t')}${row('Đếm thực tế (Tổng tiền)', fmt(V.f.cash_counted))}</div>
+        <div class="alert ${c.tmLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.tmLeft === 0 ? 'Tiền mặt: KHỚP ✓' : 'Tiền mặt: LỆCH ' + signed(c.tmLeft)}</b></div></div>
+      <div class="cm-rc"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN PHẢI NHẬN TRÊN HOTLINE</div><div class="st-meta" style="margin:2px 0 6px">= Doanh thu CK + Khách trả nợ CK + Thu CK − Chi CK − Nợ CK mới</div><div class="kv">
+        ${row('+ Doanh thu chuyển khoản (Phiếu Fabi)', fmt(V.f.pos_transfer), 'cm-p')}
+        ${row('+ Khách trả nợ chuyển khoản (Phiếu Fabi)', fmt(c.colCK), 'cm-p')}${sub(paidOf('chuyen_khoan'))}
+        ${row('+ Thu chuyển khoản (Thu chi)', fmt(ckThu), 'cm-p')}${sub(ckIn.map((m) => [m.note, m.amount]))}
+        ${row('− Chi chuyển khoản (Thu chi)', sg(ckChi), 'cm-m')}${sub(ckOutMv.map((m) => [m.note, m.amount]))}
+        ${row('− Nợ CK mới (Khách nợ)', sg(-c.ckOut), 'cm-m')}${sub(V.debts.filter(isCK).map((d) => [d.table_name, d.amount]))}
+        ${row('= PHẢI NHẬN TRÊN HOTLINE', fmt(c.ckExp), 'cm-t')}${row('Hotline nhân viên cộng', fmt(V.reported_transfer))}</div>
+        <div class="alert ${c.ckLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.ckLeft === 0 ? 'Chuyển khoản: KHỚP ✓' : 'Chuyển khoản: LỆCH ' + signed(c.ckLeft)}</b></div></div>
+      <div class="cm-rc cm-rt"><div class="kv">${row('Doanh thu NET (Phiếu Fabi)', fmt(V.f.total_revenue))}${row(`= Tiền mặt ${fmt(V.f.pos_cash)} + CK ${fmt(V.f.pos_transfer)} + Nợ HĐ ${fmt(V.f.pos_debt)}`, '', 'cm-sub')}</div></div></div>`;
   }
   const B = {
     0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Người khác trong ca chỉ giúp phần nhận hàng.</div>
@@ -167,10 +202,10 @@ export async function renderNew(R0, P, SH) {
     1: () => html`<div class="st-meta">Danh sách lấy sẵn từ lịch. Chỉ sửa chỗ khác thực tế.</div>
       ${V.staff.length ? '' : html`<div class="st-meta">Lịch chưa xếp ai cho ca này — thêm người làm bên dưới.</div>`}
       ${V.staff.map((s, i) => html`<div class="cm-person"><div class="cm-ph"><div><strong>${s.code} – ${s.name}</strong> <span class="st-meta">${s.role || ''}${s.source === 'lich' ? '' : ' · làm hộ / phát sinh'}</span>
-          ${s.pay_cash ? html` <span class="pill info">Trả lương tiền mặt</span>` : ''}</div>
+          ${s.pay_cash && Number(s.cash_paid) > 0 ? html` <span class="pill info">Trả lương tiền mặt</span>` : ''}</div>
         <div class="cm-seg" role="group" aria-label="${s.name} có làm không"><button type="button" data-w="${i}" data-v="1" aria-pressed="${s.worked}">Có làm</button><button type="button" data-w="${i}" data-v="0" aria-pressed="${!s.worked}">Nghỉ</button></div></div>
         ${s.worked ? html`<div class="cm-times"><label>Đến <input class="input sm" type="time" data-t="${i}" data-k="time_in" value="${s.time_in || ''}"></label><label>Về <input class="input sm" type="time" data-t="${i}" data-k="time_out" value="${s.time_out || ''}"></label>
-            ${s.pay_cash ? html`<label>Đã trả lương tiền mặt <input class="input sm money" data-cash="${i}" inputmode="numeric" placeholder="0" value="${s.cash_paid ? fmt(parseMoney(s.cash_paid)) : ''}" style="width:120px"></label>` : ''}
+            ${s.pay_cash && Number(s.cash_paid) > 0 ? html`<label>Đã trả lương tiền mặt <input class="input sm money" data-cash="${i}" inputmode="numeric" placeholder="0" value="${s.cash_paid ? fmt(parseMoney(s.cash_paid)) : ''}" style="width:120px"></label>` : ''}
             ${s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger" data-rm="${i}">Bỏ</button>` : ''}</div>`
           : html`<input class="input sm" data-reason="${i}" placeholder="Lý do nghỉ (bắt buộc)" value="${s.absent_reason || ''}">`}</div>`)}
       <div class="cm-hp"><div class="pc-sub" style="margin:0">THÊM NGƯỜI LÀM HỘ</div>
@@ -197,53 +232,48 @@ export async function renderNew(R0, P, SH) {
           <div class="cm-signed"><div class="cm-seg"><button type="button" data-sign="1" aria-pressed="${V.sign > 0}" aria-label="Dương">+</button><button type="button" data-sign="-1" aria-pressed="${V.sign < 0}" aria-label="Âm">−</button></div>${moneyIn('pos_diff', V.f.pos_diff, 'Tiền chênh lệch')}</div>
         </div>
         <div id="cm-checks">${ch.h}</div>
-        ${oldAll().length ? html`<h3 style="margin:8px 0 0">Khách trả nợ trong ca (Nợ HĐ / Nợ TM)</h3>
-          <div class="st-meta">Nợ HĐ hoặc Nợ TM ở các ca trước — khách trả trong ca này thì chọn ở đây (trả thiếu thì sửa số tiền). Phiếu Fabi có mục <strong>PHIẾU THANH TOÁN NỢ</strong> là khách trả Nợ HĐ.</div>
+        ${oldAll().length ? html`<h3 style="margin:8px 0 0">Khách trả nợ trong ca (Nợ HĐ / Nợ TM / Nợ CK)</h3>
+          <div class="st-meta">Khoản nợ ở các ca trước — khách trả trong ca này thì chọn ở đây (trả thiếu thì sửa số tiền). Phiếu Fabi có mục <strong>PHIẾU THANH TOÁN NỢ</strong> là khách trả Nợ HĐ.</div>
           ${oldAll().map(debtPayRow)}` : ''}
-        ${expStart ? html`<label class="pc-f" id="cm-open-wrap" ${money().startBad ? '' : 'hidden'}><span>Lý do số dư đầu khác ${expStart.src} (bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
+        ${expStart ? html`<label class="pc-f" id="cm-open-wrap" ${money().startBad ? '' : 'hidden'}><span>Ghi chú số dư đầu khác ${expStart.src} (không bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
     },
-    3: () => {
-      const od = (R.open_debts || []).filter((d) => !isLoan(d));
-      return html`<div class="st-meta">Phiếu ghi <strong>Nợ ${fmt(V.f.pos_debt || 0)}</strong>. ${V.f.pos_debt ? 'Ghi từng bàn / khách Nợ HĐ, tổng phải bằng số này.' : 'Ca này không có Nợ HĐ mới.'}</div>
-        ${V.debts.map((d, i) => isLoan(d) ? '' : html`<div class="cm-line"><input class="input sm" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Bàn / tên khách" ${d.closed_at ? 'disabled' : ''}>
+    3: () => {   // bước 84: gộp Nợ HĐ + Nợ TM + Nợ CK vào một bước
+      const od = (R.open_debts || []).filter(isBill); const c = money(); const pd = V.f.pos_debt || 0;
+      const seg = (d, i) => html`<div class="cm-seg cm-dkseg" role="group" aria-label="Loại nợ">${[['bill', 'HĐ'], ['muon', 'TM'], ['ck', 'CK']].map(([k, l]) => html`<button type="button" data-dk="${i}" data-v="${k}" aria-pressed="${(d.kind || '') === k}" ${d.closed_at ? 'disabled' : ''}>${l}</button>`)}</div>`;
+      return html`<div class="st-meta">Ghi <b>mọi bàn / khách chưa trả tiền</b> trong ca. Mỗi khoản chọn đúng <b>Fabi đã ấn gì</b>:</div>
+        <div class="cm-dkk"><div><b>HĐ</b> Fabi ghi <b>nợ</b> (chưa thanh toán) — ghi vào đây để <b>ca sau thu tiền</b>.</div>
+          <div><b>TM</b> Đã lỡ ấn <b>"thanh toán tiền mặt"</b> trên Fabi (hoặc khách cầm tiền trong két) nhưng <b>chưa nhận tiền</b> — ghi vào đây để <b>ca sau thu tiền</b>. Web tự trừ khỏi tiền phải có trong két.</div>
+          <div><b>CK</b> Đã lỡ ấn <b>"thanh toán chuyển khoản"</b> trên Fabi nhưng <b>khách chưa chuyển</b> — ghi vào đây để <b>ca sau thu tiền</b>. Web tự trừ khỏi tiền phải nhận trên hotline.</div></div>
+        ${V.debts.map((d, i) => html`<div class="cm-person cm-debt"><div class="cm-line"><input class="input sm" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Bàn / tên khách" ${d.closed_at ? 'disabled' : ''}>
           <input class="input sm money" data-db="${i}" data-k="amount" inputmode="numeric" value="${d.amount ? fmt(d.amount) : ''}" placeholder="Số tiền" ${d.closed_at ? 'disabled' : ''}>
-          <input class="input sm cm-wide" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="Tên khách, SĐT, hẹn trả…" ${d.closed_at ? 'disabled' : ''}>
-          ${d.closed_at ? html`<span class="pill ok">Đã thu</span>` : html`<button type="button" class="btn sm secondary danger" data-dbx="${i}" aria-label="Xóa dòng">×</button>`}</div>`)}
-        ${V.f.pos_debt ? html`<div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-debt">+ Thêm Nợ HĐ</button><span class="st-meta" id="cm-debt-sum">Đã ghi ${fmt(billSum())} / ${fmt(V.f.pos_debt)}</span></div>` : ''}
+          ${d.closed_at ? html`<span class="pill ok">Đã thu</span>` : html`<button type="button" class="btn sm secondary danger" data-dbx="${i}" aria-label="Xóa dòng">×</button>`}</div>
+          <div class="cm-dk">${seg(d, i)}<input class="input sm" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="Tên khách, SĐT, hẹn trả…" ${d.closed_at ? 'disabled' : ''}></div></div>`)}
+        <div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-debt">+ Thêm khoản nợ</button></div>
+        <div class="alert ${billSum() === pd ? 'ok' : 'warn'}" id="cm-debt-sum" style="margin:0">${billSum() === pd ? '✅' : '⚠️'} Nợ HĐ đã ghi <b>${fmt(billSum())}</b> ${billSum() === pd ? '=' : '≠'} Nợ trên phiếu Fabi (${fmt(pd)})
+          ${c.loanOut ? html`<br>Nợ TM <b>${fmt(c.loanOut)}</b> → trừ tiền két` : ''}${c.ckOut ? html`<br>Nợ CK <b>${fmt(c.ckOut)}</b> → trừ tiền hotline` : ''}</div>
+        ${V.debts.length ? '' : html`<div class="st-meta">Không có khách nợ thì bấm Tiếp. Các ca sau sẽ được nhắc thu.</div>`}
         ${(() => { const paid = od.filter((d) => d.closed_report_id === R.id);   // đã chọn ở bước Phiếu Fabi — không ghi lại
           return paid.length ? html`<div class="st-meta" style="margin-top:6px">✓ Khách trả Nợ HĐ cũ (đã chọn ở bước Phiếu Fabi): ${paid.map((d) => `bàn ${d.table_name} ${fmt(d.amount)}đ · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}`).join(', ')}</div>` : ''; })()}`;
     },
     4: () => html`<div class="st-meta">Cộng các giao dịch chuyển khoản <strong>đã nhận trên hotline</strong> trong ca rồi nhập tổng.</div>
         <label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span><input class="input money" id="cm-hot" inputmode="numeric" autocomplete="off" value="${V.reported_transfer === null ? '' : fmt(V.reported_transfer)}"></label>
         <div id="cm-ck-box">${ckBox()}</div>`,
-    5: () => html`<div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc tiền bỏ thêm vào két (kể cả tiền quản lý rút ra). Không cần ảnh hóa đơn. Chỉ chọn <b>Thu / Chi</b> và ghi nội dung — quản lý phân loại sau. <b>Két thiếu tiền không ghi ở đây</b> (web tự tính chênh lệch).</div>
-      ${V.moves.map((m, i) => html`<div class="cm-person"><div class="cm-ph">${m.kind === 'chuyen_khoan' ? html`<span class="pill info">Chuyển khoản</span>` : html`<div class="cm-seg"><button type="button" data-mt="${i}" data-v="-1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) < 0}">Chi ra</button><button type="button" data-mt="${i}" data-v="1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) > 0}">Thu vào</button></div>`}
-          <button type="button" class="btn sm secondary danger" data-mx="${i}">Xóa</button></div>
-        <div class="cm-line2"><input class="input sm" data-mv="${i}" data-k="note" value="${m.note || ''}" placeholder="Nội dung, vd: mua đá"><input class="input sm money" data-mv="${i}" data-k="amount" inputmode="numeric" value="${m.amount ? fmt(Math.abs(m.amount)) : ''}" placeholder="Số tiền"></div></div>`)}
-      <div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-move">+ Thêm khoản</button>
-        ${V.moves.length || V.debts.some(isLoan) ? '' : html`<label class="pc-line" style="gap:6px"><input type="checkbox" class="check" id="cm-nomoves" ${V.noMoves ? 'checked' : ''}> Ca này không có thu chi</label>`}</div>
-      <h3 style="margin:10px 0 0">Nợ TM — khách cầm tiền mặt của quán</h3>
-      <div class="st-meta">Khách lấy tiền mặt trong két (mua nước, chi việc riêng…). Các ca sau sẽ thấy để đòi; khách trả hết 1 lần.</div>
-      ${V.debts.map((d, i) => !isLoan(d) ? '' : html`<div class="cm-line"><input class="input sm" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Tên khách" ${d.closed_at ? 'disabled' : ''}>
-          <input class="input sm money" data-db="${i}" data-k="amount" inputmode="numeric" value="${d.amount ? fmt(d.amount) : ''}" placeholder="Số tiền" ${d.closed_at ? 'disabled' : ''}>
-          <input class="input sm cm-wide" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="SĐT, hẹn ngày trả…" ${d.closed_at ? 'disabled' : ''}>
-          ${d.closed_at ? html`<span class="pill ok">Đã trả</span>` : html`<button type="button" class="btn sm secondary danger" data-dbx="${i}" aria-label="Xóa dòng">×</button>`}</div>`)}
-      <div><button type="button" class="btn sm secondary" id="cm-add-loan">+ Nợ TM</button></div>
-      ${(() => { const ol = (R.open_debts || []).filter(isLoan); return ol.length ? html`<h3 style="margin:10px 0 0">Nợ TM chưa trả (từ ca trước)</h3>
-        ${ol.map((d) => html`<div class="cm-person"><div><strong>${d.table_name}</strong> · ${fmt(d.amount)}đ <span class="st-meta">· nợ ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span></div>
-          ${d.closed_at && d.closed_report_id !== R.id ? html`<span class="pill ok">Đã trả ở ca khác</span>`
-            : html`<select class="input sm" data-paid="${d.id}" aria-label="${d.table_name} trả chưa"><option value="">Chưa trả</option>
-              <option value="tien_mat" ${d.closed_at && d.collect_kind === 'tien_mat' ? 'selected' : ''}>Đã trả bằng tiền mặt (bỏ vào két)</option><option value="chuyen_khoan" ${d.closed_at && d.collect_kind === 'chuyen_khoan' ? 'selected' : ''}>Đã trả bằng chuyển khoản</option></select>`}</div>`)}` : ''; })()}`,
-    6: () => html`<label class="pc-f"><span>Số cốc bán trong ca</span><input class="input" id="cm-cups" inputmode="numeric" value="${V.cups ?? ''}" placeholder="0"></label>`,
-    7: () => {
-      const c = money(); const ok = c.tmLeft === 0;
-      return html`<div class="kv"><div>Tiền chênh lệch trên phiếu Fabi</div><div><b>${signed(V.f.pos_diff)}</b></div>
-          ${first && V.f.ipos_opening !== GOI_DAU ? html`<div>Số dư đầu khác tiền gối đầu</div><div><b>${signed(V.f.ipos_opening - GOI_DAU)}</b></div>` : ''}
-          <div>Thu vào / chi ra trong ca</div><div><b>${signed(c.mvTM - c.sal)}</b></div>${c.sal ? html`<div>· trong đó chi lương tiền mặt</div><div>${signed(-c.sal)}</div>` : ''}
-          ${c.loanOut ? html`<div>Nợ TM (khách cầm tiền mặt)</div><div><b>${signed(-c.loanOut)}</b></div>` : ''}${c.colTMloan ? html`<div>Khách trả Nợ TM (tiền mặt)</div><div><b>${signed(c.colTMloan)}</b></div>` : ''}</div>
-        <div class="alert ${ok ? 'ok' : 'error'}"><div class="st-meta">Còn lệch</div><div class="cm-big">${ok ? 'KHỚP ✓' : 'LỆCH ' + signed(c.tmLeft)}</div>${ok ? 'Két đúng đến từng đồng.' : 'Lệch dù chỉ 1 đồng cũng phải ghi lý do. Quên ghi khoản thu / chi thì quay lại bước "Thu chi trong ca".'}</div>
-        ${ok ? '' : html`<label class="pc-f"><span>Lý do lệch (bắt buộc)</span><textarea class="input" id="cm-diff-note" rows="2" placeholder="vd: thối nhầm cho khách bàn 3">${V.diff_note}</textarea></label>`}`;
+    5: () => {   // bước 84: thu chi chia 2 phần — tiền mặt / chuyển khoản; Nợ TM / Nợ CK ghi ở bước Khách nợ
+      const c = money(); const tm = V.moves.map((m, i) => [m, i]).filter(([m]) => m.kind !== 'chuyen_khoan'); const ck = V.moves.map((m, i) => [m, i]).filter(([m]) => m.kind === 'chuyen_khoan');
+      return html`<div class="st-meta">Ghi các khoản <b>thu / chi trong ca</b> — chỉ chọn Thu / Chi và ghi nội dung, quản lý phân loại sau. Không cần ảnh hóa đơn. <b>Két thiếu tiền không ghi ở đây</b> (web tự tính chênh lệch).</div>
+        <h3 style="margin:6px 0 0">1. Tiền mặt (trong két)</h3>
+        <div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc bỏ thêm vào két (kể cả quản lý rút ra). Trả lương tiền mặt (người hỗ trợ, nhân viên cũ) thì ghi <b>Chi ra</b>, nội dung <b>"Chi lương + tên"</b>.</div>
+        ${tm.map(([m, i]) => mvRow(m, i))}
+        ${c.sal ? html`<div class="cm-person" style="background:var(--line-soft)"><div>Lương trả tiền mặt <span class="st-meta">(đã ghi ở bước Ai làm ca)</span></div><div class="st-meta">${fmt(c.sal)}đ</div></div>` : ''}
+        <div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-move">+ Thêm khoản tiền mặt</button></div>
+        <h3 style="margin:12px 0 0">2. Chuyển khoản (tài khoản hotline)</h3>
+        <div class="st-meta">Tiền chuyển đi từ hotline (hoàn tiền khách huỷ đơn, trả tiền hàng…) hoặc tiền vào hotline không phải bán hàng.</div>
+        ${ck.map(([m, i]) => mvRow(m, i))}
+        <div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-ckmove">+ Thêm khoản chuyển khoản</button></div>
+        ${V.moves.length ? '' : html`<label class="pc-line" style="gap:6px"><input type="checkbox" class="check" id="cm-nomoves" ${V.noMoves ? 'checked' : ''}> Ca này không có thu chi</label>`}
+        <div class="st-meta">Nợ TM / Nợ CK <b>không ghi ở đây</b> — ghi ở bước "Khách nợ trong ca".</div>`;
     },
+    6: () => html`<label class="pc-f"><span>Số cốc bán trong ca</span><input class="input" id="cm-cups" inputmode="numeric" value="${V.cups ?? ''}" placeholder="0"></label>`,
     8: () => html`${(R.carried || []).length ? html`<h3 style="margin:0">Việc chưa xong từ ca trước</h3>${R.carried.map((h) => html`<div class="cm-person"><div>${h.content}<div class="st-meta">Ca ${h.from_shift} ${dmy(h.from_date)}</div></div>
           ${h.task_id ? html`<span class="pill ${h.done_at ? 'ok' : 'warn'}">${h.done_at ? 'Đã xử lý' : 'Đã giao việc'}</span>` : html`<button type="button" class="btn sm ${h.done_at ? 'secondary' : ''}" data-hodone="${h.id}" data-undo="${h.done_at ? 1 : ''}">${h.done_at ? 'Bỏ đánh dấu' : 'Đã xong'}</button>`}</div>`)}` : ''}
       <h3 style="margin:0">Bàn giao cho ca sau <span class="st-meta">(không bắt buộc)</span></h3>
@@ -251,39 +281,13 @@ export async function renderNew(R0, P, SH) {
         ${h.task_id ? html`<span class="pill warn">Đã giao việc</span>` : html`<button type="button" class="btn sm secondary danger" data-hox="${i}" aria-label="Xóa">×</button>`}</div>`)}
       <div><button type="button" class="btn sm secondary" id="cm-add-ho">+ Thêm việc bàn giao</button></div>
       ${nhanHang()}`,
-    9: () => {
-      const c = money(); const w = V.staff.filter((s) => s.worked); const off = V.staff.filter((s) => !s.worked);
-      return html`<div class="st-meta">Đọc lại một lượt rồi bấm GỬI.</div>
-        <ul class="cm-ul"><li>Người làm: <b>${w.length}</b> (${w.map((s) => s.name).join(', ')})${off.length ? html` · nghỉ: ${off.map((s) => s.name).join(', ')}` : ''}</li>
-          <li>Doanh thu <b>${fmt(V.f.total_revenue)}</b>: chuyển khoản ${fmt(V.f.pos_transfer)} · tiền mặt ${fmt(V.f.pos_cash)} · nợ ${fmt(V.f.pos_debt)}</li>
-          <li>Két: số dư đầu ${fmt(V.f.ipos_opening)} → đếm cuối ca <b>${fmt(V.f.cash_counted)}</b> (chênh lệch trên phiếu ${signed(V.f.pos_diff)})</li>
-          <li>${V.debts.some((d) => !isLoan(d)) ? `Nợ HĐ: ${V.debts.filter((d) => !isLoan(d)).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}` : 'Không có Nợ HĐ mới'}</li>
-          ${V.debts.some(isLoan) ? html`<li>Nợ TM: ${V.debts.filter(isLoan).map((d) => `${d.table_name} ${fmt(d.amount)}`).join(', ')}</li>` : ''}
-          <li>${V.moves.length ? `${V.moves.length} khoản thu chi` : 'Không có thu chi'}${fabiBranch ? ' · số cốc lấy theo file Fabi' : ` · ${V.cups} cốc`}</li></ul>
-        ${(() => {   // tiền THỰC TẾ thu về trong ca: doanh thu trừ nợ mới chưa thu, cộng khách trả nợ cũ / trả tiền mượn, ± thu chi
-          const op = first ? GOI_DAU : V.f.ipos_opening; const tmIn = V.f.pos_cash + c.colTM + (c.mvTM - c.sal) - c.loanOut; const tmMust = op + tmIn;
-          const ln = (lbl, v, show = true) => (show ? html`<div>${lbl}</div><div>${signed(v)}</div>` : '');
-          return html`<div class="cm-real">
-            <div class="cm-rc"><div class="pc-sub" style="margin:0">TIỀN MẶT THỰC TẾ</div><div class="kv">
-              <div>Tiền mặt bán hàng (phiếu Fabi)</div><div>${fmt(V.f.pos_cash)}</div>
-              ${ln('+ Khách trả Nợ HĐ cũ (tiền mặt)', c.colTMbill, !!c.colTMbill)}${ln('+ Khách trả Nợ TM (tiền mặt)', c.colTMloan, !!c.colTMloan)}
-              ${ln('Thu / chi tiền mặt trong ca', c.mvTM - c.sal, !!(c.mvTM - c.sal))}${ln('− Nợ TM (khách cầm tiền mặt)', -c.loanOut, !!c.loanOut)}
-              <div><strong>= Tiền mặt thực thu trong ca</strong></div><div><strong>${fmt(tmIn)}</strong></div>
-              <div>+ Số dư đầu ca</div><div>${fmt(op)}</div>
-              <div><strong>= Phải có trong két</strong></div><div><strong>${fmt(tmMust)}</strong></div>
-              <div>Đếm thực tế (Tổng tiền)</div><div>${fmt(V.f.cash_counted)}</div></div>
-              <div class="alert ${c.tmLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.tmLeft === 0 ? 'Tiền mặt: KHỚP ✓' : 'Tiền mặt: LỆCH ' + signed(c.tmLeft)}</b>${c.tmLeft ? ' · lý do: ' + V.diff_note : ''}</div></div>
-            <div class="cm-rc"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN THỰC TẾ</div><div class="kv">
-              <div>Chuyển khoản bán hàng (phiếu Fabi)</div><div>${fmt(V.f.pos_transfer)}</div>
-              ${ln('+ Khách trả nợ cũ (chuyển khoản)', c.colCK, !!c.colCK)}${ln('Thu / chi chuyển khoản', c.mvCK, !!c.mvCK)}
-              <div><strong>= Phải nhận trên hotline</strong></div><div><strong>${fmt(c.ckExp)}</strong></div>
-              <div>Hotline nhân viên cộng</div><div>${fmt(V.reported_transfer)}</div></div>
-              <div class="alert ${c.ckLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.ckLeft === 0 ? 'Chuyển khoản: KHỚP ✓' : 'Chuyển khoản: LỆCH ' + signed(c.ckLeft)}</b>${c.ckLeft ? ' · lý do: ' + V.transfer_note : ''}</div></div>
-            <div class="cm-rc cm-rt"><div class="kv"><div><strong>Tổng tiền thực thu trong ca</strong> <span class="st-meta">(tiền mặt + chuyển khoản)</span></div><div><strong>${fmt(tmIn + c.ckExp)}</strong></div>
-              <div>Doanh thu NET (phiếu Fabi)</div><div>${fmt(V.f.total_revenue)}</div>
-              ${V.f.pos_debt ? html`<div>· trong đó Nợ HĐ mới, chưa thu</div><div>${fmt(V.f.pos_debt)}</div>` : ''}
-              ${c.colTM + c.colCK ? html`<div>· thu thêm nợ cũ của ca trước</div><div>${signed(c.colTM + c.colCK)}</div>` : ''}</div></div>
-          </div>`; })()}
+    9: () => {   // bước 84: gộp Kết quả tiền + Kiểm tra lần cuối; lệch không bắt ghi lý do — quản lý tự chốt khi đối soát
+      const w = V.staff.filter((s) => s.worked); const ho = V.handover.filter((h) => (h.content || '').trim());
+      return html`${resultBox()}
+        <label class="pc-f" style="display:flex;flex-direction:column;gap:4px;align-items:stretch"><span>Ghi chú cho quản lý (không bắt buộc)</span><textarea class="input" id="cm-diff-note" rows="2" placeholder="vd: thối nhầm cho khách bàn 3">${V.diff_note}</textarea></label>
+        <div class="alert warn" style="margin:0">Lệch <b>không cần ghi lý do</b> — quản lý sẽ kiểm tra và chốt khi đối soát.</div>
+        <div class="cm-person"><div>① Phần việc ✓ <span class="st-meta">· ${w.length} người làm (${w.map((s) => s.name).join(', ')})${ho.length ? ` · ${ho.length} việc bàn giao` : ''}</span></div></div>
+        <div class="st-meta">Đọc lại một lượt rồi bấm <b>GỬI PHIẾU</b>.</div>
         ${CV_CSS}<section class="stack" id="cm-cv" style="gap:8px" hidden></section>`;
     },
   };
@@ -311,26 +315,24 @@ export async function renderNew(R0, P, SH) {
         const ch = fabiChecks();
         if (!ch.all) return 'Còn ô chưa nhập. Không có dòng nào thì nhập 0.';
         if (ch.bad) return 'Các số chưa khớp nhau: có số gõ nhầm, xem lại phiếu.';
-        if (c.startBad && !V.opening_note.trim()) return 'Ghi lý do số dư đầu bị lệch.';
         return '';
       }
-      case 3:
-        if (V.debts.some((d) => !isLoan(d) && (!(d.table_name || '').trim() || !(Number(d.amount) > 0)))) return 'Dòng nợ nào cũng phải có bàn / tên khách và số tiền.';
-        if (billSum() !== (V.f.pos_debt || 0)) return `Tổng các bàn nợ (${fmt(billSum())}) phải bằng dòng Nợ trên phiếu (${fmt(V.f.pos_debt || 0)}).`;
+      case 3: {
+        const nk = V.debts.find((d) => !['bill', 'muon', 'ck'].includes(d.kind)); if (nk) return `Chọn HĐ / TM / CK cho khoản nợ ${nk.table_name || 'mới'}.`;
+        if (V.debts.some((d) => !(d.table_name || '').trim() || !(Number(d.amount) > 0))) return 'Khoản nợ nào cũng phải có bàn / tên khách và số tiền.';
+        if (billSum() !== (V.f.pos_debt || 0)) return `Tổng Nợ HĐ (${fmt(billSum())}) phải bằng dòng Nợ trên phiếu Fabi (${fmt(V.f.pos_debt || 0)}).`;
         return '';
+      }
       case 4:
         if (V.reported_transfer === null) return 'Nhập tổng chuyển khoản đã nhận trên hotline.';
-        if (c.ckLeft !== 0 && !V.transfer_note.trim()) return 'Ghi lý do lệch chuyển khoản.';
         return '';
       case 5:
-        if (!V.moves.length && !V.debts.some(isLoan) && !V.noMoves) return 'Thêm khoản thu chi, hoặc tích "Ca này không có thu chi".';
-        if (V.debts.some((d) => isLoan(d) && (!(d.table_name || '').trim() || !(Number(d.amount) > 0)))) return 'Nợ TM: ghi tên khách và số tiền.';
+        if (!V.moves.length && !V.noMoves) return 'Thêm khoản thu chi, hoặc tích "Ca này không có thu chi".';
         if (V.moves.some((m) => !(m.note || '').trim() || !Number(m.amount))) return 'Khoản nào cũng phải có nội dung và số tiền.';
         // bước 73: tiền thiếu để thành chênh lệch — không ghi "âm / thiếu tiền" vào thu chi
         if (V.moves.some((m) => /(âm|thiếu|thieu|hụt|hut)\s*(tiền|tien|két|ket)/i.test(m.note || ''))) return 'Không ghi "âm / thiếu tiền" vào thu chi. Két thiếu thì cứ đếm đúng số thực tế — web tự tính chênh lệch, quản lý xử lý ở đối soát.';
         return '';
       case 6: return V.cups === null ? 'Nhập số cốc.' : '';
-      case 7: return c.tmLeft !== 0 && !V.diff_note.trim() ? 'Ghi lý do lệch tiền.' : '';
       default: return '';
     }
   }
@@ -345,7 +347,7 @@ export async function renderNew(R0, P, SH) {
     const s = V.step; const err = V.tried ? stepError() : '';
     const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
     const nhac = odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ: ${odOpen.length} khoản · ${fmt(sum(odOpen, (d) => d.amount))}đ</strong>
-        <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${(d.kind === 'muon' ? 'Nợ TM – ' + d.table_name : 'Nợ HĐ – ' + (d.by_ql ? d.table_name : 'Bàn ' + d.table_name))} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ trong ca" (② Phần tiền · ${LABEL[2]}).</div></div>` : '';
+        <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ trong ca" (② Phần tiền · ${LABEL[2]}).</div></div>` : '';
     const pt = partOf(s); const idx = (p) => ORDER.map((_, i) => i).filter((i) => partOf(i) === p);
     const vI = idx('viec'); const tI = idx('tien');
     const partCard = (p, no, lbl, list, open) => { const cur = pt === p; const doneP = p === 'viec' ? V.viecDone : false; const k = list.filter((i) => i < s).length;
@@ -493,11 +495,13 @@ export async function renderNew(R0, P, SH) {
         $$('[data-sign]', root).forEach((b) => b.addEventListener('click', () => { V.sign = Number(b.dataset.sign); if (V.f.pos_diff !== null) V.f.pos_diff = Math.abs(V.f.pos_diff) * V.sign; draw(); }));
         $('#cm-open-note')?.addEventListener('input', (e) => { V.opening_note = e.target.value; soft(); });
         // bước 3
-        $('#cm-add-debt')?.addEventListener('click', () => { V.debts.push({ table_name: '', amount: null, note: '', kind: 'bill' }); draw(); });
-        $('#cm-add-loan')?.addEventListener('click', () => { V.debts.push({ table_name: '', amount: null, note: '', kind: 'muon' }); V.noMoves = false; draw(); });
+        $('#cm-add-debt')?.addEventListener('click', () => { V.debts.push({ table_name: '', amount: null, note: '', kind: '' }); draw(); });
+        $$('[data-dk]', root).forEach((b) => b.addEventListener('click', () => { V.debts[b.dataset.dk].kind = b.dataset.v; draw(); }));
         $$('[data-db]', root).forEach((i) => i.addEventListener('input', () => {
           const d = V.debts[i.dataset.db]; d[i.dataset.k] = i.dataset.k === 'amount' ? parseMoney(i.value) : i.value;
-          const s = $('#cm-debt-sum'); if (s) s.textContent = `Đã ghi ${fmt(billSum())} / ${fmt(V.f.pos_debt)}`; soft();
+          const s = $('#cm-debt-sum'); if (s && i.dataset.k === 'amount') { const c = money(); const ok = billSum() === (V.f.pos_debt || 0); s.className = `alert ${ok ? 'ok' : 'warn'}`;
+            s.innerHTML = str(html`${ok ? '✅' : '⚠️'} Nợ HĐ đã ghi <b>${fmt(billSum())}</b> ${ok ? '=' : '≠'} Nợ trên phiếu Fabi (${fmt(V.f.pos_debt || 0)})${c.loanOut ? html`<br>Nợ TM <b>${fmt(c.loanOut)}</b> → trừ tiền két` : ''}${c.ckOut ? html`<br>Nợ CK <b>${fmt(c.ckOut)}</b> → trừ tiền hotline` : ''}`); }
+          soft();
         }));
         $$('[data-dbx]', root).forEach((b) => b.addEventListener('click', () => { V.debts.splice(Number(b.dataset.dbx), 1); draw(); }));
         $$('[data-paid]', root).forEach((s) => s.addEventListener('change', () => busy(async () => {
@@ -526,7 +530,8 @@ export async function renderNew(R0, P, SH) {
         $('#cm-hot')?.addEventListener('input', (e) => { V.reported_transfer = parseMoney(e.target.value); $('#cm-ck-box').innerHTML = str(ckBox()); bindCkNote(); bindJump(); bindCkMv(); soft(); });
         bindCkNote(); bindCkMv();
         // bước 5
-        $('#cm-add-move')?.addEventListener('click', () => { V.moves.push({ kind: 'tien_mat', amount: null, note: '' }); V.noMoves = false; draw(); });
+        $('#cm-add-move')?.addEventListener('click', () => { V.moves.push({ kind: 'tien_mat', amount: null, note: '', sign: -1 }); V.noMoves = false; draw(); });
+        $('#cm-add-ckmove')?.addEventListener('click', () => { V.moves.push({ kind: 'chuyen_khoan', amount: null, note: '', sign: -1 }); V.noMoves = false; draw(); });
         $('#cm-nomoves')?.addEventListener('change', (e) => { V.noMoves = e.target.checked; soft(); });
         $$('[data-mt]', root).forEach((b) => b.addEventListener('click', () => { const m = V.moves[b.dataset.mt]; m.sign = Number(b.dataset.v); m.amount = m.amount ? Math.abs(Number(m.amount)) * m.sign : null; draw(); }));
         $$('[data-mx]', root).forEach((b) => b.addEventListener('click', () => { V.moves.splice(Number(b.dataset.mx), 1); draw(); }));
@@ -588,6 +593,11 @@ const CM_CSS = html`<style>
   .cm-line .cm-wide { grid-column: 1 / -1; grid-row: 2; }
   .cm-line2 { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 6px; align-items: center; }
   .cm-big { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .cm-dkk { display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; } .cm-dkk b:first-child { display: inline-block; min-width: 30px; }
+  .cm-dk { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; } .cm-dk .input { flex: 1 1 150px; min-width: 0; width: auto; }
+  .cm-debt .cm-line { grid-template-columns: minmax(0, 1fr) 120px auto; }
+  .cm-real .kv > .cm-sub { padding-left: 14px; font-size: 13px; color: var(--ink-2); } .cm-real .kv > .cm-p { color: var(--ok-ink); } .cm-real .kv > .cm-m { color: #b91c1c; }
+  .cm-real .kv > .cm-t { border-top: 2px solid currentColor; padding-top: 6px; margin-top: 4px; font-weight: 800; }
   .cm-ul { margin: 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
   .cm-hp { display: flex; flex-direction: column; gap: 8px; border-top: 1px dashed var(--line); padding-top: 10px; }
   .cm-hp-tabs { align-self: flex-start; max-width: 100%; } .cm-hp-tabs button { white-space: nowrap; }

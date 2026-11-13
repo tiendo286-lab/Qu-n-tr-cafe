@@ -5,7 +5,7 @@ import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { CV_CSS, mountCover } from '../nghi_thay.js';
 import { rpc, sb } from '../sb.js';
-import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
+import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
@@ -57,16 +57,17 @@ function mergeRecon(R0, RC) {
 // ---------------------------------------------------------------- tính toán
 // Công nợ (chốt 07/11): Mục 1 = Mục 2 + Mục 3 + nợ phát sinh; tiền thu nợ cộng vào tiền mặt / chuyển khoản của ca thu
 export function debtSums(R, debtsNow) {
-  const debtNew = (debtsNow || R.debts || []).filter((d) => d.kind !== 'muon').reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const debtNew = (debtsNow || R.debts || []).filter((d) => !d.kind || d.kind === 'bill').reduce((s, d) => s + (Number(d.amount) || 0), 0);
   const loanOut = (R.debts || []).filter((d) => d.kind === 'muon').reduce((s, d) => s + (Number(d.amount) || 0), 0);
+  const ckOut = (R.debts || []).filter((d) => d.kind === 'ck').reduce((s, d) => s + (Number(d.amount) || 0), 0);   // bước 84: Nợ CK
   const col = (k) => (R.open_debts || []).filter((d) => d.closed_report_id === R.id && d.collect_kind === k).reduce((s, d) => s + (Number(d.amount) || 0), 0);
-  return { debtNew, loanOut, colTM: col('tien_mat'), colCK: col('chuyen_khoan') };
+  return { debtNew, loanOut, ckOut, colTM: col('tien_mat'), colCK: col('chuyen_khoan') };
 }
 export function calc(v, x = {}) {
   const n = (y) => (y === null || y === undefined || y === '' ? null : Number(y));
   const [total, pc, pt, rt, cc, op] = [n(v.total_revenue), n(v.pos_cash), n(v.pos_transfer), n(v.reported_transfer), n(v.cash_counted), n(v.opening_cash)];
   const sum = (k) => (v.moves || []).filter((m) => m.kind === k).reduce((s, m) => s + (Number(m.amount) || 0), 0);
-  const debtNew = x.debtNew || 0; const colTM = x.colTM || 0; const colCK = x.colCK || 0; const loanOut = x.loanOut || 0;
+  const debtNew = x.debtNew || 0; const colTM = x.colTM || 0; const colCK = x.colCK || 0; const loanOut = x.loanOut || 0; const ckOut = x.ckOut || 0;
   const ckDiff = rt !== null && pt !== null ? rt - pt : null;
   const tmDiff = cc !== null && op !== null && pc !== null ? cc - op - pc : null;
   const sal = (v.staff || []).filter((x) => x.worked !== false && x.worked !== 0 && Number(x.cash_paid) > 0).reduce((t, x) => t + Number(x.cash_paid), 0);
@@ -75,7 +76,7 @@ export function calc(v, x = {}) {
     sal,
     sumGap: total !== null && pc !== null && pt !== null ? total - pc - pt - debtNew : null,
     debtNew, loanOut, colTM, colCK, ckDiff, tmDiff, ckMoves, tmMoves,
-    ckLeft: ckDiff === null ? null : ckDiff - ckMoves - colCK,
+    ckLeft: ckDiff === null ? null : ckDiff - ckMoves - colCK + ckOut,
     tmLeft: tmDiff === null ? null : tmDiff - tmMoves - colTM + loanOut,
   };
 }
@@ -306,6 +307,8 @@ export async function render({ params }) {
     <div id="moves">${(R.moves || []).map((m) => moveRow(m, edT))}</div>
     ${(R.debts || []).filter((d) => d.kind === 'muon').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Nợ TM – ${d.table_name}</strong> · ${vnd(-d.amount)} · tiền mặt
         <div class="st-meta">Tiền ra khỏi két, không tính chi phí; các ca sau thấy để đòi${d.note ? ' · ' + d.note : ''}${d.closed_at ? ` · đã trả ${dt(d.closed_at)}` : ''}</div></div></div>`)}
+    ${(R.debts || []).filter((d) => d.kind === 'ck').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Nợ CK – ${d.table_name}</strong> · ${vnd(-d.amount)} · chuyển khoản
+        <div class="st-meta">Fabi ghi chuyển khoản nhưng khách chưa chuyển — trừ khỏi tiền phải nhận trên hotline${d.note ? ' · ' + d.note : ''}${d.closed_at ? ` · đã trả ${dt(d.closed_at)}` : ''}</div></div></div>`)}
     ${(R.open_debts || []).filter((d) => d.kind === 'muon' && d.closed_report_id === R.id).map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách trả Nợ TM – ${d.table_name}</strong> · +${vnd(d.amount)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}
         <div class="st-meta">Nợ ca ${d.from_shift} ${dmy(d.from_date)}</div></div></div>`)}
     ${edT ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`);
@@ -314,7 +317,7 @@ export async function render({ params }) {
   const secDebt = sec('4. Khách chưa thanh toán (công nợ)', ['cong_no'], html`
     <div class="st-meta" style="font-size:13px">Nợ phát sinh được tính vào doanh thu: <strong>Mục 1 = Mục 2 + Mục 3 + Nợ phát sinh</strong>. Khách trả nợ của ca trước thì bấm <strong>Khách đã trả</strong> và chọn tiền mặt hay chuyển khoản — tiền đó được cộng vào ca này.</div>
     ${(() => {   // khách trả nợ: hiện ở đúng ca thu tiền; nợ cũ chưa thu để riêng
-      const od = (R.open_debts || []).filter((d) => d.kind !== 'muon');
+      const od = (R.open_debts || []).filter((d) => !d.kind || d.kind === 'bill');
       const paid = od.filter((d) => d.closed_at); const open = od.filter((d) => !d.closed_at);
       const row = (d) => html`<div class="pc-line carried">
         <div class="grow"><strong>${d.by_ql ? d.table_name : `Bàn ${d.table_name}`}</strong>${d.phone ? html` · <span class="st-meta">${d.phone}</span>` : ''} · ${vnd(d.amount)} <span class="st-meta">· ${d.by_ql ? `quản lý ghi ${dmy(d.from_date)}` : `nợ từ ca ${d.from_shift} ${dmy(d.from_date)}`}${!d.closed_at ? ` · ${debtDays(d.from_date)}` : ''}${d.note ? ' · ' + d.note : ''}</span>
@@ -330,8 +333,8 @@ export async function render({ params }) {
         ${!d.closed ? html`<button type="button" class="btn sm secondary danger rd-del" data-id="${d.id}" aria-label="Xoá khoản ghi nhận">×</button>` : ''}</div>`)}
       <div><button type="button" class="btn sm secondary" id="rd-add">+ Ghi nhận nợ</button></div>` : ''}
     <div class="pc-sub">NỢ PHÁT SINH CA NÀY</div>
-    <div id="debts">${(R.debts || []).filter((d) => d.kind !== 'muon').map((d) => debtRow(d, edSharedT))}</div>
-    ${edSharedT ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).some((d) => d.kind !== 'muon') ? '' : html`<div class="st-meta">Không có.</div>`}`);
+    <div id="debts">${(R.debts || []).filter((d) => !d.kind || d.kind === 'bill').map((d) => debtRow(d, edSharedT))}</div>
+    ${edSharedT ? html`<div><button type="button" class="btn sm secondary" id="add-debt">+ Thêm bàn còn nợ</button></div>` : (R.debts || []).some((d) => !d.kind || d.kind === 'bill') ? '' : html`<div class="st-meta">Không có.</div>`}`);
 
   // Bước 57: trang Đối soát — khung "Tiền của ca" gộp phần 1–3 (thời gian, nhận két / doanh thu, chênh lệch / thu chi)
   const hm = (t) => (t ? String(t).slice(11, 16) : '—');
@@ -480,7 +483,7 @@ export async function render({ params }) {
   // bước 70: nhắc khách đang nợ ở đầu phiếu chốt ca (nhân viên nhớ thu)
   const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
   const nhacNo = !isDs && ed && odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ ${R.branch_code}: ${odOpen.length} khoản · ${vnd(odOpen.reduce((t, d) => t + Number(d.amount || 0), 0))}</strong>
-      <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${(d.kind === 'muon' ? 'Nợ TM – ' + d.table_name : 'Nợ HĐ – ' + (d.by_ql ? d.table_name : 'Bàn ' + d.table_name))} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì bấm "Khách đã trả" ở mục 4 (${wizard ? 'bước Tiền: thu chi' : 'Khách chưa thanh toán'}).</div></div>` : '';
+      <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì bấm "Khách đã trả" ở mục 4 (${wizard ? 'bước Tiền: thu chi' : 'Khách chưa thanh toán'}).</div></div>` : '';
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
     html: html`${STYLE}${HD_CSS}${DT_CSS}${head}${nhacNo}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form>`,
@@ -634,7 +637,7 @@ function mount(R, ed, C0, ctx = {}) {
     const ckLeft = SV && M.ck_left !== null && M.ck_left !== undefined ? Number(M.ck_left) : bankOk && pt !== null ? got - pt - c.ckMoves - c.colCK : c.ckLeft;
     if (SV && M.sum_gap !== null && M.sum_gap !== undefined) c = { ...c, sumGap: Number(M.sum_gap) };
     const mv = (v.moves || []).filter((m) => !m.auto); const mvSum = mv.reduce((t, m) => t + (Number(m.amount) || 0), 0);
-    const paid = (R.open_debts || []).filter((d) => d.kind !== 'muon' && d.closed_report_id === R.id);
+    const paid = (R.open_debts || []).filter((d) => (!d.kind || d.kind === 'bill') && d.closed_report_id === R.id);
     return html`
       ${row('doanh_thu', 'Doanh thu', `${fmt(tot)} = TM ${fmt(pc)} + CK ${fmt(pt)}${c.debtNew ? ` + nợ ${fmt(c.debtNew)}` : ''}${v.cups != null ? ` · ${v.cups} cốc` : ''}`, c.sumGap, [btn('more', 'Xem / sửa số liệu', null, true)])}
       ${row('tien_mat', 'Tiền mặt', `phải có ${tmLeft === null || cc === null ? '—' : fmt(cc - tmLeft)} · két đếm ${cc === null ? '—' : fmt(cc)}`, tmLeft,
@@ -933,7 +936,7 @@ function mount(R, ed, C0, ctx = {}) {
     dirty = false;
     const hoRows = $$('.ho-row'); const dbRows = $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id);
     const payload = collect();
-    payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: 'muon' })));
+    payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon' || d.kind === 'ck').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: d.kind })));
     const call = isDs ? (DIR ? rpc('app_ca_recon_direct', { p_id: R.id, p: payload, p_reason: DIR.why, p_items: DIR.items })
       : rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: $('#rc-reason')?.value || null })) : rpc('app_ca_save', { p_id: R.id, p: payload });
     saving = call.then((res) => {

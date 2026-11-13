@@ -489,6 +489,13 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Thu chi › Công nợ › Khách hàng nợ: nút **"→ Gia đình"** (quản lý có quyền Thu chi cơ sở đó) — chọn người gia đình; khoản Nợ TM / Nợ HĐ thành khoản cho vay của người đó (giữ ngày, số tiền, ghi "từ phiếu ca"), khoản nợ ca đóng lại (phiếu chốt ca hết nhắc). **Sổ quỹ không trừ thêm** (tiền đã ra khỏi két trong ca). Không sửa số tiền được; **xoá khoản cho vay = hoàn tác**, khoản nợ ca mở lại.
 - Bảng tuần Chốt ca / Đối soát: khoản đã chuyển ghi "→ công nợ gia đình".
 
+## 5r18. Phiếu chốt ca phần tiền mới — Nợ CK, Khách nợ 1 bước, Thu chi 2 phần — CHỐT và ĐÃ LÀM 13/11/2026 (bước 84 · đợt 1, máy chủ 82_no_ck_chot_ca.sql)
+- 3 loại nợ theo **Fabi đã ấn gì**: **Nợ HĐ** (Fabi ghi nợ, kind `bill`) · **Nợ TM** (đã lỡ ấn "thanh toán tiền mặt" / khách cầm tiền két, `muon`) · **Nợ CK** mới (đã lỡ ấn "thanh toán chuyển khoản" nhưng khách chưa chuyển, `ck`). Ca sau nhắc thu như nhau; khách trả nợ cũ chọn ở bước Phiếu Fabi.
+- Phần tiền còn 5 bước: Phiếu Fabi → **Khách nợ trong ca** (gộp 3 loại, mỗi khoản bấm HĐ / TM / CK, có giải thích; tổng Nợ HĐ phải bằng dòng Nợ trên phiếu Fabi) → **Thu chi 2 phần** (Tiền mặt / Chuyển khoản; chi lương tiền mặt ghi như khoản Chi ra "Chi lương + tên", bỏ ô lương ở bước Ai làm ca — phiếu cũ đã có số vẫn tính) → Chuyển khoản hotline (phải thấy = CK Fabi + khách trả nợ CK ± thu chi CK − **Nợ CK mới**) → **Kết quả tiền & gửi phiếu** (gộp bước Kết quả + Kiểm tra lần cuối; bảng từng dòng ghi rõ số lấy từ bước nào).
+- **Không bắt ghi lý do** khi lệch tiền mặt / chuyển khoản / số dư đầu (máy chủ cũng bỏ) — chỉ có ô ghi chú không bắt buộc; quản lý tự chốt khi đối soát.
+- Máy chủ: `app__ca_money` trừ Nợ CK khỏi chuyển khoản phải nhận (đối soát, bảng tuần, tự tick); tự kiểm hằng đêm cộng Nợ CK.
+- Đợt sau (đã chốt ý, chưa làm): bỏ mục Người vay (khoản cho vay cũ → Nợ TM / Nợ CK, QL đánh dấu Gia đình ở Công nợ); trang Đối soát từng ca đi từng bước như phiếu (Phần việc: Ai làm ca · Nghỉ & ca bổ sung x2 (QL tổng phân loại, Chủ duyệt) · Bàn giao & nhận hàng (giao thành việc); Phần tiền: Phiếu Fabi · Khách nợ · Thu chi (chọn nhóm, gán lương không bắt buộc) · Tiền thực nhận (thu theo ca / cuối ngày — cuối ngày bắt buộc kết ca trước = mở ca sau) · Xử lý lệch & hoàn thành (Quán chịu / Chia đều người làm ca / Đối soát lại sau; CK lệch xử lý như TM)); màu ô ca: xanh lá Đã đối soát · vàng **Hoàn thành 1 phần** · xanh dương Chờ đối soát · đỏ Thiếu phiếu.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

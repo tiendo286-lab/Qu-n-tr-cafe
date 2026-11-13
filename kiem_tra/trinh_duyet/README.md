@@ -44,3 +44,4 @@
 - Cho vay (bước 64): `flow_vay64` (`auto=1&role=chu&confirm=1&script=flow_vay64`) — Cài đặt › Người vay → Thu chi LHP: Cho vay → Ghi trả nợ → còn nợ; cơ sở khác không có khung. `fin_gia.js` có `app_loans` / `app_loan_*`.
 
 - Nhiều bộ quy trình: `script=flow_tl&role=chu&confirm=1` kiểm tra danh sách bộ, liên kết bài cũ, tạo bộ mới, lưu nháp, đăng và đổi nhóm bản nháp; `role=nv` kiểm tra chỉ thấy bản đăng và không được soạn. Chạy cả `index.html` và `test/phone.html` (390px).
+- Bước 84 (phiếu chốt ca phần tiền mới): `flow_cm84` qua `test/phone.html?role=nv&confirm=1` — Khách nợ trong ca HĐ / TM / CK (chưa chọn loại bị nhắc), Thu chi 2 phần, hotline trừ Nợ CK (2.550.000 khớp), Kết quả tiền & gửi phiếu bảng từng dòng, GỬI không cần lý do. `&dung=fabi|no|tc|hl|kq` dừng ở từng bước để chụp ảnh. `flow_cm`, `flow_od48` đã sửa theo các bước mới. `ca_gia.js` có kind `ck`, bỏ bắt lý do khi gửi.

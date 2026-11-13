@@ -3,7 +3,7 @@
 // Bước 65: sửa khoản vay (người vay, ngày, số tiền, hình thức, ghi chú) và sửa lần trả; đổi khoản chi ở Thu chi thành cho vay (toLoan).
 // Bước 70: khung CÔNG NỢ (mọi cơ sở) — Kho tổng (vay + trả hộ cộng chung), người vay khác, khách hàng nợ (quản lý ghi thêm: tên, SĐT; thu ở phiếu chốt ca).
 import { rpc } from './sb.js';
-import { bindMoneyInputs, dmy, fmt, parseMoney, vnd } from './tien.js';
+import { bindMoneyInputs, dmy, fmt, noKind, parseMoney, vnd } from './tien.js';
 import { dialog, html, showSaved, str } from './ui.js';
 
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
@@ -79,7 +79,7 @@ function section(b, d) {
     ${K && (K.owe > 0 || kL.length) ? html`<div class="ln-g">Kho tổng</div>${person(K, `vay ${vnd(kVay)} + trả hộ ${vnd(kTra)} · đã trả ${vnd(K.paid)}`)}` : ''}
     ${owing.length ? html`<div class="ln-g">Người vay</div>${owing.map((p) => person(p, `Đã vay ${vnd(p.lent)} · đã trả ${vnd(p.paid)}`))}` : ''}
     <div class="ln-g">Khách hàng nợ</div>
-    ${cus.length ? cus.map((x) => { const n = daysAgo(x.date); return html`<div class="ln-p cn-row" data-id="${x.id}"><div class="grow"><span class="pill ${x.kind === 'muon' ? 'warn' : 'info'}">${x.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span> <strong>${x.name}</strong>${x.phone ? html` · <span class="st-meta">${x.phone}</span>` : ''}
+    ${cus.length ? cus.map((x) => { const n = daysAgo(x.date); return html`<div class="ln-p cn-row" data-id="${x.id}"><div class="grow"><span class="pill ${x.kind === 'muon' || x.kind === 'ck' ? 'warn' : 'info'}">${noKind(x.kind)}</span> <strong>${x.name}</strong>${x.phone ? html` · <span class="st-meta">${x.phone}</span>` : ''}
         <div class="st-meta">${dmy(x.date)} · <span class="${n > 7 ? 'ln-late' : ''}">${n ? `${n} ngày` : 'hôm nay'}</span> · ${x.gap_report ? html`<a href="#/quan-ly/doi-soat/ca?id=${x.gap_report}">ghi nhận ở đối soát ca ${x.gap_ca || ''}</a>` : x.by_ql ? `quản lý ghi (${x.by || ''})` : html`<a href="#/ca/phieu?id=${x.report_id}">phiếu ca ${x.shift || ''}</a>`}${x.paid_before ? ` · đã trả ${vnd(x.paid_before)}` : ''}${x.note ? ` · ${x.note}` : ''}</div></div>
         <span class="toolbar ln-act" style="gap:6px"><span class="ln-owe">${vnd(x.amount)}</span>${d.cn?.can_edit && fam.length ? html`<button type="button" class="btn sm secondary cn-fam" title="Chuyển sang công nợ gia đình (cuối tháng thu)">→ Gia đình</button>` : ''}${x.by_ql && !x.split && !x.gap_report && d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-ed">Sửa</button><button type="button" class="btn sm secondary danger cn-del" aria-label="Xoá khách nợ">×</button>` : ''}</span></div>`; })
       : html`<div class="st-meta">Không có khách nợ.</div>`}
@@ -150,7 +150,7 @@ function bind(sec, b, d, onChange) {
   sec.querySelectorAll('.cn-fam').forEach((x) => x.addEventListener('click', () => {   // bước 81
     const c = cnOf(x); const fam = d.people.filter((p) => p.family && p.active);
     const dl = dialog(html`<form class="stack ln-dlg" style="gap:12px"><h2 style="margin:0">Chuyển sang công nợ gia đình — ${b.code}</h2>
-      <div><span class="pill ${c.kind === 'muon' ? 'warn' : 'info'}">${c.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span> <b>${c.name}</b> · ${vnd(c.amount)} · ${dmy(c.date)}${c.shift ? ` ca ${c.shift}` : ''}</div>
+      <div><span class="pill ${c.kind === 'muon' || c.kind === 'ck' ? 'warn' : 'info'}">${noKind(c.kind)}</span> <b>${c.name}</b> · ${vnd(c.amount)} · ${dmy(c.date)}${c.shift ? ` ca ${c.shift}` : ''}</div>
       <div class="st-meta">Khoản này thành khoản cho vay của người gia đình (cuối tháng thu ở mục Người vay), phiếu chốt ca không nhắc nữa. Sổ quỹ không trừ thêm. Xoá khoản cho vay đó thì khoản nợ trở lại như cũ.</div>
       <label class="field"><span>Người gia đình</span><select class="input" name="p">${fam.map((p) => html`<option value="${p.id}">${p.name}${p.owe > 0 ? ` (đang nợ ${fmt(p.owe)})` : ''}</option>`)}</select></label>
       <div class="ln-err"></div>

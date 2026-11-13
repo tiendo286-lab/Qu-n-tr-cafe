@@ -51,6 +51,9 @@ export function dt(t) {
   return `${(h || '').slice(0, 5)} ${dd}/${m}${y ? '/' + y : ''}`;
 }
 export const dmy = (d) => (d ? d.split('-').reverse().join('/') : '');
+// Bước 84: 3 loại nợ — Nợ HĐ (Fabi ghi nợ, kind 'bill'), Nợ TM (Fabi ghi tiền mặt nhưng két không có, 'muon'), Nợ CK (Fabi ghi chuyển khoản nhưng khách chưa chuyển, 'ck')
+export const noKind = (k) => (k === 'muon' ? 'Nợ TM' : k === 'ck' ? 'Nợ CK' : 'Nợ HĐ');
+export const noName = (d) => `${noKind(d.kind)} – ${(!d.kind || d.kind === 'bill') && !d.by_ql ? 'Bàn ' : ''}${d.table_name ?? d.name ?? ''}`;
 
 // Nén ảnh trước khi tải lên (cạnh dài tối đa 1600px, JPEG ~75%) để tiết kiệm dung lượng Supabase
 export async function compressImage(file, maxSide = 1600, quality = 0.75) {

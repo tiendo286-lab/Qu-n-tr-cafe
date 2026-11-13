@@ -22,11 +22,12 @@ export function makeCa(T, me) {
   const eff = (id) => RECON[id] || snap(id);
   const money = (id) => {
     const d = eff(id); const mv = (k) => (d.moves || []).filter((m) => m.kind === k).reduce((a, m) => a + m.amount, 0);
-    const debtNew = T.shift_debts.filter((x) => x.report_id === id && x.kind !== 'muon').reduce((a, x) => a + (x.amount || 0), 0);
+    const debtNew = T.shift_debts.filter((x) => x.report_id === id && (!x.kind || x.kind === 'bill')).reduce((a, x) => a + (x.amount || 0), 0);
     const loan = T.shift_debts.filter((x) => x.report_id === id && x.kind === 'muon').reduce((a, x) => a + (x.amount || 0), 0);   // bước 43
+    const ckOut = T.shift_debts.filter((x) => x.report_id === id && x.kind === 'ck').reduce((a, x) => a + (x.amount || 0), 0);   // bước 84
     const col = (k) => T.shift_debts.filter((x) => x.closed_report_id === id && x.collect_kind === k).reduce((a, x) => a + (x.amount || 0), 0);
     const tm = d.cash_counted - d.opening_cash - d.pos_cash - mv('tien_mat') - col('tien_mat') + loan;
-    const ck = d.reported_transfer - d.pos_transfer - mv('chuyen_khoan') - col('chuyen_khoan');
+    const ck = d.reported_transfer - d.pos_transfer - mv('chuyen_khoan') - col('chuyen_khoan') + ckOut;
     const r = rep(id); const sh = shifts(); const ns = sh[sh.indexOf(r.shift) + 1];
     const nx = ns ? T.shift_reports.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === ns) : null;
     const nh = nx ? hand(nx.id) : null; const hg = nh ? nh.gap_eff : 0;
@@ -141,7 +142,7 @@ export function makeCa(T, me) {
       const hIds = p.handover.map((h) => { if (!h.content.trim()) return null; if (h.id) { T.handover_items.find((x) => x.id === h.id).content = h.content.trim(); return h.id; } const id = nid('handover_items'); T.handover_items.push({ id, branch_id: r.branch_id, report_id: r.id, content: h.content.trim(), created_by: me.account_id, created_at: now() }); return id; });
       const keepD = p.debts.filter((d) => d.id).map((d) => d.id);
       T.shift_debts = T.shift_debts.filter((d) => d.report_id !== r.id || d.closed_at || keepD.includes(d.id));
-      const dIds = p.debts.map((d) => { if (!d.table_name.trim()) return null; if (d.id) { Object.assign(T.shift_debts.find((x) => x.id === d.id), { table_name: d.table_name, amount: d.amount || 0, note: d.note, ...(d.kind ? { kind: d.kind } : {}) }); return d.id; } const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: d.table_name, amount: d.amount || 0, note: d.note, kind: d.kind === 'muon' ? 'muon' : 'bill', created_by: me.account_id, created_at: now() }); return id; });
+      const dIds = p.debts.map((d) => { if (!d.table_name.trim()) return null; if (d.id) { Object.assign(T.shift_debts.find((x) => x.id === d.id), { table_name: d.table_name, amount: d.amount || 0, note: d.note, ...(d.kind ? { kind: d.kind } : {}) }); return d.id; } const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: d.table_name, amount: d.amount || 0, note: d.note, kind: ['muon', 'ck'].includes(d.kind) ? d.kind : 'bill', created_by: me.account_id, created_at: now() }); return id; });
       return { at: now(), rev_start: r.rev_start, handover_ids: hIds, debt_ids: dIds };
     },
     app_ca_complete({ p_id, __only }) {
@@ -156,13 +157,10 @@ export function makeCa(T, me) {
       if (!T.shift_report_photos.some((p) => p.report_id === r.id && p.kind === 'ipos')) miss.push('Ảnh phiếu chốt ca iPOS');
       if (miss.length) throw new Error('Còn thiếu: ' + miss.join(', ') + '.');
       if (r.rev_end <= r.rev_start) throw new Error('Giờ kết thúc doanh thu phải sau giờ bắt đầu.');
-      const debtNew = T.shift_debts.filter((d) => d.report_id === r.id && d.kind !== 'muon').reduce((a, d) => a + (d.amount || 0), 0);
-      const loanOut = T.shift_debts.filter((d) => d.report_id === r.id && d.kind === 'muon').reduce((a, d) => a + (d.amount || 0), 0);
+      const debtNew = T.shift_debts.filter((d) => d.report_id === r.id && (!d.kind || d.kind === 'bill')).reduce((a, d) => a + (d.amount || 0), 0);
       if (r.total_revenue !== r.pos_cash + r.pos_transfer + debtNew) throw new Error('Mục 1 (Tổng doanh thu) phải bằng Mục 2 + Mục 3 + Công nợ phát sinh.');
       const h = hand(r.id);
       if (h && h.state === 'can_dem_lai') throw new Error(`Tiền nhận két lệch két cuối ca ${h.prev_shift}. Hãy cùng 1 người ca ${h.prev_shift} đếm lại và nhập số đếm lại trước khi hoàn thành.`);
-      if (h && h.state === 'lech' && !r.opening_note) throw new Error('Tiền nhận két lệch két cuối ca trước. Ghi lý do lệch trước khi hoàn thành.');
-      if (r.ipos_opening !== r.opening_cash && !r.opening_note) throw new Error('Số dư đầu trên iPOS khác tiền nhận két. Ghi lý do trước khi hoàn thành.');
       if (r.goods_status === 'thieu' && !T.shift_report_goods.some((g) => g.report_id === r.id)) throw new Error('Nhập hàng THIẾU: hãy ghi mặt hàng.');
       if (T.shift_report_moves.some((m) => m.report_id === r.id && (!m.amount || !m.note))) throw new Error('Mỗi dòng thu chi cần số tiền khác 0 và nội dung.');
       // bước 41: kiểm tra theo phiếu Fabi (như app__ca_part_check)
@@ -170,13 +168,10 @@ export function makeCa(T, me) {
       if (r.total_revenue !== r.pos_cash + r.pos_transfer + r.pos_debt) throw new Error('Chuyển khoản + Tiền mặt + Nợ phải bằng Doanh thu NET.');
       if (debtNew !== r.pos_debt) throw new Error('Tổng các bàn nợ phải bằng dòng Nợ trên phiếu Fabi.');
       const cl = (k) => T.shift_debts.filter((d) => d.closed_report_id === r.id && d.collect_kind === k).reduce((a, d) => a + d.amount, 0);
-      const clBill = T.shift_debts.filter((d) => d.closed_report_id === r.id && d.collect_kind === 'tien_mat' && d.kind !== 'muon').reduce((a, d) => a + d.amount, 0);
+      const clBill = T.shift_debts.filter((d) => d.closed_report_id === r.id && d.collect_kind === 'tien_mat' && (!d.kind || d.kind === 'bill')).reduce((a, d) => a + d.amount, 0);
       if (r.cash_counted - r.ipos_opening - r.pos_cash - clBill !== r.pos_diff) throw new Error('Tổng tiền − Số dư đầu − Tiền mặt khác Tiền chênh lệch trên phiếu.');
-      const sal = T.shift_report_staff.filter((x) => x.report_id === r.id && x.worked).reduce((a, x) => a + (Number(x.cash_paid) || 0), 0);
-      const mv = (k) => T.shift_report_moves.filter((m) => m.report_id === r.id && m.kind === k).reduce((a, m) => a + m.amount, 0);
-      const tmLeft = r.cash_counted - r.opening_cash - r.pos_cash - (mv('tien_mat') - sal - loanOut) - cl('tien_mat');
-      if (tmLeft !== 0 && !r.diff_note) throw new Error(`Tiền mặt còn lệch ${tmLeft} sau khi tính các khoản thu chi. Lệch 1 đồng cũng phải ghi lý do.`);
-      if (r.reported_transfer - r.pos_transfer - mv('chuyen_khoan') - cl('chuyen_khoan') !== 0 && !r.transfer_note) throw new Error('Ghi lý do lệch chuyển khoản.');
+      // bước 84: lệch tiền mặt / chuyển khoản / số dư đầu không bắt ghi lý do — quản lý tự chốt khi đối soát
+      if (T.shift_debts.some((d) => d.report_id === r.id && (d.kind === 'muon' || d.kind === 'ck') && !String(d.table_name || '').trim())) throw new Error('Nợ TM / Nợ CK: ghi tên khách.');
       }
       if (__only !== 'tien') for (const s of T.shift_report_staff.filter((x) => x.report_id === r.id)) {
         if (s.worked && (!s.time_in || !s.time_out)) throw new Error('Nhập giờ đến và giờ về của NV ' + s.employee_id + '.');
