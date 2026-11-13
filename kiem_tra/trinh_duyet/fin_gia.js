@@ -268,12 +268,21 @@ export function makeFin(T, me) {
         people: T.loan_people.map((p) => { const ls = mine.filter((l) => l.person_id === p.id); const lent = ls.reduce((s, l) => s + l.amount, 0); const paid = ls.reduce((s, l) => s + paidOf(l), 0); return { ...p, lent, paid, owe: lent - paid }; }),
         loans: mine.map((l) => ({ kind: 'vay', ...l, shift: l.report_id ? T.shift_reports.find((x) => x.id === l.report_id)?.shift : null, person: T.loan_people.find((p) => p.id === l.person_id)?.name, paid: paidOf(l), locked: false, by: 'admin – Chủ', payments: T.loan_pays.filter((y) => y.loan_id === l.id).map((y) => ({ ...y, locked: false, by: 'admin – Chủ' })) })).reverse() };
     },
+    app_cn_debt_to_family({ p_id, p_person }) {   // bước 81
+      const d = (T.shift_debts || []).find((x) => x.id === p_id); if (!d) throw new Error('Không tìm thấy khoản nợ.');
+      if (d.closed_at) throw new Error('Khoản nợ này đã trả / đã chuyển rồi.');
+      const pp = (T.loan_people || []).find((x) => x.id === p_person && x.family && x.active !== false); if (!pp) throw new Error('Chọn người trong Công nợ gia đình (Chủ / Quản lý tổng bật ở Cài đặt › Người vay).');
+      const r = T.shift_reports.find((x) => x.id === d.report_id);
+      T.branch_loans = T.branch_loans || []; const id = Math.max(0, ...T.branch_loans.map((l) => l.id)) + 1;
+      T.branch_loans.push({ id, kind: 'vay', branch_id: d.branch_id, person_id: p_person, date: r ? r.work_date : (d.created_at || '').slice(0, 10), amount: d.amount, method: 'tien_mat', note: (d.kind === 'muon' ? 'Nợ TM – ' : 'Nợ HĐ – ') + d.table_name, report_id: d.report_id ?? null, from_debt: d.id });
+      Object.assign(d, { closed_at: 'x', collect_kind: 'gia_dinh', closed_report_id: null }); return id;
+    },
     app_loan_people: () => ({ can_edit: admin(), people: (T.loan_people || []).map((p) => ({ ...p, used: (T.branch_loans || []).some((l) => l.person_id === p.id) })) }),
-    app_loan_person_save({ p_id, p_name, p_phone, p_note, p_active }) {
+    app_loan_person_save({ p_id, p_name, p_phone, p_note, p_active, p_family }) {
       if (!admin()) throw new Error('Chỉ Chủ và Quản lý tổng khai báo người vay.'); if (!(p_name || '').trim()) throw new Error('Nhập tên người vay.');
       T.loan_people = T.loan_people || [];
-      if (p_id) { Object.assign(T.loan_people.find((p) => p.id === p_id), { name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: !!p_active }); return p_id; }
-      const id = T.loan_people.length + 1; T.loan_people.push({ id, name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: true }); return id;
+      if (p_id) { Object.assign(T.loan_people.find((p) => p.id === p_id), { name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: !!p_active, ...(p_family == null ? {} : { family: !!p_family }) }); return p_id; }
+      const id = T.loan_people.length + 1; T.loan_people.push({ id, name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: true, family: !!p_family }); return id;
     },
     app_loan_save({ p_id, p }) {
       const kind = p_id ? ((T.branch_loans || []).find((x) => x.id === p_id)?.kind || 'vay') : p.kind || 'vay';
@@ -297,7 +306,7 @@ export function makeFin(T, me) {
       if (!(p_amount > 0)) throw new Error('Nhập số tiền trả lớn hơn 0.'); if (p_amount > owe) throw new Error(`Số tiền trả lớn hơn số còn nợ của khoản này (${owe}).`);
       Object.assign(y, { date: p_date, amount: p_amount, method: p_method, note: p_note || '' }); return p_id;
     },
-    app_loan_delete({ p_id }) { const l = T.branch_loans.find((x) => x.id === p_id); T.branch_loans = T.branch_loans.filter((x) => x.id !== p_id); if (l?.report_id) T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === l.report_id && z.mkey === l.mkey)); },
+    app_loan_delete({ p_id }) { const l = T.branch_loans.find((x) => x.id === p_id); T.branch_loans = T.branch_loans.filter((x) => x.id !== p_id); if (l?.from_debt) { const d = (T.shift_debts || []).find((x) => x.id === l.from_debt); if (d) Object.assign(d, { closed_at: null, collect_kind: null }); } if (l?.report_id) T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === l.report_id && z.mkey === l.mkey)); },
     app_tc_to_loan({ p, p_person, p_note }) {
       T.branch_loans = T.branch_loans || []; const id = Math.max(0, ...T.branch_loans.map((l) => l.id)) + 1;
       if (p.src === 'tay') { const e = T.fin_entries.find((x) => x.id === p.id); if (e.kind !== 'chi') throw new Error('Chỉ khoản CHI mới đổi thành cho vay được.');

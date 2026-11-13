@@ -30,7 +30,7 @@ const nf = (n) => fmt(Math.abs(Number(n) || 0));   // bước 81: số đầy đ
 export function debtLines(x) {
   if (!x) return '';
   const tao = x.tao || []; const thu = x.thu || [];
-  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'} ${d.name} ${nf(d.amount)} · ${d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
+  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'} ${d.name} ${nf(d.amount)} · ${d.collect_kind === 'gia_dinh' ? '→ công nợ gia đình' : d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
   const two = (d) => html`<span class="nl thu">Thu ${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'} ${d.name} ${nf(d.amount)} (${pk(d.collect_kind)}, nợ ca ${d.from_shift || 'QL ghi'} ${dmS(d.from_date)})</span>`;
   return html`${tao.map(one)}${thu.map(two)}`;
 }
@@ -45,7 +45,7 @@ export function debtSection(DEBT, reps) {
         <span class="nd-w"><b>${dmS(d.day)}</b> · ca ${d.shift}</span>
         <span class="nd-n"><b>${d.name}</b> <span class="st-meta">${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span></span>
         <span class="nd-a">${nf(d.amount)}</span>
-        <span class="nd-s">${d.paid ? `✓ Đã trả ${pk(d.collect_kind)} · ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : `Chưa trả · ${days(d.day)} ngày`}</span></a>`)}</div>` : ''}
+        <span class="nd-s">${d.collect_kind === 'gia_dinh' ? '→ Chuyển công nợ gia đình' : d.paid ? `✓ Đã trả ${pk(d.collect_kind)} · ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : `Chưa trả · ${days(d.day)} ngày`}</span></a>`)}</div>` : ''}
     <div class="st-meta">Khoản nợ còn từ các tuần trước xem ở Thu chi › Công nợ.</div></section>`;
 }
 export const ND_CSS = html`<style>

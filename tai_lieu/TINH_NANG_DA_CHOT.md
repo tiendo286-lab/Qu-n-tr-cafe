@@ -483,7 +483,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Mọi khoản đều là **NỢ**, chia 2 loại: **Nợ TM** (khách cầm tiền mặt của quán — trước gọi "khách mượn") và **Nợ HĐ** (khách chưa trả hóa đơn — trước gọi "khách nợ"). Cách tính tiền giữ nguyên (Nợ TM trừ vào tiền mặt trong két).
 - Đổi chữ ở phiếu chốt ca (bước "Nợ HĐ", nút "+ Nợ TM", nhắc "Khách đang nợ"), phiếu xem lại, bảng tuần Chốt ca / Đối soát, Thu chi, Âm tiền.
 - Thu chi › Công nợ và ô "Nợ" của Thu chi **tính cả Nợ TM** (trước chỉ Nợ HĐ); mỗi dòng có nhãn Nợ TM / Nợ HĐ.
-- Còn chờ anh duyệt: nút "Công nợ gia đình" khi tạo người vay + nút "Chuyển sang gia đình" trong Công nợ.
+
+## 5r17. Công nợ gia đình — CHỐT và ĐÃ LÀM 13/11/2026 (bước 83, máy chủ 81_cong_no_gia_dinh.sql)
+- Cài đặt › Người vay: ô **Công nợ gia đình** (chỉ Chủ / Quản lý tổng tạo, sửa) — người nhà, cuối tháng mới thu, không nhắc khi chốt ca. Ở Công nợ, tên có nhãn "Gia đình".
+- Thu chi › Công nợ › Khách hàng nợ: nút **"→ Gia đình"** (quản lý có quyền Thu chi cơ sở đó) — chọn người gia đình; khoản Nợ TM / Nợ HĐ thành khoản cho vay của người đó (giữ ngày, số tiền, ghi "từ phiếu ca"), khoản nợ ca đóng lại (phiếu chốt ca hết nhắc). **Sổ quỹ không trừ thêm** (tiền đã ra khỏi két trong ca). Không sửa số tiền được; **xoá khoản cho vay = hoàn tác**, khoản nợ ca mở lại.
+- Bảng tuần Chốt ca / Đối soát: khoản đã chuyển ghi "→ công nợ gia đình".
 
 ## 6. Đã bỏ hẳn
 

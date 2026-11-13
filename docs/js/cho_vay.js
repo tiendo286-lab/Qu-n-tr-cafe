@@ -69,7 +69,8 @@ function section(b, d) {
   const kVay = kL.filter((l) => l.kind !== 'tra_ho').reduce((t, l) => t + l.amount, 0); const kTra = kL.filter((l) => l.kind === 'tra_ho').reduce((t, l) => t + l.amount, 0);
   const cus = d.cn?.open || []; const cusTot = cus.reduce((t, x) => t + Number(x.amount), 0);
   const tot = owing.reduce((t, p) => t + p.owe, 0) + (K?.owe || 0) + cusTot;
-  const person = (p, sub) => html`<div class="ln-p"><div class="grow"><strong>${p.name}</strong>${p.phone ? html` · <span class="st-meta">${p.phone}</span>` : ''}
+  const fam = d.people.filter((p) => p.family && p.active);   // bước 81: công nợ gia đình
+  const person = (p, sub) => html`<div class="ln-p"><div class="grow"><strong>${p.name}</strong>${p.family ? html` <span class="pill">Gia đình</span>` : ''}${p.phone ? html` · <span class="st-meta">${p.phone}</span>` : ''}
       <div class="st-meta">${sub}</div></div>
       <span class="toolbar" style="gap:8px"><span class="ln-owe">còn nợ ${vnd(p.owe)}</span>${p.owe > 0 ? html`<button type="button" class="btn sm secondary ln-pay-btn" data-p="${p.id}">Ghi trả nợ</button>` : ''}</span></div>`;
   return html`<section class="card stack ln-sec" data-b="${b.id}" style="gap:8px">
@@ -80,7 +81,7 @@ function section(b, d) {
     <div class="ln-g">Khách hàng nợ</div>
     ${cus.length ? cus.map((x) => { const n = daysAgo(x.date); return html`<div class="ln-p cn-row" data-id="${x.id}"><div class="grow"><span class="pill ${x.kind === 'muon' ? 'warn' : 'info'}">${x.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span> <strong>${x.name}</strong>${x.phone ? html` · <span class="st-meta">${x.phone}</span>` : ''}
         <div class="st-meta">${dmy(x.date)} · <span class="${n > 7 ? 'ln-late' : ''}">${n ? `${n} ngày` : 'hôm nay'}</span> · ${x.gap_report ? html`<a href="#/quan-ly/doi-soat/ca?id=${x.gap_report}">ghi nhận ở đối soát ca ${x.gap_ca || ''}</a>` : x.by_ql ? `quản lý ghi (${x.by || ''})` : html`<a href="#/ca/phieu?id=${x.report_id}">phiếu ca ${x.shift || ''}</a>`}${x.paid_before ? ` · đã trả ${vnd(x.paid_before)}` : ''}${x.note ? ` · ${x.note}` : ''}</div></div>
-        <span class="toolbar ln-act" style="gap:6px"><span class="ln-owe">${vnd(x.amount)}</span>${x.by_ql && !x.split && !x.gap_report && d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-ed">Sửa</button><button type="button" class="btn sm secondary danger cn-del" aria-label="Xoá khách nợ">×</button>` : ''}</span></div>`; })
+        <span class="toolbar ln-act" style="gap:6px"><span class="ln-owe">${vnd(x.amount)}</span>${d.cn?.can_edit && fam.length ? html`<button type="button" class="btn sm secondary cn-fam" title="Chuyển sang công nợ gia đình (cuối tháng thu)">→ Gia đình</button>` : ''}${x.by_ql && !x.split && !x.gap_report && d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-ed">Sửa</button><button type="button" class="btn sm secondary danger cn-del" aria-label="Xoá khách nợ">×</button>` : ''}</span></div>`; })
       : html`<div class="st-meta">Không có khách nợ.</div>`}
     <div class="st-meta">Khách trả nợ: nhân viên bấm "Khách đã trả" ở phiếu chốt ca (trả một phần được). Nhân viên không được vay / ứng tiền của quán. Cho vay / trả hộ không tính chi phí.</div>
     ${d.loans.length ? html`<details><summary style="cursor:pointer;font-weight:600">Lịch sử vay / trả hộ (${d.loans.length} khoản)</summary>
@@ -146,6 +147,22 @@ function bind(sec, b, d, onChange) {
   sec.querySelector('.cn-new')?.addEventListener('click', () => debtForm(null));
   const cnOf = (x) => (d.cn?.open || []).find((y) => y.id === Number(x.closest('.cn-row').dataset.id));
   sec.querySelectorAll('.cn-ed').forEach((x) => x.addEventListener('click', () => debtForm(cnOf(x))));
+  sec.querySelectorAll('.cn-fam').forEach((x) => x.addEventListener('click', () => {   // bước 81
+    const c = cnOf(x); const fam = d.people.filter((p) => p.family && p.active);
+    const dl = dialog(html`<form class="stack ln-dlg" style="gap:12px"><h2 style="margin:0">Chuyển sang công nợ gia đình — ${b.code}</h2>
+      <div><span class="pill ${c.kind === 'muon' ? 'warn' : 'info'}">${c.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span> <b>${c.name}</b> · ${vnd(c.amount)} · ${dmy(c.date)}${c.shift ? ` ca ${c.shift}` : ''}</div>
+      <div class="st-meta">Khoản này thành khoản cho vay của người gia đình (cuối tháng thu ở mục Người vay), phiếu chốt ca không nhắc nữa. Sổ quỹ không trừ thêm. Xoá khoản cho vay đó thì khoản nợ trở lại như cũ.</div>
+      <label class="field"><span>Người gia đình</span><select class="input" name="p">${fam.map((p) => html`<option value="${p.id}">${p.name}${p.owe > 0 ? ` (đang nợ ${fmt(p.owe)})` : ''}</option>`)}</select></label>
+      <div class="ln-err"></div>
+      <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Chuyển</button></div></form>`);
+    const f = dl.querySelector('form');
+    dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
+    f.addEventListener('submit', async (ev) => {
+      ev.preventDefault(); const bt = f.querySelector('[type=submit]'); bt.disabled = true;
+      try { await rpc('app_cn_debt_to_family', { p_id: c.id, p_person: Number(f.p.value) }); dl.close(); done('Đã chuyển sang công nợ gia đình.'); }
+      catch (e) { f.querySelector('.ln-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); bt.disabled = false; }
+    });
+  }));
   sec.querySelectorAll('.cn-del').forEach((x) => x.addEventListener('click', async () => {
     const c = cnOf(x); if (!confirm(`Xoá khách nợ "${c.name}" (${vnd(c.amount)})?`)) return;
     try { await rpc('app_cn_debt_delete', { p_id: c.id }); done('Đã xoá khách nợ.'); } catch (e) { showSaved(e.message, true); }
