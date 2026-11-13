@@ -42,3 +42,5 @@
 - Rà soát 13/11/2026: bỏ `flow_wz`, `flow_ca` (phiếu chốt ca kiểu cũ), `flow_ds` (đối soát kiểu cũ — nay `flow_den`, `flow_sua56`, `flow_ca57`, `flow_dsdt`) và 3 bước hoá đơn kiểu cũ trong `flow_kt`. Bảng tuần Đối soát / Chuyển khoản gọi `app_ds_week` / `app_kt_bank_week` (bước 60); giả lập chưa có 2 hàm này nên trang tự gọi từng ngày như cũ.
 - Giai đoạn 3 (13/11/2026): `flow_fabi61` (hóa đơn sửa / khách trả nợ Fabi → đỏ, nút "Đã xem — duyệt"), `flow_ck62` (chỉ nhập số dư cuối, số đầu ca sau tự theo, Lưu cả ngày), `flow_hn62` (trang chủ Việc hôm nay; chạy với role=chu|kt|nv). `fb_gia.js` có `app_home_todo`.
 - Cho vay (bước 64): `flow_vay64` (`auto=1&role=chu&confirm=1&script=flow_vay64`) — Cài đặt › Người vay → Thu chi LHP: Cho vay → Ghi trả nợ → còn nợ; cơ sở khác không có khung. `fin_gia.js` có `app_loans` / `app_loan_*`.
+
+- Nhiều bộ quy trình: `script=flow_tl&role=chu&confirm=1` kiểm tra danh sách bộ, liên kết bài cũ, tạo bộ mới, lưu nháp, đăng và đổi nhóm bản nháp; `role=nv` kiểm tra chỉ thấy bản đăng và không được soạn. Chạy cả `index.html` và `test/phone.html` (390px).

@@ -12,8 +12,9 @@ export async function render({ params }) {
   let D = params.id ? await rpc('app_tl_get', { p_id: Number(params.id) }) : { id: null, kind: params.loai === 'quy_trinh' ? 'quy_trinh' : 'noi_quy', title: '', draft_html: '', published_version: 0 };
   const [label, back] = KINDS[D.kind];
   const isProcedure = D.kind === 'quy_trinh';
-  const procedure = D.procedure_title || (D.id ? DEFAULT_PROCEDURE : params.nhom || '');
   const siblings = isProcedure ? await rpc('app_tl_list', { p_kind: 'quy_trinh' }) : [];
+  const procedureReady = !isProcedure || siblings.every((d) => typeof d.procedure_title === 'string');
+  const procedure = D.procedure_title || (D.id || !procedureReady ? DEFAULT_PROCEDURE : params.nhom || '');
   const groups = [...new Set(siblings.map((d) => d.procedure_title || DEFAULT_PROCEDURE))];
   const backLink = isProcedure && procedure ? `${back}?nhom=${encodeURIComponent(procedure)}` : back;
   return {
@@ -23,7 +24,8 @@ export async function render({ params }) {
         <div class="sub" id="ed-status">${D.published_version ? `Đang đăng phiên bản ${D.published_version} (${dt(D.published_at)}). Sửa ở đây là bản nháp — nhân viên chỉ thấy sau khi bấm Đăng.` : 'Chưa đăng — nhân viên chưa thấy tài liệu này.'}</div></div>
         <div class="toolbar"><a class="btn sm secondary" href="#${backLink}">‹ ${label}</a><div id="saved-indicator" class="saved" role="status" hidden></div></div></div>
       <div class="stack" style="max-width:900px;gap:10px">
-        ${isProcedure ? html`<label for="ed-procedure">Tên quy trình</label><input class="input" id="ed-procedure" list="ed-procedures" maxlength="160" placeholder="Ví dụ: Quy trình pha chế" value="${procedure}"><datalist id="ed-procedures">${groups.map((name) => html`<option value="${name}"></option>`)}</datalist><div class="st-meta">Chọn quy trình có sẵn hoặc nhập tên mới. Quy trình mới được tạo khi lưu bài đầu tiên; nhân viên chỉ thấy bài đã đăng.</div><label for="ed-title">Tên bài hướng dẫn</label>` : ''}
+        ${isProcedure && !procedureReady ? html`<div class="alert warn">Cần cập nhật máy chủ để thêm quy trình khác. Hiện vẫn lưu và đăng được bài trong Quy trình nhân viên order.</div>` : ''}
+        ${isProcedure ? html`<label for="ed-procedure">Tên quy trình</label><input class="input" id="ed-procedure" ${procedureReady ? '' : 'readonly'} list="ed-procedures" maxlength="160" placeholder="Ví dụ: Quy trình pha chế" value="${procedure}"><datalist id="ed-procedures">${groups.map((name) => html`<option value="${name}"></option>`)}</datalist><div class="st-meta">Chọn quy trình có sẵn hoặc nhập tên mới. Quy trình mới được tạo khi lưu bài đầu tiên; nhân viên chỉ thấy bài đã đăng.</div><label for="ed-title">Tên bài hướng dẫn</label>` : ''}
         <input class="input" id="ed-title" placeholder="${isProcedure ? 'Ví dụ: Mở cửa ca sáng' : 'Tiêu đề (vd: Nội quy giờ giấc và đồng phục)'}" value="${D.title}" aria-label="Tiêu đề">
         <div class="ed-tools" id="ed-tools" role="toolbar" aria-label="Định dạng">${TOOLBAR.map(([c, t, l]) => html`<button type="button" data-cmd="${c}" title="${t}" aria-label="${t}">${l}</button>`)}</div>
         <div class="ed-area doc" id="ed-area" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Nội dung">${raw(sanitize(D.draft_html) || '<p><br></p>')}</div>
@@ -46,7 +48,7 @@ export async function render({ params }) {
         if (!title.value.trim()) { showSaved('Nhập tiêu đề để lưu.', true); throw new Error('Nhập tiêu đề tài liệu.'); }
         if (group && !group.value.trim()) { showSaved('Nhập tên quy trình để lưu.', true); throw new Error('Nhập tên quy trình.'); }
         dirty = false;
-        saving = (isProcedure
+        saving = (isProcedure && procedureReady
           ? rpc('app_tl_save_procedure', { p_id: D.id, p_title: title.value, p_html: toStore(area), p_procedure: group.value.trim() })
           : rpc('app_tl_save', { p_id: D.id, p_kind: D.kind, p_title: title.value, p_html: toStore(area) }))
           .then((id) => { if (!D.id) { D.id = id; history.replaceState(null, '', `#/tai-lieu/soan?id=${id}`); } showSaved('Đã lưu nháp · ' + hhmm()); return id; })

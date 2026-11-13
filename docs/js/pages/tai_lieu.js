@@ -15,6 +15,7 @@ export async function render({ params, me }) {
   const [label] = KINDS[kind];
   const editor = can('soan_tai_lieu');
   const docs = await rpc('app_tl_list', { p_kind: kind });
+  const procedureReady = kind !== 'quy_trinh' || docs.every((d) => typeof d.procedure_title === 'string');
   const focus = Number(params.id) || null;
   const visible = docs.filter((d) => d.published_version > 0 || editor);
   const groups = [...new Set(visible.map(procedureOf))];
@@ -53,7 +54,8 @@ export async function render({ params, me }) {
     </style>
     ${isManager() ? '' : seg}
     ${kind === 'quy_trinh' && selected ? html`<div><a href="#/quy-trinh">‹ Tất cả quy trình</a><h2 style="overflow-wrap:anywhere">${selected}</h2></div>` : ''}
-    ${editor ? html`<div class="toolbar"><a class="btn" href="#${createUrl}">${kind === 'quy_trinh' ? (groupHome ? '+ Tạo quy trình mới' : '+ Thêm bài vào quy trình') : '+ Soạn nội quy mới'}</a></div>` : ''}
+    ${editor && !procedureReady ? html`<div class="alert warn">Cần cập nhật máy chủ để tạo nhiều quy trình. Các bài hiện có vẫn xem và sửa được.</div>` : ''}
+    ${editor && procedureReady ? html`<div class="toolbar"><a class="btn" href="#${createUrl}">${kind === 'quy_trinh' ? (groupHome ? '+ Tạo quy trình mới' : '+ Thêm bài vào quy trình') : '+ Soạn nội quy mới'}</a></div>` : ''}
     ${unread ? html`<div class="alert warn">Bạn còn ${unread} nội quy chưa xác nhận đã đọc.</div>` : ''}
     ${groupHome ? (groups.length ? groups.map((name) => {
       const items = visible.filter((d) => procedureOf(d) === name);
