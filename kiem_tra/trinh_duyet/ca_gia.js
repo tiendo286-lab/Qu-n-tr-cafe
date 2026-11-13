@@ -324,6 +324,14 @@ export function makeCa(T, me) {
       return { data: JSON.parse(JSON.stringify(RECON[p_id])), original: snap(p_id), employees, editable: r.recon_status !== 'hoan_thanh', recon_status: r.recon_status,
         log: RLOG.filter((l) => l.report_id === p_id).slice().reverse() };
     },
+    // bước 67: Chủ sửa thẳng — chỉ trường của mục đang sửa
+    app_ca_recon_direct({ p_id, p, p_reason, p_items }) {
+      if (me.role !== 'chu') throw new Error('Chỉ Chủ sửa thẳng được.'); if (!(p_reason || '').trim()) throw new Error('Ghi lý do sửa.');
+      const F = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
+      const ok = new Set(p_items.flatMap((i) => F[i] || [])); const q = Object.fromEntries(Object.entries(p).filter(([k]) => ok.has(k)));
+      const r = rep(p_id); const st = r.recon_status; r.recon_status = 'x';
+      try { this.app_ca_recon_save({ p_id, p: q, p_reason: 'Chủ sửa thẳng: ' + p_reason }); } finally { r.recon_status = st; }
+    },
     app_ca_recon_save({ p_id, p, p_reason }) {
       const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
       if (!RECON[p_id]) RECON[p_id] = snap(p_id);

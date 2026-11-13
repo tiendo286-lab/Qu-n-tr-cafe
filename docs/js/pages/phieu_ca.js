@@ -10,7 +10,7 @@ import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
 import { renderNew } from '../chot_ca_moi.js';
-import { DEN_CSS, mountLights } from '../doi_soat_den.js';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, getDirect, mountLights } from '../doi_soat_den.js';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
@@ -183,12 +183,13 @@ export async function render({ params }) {
   const R = isDs ? mergeRecon(R0, RC) : R0;
   const cat = await catalog().catch(() => null);
   const SH = cat ? cat.branchShifts(R.branch_id).find((x) => x.name === R.shift) || null : null;
-  const ed = isDs ? !!RC.editable : !!R.can_edit;
+  // bước 51: mục web tự đối soát (khớp file Fabi + ngân hàng) → nhạt đi, khoá
+  const LK = isDs ? await rpc('app_ca_auto_locks', { p_id: id }).catch(() => null) : null;
+  const DIR = isDs && LK?.is_chu ? getDirect(id) : null;   // bước 67: Chủ sửa thẳng mục đã đối soát
+  const ed = isDs ? !!RC.editable || !!DIR : !!R.can_edit;
   // Bước 32: phiếu chia 3 phần việc — chỉ người nhận phần (chưa bấm Xong) được sửa phần đó
   const P = !isDs && R0.status === 'dang_chot' ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;
   const PD = isDs ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;   // ai làm từng phần (trang đối soát)
-  // bước 51: mục web tự đối soát (khớp file Fabi + ngân hàng) → nhạt đi, khoá
-  const LK = isDs ? await rpc('app_ca_auto_locks', { p_id: id }).catch(() => null) : null;
   const lkItem = (it) => !!LK && (LK.items || []).includes(it);
   const KT = isDs ? await rpc('app_ca_kt_state', { p_id: id }).catch(() => null) : null;   // bước 57: phần tiền chờ kế toán?
   const PT = P ? Object.fromEntries((P.parts || []).map((p) => [p.part, p])) : {};
@@ -218,7 +219,7 @@ export async function render({ params }) {
       : html`<span class="rc-chip ${c ? 'on' : ''}" title="${t}">${CHECK_LABEL[item]}: ${label}</span>`;
   };
   const doneItem = (it) => lkItem(it) || !!(R.checks || {})[it];   // bước 56: mục đã đối soát → nhạt + khoá, sửa bằng nút "Sửa"
-  const sec = (title, items, inner, idAttr = '') => html`<section class="card stack pc-sec ${isDs && items.length && items.every(doneItem) ? 'pc-auto' : ''}" ${idAttr ? html`id="${idAttr}"` : ''}>
+  const sec = (title, items, inner, idAttr = '') => html`<section class="card stack pc-sec ${isDs && items.length && items.every(doneItem) && !(DIR && items.some((i) => DIR.items.includes(i))) ? 'pc-auto' : ''}" ${idAttr ? html`id="${idAttr}"` : ''}>
     <div class="pc-sec-head"><h2>${title}</h2><div class="rc-chips">${items.map(chip)}</div></div>${inner}</section>`;
 
   // A. Thời gian
@@ -471,7 +472,7 @@ export async function render({ params }) {
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
     html: html`${STYLE}${HD_CSS}${DT_CSS}${head}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT }); },
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT, DIR }); },
   };
 }
 
@@ -528,12 +529,15 @@ function collect() {
 }
 
 function mount(R, ed, C0, ctx = {}) {
-  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT } = ctx;
+  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT, DIR } = ctx;
   let saveNow = null;
   // bước 51: trường thuộc mục web đã tự đối soát → không sửa được (máy chủ cũng giữ nguyên số cũ)
-  if (isDs && LK && (LK.fields || []).length) {
+  // bước 67: Chủ sửa thẳng → chỉ mở trường của mục đang sửa, khoá mọi trường khác
+  const dirF = DIR ? DIR.items.flatMap((i) => ITEM_FIELDS[i] || []) : null;
+  const LKF = dirF ? ALL_FIELDS.filter((f) => !dirF.includes(f)) : (LK?.fields || []);
+  if (isDs && LKF.length) {
     const lock = (el) => { if (!el) return; el.disabled = true; el.closest('.pc-f')?.classList.add('pc-lk'); };
-    LK.fields.forEach((f) => {
+    LKF.forEach((f) => {
       if (f === 'moves') { $$('#moves input, #moves select, #moves button').forEach(lock); $('#add-move')?.remove(); }
       else if (f === 'staff') { $$('#staff input, #staff select, #staff button').forEach(lock); $('#helper')?.closest('.pc-line')?.remove(); }
       else if (f === 'goods') { $$('#goods input, #goods button').forEach(lock); $('#add-good')?.remove(); }
@@ -868,7 +872,8 @@ function mount(R, ed, C0, ctx = {}) {
     const hoRows = $$('.ho-row'); const dbRows = $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id);
     const payload = collect();
     payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: 'muon' })));
-    const call = isDs ? rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: $('#rc-reason')?.value || null }) : rpc('app_ca_save', { p_id: R.id, p: payload });
+    const call = isDs ? (DIR ? rpc('app_ca_recon_direct', { p_id: R.id, p: payload, p_reason: DIR.why, p_items: DIR.items })
+      : rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: $('#rc-reason')?.value || null })) : rpc('app_ca_save', { p_id: R.id, p: payload });
     saving = call.then((res) => {
       if (!isDs) {
         (res.handover_ids || []).forEach((nid, i) => { if (nid && hoRows[i]) hoRows[i].dataset.id = nid; });

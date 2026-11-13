@@ -4,10 +4,19 @@
 import { render as rerender } from './app.js';
 import { rpc } from './sb.js';
 import { fmt, signed } from './tien.js';
-import { $, html, showSaved, str } from './ui.js';
+import { $, dialog, html, showSaved, str } from './ui.js';
 import { openBankOut } from './phieu_chi_ck.js';
 
 const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
+// bước 67: trường số liệu của từng mục (giống app__ca_item_fields trên máy chủ) + chế độ Chủ sửa thẳng (nhớ trong thẻ trình duyệt)
+export const ITEM_FIELDS = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash'],
+  tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'],
+  nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
+export const ALL_FIELDS = [...new Set(Object.values(ITEM_FIELDS).flat())];
+const DKEY = 'dsDirect';
+export function getDirect(id) { try { const d = JSON.parse(sessionStorage.getItem(DKEY) || 'null'); return d && d.id === id ? d : null; } catch (_) { return null; } }
+function setDirect(d) { try { sessionStorage.setItem(DKEY, JSON.stringify(d)); } catch (_) { /* bỏ qua */ } }
+export function clearDirect() { try { sessionStorage.removeItem(DKEY); } catch (_) { /* bỏ qua */ } }
 const LBL = { nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', thoi_gian: 'Thời gian doanh thu', doanh_thu: 'Doanh thu & số cốc', tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ', nhap_hang: 'Nhập hàng' };
 const KT_ITEMS = ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
 const STEP = { nhan_su: 0, ban_giao: 0, thoi_gian: 1, doanh_thu: 1, tien_mat: 1, chuyen_khoan: 1, thu_chi: 1, cong_no: 1, nhap_hang: 2 };
@@ -66,7 +75,10 @@ export async function mountLights(box, R0, R) {
     : (fabi.diff || []).length || (fabi.fixed || []).length ? html`<span class="pill off">Fabi ✗ đã sửa theo Fabi</span> <span class="st-meta">${[...(fabi.fixed || []).map((x) => `${x.label}: ${fmt(x.before)} → ${fmt(x.fabi)}`), ...(fabi.diff || []).filter((d) => !(fabi.fixed || []).some((x) => x.label === d.label)).map((x) => `${x.label}: NV ${fmt(x.nv)} → Fabi ${fmt(x.fabi)}`)].join(' · ')}</span>`
       : html`<span class="pill ok">Fabi ✓ khớp phiếu</span>`;
   const extra = fabi ? [(fabi.tra_no || []).length ? `khách trả nợ ${fabi.tra_no.map((t) => t.method + ' ' + fmt(t.amount)).join(', ')}` : '', (fabi.sua || []).length ? `⚠️ ${fabi.sua.length} hóa đơn sửa / xóa trên Fabi: ${fabi.sua.map((s) => fmt(s.amount)).join(', ')}` : ''].filter(Boolean) : [];
-  box.innerHTML = str(html`<div class="pc-sec-head"><h2>Đèn đối soát</h2><div>${fb}</div></div>
+  const DIR = LK?.is_chu ? getDirect(R0.id) : null;
+  box.innerHTML = str(html`${DIR ? html`<div class="alert warn den-dir"><div><strong>Chủ đang sửa thẳng: ${DIR.items.map((i) => LBL[i]).join(', ')}</strong> — phiếu giữ nguyên đối soát, không phải duyệt lại; mỗi thay đổi ghi nhật ký. Lý do: ${DIR.why}</div>
+      <div class="toolbar" style="gap:8px;margin-top:6px"><button type="button" class="btn sm secondary" data-ds-go="${STEP[DIR.items[0]]}">Tới chỗ sửa</button><button type="button" class="btn sm" id="den-dir-done">Xong, khoá lại</button></div></div>` : ''}
+    <div class="pc-sec-head"><h2>Đèn đối soát</h2><div>${fb}</div></div>
     ${kt && kt.need && !kt.ready && waitN ? html`<div class="alert info"><strong>Phần tiền chờ kế toán</strong> — còn thiếu: ${(kt.missing || []).join(', ')}. Nhân sự, Bàn giao, Nhập hàng đối soát được ngay.</div>`
       : kt && kt.need && kt.ready ? html`<div class="st-meta">✓ Kế toán đã đủ file Fabi và chuyển khoản ngân hàng — phần tiền tính theo số chính thức.</div>` : ''}
     ${extra.length ? html`<div class="alert warn">${extra.join(' · ')}</div>` : ''}
@@ -101,7 +113,9 @@ export async function mountLights(box, R0, R) {
     } catch (e) { showSaved(e.message, true); b.disabled = false; }
   }));
   // bước 56: sửa 1 mục đã đối soát → chỉ mục đó mở lại; duyệt lại là phiếu tự hoàn thành
+  $('#den-dir-done', box)?.addEventListener('click', () => { clearDirect(); showSaved('Đã xong sửa thẳng.'); rerender(); });
   box.querySelectorAll('.den-edit').forEach((b) => b.addEventListener('click', async () => {
+    if (LK?.is_chu) { chuEdit(b.dataset.item); return; }
     const why = prompt(`Sửa mục "${LBL[b.dataset.item]}": chỉ mục này mở lại, các mục khác giữ nguyên. Duyệt lại mục này là phiếu tự hoàn thành.\nLý do sửa:`, '');
     if (why === null) return;
     if (!why.trim()) { showSaved('Ghi lý do sửa.', true); return; }
@@ -109,6 +123,27 @@ export async function mountLights(box, R0, R) {
     try { await rpc('app_ca_item_reopen', { p_id: R0.id, p_item: b.dataset.item, p_reason: why }); showSaved(`Đã mở mục ${LBL[b.dataset.item]} để sửa.`); rerender(); }
     catch (e) { showSaved(e.message, true); b.disabled = false; }
   }));
+  // bước 67: Chủ chọn Sửa thẳng (giữ đối soát) hoặc Mở lại mục
+  function chuEdit(it) {
+    const direct = !!ITEM_FIELDS[it];
+    const dl = dialog(html`<form class="stack" style="gap:12px;width:min(480px, calc(100vw - 56px))"><h2 style="margin:0">Sửa mục ${LBL[it]}</h2>
+      <label class="field"><span>Lý do sửa</span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm số tiền"></label>
+      ${direct ? html`<div class="st-meta"><b>Sửa thẳng</b>: sửa số liệu mục này ngay, phiếu giữ nguyên đối soát, không phải duyệt lại.<br><b>Mở lại mục</b>: mục này về chưa đối soát, sửa xong duyệt lại.</div>`
+        : html`<div class="st-meta">Mục này không có số liệu để sửa thẳng — mở lại mục rồi duyệt lại.</div>`}
+      <div class="den-err"></div>
+      <div class="toolbar" style="justify-content:flex-end;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm secondary" data-x>Huỷ</button>
+        <button type="button" class="btn sm secondary" data-reopen>Mở lại mục</button>${direct ? html`<button type="submit" class="btn sm">Sửa thẳng</button>` : ''}</div></form>`);
+    const f = dl.querySelector('form'); const err = (m) => { dl.querySelector('.den-err').innerHTML = str(html`<div class="alert error">${m}</div>`); };
+    dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
+    dl.querySelector('[data-reopen]').addEventListener('click', async () => {
+      const why = f.why.value.trim(); if (!why) { err('Ghi lý do sửa.'); return; }
+      try { await rpc('app_ca_item_reopen', { p_id: R0.id, p_item: it, p_reason: why }); dl.close(); showSaved(`Đã mở mục ${LBL[it]} để sửa.`); rerender(); } catch (e) { err(e.message); }
+    });
+    f.addEventListener('submit', (ev) => {
+      ev.preventDefault(); const why = f.why.value.trim(); if (!why) { err('Ghi lý do sửa.'); return; }
+      setDirect({ id: R0.id, items: [it], why }); dl.close(); showSaved(`Đang sửa thẳng mục ${LBL[it]} — sửa xong bấm "Xong, khoá lại".`); rerender();
+    });
+  }
 }
 
 export const DEN_CSS = html`<style>

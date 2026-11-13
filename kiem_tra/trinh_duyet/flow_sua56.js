@@ -30,8 +30,8 @@ export default async ({ sleep, out }) => {
     $('#den-ok').click(); for (let i = 0; i < 300 && (await rpc('app_ca_get', { p_id: id })).recon_status !== 'hoan_thanh'; i++) await sleep(100);
     await go();
     r.push(`Đã đối soát: ${(await rpc('app_ca_get', { p_id: id })).recon_status} · nút Sửa ${$$('.den-edit').length} · nút cũ: Hoàn thành ${!!$('#rc-finish')} · Mở lại cả phiếu (Chủ) ${!!$('#rc-reopen')} · mục nhạt ${$$('.pc-sec.pc-auto').length} · ${W()}`);
-    window.prompt = () => 'ghi thiếu việc bàn giao';
-    $$('.den-edit').find((x) => x.dataset.item === 'ban_giao').click();
+    $$('.den-edit').find((x) => x.dataset.item === 'ban_giao').click(); await wait('dialog[open] form'); await sleep(200);
+    $('dialog[open] [name=why]').value = 'ghi thiếu việc bàn giao'; $('dialog[open] [data-reopen]').click();
     for (let i = 0; i < 100 && (await rpc('app_ca_get', { p_id: id })).recon_status === 'hoan_thanh'; i++) await sleep(100); await sleep(1500); await wait('.den-row');
     r.push(`Sau Sửa Bàn giao: ${(await rpc('app_ca_get', { p_id: id })).recon_status} · ${txt('.alert.warn')} · mục nhạt ${$$('.pc-sec.pc-auto').map((s) => s.querySelector('h2').innerText.split('\n')[0].slice(0, 22)).join(' | ')}`);
     r.push(`Ô khoá: giờ ${$('#rev_end')?.disabled} · doanh thu ${$('#total_revenue')?.disabled} · két ${$('#cash_counted')?.disabled} · nhân viên ${$$('#staff select').every((x) => x.disabled)} · Đèn: ${$$('.den-row').map((x) => (x.classList.contains('done') ? '✓' : x.classList.contains('g') ? '🟢' : '·') + x.querySelector('strong').innerText.replace('🔒 ', '').slice(0, 10)).join(' ')}`);

@@ -409,6 +409,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Bước 66** (`66_doi_phieu_chi_ck_thanh_vay.sql`, anh chốt "làm giống tiền mặt"): khoản "(chuyển khoản từ …, ca …)" tạo bằng nút Phiếu chi ở Đối soát ca cũng **đổi thành cho vay** được. Phiếu chi giữ nguyên → tiền chuyển ra của ca, chuyển khoản của ca, Sổ quỹ không đổi (dòng Cho vay thay dòng Chi). Khoản vay chỉ đổi người vay / ghi chú; xoá khoản vay → khoản chi trở lại Thu chi (nhóm cũ); xoá phiếu chi → xoá luôn khoản vay (khi chưa có lần trả).
 - Tháng đã chốt: không sửa được (máy chủ cũng chặn).
 
+## 5r5. Chủ sửa thẳng ở Đối soát ca — CHỐT và ĐÃ LÀM 13/11/2026 (`supabase/67_chu_sua_thang_doi_soat.sql`)
+- Mục đã đối soát (kể cả web tự đối soát, phiếu đã HOÀN THÀNH ĐỐI SOÁT): **Chủ** bấm "Sửa" → hộp chọn **Sửa thẳng** hoặc **Mở lại mục** (cả hai đều ghi lý do).
+- Sửa thẳng: chỉ mở ô của đúng mục đó (các ô khác khoá), sửa xong bấm "Xong, khoá lại". Phiếu **giữ nguyên đối soát**, không duyệt lại; nhật ký ghi số cũ → số mới, lý do "Chủ sửa thẳng: …".
+- Chỉ các mục có số liệu (Thời gian, Doanh thu, Tiền mặt, Chuyển khoản, Thu chi, Nhân viên, Nhập hàng); Bàn giao / Công nợ chỉ Mở lại mục. Người khác: như cũ (mở lại mục). Tháng đã chốt: không sửa được.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
