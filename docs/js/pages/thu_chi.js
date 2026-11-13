@@ -11,7 +11,7 @@ import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, norm, showSaved, str } from '../ui.js';
 import { KA_STATUS } from './phieu_ca.js';
-import { mountLoans } from '../cho_vay.js';
+import { mountLoans, toLoan } from '../cho_vay.js';
 
 export const perm = 'doi_soat';
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
@@ -66,6 +66,7 @@ export async function render(ctx) {
     return html`${blank ? html`<option value="">— Chọn nhóm —</option>` : ''}${ts.map((t) => { const g = cs.filter((c) => catById.get(c.id)?.type_id === t.id); return g.length ? html`<optgroup label="${t.name}">${g.map(o)}</optgroup>` : ''; })}${loose.map(o)}${withX ? html`<option value="x" ${sel === 'x' ? 'selected' : ''}>Không tính</option>` : ''}`; };
   const catSel = (r) => { const v = r.status === 'cho' ? r.category_id || '' : r.excluded ? 'x' : r.category_id || '';
     return html`<select class="input sm tc-cat" aria-label="Nhóm" title="Chọn nhóm là đối soát luôn">${catOpts(r.kind, v, r.src === 'ca', v === '')}</select>`; };
+  const loanOn = (b) => (D.loan_branches || []).includes(b);
   const lead = (r, pick) => html`<span class="tc-lead">${pick && !r.locked ? html`<input type="checkbox" class="tc-pick" aria-label="Chọn khoản">` : html`<span class="tc-pick0"></span>`}${pmTag(r)}</span>`;
   const kaRow = (r) => {
     const br = brById.get(r.branch_id); const st = KA_STATUS[r.ka_status] || [r.ka_status, 'mute'];
@@ -85,12 +86,13 @@ export async function render(ctx) {
     const br = brById.get(r.branch_id);
     const src = r.src === 'ca' ? html`<a href="#/ca/phieu?id=${r.report_id}">Phiếu ca ${r.shift}</a>${r.by ? ` (${r.by})` : ''}` : html`Quản lý tạo · ${r.by || ''}`;
     const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
+      : r.loan_id ? html`<span class="st-meta">Đã đổi thành cho vay — xem khung Cho vay</span>`
       : html`<span class="tc-do">${catSel(r)}${r.src === 'ca' && r.status === 'cho' && r.category_id ? html`<button type="button" class="btn sm tc-okc" title="Đối soát với nhóm đang chọn">✓</button>` : ''}
           ${r.src === 'tay' ? html`<button type="button" class="btn sm secondary tc-ed">Sửa</button>${r.bank_out ? '' : html`<button type="button" class="btn sm secondary danger tc-del" aria-label="Xóa">×</button>`}`
             : r.auto ? '' : html`<button type="button" class="btn sm secondary tc-med">Sửa</button>`}</span>`;
     return html`<div class="tc-r ${r.status === 'cho' ? 'todo' : r.excluded ? 'off' : ''}" data-i="${r.i}" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-type="${typeOf(r)?.id || ''}" data-cat="${r.category_id || ''}" data-q="${norm(`${r.note} ${r.category || ''} ${typeOf(r)?.name || ''} ${br?.code || ''} ${PAY[r.pay] || ''}`)}">
-      ${lead(r, true)}<div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
-        <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · ${src}${r.status === 'da' ? html` · <b>${r.excluded ? 'Không tính' : path(r)}</b>` : ''}${r.auto ? ' · khoản tự động' : ''}${r.bank_out ? ' · từ phiếu chi chuyển khoản (Đối soát ca)' : ''}</div></div>
+      ${lead(r, !r.loan_id)}<div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
+        <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · ${src}${r.status === 'da' ? html` · <b>${r.loan_id ? 'Đã đổi thành cho vay' : r.excluded ? 'Không tính' : path(r)}</b>` : ''}${r.auto ? ' · khoản tự động' : ''}${r.bank_out ? ' · từ phiếu chi chuyển khoản (Đối soát ca)' : ''}</div></div>
       <div class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ</div>
       <div class="tc-s">${r.status === 'cho' ? html`<span class="pill warn">Chờ đối soát</span>` : html`<span class="pill ok" title="${r.src === 'ca' ? `${r.checked_by || ''} · ${dt(r.checked_at)}` : ''}">✓ Đã đối soát</span>`}
         ${r.src === 'ca' ? html`<div><a class="st-meta" href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Đối soát ca ›</a></div>` : ''}</div>
@@ -260,9 +262,10 @@ export async function render(ctx) {
           <label class="field"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${e.amount ? fmt(e.amount) : ''}" autocomplete="off"></label>
           <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" ${(e.pay || 'tien_mat') === 'tien_mat' ? 'checked' : ''}> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan" ${e.pay === 'chuyen_khoan' ? 'checked' : ''}> Chuyển khoản</label></div>
           <div id="tc-err"></div>
-          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+          <div class="toolbar" style="justify-content:flex-end">${e.id && e.kind === 'chi' && !e.bank_out && loanOn(e.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         bindMoneyInputs(d);
         const f = d.querySelector('form');
+        d.querySelector('.tc-2loan')?.addEventListener('click', () => { d.close(); toLoan(brById.get(e.branch_id), e, again); });
         if (e.bank_out) f.querySelectorAll('[name=kind], [name=br], [name=date], [name=amt], [name=pay]').forEach((x) => { x.disabled = true; });
         f.addEventListener('change', (ev) => { if (ev.target.name === 'kind') f.cat.innerHTML = str(opts(ev.target.value, '')); });
         d.querySelector('[data-x]').addEventListener('click', () => d.close());
@@ -291,8 +294,9 @@ export async function render(ctx) {
             : html`Đổi số tiền / hình thức chỉ được khi mục <b>Tiền mặt / Chuyển khoản</b> của ca chưa đối soát. Ca đã đối soát thì nhờ Chủ / Quản lý tổng sửa.`}</div>
           <label class="field tc-why" hidden><span>Lý do sửa số tiền / hình thức (bắt buộc)</span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm 50.000 thành 500.000"></label>
           <div id="tc-err"></div>
-          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+          <div class="toolbar" style="justify-content:flex-end">${r.kind === 'chi' && loanOn(r.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         bindMoneyInputs(d);
+        d.querySelector('.tc-2loan')?.addEventListener('click', () => { d.close(); toLoan(br, r, again); });
         const f = d.querySelector('form'); const val = () => ({ kind: f.querySelector('[name=kind]:checked').value, amt: parseMoney(f.amt.value), pay: f.querySelector('[name=pay]:checked').value });
         const sync = () => { const x = val(); const ch = x.kind !== r.kind || x.amt !== Number(r.amount) || x.pay !== (r.pay || 'tien_mat'); d.querySelector('.tc-mw').hidden = !ch; d.querySelector('.tc-why').hidden = !ch; return ch; };
         f.addEventListener('input', sync);

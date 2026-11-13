@@ -59,6 +59,7 @@ export function makeFin(T, me) {
         const c = T.fin_move_cats.find((z) => z.report_id === r.id && z.mkey === mkey);
         out.push({ src: 'ca', report_id: r.id, mkey, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: x.amount < 0 ? 'chi' : 'thu', pay: x.kind, amount: Math.abs(x.amount), note: x.note,
           category_id: c ? c.category_id : null, category: T.fin_categories.find((k) => k.id === c?.category_id)?.name || null, excluded: c ? !!c.excluded : x.amount > 0,
+          loan_id: (T.branch_loans || []).find((l) => l.report_id === r.id && l.mkey === mkey)?.id || null,
           status: c?.checked ? 'da' : 'cho', checked_by: c?.checked ? name(c.checked_by) : null, checked_at: c?.checked_at || null, by: 'NV chốt ca', locked: locked(r.branch_id, r.work_date) });
       });
     });
@@ -76,7 +77,7 @@ export function makeFin(T, me) {
     return out.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
   };
   const tc = {
-    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), can_money: !!me.perms?.doi_soat, can_direct: admin(), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
+    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), can_money: !!me.perms?.doi_soat, can_direct: admin(), loan_branches: T.branches.filter((b) => (b.display_code || b.code) === 'LHP').map((b) => b.id), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
       branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && tcCan(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
     // Bước 35: gom việc chờ đối soát
     app_ds_todo() {
@@ -187,7 +188,7 @@ export function makeFin(T, me) {
       const mine = T.branch_loans.filter((l) => l.branch_id === p_branch);
       return { enabled: true, can_people: admin(),
         people: T.loan_people.map((p) => { const ls = mine.filter((l) => l.person_id === p.id); const lent = ls.reduce((s, l) => s + l.amount, 0); const paid = ls.reduce((s, l) => s + paidOf(l), 0); return { ...p, lent, paid, owe: lent - paid }; }),
-        loans: mine.map((l) => ({ ...l, person: T.loan_people.find((p) => p.id === l.person_id)?.name, paid: paidOf(l), locked: false, by: 'admin – Chủ', payments: T.loan_pays.filter((y) => y.loan_id === l.id).map((y) => ({ ...y, locked: false, by: 'admin – Chủ' })) })).reverse() };
+        loans: mine.map((l) => ({ ...l, shift: l.report_id ? T.shift_reports.find((x) => x.id === l.report_id)?.shift : null, person: T.loan_people.find((p) => p.id === l.person_id)?.name, paid: paidOf(l), locked: false, by: 'admin – Chủ', payments: T.loan_pays.filter((y) => y.loan_id === l.id).map((y) => ({ ...y, locked: false, by: 'admin – Chủ' })) })).reverse() };
     },
     app_loan_people: () => ({ can_edit: admin(), people: (T.loan_people || []).map((p) => ({ ...p, used: (T.branch_loans || []).some((l) => l.person_id === p.id) })) }),
     app_loan_person_save({ p_id, p_name, p_phone, p_note, p_active }) {
@@ -216,7 +217,15 @@ export function makeFin(T, me) {
       if (!(p_amount > 0)) throw new Error('Nhập số tiền trả lớn hơn 0.'); if (p_amount > owe) throw new Error(`Số tiền trả lớn hơn số còn nợ của khoản này (${owe}).`);
       Object.assign(y, { date: p_date, amount: p_amount, method: p_method, note: p_note || '' }); return p_id;
     },
-    app_loan_delete({ p_id }) { T.branch_loans = T.branch_loans.filter((l) => l.id !== p_id); },
+    app_loan_delete({ p_id }) { const l = T.branch_loans.find((x) => x.id === p_id); T.branch_loans = T.branch_loans.filter((x) => x.id !== p_id); if (l?.report_id) T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === l.report_id && z.mkey === l.mkey)); },
+    app_tc_to_loan({ p, p_person, p_note }) {
+      T.branch_loans = T.branch_loans || []; const id = Math.max(0, ...T.branch_loans.map((l) => l.id)) + 1;
+      if (p.src === 'tay') { const e = T.fin_entries.find((x) => x.id === p.id); if (e.kind !== 'chi') throw new Error('Chỉ khoản CHI mới đổi thành cho vay được.');
+        T.branch_loans.push({ id, branch_id: e.branch_id, person_id: p_person, date: e.entry_date, amount: e.amount, method: e.pay_method, note: p_note || e.note }); T.fin_entries = T.fin_entries.filter((x) => x !== e); return id; }
+      const row = tcRows(null, '2000-01-01', '2999-12-31').find((x) => x.src === 'ca' && x.report_id === p.report_id && x.mkey === p.mkey);
+      T.branch_loans.push({ id, branch_id: row.branch_id, person_id: p_person, date: row.date, amount: row.amount, method: row.pay, note: p_note || row.note, report_id: p.report_id, mkey: p.mkey });
+      tc.app_tc_check({ p_report: p.report_id, p_mkey: p.mkey, p_category: null, p_excluded: true, p_checked: true }); return id;
+    },
     app_loan_pay_delete({ p_id }) { T.loan_pays = T.loan_pays.filter((y) => y.id !== p_id); },
     app_fin_types: () => ({ types: T.fin_cat_types, cats: T.fin_categories.map((c) => ({ id: c.id, kind: c.kind, name: c.name, type_id: c.type_id, sort_order: c.sort_order, active: !!c.active })), can_edit: admin() }),
     app_fin_type_save({ p_id, p_kind, p_name, p_sort, p_active }) {

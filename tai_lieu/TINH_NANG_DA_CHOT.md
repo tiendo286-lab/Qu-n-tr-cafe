@@ -405,6 +405,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Đổi nhóm hàng loạt**: tích nhiều dòng (hoặc "Chọn tất cả khoản đang hiện") → chọn 1 nhóm → Đổi nhóm. Phải cùng là khoản chi (hoặc cùng là thu); "Không tính" chỉ cho khoản phiếu ca.
 - Khoản tạo từ **phiếu chi chuyển khoản** (Đối soát ca): chỉ đổi nhóm / nội dung; số tiền, ngày, hình thức, xoá → làm ở Đối soát ca.
 - **Cho vay**: nút **Sửa** khoản vay (người vay, ngày, số tiền ≥ số đã trả, hình thức, ghi chú) và **Sửa** lần trả (không quá số còn nợ).
+- **Đổi khoản chi thành cho vay** (cơ sở bật Cho vay — LHP; nút "Đổi thành cho vay" trong hộp Sửa, chọn người vay): khoản **quản lý tạo** → bỏ khỏi Thu chi, thành khoản vay cùng ngày / số tiền / hình thức (Sổ quỹ trừ 1 lần ở dòng Cho vay). Khoản **phiếu ca** → thành "Không tính" + khoản vay ghi "từ phiếu ca" (Sổ quỹ không trừ thêm vì tiền đã ra khỏi két trong ca); khoản vay đó chỉ đổi người vay / ghi chú, xoá khoản vay thì khoản trở lại Thu chi (chờ đối soát).
 - Tháng đã chốt: không sửa được (máy chủ cũng chặn).
 
 ## 6. Đã bỏ hẳn
