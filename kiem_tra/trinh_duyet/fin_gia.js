@@ -246,8 +246,8 @@ export function makeFin(T, me) {
     // bước 70: khách nợ (quản lý ghi, không thuộc ca) + khách nợ từ phiếu ca
     app_cn_debts({ p_branch }) {
       const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
-      const open = (T.shift_debts || []).filter((d) => d.branch_id === p_branch && !d.closed_at && d.kind !== 'muon' && (d.report_id == null || T.shift_reports.find((r) => r.id === d.report_id)?.status === 'hoan_thanh'))
-        .map((d) => { const r = T.shift_reports.find((x) => x.id === d.report_id); return { id: d.id, name: d.table_name, phone: d.phone || null, amount: d.amount, note: d.note || '', date: r ? r.work_date : (d.created_at || today).slice(0, 10), shift: r?.shift || null, report_id: d.report_id ?? null, by_ql: d.report_id == null, by: 'admin – Chủ', split: !!d.split_from, paid_before: 0, gap_report: d.gap_report || null, gap_ca: d.gap_report ? 'Sáng' : null }; });
+      const open = (T.shift_debts || []).filter((d) => d.branch_id === p_branch && !d.closed_at && (d.report_id == null || T.shift_reports.find((r) => r.id === d.report_id)?.status === 'hoan_thanh'))
+        .map((d) => { const r = T.shift_reports.find((x) => x.id === d.report_id); return { id: d.id, kind: d.kind || 'bill', name: d.table_name, phone: d.phone || null, amount: d.amount, note: d.note || '', date: r ? r.work_date : (d.created_at || today).slice(0, 10), shift: r?.shift || null, report_id: d.report_id ?? null, by_ql: d.report_id == null, by: 'admin – Chủ', split: !!d.split_from, paid_before: 0, gap_report: d.gap_report || null, gap_ca: d.gap_report ? 'Sáng' : null }; });
       return { can_edit: admin() || me.role === 'ql', open };
     },
     app_cn_debt_save({ p_id, p }) {

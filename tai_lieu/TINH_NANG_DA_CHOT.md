@@ -479,6 +479,12 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Dưới bảng ở cả 2 tab**: phần **"Khách nợ / khách mượn trong tuần"** — ngày, ca, khách, số tiền, "Chưa trả · x ngày" hoặc "✓ Đã trả TM/CK · ca … ngày …" (bấm mở phiếu). Tab Đối soát: phần nợ nằm trên "Việc chờ đối soát".
 - **Sửa 13/11 (bước 81)**: ghi **số tiền đầy đủ** (128.000, không viết 128k); **bỏ các dòng tổng** (tổng cả tuần, tiền cả ngày, tổng tiền nợ chưa trả); ô và chữ to hơn (điện thoại vuốt ngang trong bảng). Cột cuối tab Đối soát đổi tên **Kiểm đếm** (chỉ trạng thái kiểm đếm cuối ngày).
 
+## 5r16. Bỏ chữ "khách mượn" — Nợ TM / Nợ HĐ — CHỐT và ĐÃ LÀM 13/11/2026 (bước 82, máy chủ 80_no_tm_no_hd.sql)
+- Mọi khoản đều là **NỢ**, chia 2 loại: **Nợ TM** (khách cầm tiền mặt của quán — trước gọi "khách mượn") và **Nợ HĐ** (khách chưa trả hóa đơn — trước gọi "khách nợ"). Cách tính tiền giữ nguyên (Nợ TM trừ vào tiền mặt trong két).
+- Đổi chữ ở phiếu chốt ca (bước "Nợ HĐ", nút "+ Nợ TM", nhắc "Khách đang nợ"), phiếu xem lại, bảng tuần Chốt ca / Đối soát, Thu chi, Âm tiền.
+- Thu chi › Công nợ và ô "Nợ" của Thu chi **tính cả Nợ TM** (trước chỉ Nợ HĐ); mỗi dòng có nhãn Nợ TM / Nợ HĐ.
+- Còn chờ anh duyệt: nút "Công nợ gia đình" khi tạo người vay + nút "Chuyển sang gia đình" trong Công nợ.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

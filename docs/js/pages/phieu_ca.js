@@ -304,10 +304,10 @@ export async function render({ params }) {
       <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am">Mở phiếu trừ lương trong Thu chi</a></div>` : ''}
     <div class="pc-sub">CHI TIẾT THU CHI <span class="st-meta">— giải trình từng khoản làm tiền lệch (số âm = chi/thiếu, số dương = thu/thừa)</span></div>
     <div id="moves">${(R.moves || []).map((m) => moveRow(m, edT))}</div>
-    ${(R.debts || []).filter((d) => d.kind === 'muon').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách mượn – ${d.table_name}</strong> · ${vnd(-d.amount)} · tiền mặt
+    ${(R.debts || []).filter((d) => d.kind === 'muon').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Nợ TM – ${d.table_name}</strong> · ${vnd(-d.amount)} · tiền mặt
         <div class="st-meta">Tiền ra khỏi két, không tính chi phí; các ca sau thấy để đòi${d.note ? ' · ' + d.note : ''}${d.closed_at ? ` · đã trả ${dt(d.closed_at)}` : ''}</div></div></div>`)}
-    ${(R.open_debts || []).filter((d) => d.kind === 'muon' && d.closed_report_id === R.id).map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách trả tiền mượn – ${d.table_name}</strong> · +${vnd(d.amount)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}
-        <div class="st-meta">Mượn ca ${d.from_shift} ${dmy(d.from_date)}</div></div></div>`)}
+    ${(R.open_debts || []).filter((d) => d.kind === 'muon' && d.closed_report_id === R.id).map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách trả Nợ TM – ${d.table_name}</strong> · +${vnd(d.amount)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}
+        <div class="st-meta">Nợ ca ${d.from_shift} ${dmy(d.from_date)}</div></div></div>`)}
     ${edT ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`);
 
   // D. Công nợ
@@ -479,8 +479,8 @@ export async function render({ params }) {
       <div class="pc-part-h">② Phần tiền</div>${partBar('tien')}${secTime}${secMoney}${secDiff}${secDebt}${partDone('tien')}${foot}`;   // bước 78
   // bước 70: nhắc khách đang nợ ở đầu phiếu chốt ca (nhân viên nhớ thu)
   const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
-  const nhacNo = !isDs && ed && odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ / mượn ${R.branch_code}: ${odOpen.length} khoản · ${vnd(odOpen.reduce((t, d) => t + Number(d.amount || 0), 0))}</strong>
-      <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${(d.kind === 'muon' ? 'Khách mượn – ' + d.table_name : d.by_ql ? d.table_name : 'Bàn ' + d.table_name)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì bấm "Khách đã trả" ở mục 4 (${wizard ? 'bước Tiền: thu chi' : 'Khách chưa thanh toán'}).</div></div>` : '';
+  const nhacNo = !isDs && ed && odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ ${R.branch_code}: ${odOpen.length} khoản · ${vnd(odOpen.reduce((t, d) => t + Number(d.amount || 0), 0))}</strong>
+      <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${(d.kind === 'muon' ? 'Nợ TM – ' + d.table_name : 'Nợ HĐ – ' + (d.by_ql ? d.table_name : 'Bàn ' + d.table_name))} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì bấm "Khách đã trả" ở mục 4 (${wizard ? 'bước Tiền: thu chi' : 'Khách chưa thanh toán'}).</div></div>` : '';
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
     html: html`${STYLE}${HD_CSS}${DT_CSS}${head}${nhacNo}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form>`,
@@ -667,8 +667,8 @@ function mount(R, ed, C0, ctx = {}) {
     const hg = M ? Number(M.handover_gap || 0) : 0;
     const box = (label, init, moves, col, left, formula, hand = 0, sal = 0, loan = 0) => html`<div class="diff-card"><div class="pc-sub" style="margin:0">${label}</div>
       <div class="kv"><div>Chênh lệch ban đầu</div><div>${init === null ? '—' : signed(init)} <span class="st-meta">${formula}</span></div>
-        <div>Đã kê khai thu chi</div><div>${signed(moves)}${sal ? html`<div class="st-meta">gồm chi lương tiền mặt ${signed(-sal)} (mục Nhân viên)</div>` : ''}${loan ? html`<div class="st-meta">gồm khách mượn tiền ${signed(-loan)}</div>` : ''}</div>
-        ${col ? html`<div>Khách trả nợ / trả tiền mượn ca trước</div><div>${signed(col)}</div>` : ''}
+        <div>Đã kê khai thu chi</div><div>${signed(moves)}${sal ? html`<div class="st-meta">gồm chi lương tiền mặt ${signed(-sal)} (mục Nhân viên)</div>` : ''}${loan ? html`<div class="st-meta">gồm Nợ TM ${signed(-loan)}</div>` : ''}</div>
+        ${col ? html`<div>Khách trả nợ ca trước</div><div>${signed(col)}</div>` : ''}
         ${hand ? html`<div>Ca sau nhận két lệch</div><div>${signed(hand)}</div>` : ''}
         <div><strong>Chưa giải trình</strong></div><div><strong>${left === null ? '—' : signed(left)}</strong></div>
         <div>Kết quả</div><div>${result(left)}</div></div></div>`;

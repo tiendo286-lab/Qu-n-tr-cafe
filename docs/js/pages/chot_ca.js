@@ -15,8 +15,8 @@ export function debtBadges(x) {
   if (!x) return '';
   const tao = x.tao || []; const thu = x.thu || [];
   const open = tao.filter((d) => !d.paid); const sumA = (a) => a.reduce((t, d) => t + Number(d.amount || 0), 0);
-  const who = (d) => `${d.kind === 'muon' ? 'Khách mượn' : 'Khách nợ'} ${d.name} ${nk(d.amount)}`;
-  const word = (a) => (a.length && a.every((d) => d.kind === 'muon') ? 'Mượn' : 'Nợ');
+  const who = (d) => `${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'} ${d.name} ${nk(d.amount)}`;
+  const word = () => 'Nợ';
   return html`${tao.length ? (open.length
       ? html`<span class="nb open" title="${tao.map((d) => `${who(d)} — ${d.paid ? `đã trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'} ca ${d.paid_shift || ''} ${String(d.paid_date || '').slice(8, 10)}/${String(d.paid_date || '').slice(5, 7)}` : 'CHƯA TRẢ'}`).join('\n')}">${word(open)} ${nk(sumA(open))} chưa trả</span>`
       : html`<span class="nb ok" title="${tao.map((d) => `${who(d)} — đã trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'} ca ${d.paid_shift || ''} ${String(d.paid_date || '').slice(8, 10)}/${String(d.paid_date || '').slice(5, 7)}`).join('\n')}">${word(tao)} ${nk(sumA(tao))} đã trả</span>`) : ''}
@@ -30,8 +30,8 @@ const nf = (n) => fmt(Math.abs(Number(n) || 0));   // bước 81: số đầy đ
 export function debtLines(x) {
   if (!x) return '';
   const tao = x.tao || []; const thu = x.thu || [];
-  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Mượn' : 'Nợ'} ${d.name} ${nf(d.amount)} · ${d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
-  const two = (d) => html`<span class="nl thu">Thu nợ ${d.name} ${nf(d.amount)} (${pk(d.collect_kind)}, nợ ca ${d.from_shift || 'QL ghi'} ${dmS(d.from_date)})</span>`;
+  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'} ${d.name} ${nf(d.amount)} · ${d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
+  const two = (d) => html`<span class="nl thu">Thu ${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'} ${d.name} ${nf(d.amount)} (${pk(d.collect_kind)}, nợ ca ${d.from_shift || 'QL ghi'} ${dmS(d.from_date)})</span>`;
   return html`${tao.map(one)}${thu.map(two)}`;
 }
 // reps: [{ report_id, day, shift }] theo thứ tự bảng
@@ -40,10 +40,10 @@ export function debtSection(DEBT, reps) {
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const days = (d) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 864e5));
   const open = rows.filter((d) => !d.paid);
-  return html`<section class="card nd-card"><div class="nd-h"><h2>Khách nợ / khách mượn trong tuần</h2><span class="st-meta">${rows.length ? html`${rows.length} khoản · <b class="${open.length ? 'neg' : ''}">còn ${open.length} chưa trả</b>` : 'Không có'}</span></div>
+  return html`<section class="card nd-card"><div class="nd-h"><h2>Khách nợ trong tuần</h2><span class="st-meta">${rows.length ? html`${rows.length} khoản · <b class="${open.length ? 'neg' : ''}">còn ${open.length} chưa trả</b>` : 'Không có'}</span></div>
     ${rows.length ? html`<div class="nd-list">${rows.map((d) => html`<a class="nd-r ${d.paid ? 'ok' : 'open'}" href="#/ca/phieu?id=${d.report_id}">
         <span class="nd-w"><b>${dmS(d.day)}</b> · ca ${d.shift}</span>
-        <span class="nd-n"><b>${d.name}</b> <span class="st-meta">${d.kind === 'muon' ? 'khách mượn' : 'khách nợ'}</span></span>
+        <span class="nd-n"><b>${d.name}</b> <span class="st-meta">${d.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span></span>
         <span class="nd-a">${nf(d.amount)}</span>
         <span class="nd-s">${d.paid ? `✓ Đã trả ${pk(d.collect_kind)} · ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : `Chưa trả · ${days(d.day)} ngày`}</span></a>`)}</div>` : ''}
     <div class="st-meta">Khoản nợ còn từ các tuần trước xem ở Thu chi › Công nợ.</div></section>`;

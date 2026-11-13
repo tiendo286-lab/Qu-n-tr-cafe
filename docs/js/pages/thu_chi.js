@@ -13,6 +13,7 @@ import { bindMoneyInputs, dmy, dt, fmt, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, norm, showSaved, str } from '../ui.js';
 import { KA_STATUS } from './phieu_ca.js';
 import { mountLoans, toLoan } from '../cho_vay.js';
+const ntm = (s) => String(s || '').replace(/^Khách mượn – /, 'Nợ TM – ');   // bước 82: bỏ chữ "khách mượn" (ghi chú tự động cũ từ máy chủ)
 
 export const perm = 'doi_soat';
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
@@ -136,7 +137,7 @@ export async function render(ctx) {
     const catCls = r.loan_id ? 'loan' : r.status === 'cho' ? 'need' : r.excluded ? 'off' : '';
     const who = r.src === 'ca' ? [r.checked_by, dt(r.checked_at)].filter(Boolean).join(' · ') : 'quản lý tạo';
     return html`<div class="tc-r ${ok ? (r.excluded ? 'off' : '') : 'todo'}" data-i="${r.i}" role="button" tabindex="0" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-type="${typeOf(r)?.id || ''}" data-cat="${r.category_id || ''}" data-q="${norm(`${r.note} ${r.category || ''} ${typeOf(r)?.name || ''} ${r.by || ''} ${r.checked_by || ''} ${PAY[r.pay] || ''} ca ${r.shift || ''}`)}">
-      ${pmTag(r)}<div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
+      ${pmTag(r)}<div class="tc-m"><strong>${ntm(r.note) || '(không ghi nội dung)'}</strong>
         <div class="st-meta">${src}${r.auto ? ' · khoản tự động' : ''}${r.bank_out ? ' · từ phiếu chi chuyển khoản' : ''}${r.locked ? ' · tháng đã chốt' : ''}</div></div>
       <div class="tc-rt"><span class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}</span>
         <button type="button" class="tc-ok ${ok ? 'y' : 'n'}" aria-pressed="${ok}" aria-label="${ok ? 'Đã đối soát' : 'Tích để đối soát'}" title="${ok ? 'Đã đối soát' : 'Tích để đối soát'}">${ok ? '✓' : ''}</button></div>
@@ -172,7 +173,7 @@ export async function render(ctx) {
       <div class="tc-kpis">
         ${kpi('k-thu', 'thu', 'Thu', `+${fmt(thu)}`, `TM ${short(byPm(thuR, 'tien_mat'))} · CK ${short(byPm(thuR, 'chuyen_khoan'))}`)}
         ${kpi('k-chi', 'chi', 'Chi', `−${fmt(chi)}`, `TM ${short(byPm(chiR, 'tien_mat'))} · CK ${short(byPm(chiR, 'chuyen_khoan'))}`)}
-        ${kpi('k-no', '', 'Nợ', fmt(SM?.debts?.sum || 0), `khách nợ chưa thu · ${SM?.debts?.n || 0} khoản`)}
+        ${kpi('k-no', '', 'Nợ', fmt(SM?.debts?.sum || 0), `Nợ TM + Nợ HĐ chưa thu · ${SM?.debts?.n || 0} khoản`)}
         ${kpi('k-vay', '', 'Cho vay', fmt(SM?.loans_left || 0), 'còn nợ (vay + trả hộ − đã trả)')}
         ${kpi('k-ds', pend.length ? 'warn' : '', 'Đã đối soát', `${nChk} / ${real.length}`, pend.length ? `còn ${pend.length} khoản chờ` : 'đã hết')}
         ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Chênh lệch tiền', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)} ›`)}
@@ -192,7 +193,7 @@ export async function render(ctx) {
         </section>
         <div class="tc-side">
           <section class="card tc-sc"><h2>Cần phân loại <small>${pend.length} khoản</small></h2>
-            ${todo.length ? html`${todo.map((r) => html`<div class="tc-td" data-i="${r.i}"><div class="tc-tdh"><b>${r.note || '(không ghi)'}</b><span class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}</span></div>
+            ${todo.length ? html`${todo.map((r) => html`<div class="tc-td" data-i="${r.i}"><div class="tc-tdh"><b>${ntm(r.note) || '(không ghi)'}</b><span class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}</span></div>
                 <div class="st-meta">${dmy(r.date)} · Ca ${r.shift || ''} · ${r.by || ''} · ${(r.pay || 'tien_mat') === 'chuyen_khoan' ? 'CK' : 'TM'}</div>${r.locked ? '' : catSel(r)}</div>`)}
               ${pend.length > todo.length ? html`<button type="button" class="tc-chip" id="tc-allpend">Xem cả ${pend.length} khoản trong sổ ›</button>` : ''}`
               : html`<div class="st-meta">Đã phân loại hết. 👍</div>`}</section>
@@ -334,7 +335,7 @@ export async function render(ctx) {
         const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">Đối soát khoản</h2>
           <div class="st-meta">${dmy(r.date)} · ${r.src === 'ca' ? `Ca ${r.shift}${r.by ? ` · ghi: ${r.by}` : ''}` : 'Quản lý tạo'} · “${r.note}” <b>${r.kind === 'chi' ? '−' : '+'}${vnd(r.amount)}</b> (${PAY[r.pay] || ''})</div>
           <label class="field"><span>Nhóm (chọn là đối soát)</span><select class="input" name="cat">${catOpts(r.kind, v0, r.src === 'ca')}</select></label>
-          ${r.auto ? html`<div class="st-meta">Khoản tự động (chi lương / khách mượn) — sửa số tiền ở phiếu ca.</div>` : ''}
+          ${r.auto ? html`<div class="st-meta">Khoản tự động (chi lương / Nợ TM) — sửa số tiền ở phiếu ca.</div>` : ''}
           <div id="tc-err"></div>
           <div class="toolbar" style="justify-content:flex-end">${r.src === 'ca' && !r.auto ? html`<button type="button" class="btn sm secondary tc-full" style="margin-right:auto">Sửa số tiền / nội dung…</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Đối soát</button></div></form>`);
         const f = d.querySelector('form');
@@ -355,7 +356,7 @@ export async function render(ctx) {
         const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản thu / chi' : 'Thêm khoản'} · ${brById.get(br0)?.code || ''}</h2>
           ${e.id ? html`<div class="st-meta">Quản lý tạo · ${e.by || ''} — khoản quản lý tạo là <strong>đã đối soát</strong>.</div>` : ''}
           ${e.bank_out ? html`<div class="alert warn">Khoản này tạo từ phiếu chi chuyển khoản ở Đối soát ca: chỉ đổi nhóm / nội dung${loanOn(e.branch_id) ? ' hoặc đổi thành cho vay' : ''} ở đây. Sai số tiền thì xoá phiếu chi ở Đối soát ca rồi tạo lại.</div>` : ''}
-          <div class="tc-kinds" role="radiogroup" aria-label="Loại khoản"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Thu</label>${canLoan ? html`<label class="radio-pill"><input type="radio" name="kind" value="vay"> Cho vay</label>` : ''}${canTra ? html`<label class="radio-pill"><input type="radio" name="kind" value="traho"> Trả hộ Kho tổng</label>` : ''}${canNo ? html`<label class="radio-pill"><input type="radio" name="kind" value="no"> Khách nợ</label>` : ''}</div>
+          <div class="tc-kinds" role="radiogroup" aria-label="Loại khoản"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Thu</label>${canLoan ? html`<label class="radio-pill"><input type="radio" name="kind" value="vay"> Cho vay</label>` : ''}${canTra ? html`<label class="radio-pill"><input type="radio" name="kind" value="traho"> Trả hộ Kho tổng</label>` : ''}${canNo ? html`<label class="radio-pill"><input type="radio" name="kind" value="no"> Nợ HĐ</label>` : ''}</div>
           <input type="hidden" name="br" value="${br0}">
           <label class="field"><span>Ngày</span><input class="input" type="date" name="date" value="${e.date || (vnToday().startsWith(month) ? vnToday() : month + '-01')}"></label>
           <label class="field"><span>Nhóm (bắt buộc)</span><select class="input" name="cat">${opts(kind, e.category_id || '')}</select></label>

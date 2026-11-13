@@ -205,7 +205,7 @@ export async function render({ params }) {
       <span class="toolbar" style="gap:6px"><button type="button" class="btn sm td-keep">Giữ trừ lương</button><a class="btn sm secondary" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${String(k.work_date).slice(0, 7)}">Sửa / xóa</a></span></div>`;
   const loanRow = (d) => html`<div class="td-r" data-br="${d.branch_id}">
       <div class="td-m"><strong>${d.name} · ${fmt(d.amount)}đ</strong> ${d.days >= 3 ? html`<span class="pill off">${d.days} ngày</span>` : html`<span class="pill mute">${d.days} ngày</span>`}
-        <div class="st-meta">${d.branch} · mượn ca ${d.shift} ${dmy(d.date)}${d.by ? ` · ${d.by} ghi` : ''}${d.note ? ` · ${d.note}` : ''}</div></div>
+        <div class="st-meta">${d.branch} · Nợ TM ca ${d.shift} ${dmy(d.date)}${d.by ? ` · ${d.by} ghi` : ''}${d.note ? ` · ${d.note}` : ''}</div></div>
       <a class="btn sm secondary" href="#/ca/phieu?id=${d.report_id}">Xem phiếu ca</a></div>`;
   const todo = html`<section class="card stack td-card" id="td">
       <div class="bc-head"><h2 style="margin:0">Việc chờ đối soát</h2>
@@ -229,7 +229,7 @@ export async function render({ params }) {
           ${list.length ? list.map((c) => html`<div class="td-r" data-br="${c.branch_id}"><div class="td-m"><strong>${dmy(c.date)} · ${c.branch} · Ca ${c.shift}</strong>${c.state === 'lech' ? html` <span class="pill off">nhân sự đã đổi — phân loại lại</span>` : ''}
               <div class="st-meta">${c.absent ? `Nghỉ: ${c.absent}` : ''}${c.absent && c.helper ? ' · ' : ''}${c.helper ? `Hỗ trợ: ${c.helper}` : ''}${c.x2 ? ` · x2: ${c.x2}` : ''}${c.set_by ? ` · phân loại: ${c.set_by}` : ''}</div></div>
             <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${c.id}&buoc=1">Mở bước Nhân sự ›</a></div>`) : html`<div class="st-meta">Không có.</div>`}`)}</div>
-      <div class="td-sec" id="td-muon"><h3>5. Khách mượn tiền chưa trả</h3>${(LO || []).length ? LO.map(loanRow) : html`<div class="st-meta">Không có.</div>`}</div>
+      <div class="td-sec" id="td-muon"><h3>5. Nợ TM chưa trả</h3>${(LO || []).length ? LO.map(loanRow) : html`<div class="st-meta">Không có.</div>`}</div>
     </section>`;
 
   return {

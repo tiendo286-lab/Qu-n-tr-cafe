@@ -74,11 +74,11 @@ function section(b, d) {
       <span class="toolbar" style="gap:8px"><span class="ln-owe">còn nợ ${vnd(p.owe)}</span>${p.owe > 0 ? html`<button type="button" class="btn sm secondary ln-pay-btn" data-p="${p.id}">Ghi trả nợ</button>` : ''}</span></div>`;
   return html`<section class="card stack ln-sec" data-b="${b.id}" style="gap:8px">
     <div class="ln-h"><h2 style="margin:0">Công nợ — ${b.code}</h2><span class="st-meta">còn <b>${vnd(tot)}</b></span></div>
-    <div class="ln-btns"><button type="button" class="btn sm ln-new">+ Cho vay</button>${d.tra_ho_ok && kt ? html`<button type="button" class="btn sm secondary ln-traho">+ Trả hộ Kho tổng</button>` : ''}${d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-new">+ Khách nợ</button>` : ''}${d.can_people ? html`<a class="btn sm secondary" href="#/cai-dat/nguoi-vay">Người vay</a>` : ''}</div>
+    <div class="ln-btns"><button type="button" class="btn sm ln-new">+ Cho vay</button>${d.tra_ho_ok && kt ? html`<button type="button" class="btn sm secondary ln-traho">+ Trả hộ Kho tổng</button>` : ''}${d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-new">+ Nợ HĐ</button>` : ''}${d.can_people ? html`<a class="btn sm secondary" href="#/cai-dat/nguoi-vay">Người vay</a>` : ''}</div>
     ${K && (K.owe > 0 || kL.length) ? html`<div class="ln-g">Kho tổng</div>${person(K, `vay ${vnd(kVay)} + trả hộ ${vnd(kTra)} · đã trả ${vnd(K.paid)}`)}` : ''}
     ${owing.length ? html`<div class="ln-g">Người vay</div>${owing.map((p) => person(p, `Đã vay ${vnd(p.lent)} · đã trả ${vnd(p.paid)}`))}` : ''}
     <div class="ln-g">Khách hàng nợ</div>
-    ${cus.length ? cus.map((x) => { const n = daysAgo(x.date); return html`<div class="ln-p cn-row" data-id="${x.id}"><div class="grow"><strong>${x.name}</strong>${x.phone ? html` · <span class="st-meta">${x.phone}</span>` : ''}
+    ${cus.length ? cus.map((x) => { const n = daysAgo(x.date); return html`<div class="ln-p cn-row" data-id="${x.id}"><div class="grow"><span class="pill ${x.kind === 'muon' ? 'warn' : 'info'}">${x.kind === 'muon' ? 'Nợ TM' : 'Nợ HĐ'}</span> <strong>${x.name}</strong>${x.phone ? html` · <span class="st-meta">${x.phone}</span>` : ''}
         <div class="st-meta">${dmy(x.date)} · <span class="${n > 7 ? 'ln-late' : ''}">${n ? `${n} ngày` : 'hôm nay'}</span> · ${x.gap_report ? html`<a href="#/quan-ly/doi-soat/ca?id=${x.gap_report}">ghi nhận ở đối soát ca ${x.gap_ca || ''}</a>` : x.by_ql ? `quản lý ghi (${x.by || ''})` : html`<a href="#/ca/phieu?id=${x.report_id}">phiếu ca ${x.shift || ''}</a>`}${x.paid_before ? ` · đã trả ${vnd(x.paid_before)}` : ''}${x.note ? ` · ${x.note}` : ''}</div></div>
         <span class="toolbar ln-act" style="gap:6px"><span class="ln-owe">${vnd(x.amount)}</span>${x.by_ql && !x.split && !x.gap_report && d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-ed">Sửa</button><button type="button" class="btn sm secondary danger cn-del" aria-label="Xoá khách nợ">×</button>` : ''}</span></div>`; })
       : html`<div class="st-meta">Không có khách nợ.</div>`}
@@ -125,8 +125,8 @@ function bind(sec, b, d, onChange) {
   sec.querySelector('.ln-traho')?.addEventListener('click', () => loanForm(null, 'tra_ho'));
   // bước 70: khách nợ do quản lý ghi (không thuộc ca)
   const debtForm = (x) => {
-    const dl = dialog(html`<form class="stack ln-dlg" style="gap:12px"><h2 style="margin:0">${x ? 'Sửa khách nợ' : 'Ghi khách nợ'} — ${b.code}</h2>
-      <div class="st-meta">Khách nợ hiện ở đầu mọi phiếu chốt ca sau để nhân viên nhớ thu (trả một phần được).</div>
+    const dl = dialog(html`<form class="stack ln-dlg" style="gap:12px"><h2 style="margin:0">${x ? 'Sửa Nợ HĐ' : 'Ghi Nợ HĐ'} — ${b.code}</h2>
+      <div class="st-meta">Nợ HĐ: khách chưa trả hóa đơn. Hiện ở đầu mọi phiếu chốt ca sau để nhân viên nhớ thu (trả một phần được).</div>
       <label class="field"><span>Tên khách</span><input class="input" name="nm" autocomplete="off" value="${x ? x.name : ''}" placeholder="vd: Công ty B, chị Hoa bàn 5"></label>
       <label class="field"><span>Số điện thoại</span><input class="input" name="ph" inputmode="tel" autocomplete="off" value="${x ? x.phone || '' : ''}"></label>
       <label class="field"><span>Ngày nợ</span><input class="input" type="date" name="d" value="${x ? x.date : today()}" ${x ? 'disabled' : ''}></label>
