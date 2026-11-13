@@ -203,7 +203,7 @@ export async function renderNew(R0, P, SH) {
     4: () => html`<div class="st-meta">Cộng các giao dịch chuyển khoản <strong>đã nhận trên hotline</strong> trong ca rồi nhập tổng.</div>
         <label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span><input class="input money" id="cm-hot" inputmode="numeric" autocomplete="off" value="${V.reported_transfer === null ? '' : fmt(V.reported_transfer)}"></label>
         <div id="cm-ck-box">${ckBox()}</div>`,
-    5: () => html`<div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc tiền bỏ thêm vào két (kể cả tiền quản lý rút ra). Không cần ảnh hóa đơn.</div>
+    5: () => html`<div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc tiền bỏ thêm vào két (kể cả tiền quản lý rút ra). Không cần ảnh hóa đơn. Chỉ chọn <b>Thu / Chi</b> và ghi nội dung — quản lý phân loại sau. <b>Két thiếu tiền không ghi ở đây</b> (web tự tính chênh lệch).</div>
       ${V.moves.map((m, i) => html`<div class="cm-person"><div class="cm-ph">${m.kind === 'chuyen_khoan' ? html`<span class="pill info">Chuyển khoản</span>` : html`<div class="cm-seg"><button type="button" data-mt="${i}" data-v="-1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) < 0}">Chi ra</button><button type="button" data-mt="${i}" data-v="1" aria-pressed="${(m.sign || (Number(m.amount) > 0 ? 1 : -1)) > 0}">Thu vào</button></div>`}
           <button type="button" class="btn sm secondary danger" data-mx="${i}">Xóa</button></div>
         <div class="cm-line2"><input class="input sm" data-mv="${i}" data-k="note" value="${m.note || ''}" placeholder="Nội dung, vd: mua đá"><input class="input sm money" data-mv="${i}" data-k="amount" inputmode="numeric" value="${m.amount ? fmt(Math.abs(m.amount)) : ''}" placeholder="Số tiền"></div></div>`)}
@@ -313,6 +313,8 @@ export async function renderNew(R0, P, SH) {
         if (!V.moves.length && !V.debts.some(isLoan) && !V.noMoves) return 'Thêm khoản thu chi, hoặc tích "Ca này không có thu chi".';
         if (V.debts.some((d) => isLoan(d) && (!(d.table_name || '').trim() || !(Number(d.amount) > 0)))) return 'Khách mượn tiền: ghi tên khách và số tiền.';
         if (V.moves.some((m) => !(m.note || '').trim() || !Number(m.amount))) return 'Khoản nào cũng phải có nội dung và số tiền.';
+        // bước 73: tiền thiếu để thành chênh lệch — không ghi "âm / thiếu tiền" vào thu chi
+        if (V.moves.some((m) => /(âm|thiếu|thieu|hụt|hut)\s*(tiền|tien|két|ket)/i.test(m.note || ''))) return 'Không ghi "âm / thiếu tiền" vào thu chi. Két thiếu thì cứ đếm đúng số thực tế — web tự tính chênh lệch, quản lý xử lý ở đối soát.';
         return '';
       case 6: return V.cups === null ? 'Nhập số cốc.' : '';
       case 7: return c.tmLeft !== 0 && !V.diff_note.trim() ? 'Ghi lý do lệch tiền.' : '';

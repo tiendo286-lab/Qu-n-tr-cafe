@@ -221,3 +221,6 @@ input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirr
 .sidebar .nav-grp { font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a9b89a; padding: 14px 12px 4px; }
 .sidebar .nav-grp.sep { padding: 6px 0 0; margin: 8px 12px 4px; border-top: 1px solid rgba(255, 255, 255, .12); }
 @media (max-width: 900px) { .sidebar .nav-grp { flex-basis: 100%; padding: 8px 4px 2px; } .sidebar .nav-grp.sep { margin: 6px 4px 2px; } }
+
+/* bước 73: thanh mục con (Quản lý ca có 4 mục) vừa màn hình điện thoại */
+@media (max-width: 560px) { .hub-tabs { gap: 0; } .hub-tabs a { padding: 9px 8px; font-size: 13px; } }

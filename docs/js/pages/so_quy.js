@@ -346,7 +346,7 @@ async function renderExt(month, head) {
         try { await rpc('app_ext_entry_delete', { p_id: e.id }); flash('Đã xóa khoản.'); rerender(); } catch (err) { showSaved(err.message, true); }
       }));
       const form = (e = {}) => {
-        const kind = e.kind || 'chi'; const mode = e.alloc_mode || 'doanh_thu'; const man = e.manual || {};
+        const kind = e.kind || 'chi'; const mode = e.alloc_mode || 'deu'; const man = e.manual || {};   // bước 73: mặc định gợi ý chia đều
         const opts = (k, sel) => html`<option value="">— Chọn nhóm —</option>${cats(k).map((c) => html`<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}`;
         const d = dialog(html`<form class="stack sq-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản ngoài' : 'Khoản chi / thu ngoài'}</h2>
           <div class="pc-line" role="radiogroup" aria-label="Loại"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Khoản chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Khoản thu</label></div>

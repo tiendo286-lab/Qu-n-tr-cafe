@@ -92,6 +92,9 @@ export default async ({ sleep, out }) => {
     $('#cm-add-move').click(); await sleep(200);
     r.push(`Thu chi 2 dòng: hàng nút ${Math.round($('#cm-body .cm-ph').getBoundingClientRect().width)}px · ${$$('#cm-body .cm-ph')[0].innerText.replace(/\s+/g, ' ')} · nút Thu vào rộng ${Math.round($('[data-mt="0"][data-v="1"]').getBoundingClientRect().width)}px · ${W()}`);
     $('[data-mx="1"]').click(); await sleep(200);
+    // bước 73: không ghi "âm tiền" vào thu chi
+    setv($('[data-mv="0"][data-k="note"]'), 'Âm tiền két'); await next(); r.push(`ghi "Âm tiền": ${txt('#cm-err')} · còn ở ${txt('#cm-root h2')}`);
+    setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); await sleep(200);
     r.push(`Chiều thấy khách mượn: ${$$('#cm-body .cm-person').map((x) => x.innerText.replace(/\s+/g, ' ')).pop()} · danh sách QL ${(await rpc('app_ca_loans_open')).length}`);
     { const sel = $('[data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change')); await sleep(1200); }
     await next();

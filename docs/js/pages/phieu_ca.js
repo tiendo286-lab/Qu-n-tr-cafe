@@ -502,6 +502,7 @@ function missingList(v, c, R) {
   if (((H && H.state === 'lech') || ipDiff) && !(v.opening_note || '').trim()) m(0, 'Ghi lý do lệch tiền đầu ca');
   if (!(R.photos || []).some((p) => p.kind === 'ipos')) m(0, 'Ảnh phiếu chốt ca iPOS');
   if (v.moves.some((x) => !x.amount || !x.note)) m(1, 'Dòng thu chi thiếu số tiền hoặc nội dung');
+  if (v.moves.some((x) => !x.auto && /(âm|thiếu|thieu|hụt|hut)\s*(tiền|tien|két|ket)/i.test(x.note || ''))) m(1, 'Không ghi "âm / thiếu tiền" vào thu chi — két thiếu thì đếm đúng số thực tế, web tự tính chênh lệch');   // bước 73
   if (v.debts.some((d) => (d.table_name || '').trim() && !(Number(d.amount) > 0))) m(1, 'Bàn còn nợ thiếu số tiền');
   v.staff.forEach((x) => {
     const row = $(`.st-row[data-emp="${x.employee_id}"] strong`); const nm = row ? row.textContent : 'nhân viên';

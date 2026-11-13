@@ -449,6 +449,10 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Kiểm quỹ** mỗi tuần 1 lần (quản lý tự chọn ngày), web nhắc khi quá 7 ngày. Kiểm lệch → **Điều chỉnh…**: tạo khoản chi (thiếu) / thu (thừa) ở Thu chi cùng ngày kiểm, nhóm bắt buộc, để sổ khớp tiền thật (mỗi lần kiểm điều chỉnh 1 lần).
 - Số dư đầu 01/11 = 0 (giữ nút nhập số dư đầu của tháng bắt đầu sổ).
 
+## 5r10. Phần nhân viên + Quỹ ngoài — CHỐT 13/11/2026, ĐÃ LÀM (chỉ giao diện)
+- Phiếu chốt ca (bước Thu chi trong ca): nhân viên chỉ chọn **Thu / Chi** + nội dung + số tiền (quản lý phân loại sau). **Không cho ghi "âm / thiếu / hụt tiền" vào thu chi** — két thiếu thì đếm đúng số thực tế, web tự tính chênh lệch, quản lý xử lý ở Đối soát / tab Âm tiền. Bản phiếu ở trang quản lý cũng chặn như vậy.
+- Quỹ ngoài: khoản chi / thu ngoài mặc định gợi ý **chia đều** cho các cơ sở (Chủ tự cân đối, đổi cách chia được).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
