@@ -76,7 +76,7 @@ export function makeFin(T, me) {
     return out.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
   };
   const tc = {
-    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
+    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), can_money: !!me.perms?.doi_soat, categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
       branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && tcCan(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
     // Bước 35: gom việc chờ đối soát
     app_ds_todo() {
@@ -114,6 +114,31 @@ export function makeFin(T, me) {
       const row = { branch_id: b, entry_date: p.entry_date, kind: p.kind, category_id: Number(p.category_id), amount: p.amount, note: p.note.trim(), pay_method: p.pay_method || 'tien_mat' };
       const old = p_id ? T.fin_entries.find((e) => e.id === p_id) : null;
       if (old) { Object.assign(old, row); return old.id; } const id = nid('fin_entries'); T.fin_entries.push({ id, ...row, created_by: me.account_id, created_at: now() }); return id;
+    },
+    // bước 65: sửa khoản phiếu ca (giả lập: sửa thẳng dòng phiếu, mang nhóm sang khoá mới) + đổi nhóm hàng loạt
+    app_tc_move_edit({ p_report, p_mkey, p }) {
+      const r = T.shift_reports.find((x) => x.id === p_report); if (!tcCan(r.branch_id)) throw new Error('Bạn không được xem / sửa thu chi của cơ sở này.'); guard(r.branch_id, r.work_date);
+      const seen = {}; const mv = T.shift_report_moves.filter((x) => x.report_id === p_report && x.amount).find((x) => { const h = `${x.kind}|${x.amount}|${x.note}`; seen[h] = (seen[h] || 0) + 1; return h + '#' + seen[h] === p_mkey; });
+      if (!mv) throw new Error('Khoản này vừa thay đổi. Tải lại trang rồi sửa lại.');
+      if (!(p.amount > 0)) throw new Error('Nhập số tiền lớn hơn 0.'); if (!(p.note || '').trim()) throw new Error('Ghi nội dung khoản.');
+      if (!p.excluded && !p.category_id) throw new Error('Chọn nhóm (hoặc "Không tính").');
+      const signed = p.kind === 'chi' ? -p.amount : p.amount; const money = signed !== mv.amount || p.pay !== mv.kind;
+      if (money && !me.perms?.doi_soat) throw new Error('Sửa số tiền / hình thức khoản ở phiếu ca cần quyền Đối soát. Bạn đổi được nhóm và nội dung.');
+      if (money && !(p.reason || '').trim()) throw new Error('Ghi lý do sửa số tiền / hình thức.');
+      Object.assign(mv, { kind: p.pay, amount: signed, note: p.note.trim() });
+      const s2 = {}; let nk = null; T.shift_report_moves.filter((x) => x.report_id === p_report && x.amount).forEach((x) => { const h = `${x.kind}|${x.amount}|${x.note}`; s2[h] = (s2[h] || 0) + 1; if (x === mv) nk = h + '#' + s2[h]; });
+      T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === p_report && (z.mkey === p_mkey || z.mkey === nk))).concat([{ report_id: p_report, mkey: nk, category_id: p.excluded ? null : Number(p.category_id), excluded: p.excluded ? 1 : 0, checked: 1, checked_by: me.account_id, checked_at: now() }]);
+      const reopened = money ? [...new Set([mv.kind, p.pay])] : [];
+      return { reopened, still_open: reopened, auto: null, recon_status: 'mo_lai' };
+    },
+    app_tc_bulk_cat({ p_items, p_category, p_excluded }) {
+      let n = 0;
+      for (const it of p_items) {
+        if (it.src === 'ca') tc.app_tc_check({ p_report: it.report_id, p_mkey: it.mkey, p_category, p_excluded, p_checked: true });
+        else { const e = T.fin_entries.find((x) => x.id === it.id); if (p_excluded) throw new Error(`Khoản "${e.note}" do quản lý tạo — không chọn "Không tính" được.`); guard(e.branch_id, e.entry_date); e.category_id = p_category; }
+        n++;
+      }
+      return n;
     },
     app_tc_entry_delete({ p_id }) { const e = T.fin_entries.find((x) => x.id === p_id); if (!e) return; guard(e.branch_id, e.entry_date); T.fin_entries = T.fin_entries.filter((x) => x !== e); },
   };
@@ -172,9 +197,12 @@ export function makeFin(T, me) {
       if (p_id) { Object.assign(T.loan_people.find((p) => p.id === p_id), { name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: !!p_active }); return p_id; }
       const id = T.loan_people.length + 1; T.loan_people.push({ id, name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: true }); return id;
     },
-    app_loan_save({ p }) {
+    app_loan_save({ p_id, p }) {
       if (!p.person_id) throw new Error('Chọn người vay.'); if (!(p.amount > 0)) throw new Error('Nhập số tiền cho vay lớn hơn 0.');
-      T.branch_loans = T.branch_loans || []; const id = T.branch_loans.length + 1;
+      T.branch_loans = T.branch_loans || [];
+      if (p_id) { const l = T.branch_loans.find((x) => x.id === p_id); const paid = (T.loan_pays || []).filter((y) => y.loan_id === p_id).reduce((s, y) => s + y.amount, 0);
+        if (p.amount < paid) throw new Error(`Số tiền vay không được nhỏ hơn số đã trả (${paid}).`); Object.assign(l, { person_id: p.person_id, date: p.date, amount: p.amount, method: p.method, note: p.note || '' }); return p_id; }
+      const id = T.branch_loans.length + 1;
       T.branch_loans.push({ id, branch_id: p.branch_id, person_id: p.person_id, date: p.date, amount: p.amount, method: p.method, note: p.note || '' }); return id;
     },
     app_loan_pay({ p_loan, p_date, p_amount, p_method, p_note }) {
@@ -182,6 +210,12 @@ export function makeFin(T, me) {
       const owe = l.amount - T.loan_pays.filter((y) => y.loan_id === l.id).reduce((s, y) => s + y.amount, 0);
       if (!(p_amount > 0)) throw new Error('Nhập số tiền trả lớn hơn 0.'); if (p_amount > owe) throw new Error(`Số tiền trả lớn hơn số còn nợ của khoản này (${owe}).`);
       const id = T.loan_pays.length + 1; T.loan_pays.push({ id, loan_id: p_loan, date: p_date, amount: p_amount, method: p_method, note: p_note || '' }); return id;
+    },
+    app_loan_pay_save({ p_id, p_date, p_amount, p_method, p_note }) {
+      const y = T.loan_pays.find((x) => x.id === p_id); const l = T.branch_loans.find((x) => x.id === y.loan_id);
+      const owe = l.amount - T.loan_pays.filter((z) => z.loan_id === l.id && z.id !== p_id).reduce((s, z) => s + z.amount, 0);
+      if (!(p_amount > 0)) throw new Error('Nhập số tiền trả lớn hơn 0.'); if (p_amount > owe) throw new Error(`Số tiền trả lớn hơn số còn nợ của khoản này (${owe}).`);
+      Object.assign(y, { date: p_date, amount: p_amount, method: p_method, note: p_note || '' }); return p_id;
     },
     app_loan_delete({ p_id }) { T.branch_loans = T.branch_loans.filter((l) => l.id !== p_id); },
     app_loan_pay_delete({ p_id }) { T.loan_pays = T.loan_pays.filter((y) => y.id !== p_id); },

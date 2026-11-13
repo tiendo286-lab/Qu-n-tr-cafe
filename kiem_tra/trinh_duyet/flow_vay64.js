@@ -27,6 +27,16 @@ export default async ({ sleep, out }) => {
     r.push(`Sau trả 500.000: ${txt('.ln-p')} · ${txt('.ln-sec .ln-h .st-meta')}`);
     $('.ln-sec details')?.setAttribute('open', ''); await sleep(100);
     r.push(`Lịch sử: ${$$('.ln-l').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · ${W()}`);
+    // bước 65: sửa khoản vay + sửa lần trả
+    $('.ln-ed').click(); await wait('dialog[open] form'); await sleep(200); dl = $('dialog[open]');
+    typ(dl.querySelector('[name=amt]'), '300000'); dl.querySelector('[type=submit]').click(); await sleep(800);
+    r.push(`Sửa vay nhỏ hơn số đã trả: ${txt('.ln-err', dl)}`);
+    typ(dl.querySelector('[name=amt]'), '2500000'); dl.querySelector('[type=submit]').click(); for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('.ln-p');
+    r.push(`Sau sửa vay 2.500.000: ${txt('.ln-p')}`);
+    $('.ln-sec details')?.setAttribute('open', ''); await sleep(100);
+    $('.ln-ped').click(); await wait('dialog[open] form'); await sleep(200); dl = $('dialog[open]');
+    typ(dl.querySelector('[name=amt]'), '700000'); dl.querySelector('[type=submit]').click(); for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('.ln-p');
+    r.push(`Sau sửa lần trả 700.000: ${txt('.ln-p')} · ${W()}`);
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/thu-chi?cn=' + ((await rpc('app_ca_overview', { p_date: new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10) })).find((x) => x.branch_code !== 'LHP').branch_id); await wait('.tc-r, #tc-empty'); await sleep(800);
     r.push(`Thu chi cơ sở khác có khung Cho vay: ${!!$('.ln-sec')}`);
   } catch (e) { r.push('LỖI ' + e.stack); }

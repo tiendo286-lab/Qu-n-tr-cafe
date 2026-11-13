@@ -399,6 +399,14 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Trang **Thu chi** của LHP có khung **Cho vay**: nút Cho vay (người vay, ngày, số tiền, tiền mặt / chuyển khoản, ghi chú), danh sách người còn nợ, **Ghi trả nợ** (trả dần, không quá số còn nợ), lịch sử từng khoản + lần trả (xoá được khi tháng chưa chốt; khoản đã có lần trả phải xoá lần trả trước).
 - Cho vay = **tiền ra khỏi quỹ**, trả nợ = **tiền về quỹ** (Sổ quỹ có dòng "Cho vay: …" / "Trả nợ vay: …"); **không tính chi phí / doanh thu** (chốt tháng không đổi).
 
+## 5r4. Sửa thu chi linh hoạt — CHỐT và ĐÃ LÀM 13/11/2026 (`supabase/65_sua_thu_chi_linh_hoat.sql`)
+- **Đổi nhóm ngay tại dòng** ở trang Thu chi: khoản từ phiếu ca chọn nhóm (hoặc "Không tính") là **đối soát xong**; khoản đã đối soát vẫn đổi lại được tới khi chốt tháng. Khoản quản lý tạo cũng đổi nhóm tại dòng.
+- **Sửa khoản phiếu ca** (nút Sửa): thu / chi, nội dung, số tiền, tiền mặt / chuyển khoản, nhóm. Sửa vào **bản đối soát** (phiếu nhân viên giữ nguyên), nhóm đi theo khoản. Đổi số tiền / hình thức: cần quyền **Đối soát** + **ghi lý do**; mục **Tiền mặt / Chuyển khoản** của ca **mở lại** để duyệt lại (ca dùng file Fabi thì web tự xét lại); mục web tự đối soát chỉ **Chủ** sửa; khoản âm đã xử lý thì không sửa được. Quản lý cơ sở (không có quyền Đối soát) chỉ đổi nội dung + nhóm. Khoản tự động (chi lương, khách mượn) không sửa ở đây.
+- **Đổi nhóm hàng loạt**: tích nhiều dòng (hoặc "Chọn tất cả khoản đang hiện") → chọn 1 nhóm → Đổi nhóm. Phải cùng là khoản chi (hoặc cùng là thu); "Không tính" chỉ cho khoản phiếu ca.
+- Khoản tạo từ **phiếu chi chuyển khoản** (Đối soát ca): chỉ đổi nhóm / nội dung; số tiền, ngày, hình thức, xoá → làm ở Đối soát ca.
+- **Cho vay**: nút **Sửa** khoản vay (người vay, ngày, số tiền ≥ số đã trả, hình thức, ghi chú) và **Sửa** lần trả (không quá số còn nợ).
+- Tháng đã chốt: không sửa được (máy chủ cũng chặn).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
