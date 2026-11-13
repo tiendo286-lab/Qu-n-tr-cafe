@@ -5,7 +5,7 @@ export function makeTl(T, me) {
     { id: 1, kind: 'noi_quy', title: 'Nội quy chung', sort_order: 0, draft_html: '<h2>Giờ giấc</h2><p>Đến trước <b>10 phút</b>.</p><table><thead><tr><th>Ca</th><th>Giờ có mặt</th></tr></thead><tbody><tr><td>Sáng</td><td>06:35</td></tr></tbody></table><p><img data-path="d1/a.jpg" alt=""></p>',
       published_html: '<h2>Giờ giấc</h2><p>Đến trước <b>10 phút</b>.</p><table><thead><tr><th>Ca</th><th>Giờ có mặt</th></tr></thead><tbody><tr><td>Sáng</td><td>06:35</td></tr></tbody></table><p><img data-path="d1/a.jpg" alt=""></p><script>window.__XSS=1</script><img src=x onerror="window.__XSS=2">',
       published_title: 'Nội quy chung', published_version: 1, published_at: now(), published_by: 1, updated_at: now(), updated_by: 1 },
-    { id: 2, kind: 'quy_trinh', title: 'Mở cửa ca sáng', sort_order: 0, draft_html: '<ol><li>Bật điện</li><li>Kê bàn ghế</li></ol>', published_html: '<ol><li>Bật điện</li><li>Kê bàn ghế</li></ol>',
+    { id: 2, kind: 'quy_trinh', title: 'Mở cửa ca sáng', sort_order: 0, draft_html: '<ol><li>Bật điện</li><li>Kê bàn ghế</li><li>Kéo rèm cửa</li></ol>', published_html: '<ol><li>Bật điện</li><li>Kê bàn ghế</li><li>Kéo rèm cửa</li></ol>',
       published_title: 'Mở cửa ca sáng', published_version: 1, published_at: now(), published_by: 1, updated_at: now(), updated_by: 1 },
   ];
   T.doc_reads = []; T.employee_commitments = [];

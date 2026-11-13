@@ -10,6 +10,12 @@ export const DEFAULT_PROCEDURE = 'Quy trình nhân viên order';
 export const procedureOf = (d) => d.procedure_title || DEFAULT_PROCEDURE;
 export const KINDS = { noi_quy: ['Nội quy', '/noi-quy'], quy_trinh: ['Quy trình', '/quy-trinh'] };
 
+// Tìm cả tiêu đề lẫn chữ trong nội dung HTML đã đăng (vd: "kéo rèm").
+const articleSearch = (d) => {
+  const body = new DOMParser().parseFromString(d.published_html || '', 'text/html').body.textContent || '';
+  return norm(`${d.published_title || d.title} ${d.title} ${body}`);
+};
+
 const TRAINING_LABEL = {
   hoan_thanh: ['Đã hoàn thành', 'ok'],
   dang_dao_tao: ['Đang training', 'info'],
@@ -54,7 +60,7 @@ export async function render({ params, me }) {
     const published = d.published_version > 0;
     const read = d.read_version && d.read_version === d.published_version;
     const state = !published ? 'draft' : d.has_draft ? 'changed' : 'published';
-    return html`<details class="card stack doc-card ${isProcedure ? 'qt-doc-card' : ''}" data-search="${norm(`${d.published_title || d.title} ${d.title}`)}" data-state="${state}" ${focus ? (focus === d.id ? 'open' : '') : ((isProcedure ? i === 0 : shown.length <= 2 || i === 0) ? 'open' : '')} id="doc-${d.id}">
+    return html`<details class="card stack doc-card ${isProcedure ? 'qt-doc-card' : ''}" data-search="${articleSearch(d)}" data-state="${state}" ${focus ? (focus === d.id ? 'open' : '') : ((isProcedure ? i === 0 : shown.length <= 2 || i === 0) ? 'open' : '')} id="doc-${d.id}">
       <summary class="doc-sum">${isProcedure ? html`<span class="qt-number">${String(i + 1).padStart(2, '0')}</span>` : ''}<span class="doc-title">${published ? d.published_title : d.title}</span>
         ${kind === 'noi_quy' && me.employee_id && published ? (read ? html`<span class="pill ok">Đã đọc</span>` : html`<span class="pill off">Chưa đọc</span>`) : ''}
         ${editor && !published ? html`<span class="pill mute">Chưa đăng</span>` : ''}
@@ -77,7 +83,7 @@ export async function render({ params, me }) {
     const items = visible.filter((d) => procedureOf(d) === name);
     const published = items.filter((d) => d.published_version > 0).length;
     const draft = countDrafts(items);
-    return html`<article class="card procedure-card" data-href="#${groupUrl(name)}" data-search="${norm(name + ' ' + items.map((d) => `${d.title} ${d.published_title || ''}`).join(' '))}" data-state="${draft ? 'draft' : 'published'}">
+    return html`<article class="card procedure-card" data-href="#${groupUrl(name)}" data-search="${norm(name)} ${items.map(articleSearch).join(' ')}" data-state="${draft ? 'draft' : 'published'}">
       <div class="qt-card-head"><span class="qt-folder" aria-hidden="true">▤</span><span class="pill ${published ? 'ok' : 'mute'}">${published ? 'Đã đăng' : 'Đang soạn'}</span></div>
       <h2><a href="#${groupUrl(name)}">${name}</a></h2><div class="qt-card-meta">${items.length} bài hướng dẫn${editor ? ` · ${published} bài đã đăng` : ''}</div>
       <div class="qt-preview">${items.slice(0, 3).map((d) => html`<div>• ${d.published_title || d.title}</div>`)}</div>
@@ -85,7 +91,7 @@ export async function render({ params, me }) {
       <a class="qt-open" href="#${groupUrl(name)}">Mở quy trình <span aria-hidden="true">→</span></a>
     </article>`;
   });
-  const tools = html`<div class="qt-tools"><label class="qt-search"><span aria-hidden="true">⌕</span><input id="qt-search" class="input" type="search" placeholder="${groupHome ? 'Tìm quy trình hoặc tên bài…' : 'Tìm bài trong quy trình…'}"></label>
+  const tools = html`<div class="qt-tools"><label class="qt-search"><span aria-hidden="true">⌕</span><input id="qt-search" class="input" type="search" placeholder="Tìm trong tên và nội dung…"></label>
     ${editor ? html`<select class="input" id="qt-filter" aria-label="Lọc trạng thái"><option value="all">Tất cả trạng thái</option><option value="published">Đã đăng</option><option value="draft">Chưa đăng</option>${groupHome ? '' : html`<option value="changed">Có sửa đổi chưa đăng</option>`}</select>` : ''}
     <span id="qt-count" class="st-meta">${groupHome ? groups.length + ' quy trình' : shown.length + ' bài'}</span></div>`;
 
@@ -97,7 +103,7 @@ export async function render({ params, me }) {
     ${editor && !procedureReady ? html`<div class="alert warn">Cần cập nhật máy chủ để tạo nhiều quy trình. Các bài hiện có vẫn xem và sửa được.</div>` : ''}
     ${!groupHome && selected === DEFAULT_PROCEDURE ? personalStatus : ''}
     ${tools}
-    ${groupHome ? html`<div class="qt-grid">${procedureCards}</div>` : html`<div class="qt-reader"><aside class="qt-index-side"><details class="card qt-index" open><summary>MỤC LỤC <span>${shown.length} bài</span></summary><nav>${shown.map((d, i) => html`<button type="button" class="qt-index-link" data-doc="${d.id}" data-search="${norm(`${d.published_title || d.title} ${d.title}`)}" data-state="${!d.published_version ? 'draft' : d.has_draft ? 'changed' : 'published'}"><span>${String(i + 1).padStart(2, '0')}</span><span>${d.published_title || d.title}</span></button>`)}</nav></details></aside><div class="qt-articles">${shown.map(card)}</div></div>`}
+    ${groupHome ? html`<div class="qt-grid">${procedureCards}</div>` : html`<div class="qt-reader"><aside class="qt-index-side"><details class="card qt-index" open><summary>MỤC LỤC <span>${shown.length} bài</span></summary><nav>${shown.map((d, i) => html`<button type="button" class="qt-index-link" data-doc="${d.id}" data-search="${articleSearch(d)}" data-state="${!d.published_version ? 'draft' : d.has_draft ? 'changed' : 'published'}"><span>${String(i + 1).padStart(2, '0')}</span><span>${d.published_title || d.title}</span></button>`)}</nav></details></aside><div class="qt-articles">${shown.map(card)}</div></div>`}
     <div class="card qt-empty" id="qt-empty" hidden><strong>Không tìm thấy nội dung phù hợp</strong><span>Thử từ khóa ngắn hơn hoặc chọn lại trạng thái.</span><button class="btn sm secondary" id="qt-reset" type="button">Xóa bộ lọc</button></div>
   </div>`;
 

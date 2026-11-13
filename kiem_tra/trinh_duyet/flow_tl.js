@@ -62,11 +62,15 @@ export default async ({ visit, settle, sleep, out }) => {
     await go('#/quy-trinh');
     assert(txt('.procedure-card').includes('Quy trình nhân viên order'), 'Thiếu bộ quy trình cũ');
     assert(!$('.doc-card'), 'Trang danh sách còn trộn các bài');
+    $('#qt-search').value = 'kéo rèm'; $('#qt-search').dispatchEvent(new Event('input'));
+    assert(!$('.procedure-card').hidden && txt('#qt-count').startsWith('1 '), 'Tìm nội dung không ra bộ quy trình');
     await go('#/quy-trinh?id=2');
     assert($('#doc-2')?.open, 'Liên kết bài cũ không mở đúng bài');
     assert($('#root').textContent.includes('Quy trình nhân viên order'), 'Liên kết bài thiếu tên bộ');
     assert($('.qt-index-link'), 'Thiếu mục lục bài quy trình');
-    return 'Bộ cũ và liên kết bài giữ nguyên';
+    $('#qt-search').value = 'kéo rèm'; $('#qt-search').dispatchEvent(new Event('input'));
+    assert(!$('#doc-2').hidden && txt('#qt-count').startsWith('1 '), 'Tìm nội dung không ra bài');
+    return 'Bộ cũ, liên kết bài và tìm từ nội dung đều đúng';
   });
   await step('Tạo quy trình mới và lưu nháp', async () => {
     await go('#/tai-lieu/soan?loai=quy_trinh');
