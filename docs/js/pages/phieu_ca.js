@@ -457,6 +457,7 @@ export async function render({ params }) {
       <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
   const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
   const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
+      ${!dsPhone ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', dsLeft(0).length + dsLeft(1).length], ['tien', '② Phần tiền', dsLeft(2).length], ['xong', '③ Hoàn thành', -1]].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" data-left="${n}">${l}${n > 0 ? html`<span class="ds-ptn">còn ${n}</span>` : n === 0 ? html`<span class="ds-pto">✓</span>` : ''}</button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_hang')}${secGoods}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('tien')}${secCa}${secDebt}</div>
@@ -730,14 +731,29 @@ function mount(R, ed, C0, ctx = {}) {
     const go = (i) => {
       const st = Math.max(0, Math.min(3, i));
       try { sessionStorage.setItem(key, String(st)); } catch (_) { /* bỏ qua */ }
-      if (!dsPhone) { $(`.ds-pane[data-ds="${st}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+      if (!dsPhone) { showPart(PART(st)); $(`.ds-pane[data-ds="${st}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       $$('.ds-pane').forEach((p) => { p.hidden = Number(p.dataset.ds) !== st; });
       $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
       $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === 3; $('#ds-pos').textContent = `Bước ${st + 1}/4`;
       window.scrollTo({ top: 0 });
     };
+    // bước 79: máy tính — tab ① Phần việc / ② Phần tiền / ③ Hoàn thành, mỗi lần 1 phần
+    function PART(st) { return st <= 1 ? 'viec' : st === 2 ? 'tien' : 'xong'; }
+    function showPart(pt) {
+      if (dsPhone) return;
+      $$('.ds-pane').forEach((p) => { p.hidden = PART(Number(p.dataset.ds)) !== pt; });
+      $$('.ds-pt').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.ptab === pt)));
+      try { sessionStorage.setItem('ds_part:' + R.id, pt); } catch (_) { /* bỏ qua */ }
+    }
     let cur = 0; try { cur = Number(sessionStorage.getItem(key)) || 0; } catch (_) { /* bỏ qua */ }
     if (dsStep) cur = dsStep - 1;
+    if (!dsPhone) {
+      let pt0 = null; try { pt0 = sessionStorage.getItem('ds_part:' + R.id); } catch (_) { /* bỏ qua */ }
+      if (dsStep) pt0 = PART(cur);
+      if (!pt0) { const t = $$('.ds-pt').find((b) => Number(b.dataset.left) > 0); pt0 = t ? t.dataset.ptab : 'xong'; }
+      showPart(pt0);
+      $$('.ds-pt').forEach((b) => b.addEventListener('click', () => { showPart(b.dataset.ptab); window.scrollTo({ top: Math.max(0, ($('.ds-ptabs')?.getBoundingClientRect().top || 0) + window.scrollY - 70), behavior: 'smooth' }); }));
+    }
     form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-ds-go]'); if (g) { cur = Number(g.dataset.dsGo); go(cur); } });
     if (dsPhone) {
       $('#ds-prev').addEventListener('click', () => { cur = Math.max(0, cur - 1); go(cur); });
@@ -1116,6 +1132,10 @@ function mount(R, ed, C0, ctx = {}) {
 }
 
 const STYLE = html`<style>
+  .ds-ptabs { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; top: 0; z-index: 4; background: var(--ground, #f5efe6); padding: 6px 0; }   /* bước 79 */
+  .ds-pt { font: inherit; font-weight: 800; font-size: 15px; padding: 10px 16px; border-radius: 12px; border: 2px solid var(--line-strong); background: var(--card); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; color: var(--ink); }
+  .ds-pt[aria-selected="true"] { border-color: var(--primary); background: var(--primary); color: #fff; }
+  .ds-ptn { font-size: 12px; font-weight: 700; background: var(--warn-bg); color: var(--warn-ink); border-radius: 999px; padding: 1px 8px; } .ds-pto { font-size: 12px; color: var(--ok-ink); background: var(--ok-bg); border-radius: 999px; padding: 1px 8px; }
   .pc-part-h { font-size: 15px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; color: var(--primary); padding: 8px 2px 0; border-top: 2px solid var(--caramel-line); margin-top: 4px; }   /* bước 78 */
   .pc { max-width: 860px; gap: 12px; }
   .pc-sec { gap: 12px; padding: 16px; }
