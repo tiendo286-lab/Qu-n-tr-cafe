@@ -253,7 +253,7 @@ export async function render(ctx) {
         const opts = (k, sel) => catOpts(k, sel, false);
         const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản thu / chi' : 'Thêm khoản thu / chi'}</h2>
           <div class="st-meta">Khoản quản lý tạo được tính là <strong>đã đối soát</strong>.</div>
-          ${e.bank_out ? html`<div class="alert warn">Khoản này tạo từ phiếu chi chuyển khoản ở Đối soát ca: chỉ đổi nhóm / nội dung ở đây. Sai số tiền thì xoá phiếu chi ở Đối soát ca rồi tạo lại.</div>` : ''}
+          ${e.bank_out ? html`<div class="alert warn">Khoản này tạo từ phiếu chi chuyển khoản ở Đối soát ca: chỉ đổi nhóm / nội dung${loanOn(e.branch_id) ? ' hoặc đổi thành cho vay' : ''} ở đây. Sai số tiền thì xoá phiếu chi ở Đối soát ca rồi tạo lại.</div>` : ''}
           <div class="pc-line" role="radiogroup" aria-label="Loại"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Khoản chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Khoản thu</label></div>
           <label class="field"><span>Cơ sở</span><select class="input" name="br">${br0 ? '' : html`<option value="">— Chọn cơ sở —</option>`}${D.branches.map((b) => html`<option value="${b.id}" ${String(br0) === String(b.id) ? 'selected' : ''}>${b.code} – ${b.name}</option>`)}</select></label>
           <label class="field"><span>Ngày</span><input class="input" type="date" name="date" value="${e.date || (vnToday().startsWith(month) ? vnToday() : month + '-01')}"></label>
@@ -262,7 +262,7 @@ export async function render(ctx) {
           <label class="field"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${e.amount ? fmt(e.amount) : ''}" autocomplete="off"></label>
           <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" ${(e.pay || 'tien_mat') === 'tien_mat' ? 'checked' : ''}> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan" ${e.pay === 'chuyen_khoan' ? 'checked' : ''}> Chuyển khoản</label></div>
           <div id="tc-err"></div>
-          <div class="toolbar" style="justify-content:flex-end">${e.id && e.kind === 'chi' && !e.bank_out && loanOn(e.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+          <div class="toolbar" style="justify-content:flex-end">${e.id && e.kind === 'chi' && loanOn(e.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         bindMoneyInputs(d);
         const f = d.querySelector('form');
         d.querySelector('.tc-2loan')?.addEventListener('click', () => { d.close(); toLoan(brById.get(e.branch_id), e, again); });

@@ -73,7 +73,7 @@ export function makeFin(T, me) {
     });
     T.fin_entries.filter((e) => brs.includes(e.branch_id) && e.entry_date >= from && e.entry_date <= to).forEach((e) => out.push({ src: 'tay', id: e.id, branch_id: e.branch_id, date: e.entry_date, shift: null,
       kind: e.kind, pay: e.pay_method, amount: e.amount, note: e.note, category_id: e.category_id, category: T.fin_categories.find((k) => k.id === e.category_id)?.name || null, excluded: false,
-      status: 'da', checked_by: name(e.created_by), checked_at: e.created_at, by: name(e.created_by), locked: locked(e.branch_id, e.entry_date) }));
+      status: 'da', checked_by: name(e.created_by), checked_at: e.created_at, by: name(e.created_by), locked: locked(e.branch_id, e.entry_date), bank_out: !!e.bank_out }));
     return out.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
   };
   const tc = {
@@ -221,7 +221,7 @@ export function makeFin(T, me) {
     app_tc_to_loan({ p, p_person, p_note }) {
       T.branch_loans = T.branch_loans || []; const id = Math.max(0, ...T.branch_loans.map((l) => l.id)) + 1;
       if (p.src === 'tay') { const e = T.fin_entries.find((x) => x.id === p.id); if (e.kind !== 'chi') throw new Error('Chỉ khoản CHI mới đổi thành cho vay được.');
-        T.branch_loans.push({ id, branch_id: e.branch_id, person_id: p_person, date: e.entry_date, amount: e.amount, method: e.pay_method, note: p_note || e.note }); T.fin_entries = T.fin_entries.filter((x) => x !== e); return id; }
+        T.branch_loans.push({ id, branch_id: e.branch_id, person_id: p_person, date: e.entry_date, amount: e.amount, method: e.pay_method, note: p_note || e.note, bank_out: !!e.bank_out }); T.fin_entries = T.fin_entries.filter((x) => x !== e); return id; }
       const row = tcRows(null, '2000-01-01', '2999-12-31').find((x) => x.src === 'ca' && x.report_id === p.report_id && x.mkey === p.mkey);
       T.branch_loans.push({ id, branch_id: row.branch_id, person_id: p_person, date: row.date, amount: row.amount, method: row.pay, note: p_note || row.note, report_id: p.report_id, mkey: p.mkey });
       tc.app_tc_check({ p_report: p.report_id, p_mkey: p.mkey, p_category: null, p_excluded: true, p_checked: true }); return id;

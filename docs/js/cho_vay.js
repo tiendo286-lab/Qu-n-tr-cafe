@@ -30,7 +30,7 @@ export async function toLoan(b, item, done) {
     <div class="st-meta">${dmy(item.date)} · <b>${vnd(item.amount)}</b> (${PAY[item.pay] || 'Tiền mặt'}) · ${item.note}</div>
     <div class="alert warn">${item.src === 'ca'
       ? html`Khoản ở phiếu ca ${item.shift} thành <b>"Không tính"</b> (không còn là chi phí) và sang khung Cho vay. Sổ quỹ không trừ thêm vì tiền đã ra khỏi két trong ca. Xoá khoản vay thì khoản trở lại Thu chi.`
-      : html`Khoản chi này <b>bỏ khỏi Thu chi</b> (không còn là chi phí) và sang khung Cho vay, giữ nguyên ngày, số tiền, hình thức.`}</div>
+      : html`Khoản chi này <b>bỏ khỏi Thu chi</b> (không còn là chi phí) và sang khung Cho vay, giữ nguyên ngày, số tiền, hình thức.${item.bank_out ? html` Phiếu chi chuyển khoản ở Đối soát ca <b>giữ nguyên</b> — tiền chuyển ra của ca không đổi, không phải đối soát lại.` : ''}`}</div>
     <label class="field"><span>Người vay</span><select class="input" name="p">${ppl.map((p) => html`<option value="${p.id}">${p.name}${p.owe > 0 ? ` (đang nợ ${fmt(p.owe)})` : ''}</option>`)}</select></label>
     <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" value="${item.note || ''}"></label>
     <div class="ln-err"></div>
@@ -68,7 +68,7 @@ function section(b, d) {
         <span class="toolbar" style="gap:8px"><span class="ln-owe">còn nợ ${vnd(p.owe)}</span><button type="button" class="btn sm secondary ln-pay-btn" data-p="${p.id}">Ghi trả nợ</button></span></div>`)
       : html`<div class="st-meta">Không ai còn nợ.</div>`}
     ${d.loans.length ? html`<details><summary style="cursor:pointer;font-weight:600">Lịch sử cho vay (${d.loans.length} khoản)</summary>
-      ${d.loans.map((l) => html`<div class="ln-l"><div class="pc-line"><span class="grow"><strong>${dmy(l.date)} · ${l.person}</strong> · cho vay <b>${vnd(l.amount)}</b> (${PAY[l.method]})${l.note ? ` · ${l.note}` : ''}${l.report_id ? html` · <a href="#/ca/phieu?id=${l.report_id}">từ phiếu ca ${l.shift || ''}</a>` : ''}
+      ${d.loans.map((l) => html`<div class="ln-l"><div class="pc-line"><span class="grow"><strong>${dmy(l.date)} · ${l.person}</strong> · cho vay <b>${vnd(l.amount)}</b> (${PAY[l.method]})${l.note ? ` · ${l.note}` : ''}${l.report_id ? html` · <a href="#/ca/phieu?id=${l.report_id}">từ phiếu ca ${l.shift || ''}</a>` : ''}${l.bank_out ? ' · từ phiếu chi chuyển khoản' : ''}
           <span class="st-meta"> · ${l.amount - l.paid > 0 ? `còn ${vnd(l.amount - l.paid)}` : 'đã trả hết'} · ${l.by || ''}</span></span>
           ${l.locked ? html`<span class="st-meta">Tháng đã chốt</span>` : html`<span class="toolbar ln-act" style="gap:6px"><button type="button" class="btn sm secondary ln-ed" data-id="${l.id}">Sửa</button>${!l.payments.length ? html`<button type="button" class="btn sm secondary danger ln-del" data-id="${l.id}" aria-label="Xoá khoản vay">×</button>` : ''}</span>`}</div>
         ${l.payments.map((y) => html`<div class="pc-line ln-pay"><span class="grow">↳ ${dmy(y.date)} trả <b>${vnd(y.amount)}</b> (${PAY[y.method]})${y.note ? ` · ${y.note}` : ''} <span class="st-meta">· ${y.by || ''}</span></span>
@@ -83,7 +83,7 @@ function bind(sec, b, d, onChange) {
     const ppl = d.people.filter((p) => p.active || (l && p.id === l.person_id));
     if (!ppl.length) { showSaved('Chưa có người vay — khai báo ở Cài đặt › Người vay.', true); return; }
     const dl = dialog(html`<form class="stack ln-dlg" style="gap:12px"><h2 style="margin:0">${l ? 'Sửa khoản cho vay' : 'Cho vay'} — ${b.code}</h2>
-      ${l && l.report_id ? html`<div class="alert warn">Khoản vay ghi từ phiếu ca ${l.shift || ''}: chỉ đổi người vay / ghi chú. Sai số tiền thì xoá khoản vay (khoản trở lại Thu chi) rồi sửa ở Thu chi.</div>` : ''}
+      ${l && (l.report_id || l.bank_out) ? html`<div class="alert warn">Khoản vay ghi từ ${l.report_id ? `phiếu ca ${l.shift || ''}` : 'phiếu chi chuyển khoản'}: chỉ đổi người vay / ghi chú. Sai số tiền thì xoá khoản vay (khoản trở lại Thu chi) rồi sửa.</div>` : ''}
       <div class="st-meta">${l ? (l.paid > 0 ? `Đã trả ${vnd(l.paid)} — số tiền vay không được nhỏ hơn số đã trả.` : 'Sửa người vay, ngày, số tiền, hình thức, ghi chú.') : 'Tiền ra khỏi quỹ, không tính chi phí. Người vay trả thì bấm "Ghi trả nợ".'}</div>
       <label class="field"><span>Người vay</span><select class="input" name="p">${ppl.map((p) => html`<option value="${p.id}" ${l && p.id === l.person_id ? 'selected' : ''}>${p.name}${p.owe > 0 ? ` (đang nợ ${fmt(p.owe)})` : ''}</option>`)}</select></label>
       <label class="field"><span>Ngày</span><input class="input" type="date" name="d" value="${l ? l.date : today()}"></label>
@@ -93,7 +93,7 @@ function bind(sec, b, d, onChange) {
       <div class="ln-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">${l ? 'Lưu' : 'Lưu khoản vay'}</button></div></form>`);
     bindMoneyInputs(dl); const f = dl.querySelector('form');
-    if (l && l.report_id) f.querySelectorAll('[name=d], [name=amt], [name=pay]').forEach((x) => { x.disabled = true; });
+    if (l && (l.report_id || l.bank_out)) f.querySelectorAll('[name=d], [name=amt], [name=pay]').forEach((x) => { x.disabled = true; });
     dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
@@ -151,7 +151,7 @@ function bind(sec, b, d, onChange) {
   }));
   sec.querySelectorAll('.ln-del').forEach((x) => x.addEventListener('click', async () => {
     const l = d.loans.find((z) => z.id === Number(x.dataset.id));
-    if (!confirm(l?.report_id ? 'Xoá khoản cho vay này? Khoản chi ở phiếu ca sẽ trở lại Thu chi (chờ đối soát).' : 'Xoá khoản cho vay này?')) return;
+    if (!confirm(l?.report_id ? 'Xoá khoản cho vay này? Khoản chi ở phiếu ca sẽ trở lại Thu chi (chờ đối soát).' : l?.bank_out ? 'Xoá khoản cho vay này? Khoản chi chuyển khoản sẽ trở lại Thu chi (phiếu chi ở Đối soát ca giữ nguyên).' : 'Xoá khoản cho vay này?')) return;
     try { await rpc('app_loan_delete', { p_id: Number(x.dataset.id) }); done('Đã xoá khoản vay.'); } catch (e) { showSaved(e.message, true); }
   }));
   sec.querySelectorAll('.ln-pdel').forEach((x) => x.addEventListener('click', async () => {

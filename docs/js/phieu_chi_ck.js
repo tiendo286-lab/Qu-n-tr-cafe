@@ -49,14 +49,15 @@ export async function mountBankOuts(box, reportId, onChange) {
   let D; try { D = await rpc('app_ca_bank_outs', { p_id: reportId }); } catch (_) { return; }
   const gap = Number(D.ck_left);
   box.innerHTML = str(html`<div class="pc-sub" style="margin:0">PHIẾU CHI CHUYỂN KHOẢN CỦA CA</div>
-    ${(D.rows || []).length ? html`<div class="stack" style="gap:6px">${D.rows.map((o) => html`<div class="pc-line pcc-row"><div class="grow"><strong>${vnd(o.amount)}</strong> · ${KIND[o.kind]}${o.category ? ' · ' + o.category : ''} · ${o.note}
+    ${(D.rows || []).length ? html`<div class="stack" style="gap:6px">${D.rows.map((o) => html`<div class="pc-line pcc-row"><div class="grow"><strong>${vnd(o.amount)}</strong> · ${KIND[o.kind]}${o.category ? ' · ' + o.category : ''} · ${o.note}${o.loan_person ? html` · <b>đã đổi thành cho vay – ${o.loan_person}</b>` : ''}
         <div class="st-meta">${o.account} · ${o.by || ''} ${o.at || ''}${o.kind === 'rut_quy' ? (o.fund_status === 'da_nhan' ? ' · Chủ đã nhận' : ' · chờ Chủ xác nhận ở Sổ quỹ') : ''}</div></div>
         ${D.can && !D.locked && o.fund_status !== 'da_nhan' ? html`<button type="button" class="btn sm secondary pcc-del" data-id="${o.id}">Xoá</button>` : ''}</div>`)}</div>` : html`<div class="st-meta">Chưa có phiếu chi.</div>`}
     ${D.can && !D.locked ? html`<div class="pc-line"><button type="button" class="btn sm ${gap < 0 ? '' : 'secondary'} pcc-add">+ Tạo phiếu chi chuyển khoản</button>
       ${gap < 0 ? html`<span class="st-meta">Chuyển khoản thiếu ${vnd(-gap)} — tiền đã chuyển đi thì ghi phiếu chi.</span>` : ''}</div>` : ''}`);
   box.querySelector('.pcc-add')?.addEventListener('click', () => openBankOut(reportId, D, onChange));
   box.querySelectorAll('.pcc-del').forEach((b) => b.addEventListener('click', async () => {
-    if (!confirm('Xoá phiếu chi này? Khoản ở Thu chi / Sổ quỹ cũng bị xoá, tiền chuyển ra của tài khoản trừ lại.')) return;
+    const o = D.rows.find((x) => x.id === Number(b.dataset.id));
+    if (!confirm(o?.loan_person ? 'Xoá phiếu chi này? Khoản cho vay đổi từ phiếu chi cũng bị xoá, tiền chuyển ra của tài khoản trừ lại.' : 'Xoá phiếu chi này? Khoản ở Thu chi / Sổ quỹ cũng bị xoá, tiền chuyển ra của tài khoản trừ lại.')) return;
     b.disabled = true;
     try { await rpc('app_ca_bank_out_delete', { p_out: Number(b.dataset.id) }); showSaved('Đã xoá phiếu chi.'); onChange?.(); }
     catch (e) { showSaved(e.message, true); b.disabled = false; }

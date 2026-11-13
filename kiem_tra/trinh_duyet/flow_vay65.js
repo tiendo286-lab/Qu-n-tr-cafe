@@ -44,6 +44,20 @@ export default async ({ sleep, out }) => {
     ln.querySelector('.ln-del').click(); await sleep(1500); await wait('.tc-r', 300); await sleep(600);
     const y = row('Cho vay anh thử');
     r.push(`sau xoá khoản vay: dòng ${y ? txt('.pill', y) + ' · nút ' + $$('select, button', y.querySelector('.tc-act')).length : 'KHÔNG THẤY'} · ${W()}`);
+    // 5) bước 66: khoản từ phiếu chi chuyển khoản
+    await sb.from('fin_entries').insert({ id: 99901, branch_id: lhp.branch_id, entry_date: today, kind: 'chi', category_id: 1, amount: 3456000, note: 'đơn thử (chuyển khoản từ VCB 999, ca Tối)', pay_method: 'chuyen_khoan', bank_out: true, created_by: 1 });
+    await go();
+    row('đơn thử').querySelector('.tc-ed').click(); await wait('dialog[open] form'); await sleep(200); dl = $('dialog[open]');
+    r.push(`hộp sửa phiếu chi CK: ô tiền khoá ${dl.querySelector('[name=amt]').disabled} · có nút đổi ${!!dl.querySelector('.tc-2loan')} · ${txt('.alert', dl)}`.slice(0, 260));
+    dl.querySelector('.tc-2loan').click(); await sleep(800); await wait('dialog[open] form'); dl = $('dialog[open]');
+    r.push(`hộp đổi: ${txt('.alert', dl)}`.slice(0, 260));
+    dl.querySelector('[name=p]').value = [...dl.querySelector('[name=p]').options].find((o) => o.text.startsWith('Anh Vay Đổi')).value;
+    dl.querySelector('[type=submit]').click(); for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('.ln-p', 300); await sleep(300);
+    $('.ln-sec details')?.setAttribute('open', ''); await sleep(100);
+    const lb = $$('.ln-l').find((y) => y.innerText.includes('đơn thử'));
+    r.push(`sau đổi: còn ở Thu chi ${!!row('đơn thử')} · vay: ${lb ? lb.innerText.replace(/\s+/g, ' ').slice(0, 160) : 'KHÔNG THẤY'}`);
+    lb.querySelector('.ln-ed').click(); await wait('dialog[open] form'); await sleep(200); dl = $('dialog[open]');
+    r.push(`sửa vay từ phiếu chi CK: ô tiền khoá ${dl.querySelector('[name=amt]').disabled} · ${W()}`); dl.querySelector('[data-x]').click();
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'đổi thành cho vay', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };
