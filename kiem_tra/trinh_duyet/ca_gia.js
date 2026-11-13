@@ -270,6 +270,14 @@ export function makeCa(T, me) {
     app_ca_debts_paid({ p_id }) {
       return T.shift_debts.filter((d) => d.report_id === p_id && d.closed_at && d.kind !== 'muon').map((d) => { const c = rep(d.closed_report_id); return { id: d.id, report_id: c.id, shift: c.shift, work_date: c.work_date, status: c.status, kind: d.collect_kind, amount: d.amount }; });
     },
+    app_ca_debt_week({ p_branch, p_from, p_to }) {   // bước 79
+      const reps = T.shift_reports.filter((r) => r.branch_id === p_branch && r.work_date >= p_from && r.work_date <= p_to);
+      const rp = (id) => T.shift_reports.find((x) => x.id === id) || {};
+      return reps.map((r) => ({ report_id: r.id,
+        tao: (T.shift_debts || []).filter((d) => d.report_id === r.id || d.gap_report === r.id).map((d) => ({ name: d.table_name, amount: d.amount, kind: d.kind || 'bill', paid: !!d.closed_at, collect_kind: d.collect_kind || null, paid_date: d.closed_report_id ? rp(d.closed_report_id).work_date : null, paid_shift: d.closed_report_id ? rp(d.closed_report_id).shift : null })),
+        thu: (T.shift_debts || []).filter((d) => d.closed_report_id === r.id).map((d) => ({ name: d.table_name, amount: d.amount, kind: d.kind || 'bill', collect_kind: d.collect_kind, from_date: rp(d.report_id).work_date, from_shift: rp(d.report_id).shift })) }))
+        .filter((x) => x.tao.length || x.thu.length);
+    },
     app_ca_debt_marks({ p_date }) {
       return T.shift_reports.filter((r) => r.work_date === p_date).map((r) => ({ report_id: r.id,
         open_amt: T.shift_debts.filter((d) => d.report_id === r.id && !d.closed_at && d.kind !== 'muon').reduce((a, d) => a + d.amount, 0),

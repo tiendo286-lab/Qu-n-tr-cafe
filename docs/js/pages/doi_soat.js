@@ -8,7 +8,7 @@ import { bindMoneyInputs, dmy, dt, fmt, parseMoney, result, signed, vnd } from '
 import { $, $$, flash, html, showSaved } from '../ui.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { KA_STATUS } from './phieu_ca.js';
-import { STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker } from './chot_ca.js';
+import { NB_CSS, STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker, debtBadges } from './chot_ca.js';
 
 export const perm = 'doi_soat';
 
@@ -32,7 +32,7 @@ async function weekData(day) {
   return { mon, days, ovs, cds, KW };
 }
 
-function weekTables(WD, cn) {
+function weekTables(WD, cn, DEBT = new Map()) {
   const { days, ovs, cds, KW } = WD;
   const kt = new Set((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => k.id));
   const nowHm = new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 16); const today = vnToday();
@@ -50,7 +50,7 @@ function weekTables(WD, cn) {
   const stCell = (s, d) => {
     if (!s) return html`<td class="dw-na">—</td>`;
     const st = stOf(s, d); const [lb, cls] = WST[st];
-    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${st === 'am' ? html`<span class="dw-sub">−${fmt(s.short_total)}</span>` : ''}`;
+    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${st === 'am' ? html`<span class="dw-sub">−${fmt(s.short_total)}</span>` : ''}${s.report_id ? debtBadges(DEBT.get(s.report_id)) : ''}`;
     const h = href(s);
     return html`<td>${h ? html`<a class="dw-c ${cls}" href="${h}">${inner}</a>` : html`<span class="dw-c ${cls}">${inner}</span>`}</td>`;
   };
@@ -72,7 +72,7 @@ function weekTables(WD, cn) {
         <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ <b>${n('cho') + n('sua')}</b>${n('kt') ? ` · chờ kế toán ${n('kt')}` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <b class="neg">${n('tre')} thiếu phiếu</b>` : ''}</span></div>
       <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cuối ngày</th></tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</tr>`)}</tbody></table></div>
-      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">Bấm ô để mở trang Đối soát ca; ô Cuối ngày mở trang kiểm đếm tiền mặt cuối ngày.</span></div></section>
+      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="nb open">Nợ … chưa trả</span><span class="nb ok">Nợ … đã trả</span><span class="nb thu">Thu nợ …</span><span class="st-meta">Bấm ô để mở trang Đối soát ca; ô Cuối ngày mở trang kiểm đếm tiền mặt cuối ngày.</span></div></section>
     <section class="card dw-card"><div class="dw-h"><h2>② Tiền — lệch tiền mặt / chuyển khoản</h2><span class="st-meta">Cả tuần: ${money(wkTM, wkCK, true)}</span></div>
       <div class="dw-wrap"><table class="dw-t dw-m"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cả ngày</th></tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => mnCell(get(i, sh)))}<td class="dw-day">${shifts.some((sh) => done(get(i, sh))) ? money(sumDay(i, 'cash_left'), sumDay(i, 'transfer_left'), true) : html`<span class="st-meta">—</span>`}</td></tr>`)}
@@ -118,6 +118,7 @@ export async function render({ params }) {
     const has = (v) => BRS.some((x) => String(x.id) === String(v));
     cn = has(params.cn) ? Number(params.cn) : has(lsGet()) ? Number(lsGet()) : BRS[0]?.id || null;
     if (cn) lsSet(cn);
+    if (cn) WD.debt = new Map(((await rpc('app_ca_debt_week', { p_branch: cn, p_from: WD.days[0], p_to: WD.days[6] }).catch(() => [])) || []).map((x) => [x.report_id, x]));   // bước 79
   }
   const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: wkMode ? cn : null }),
     rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => [])]);
@@ -291,7 +292,7 @@ export async function render({ params }) {
           <div class="dw-wk-nav"><a class="btn sm secondary" href="#/quan-ly/doi-soat?tuan=${addDays(WD.mon, -7)}&cn=${cn}" aria-label="Tuần trước">‹</a>
             <div class="dw-wt"><b>${dmy(WD.mon).slice(0, 5)} – ${dmy(WD.days[6])}</b>${vnToday() >= WD.mon && vnToday() <= WD.days[6] ? html`<span class="pill info">Tuần này</span>` : html`<a href="#/quan-ly/doi-soat?cn=${cn}">Về tuần này</a>`}</div>
             <a class="btn sm secondary" href="#/quan-ly/doi-soat?tuan=${addDays(WD.mon, 7)}&cn=${cn}" aria-label="Tuần sau">›</a></div></section>
-        ${cn ? weekTables(WD, cn) : html`<div class="card">Chưa có cơ sở nào bật ca làm việc.</div>`}
+        ${NB_CSS}${cn ? weekTables(WD, cn, WD.debt) : html`<div class="card">Chưa có cơ sở nào bật ca làm việc.</div>`}
         ${todo}
       </div>` : html`
       <div class="stack" style="max-width:1100px;gap:12px">

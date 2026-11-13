@@ -470,6 +470,10 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Phiếu chốt ca** (nhân viên) chia **2 phần**: **① Phần việc** (Ai làm ca · Số cốc · Bàn giao & nhận hàng) → nút **"Xong phần việc"**; **② Phần tiền** (Phiếu Fabi · Khách nợ · Thu chi · Chuyển khoản hotline · Kết quả tiền · Kiểm tra → GỬI PHIẾU) **chỉ mở khi xong phần việc**. Đầu phiếu có 2 khối phần (tiến độ riêng, bấm để chuyển phần). **Nhận hàng không chặn phần tiền.**
 - Bước 78: **phiếu đã hoàn thành (xem lại)** và **trang Đối soát ca** cũng chia **① Phần việc** (Nhân sự & bàn giao, Nhận hàng) → **② Phần tiền**; các bước đối soát đổi thứ tự: 1 Nhân sự & bàn giao · 2 Nhận hàng · 3 Tiền · 4 Hoàn thành (link `buoc=2` = hàng, `buoc=3` = tiền).
 
+## 5r14. Đối soát ca tách tab + nhãn khách nợ trên bảng ca — ĐÃ LÀM 13/11/2026 (`supabase/79_no_tren_bang_ca.sql`)
+- Trang **Đối soát ca trên máy tính**: tab **① Phần việc / ② Phần tiền / ③ Hoàn thành**, mỗi lần 1 phần, tự mở phần còn việc (điện thoại vẫn từng bước).
+- **Bảng tuần tab Chốt ca và tab Đối soát**: ô ca có nhãn **"Nợ … chưa trả"** (đỏ — còn khách nợ / khách mượn của ca chưa trả), **"Nợ … đã trả"** (xanh — trả hết), **"Thu nợ …"** (xanh dương — ca này thu được nợ ca trước); rê chuột / giữ vào nhãn để xem tên khách, trả ở ca nào, TM hay CK (`app_ca_debt_week`).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

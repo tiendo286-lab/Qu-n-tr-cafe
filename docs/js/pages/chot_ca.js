@@ -9,6 +9,25 @@ export const perm = 'chot_ca';
 
 export const STAFF_LABEL = { dang_chot: ['Đang chốt', 'warn'], hoan_thanh: ['Hoàn thành', 'ok'] };
 
+// Bước 79: nhãn khách nợ / khách mượn trên ô ca (bảng tuần Chốt ca, Đối soát) — nợ phát sinh còn chưa trả / đã trả hết, nợ thu được trong ca
+const nk = (n) => { const a = Math.abs(Number(n) || 0); return a >= 1e6 ? `${(a / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}tr` : a >= 1000 ? `${Math.round(a / 1000)}k` : `${a}`; };
+export function debtBadges(x) {
+  if (!x) return '';
+  const tao = x.tao || []; const thu = x.thu || [];
+  const open = tao.filter((d) => !d.paid); const sumA = (a) => a.reduce((t, d) => t + Number(d.amount || 0), 0);
+  const who = (d) => `${d.kind === 'muon' ? 'Khách mượn' : 'Khách nợ'} ${d.name} ${nk(d.amount)}`;
+  const word = (a) => (a.length && a.every((d) => d.kind === 'muon') ? 'Mượn' : 'Nợ');
+  return html`${tao.length ? (open.length
+      ? html`<span class="nb open" title="${tao.map((d) => `${who(d)} — ${d.paid ? `đã trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'} ca ${d.paid_shift || ''} ${String(d.paid_date || '').slice(8, 10)}/${String(d.paid_date || '').slice(5, 7)}` : 'CHƯA TRẢ'}`).join('\n')}">${word(open)} ${nk(sumA(open))} chưa trả</span>`
+      : html`<span class="nb ok" title="${tao.map((d) => `${who(d)} — đã trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'} ca ${d.paid_shift || ''} ${String(d.paid_date || '').slice(8, 10)}/${String(d.paid_date || '').slice(5, 7)}`).join('\n')}">${word(tao)} ${nk(sumA(tao))} đã trả</span>`) : ''}
+    ${thu.length ? html`<span class="nb thu" title="${thu.map((d) => `${who(d)} (từ ca ${d.from_shift || 'quản lý ghi'} ${String(d.from_date || '').slice(8, 10)}/${String(d.from_date || '').slice(5, 7)}) trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'}`).join('\n')}">Thu nợ ${nk(sumA(thu))}</span>` : ''}`;
+}
+export const NB_CSS = html`<style>
+  .nb { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 5px; margin-top: 2px; line-height: 1.5; white-space: nowrap; }
+  .nb.open { background: #fee2e2; color: #991b1b; } .nb.ok { background: var(--ok-bg); color: var(--ok-ink); } .nb.thu { background: var(--info-bg); color: var(--info-ink); }
+</style>`;
+
+
 export function dayName(iso) {
   const d = new Date(iso + 'T00:00:00Z').getUTCDay();
   return WEEKDAYS[(d + 6) % 7];
@@ -48,6 +67,7 @@ export async function render({ params }) {
   if (cn) lsSet(cn);
   const BR = branches.find((b) => b.id === cn) || { code: '', name: '' };
   const mine = all.map((rows) => rows.filter((r) => r.branch_id === cn));
+  const DEBT = new Map(((cn ? await rpc('app_ca_debt_week', { p_branch: cn, p_from: days[0], p_to: days[6] }).catch(() => []) : []) || []).map((x) => [x.report_id, x]));   // bước 79
   const shifts = []; mine.flat().forEach((r) => { if (!shifts.includes(r.shift)) shifts.push(r.shift); });
   const q = (o) => '#/ca?' + Object.entries({ tuan: wk, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
   const nDone = mine.flat().filter((s) => s.status === 'hoan_thanh').length;
@@ -58,9 +78,9 @@ export async function render({ params }) {
     const [cls, lb] = s.status === 'hoan_thanh' ? ['ok', 'Xong'] : s.report_id ? ['warn', 'Đang chốt'] : miss ? ['miss', 'Thiếu phiếu'] : ['none', 'Chưa mở'];
     const money = '';   // bước 77: tiền xem ở tab Đối soát (bảng ② Tiền)
     return html`<td><button type="button" class="ca-shift cw-c ${cls}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}">
-      <span class="cw-st">${lb}</span>${money}</button></td>`;
+      <span class="cw-st">${lb}</span>${money}${s.report_id ? debtBadges(DEBT.get(s.report_id)) : ''}</button></td>`;
   };
-  const body = html`${STYLE}${WSTYLE}
+  const body = html`${STYLE}${WSTYLE}${NB_CSS}
     <section class="card cw-bar">
       <nav class="branch-tabs" aria-label="Cơ sở">${branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav>
       <div class="cw-wk"><a class="btn sm secondary" href="${q({ tuan: addDays(wk, -7) })}" aria-label="Tuần trước">‹</a>
@@ -71,7 +91,7 @@ export async function render({ params }) {
       <div class="cw-wrap"><table class="cw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}</tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
-      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">Bấm ô để mở phiếu. Tiền lệch xem ở tab <a href="#/quan-ly/doi-soat">Đối soát</a>.</span></div></section>`}`;
+      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="nb open">Nợ … chưa trả</span><span class="nb ok">Nợ … đã trả</span><span class="nb thu">Thu nợ …</span><span class="st-meta">Bấm ô để mở phiếu (rê chuột / giữ vào nhãn nợ để xem tên khách). Tiền lệch xem ở tab <a href="#/quan-ly/doi-soat">Đối soát</a>.</span></div></section>`}`;
   return {
     title: 'Chốt ca',
     html: isManager() ? html`<div class="page-head"><div><h1>Chốt ca</h1><div class="sub">Xem theo tuần, từng cơ sở: nhân viên chốt ca, quản lý đối soát. Ô đỏ là ngày đã qua mà chưa có phiếu.</div></div></div><div class="stack" style="max-width:900px;gap:12px">${body}</div>`

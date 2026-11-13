@@ -7,13 +7,24 @@ export default async ({ sleep, out }) => {
   const r = []; window.confirm = () => true;
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca'; await wait('.cw-t', 600); await sleep(600);
+    { // bước 79: phiếu có khách nợ chưa trả / đã trả / thu nợ
+      const { sb } = await import('../js/sb.js'); const t = new Date(Date.now() + 7 * 3600e3); const dd = (k) => new Date(t.getTime() - k * 864e5).toISOString().slice(0, 10);
+      const d0 = dd(1);
+      await sb.from('shift_reports').insert([{ id: 9701, branch_id: 1, work_date: d0, shift: 'Sáng', status: 'hoan_thanh', recon_status: 'chua', total_revenue: 1000000 },
+        { id: 9702, branch_id: 1, work_date: d0, shift: 'Chiều', status: 'hoan_thanh', recon_status: 'chua', total_revenue: 900000 }]);
+      await sb.from('shift_debts').insert([{ id: 9711, branch_id: 1, report_id: 9701, table_name: 'Bàn 9', amount: 50000, kind: 'bill' },
+        { id: 9712, branch_id: 1, report_id: 9701, table_name: 'Anh Thử', amount: 128000, kind: 'muon', closed_at: 'x', closed_report_id: 9702, collect_kind: 'chuyen_khoan' }]);
+    }
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca?cn=1'; await wait('.cw-t', 600); await sleep(600);
     if (new URLSearchParams(location.search).get('shot')) return;   // dừng để chụp màn hình
     r.push(`trang: ${txt('#root h1')} · cơ sở: ${$$('.cw-bar .branch-tabs a').map((a) => a.innerText.trim()).join(',')} (đang ${txt('.cw-bar .branch-tabs a.on')}) · tuần ${txt('.cw-wt')}`);
     r.push(`bảng: ${$$('.cw-t tbody tr').length} hàng × ${$$('.cw-t thead th').length - 1} ca (${$$('.cw-t thead th').map((t) => t.innerText.trim()).filter(Boolean).join('/')}) · hôm nay ${txt('.cw-t tr.today th')}`);
     const cnt = (c) => $$(`.cw-t .cw-c.${c}`).length;
     r.push(`ô: xong ${cnt('ok')} · đang ${cnt('warn')} · chưa mở ${cnt('none')} · thiếu phiếu ${cnt('miss')} · tổng ${txt('.cw-h .st-meta')}`);
-    const ok = $('.cw-t .cw-c.ok'); if (ok) r.push(`ô xong: ${ok.innerText.replace(/\s+/g, ' ')}`);
+    r.push(`nhãn nợ: ${$$('.cw-t .nb').map((b) => b.innerText + ' [' + (b.title || '').replace(/\n/g, '; ') + ']').join(' | ')}`);
+    { location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat?cn=1'; await wait('.dw-t', 600); await sleep(800);
+      r.push(`Đối soát nhãn nợ: ${$$('.dw-t .nb').map((b) => b.innerText).join(' | ')}`);
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca?cn=1'; await wait('.cw-t', 600); await sleep(600); }
     $$('.cw-bar .branch-tabs a')[1]?.click(); await sleep(1500); await wait('.cw-t', 300);
     r.push(`đổi cơ sở → ${txt('.cw-h h2')}`);
     $('.cw-wk a[aria-label="Tuần trước"]').click(); await sleep(1500); await wait('.cw-t', 300);
