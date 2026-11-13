@@ -6,6 +6,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
+  ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', ['doi_soat', 'ke_toan']]], null, 'Vận hành'],   // bước 62: trang chủ theo vai trò
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat']], 'ngay', 'Vận hành'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
@@ -61,6 +62,7 @@ const PAGES = {
   '/ke-toan/hoa-don': 'ke_toan_hoa_don',
   '/ke-toan/chuyen-khoan': 'ke_toan_ck',
   '/ke-toan/fabi': 'ke_toan_fabi',
+  '/hom-nay': 'hom_nay',
   '/cai-dat/tai-khoan': 'cai_dat_tk',
   '/cai-dat/nhom-mon': 'cai_dat_nhom_mon',
   '/cai-dat/thu-chi': 'cai_dat_thu_chi',
@@ -267,7 +269,7 @@ export async function render() {
   if (me && path === '/dang-nhap') return go('/');
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
   if (path === '/' && me && !isManager()) return go('/order');
-  if (path === '/' && me && me.role === 'ke_toan') return go('/ke-toan/hoa-don');
+  if (path === '/' && me && !me.must_change && (can('doi_soat') || can('ke_toan'))) return go('/hom-nay');   // bước 62: trang chủ = Việc hôm nay
   if (path === '/' && me && !me.must_change) return go(homePath());   // Tổng quan tạm ẩn: vào thẳng tab đầu tiên của menu
   // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
   if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());

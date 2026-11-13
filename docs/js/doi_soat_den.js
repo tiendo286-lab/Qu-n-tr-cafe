@@ -21,19 +21,32 @@ export function judge(R0, R, fabi, kt) {
   const h = R0.cash_hand;
   const out = [];
   const wait = !!(kt && kt.need && !kt.ready);   // phần tiền chờ kế toán
-  const add = (item, ok, why) => { const w = wait && KT_ITEMS.includes(item); out.push({ item, ok: ok && !w, wait: w, why: ok || w ? '' : why, done: !!checks[item] || !!res[item] }); };
+  const add = (item, ok, why, manual) => { const w = wait && KT_ITEMS.includes(item); out.push({ item, ok: ok && !w, wait: w, why: ok || w ? '' : why, manual: !!manual && !ok && !w, done: !!checks[item] || !!res[item] }); };
   const nsIssue = staff.filter((s) => !s.worked || s.source !== 'lich');
   add('nhan_su', !nsIssue.length, `Có người nghỉ / làm hộ (${nsIssue.map((s) => s.name || s.code).join(', ')}) — quản lý tổng phân loại, Chủ duyệt`);
   add('ban_giao', true, '');
   add('thoi_gian', !!(R.rev_start && R.rev_end && R.rev_end > R.rev_start), 'Giờ doanh thu chưa đúng');
   const sumOk = Number(R.total_revenue) === Number(R.pos_cash) + Number(R.pos_transfer) + debtNew;
   const startBad = h && h.state === 'lech';
-  add('doanh_thu', sumOk && R.cups != null && !startBad && !fx,
+  // bước 61: Fabi có hóa đơn sửa / xóa → quản lý xem rồi duyệt
+  const sua = (fabi?.sua || []);
+  const suaOnly = sumOk && R.cups != null && !startBad && !fx && sua.length > 0;
+  add('doanh_thu', sumOk && R.cups != null && !startBad && !fx && !sua.length,
+    suaOnly ? `Fabi có ${sua.length} hóa đơn sửa / xóa (${sua.map((x) => fmt(x.amount)).join(', ')}) — xem lại rồi bấm "Đã xem — duyệt"` :
     !sumOk ? 'Doanh thu ≠ tiền mặt + chuyển khoản + nợ' : startBad ? `Tiền đầu ca lệch ${signed(h.gap)} so với ca ${h.prev_shift}${R0.opening_note ? ' · lý do NV: ' + R0.opening_note : ''}` : fx ? 'Số trên phiếu khác file Fabi (đã sửa theo Fabi) — xem lại' : kt && kt.need ? 'Chưa có số cốc — file Fabi còn món chưa chọn nhóm (Kế toán › File ca Fabi › Nhóm món)' : 'Thiếu số cốc');
+  if (suaOnly) out[out.length - 1].manual = true;
   add('tien_mat', Number(m.tm_left) === 0, `Tiền mặt còn lệch ${signed(m.tm_left)}${R0.diff_note ? ' · lý do NV: ' + R0.diff_note : ''}`);
   add('chuyen_khoan', Number(m.ck_left) === 0, `Chuyển khoản còn lệch ${signed(m.ck_left)}${R0.transfer_note ? ' · lý do NV: ' + R0.transfer_note : ''}`);
   add('thu_chi', !moves.length, `${moves.length} khoản thu chi — xem từng khoản và chọn nhóm (tiền quản lý rút: chọn "Không tính")`);
-  add('cong_no', true, '');
+  // bước 61: khách trả nợ cũ theo Fabi phải khớp khoản "khách đã trả" chọn trong ca
+  const isCk = (x) => /chuy[eể]n/i.test(x.method || '');
+  const fTm = (fabi?.tra_no || []).filter((x) => !isCk(x)).reduce((t, x) => t + Number(x.amount || 0), 0);
+  const fCk = (fabi?.tra_no || []).filter(isCk).reduce((t, x) => t + Number(x.amount || 0), 0);
+  const paid = (R0.open_debts || []).filter((d) => d.kind !== 'muon' && d.closed_report_id === R0.id);
+  const cTm = paid.filter((d) => d.collect_kind !== 'chuyen_khoan').reduce((t, d) => t + Number(d.amount || 0), 0);
+  const cCk = paid.filter((d) => d.collect_kind === 'chuyen_khoan').reduce((t, d) => t + Number(d.amount || 0), 0);
+  const noOk = !fabi || (fTm === cTm && fCk === cCk);
+  add('cong_no', noOk, `Fabi ghi khách trả nợ TM ${fmt(fTm)} · CK ${fmt(fCk)}, phiếu ghi TM ${fmt(cTm)} · CK ${fmt(cCk)} — sửa "Khách đã trả" ở mục Công nợ, hoặc xem lại rồi bấm "Đã xem — duyệt"`, true);
   add('nhap_hang', !!checks.nhap_hang, 'Còn hàng nhận chưa đối soát từng ảnh');
   return out;
 }
@@ -61,7 +74,7 @@ export async function mountLights(box, R0, R) {
     <div class="den-list">${J.map((x) => html`<div class="den-row ${lk.has(x.item) ? 'done auto' : x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${lk.has(x.item) ? '🔒 ' : ''}${LBL[x.item]}</strong>
         <span class="st-meta">${lk.has(x.item) ? '✓ web tự đối soát — đã khoá' : x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
         ${lk.has(x.item) || x.done ? (!lk.has(x.item) || LK?.can_unlock ? html`<button type="button" class="btn sm secondary den-edit" data-item="${x.item}">Sửa</button>` : '')
-          : !x.done && !x.ok && !x.wait && !locked ? html`<span class="den-acts">${x.item === 'chuyen_khoan' && Number((R0.money || {}).ck_left) < 0 ? html`<button type="button" class="btn sm den-pc">Tạo phiếu chi</button>` : ''}<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button></span>` : ''}</div>`)}</div>
+          : !x.done && !x.ok && !x.wait && !locked ? html`<span class="den-acts">${x.manual ? html`<button type="button" class="btn sm den-man" data-item="${x.item}">Đã xem — duyệt</button>` : ''}${x.item === 'chuyen_khoan' && Number((R0.money || {}).ck_left) < 0 ? html`<button type="button" class="btn sm den-pc">Tạo phiếu chi</button>` : ''}<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button></span>` : ''}</div>`)}</div>
     ${locked ? '' : html`<div class="toolbar" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="den-ok" ${green.length ? '' : 'disabled'}>Duyệt các mục xanh${green.length ? ` (${green.length})` : ''}</button>
       <span class="st-meta">${red.length ? `Còn ${red.length} mục đỏ cần xử lý — bấm "Xử lý" để tới đúng chỗ.` : waitN ? `${waitN} mục tiền chờ kế toán.` : green.length ? 'Không còn mục đỏ. Duyệt xong là hoàn thành đối soát.' : ''}</span></div>`}`);
   $('#den-ok', box)?.addEventListener('click', async (ev) => {
@@ -78,6 +91,15 @@ export async function mountLights(box, R0, R) {
     try { const D = await rpc('app_ca_bank_outs', { p_id: R0.id }); if (!D.can) { showSaved('Chỉ Chủ, Quản lý tổng, Kế toán tạo phiếu chi.', true); return; } openBankOut(R0.id, D, () => rerender()); }
     catch (e) { showSaved(e.message, true); }
   });
+  // bước 61: mục đỏ cần quản lý xem (hóa đơn sửa / xóa, khách trả nợ lệch Fabi) → "Đã xem — duyệt"
+  box.querySelectorAll('.den-man').forEach((b) => b.addEventListener('click', async () => {
+    const it = b.dataset.item; b.disabled = true;
+    try {
+      if (MONEY.includes(it)) await rpc('app_ca_result_set', { p_id: R0.id, p_item: it, p_result: 'khop', p_amount: null, p_reason: 'Quản lý đã xem — duyệt', p_people: [] });
+      else await rpc('app_ca_check', { p_id: R0.id, p_item: it, p_on: true });
+      showSaved(`Đã duyệt mục ${LBL[it]}`); rerender();
+    } catch (e) { showSaved(e.message, true); b.disabled = false; }
+  }));
   // bước 56: sửa 1 mục đã đối soát → chỉ mục đó mở lại; duyệt lại là phiếu tự hoàn thành
   box.querySelectorAll('.den-edit').forEach((b) => b.addEventListener('click', async () => {
     const why = prompt(`Sửa mục "${LBL[b.dataset.item]}": chỉ mục này mở lại, các mục khác giữ nguyên. Duyệt lại mục này là phiếu tự hoàn thành.\nLý do sửa:`, '');

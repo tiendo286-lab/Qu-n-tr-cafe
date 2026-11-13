@@ -40,3 +40,4 @@
 - Bảng tuần tab Đối soát: `flow_ds60` (`auto=1&role=chu&confirm=1&script=flow_ds60`).
 - Bước 49 (số cốc theo Fabi): `flow_fb` — file giả có MÓN / NHÓM MÓN → "4 món chưa có nhóm", gợi ý theo tên, Lưu → cột Số cốc + phiếu = 40. `flow_cm`: cơ sở dùng Fabi không còn bước Số cốc. `fb_gia.js` có `app_fabi_menu` / `app_fabi_menu_set`.
 - Rà soát 13/11/2026: bỏ `flow_wz`, `flow_ca` (phiếu chốt ca kiểu cũ), `flow_ds` (đối soát kiểu cũ — nay `flow_den`, `flow_sua56`, `flow_ca57`, `flow_dsdt`) và 3 bước hoá đơn kiểu cũ trong `flow_kt`. Bảng tuần Đối soát / Chuyển khoản gọi `app_ds_week` / `app_kt_bank_week` (bước 60); giả lập chưa có 2 hàm này nên trang tự gọi từng ngày như cũ.
+- Giai đoạn 3 (13/11/2026): `flow_fabi61` (hóa đơn sửa / khách trả nợ Fabi → đỏ, nút "Đã xem — duyệt"), `flow_ck62` (chỉ nhập số dư cuối, số đầu ca sau tự theo, Lưu cả ngày), `flow_hn62` (trang chủ Việc hôm nay; chạy với role=chu|kt|nv). `fb_gia.js` có `app_home_todo`.

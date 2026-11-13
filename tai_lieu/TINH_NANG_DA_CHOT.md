@@ -388,7 +388,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Tốc độ**: thông báo đến hạn chạy bằng lịch máy chủ mỗi phút; Lịch cơ sở hỏi máy chủ 60 giây/lần, ngừng khi thẻ ẩn; chỉ mục cho mọi cột nối bảng; "Ca chờ kế toán" 117 ms → 6 ms; bảng tuần 1 lần gọi (`app_ds_week`, `app_kt_bank_week`).
 - **Đúng số**: trang Đối soát ca hiện số tiền do máy chủ tính sau mỗi lần lưu (`app_ca_money`); máy chủ tự so 2 cách tính tiền mỗi đêm (02:45), lệch thì báo Chủ.
 - **Bản mới**: `docs/version.json` — web đang mở hiện "Có bản cập nhật mới — Tải lại".
-- Còn lại (Giai đoạn 3): kế toán chỉ nhập số dư cuối + lưu cả ngày; trang chủ theo vai trò; chốt các điểm logic để ngỏ.
+- **Giai đoạn 3** (`supabase/61_luat_doi_soat_fabi.sql`, `62_viec_hom_nay.sql`):
+  - Kế toán **chỉ nhập số dư cuối ca**: số đầu tự lấy = số cuối ca trước (hiện chữ, có nút Sửa); gõ số cuối ca Sáng thì ca Chiều tự cập nhật; nút **Lưu cả ngày**.
+  - **Việc hôm nay** (`/hom-nay`) là trang chủ của Chủ / Quản lý (có quyền đối soát) / Kế toán: chỉ hiện việc còn tồn theo vai trò (ca chờ đối soát, đang sửa, nghỉ & làm thay chờ, phiếu quá ngày chưa gửi, thu chi chờ nhóm; ca thiếu file Fabi / số dư, món chưa có nhóm; phiếu rút chờ xác nhận, nghỉ & làm thay chờ Chủ duyệt, số ngày chưa tải sao lưu). Nhân viên vẫn vào Order.
+  - Luật đối soát theo Fabi (anh Tiến chốt): **hóa đơn sửa / xóa** trên Fabi → Doanh thu không tự duyệt; **khách trả nợ trên Fabi** phải khớp khoản "khách đã trả" chọn trong ca, lệch → Công nợ không tự duyệt. Đèn đối soát ghi rõ lý do và có nút **"Đã xem — duyệt"**.
+  - **"Bỏ ca"**: chốt chỉ phạt 200.000đ, không trừ giờ. 5 ca LHP lệch do rút tiền: anh Tiến tự tạo phiếu rút ở từng ca.
 
 ## 6. Đã bỏ hẳn
 

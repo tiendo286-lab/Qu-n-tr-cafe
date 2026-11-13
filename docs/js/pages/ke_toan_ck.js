@@ -107,12 +107,16 @@ export async function render({ params }) {
     const sgOpen = a.opening === null && prevC !== null; // gợi ý số dư đầu = cuối ca trước của cùng tài khoản
     const mismatch = a.opening !== null && prevC !== null && Number(a.opening) !== Number(prevC);
     const late = Number(a.late_in || 0) - Number(a.late_out || 0);
+    const autoOpen = !lock && prevC !== null && (a.opening === null || Number(a.opening) === Number(prevC));   // bước 62: chỉ cần nhập số dư cuối
     return html`<div class="ck-acc" data-acc="${a.account_id}" data-late="${late}">
       <div class="ck-accn"><strong>${a.bank} ${a.account_no}</strong>${a.label ? html` <span class="st-meta">· ${a.label}</span>` : ''}${a.active ? '' : html` <span class="pill mute">Ngừng dùng</span>`}</div>
       <div class="ck-grid">
-        <label class="pc-f"><span>Số dư đầu ca</span>${money('ck-open' + (sgOpen ? ' st-sg' : ''), sgOpen ? prevC : a.opening, lock, sgOpen ? 'title="Gợi ý = số dư cuối ca trước"' : '')}
+        ${autoOpen ? html`<div class="pc-f"><span>Số dư đầu ca</span><div class="ck-oa"><b class="ck-ov">${vnd(prevC)}</b> <button type="button" class="btn sm secondary ck-oe">Sửa</button></div>
+          <input class="input sm money ck-open" inputmode="numeric" autocomplete="off" value="${fmt(prevC)}" data-auto="1" hidden aria-label="Số dư đầu ca">
+          <span class="st-meta ck-osrc">= số dư cuối ca trước (${a.prev.shift} ${dmy(a.prev.work_date)})</span></div>`
+        : html`<label class="pc-f"><span>Số dư đầu ca</span>${money('ck-open' + (sgOpen ? ' st-sg' : ''), sgOpen ? prevC : a.opening, lock, sgOpen ? 'title="Gợi ý = số dư cuối ca trước"' : '')}
           ${a.prev ? html`<span class="st-meta">Cuối ca trước (${a.prev.shift} ${dmy(a.prev.work_date)}): ${vnd(prevC)}</span>` : html`<span class="st-meta">Chưa có ca trước — nhập số dư ban đầu.</span>`}
-          ${mismatch ? html`<span class="pill warn" style="align-self:flex-start">Khác số dư cuối ca trước ${signed(Number(a.opening) - Number(prevC))}</span>` : ''}</label>
+          ${mismatch ? html`<span class="pill warn" style="align-self:flex-start">Khác số dư cuối ca trước ${signed(Number(a.opening) - Number(prevC))}</span>` : ''}</label>`}
         <label class="pc-f"><span>Số dư cuối ca</span>${money('ck-close', a.closing, lock)}</label>
         <label class="pc-f"><span>Tiền chuyển ra trong ca</span>${money('ck-out', a.transfers_out ?? 0, lock)}<span class="st-meta">Không có thì để 0.</span></label>
         <label class="pc-f"><span>Ghi chú</span><input class="input sm ck-note" value="${a.note || ''}" ${lock ? 'disabled' : ''} placeholder="Không bắt buộc"></label>
@@ -163,9 +167,10 @@ export async function render({ params }) {
         .st-sg { background: #fef9c3; }
         .pc-f { display: flex; flex-direction: column; gap: 4px; font-size: 14px; min-width: 0; }
         details.ck-late > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--primary); }
+        .ck-oa { display: flex; gap: 8px; align-items: center; min-height: 34px; } .ck-ov { font-size: 15px; font-variant-numeric: tabular-nums; }
         .ck-lf { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
       ${WEEK_CSS}</style>
-      <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub">Nhập số dư từng tài khoản nhận tiền của cơ sở theo đúng mốc giờ của phiếu ca. Tiền nhận trong ca = tổng các tài khoản (Số dư cuối − Số dư đầu + Tiền chuyển ra). Đây là tiền nhận trong ca, chưa mặc định là doanh thu.</div></div>
+      <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub"><strong>Chỉ cần nhập Số dư cuối ca</strong> của từng tài khoản — số dư đầu tự lấy bằng số dư cuối ca trước (gõ số cuối ca Sáng là ca Chiều tự cập nhật). Nhập xong cả ngày bấm <strong>Lưu cả ngày</strong>. Tiền nhận trong ca = Số dư cuối − Số dư đầu + Tiền chuyển ra.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:980px;gap:12px">
         ${noAcc.length ? html`<div class="alert warn">${noAcc.map((b) => b.code).join(', ')} chưa có tài khoản nhận tiền — thêm ở <a href="#/cai-dat/tai-khoan">Cài đặt › Tài khoản ngân hàng</a>.</div>` : ''}
@@ -173,7 +178,8 @@ export async function render({ params }) {
           <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${addDays(day, -1)}">‹ Hôm trước</a>
           <input class="input sm" type="date" id="ck-day" value="${day}" aria-label="Ngày">
           <a class="btn sm secondary" href="#/ke-toan/chuyen-khoan?ngay=${addDays(day, 1)}">Hôm sau ›</a>
-          <strong>${dayName(day)} ${dmy(day)}</strong></section>
+          <strong>${dayName(day)} ${dmy(day)}</strong>
+          <button type="button" class="btn sm" id="ck-save-all" style="margin-left:auto">Lưu cả ngày</button><span class="st-meta" id="ck-dirty"></span></section>
         <div class="alert warn" style="font-size:13px">Đang chờ chủ hệ thống chốt: cách xử lý khi sửa số dư một ca cũ (ảnh hưởng các ca sau) và khi tiền về chậm. Web chỉ <strong>cảnh báo</strong> khi số dư đầu khác số dư cuối ca trước, không tự sửa ca nào.</div>
         ${byBranch.map((b) => html`<section class="card stack" style="gap:10px"><h2 style="margin:0">${b.code} – ${b.name}</h2>${b.shifts.map(shiftCard)}</section>`)}
       </div>`,
@@ -212,19 +218,46 @@ export async function render({ params }) {
               + (pt !== null ? ` · <span class="st-meta">so với CK theo POS (${fmt(pt)}đ): ${signed(tot - pt)}</span>` : '')
               + (rt !== null ? ` · <span class="st-meta">so với CK nhân viên cộng hotline (${fmt(rt)}đ): ${signed(tot - rt)}</span>` : '');
         };
-        row.addEventListener('input', (e) => { e.target.classList.remove('st-sg'); calc(); });
+        row._calc = calc;
+        row.addEventListener('input', (e) => {
+          e.target.classList.remove('st-sg'); calc(); markDirty(row);
+          if (e.target.classList.contains('ck-close')) chainNext(row, e.target.closest('.ck-acc'));
+        });
         calc();
+        row.querySelectorAll('.ck-oe').forEach((b) => b.addEventListener('click', () => {
+          const acc = b.closest('.ck-acc'); const inp = acc.querySelector('.ck-open');
+          inp.hidden = false; inp.dataset.auto = '0'; b.closest('.ck-oa').hidden = true; acc.querySelector('.ck-osrc').hidden = true; inp.focus();
+        }));
         row.querySelector('.ck-save')?.addEventListener('click', async (ev) => {
-          const items = [...row.querySelectorAll('.ck-acc')].map((acc) => ({
-            account_id: Number(acc.dataset.acc), opening: parseMoney(acc.querySelector('.ck-open').value), closing: parseMoney(acc.querySelector('.ck-close').value),
-            transfers_out: parseMoney(acc.querySelector('.ck-out').value) || 0, note: acc.querySelector('.ck-note').value }));
           ev.target.disabled = true;
-          try {
-            await rpc('app_kt_bank_save_accounts', { p_report: Number(row.dataset.report), p_rows: items });
-            showSaved('Đã lưu · ' + hhmm());
-          } catch (e) { showSaved(e.message, true); }
+          try { await saveRow(row); showSaved('Đã lưu · ' + hhmm()); } catch (e) { showSaved(e.message, true); }
           ev.target.disabled = false;
         });
+      });
+      // ---- bước 62: số dư đầu ca sau tự theo số dư cuối ca trước (cùng tài khoản, cùng cơ sở); lưu cả ngày
+      function markDirty(row) { if (row) row.dataset.dirty = '1'; const n = $$('.ck-row[data-dirty="1"]').length; $('#ck-dirty').textContent = n ? `${n} ca chưa lưu` : ''; }
+      function chainNext(row, acc) {
+        const rows = [...row.closest('section').querySelectorAll('.ck-row[data-report]')]; const nx = rows[rows.indexOf(row) + 1]; if (!nx) return;
+        const inp = nx.querySelector(`.ck-acc[data-acc="${acc.dataset.acc}"] .ck-open[data-auto="1"]`); if (!inp) return;
+        const v = parseMoney(acc.querySelector('.ck-close').value); if (v === null) return;
+        inp.value = fmt(v); const ov = inp.closest('.ck-acc').querySelector('.ck-ov'); if (ov) ov.textContent = fmt(v) + 'đ';
+        const src = inp.closest('.ck-acc').querySelector('.ck-osrc'); if (src) src.textContent = '= số dư cuối ca trước (vừa nhập)';
+        nx._calc?.(); markDirty(nx);
+      }
+      async function saveRow(row) {
+        const items = [...row.querySelectorAll('.ck-acc')].map((acc) => ({
+          account_id: Number(acc.dataset.acc), opening: parseMoney(acc.querySelector('.ck-open').value), closing: parseMoney(acc.querySelector('.ck-close').value),
+          transfers_out: parseMoney(acc.querySelector('.ck-out').value) || 0, note: acc.querySelector('.ck-note').value }));
+        await rpc('app_kt_bank_save_accounts', { p_report: Number(row.dataset.report), p_rows: items });
+        delete row.dataset.dirty; markDirty(null);
+      }
+      $('#ck-save-all').addEventListener('click', async (ev) => {
+        const rows = $$('.ck-row[data-dirty="1"]').filter((r) => r.querySelector('.ck-save'));
+        if (!rows.length) { showSaved('Chưa có ca nào sửa.', true); return; }
+        ev.target.disabled = true; let ok = 0; const bad = [];
+        for (const r of rows) { try { await saveRow(r); ok++; } catch (e) { bad.push(`${r.querySelector('.ck-head strong').innerText}: ${e.message}`); } }
+        ev.target.disabled = false;
+        if (bad.length) showSaved(`Đã lưu ${ok} ca · lỗi: ${bad.join(' | ')}`, true); else showSaved(`Đã lưu cả ngày (${ok} ca) · ${hhmm()}`);
       });
     },
   };

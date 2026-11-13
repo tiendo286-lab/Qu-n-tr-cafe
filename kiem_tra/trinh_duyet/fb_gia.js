@@ -51,6 +51,14 @@ export function makeFb(T, me) {
       T.__autoLock[p_id] = p_items;
       p_items.forEach((it) => { if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({ report_id: p_id, item: it, checked_by: null, checked_at: '2026-11-12 10:00' }); });
     },
+    // bước 62: Việc hôm nay (giả lập gọn: ca chờ đối soát, ca thiếu file Fabi)
+    app_home_todo() {
+      const done = T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh');
+      const items = [];
+      if (me.perms.doi_soat || me.role === 'chu') items.push({ key: 'cho_doi_soat', group: 'Quản lý', label: 'Ca chờ đối soát', n: done.filter((r) => ktState(r.id)?.ready !== false).length, link: '/quan-ly/doi-soat', tone: 'warn' });
+      if (me.perms.ke_toan || me.role === 'chu') items.push({ key: 'thieu_fabi', group: 'Kế toán', label: 'Ca thiếu file chốt ca Fabi', n: done.filter((r) => ktState(r.id)?.need && !ktState(r.id)?.fabi).length, link: '/ke-toan/fabi', tone: 'warn' });
+      return { today: new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10), items };
+    },
     app_ca_kt_state: ({ p_id }) => ktState(p_id),
     app_ca_kt_wait() {
       return T.shift_reports.filter((r) => r.recon_status !== 'hoan_thanh' && !/full/i.test(r.shift)).map((r) => ({ r, k: ktState(r.id) })).filter(({ k }) => k && k.need && !k.ready)
