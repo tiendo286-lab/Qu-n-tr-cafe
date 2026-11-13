@@ -458,6 +458,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Ghi nhận nợ ở Đối soát ca** (tình huống mẫu: ĐK ca Sáng 01/11 — khách nợ nhưng nhân viên bấm thanh toán chuyển khoản trên Fabi): mục Công nợ của trang Đối soát có nút **"+ Ghi nhận nợ"** (tên / bàn, SĐT, số tiền, NV bấm nhầm Chuyển khoản hay Tiền mặt). Số tiền của ca **không đổi** (ca thiếu khoản đó); khoản nợ vào **Công nợ** + nhắc ở các ca sau; tab Âm tiền ghi ca **"Chờ khách trả nợ"** (nằm ở ô Chờ tiền về). Ca sau khách trả → nhân viên chọn "Khách trả nợ cũ" như thường (trả một phần được) → **web tự bù** phần thiếu của ca gốc. Còn chờ khách trả → **chưa chốt được tháng**. Khoản ghi nhận chỉ xoá được khi khách chưa trả.
 - **Lỗi gõ ô Số dư đầu** (phiếu chốt ca): đang gõ không còn bị nhảy / mất số (ô lý do lệch hiện / ẩn tại chỗ, không vẽ lại cả bước).
 - **Khung Công nợ** (cột phải Thu chi): mỗi người 2 tầng — tên + chi tiết / còn nợ + nút Ghi trả nợ (hết vỡ chữ).
+- **Nhắc chung khách nợ + khách mượn** (bước 75, sau vụ LHP ca Chiều 07/11 "Anh thắng 128k" ghi nhầm vào Khách mượn nên ca Tối không thấy): dòng nhắc đầu phiếu chốt ca và danh sách "Khách trả nợ / trả tiền mượn trong ca" (bước Phiếu Fabi) hiện cả khách nợ lẫn khách mượn tiền két (ghi rõ "Khách mượn – …").
 
 ## 6. Đã bỏ hẳn
 

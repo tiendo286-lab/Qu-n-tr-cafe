@@ -96,6 +96,7 @@ export default async ({ sleep, out }) => {
     setv($('[data-mv="0"][data-k="note"]'), 'Âm tiền két'); await next(); r.push(`ghi "Âm tiền": ${txt('#cm-err')} · còn ở ${txt('#cm-root h2')}`);
     setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); await sleep(200);
     r.push(`Chiều thấy khách mượn: ${$$('#cm-body .cm-person').map((x) => x.innerText.replace(/\s+/g, ' ')).pop()} · danh sách QL ${(await rpc('app_ca_loans_open')).length}`);
+    r.push(`nhắc đầu phiếu có khách mượn: ${txt('.pc-nhac')}`);   // bước 75
     { const sel = $('[data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change')); await sleep(1200); }
     await next();
     typ($('#cm-hot'), '1000000'); await sleep(300); r.push(`Chiều hotline: ${txt('#cm-ck-box')}`); await next();
