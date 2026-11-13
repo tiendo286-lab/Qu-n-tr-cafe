@@ -496,6 +496,12 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Máy chủ: `app__ca_money` trừ Nợ CK khỏi chuyển khoản phải nhận (đối soát, bảng tuần, tự tick); tự kiểm hằng đêm cộng Nợ CK.
 - Đợt sau (đã chốt ý, chưa làm): bỏ mục Người vay (khoản cho vay cũ → Nợ TM / Nợ CK, QL đánh dấu Gia đình ở Công nợ); trang Đối soát từng ca đi từng bước như phiếu (Phần việc: Ai làm ca · Nghỉ & ca bổ sung x2 (QL tổng phân loại, Chủ duyệt) · Bàn giao & nhận hàng (giao thành việc); Phần tiền: Phiếu Fabi · Khách nợ · Thu chi (chọn nhóm, gán lương không bắt buộc) · Tiền thực nhận (thu theo ca / cuối ngày — cuối ngày bắt buộc kết ca trước = mở ca sau) · Xử lý lệch & hoàn thành (Quán chịu / Chia đều người làm ca / Đối soát lại sau; CK lệch xử lý như TM)); màu ô ca: xanh lá Đã đối soát · vàng **Hoàn thành 1 phần** · xanh dương Chờ đối soát · đỏ Thiếu phiếu.
 
+## 5r19. Bỏ mục Người vay / Cho vay — CHỐT và ĐÃ LÀM 14/11/2026 (bước 85 · đợt 2, máy chủ 83_bo_nguoi_vay.sql)
+- Mọi khoản người khác nợ quán là **Nợ HĐ / Nợ TM / Nợ CK**. 7 khoản cho vay còn nợ (đều người nhà, LHP) đã chuyển thành Nợ TM (vay tiền mặt) / Nợ CK (vay chuyển khoản), đánh dấu **Công nợ gia đình**, giữ tên, ngày, số còn nợ. Khoản cho vay cũ **giữ trong lịch sử** — Sổ quỹ các tháng trước không đổi (đã so trước / sau cả 5 cơ sở).
+- Thu chi › Công nợ: nút **+ Nợ HĐ / + Nợ TM / + Nợ CK** (Nợ TM / Nợ CK có ô **"Tiền đưa từ quỹ"** → Sổ quỹ trừ ra, như cho vay trước đây); 2 nhóm **Khách nợ** (phiếu chốt ca nhắc thu) và **Công nợ gia đình** (cuối tháng thu, không nhắc); nút **Gia đình / Bỏ gia đình**; nút **Đã thu** khi trả ngoài ca (ngày, số tiền — trả một phần được, tiền mặt / chuyển khoản) → Sổ quỹ cộng vào; "Quản lý đã thu gần đây" có **Bỏ đã thu** (tháng chưa chốt).
+- Phiếu chốt ca: khung nhắc đầu phiếu không nhắc công nợ gia đình; ở bước Phiếu Fabi các khoản gia đình nằm trong mục thu gọn "Công nợ gia đình (N)" — người nhà trả trong ca vẫn chọn được.
+- Bỏ: Cài đặt › Người vay (khỏi menu), "+ Cho vay", "+ Trả hộ Kho tổng", "Đổi thành cho vay" ở Thu chi, nút "→ Gia đình" (bước 83). Máy chủ chặn tạo khoản cho vay mới.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

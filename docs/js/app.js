@@ -17,7 +17,7 @@ export const HUBS = [
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
   ['Cài đặt', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
-    ['Tài khoản ngân hàng', '/cai-dat/tai-khoan', 'ke_toan'], ['Nhóm món Fabi', '/cai-dat/nhom-mon', 'ke_toan'], ['Loại & nhóm thu chi', '/cai-dat/thu-chi', ['doi_soat', 'chot_thang']], ['Người vay', '/cai-dat/nguoi-vay', ['doi_soat', 'chot_thang']]], null, 'Hệ thống'],
+    ['Tài khoản ngân hàng', '/cai-dat/tai-khoan', 'ke_toan'], ['Nhóm món Fabi', '/cai-dat/nhom-mon', 'ke_toan'], ['Loại & nhóm thu chi', '/cai-dat/thu-chi', ['doi_soat', 'chot_thang']]], null, 'Hệ thống'],
   ['Dữ liệu & LOG', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'], ['LOG hệ thống', '/quan-ly/log', 'phan_quyen']], null, 'Hệ thống'],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]], null, 'Hệ thống'],
   ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Công của tôi', '/cua-toi/cong', null], ['Điểm đánh giá', '/cua-toi/danh-gia', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],

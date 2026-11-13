@@ -232,9 +232,12 @@ export async function renderNew(R0, P, SH) {
           <div class="cm-signed"><div class="cm-seg"><button type="button" data-sign="1" aria-pressed="${V.sign > 0}" aria-label="Dương">+</button><button type="button" data-sign="-1" aria-pressed="${V.sign < 0}" aria-label="Âm">−</button></div>${moneyIn('pos_diff', V.f.pos_diff, 'Tiền chênh lệch')}</div>
         </div>
         <div id="cm-checks">${ch.h}</div>
-        ${oldAll().length ? html`<h3 style="margin:8px 0 0">Khách trả nợ trong ca (Nợ HĐ / Nợ TM / Nợ CK)</h3>
+        ${(() => {   // bước 85: công nợ gia đình (cuối tháng thu) để trong mục thu gọn — người nhà trả trong ca thì vẫn chọn được
+          const cus = oldAll().filter((d) => !d.family); const fam = oldAll().filter((d) => d.family);
+          return cus.length || fam.length ? html`<h3 style="margin:8px 0 0">Khách trả nợ trong ca (Nợ HĐ / Nợ TM / Nợ CK)</h3>
           <div class="st-meta">Khoản nợ ở các ca trước — khách trả trong ca này thì chọn ở đây (trả thiếu thì sửa số tiền). Phiếu Fabi có mục <strong>PHIẾU THANH TOÁN NỢ</strong> là khách trả Nợ HĐ.</div>
-          ${oldAll().map(debtPayRow)}` : ''}
+          ${cus.map(debtPayRow)}
+          ${fam.length ? html`<details ${fam.some((d) => d.closed_report_id === R.id) ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Công nợ gia đình (${fam.length}) — chỉ mở khi người nhà trả trong ca</summary><div class="stack" style="gap:8px;margin-top:8px">${fam.map(debtPayRow)}</div></details>` : ''}` : ''; })()}
         ${expStart ? html`<label class="pc-f" id="cm-open-wrap" ${money().startBad ? '' : 'hidden'}><span>Ghi chú số dư đầu khác ${expStart.src} (không bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
     },
     3: () => {   // bước 84: gộp Nợ HĐ + Nợ TM + Nợ CK vào một bước
@@ -345,7 +348,7 @@ export async function renderNew(R0, P, SH) {
         <button type="button" class="btn secondary" id="cm-undo" style="align-self:flex-start">Sửa lại phiếu</button>${nhanHang()}</div>`;
     }
     const s = V.step; const err = V.tried ? stepError() : '';
-    const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
+    const odOpen = (R.open_debts || []).filter((d) => !d.closed_at && !d.family);   // bước 75 / 85: khách nợ (không nhắc công nợ gia đình)
     const nhac = odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ: ${odOpen.length} khoản · ${fmt(sum(odOpen, (d) => d.amount))}đ</strong>
         <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ trong ca" (② Phần tiền · ${LABEL[2]}).</div></div>` : '';
     const pt = partOf(s); const idx = (p) => ORDER.map((_, i) => i).filter((i) => partOf(i) === p);

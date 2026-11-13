@@ -247,16 +247,29 @@ export function makeFin(T, me) {
     app_cn_debts({ p_branch }) {
       const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
       const open = (T.shift_debts || []).filter((d) => d.branch_id === p_branch && !d.closed_at && (d.report_id == null || T.shift_reports.find((r) => r.id === d.report_id)?.status === 'hoan_thanh'))
-        .map((d) => { const r = T.shift_reports.find((x) => x.id === d.report_id); return { id: d.id, kind: d.kind || 'bill', name: d.table_name, phone: d.phone || null, amount: d.amount, note: d.note || '', date: r ? r.work_date : (d.created_at || today).slice(0, 10), shift: r?.shift || null, report_id: d.report_id ?? null, by_ql: d.report_id == null, by: 'admin – Chủ', split: !!d.split_from, paid_before: 0, gap_report: d.gap_report || null, gap_ca: d.gap_report ? 'Sáng' : null }; });
-      return { can_edit: admin() || me.role === 'ql', open };
+        .map((d) => { const r = T.shift_reports.find((x) => x.id === d.report_id); return { id: d.id, kind: d.kind || 'bill', name: d.table_name, phone: d.phone || null, amount: d.amount, note: d.note || '', date: r ? r.work_date : (d.created_at || today).slice(0, 10), shift: r?.shift || null, report_id: d.report_id ?? null, by_ql: d.report_id == null, by: 'admin – Chủ', split: !!d.split_from, paid_before: 0, gap_report: d.gap_report || null, gap_ca: d.gap_report ? 'Sáng' : null, family: !!d.family, fund_out: !!d.fund_out, from_loan: !!d.from_loan }; });
+      const thu = (T.shift_debts || []).filter((d) => d.branch_id === p_branch && d.closed_at && d.closed_report_id == null && ['tien_mat', 'chuyen_khoan'].includes(d.collect_kind))
+        .map((d) => ({ id: d.id, kind: d.kind || 'bill', name: d.table_name, amount: d.amount, date: d.closed_at.slice(0, 10), collect_kind: d.collect_kind, note: d.close_note, by: 'admin – Chủ', locked: false }));
+      return { can_edit: admin() || me.role === 'ql', open, thu };
     },
     app_cn_debt_save({ p_id, p }) {
       if (!(p.name || '').trim()) throw new Error('Ghi tên khách nợ.'); if (!(p.amount > 0)) throw new Error('Nhập số tiền nợ lớn hơn 0.');
       T.shift_debts = T.shift_debts || [];
-      if (p_id) { Object.assign(T.shift_debts.find((d) => d.id === p_id), { table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '' }); return p_id; }
-      const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: p.branch_id, report_id: null, table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '', kind: 'bill', created_at: (p.date || '') + ' 09:00:00' }); return id;
+      const k = ['muon', 'ck'].includes(p.kind) ? p.kind : 'bill'; const fam = p.family ? 1 : 0; const fo = p.fund_out && k !== 'bill' ? 1 : 0;   // bước 85
+      if (p_id) { Object.assign(T.shift_debts.find((d) => d.id === p_id), { table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '', kind: k, family: fam, fund_out: fo }); return p_id; }
+      const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: p.branch_id, report_id: null, table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '', kind: k, family: fam, fund_out: fo, created_at: (p.date || '') + ' 09:00:00' }); return id;
     },
     app_cn_debt_delete({ p_id }) { T.shift_debts = T.shift_debts.filter((d) => d.id !== p_id); },
+    // bước 85: gia đình / đã thu ngoài ca / bỏ đã thu
+    app_cn_debt_family({ p_id, p_on }) { const d = T.shift_debts.find((x) => x.id === p_id); if (d.closed_at) throw new Error('Khoản nợ đã thu.'); d.family = p_on ? 1 : 0; },
+    app_cn_debt_collect({ p_id, p_date, p_kind, p_amount, p_note }) {
+      const d = T.shift_debts.find((x) => x.id === p_id); if (!d || d.closed_at) throw new Error('Khoản nợ này đã thu rồi.');
+      if (!['tien_mat', 'chuyen_khoan'].includes(p_kind)) throw new Error('Chọn tiền mặt hay chuyển khoản.');
+      if (!(p_amount > 0) || p_amount > d.amount) throw new Error('Số tiền thu phải lớn hơn 0 và không quá ' + d.amount + '.');
+      if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: nid('shift_debts'), amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
+      Object.assign(d, { closed_at: (p_date || '') + ' 10:00:00', closed_report_id: null, collect_kind: p_kind, close_note: p_note || 'Quản lý thu' });
+    },
+    app_cn_debt_uncollect({ p_id }) { const d = T.shift_debts.find((x) => x.id === p_id); Object.assign(d, { closed_at: null, collect_kind: null, close_note: null }); },
     // bước 64: cho vay (chỉ LHP)
     app_loans({ p_branch }) {
       const b = T.branches.find((x) => x.id === p_branch); if (!b) return { enabled: false };

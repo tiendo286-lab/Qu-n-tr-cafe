@@ -481,7 +481,7 @@ export async function render({ params }) {
     : html`<div class="pc-part-h">① Phần việc</div>${partBar('nhan_su')}${secStaff}${secHand}${partDone('nhan_su')}${partBar('nhan_hang')}${secGoods}${partDone('nhan_hang')}
       <div class="pc-part-h">② Phần tiền</div>${partBar('tien')}${secTime}${secMoney}${secDiff}${secDebt}${partDone('tien')}${foot}`;   // bước 78
   // bước 70: nhắc khách đang nợ ở đầu phiếu chốt ca (nhân viên nhớ thu)
-  const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
+  const odOpen = (R.open_debts || []).filter((d) => !d.closed_at && !d.family);   // bước 75 / 85: không nhắc công nợ gia đình
   const nhacNo = !isDs && ed && odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ ${R.branch_code}: ${odOpen.length} khoản · ${vnd(odOpen.reduce((t, d) => t + Number(d.amount || 0), 0))}</strong>
       <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì bấm "Khách đã trả" ở mục 4 (${wizard ? 'bước Tiền: thu chi' : 'Khách chưa thanh toán'}).</div></div>` : '';
   return {

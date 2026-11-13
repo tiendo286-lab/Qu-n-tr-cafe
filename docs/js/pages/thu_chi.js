@@ -91,7 +91,7 @@ export async function render(ctx) {
     return html`${blank ? html`<option value="">— Chọn nhóm —</option>` : ''}${ts.map((t) => { const g = cs.filter((c) => catById.get(c.id)?.type_id === t.id); return g.length ? html`<optgroup label="${t.name}">${g.map(o)}</optgroup>` : ''; })}${loose.map(o)}${withX ? html`<option value="x" ${sel === 'x' ? 'selected' : ''}>Không tính</option>` : ''}`; };
   const catSel = (r) => { const v = r.status === 'cho' ? r.category_id || '' : r.excluded ? 'x' : r.category_id || '';
     return html`<select class="input sm tc-cat" aria-label="Nhóm" title="Chọn nhóm là đối soát luôn">${catOpts(r.kind, v, r.src === 'ca', v === '')}</select>`; };
-  const loanOn = (b) => (D.loan_branches || []).includes(b);
+  const loanOn = () => false;   // bước 85: đã bỏ mục Cho vay / Người vay — ghi Nợ TM / Nợ CK ở Công nợ
 
   // bước 68: gộp âm tiền theo ca
   const qcCat = D.categories.find((c) => c.kind === 'chi' && c.name === 'Âm tiền – quán chịu');
