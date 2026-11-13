@@ -325,7 +325,7 @@ begin
   if public.app__fin_locked(br, d) then raise exception 'Tháng này đã CHỐT nên không ghi khoản vay vào được.'; end if;
   if p_id is not null then
     if amt < (select coalesce(sum(amount), 0) from public.branch_loan_payments where loan_id = p_id) then
-      raise exception 'Số tiền vay không được nhỏ hơn số đã trả (%).', public.app__vnd((select coalesce(sum(amount), 0) from public.branch_loan_payments where loan_id = p_id));
+      raise exception 'Số tiền vay không được nhỏ hơn số đã trả (%).', public.app__vnd((select coalesce(sum(amount), 0) from public.branch_loan_payments where loan_id = p_id)::bigint);
     end if;
     if exists (select 1 from public.branch_loan_payments where loan_id = p_id and pay_date < d) then raise exception 'Ngày cho vay phải trước các lần trả nợ.'; end if;
     if old.report_id is not null and (d is distinct from old.loan_date or amt is distinct from old.amount or m is distinct from old.method) then
