@@ -477,6 +477,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 ## 5r15. Bảng ca tuần gộp tiền + nợ — CHỐT và ĐÃ LÀM 13/11/2026 (chỉ giao diện)
 - Vẫn **2 tab riêng** (Chốt ca, Đối soát), mỗi tab **1 bảng tuần** (tab Đối soát bỏ kiểu 2 bảng). Mỗi ô ca: trạng thái (phiếu / đối soát) → **TM / CK âm dương** → **từng khoản nợ**: "Nợ Bàn 9 50k · chưa trả" (đỏ) hoặc "· đã trả CK ca Chiều 12/11" (xanh); ca thu nợ ghi "Thu nợ … (nợ ca … ngày …)" (xanh dương). Tab Đối soát có cột **Cả ngày** (kiểm đếm cuối ngày + tổng tiền ngày), tổng cả tuần ở đầu bảng.
 - **Dưới bảng ở cả 2 tab**: phần **"Khách nợ / khách mượn trong tuần"** — ngày, ca, khách, số tiền, "Chưa trả · x ngày" hoặc "✓ Đã trả TM/CK · ca … ngày …" (bấm mở phiếu). Tab Đối soát: phần nợ nằm trên "Việc chờ đối soát".
+- **Sửa 13/11 (bước 81)**: ghi **số tiền đầy đủ** (128.000, không viết 128k); **bỏ các dòng tổng** (tổng cả tuần, tiền cả ngày, tổng tiền nợ chưa trả); ô và chữ to hơn (điện thoại vuốt ngang trong bảng). Cột cuối tab Đối soát đổi tên **Kiểm đếm** (chỉ trạng thái kiểm đếm cuối ngày).
 
 ## 6. Đã bỏ hẳn
 
