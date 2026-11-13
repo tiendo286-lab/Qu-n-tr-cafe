@@ -9,7 +9,12 @@ export default async ({ visit, settle, sleep, out }) => {
   if (q.get('role') === 'nv') {
     await step('NV đọc nội quy', async () => { await go('#/noi-quy'); return txt('.doc-card summary') + ' | bảng: ' + $$('.doc table').length + ' | ảnh có link: ' + $$('.doc img[src]').length + ' | XSS=' + (window.__XSS || 'không') + ' | ' + txt('.alert.warn') + ' | thanh dưới: ' + txt('.tabbar'); });
     await step('NV bấm Tôi đã đọc', async () => { $('.read-btn').click(); await sleep(400); await settle(); return txt('.doc-card summary') + ' | ' + txt('.doc-card .alert'); });
-    await step('NV xem quy trình, không có nút sửa', async () => { await go('#/quy-trinh'); const group = txt('.procedure-card'); $('.procedure-card').click(); await sleep(400); await settle(); return group + ' | ' + txt('.doc-card summary') + ' | nút sửa: ' + $$('a[href^="#/tai-lieu/soan"]').length; });
+    await step('NV xem quy trình, training và đánh giá', async () => {
+      await go('#/quy-trinh'); const group = txt('.procedure-card'); $('.procedure-card').click(); await sleep(400); await settle();
+      if (!txt('.qt-my-status').includes('Training chạy bàn') || !txt('.qt-my-status').includes('Đánh giá chạy bàn')) throw new Error('Thiếu trạng thái training / đánh giá');
+      if (!$('.qt-index-link') || !$('.qt-doc-card')) throw new Error('Thiếu mục lục hoặc bài quy trình');
+      return group + ' | ' + txt('.qt-my-status') + ' | nút sửa: ' + $$('a[href^="#/tai-lieu/soan"]').length;
+    });
     await step('NV chỉ thấy bản đăng, không sửa được nhóm', async () => {
       const { makeTl } = await import('./tl_gia.js');
       const T = {}; const api = makeTl(T, { employee_id: 1, perms: {} });
@@ -60,6 +65,7 @@ export default async ({ visit, settle, sleep, out }) => {
     await go('#/quy-trinh?id=2');
     assert($('#doc-2')?.open, 'Liên kết bài cũ không mở đúng bài');
     assert($('#root').textContent.includes('Quy trình nhân viên order'), 'Liên kết bài thiếu tên bộ');
+    assert($('.qt-index-link'), 'Thiếu mục lục bài quy trình');
     return 'Bộ cũ và liên kết bài giữ nguyên';
   });
   await step('Tạo quy trình mới và lưu nháp', async () => {

@@ -507,3 +507,4 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Toàn bộ bài hiện có thuộc **Quy trình nhân viên order**, giữ nguyên ID, ảnh, thứ tự và liên kết từ phiếu đào tạo.
 - Người có quyền soạn có thể tạo quy trình khác bằng cách nhập tên bộ khi lưu bài đầu tiên, thêm bài hoặc chọn bộ có sẵn. Nhân viên chỉ thấy bài đã đăng; đổi tên bộ của bài nháp chỉ có hiệu lực với nhân viên sau khi đăng bài.
 - Máy chủ đã chạy `78_nhieu_quy_trinh.sql`; đã thử tự hoàn tác trước khi áp dụng thật: giữ nguyên 19 bài cũ, kiểm tra quyền Chủ / Nhân viên và tách nhóm bản nháp / bản đăng. Giao diện phát hành phiên bản `2026.11.13.20`.
+- Giao diện đọc quy trình (13/11/2026): danh sách bộ, ô tìm kiếm, mục lục bài trên máy tính và mục lục thu gọn trên điện thoại. Trong **Quy trình nhân viên order**, tài khoản nhân viên chạy bàn thấy tiến độ training thật, điểm đánh giá chạy bàn tháng hiện tại và đường dẫn mở phiếu chi tiết; không dùng số liệu mẫu. Phiên bản `2026.11.13.23`.
