@@ -1,14 +1,13 @@
-// Quản lý ca › Thu chi: mọi khoản thu / chi của cơ sở trong tháng
-//  * Quản lý tự tạo → Đã đối soát.
-//  * Từng dòng thu chi ở phiếu chốt ca → Chờ đối soát; quản lý chọn nhóm (hoặc "Không tính") rồi bấm Đối soát.
-//  * Khoản âm (bước 34): mỗi người chịu thiếu tiền = 1 phiếu chi "Thiếu tiền ca – trừ lương" trong danh sách; không tính vào chi phí quán.
-//    Quản lý + Chủ sửa (người chịu, số tiền, Trừ lương / Đã bù / Miễn) hoặc xóa được tới khi chốt tháng.
-//  * Bước 65: đổi nhóm ngay tại dòng (chọn nhóm = đã đối soát), sửa khoản phiếu ca (số tiền / nội dung / TM–CK, vào bản đối soát),
-//    tích nhiều dòng → đổi nhóm hàng loạt.
-//  * Bước 68: mỗi ca thiếu tiền = 1 dòng "Âm tiền" (khoản âm TL + khoản chi "Âm tiền" nhân viên ghi), bấm Chi tiết để xem ai chịu;
-//    khoản chi "Âm tiền" gán Trừ lương (chọn người chịu) hoặc Quán chịu (nhóm "Âm tiền – quán chịu").
+// Quản lý ca › Thu chi: mọi khoản thu / chi của MỘT cơ sở trong tháng
+//  * Quản lý tự tạo → Đã đối soát. Từng dòng thu chi ở phiếu chốt ca → Chờ đối soát; chọn nhóm (hoặc "Không tính") là đối soát.
+//  * Bước 65: sửa khoản phiếu ca (số tiền / nội dung / TM–CK, vào bản đối soát); đổi khoản chi thành cho vay.
+//  * Bước 68: mỗi ca thiếu tiền = 1 dòng "Âm tiền" (khoản âm TL + khoản chi "Âm tiền" nhân viên ghi), gán Trừ lương / Quán chịu.
+//  * Bước 69 (anh Tiến chốt 13/11): giao diện mới — mỗi lần 1 cơ sở (bỏ "Tất cả"); 6 ô số đầu trang; 2 cột (sổ gộp theo ngày bên trái;
+//    Cần phân loại → Chi theo loại (so tháng trước) → Cho vay bên phải); lọc nhanh + "Lọc thêm"; bấm dòng mở khung sửa;
+//    ô tích dưới số tiền = đối soát; bỏ đổi nhóm hàng loạt; "+ Thêm khoản" chọn loại ngay (Chi / Thu / Cho vay / Trả hộ Kho tổng / Khách nợ).
+//  * Bước 70: khung Công nợ (Kho tổng vay + trả hộ, người vay, khách hàng nợ) — cho_vay.js.
 import { render as rerender } from '../app.js';
-import { vnToday } from '../data.js';
+import { DOW_LABELS, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, norm, showSaved, str } from '../ui.js';
@@ -19,10 +18,16 @@ export const perm = 'doi_soat';
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
 const F = { st: '', kind: '', src: '', q: '', pay: '', type: '', cat: '' };
 const OPEN = new Set();   // dòng Âm tiền đang mở (giữ qua lần vẽ lại)
+let MORE = false;         // "Lọc thêm" đang mở
 const AM_RE = /(âm|thiếu)\s*tiền/i;
+const LS_BR = 'tcBranch';
 const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 7); };
 const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
+const dayLabel = (d) => { const w = new Date(`${d}T00:00:00Z`).getUTCDay(); return `${dmy(d)} · ${DOW_LABELS[(w + 6) % 7]}`; };
+const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; } catch (_) { return null; } };
+const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
+const short = (n) => { const a = Math.abs(n); return a >= 1e6 ? `${(a / 1e6).toFixed(a >= 1e7 ? 1 : 2).replace(/\.?0+$/, '').replace('.', ',')}tr` : a >= 1000 ? `${Math.round(a / 1000)}k` : fmt(a); };
 
 export function monthOf(params) {
   if (/^\d{4}-\d{2}$/.test(params.thang || '')) return params.thang;
@@ -33,46 +38,61 @@ export function monthOf(params) {
 export async function render(ctx) {
   const { params } = ctx;
   const month = monthOf(params);
-  if (params.xem === 'khoan-am') F.src = 'ka';   // đường dẫn cũ "Khoản âm" → lọc phiếu trừ lương
-  const cn = params.cn && params.cn !== 'all' ? Number(params.cn) : null;
-  const [D, FT] = await Promise.all([rpc('app_tc_list', { p_branch: cn, p_from: `${month}-01`, p_to: lastDay(month) }), rpc('app_fin_types').catch(() => ({ types: [], cats: [] }))]);
-  // bước 57: loại (tầng trên nhóm)
+  if (params.xem === 'khoan-am') F.src = 'ka';   // đường dẫn cũ "Khoản âm" → lọc âm tiền
+  // bước 69: luôn 1 cơ sở — lấy từ địa chỉ, rồi cơ sở xem lần trước, rồi cơ sở đầu tiên được xem
+  let cn = Number(params.cn) || lsGet();
+  const range = { p_from: `${month}-01`, p_to: lastDay(month) };
+  let D = cn ? await rpc('app_tc_list', { p_branch: cn, ...range }).catch(() => null) : null;
+  if (!D) {
+    const t = vnToday(); const L = await rpc('app_tc_list', { p_branch: null, p_from: t, p_to: t });
+    if (!L.branches.length) return { title: 'Thu chi', html: html`<div class="page-head"><h1>Thu chi</h1></div><div class="alert warn">Bạn chưa được xem thu chi cơ sở nào.</div>` };
+    cn = L.branches[0].id; D = await rpc('app_tc_list', { p_branch: cn, ...range });
+  }
+  lsSet(cn);
+  const [FT, SM] = await Promise.all([rpc('app_fin_types').catch(() => ({ types: [], cats: [] })), rpc('app_tc_summary', { p_branch: cn, ...range }).catch(() => null)]);
   const typeById = new Map(FT.types.map((t) => [t.id, t])); const catById = new Map(FT.cats.map((c) => [c.id, c]));
   const typeOf = (r) => (r.category_id ? typeById.get(catById.get(r.category_id)?.type_id) || null : null);
   const path = (r) => { const t = typeOf(r); return `${t ? t.name + ' › ' : ''}${r.category || 'Chưa phân nhóm'}`; };
-  const brById = new Map(D.branches.map((b) => [b.id, b]));
+  const brById = new Map(D.branches.map((b) => [b.id, b])); const BR = brById.get(cn) || { id: cn, code: '' };
   const cats = (kind) => D.categories.filter((c) => c.kind === kind && c.active);
-  const q = (o) => '#/quan-ly/thu-chi?' + Object.entries({ thang: month, cn: cn || 'all', ...o }).map(([k, v]) => `${k}=${v}`).join('&');
+  const q = (o) => '#/quan-ly/thu-chi?' + Object.entries({ thang: month, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
   const rows = D.rows.map((r, i) => ({ ...r, i }));
-  const counted = rows.filter((r) => !r.excluded);
+  const counted = rows.filter((r) => !r.excluded && r.src !== 'ka');
   const sum = (a) => a.reduce((s, r) => s + Number(r.amount), 0);
-  const thu = sum(counted.filter((r) => r.kind === 'thu')); const chi = sum(counted.filter((r) => r.kind === 'chi'));
-  const pend = rows.filter((r) => r.status === 'cho');
-  const kaRows = rows.filter((r) => r.src === 'ka'); const luong = sum(kaRows.filter((r) => r.ka_status === 'tru_luong'));
-  // tách tiền mặt / chuyển khoản (phiếu trừ lương không phải tiền thật ra khỏi quỹ → không tính vào 2 thẻ)
-  const byPay = (pm) => { const a = counted.filter((r) => r.src !== 'ka' && (r.pay || 'tien_mat') === pm); const t = sum(a.filter((r) => r.kind === 'thu')); const c = sum(a.filter((r) => r.kind === 'chi')); return { thu: t, chi: c, n: a.length }; };
-  const PM = { tien_mat: byPay('tien_mat'), chuyen_khoan: byPay('chuyen_khoan') };
-  const chiRows = counted.filter((r) => r.kind === 'chi' && r.src !== 'ka');
-  const byType = []; chiRows.forEach((r) => {
+  const thuR = counted.filter((r) => r.kind === 'thu'); const chiR = counted.filter((r) => r.kind === 'chi');
+  const thu = sum(thuR); const chi = sum(chiR);
+  const byPm = (a, pm) => sum(a.filter((r) => (r.pay || 'tien_mat') === pm));
+  const real = rows.filter((r) => r.src !== 'ka');
+  const pend = real.filter((r) => r.status === 'cho');
+  const pmTag = (r) => (r.src === 'ka' ? html`<span class="tc-pm ka" title="Phiếu trừ lương">TL</span>` : (r.pay || 'tien_mat') === 'chuyen_khoan' ? html`<span class="tc-pm ck" title="Chuyển khoản">CK</span>` : html`<span class="tc-pm tm" title="Tiền mặt">TM</span>`);
+
+  // Chi theo loại + so tháng trước (bước 69)
+  const prev = SM?.prev_chi || {};
+  const byType = []; chiR.forEach((r) => {
     const t = typeOf(r); const tk = t ? t.id : 0; let g = byType.find((x) => x.id === tk);
-    if (!g) byType.push(g = { id: tk, name: t ? t.name : (r.category_id ? 'Chưa có loại' : 'Chưa phân nhóm (chờ đối soát)'), sort: t ? t.sort_order : 999, sum: 0, cats: [] });
+    if (!g) byType.push(g = { id: tk, name: t ? t.name : (r.category_id ? 'Chưa có loại' : 'Chưa phân nhóm (chờ đối soát)'), sort: t ? t.sort_order : 999, sum: 0, prev: 0, cats: [] });
     g.sum += Number(r.amount); const ck = r.category_id || 0; let c = g.cats.find((x) => x.id === ck);
     if (!c) g.cats.push(c = { id: ck, name: r.category || '—', sum: 0, n: 0 }); c.sum += Number(r.amount); c.n += 1;
   });
+  Object.entries(prev).forEach(([k, v]) => {
+    const t = Number(k) ? typeById.get(catById.get(Number(k))?.type_id) : null; const tk = t ? t.id : 0; let g = byType.find((x) => x.id === tk);
+    if (!g) byType.push(g = { id: tk, name: t ? t.name : 'Chưa phân nhóm (chờ đối soát)', sort: t ? t.sort_order : 999, sum: 0, prev: 0, cats: [] });
+    g.prev += Number(v);
+  });
   byType.sort((a, b) => a.sort - b.sort); byType.forEach((g) => g.cats.sort((a, b) => b.sum - a.sum));
-  const chiTot = byType.reduce((t, g) => t + g.sum, 0);
-  const pct = (v) => (chiTot ? Math.round((v / chiTot) * 100) : 0);
-  const pmTag = (r) => (r.src === 'ka' ? html`<span class="tc-pm ka" title="Phiếu trừ lương">TL</span>` : (r.pay || 'tien_mat') === 'chuyen_khoan' ? html`<span class="tc-pm ck" title="Chuyển khoản">CK</span>` : html`<span class="tc-pm tm" title="Tiền mặt">TM</span>`);
+  const maxT = Math.max(1, ...byType.map((g) => g.sum));
+  const cmp = (g) => { if (!g.prev && !g.sum) return ''; if (!g.prev) return html`<span class="tc-cmp up" title="Tháng trước: 0">mới</span>`;
+    const p = Math.round(((g.sum - g.prev) / g.prev) * 100);
+    return html`<span class="tc-cmp ${p > 0 ? 'up' : p < 0 ? 'dn' : ''}" title="Tháng trước: ${vnd(g.prev)}">${p > 0 ? `▲${p}%` : p < 0 ? `▼${-p}%` : '='}</span>`; };
 
-  // nhóm theo loại (bước 57); withX = thêm "Không tính" (chỉ khoản phiếu ca)
   const catOpts = (k, sel, withX, blank = true) => { const cs = cats(k); const ts = FT.types.filter((t) => t.kind === k); const loose = cs.filter((c) => !ts.some((t) => t.id === catById.get(c.id)?.type_id));
     const o = (c) => html`<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${c.name}</option>`;
     return html`${blank ? html`<option value="">— Chọn nhóm —</option>` : ''}${ts.map((t) => { const g = cs.filter((c) => catById.get(c.id)?.type_id === t.id); return g.length ? html`<optgroup label="${t.name}">${g.map(o)}</optgroup>` : ''; })}${loose.map(o)}${withX ? html`<option value="x" ${sel === 'x' ? 'selected' : ''}>Không tính</option>` : ''}`; };
   const catSel = (r) => { const v = r.status === 'cho' ? r.category_id || '' : r.excluded ? 'x' : r.category_id || '';
     return html`<select class="input sm tc-cat" aria-label="Nhóm" title="Chọn nhóm là đối soát luôn">${catOpts(r.kind, v, r.src === 'ca', v === '')}</select>`; };
   const loanOn = (b) => (D.loan_branches || []).includes(b);
-  const lead = (r, pick) => html`<span class="tc-lead">${pick && !r.locked ? html`<input type="checkbox" class="tc-pick" aria-label="Chọn khoản">` : html`<span class="tc-pick0"></span>`}${pmTag(r)}</span>`;
-  // bước 68: gộp âm tiền theo ca — khoản âm (TL) + khoản chi "Âm tiền" nhân viên ghi trên phiếu ca
+
+  // bước 68: gộp âm tiền theo ca
   const qcCat = D.categories.find((c) => c.kind === 'chi' && c.name === 'Âm tiền – quán chịu');
   const isAm = (r) => r.src === 'ca' && r.kind === 'chi' && !r.auto && !r.loan_id && (Number(r.ka_n) > 0 || AM_RE.test(r.note || ''));
   const AMG = new Map();
@@ -94,7 +114,7 @@ export async function render(ctx) {
           : html`<span class="toolbar tc-amb"><button type="button" class="btn sm tc-amtl">Trừ lương…</button>${m.status === 'cho' || !qcCat || m.category_id !== qcCat.id ? html`<button type="button" class="btn sm secondary tc-amqc">Quán chịu</button>` : ''}</span>`}</div>
       ${tl.map(kaLine)}</div>`; };
   const amRow = (g) => {
-    const br = brById.get(g.branch_id); const tot = sum(g.moves) + sum(g.ka.filter((k) => !k.move_mkey));
+    const tot = sum(g.moves) + sum(g.ka.filter((k) => !k.move_mkey));
     const wait = g.moves.some((m) => m.status === 'cho' && !g.ka.some((k) => k.move_mkey === m.mkey));
     const tlN = new Set(g.ka.filter((k) => k.ka_status === 'tru_luong').map((k) => k.employee_id)).size;
     const qc = g.moves.some((m) => m.status === 'da' && !m.excluded && !g.ka.some((k) => k.move_mkey === m.mkey));
@@ -102,78 +122,89 @@ export async function render(ctx) {
       g.ka.some((k) => k.ka_status === 'mien') ? 'có khoản miễn' : '', qc ? 'quán chịu' : ''].filter(Boolean).join(' · ');
     const open = OPEN.has(g.report_id);
     return html`<div class="tc-r am ${wait ? 'todo' : ''}" data-g="${g.report_id}" data-st="${wait ? 'cho' : 'da'}" data-kind="chi" data-src="ka" data-pay="ka" data-type="" data-cat=""
-        data-q="${norm(`am tien tru luong khoan am thieu tien ${br?.code || ''} ${g.ka.map((k) => `${k.employee} ${k.reason || ''}`).join(' ')} ${g.moves.map((m) => m.note).join(' ')}`)}">
-      <span class="tc-lead"><span class="tc-pick0"></span><span class="tc-pm ka" title="Âm tiền / trừ lương">${tlN ? 'TL' : 'ÂM'}</span></span>
-      <div class="tc-m"><strong>Âm tiền – ca ${g.shift}</strong><div class="st-meta">${dmy(g.date)} · ${br?.code || ''} · <a href="#/ca/phieu?id=${g.report_id}">Phiếu ca ${g.shift}</a> · ${what}</div></div>
-      <div class="tc-a neg">−${fmt(tot)}đ</div>
-      <div class="tc-s">${wait ? html`<span class="pill warn">Chờ gán</span>` : html`<span class="pill ok">✓ Đã xử lý</span>`}</div>
-      <div class="tc-act"><button type="button" class="btn sm secondary tc-amx" aria-expanded="${open}">${open ? 'Thu gọn' : 'Chi tiết'}</button></div>
+        data-q="${norm(`am tien tru luong khoan am thieu tien ${g.ka.map((k) => `${k.employee} ${k.reason || ''}`).join(' ')} ${g.moves.map((m) => m.note).join(' ')}`)}">
+      <span class="tc-pm ka" title="Âm tiền / trừ lương">${tlN ? 'TL' : 'ÂM'}</span>
+      <div class="tc-m"><strong>Âm tiền – ca ${g.shift}</strong><div class="st-meta"><a href="#/ca/phieu?id=${g.report_id}">Phiếu ca ${g.shift}</a> · ${what}</div></div>
+      <div class="tc-rt"><span class="tc-a neg">−${fmt(tot)}</span><button type="button" class="tc-ok ${wait ? 'n' : 'y'} tc-amx" aria-expanded="${open}" aria-label="${wait ? 'Chờ gán — mở chi tiết' : 'Đã xử lý — mở chi tiết'}">${wait ? '' : '✓'}</button></div>
+      <div class="tc-x"><span class="tc-c ${wait ? 'need' : ''}">${wait ? 'Chờ gán' : 'Đã xử lý'}</span><button type="button" class="link-btn tc-amx2">${open ? 'Thu gọn' : 'Chi tiết'}</button></div>
       <div class="tc-amd" ${open ? '' : 'hidden'}>${g.moves.map((m) => moveLine(m, g))}${g.ka.filter((k) => !k.move_mkey).map(kaLine)}</div></div>`;
   };
-  const seenG = new Set();
-  const listHtml = rows.map((r) => {
-    const g = r.src === 'ka' || isAm(r) ? AMG.get(r.report_id) : null;
-    if (!g) return row(r);
-    if (seenG.has(g.report_id)) return '';
-    seenG.add(g.report_id); return amRow(g);
-  });
   function row(r) {
-    const br = brById.get(r.branch_id);
-    const src = r.src === 'ca' ? html`<a href="#/ca/phieu?id=${r.report_id}">Phiếu ca ${r.shift}</a>${r.by ? ` (${r.by})` : ''}` : html`Quản lý tạo · ${r.by || ''}`;
-    const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
-      : r.loan_id ? html`<span class="st-meta">Đã đổi thành cho vay — xem khung Cho vay</span>`
-      : html`<span class="tc-do">${catSel(r)}${r.src === 'ca' && r.status === 'cho' && r.category_id ? html`<button type="button" class="btn sm tc-okc" title="Đối soát với nhóm đang chọn">✓</button>` : ''}
-          ${r.src === 'tay' ? html`<button type="button" class="btn sm secondary tc-ed">Sửa</button>${r.bank_out ? '' : html`<button type="button" class="btn sm secondary danger tc-del" aria-label="Xóa">×</button>`}`
-            : r.auto ? '' : html`<button type="button" class="btn sm secondary tc-med">Sửa</button>`}</span>`;
-    return html`<div class="tc-r ${r.status === 'cho' ? 'todo' : r.excluded ? 'off' : ''}" data-i="${r.i}" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-type="${typeOf(r)?.id || ''}" data-cat="${r.category_id || ''}" data-q="${norm(`${r.note} ${r.category || ''} ${typeOf(r)?.name || ''} ${br?.code || ''} ${PAY[r.pay] || ''}`)}">
-      ${lead(r, !r.loan_id)}<div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
-        <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · ${src}${r.status === 'da' ? html` · <b>${r.loan_id ? 'Đã đổi thành cho vay' : r.excluded ? 'Không tính' : path(r)}</b>` : ''}${r.auto ? ' · khoản tự động' : ''}${r.bank_out ? ' · từ phiếu chi chuyển khoản (Đối soát ca)' : ''}</div></div>
-      <div class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ</div>
-      <div class="tc-s">${r.status === 'cho' ? html`<span class="pill warn">Chờ đối soát</span>` : html`<span class="pill ok" title="${r.src === 'ca' ? `${r.checked_by || ''} · ${dt(r.checked_at)}` : ''}">✓ Đã đối soát</span>`}
-        ${r.src === 'ca' ? html`<div><a class="st-meta" href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Đối soát ca ›</a></div>` : ''}</div>
-      <div class="tc-act">${act}</div></div>`;
+    const src = r.src === 'ca' ? html`<a href="#/ca/phieu?id=${r.report_id}">Ca ${r.shift}</a> · ghi: ${r.by || '—'}` : html`Quản lý tạo · ${r.by || ''}`;
+    const ok = r.status === 'da';
+    const catTxt = r.loan_id ? 'Đã đổi thành cho vay' : r.status === 'cho' ? (r.category_id ? `${path(r)} (chưa xác nhận)` : 'Chưa phân loại') : r.excluded ? 'Không tính' : path(r);
+    const catCls = r.loan_id ? 'loan' : r.status === 'cho' ? 'need' : r.excluded ? 'off' : '';
+    const who = r.src === 'ca' ? [r.checked_by, dt(r.checked_at)].filter(Boolean).join(' · ') : 'quản lý tạo';
+    return html`<div class="tc-r ${ok ? (r.excluded ? 'off' : '') : 'todo'}" data-i="${r.i}" role="button" tabindex="0" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-type="${typeOf(r)?.id || ''}" data-cat="${r.category_id || ''}" data-q="${norm(`${r.note} ${r.category || ''} ${typeOf(r)?.name || ''} ${r.by || ''} ${r.checked_by || ''} ${PAY[r.pay] || ''} ca ${r.shift || ''}`)}">
+      ${pmTag(r)}<div class="tc-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
+        <div class="st-meta">${src}${r.auto ? ' · khoản tự động' : ''}${r.bank_out ? ' · từ phiếu chi chuyển khoản' : ''}${r.locked ? ' · tháng đã chốt' : ''}</div></div>
+      <div class="tc-rt"><span class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}</span>
+        <button type="button" class="tc-ok ${ok ? 'y' : 'n'}" aria-pressed="${ok}" aria-label="${ok ? 'Đã đối soát' : 'Tích để đối soát'}" title="${ok ? 'Đã đối soát' : 'Tích để đối soát'}">${ok ? '✓' : ''}</button></div>
+      <div class="tc-x"><span class="tc-c ${catCls}">${catTxt}</span>${ok ? html`<span>đối soát: ${who}</span>` : html`<span class="tc-wait">Chưa đối soát</span>`}</div></div>`;
   }
+  // sổ gộp theo ngày (bước 69)
+  const days = []; const seenG = new Set();
+  rows.forEach((r) => {
+    let d = days[days.length - 1]; if (!d || d.date !== r.date) days.push(d = { date: r.date, items: [], thu: 0, chi: 0 });
+    if (!r.excluded && r.src !== 'ka') { if (r.kind === 'thu') d.thu += Number(r.amount); else d.chi += Number(r.amount); }
+    const g = r.src === 'ka' || isAm(r) ? AMG.get(r.report_id) : null;
+    if (!g) { d.items.push(row(r)); return; }
+    if (seenG.has(g.report_id)) return; seenG.add(g.report_id); d.items.push(amRow(g));
+  });
+  const listHtml = days.map((d) => html`<div class="tc-day"><div class="tc-dh"><span>${dayLabel(d.date)}</span><span class="st-meta">thu +${fmt(d.thu)} · chi −${fmt(d.chi)}</span></div>${d.items}</div>`);
+
+  const ca = SM?.ca || {}; const lech = Number(ca.short || 0) + Number(ca.over || 0);
+  const nChk = real.length - pend.length;
+  const kpi = (id, cls, k, v, s) => html`<button type="button" class="tc-kpi ${cls}" id="${id}"><span class="k">${k}</span><span class="v">${v}</span><span class="s">${s}</span></button>`;
+  const quick = [['all', 'Tất cả'], ['chi', 'Chi'], ['thu', 'Thu'], ['tm', 'TM'], ['ck', 'CK'], ['cho', 'Chưa đối soát']];
+  const todo = pend.filter((r) => !isAm(r)).slice(0, 5);
 
   return {
-    title: 'Thu chi',
+    title: `Thu chi ${BR.code}`,
     html: html`${STYLE}
-      <div class="page-head"><div><h1>Thu chi</h1>
-        <div class="sub">Khoản quản lý tạo: đã đối soát. Khoản từ phiếu chốt ca: <b>chọn nhóm ngay ở dòng là đối soát xong</b>, đổi lại lúc nào cũng được tới khi chốt tháng. Tích nhiều dòng để đổi nhóm một lần.</div></div>
-        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div><button type="button" class="btn" id="tc-add">+ Thêm khoản thu / chi</button></div></div>
+      <div class="page-head"><div><h1>Thu chi · ${BR.code}</h1>
+        <div class="sub">Tích ô dưới số tiền (hoặc chọn nhóm) là đối soát, đổi lại được tới khi chốt tháng. Bấm vào một dòng để sửa.</div></div>
+        <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div><button type="button" class="btn" id="tc-add">+ Thêm khoản</button></div></div>
       <section class="card tc-bar">
         <div class="tc-month"><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a>
           <strong>${monthLabel(month)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
-        <nav class="branch-tabs" aria-label="Cơ sở"><a class="${!cn ? 'on' : ''}" href="${q({ cn: 'all' })}">Tất cả</a>
-          ${D.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav></section>
-      <div class="tc-pays">${[['tien_mat', 'Tiền mặt', 'tm'], ['chuyen_khoan', 'Chuyển khoản', 'ck']].map(([k, l, c]) => { const x = PM[k]; const left = x.thu - x.chi;
-        return html`<button type="button" class="tc-pk ${c}" data-pay="${k}" aria-pressed="${F.pay === k}"><span class="tc-pk-h"><span class="tc-pm ${c}">${c.toUpperCase()}</span> ${l}<small>${x.n} khoản</small></span>
-          <span class="tc-pk-g"><span>Thu</span><b class="pos">+${fmt(x.thu)}</b><span>Chi</span><b class="neg">−${fmt(x.chi)}</b><span>Thu − chi</span><b class="${left < 0 ? 'neg' : ''}">${left < 0 ? '−' : ''}${fmt(Math.abs(left))}đ</b></span></button>`; })}</div>
-      <div class="tc-chips">
-        <button type="button" class="tc-chip warn" id="tc-pend">Chờ đối soát: <b>${pend.length} khoản</b>${pend.length ? ` · ${vnd(sum(pend))}` : ' · đã hết'}</button>
-        <button type="button" class="tc-chip neg" id="tc-ka">Âm tiền: <b>${AMG.size} ca</b> · trừ lương ${vnd(luong)}</button>
-        <span class="st-meta">Tổng cả 2: thu ${vnd(thu)} · chi ${vnd(chi)}</span></div>
-      ${byType.length ? html`<section class="card stack tc-types" style="gap:8px"><div class="tc-ty-h"><h2 style="margin:0">Chi theo loại</h2><span class="st-meta">${vnd(chiTot)} · bấm để lọc · <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></span></div>
-        ${byType.map((g) => html`<div class="tc-ty"><button type="button" class="tc-tyb" data-ft="${g.id || ''}" aria-pressed="${String(F.type) === String(g.id || '') && !!g.id}"><span class="grow"><b>${g.name}</b></span><span class="tc-meter"><i style="width:${pct(g.sum)}%"></i></span><b class="tc-tys">${fmt(g.sum)}</b><span class="st-meta">${pct(g.sum)}%</span></button>
-          <div class="tc-tyc">${g.cats.map((c) => html`<button type="button" class="tc-cb" data-fc="${c.id || ''}" aria-pressed="${String(F.cat) === String(c.id || '') && !!c.id}"><span class="grow">${c.name} <span class="st-meta">· ${c.n} khoản</span></span><span>${fmt(c.sum)}</span></button>`)}</div></div>`)}</section>` : ''}
-      <div id="tc-loans"></div>
-      <section class="card stack" style="padding:14px;gap:10px">
-        <div class="tc-seg" role="group" aria-label="Hình thức">${[['', 'Tất cả'], ['tien_mat', 'Tiền mặt'], ['chuyen_khoan', 'Chuyển khoản']].map(([k, l]) => html`<button type="button" data-fpay="${k}" aria-pressed="${F.pay === k}">${l}</button>`)}</div>
-        <div class="toolbar" style="gap:8px">
-          <select class="input sm" id="f-st" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="cho" ${F.st === 'cho' ? 'selected' : ''}>Chờ đối soát</option><option value="da" ${F.st === 'da' ? 'selected' : ''}>Đã đối soát</option></select>
-          <select class="input sm" id="f-kind" aria-label="Loại"><option value="">Thu và chi</option><option value="thu" ${F.kind === 'thu' ? 'selected' : ''}>Chỉ khoản thu</option><option value="chi" ${F.kind === 'chi' ? 'selected' : ''}>Chỉ khoản chi</option></select>
-          <select class="input sm" id="f-src" aria-label="Nguồn"><option value="">Mọi nguồn</option><option value="ca" ${F.src === 'ca' ? 'selected' : ''}>Từ phiếu chốt ca</option><option value="tay" ${F.src === 'tay' ? 'selected' : ''}>Quản lý tạo</option><option value="ka" ${F.src === 'ka' ? 'selected' : ''}>Âm tiền / trừ lương</option></select>
-          <select class="input sm" id="f-type" aria-label="Loại"><option value="">Mọi loại</option>${FT.types.filter((t) => t.active).map((t) => html`<option value="${t.id}" ${String(F.type) === String(t.id) ? 'selected' : ''}>${t.kind === 'chi' ? 'Chi' : 'Thu'} · ${t.name}</option>`)}</select>
-          <select class="input sm" id="f-cat" aria-label="Nhóm"><option value="">Mọi nhóm</option>${FT.cats.filter((c) => c.active).map((c) => html`<option value="${c.id}" data-t="${c.type_id || ''}" ${String(F.cat) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}</select>
-          <input class="input sm" type="search" id="f-q" placeholder="Tìm nội dung, nhóm" value="${F.q}" style="flex:1 1 160px;min-width:0">
-          <span class="st-meta" id="f-n"></span></div>
-        <label class="st-meta tc-allw"><input type="checkbox" id="tc-all"> Chọn tất cả khoản đang hiện</label>
-        <div id="tc-list">${listHtml}</div>
-        <div class="tc-bulk" id="tc-bulk" hidden><span>Đã chọn <b id="tc-bn">0</b> khoản</span>
-          <select class="input sm" id="tc-bcat" aria-label="Nhóm cho các khoản đã chọn"></select>
-          <button type="button" class="btn sm" id="tc-bgo">Đổi nhóm</button><button type="button" class="btn sm secondary" id="tc-bclr">Bỏ chọn</button>
-          <span class="st-meta" id="tc-bmsg"></span></div>
-        <div class="st-meta" id="tc-empty" hidden style="padding:12px 0">${rows.length ? 'Không có khoản nào khớp bộ lọc.' : 'Tháng này chưa có khoản thu chi nào.'}</div>
-      </section>`,
+        <nav class="branch-tabs" aria-label="Cơ sở">${D.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav></section>
+      <div class="tc-kpis">
+        ${kpi('k-thu', 'thu', 'Thu', `+${fmt(thu)}`, `TM ${short(byPm(thuR, 'tien_mat'))} · CK ${short(byPm(thuR, 'chuyen_khoan'))}`)}
+        ${kpi('k-chi', 'chi', 'Chi', `−${fmt(chi)}`, `TM ${short(byPm(chiR, 'tien_mat'))} · CK ${short(byPm(chiR, 'chuyen_khoan'))}`)}
+        ${kpi('k-no', '', 'Nợ', fmt(SM?.debts?.sum || 0), `khách nợ chưa thu · ${SM?.debts?.n || 0} khoản`)}
+        ${kpi('k-vay', '', 'Cho vay', fmt(SM?.loans_left || 0), 'còn nợ (vay + trả hộ − đã trả)')}
+        ${kpi('k-ds', pend.length ? 'warn' : '', 'Đã đối soát', `${nChk} / ${real.length}`, pend.length ? `còn ${pend.length} khoản chờ` : 'đã hết')}
+        ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Chênh lệch tiền', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)}`)}
+      </div>
+      <div class="tc-cols">
+        <section class="card tc-book"><div class="tc-bh"><h2>Sổ thu chi</h2><span class="st-meta" id="f-n"></span></div>
+          <div class="tc-qf">${quick.map(([v, l]) => html`<button type="button" class="tc-chip" data-q="${v}">${l}</button>`)}
+            <input class="input sm tc-search" type="search" id="f-q" placeholder="Tìm nội dung, nhóm, người…" value="${F.q}" aria-label="Tìm">
+            <button type="button" class="tc-chip more" id="tc-more" aria-expanded="${MORE}">Lọc thêm ${MORE ? '▴' : '▾'}</button></div>
+          <div class="tc-morebox" id="tc-morebox" ${MORE ? '' : 'hidden'}>
+            <select class="input sm" id="f-src" aria-label="Nguồn"><option value="">Mọi nguồn</option><option value="ca" ${F.src === 'ca' ? 'selected' : ''}>Từ phiếu chốt ca</option><option value="tay" ${F.src === 'tay' ? 'selected' : ''}>Quản lý tạo</option><option value="ka" ${F.src === 'ka' ? 'selected' : ''}>Âm tiền / trừ lương</option></select>
+            <select class="input sm" id="f-type" aria-label="Loại"><option value="">Mọi loại</option>${FT.types.filter((t) => t.active).map((t) => html`<option value="${t.id}" ${String(F.type) === String(t.id) ? 'selected' : ''}>${t.kind === 'chi' ? 'Chi' : 'Thu'} · ${t.name}</option>`)}</select>
+            <select class="input sm" id="f-cat" aria-label="Nhóm"><option value="">Mọi nhóm</option>${FT.cats.filter((c) => c.active).map((c) => html`<option value="${c.id}" data-t="${c.type_id || ''}" ${String(F.cat) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}</select></div>
+          <div class="tc-legend"><span><span class="tc-ok y">✓</span>Đã đối soát</span><span><span class="tc-ok n"></span>Chưa — tích ô dưới số tiền để đối soát</span></div>
+          <div id="tc-list">${listHtml}</div>
+          <div class="st-meta" id="tc-empty" hidden style="padding:12px 0">${rows.length ? 'Không có khoản nào khớp bộ lọc.' : 'Tháng này chưa có khoản thu chi nào.'}</div>
+        </section>
+        <div class="tc-side">
+          <section class="card tc-sc"><h2>Cần phân loại <small>${pend.length} khoản</small></h2>
+            ${todo.length ? html`${todo.map((r) => html`<div class="tc-td" data-i="${r.i}"><div class="tc-tdh"><b>${r.note || '(không ghi)'}</b><span class="tc-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}</span></div>
+                <div class="st-meta">${dmy(r.date)} · Ca ${r.shift || ''} · ${r.by || ''} · ${(r.pay || 'tien_mat') === 'chuyen_khoan' ? 'CK' : 'TM'}</div>${r.locked ? '' : catSel(r)}</div>`)}
+              ${pend.length > todo.length ? html`<button type="button" class="tc-chip" id="tc-allpend">Xem cả ${pend.length} khoản trong sổ ›</button>` : ''}`
+              : html`<div class="st-meta">Đã phân loại hết. 👍</div>`}</section>
+          <section class="card tc-sc"><h2>Chi theo loại <small>−${fmt(chi)}${SM ? ` · so tháng ${Number(SM.prev_from.slice(5, 7))}` : ''}</small></h2>
+            ${byType.length ? byType.map((g) => html`<div class="tc-ty"><button type="button" class="tc-tyb" data-ft="${g.id || ''}" aria-pressed="${String(F.type) === String(g.id || '') && !!g.id}">
+                <span class="grow">${g.name}</span><span class="tc-meter"><i style="width:${Math.round((g.sum / maxT) * 100)}%"></i></span><b class="tc-tys">${fmt(g.sum)}</b>${cmp(g)}</button>
+              ${g.cats.length ? html`<div class="tc-tyc">${g.cats.map((c) => html`<button type="button" class="tc-cb" data-fc="${c.id || ''}" aria-pressed="${String(F.cat) === String(c.id || '') && !!c.id}"><span class="grow">${c.name} <span class="st-meta">· ${c.n}</span></span><span>${fmt(c.sum)}</span></button>`)}</div>` : ''}</div>`)
+              : html`<div class="st-meta">Tháng này chưa có khoản chi.</div>`}
+            <div class="st-meta">Không tính vào chi: cho vay, trả hộ Kho tổng, khoản "Không tính". Bấm một loại / nhóm để lọc sổ. <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></div></section>
+          <div id="tc-loans"></div>
+        </div>
+      </div>`,
     async mount() {
       const again = async (m) => { const y = window.scrollY; if (m) flash(m); await rerender(); window.scrollTo(0, y); };
       const apply = () => {
@@ -181,33 +212,47 @@ export async function render(ctx) {
         $$('.tc-r').forEach((el) => {
           const ok = (!F.st || el.dataset.st === F.st) && (!F.kind || el.dataset.kind === F.kind) && (!F.src || el.dataset.src === F.src) && (!F.pay || el.dataset.pay === F.pay) && (!F.type || el.dataset.type === String(F.type)) && (!F.cat || el.dataset.cat === String(F.cat)) && (!s || el.dataset.q.includes(s));
           el.hidden = !ok; if (ok) n++;
-          if (!ok) { const c = el.querySelector('.tc-pick'); if (c) c.checked = false; }
         });
-        bulk?.();
+        $$('.tc-day').forEach((d) => { d.hidden = !d.querySelector('.tc-r:not([hidden])'); });
         $('#f-n').textContent = `${n} khoản`; $('#tc-empty').hidden = n > 0;
-        $$('[data-fpay]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.fpay === F.pay)));
-        $$('.tc-pk').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.pay === F.pay)));
+        const on = { all: !F.st && !F.kind && !F.pay && !F.src && !F.type && !F.cat && !F.q, chi: F.kind === 'chi', thu: F.kind === 'thu', tm: F.pay === 'tien_mat', ck: F.pay === 'chuyen_khoan', cho: F.st === 'cho' };
+        $$('[data-q].tc-chip').forEach((b) => b.setAttribute('aria-pressed', String(!!on[b.dataset.q])));
         $$('[data-ft]').forEach((b) => b.setAttribute('aria-pressed', String(!!F.type && b.dataset.ft === String(F.type))));
         $$('[data-fc]').forEach((b) => b.setAttribute('aria-pressed', String(!!F.cat && b.dataset.fc === String(F.cat))));
-        $('#f-type').value = F.type; $('#f-cat').value = F.cat;
+        $('#f-src').value = F.src; $('#f-type').value = F.type; $('#f-cat').value = F.cat;
         [...$('#f-cat').options].forEach((o) => { o.hidden = !!F.type && !!o.value && o.dataset.t !== String(F.type); });
       };
-      [['#f-st', 'st'], ['#f-kind', 'kind'], ['#f-src', 'src']].forEach(([sl, k]) => $(sl).addEventListener('change', (e) => { F[k] = e.target.value; apply(); }));
+      const quickSet = (v) => {
+        if (v === 'all') Object.assign(F, { st: '', kind: '', pay: '', src: '', type: '', cat: '', q: '' }), ($('#f-q').value = '');
+        else if (v === 'chi' || v === 'thu') F.kind = F.kind === v ? '' : v;
+        else if (v === 'tm' || v === 'ck') { const p = v === 'tm' ? 'tien_mat' : 'chuyen_khoan'; F.pay = F.pay === p ? '' : p; }
+        else if (v === 'cho') F.st = F.st === 'cho' ? '' : 'cho';
+        apply();
+      };
+      $$('[data-q].tc-chip').forEach((b) => b.addEventListener('click', () => quickSet(b.dataset.q)));
       $('#f-q').addEventListener('input', (e) => { F.q = e.target.value; apply(); });
+      $('#tc-more').addEventListener('click', (e) => { MORE = !MORE; $('#tc-morebox').hidden = !MORE; e.currentTarget.setAttribute('aria-expanded', String(MORE)); e.currentTarget.textContent = `Lọc thêm ${MORE ? '▴' : '▾'}`; });
+      $('#f-src').addEventListener('change', (e) => { F.src = e.target.value; apply(); });
       $('#f-type').addEventListener('change', (e) => { F.type = e.target.value; F.cat = ''; apply(); });
       $('#f-cat').addEventListener('change', (e) => { F.cat = e.target.value; apply(); });
-      $$('[data-ft]').forEach((b) => b.addEventListener('click', () => { if (!b.dataset.ft) return; F.type = F.type === b.dataset.ft ? '' : b.dataset.ft; F.cat = ''; F.kind = ''; $('#f-kind').value = ''; apply(); }));
+      $$('[data-ft]').forEach((b) => b.addEventListener('click', () => { if (!b.dataset.ft) return; F.type = F.type === b.dataset.ft ? '' : b.dataset.ft; F.cat = ''; F.kind = ''; apply(); }));
       $$('[data-fc]').forEach((b) => b.addEventListener('click', () => { if (!b.dataset.fc) return; F.cat = F.cat === b.dataset.fc ? '' : b.dataset.fc; F.type = ''; apply(); }));
-      $$('[data-fpay]').forEach((b) => b.addEventListener('click', () => { F.pay = b.dataset.fpay; apply(); }));
-      $$('.tc-pk').forEach((b) => b.addEventListener('click', () => { F.pay = F.pay === b.dataset.pay ? '' : b.dataset.pay; apply(); }));
-      $('#tc-pend').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; $('#f-st').value = F.st; apply(); });
+      const toBook = () => $('.tc-book').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      $('#k-thu').addEventListener('click', () => { F.kind = F.kind === 'thu' ? '' : 'thu'; apply(); toBook(); });
+      $('#k-chi').addEventListener('click', () => { F.kind = F.kind === 'chi' ? '' : 'chi'; apply(); toBook(); });
+      $('#k-ds').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; apply(); toBook(); });
+      $('#k-lech').addEventListener('click', () => { F.src = F.src === 'ka' ? '' : 'ka'; apply(); toBook(); });
+      $('#k-vay').addEventListener('click', () => $('#tc-loans').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      $('#k-no').addEventListener('click', () => $('#tc-loans').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      $('#tc-allpend')?.addEventListener('click', () => { F.st = 'cho'; apply(); toBook(); });
+      apply();
       const rowOf = (b) => rows[Number(b.closest('[data-i]').dataset.i)];
+
       // bước 68: dòng Âm tiền — mở / gán trừ lương / quán chịu / bỏ gán
-      $$('.tc-amx').forEach((b) => b.addEventListener('click', () => {
-        const el = b.closest('.tc-r'); const d = el.querySelector('.tc-amd'); const g = Number(el.dataset.g);
-        d.hidden = !d.hidden; b.setAttribute('aria-expanded', String(!d.hidden)); b.textContent = d.hidden ? 'Chi tiết' : 'Thu gọn';
-        if (d.hidden) OPEN.delete(g); else OPEN.add(g);
-      }));
+      const amToggle = (el) => { const d = el.querySelector('.tc-amd'); const g = Number(el.dataset.g); d.hidden = !d.hidden;
+        el.querySelector('.tc-amx2').textContent = d.hidden ? 'Chi tiết' : 'Thu gọn'; el.querySelector('.tc-amx').setAttribute('aria-expanded', String(!d.hidden));
+        if (d.hidden) OPEN.delete(g); else OPEN.add(g); };
+      $$('.tc-amx, .tc-amx2').forEach((b) => b.addEventListener('click', (e) => { e.stopPropagation(); amToggle(b.closest('.tc-r')); }));
       $$('.tc-amtl').forEach((b) => b.addEventListener('click', () => amForm(rowOf(b))));
       $$('.tc-amqc').forEach((b) => b.addEventListener('click', async () => {
         const m = rowOf(b); if (!qcCat) { showSaved('Chưa có nhóm "Âm tiền – quán chịu". Tải lại trang.', true); return; }
@@ -221,53 +266,34 @@ export async function render(ctx) {
         try { await rpc('app_tc_move_ka_undo', { p_report: m.report_id, p_mkey: m.mkey }); OPEN.add(m.report_id); await again('Đã bỏ gán — khoản chờ gán lại.'); }
         catch (e) { showSaved(e.message, true); b.disabled = false; }
       }));
-      // bước 65: đổi nhóm hàng loạt
-      let bsig = '';
-      function bulk() {
-        const P = $$('.tc-r:not([hidden]) .tc-pick:checked').map(rowOf);
-        $('#tc-bulk').hidden = !P.length; $('#tc-bn').textContent = P.length;
-        const vis = $$('.tc-r:not([hidden]) .tc-pick'); $('#tc-all').checked = !!vis.length && vis.every((c) => c.checked);
-        const kinds = [...new Set(P.map((r) => r.kind))]; const allCa = P.every((r) => r.src === 'ca');
-        const sig = kinds.join() + '|' + allCa; if (sig === bsig) return; bsig = sig;
-        const mixed = kinds.length > 1; $('#tc-bcat').disabled = mixed; $('#tc-bgo').disabled = mixed;
-        $('#tc-bmsg').textContent = mixed ? 'Đang chọn cả khoản thu và khoản chi — chọn riêng từng loại.' : '';
-        $('#tc-bcat').innerHTML = mixed || !kinds.length ? '' : str(catOpts(kinds[0], '', allCa));
-      }
-      apply();
-      $$('.tc-pick').forEach((c) => c.addEventListener('change', bulk));
-      $('#tc-all').addEventListener('change', (e) => { $$('.tc-r:not([hidden]) .tc-pick').forEach((c) => { c.checked = e.target.checked; }); bulk(); });
-      $('#tc-bclr').addEventListener('click', () => { $$('.tc-pick').forEach((c) => { c.checked = false; }); bulk(); });
-      $('#tc-bgo').addEventListener('click', async (ev) => {
-        const P = $$('.tc-r:not([hidden]) .tc-pick:checked').map(rowOf); const v = $('#tc-bcat').value;
-        if (!v) { showSaved('Chọn nhóm cho các khoản đã chọn.', true); return; }
-        ev.target.disabled = true;
-        try {
-          const n = await rpc('app_tc_bulk_cat', { p_items: P.map((r) => (r.src === 'ca' ? { src: 'ca', report_id: r.report_id, mkey: r.mkey } : { src: 'tay', id: r.id })), p_category: v === 'x' ? null : Number(v), p_excluded: v === 'x' });
-          await again(`Đã đổi nhóm ${n} khoản.`);
-        } catch (e) { showSaved(e.message, true); ev.target.disabled = false; }
-      });
-      // đổi nhóm ngay tại dòng
+
+      // đổi nhóm (= đối soát)
       const setCat = async (r, v) => {
         if (r.src === 'ca') await rpc('app_tc_check', { p_report: r.report_id, p_mkey: r.mkey, p_category: v === 'x' ? null : Number(v), p_excluded: v === 'x', p_checked: true });
         else await rpc('app_tc_entry_save', { p_id: r.id, p: { branch_id: r.branch_id, entry_date: r.date, kind: r.kind, category_id: Number(v), note: r.note, amount: r.amount, pay_method: r.pay } });
       };
       $$('.tc-cat').forEach((s) => s.addEventListener('change', async () => {
         if (!s.value) return; s.disabled = true;
-        try { await setCat(rowOf(s), s.value); await again(rowOf(s).status === 'cho' ? 'Đã đối soát khoản.' : 'Đã đổi nhóm.'); } catch (e) { showSaved(e.message, true); s.disabled = false; }
+        try { await setCat(rowOf(s), s.value); await again('Đã đối soát khoản.'); } catch (e) { showSaved(e.message, true); s.disabled = false; }
       }));
-      $$('.tc-okc').forEach((b) => b.addEventListener('click', async () => {
-        const s = b.closest('.tc-r').querySelector('.tc-cat'); b.disabled = true;
-        try { await setCat(rowOf(b), s.value); await again('Đã đối soát khoản.'); } catch (e) { showSaved(e.message, true); b.disabled = false; }
-      }));
-      $$('.tc-med').forEach((b) => b.addEventListener('click', () => moveForm(rowOf(b))));
-      $$('.tc-ed').forEach((b) => b.addEventListener('click', () => entryForm(rowOf(b))));
-      $$('.tc-del').forEach((b) => b.addEventListener('click', async () => {
+      // bấm dòng → khung sửa; ô tích → đối soát
+      const openRow = (r) => {
+        if (r.locked) { showSaved('Tháng đã chốt — khoản này chỉ xem.'); return; }
+        if (r.loan_id) { showSaved('Khoản đã đổi thành cho vay — xem ở khung Cho vay (xoá khoản vay thì khoản trở lại Thu chi).'); return; }
+        if (r.src === 'tay') entryForm(r); else if (r.auto) catForm(r); else moveForm(r);
+      };
+      $$('.tc-r[data-i]').forEach((el) => {
+        el.addEventListener('click', (e) => { if (e.target.closest('a, button, select, input')) return; openRow(rowOf(el)); });
+        el.addEventListener('keydown', (e) => { if ((e.key === 'Enter' || e.key === ' ') && e.target === el) { e.preventDefault(); openRow(rowOf(el)); } });
+      });
+      $$('.tc-r[data-i] .tc-ok').forEach((b) => b.addEventListener('click', async () => {
         const r = rowOf(b);
-        if (!confirm(`Xóa khoản "${r.note}" (${vnd(r.amount)})?`)) return;
-        try { await rpc('app_tc_entry_delete', { p_id: r.id }); await again('Đã xóa khoản.'); } catch (e) { showSaved(e.message, true); }
+        if (r.status === 'da' || r.locked || r.loan_id) { openRow(r); return; }
+        if (!r.category_id) { catForm(r); return; }
+        b.disabled = true;
+        try { await setCat(r, r.category_id); await again('Đã đối soát khoản.'); } catch (e) { showSaved(e.message, true); b.disabled = false; }
       }));
       $('#tc-add').addEventListener('click', () => entryForm({}));
-      $('#tc-ka').addEventListener('click', () => { F.src = F.src === 'ka' ? '' : 'ka'; $('#f-src').value = F.src; apply(); });
       $$('.ka-ed').forEach((b) => b.addEventListener('click', () => kaForm(rowOf(b))));
       $$('.ka-del').forEach((b) => b.addEventListener('click', async () => {
         const r = rowOf(b);
@@ -302,30 +328,61 @@ export async function render(ctx) {
         });
       }
 
+      // bước 69: chỉ chọn nhóm (khoản tự động, hoặc tích ô đối soát khi chưa có nhóm)
+      function catForm(r) {
+        const v0 = r.status === 'cho' ? r.category_id || '' : r.excluded ? 'x' : r.category_id || '';
+        const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">Đối soát khoản</h2>
+          <div class="st-meta">${dmy(r.date)} · ${r.src === 'ca' ? `Ca ${r.shift}${r.by ? ` · ghi: ${r.by}` : ''}` : 'Quản lý tạo'} · “${r.note}” <b>${r.kind === 'chi' ? '−' : '+'}${vnd(r.amount)}</b> (${PAY[r.pay] || ''})</div>
+          <label class="field"><span>Nhóm (chọn là đối soát)</span><select class="input" name="cat">${catOpts(r.kind, v0, r.src === 'ca')}</select></label>
+          ${r.auto ? html`<div class="st-meta">Khoản tự động (chi lương / khách mượn) — sửa số tiền ở phiếu ca.</div>` : ''}
+          <div id="tc-err"></div>
+          <div class="toolbar" style="justify-content:flex-end">${r.src === 'ca' && !r.auto ? html`<button type="button" class="btn sm secondary tc-full" style="margin-right:auto">Sửa số tiền / nội dung…</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Đối soát</button></div></form>`);
+        const f = d.querySelector('form');
+        d.querySelector('[data-x]').addEventListener('click', () => d.close());
+        d.querySelector('.tc-full')?.addEventListener('click', () => { d.close(); moveForm(r); });
+        f.addEventListener('submit', async (ev) => {
+          ev.preventDefault(); if (!f.cat.value) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">Chọn nhóm (hoặc "Không tính").</div>`); return; }
+          try { await setCat(r, f.cat.value); d.close(); await again('Đã đối soát khoản.'); }
+          catch (err) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">${err.message}</div>`); }
+        });
+      }
+
+      // bước 69: "+ Thêm khoản" chọn loại ngay — Chi / Thu / Cho vay; nhóm bắt buộc; ngày lùi được (tháng chưa chốt)
       function entryForm(e) {
-        const kind = e.kind || 'chi'; const br0 = e.branch_id || cn || (D.branches.length === 1 ? D.branches[0].id : '');
+        const kind = e.kind || 'chi'; const br0 = e.branch_id || cn;
         const opts = (k, sel) => catOpts(k, sel, false);
-        const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản thu / chi' : 'Thêm khoản thu / chi'}</h2>
-          <div class="st-meta">Khoản quản lý tạo được tính là <strong>đã đối soát</strong>.</div>
+        const canLoan = !e.id && loanOn(br0); const canTra = !e.id && !!$('#tc-loans .ln-traho'); const canNo = !e.id && !!$('#tc-loans .cn-new');
+        const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">${e.id ? 'Sửa khoản thu / chi' : 'Thêm khoản'} · ${brById.get(br0)?.code || ''}</h2>
+          ${e.id ? html`<div class="st-meta">Quản lý tạo · ${e.by || ''} — khoản quản lý tạo là <strong>đã đối soát</strong>.</div>` : ''}
           ${e.bank_out ? html`<div class="alert warn">Khoản này tạo từ phiếu chi chuyển khoản ở Đối soát ca: chỉ đổi nhóm / nội dung${loanOn(e.branch_id) ? ' hoặc đổi thành cho vay' : ''} ở đây. Sai số tiền thì xoá phiếu chi ở Đối soát ca rồi tạo lại.</div>` : ''}
-          <div class="pc-line" role="radiogroup" aria-label="Loại"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Khoản chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Khoản thu</label></div>
-          <label class="field"><span>Cơ sở</span><select class="input" name="br">${br0 ? '' : html`<option value="">— Chọn cơ sở —</option>`}${D.branches.map((b) => html`<option value="${b.id}" ${String(br0) === String(b.id) ? 'selected' : ''}>${b.code} – ${b.name}</option>`)}</select></label>
+          <div class="tc-kinds" role="radiogroup" aria-label="Loại khoản"><label class="radio-pill"><input type="radio" name="kind" value="chi" ${kind === 'chi' ? 'checked' : ''}> Chi</label><label class="radio-pill"><input type="radio" name="kind" value="thu" ${kind === 'thu' ? 'checked' : ''}> Thu</label>${canLoan ? html`<label class="radio-pill"><input type="radio" name="kind" value="vay"> Cho vay</label>` : ''}${canTra ? html`<label class="radio-pill"><input type="radio" name="kind" value="traho"> Trả hộ Kho tổng</label>` : ''}${canNo ? html`<label class="radio-pill"><input type="radio" name="kind" value="no"> Khách nợ</label>` : ''}</div>
+          <input type="hidden" name="br" value="${br0}">
           <label class="field"><span>Ngày</span><input class="input" type="date" name="date" value="${e.date || (vnToday().startsWith(month) ? vnToday() : month + '-01')}"></label>
-          <label class="field"><span>Nhóm</span><select class="input" name="cat">${opts(kind, e.category_id || '')}</select></label>
+          <label class="field"><span>Nhóm (bắt buộc)</span><select class="input" name="cat">${opts(kind, e.category_id || '')}</select></label>
           <label class="field"><span>Nội dung</span><input class="input" name="note" value="${e.note || ''}" placeholder="vd: Mua đá, tiền điện, bán bã cafe…" autocomplete="off"></label>
           <label class="field"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${e.amount ? fmt(e.amount) : ''}" autocomplete="off"></label>
           <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" ${(e.pay || 'tien_mat') === 'tien_mat' ? 'checked' : ''}> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan" ${e.pay === 'chuyen_khoan' ? 'checked' : ''}> Chuyển khoản</label></div>
           <div id="tc-err"></div>
-          <div class="toolbar" style="justify-content:flex-end">${e.id && e.kind === 'chi' && loanOn(e.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+          <div class="toolbar" style="justify-content:flex-end;flex-wrap:wrap">${e.id && e.kind === 'chi' && loanOn(e.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}${e.id && !e.bank_out ? html`<button type="button" class="btn sm secondary danger tc-del">Xoá</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         bindMoneyInputs(d);
         const f = d.querySelector('form');
         d.querySelector('.tc-2loan')?.addEventListener('click', () => { d.close(); toLoan(brById.get(e.branch_id), e, again); });
-        if (e.bank_out) f.querySelectorAll('[name=kind], [name=br], [name=date], [name=amt], [name=pay]').forEach((x) => { x.disabled = true; });
-        f.addEventListener('change', (ev) => { if (ev.target.name === 'kind') f.cat.innerHTML = str(opts(ev.target.value, '')); });
+        d.querySelector('.tc-del')?.addEventListener('click', async () => {
+          if (!confirm(`Xóa khoản "${e.note}" (${vnd(e.amount)})?`)) return;
+          try { await rpc('app_tc_entry_delete', { p_id: e.id }); d.close(); await again('Đã xóa khoản.'); } catch (err) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">${err.message}</div>`); }
+        });
+        if (e.bank_out) f.querySelectorAll('[name=kind], [name=date], [name=amt], [name=pay]').forEach((x) => { x.disabled = true; });
+        f.addEventListener('change', (ev) => {
+          if (ev.target.name !== 'kind') return;
+          const go = { vay: '.ln-new', traho: '.ln-traho', no: '.cn-new' }[ev.target.value];
+          if (go) { d.close(); const nb = $(`#tc-loans ${go}`); if (nb) nb.click(); else showSaved('Cơ sở này chưa bật mục này.', true); return; }
+          f.cat.innerHTML = str(opts(ev.target.value, ''));
+        });
         d.querySelector('[data-x]').addEventListener('click', () => d.close());
         f.addEventListener('submit', async (ev) => {
           ev.preventDefault();
-          const p = { branch_id: f.br.value || null, entry_date: f.date.value, kind: f.querySelector('input[name=kind]:checked').value, category_id: f.cat.value || null,
+          if (!f.cat.value) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">Chọn nhóm cho khoản.</div>`); return; }
+          const p = { branch_id: Number(f.br.value), entry_date: f.date.value, kind: f.querySelector('input[name=kind]:checked').value, category_id: f.cat.value || null,
             note: f.note.value, amount: parseMoney(f.amt.value), pay_method: f.querySelector('input[name=pay]:checked').value };
           try { await rpc('app_tc_entry_save', { p_id: e.id || null, p }); d.close(); await again(e.id ? 'Đã lưu khoản.' : 'Đã thêm khoản (đã đối soát).'); }
           catch (err) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">${err.message}</div>`); }
@@ -407,7 +464,7 @@ export async function render(ctx) {
         });
       }
 
-      await mountLoans($('#tc-loans'), cn ? D.branches.filter((b) => b.id === cn) : D.branches, (m) => again(m));   // bước 64: Cho vay
+      await mountLoans($('#tc-loans'), D.branches.filter((b) => b.id === cn), (m) => again(m));   // bước 64 + 70: Công nợ
     },
   };
 }
@@ -416,34 +473,52 @@ const STYLE = html`<style>
   .tc-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 12px; }
   .tc-month { display: flex; align-items: center; gap: 10px; }
   .tc-month strong { font-size: 17px; min-width: 120px; text-align: center; }
-  .tc-pays { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 10px; }
-  .tc-pk { background: var(--card); border: 2px solid transparent; border-radius: 14px; box-shadow: var(--shadow); padding: 12px 14px; display: flex; flex-direction: column; gap: 8px; text-align: left; font: inherit; color: inherit; cursor: pointer; min-width: 0; }
-  .tc-pk.tm { border-top: 4px solid #d97706; } .tc-pk.ck { border-top: 4px solid #2563eb; }
-  .tc-pk[aria-pressed="true"].tm { border-color: #d97706; } .tc-pk[aria-pressed="true"].ck { border-color: #2563eb; }
-  .tc-pk-h { display: flex; align-items: center; gap: 8px; font-weight: 800; font-size: 15px; } .tc-pk-h small { margin-left: auto; font-weight: 500; color: var(--ink-2); font-size: 12px; }
-  .tc-pk-g { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 2px 12px; font-size: 14px; }
-  .tc-pk-g b { justify-self: end; text-align: right; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; } .tc-pk-g b.pos { color: var(--ok-ink); } .tc-pk-g b.neg { color: #b91c1c; }
-  .tc-chips { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin-bottom: 12px; }
-  .tc-chip { font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); cursor: pointer; color: inherit; }
-  .tc-chip.warn { border-color: #f59e0b; background: var(--warn-bg); } .tc-chip.neg { border-color: #fca5a5; }
-  .tc-seg { display: inline-flex; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; align-self: flex-start; max-width: 100%; }
-  .tc-seg button { font: inherit; font-size: 14px; font-weight: 700; padding: 7px 12px; border: none; background: var(--card); color: var(--ink-2); cursor: pointer; }
-  .tc-seg button + button { border-left: 1px solid var(--line); }
-  .tc-seg button[aria-pressed="true"] { background: var(--primary); color: #fff; }
-  .tc-types { padding: 14px; margin-bottom: 12px; }
-  .tc-ty-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; }
-  .tc-ty { border-top: 1px solid var(--line); padding-top: 6px; }
-  .tc-tyb, .tc-cb { display: flex; gap: 10px; align-items: center; width: 100%; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 8px; padding: 6px 8px; cursor: pointer; text-align: left; }
-  .tc-tyb[aria-pressed="true"], .tc-cb[aria-pressed="true"] { border-color: var(--primary); background: var(--subtle); }
-  .tc-tyb .grow, .tc-cb .grow { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-  .tc-meter { flex: 0 0 90px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; } .tc-meter i { display: block; height: 100%; background: #b91c1c; opacity: .7; }
-  .tc-tys { font-variant-numeric: tabular-nums; min-width: 96px; text-align: right; }
-  .tc-tyc { display: flex; flex-direction: column; padding-left: 14px; font-size: 14px; } .tc-cb span:last-child { font-variant-numeric: tabular-nums; }
-  @media (max-width: 560px) { .tc-meter { display: none; } .tc-tys { min-width: 0; } }
-  .tc-pm { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .03em; }
-  .tc-pm.tm { background: #fef3c7; color: #92400e; } .tc-pm.ck { background: #dbeafe; color: #1e40af; } .tc-pm.ka { background: #fee2e2; color: #991b1b; }
-  .tc-r.ka, .tc-r.am { border-left: 3px solid #fca5a5; }
-  .tc-amd { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding: 8px 0 2px 40px; display: flex; flex-direction: column; gap: 8px; }
+  .tc-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .tc-kpi { font: inherit; color: inherit; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; }
+  .tc-kpi:hover { border-color: var(--caramel-line); }
+  .tc-kpi .k { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
+  .tc-kpi .v { font-size: 19px; font-weight: 800; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .tc-kpi .s { font-size: 12px; color: var(--muted); }
+  .tc-kpi.thu .v { color: var(--ok-ink); } .tc-kpi.chi .v { color: #b91c1c; }
+  .tc-kpi.warn { background: var(--warn-bg); border-color: #f6d58a; } .tc-kpi.warn .v { color: var(--warn-ink); }
+  .tc-kpi.lech { background: var(--off-bg); border-color: #f3b4ad; } .tc-kpi.lech .v { color: #b91c1c; }
+  .tc-cols { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 12px; align-items: start; }
+  .tc-side { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .tc-book { display: flex; flex-direction: column; gap: 10px; padding: 14px; min-width: 0; }
+  .tc-bh { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .tc-bh h2, .tc-sc h2 { margin: 0; font-size: 17px; }
+  .tc-sc { display: flex; flex-direction: column; gap: 8px; padding: 14px; min-width: 0; }
+  .tc-sc h2 small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 4px; }
+  .tc-qf { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .tc-chip { font: inherit; font-size: 13px; font-weight: 600; padding: 5px 11px; border-radius: 999px; border: 1px solid var(--line-strong); background: #fff; cursor: pointer; color: inherit; }
+  .tc-chip[aria-pressed="true"] { background: var(--forest); border-color: var(--forest); color: #fff; }
+  .tc-chip.more { border-style: dashed; }
+  .tc-search { flex: 1 1 150px; min-width: 0; width: auto; height: 34px; border-radius: 999px; }
+  .tc-morebox { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px; background: var(--subtle); border-radius: 10px; } .tc-morebox select { flex: 1 1 150px; width: auto; min-width: 0; }
+  .tc-morebox[hidden] { display: none; }
+  .tc-legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 12px; color: var(--muted); align-items: center; }
+  .tc-legend .tc-ok { width: 16px; height: 16px; font-size: 11px; vertical-align: -3px; margin-right: 4px; cursor: default; }
+  .tc-day[hidden] { display: none; }
+  .tc-dh { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; padding: 8px 4px 6px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .tc-pm { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .03em; margin-top: 1px; }
+  .tc-pm.tm { background: var(--ok-bg); color: var(--ok-ink); } .tc-pm.ck { background: var(--info-bg); color: var(--info-ink); } .tc-pm.ka { background: #fee2e2; color: #991b1b; }
+  .tc-r { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; padding: 9px 4px; border-bottom: 1px solid var(--line-soft); cursor: pointer; }
+  .tc-r:hover { background: var(--subtle); } .tc-r:focus-visible { outline: 3px solid var(--focus); outline-offset: -2px; }
+  .tc-r[hidden] { display: none; }
+  .tc-r.todo { background: #fffaeb; } .tc-r.todo:hover { background: var(--warn-bg); }
+  .tc-r.am { border-left: 3px solid #fca5a5; cursor: default; }
+  .tc-r.off .tc-a, .tc-r.off strong { color: var(--muted); text-decoration: line-through; }
+  .tc-m { min-width: 0; overflow-wrap: anywhere; } .tc-m strong { font-weight: 600; }
+  .tc-rt { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
+  .tc-a { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .tc-a.neg { color: #b91c1c; } .tc-a.pos { color: var(--ok-ink); }
+  .tc-ok { width: 26px; height: 26px; border-radius: 7px; display: inline-flex; align-items: center; justify-content: center; font-size: 15px; font-weight: 800; padding: 0; cursor: pointer; font-family: inherit; }
+  .tc-ok.y { background: var(--ok-ink); color: #fff; border: 0; } .tc-ok.n { background: #fff; border: 2px solid var(--warn-line); }
+  .tc-ok:focus-visible { outline: 3px solid var(--focus); outline-offset: 1px; }
+  .tc-x { grid-column: 2 / 4; display: flex; gap: 6px 10px; flex-wrap: wrap; align-items: center; font-size: 12px; color: var(--muted); }
+  .tc-c { border-radius: 8px; padding: 1px 8px; background: var(--subtle); border: 1px solid var(--line); color: var(--ink-2); overflow-wrap: anywhere; }
+  .tc-c.need { background: var(--warn-bg); border-color: var(--warn-line); color: var(--warn-ink); font-weight: 600; } .tc-c.off { font-style: italic; } .tc-c.loan { background: var(--plum-bg); color: var(--plum-ink); border-color: #dcc6d9; }
+  .tc-wait { color: var(--warn-ink); font-weight: 600; }
+  .tc-amd { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding: 8px 0 2px 40px; display: flex; flex-direction: column; gap: 8px; cursor: auto; }
   .tc-amd[hidden] { display: none; }
   .tc-aml { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; font-size: 14px; } .tc-aml .grow { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
   .tc-amm { display: flex; flex-direction: column; gap: 6px; } .tc-amm > .tc-aml + .tc-aml { padding-left: 16px; border-left: 2px solid var(--line); }
@@ -451,28 +526,20 @@ const STYLE = html`<style>
   .tc-ppw { display: flex; flex-direction: column; gap: 6px; } .tc-pp { display: flex; gap: 8px; align-items: center; } .tc-ppl { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; align-items: center; }
   .tc-pp .tc-pamt { width: 130px; flex: 0 0 auto; }
   .ka-rep { background: var(--line-soft); border-radius: 6px; padding: 3px 6px; margin-top: 3px; }
-  .tc-lead { display: inline-flex; align-items: center; gap: 6px; } .tc-pick { width: 18px; height: 18px; margin: 0; } .tc-pick0 { width: 18px; }
-  .tc-allw { display: inline-flex; gap: 6px; align-items: center; align-self: flex-start; cursor: pointer; }
-  .tc-bulk { position: sticky; bottom: 8px; z-index: 5; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 2px solid var(--primary); box-shadow: var(--shadow); }
-  .tc-bulk[hidden] { display: none; } .tc-bulk select { flex: 1 1 180px; min-width: 0; width: auto; }
-  .tc-r { display: grid; grid-template-columns: auto minmax(0, 1fr) 120px 140px minmax(0, 300px); gap: 10px; align-items: center; padding: 9px 6px; border-top: 1px solid var(--line-soft, var(--line)); }
-  .tc-r[hidden] { display: none; }
-  .tc-r.todo { background: var(--warn-bg); border-radius: 8px; }
-  .tc-r.off .tc-a, .tc-r.off strong { color: var(--muted); text-decoration: line-through; }
-  .tc-m { min-width: 0; overflow-wrap: anywhere; }
-  .tc-a { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
-  .tc-a.neg { color: #b91c1c; } .tc-a.pos { color: var(--ok-ink); }
-  .tc-act { display: flex; justify-content: flex-end; min-width: 0; }
-  .tc-act .toolbar { flex-direction: row; flex-wrap: nowrap; width: auto; } .tc-act .toolbar .btn { width: auto; }
-  .tc-do { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
-  .tc-do select { width: 170px; max-width: 100%; }
+  .tc-td { display: flex; flex-direction: column; gap: 4px; padding-bottom: 8px; border-bottom: 1px solid var(--line-soft); }
+  .tc-tdh { display: flex; justify-content: space-between; gap: 8px; } .tc-tdh b { min-width: 0; overflow-wrap: anywhere; font-weight: 600; }
+  .tc-td .tc-cat { width: 100%; border-color: var(--warn-line); background: var(--warn-bg); }
+  .tc-ty { border-top: 1px solid var(--line-soft); padding-top: 4px; }
+  .tc-tyb, .tc-cb { display: flex; gap: 8px; align-items: center; width: 100%; font: inherit; color: inherit; background: none; border: 1px solid transparent; border-radius: 8px; padding: 5px 6px; cursor: pointer; text-align: left; }
+  .tc-tyb[aria-pressed="true"], .tc-cb[aria-pressed="true"] { border-color: var(--primary); background: var(--subtle); }
+  .tc-tyb .grow, .tc-cb .grow { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; } .tc-tyb .grow { font-weight: 600; }
+  .tc-meter { flex: 0 0 64px; height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; } .tc-meter i { display: block; height: 100%; background: var(--primary); }
+  .tc-tys { font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; }
+  .tc-cmp { flex: 0 0 46px; font-size: 11px; font-weight: 700; color: var(--muted); text-align: right; white-space: nowrap; } .tc-cmp.up { color: #b91c1c; } .tc-cmp.dn { color: var(--ok-ink); }
+  .tc-tyc { display: flex; flex-direction: column; padding-left: 12px; font-size: 13px; } .tc-cb span:last-child { font-variant-numeric: tabular-nums; }
+  .tc-kinds { display: flex; gap: 6px; flex-wrap: wrap; }
   .tc-dlg { width: min(520px, calc(100vw - 56px)); }
-  @media (max-width: 760px) {
-    .tc-pays { gap: 8px; } .tc-pk { padding: 10px; } .tc-pk-g { font-size: 13px; gap: 2px 6px; }
-    .tc-pk-h { font-size: 14px; gap: 6px; white-space: nowrap; } .tc-pk-h small { display: none; }
-    .tc-r { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 4px; }
-    .tc-s { grid-column: 2; } .tc-act { grid-column: 2 / -1; justify-content: flex-start; }
-    .tc-amd { padding-left: 0; }
-    .tc-do { justify-content: flex-start; flex-wrap: nowrap; width: 100%; } .tc-do select { flex: 1 1 auto; width: auto; min-width: 0; }
-  }
+  @media (max-width: 1100px) { .tc-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 900px) { .tc-cols { grid-template-columns: minmax(0, 1fr); } }
+  @media (max-width: 560px) { .tc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tc-kpi .v { font-size: 17px; } .tc-amd { padding-left: 0; } }
 </style>`;

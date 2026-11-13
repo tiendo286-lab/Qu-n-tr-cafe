@@ -420,6 +420,18 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
   **Trừ lương…** (chọn người chịu, mặc định chia đều theo nhân viên trong ca, tổng = khoản; khoản chi thành "Không tính", sinh khoản âm mục "Âm tiền (phiếu ca)", mặc định trừ lương, báo nhân viên) hoặc **Quán chịu** (nhóm chi "Âm tiền – quán chịu", tính chi phí). **Bỏ gán** / huỷ hết người chịu → khoản trở lại "Chờ gán".
 - Khoản âm từ đối soát vẫn như cũ (chọn người chịu khi đối soát), hiện chung trong dòng Âm tiền của ca.
 
+## 5r7. Thu chi giao diện mới — CHỐT 13/11/2026 (mẫu https://claude.ai/artifact/Nc6Kjkz434oJbbgpbHPAYs), bước 1 ĐÃ LÀM (`supabase/69_thu_chi_giao_dien_moi.sql`)
+- **Mỗi lần 1 cơ sở** (bỏ "Tất cả"); mở trang không chọn thì lấy cơ sở xem lần trước.
+- **6 ô đầu trang**: Thu, Chi (tách TM / CK), Nợ (khách nợ chưa thu), Cho vay (còn nợ), Đã đối soát (x / y khoản), Chênh lệch tiền (thiếu / dư của các ca đã chốt trong tháng, lệch ≤ 5.000 bỏ qua). Bấm ô để lọc sổ.
+- **2 cột** (máy tính; điện thoại xếp chồng): trái **Sổ thu chi gộp theo ngày** (mỗi ngày ghi tổng thu / chi); phải **Cần phân loại** (chọn nhóm ngay) → **Chi theo loại** (so tháng trước ▲ đỏ / ▼ xanh) → **Cho vay**.
+- Lọc nhanh Tất cả / Chi / Thu / TM / CK / Chưa đối soát + ô tìm + **Lọc thêm** (nguồn, loại, nhóm).
+- Mỗi dòng: nội dung, ca + người ghi (hoặc "Quản lý tạo"), số tiền, **ô tích dưới số tiền** (✓ xanh = đã đối soát, ô vàng trống = chưa; tích khi đã có nhóm = đối soát luôn, chưa có nhóm thì mở khung chọn nhóm), nhóm, người đối soát + giờ.
+- **Bấm dòng mở khung sửa** (không còn nút trên dòng). **Bỏ đổi nhóm hàng loạt.**
+- **"+ Thêm khoản"**: chọn loại ngay (Chi / Thu / Cho vay), nhóm **bắt buộc**, ngày lùi được (tháng chưa chốt).
+- **Bước 70 ĐÃ LÀM** (`70_cong_no.sql`): khung **Công nợ** thay khung Cho vay — nhóm **Kho tổng** (vay + **trả hộ** cộng chung, Kho tổng trả thì "Ghi trả nợ"; nút "+ Trả hộ Kho tổng" chỉ LHP, cài đặt `tra_ho_co_so`; Sổ quỹ ghi "Trả hộ Kho tổng"), **Người vay**, **Khách hàng nợ** (từ phiếu ca + quản lý ghi thêm: tên, SĐT, ngày, số ngày nợ — đỏ khi quá 7 ngày; quản lý sửa / xoá khoản mình ghi khi chưa thu). **Cho vay mở mọi cơ sở.** Quyền Công nợ: Chủ, QL tổng, QL cơ sở. Nhân viên không được vay / ứng (ghi chú).
+- Phiếu chốt ca: **dòng nhắc "Khách đang nợ"** ở đầu phiếu; mục "Khách trả nợ cũ trong ca" có ô **số tiền khách trả** → **trả một phần** (phần đã thu cộng vào ca, phần còn lại vẫn nhắc ở ca sau; bỏ chọn thì gộp lại).
+- Còn làm ở bước sau: tab **Âm tiền** riêng (ô Chênh lệch bấm sang đó), luân chuyển quỹ (không hiện ở Thu chi).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

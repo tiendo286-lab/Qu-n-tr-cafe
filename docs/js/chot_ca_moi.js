@@ -106,10 +106,12 @@ export async function renderNew(R0, P, SH) {
   // ------------------------------------------------------------ các bước
   const moneyIn = (k, val, label) => html`<input class="input money cm-num" data-f="${k}" inputmode="numeric" autocomplete="off" placeholder="0" value="${val === null ? '' : fmt(Math.abs(val))}" aria-label="${label}">`;
   // Khách trả nợ cũ (bill nợ Fabi của ca trước) — chọn được ngay ở bước Phiếu Fabi vì Fabi đã cộng tiền trả nợ vào tiền phải có
-  const debtPayRow = (d) => html`<div class="cm-person"><div><strong>Bàn ${d.table_name}</strong> · ${fmt(d.amount)}đ <span class="st-meta">· ca ${d.from_shift} ${dmy(d.from_date)}${d.note ? ' · ' + d.note : ''}</span></div>
+  // bước 70: khách nợ quản lý ghi (tên, SĐT), số ngày nợ, trả một phần (ô số tiền)
+  const dDays = (x) => { const n = Math.max(0, Math.round((Date.parse(new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)) - Date.parse(x)) / 864e5)); return n ? `${n} ngày` : 'hôm nay'; };
+  const debtPayRow = (d) => html`<div class="cm-person"><div><strong>${d.by_ql ? d.table_name : `Bàn ${d.table_name}`}</strong>${d.phone ? ` · ${d.phone}` : ''} · ${fmt(d.amount)}đ <span class="st-meta">· ${d.by_ql ? `quản lý ghi ${dmy(d.from_date)}` : `ca ${d.from_shift} ${dmy(d.from_date)}`}${d.closed_at ? '' : ` · ${dDays(d.from_date)}`}${d.note ? ' · ' + d.note : ''}</span></div>
             ${d.closed_at && d.closed_report_id !== R.id ? html`<span class="pill ok">Đã thu ở ca khác</span>`
-              : html`<select class="input sm" data-paid="${d.id}" aria-label="Khách bàn ${d.table_name} trả chưa"><option value="">Chưa trả</option>
-                <option value="tien_mat" ${d.closed_at && d.collect_kind === 'tien_mat' ? 'selected' : ''}>Trả bằng tiền mặt</option><option value="chuyen_khoan" ${d.closed_at && d.collect_kind === 'chuyen_khoan' ? 'selected' : ''}>Trả bằng chuyển khoản</option></select>`}</div>`;
+              : html`<span class="cm-pay">${d.closed_at ? '' : html`<input class="input sm money cm-paidamt" data-paidamt="${d.id}" inputmode="numeric" autocomplete="off" value="${fmt(d.amount)}" aria-label="Số tiền khách trả" title="Trả thiếu thì sửa số này — phần còn lại vẫn nhắc ở ca sau">`}<select class="input sm" data-paid="${d.id}" aria-label="Khách ${d.table_name} trả chưa"><option value="">Chưa trả</option>
+                <option value="tien_mat" ${d.closed_at && d.collect_kind === 'tien_mat' ? 'selected' : ''}>Trả bằng tiền mặt</option><option value="chuyen_khoan" ${d.closed_at && d.collect_kind === 'chuyen_khoan' ? 'selected' : ''}>Trả bằng chuyển khoản</option></select></span>`}</div>`;
   const oldBills = () => (R.open_debts || []).filter((d) => !isLoan(d) && !(d.closed_at && d.closed_report_id !== R.id));
   function fabiChecks() {
     const c = money(); const out = []; let bad = false;
@@ -326,7 +328,10 @@ export async function renderNew(R0, P, SH) {
         <button type="button" class="btn secondary" id="cm-undo" style="align-self:flex-start">Sửa lại phiếu</button>${nhanHang()}</div>`;
     }
     const s = V.step; const err = V.tried ? stepError() : '';
-    return html`<div class="card cm-card" style="gap:8px"><div class="cm-sh"><span class="cm-n">Bước ${s + 1}/${STEPS.length}</span><span class="st-meta">${R.shift} · ${dmy(R.work_date)}${tienMine ? ' · bạn là người chốt' : ''}</span></div>
+    const odOpen = (R.open_debts || []).filter((d) => !isLoan(d) && !d.closed_at);
+    const nhac = odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ: ${odOpen.length} khoản · ${fmt(sum(odOpen, (d) => d.amount))}đ</strong>
+        <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${d.by_ql ? d.table_name : 'Bàn ' + d.table_name} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ cũ trong ca" (bước ${STEPS[ORDER.indexOf(2)] ? ORDER.indexOf(2) + 1 : 3} · ${LABEL[2]}).</div></div>` : '';
+    return html`${nhac}<div class="card cm-card" style="gap:8px"><div class="cm-sh"><span class="cm-n">Bước ${s + 1}/${STEPS.length}</span><span class="st-meta">${R.shift} · ${dmy(R.work_date)}${tienMine ? ' · bạn là người chốt' : ''}</span></div>
         <div class="cm-steps">${STEPS.map((_, i) => html`<i class="${i < s ? 'done' : i === s ? 'cur' : ''}"></i>`)}</div><h2 style="margin:0">${STEPS[s]}</h2></div>
       <div class="card stack cm-card" id="cm-body">${B[ORDER[s]]()}${s === 0 && tienOther ? nhanHang() : ''}</div>
       <div id="cm-err">${err ? html`<div class="alert error">${err}</div>` : ''}</div>
@@ -468,8 +473,12 @@ export async function renderNew(R0, P, SH) {
         $$('[data-dbx]', root).forEach((b) => b.addEventListener('click', () => { V.debts.splice(Number(b.dataset.dbx), 1); draw(); }));
         $$('[data-paid]', root).forEach((s) => s.addEventListener('change', () => busy(async () => {
           await save();
-          await rpc('app_ca_debt_collect', { p_debt: Number(s.dataset.paid), p_report: R.id, p_kind: s.value || null, p_note: null });
-          const d = R.open_debts.find((x) => String(x.id) === s.dataset.paid);
+          const d = R.open_debts.find((x) => String(x.id) === s.dataset.paid); const am = $(`[data-paidamt="${s.dataset.paid}"]`, root);
+          const amt = am ? parseMoney(am.value || '0') : Number(d.amount);
+          if (s.value) {
+            await rpc('app_ca_debt_collect_part', { p_debt: Number(s.dataset.paid), p_report: R.id, p_kind: s.value, p_amount: amt, p_note: null });
+            if (amt < Number(d.amount)) { showSaved('Đã lưu — khách trả một phần, phần còn lại vẫn nhắc ở ca sau.'); rerender(); return; }
+          } else await rpc('app_ca_debt_collect', { p_debt: Number(s.dataset.paid), p_report: R.id, p_kind: null, p_note: null });
           if (s.value) { d.closed_at = 'x'; d.closed_report_id = R.id; d.collect_kind = s.value; } else { d.closed_at = null; d.closed_report_id = null; d.collect_kind = null; }
           showSaved('Đã lưu'); soft();
         })));
@@ -534,6 +543,7 @@ const CM_CSS = html`<style>
   .cm-signed { display: flex; gap: 4px; min-width: 0; } .cm-signed .input { min-width: 0; flex: 1; }
   .cm-checks { display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
   .cm-person { border: 1px solid var(--line); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+  .cm-pay { display: flex; gap: 6px; flex-wrap: wrap; } .cm-pay .cm-paidamt { flex: 0 1 130px; width: auto; min-width: 0; } .cm-pay select { flex: 1 1 160px; width: auto; min-width: 0; }
   .cm-ph { display: flex; justify-content: space-between; gap: 8px; align-items: center; flex-wrap: wrap; }
   .cm-times { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 13px; color: var(--muted); }
   .cm-times label { display: inline-flex; gap: 4px; align-items: center; } .cm-times input[type=time] { width: 110px; }

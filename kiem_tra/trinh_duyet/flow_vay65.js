@@ -18,7 +18,7 @@ export default async ({ sleep, out }) => {
     const go = async () => { location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/thu-chi?cn=' + lhp.branch_id; await wait('#tc-list', 600); await wait('.ln-sec', 300); await sleep(600); };
     await go();
     // 1) khoản quản lý tạo
-    row('nhập sc thử').querySelector('.tc-ed').click(); await wait('dialog[open] form'); await sleep(200);
+    row('nhập sc thử').querySelector('strong').click(); await wait('dialog[open] form'); await sleep(200);
     r.push(`hộp sửa khoản quản lý tạo có nút: ${!!$('dialog[open] .tc-2loan')}`);
     $('dialog[open] .tc-2loan').click(); await sleep(800); await wait('dialog[open] form');
     let dl = $('dialog[open]'); r.push(`hộp đổi: ${txt('h2', dl)} · ${txt('.alert', dl)}`.slice(0, 220));
@@ -26,13 +26,13 @@ export default async ({ sleep, out }) => {
     dl.querySelector('[type=submit]').click(); for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('.ln-p', 300); await sleep(300);
     r.push(`sau đổi: còn dòng Thu chi? ${!!row('nhập sc thử')} · Cho vay: ${$$('.ln-p').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · báo ${txt('.alert')}`);
     // 2) khoản phiếu ca
-    row('Cho vay anh thử').querySelector('.tc-med').click(); await wait('dialog[open] form'); await sleep(200);
+    row('Cho vay anh thử').querySelector('strong').click(); await wait('dialog[open] form'); await sleep(200);
     $('dialog[open] .tc-2loan').click(); await sleep(800); await wait('dialog[open] form'); dl = $('dialog[open]');
     r.push(`hộp đổi khoản phiếu ca: ${txt('.alert', dl)}`.slice(0, 200));
     dl.querySelector('[name=p]').value = [...dl.querySelector('[name=p]').options].find((o) => o.text.startsWith('Anh Vay Đổi')).value;
     dl.querySelector('[type=submit]').click(); for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('.ln-p', 300); await sleep(300);
     const x = row('Cho vay anh thử');
-    r.push(`dòng phiếu ca sau đổi: ${x ? txt('.tc-m .st-meta b', x) + ' · ' + txt('.tc-act', x) + ' · ô chọn ' + !!x.querySelector('.tc-pick') : 'KHÔNG THẤY'}`);
+    r.push(`dòng phiếu ca sau đổi: ${x ? txt('.tc-x', x) + ' · ô ' + (x.querySelector('.tc-ok').innerText || 'trống') : 'KHÔNG THẤY'}`);
     $('.ln-sec details')?.setAttribute('open', ''); await sleep(100);
     r.push(`lịch sử vay: ${$$('.ln-l').map((y) => y.innerText.replace(/\s+/g, ' ')).join(' | ')}`.slice(0, 400));
     // 3) sửa khoản vay từ phiếu ca: số tiền bị khoá
@@ -43,11 +43,11 @@ export default async ({ sleep, out }) => {
     // 4) xoá khoản vay từ phiếu ca → khoản trở lại Thu chi
     ln.querySelector('.ln-del').click(); await sleep(1500); await wait('.tc-r', 300); await sleep(600);
     const y = row('Cho vay anh thử');
-    r.push(`sau xoá khoản vay: dòng ${y ? txt('.pill', y) + ' · nút ' + $$('select, button', y.querySelector('.tc-act')).length : 'KHÔNG THẤY'} · ${W()}`);
+    r.push(`sau xoá khoản vay: dòng ${y ? txt('.tc-x', y) + ' · ô ' + (y.querySelector('.tc-ok').innerText || 'trống') : 'KHÔNG THẤY'} · ${W()}`);
     // 5) bước 66: khoản từ phiếu chi chuyển khoản
     await sb.from('fin_entries').insert({ id: 99901, branch_id: lhp.branch_id, entry_date: today, kind: 'chi', category_id: 1, amount: 3456000, note: 'đơn thử (chuyển khoản từ VCB 999, ca Tối)', pay_method: 'chuyen_khoan', bank_out: true, created_by: 1 });
     await go();
-    row('đơn thử').querySelector('.tc-ed').click(); await wait('dialog[open] form'); await sleep(200); dl = $('dialog[open]');
+    row('đơn thử').querySelector('strong').click(); await wait('dialog[open] form'); await sleep(200); dl = $('dialog[open]');
     r.push(`hộp sửa phiếu chi CK: ô tiền khoá ${dl.querySelector('[name=amt]').disabled} · có nút đổi ${!!dl.querySelector('.tc-2loan')} · ${txt('.alert', dl)}`.slice(0, 260));
     dl.querySelector('.tc-2loan').click(); await sleep(800); await wait('dialog[open] form'); dl = $('dialog[open]');
     r.push(`hộp đổi: ${txt('.alert', dl)}`.slice(0, 260));

@@ -120,8 +120,8 @@ export function makeCa(T, me) {
           .map((h) => ({ ...h, from_date: rep(h.report_id).work_date, from_shift: rep(h.report_id).shift, created_by_name: name(h.created_by), done_by_name: name(h.done_by) })),
         goods: T.shift_report_goods.filter((g) => g.report_id === r.id), photos: T.shift_report_photos.filter((p) => p.report_id === r.id && !(hideOwn && p.kind === 'ipos')),
         debts: T.shift_debts.filter((d) => d.report_id === r.id),
-        open_debts: T.shift_debts.filter((d) => d.branch_id === r.branch_id && d.report_id !== r.id && before(rep(d.report_id)) && (!d.closed_at || d.closed_report_id === r.id))
-          .map((d) => ({ ...d, from_date: rep(d.report_id).work_date, from_shift: rep(d.report_id).shift, closed_by_name: name(d.closed_by) })),
+        open_debts: T.shift_debts.filter((d) => d.branch_id === r.branch_id && d.report_id !== r.id && (d.report_id == null || before(rep(d.report_id))) && (!d.closed_at || d.closed_report_id === r.id))
+          .map((d) => (d.report_id == null ? { ...d, by_ql: true, from_date: (d.created_at || '').slice(0, 10), from_shift: null, closed_by_name: name(d.closed_by) } : { ...d, from_date: rep(d.report_id).work_date, from_shift: rep(d.report_id).shift, closed_by_name: name(d.closed_by) })),
         checks: Object.fromEntries(T.shift_report_checks.filter((c) => c.report_id === r.id).map((c) => [c.item, { by: name(c.checked_by), at: c.checked_at }])),
         check_items: ITEMS, forced_start: forced(r), can_edit: r.status === 'dang_chot', can_recon: !!me.perms.doi_soat && r.status === 'hoan_thanh', can_reopen: !!me.perms.mo_lai_phieu_ca && r.status === 'hoan_thanh' };
     },
@@ -217,6 +217,13 @@ export function makeCa(T, me) {
     app_ca_loans_open() {
       return T.shift_debts.filter((d) => d.kind === 'muon' && !d.closed_at).map((d) => { const o = rep(d.report_id); const b = T.branches.find((x) => x.id === d.branch_id) || {};
         return { id: d.id, branch_id: d.branch_id, branch: b.display_code || b.code, name: d.table_name, amount: d.amount, note: d.note, date: o.work_date, shift: o.shift, report_id: o.id, days: 0, by: 'Nhân viên thử' }; });
+    },
+    app_ca_debt_collect_part({ p_debt, p_report, p_kind, p_amount, p_note }) {
+      const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_at) throw new Error('Khoản nợ này đã được thu hoặc không còn.');
+      if (!(p_amount > 0)) throw new Error('Nhập số tiền khách trả lớn hơn 0.'); if (p_amount > d.amount) throw new Error('Khách trả nhiều hơn số nợ.');
+      if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: Math.max(...T.shift_debts.map((x) => x.id)) + 1, amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
+      needEdit(p_report); const part = !!T.shift_debts.find((x) => x.split_from === d.id && !x.closed_at);
+      Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || (part ? 'Thu một phần' : 'Đã thu'), collect_kind: p_kind });
     },
     app_ca_debt_collect({ p_debt, p_report, p_kind, p_note }) { needEdit(p_report); const d = T.shift_debts.find((x) => x.id === p_debt); Object.assign(d, p_kind === null ? { closed_at: null, closed_by: null, closed_report_id: null, close_note: null, collect_kind: null } : { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || 'Đã thu', collect_kind: p_kind }); },
     app_ca_photo_add({ p_id, p_path, p_kind }) { needEdit(p_id); const id = nid('shift_report_photos'); T.shift_report_photos.push({ id, report_id: p_id, path: p_path, kind: p_kind || 'hang' }); return id; },

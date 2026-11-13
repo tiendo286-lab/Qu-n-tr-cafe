@@ -49,6 +49,7 @@ export function makeFin(T, me) {
   };
   // Thu chi (Quản lý ca): người có quyền Đối soát xem mọi cơ sở
   const tcCan = (b) => !!me.perms?.doi_soat || canB(b);
+  const ktId = () => { T.loan_people = T.loan_people || []; let k = T.loan_people.find((p) => p.name.toLowerCase() === 'kho tổng'); if (!k) { k = { id: T.loan_people.length + 1, name: 'Kho tổng', phone: null, note: null, active: true }; T.loan_people.push(k); } return k.id; };
   const tcRows = (b, from, to) => {
     const brs = T.branches.filter((x) => x.status === 'Đang hoạt động' && tcCan(x.id) && (!b || x.id === b)).map((x) => x.id);
     const out = [];
@@ -80,6 +81,15 @@ export function makeFin(T, me) {
   const tc = {
     app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), can_money: !!me.perms?.doi_soat, can_direct: admin(), loan_branches: T.branches.filter((b) => (b.display_code || b.code) === 'LHP').map((b) => b.id), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
       branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && tcCan(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
+    // Bước 69: số tổng hợp đầu trang Thu chi (1 cơ sở)
+    app_tc_summary: ({ p_branch, p_from }) => {
+      const d0 = new Date(p_from + 'T00:00:00Z'); const pf = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth() - 1, 1)).toISOString().slice(0, 10);
+      const pt = new Date(Date.UTC(d0.getUTCFullYear(), d0.getUTCMonth(), 0)).toISOString().slice(0, 10);
+      const prev = {}; tcRows(p_branch, pf, pt).filter((x) => x.kind === 'chi' && x.src !== 'ka' && !x.excluded && !x.loan_id).forEach((x) => { const k = String(x.category_id || 0); prev[k] = (prev[k] || 0) + Number(x.amount); });
+      const debts = (T.shift_debts || []).filter((x) => x.branch_id === p_branch && !x.closed_report_id && !x.closed_at);
+      const loans = (T.branch_loans || []).filter((l) => l.branch_id === p_branch).reduce((s, l) => s + Math.max(0, l.amount - (T.loan_pays || []).filter((y) => y.loan_id === l.id).reduce((t, y) => t + y.amount, 0)), 0);
+      return { debts: { n: debts.length, sum: debts.reduce((t, x) => t + Number(x.amount), 0) }, loans_left: loans, ca: { n: 0, short: 0, over: 0, n_short: 0, n_over: 0 }, prev_chi: prev, prev_from: pf };
+    },
     // Bước 35: gom việc chờ đối soát
     app_ds_todo() {
       const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
@@ -195,15 +205,30 @@ export function makeFin(T, me) {
       if (p_id) { Object.assign(T.fin_categories.find((c) => c.id === p_id), { name: p_name.trim(), active: p_active ? 1 : 0 }); return p_id; }
       const id = nid('fin_categories'); T.fin_categories.push({ id, kind: p_kind, name: p_name.trim(), sort_order: p_sort || 50, active: 1, type_id: null }); return id;
     },
+    // bước 70: khách nợ (quản lý ghi, không thuộc ca) + khách nợ từ phiếu ca
+    app_cn_debts({ p_branch }) {
+      const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+      const open = (T.shift_debts || []).filter((d) => d.branch_id === p_branch && !d.closed_at && d.kind !== 'muon' && (d.report_id == null || T.shift_reports.find((r) => r.id === d.report_id)?.status === 'hoan_thanh'))
+        .map((d) => { const r = T.shift_reports.find((x) => x.id === d.report_id); return { id: d.id, name: d.table_name, phone: d.phone || null, amount: d.amount, note: d.note || '', date: r ? r.work_date : (d.created_at || today).slice(0, 10), shift: r?.shift || null, report_id: d.report_id ?? null, by_ql: d.report_id == null, by: 'admin – Chủ', split: !!d.split_from, paid_before: 0 }; });
+      return { can_edit: admin() || me.role === 'ql', open };
+    },
+    app_cn_debt_save({ p_id, p }) {
+      if (!(p.name || '').trim()) throw new Error('Ghi tên khách nợ.'); if (!(p.amount > 0)) throw new Error('Nhập số tiền nợ lớn hơn 0.');
+      T.shift_debts = T.shift_debts || [];
+      if (p_id) { Object.assign(T.shift_debts.find((d) => d.id === p_id), { table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '' }); return p_id; }
+      const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: p.branch_id, report_id: null, table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '', kind: 'bill', created_at: (p.date || '') + ' 09:00:00' }); return id;
+    },
+    app_cn_debt_delete({ p_id }) { T.shift_debts = T.shift_debts.filter((d) => d.id !== p_id); },
     // bước 64: cho vay (chỉ LHP)
     app_loans({ p_branch }) {
-      const b = T.branches.find((x) => x.id === p_branch); if (!b || (b.display_code || b.code) !== 'LHP') return { enabled: false };
+      const b = T.branches.find((x) => x.id === p_branch); if (!b) return { enabled: false };
       T.loan_people = T.loan_people || []; T.branch_loans = T.branch_loans || []; T.loan_pays = T.loan_pays || [];
+      const kt = ktId();
       const paidOf = (l) => T.loan_pays.filter((y) => y.loan_id === l.id).reduce((s, y) => s + y.amount, 0);
       const mine = T.branch_loans.filter((l) => l.branch_id === p_branch);
-      return { enabled: true, can_people: admin(),
+      return { enabled: true, can_people: admin(), kho_tong_id: kt, tra_ho_ok: (b.display_code || b.code) === 'LHP',
         people: T.loan_people.map((p) => { const ls = mine.filter((l) => l.person_id === p.id); const lent = ls.reduce((s, l) => s + l.amount, 0); const paid = ls.reduce((s, l) => s + paidOf(l), 0); return { ...p, lent, paid, owe: lent - paid }; }),
-        loans: mine.map((l) => ({ ...l, shift: l.report_id ? T.shift_reports.find((x) => x.id === l.report_id)?.shift : null, person: T.loan_people.find((p) => p.id === l.person_id)?.name, paid: paidOf(l), locked: false, by: 'admin – Chủ', payments: T.loan_pays.filter((y) => y.loan_id === l.id).map((y) => ({ ...y, locked: false, by: 'admin – Chủ' })) })).reverse() };
+        loans: mine.map((l) => ({ kind: 'vay', ...l, shift: l.report_id ? T.shift_reports.find((x) => x.id === l.report_id)?.shift : null, person: T.loan_people.find((p) => p.id === l.person_id)?.name, paid: paidOf(l), locked: false, by: 'admin – Chủ', payments: T.loan_pays.filter((y) => y.loan_id === l.id).map((y) => ({ ...y, locked: false, by: 'admin – Chủ' })) })).reverse() };
     },
     app_loan_people: () => ({ can_edit: admin(), people: (T.loan_people || []).map((p) => ({ ...p, used: (T.branch_loans || []).some((l) => l.person_id === p.id) })) }),
     app_loan_person_save({ p_id, p_name, p_phone, p_note, p_active }) {
@@ -213,12 +238,14 @@ export function makeFin(T, me) {
       const id = T.loan_people.length + 1; T.loan_people.push({ id, name: p_name.trim(), phone: p_phone || null, note: p_note || null, active: true }); return id;
     },
     app_loan_save({ p_id, p }) {
+      const kind = p_id ? ((T.branch_loans || []).find((x) => x.id === p_id)?.kind || 'vay') : p.kind || 'vay';
+      if (kind === 'tra_ho') { if ((T.branches.find((x) => x.id === p.branch_id)?.code) !== 'LHP') throw new Error('Cơ sở này không dùng mục Trả hộ Kho tổng.'); p.person_id = ktId(); if (!(p.note || '').trim()) throw new Error('Ghi nội dung trả hộ (vd: tiền ga, ship hàng).'); }
       if (!p.person_id) throw new Error('Chọn người vay.'); if (!(p.amount > 0)) throw new Error('Nhập số tiền cho vay lớn hơn 0.');
       T.branch_loans = T.branch_loans || [];
       if (p_id) { const l = T.branch_loans.find((x) => x.id === p_id); const paid = (T.loan_pays || []).filter((y) => y.loan_id === p_id).reduce((s, y) => s + y.amount, 0);
         if (p.amount < paid) throw new Error(`Số tiền vay không được nhỏ hơn số đã trả (${paid}).`); Object.assign(l, { person_id: p.person_id, date: p.date, amount: p.amount, method: p.method, note: p.note || '' }); return p_id; }
       const id = T.branch_loans.length + 1;
-      T.branch_loans.push({ id, branch_id: p.branch_id, person_id: p.person_id, date: p.date, amount: p.amount, method: p.method, note: p.note || '' }); return id;
+      T.branch_loans.push({ id, kind, branch_id: p.branch_id, person_id: p.person_id, date: p.date, amount: p.amount, method: p.method, note: p.note || '' }); return id;
     },
     app_loan_pay({ p_loan, p_date, p_amount, p_method, p_note }) {
       T.loan_pays = T.loan_pays || []; const l = T.branch_loans.find((x) => x.id === p_loan);
