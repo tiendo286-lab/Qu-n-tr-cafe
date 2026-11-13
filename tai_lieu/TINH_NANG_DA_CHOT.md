@@ -460,6 +460,10 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Khung Công nợ** (cột phải Thu chi): mỗi người 2 tầng — tên + chi tiết / còn nợ + nút Ghi trả nợ (hết vỡ chữ).
 - **Nhắc chung khách nợ + khách mượn** (bước 75, sau vụ LHP ca Chiều 07/11 "Anh thắng 128k" ghi nhầm vào Khách mượn nên ca Tối không thấy): dòng nhắc đầu phiếu chốt ca và danh sách "Khách trả nợ / trả tiền mượn trong ca" (bước Phiếu Fabi) hiện cả khách nợ lẫn khách mượn tiền két (ghi rõ "Khách mượn – …").
 
+## 5r12. Tab Chốt ca xem theo tuần — CHỐT và ĐÃ LÀM 13/11/2026 (chỉ giao diện)
+- Quản lý ca › **Chốt ca**: bảng **tuần** (hàng = ngày Thứ 2 → CN, cột = ca), **mỗi lần 1 cơ sở** (nút chọn cơ sở, web nhớ cơ sở xem lần trước, chung với Thu chi / Âm tiền / Sổ quỹ); nút ‹ › đổi tuần, "Về tuần này".
+- Mỗi ô ca: màu + chữ ngắn — **Xong** (xanh), **Đang chốt** (vàng), **Chưa mở** (trắng), **Thiếu phiếu** (đỏ: ngày đã qua mà chưa mở phiếu, từ 01/11); phiếu xong ghi thêm **TM / CK lệch** (âm = thiếu). Bấm ô để mở phiếu (ô thiếu phiếu → mở phiếu bổ sung). Đường dẫn cũ `#/ca?ngay=…` mở đúng tuần của ngày đó.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
