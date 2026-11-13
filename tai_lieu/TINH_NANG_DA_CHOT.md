@@ -394,6 +394,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
   - Luật đối soát theo Fabi (anh Tiến chốt): **hóa đơn sửa / xóa** trên Fabi → Doanh thu không tự duyệt; **khách trả nợ trên Fabi** phải khớp khoản "khách đã trả" chọn trong ca, lệch → Công nợ không tự duyệt. Đèn đối soát ghi rõ lý do và có nút **"Đã xem — duyệt"**.
   - **"Bỏ ca"**: chốt chỉ phạt 200.000đ, không trừ giờ. 5 ca LHP lệch do rút tiền: anh Tiến tự tạo phiếu rút ở từng ca.
 
+## 5r3. Cho vay (LHP) — CHỐT và ĐÃ LÀM 13/11/2026 (`supabase/64_cho_vay.sql`)
+- Chỉ cơ sở bật trong cài đặt `cho_vay_co_so` (hiện **LHP**). Người vay là **người ngoài khai báo sẵn** ở **Cài đặt › Người vay** (tên, sđt, ghi chú; Chủ / Quản lý tổng sửa). **Nhân viên không vay.**
+- Trang **Thu chi** của LHP có khung **Cho vay**: nút Cho vay (người vay, ngày, số tiền, tiền mặt / chuyển khoản, ghi chú), danh sách người còn nợ, **Ghi trả nợ** (trả dần, không quá số còn nợ), lịch sử từng khoản + lần trả (xoá được khi tháng chưa chốt; khoản đã có lần trả phải xoá lần trả trước).
+- Cho vay = **tiền ra khỏi quỹ**, trả nợ = **tiền về quỹ** (Sổ quỹ có dòng "Cho vay: …" / "Trả nợ vay: …"); **không tính chi phí / doanh thu** (chốt tháng không đổi).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

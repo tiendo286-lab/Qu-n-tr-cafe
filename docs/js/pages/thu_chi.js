@@ -9,6 +9,7 @@ import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, norm, showSaved, str } from '../ui.js';
 import { KA_STATUS } from './phieu_ca.js';
+import { mountLoans } from '../cho_vay.js';
 
 export const perm = 'doi_soat';
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
@@ -109,6 +110,7 @@ export async function render(ctx) {
       ${byType.length ? html`<section class="card stack tc-types" style="gap:8px"><div class="tc-ty-h"><h2 style="margin:0">Chi theo loại</h2><span class="st-meta">${vnd(chiTot)} · bấm để lọc · <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></span></div>
         ${byType.map((g) => html`<div class="tc-ty"><button type="button" class="tc-tyb" data-ft="${g.id || ''}" aria-pressed="${String(F.type) === String(g.id || '') && !!g.id}"><span class="grow"><b>${g.name}</b></span><span class="tc-meter"><i style="width:${pct(g.sum)}%"></i></span><b class="tc-tys">${fmt(g.sum)}</b><span class="st-meta">${pct(g.sum)}%</span></button>
           <div class="tc-tyc">${g.cats.map((c) => html`<button type="button" class="tc-cb" data-fc="${c.id || ''}" aria-pressed="${String(F.cat) === String(c.id || '') && !!c.id}"><span class="grow">${c.name} <span class="st-meta">· ${c.n} khoản</span></span><span>${fmt(c.sum)}</span></button>`)}</div></div>`)}</section>` : ''}
+      <div id="tc-loans"></div>
       <section class="card stack" style="padding:14px;gap:10px">
         <div class="tc-seg" role="group" aria-label="Hình thức">${[['', 'Tất cả'], ['tien_mat', 'Tiền mặt'], ['chuyen_khoan', 'Chuyển khoản']].map(([k, l]) => html`<button type="button" data-fpay="${k}" aria-pressed="${F.pay === k}">${l}</button>`)}</div>
         <div class="toolbar" style="gap:8px">
@@ -147,6 +149,7 @@ export async function render(ctx) {
       $$('.tc-pk').forEach((b) => b.addEventListener('click', () => { F.pay = F.pay === b.dataset.pay ? '' : b.dataset.pay; apply(); }));
       $('#tc-pend').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; $('#f-st').value = F.st; apply(); });
       apply();
+      mountLoans($('#tc-loans'), cn ? D.branches.filter((b) => b.id === cn) : D.branches, () => rerender());   // bước 64: Cho vay
       const rowOf = (b) => rows[Number(b.closest('.tc-r').dataset.i)];
       $$('.tc-ed').forEach((b) => b.addEventListener('click', () => entryForm(rowOf(b))));
       $$('.tc-del').forEach((b) => b.addEventListener('click', async () => {
