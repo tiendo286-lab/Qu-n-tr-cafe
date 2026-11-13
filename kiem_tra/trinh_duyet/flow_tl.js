@@ -7,7 +7,12 @@ export default async ({ visit, settle, sleep, out }) => {
   const step = async (name, fn) => { window.__ERR.length = 0; let r = ''; try { r = await fn(); } catch (e) { window.__ERR.push('flow: ' + e.stack); } log(name, r || '', [...window.__ERR, ...$$('#root .alert.error').map((a) => 'page: ' + a.textContent.trim())]); };
   const go = async (h) => { location.hash = '#/__tam'; await settle(); await visit(h); out.pop(); };
   if (q.get('role') === 'nv') {
-    await step('NV đọc nội quy', async () => { await go('#/noi-quy'); return txt('.doc-card summary') + ' | bảng: ' + $$('.doc table').length + ' | ảnh có link: ' + $$('.doc img[src]').length + ' | XSS=' + (window.__XSS || 'không') + ' | ' + txt('.alert.warn') + ' | thanh dưới: ' + txt('.tabbar'); });
+    await step('NV đọc nội quy', async () => {
+      await go('#/noi-quy');
+      if (!$('.hb-hero') || !$('.hb-progress') || !$('.hb-reader') || !$('.hb-mobile-continue')) throw new Error('Thiếu giao diện sổ tay hoặc nút tiếp tục đọc');
+      if (!txt('.hb-hero').includes('Sổ tay nhân viên toàn công ty')) throw new Error('Sai tiêu đề sổ tay');
+      return txt('.doc-card summary') + ' | tiến độ: ' + txt('.hb-progress') + ' | bảng: ' + $$('.doc table').length + ' | ảnh có link: ' + $$('.doc img[src]').length + ' | XSS=' + (window.__XSS || 'không') + ' | ' + txt('.alert.warn') + ' | thanh dưới: ' + txt('.tabbar');
+    });
     await step('NV bấm Tôi đã đọc', async () => { $('.read-btn').click(); await sleep(400); await settle(); return txt('.doc-card summary') + ' | ' + txt('.doc-card .alert'); });
     await step('NV xem quy trình, training và đánh giá', async () => {
       await go('#/quy-trinh'); const group = txt('.procedure-card'); $('.procedure-card').click(); await sleep(400); await settle();
@@ -31,7 +36,11 @@ export default async ({ visit, settle, sleep, out }) => {
     await step('NV vào trang soạn', async () => { await go('#/tai-lieu/soan?loai=noi_quy'); return document.title; });
     return;
   }
-  await step('Chủ xem nội quy', async () => { await go('#/noi-quy'); return txt('.doc-card summary') + ' | XSS=' + (window.__XSS || 'không') + ' | nút: ' + txt('.toolbar'); });
+  await step('Chủ xem nội quy', async () => {
+    await go('#/noi-quy');
+    if (!$('.hb-hero') || !$('.hb-company') || !$('.qt-index')) throw new Error('Thiếu giao diện sổ tay hoặc theo dõi toàn công ty');
+    return txt('.doc-card summary') + ' | ' + txt('.hb-company') + ' | XSS=' + (window.__XSS || 'không') + ' | nút: ' + txt('.toolbar');
+  });
   await step('Soạn nội quy mới', async () => {
     await go('#/tai-lieu/soan?loai=noi_quy');
     $('#ed-title').value = 'Đồng phục'; $('#ed-title').dispatchEvent(new Event('input'));
