@@ -175,7 +175,7 @@ export async function render(ctx) {
         ${kpi('k-no', '', 'Nợ', fmt(SM?.debts?.sum || 0), `khách nợ chưa thu · ${SM?.debts?.n || 0} khoản`)}
         ${kpi('k-vay', '', 'Cho vay', fmt(SM?.loans_left || 0), 'còn nợ (vay + trả hộ − đã trả)')}
         ${kpi('k-ds', pend.length ? 'warn' : '', 'Đã đối soát', `${nChk} / ${real.length}`, pend.length ? `còn ${pend.length} khoản chờ` : 'đã hết')}
-        ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Chênh lệch tiền', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)}`)}
+        ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Chênh lệch tiền', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)} ›`)}
       </div>
       <div class="tc-cols">
         <section class="card tc-book"><div class="tc-bh"><h2>Sổ thu chi</h2><span class="st-meta" id="f-n"></span></div>
@@ -241,7 +241,7 @@ export async function render(ctx) {
       $('#k-thu').addEventListener('click', () => { F.kind = F.kind === 'thu' ? '' : 'thu'; apply(); toBook(); });
       $('#k-chi').addEventListener('click', () => { F.kind = F.kind === 'chi' ? '' : 'chi'; apply(); toBook(); });
       $('#k-ds').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; apply(); toBook(); });
-      $('#k-lech').addEventListener('click', () => { F.src = F.src === 'ka' ? '' : 'ka'; apply(); toBook(); });
+      $('#k-lech').addEventListener('click', () => { location.hash = `#/quan-ly/am-tien?thang=${month}&cn=${cn}`; });   // bước 71: sang tab Âm tiền
       $('#k-vay').addEventListener('click', () => $('#tc-loans').scrollIntoView({ behavior: 'smooth', block: 'start' }));
       $('#k-no').addEventListener('click', () => $('#tc-loans').scrollIntoView({ behavior: 'smooth', block: 'start' }));
       $('#tc-allpend')?.addEventListener('click', () => { F.st = 'cho'; apply(); toBook(); });

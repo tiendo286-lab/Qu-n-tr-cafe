@@ -205,6 +205,44 @@ export function makeFin(T, me) {
       if (p_id) { Object.assign(T.fin_categories.find((c) => c.id === p_id), { name: p_name.trim(), active: p_active ? 1 : 0 }); return p_id; }
       const id = nid('fin_categories'); T.fin_categories.push({ id, kind: p_kind, name: p_name.trim(), sort_order: p_sort || 50, active: 1, type_id: null }); return id;
     },
+    // bước 71: tab Âm tiền — dữ liệu mẫu do bài thử gán vào T.gap_fx (mỗi dòng: report_id, date, shift, item, kind, total, staff)
+    app_gap_list({ p_branch, p_month }) {
+      if (!(admin() || me.role === 'ql')) throw new Error('Chỉ Chủ, Quản lý tổng, Quản lý cơ sở dùng tab Âm tiền.');
+      T.gap_m = T.gap_m || []; T.gap_d = T.gap_d || []; T.gap_tl = T.gap_tl || [];
+      const rows = (T.gap_fx || []).filter((g) => g.branch_id === p_branch).map((g) => {
+        const side = (m) => (g.kind === 'thieu' ? m.short === g.report_id : m.over === g.report_id) && m.item === g.item;
+        const ms = T.gap_m.filter(side); const mt = ms.filter((m) => m.status === 'da_duyet').reduce((s, m) => s + m.amount, 0); const mp = ms.filter((m) => m.status === 'cho_duyet').reduce((s, m) => s + m.amount, 0);
+        const ds = T.gap_d.filter((d) => d.report_id === g.report_id && d.item === g.item); const dcs = ds.reduce((s, d) => s + d.amount, 0);
+        const pp = g.kind === 'thieu' ? T.gap_tl.filter((x) => x.report_id === g.report_id && x.item === g.item && x.status !== 'huy') : [];
+        const tl = pp.reduce((s, x) => s + x.amount, 0); const remain = Math.max(0, g.total - tl - dcs - mt);
+        const state = remain <= 5000 ? 'xong' : g.kind === 'du' ? 'du' : g.item === 'chuyen_khoan' ? 'cho_tien' : 'cho_gan';
+        return { ...g, lech: g.kind === 'thieu' ? -g.total : g.total, tl, dcs, mt, mp, remain, state, in_month: (g.date || '').startsWith(p_month), locked: false, result: { result: g.kind === 'thieu' ? 'thieu' : 'thua', amount: g.total, reason: 'lệch tiền' },
+          people: pp.map((x) => ({ id: x.id, name: x.name, amount: x.amount, status: x.status })), decisions: ds.map((d) => ({ ...d, by: 'admin – Chủ' })),
+          matches: ms.map((m) => { const o = (T.gap_fx || []).find((x) => x.report_id === (g.kind === 'thieu' ? m.over : m.short)); return { id: m.id, amount: m.amount, reason: m.reason, status: m.status, other: o?.report_id, other_date: o?.date, other_shift: o?.shift, by: 'admin – Chủ', mine: true, approved_by: m.status === 'da_duyet' ? 'admin – Chủ' : null }; }) };
+      });
+      const pending = rows.filter((r) => r.kind === 'thieu' && ['cho_tien', 'cho_gan'].includes(r.state)).length;
+      return { role: admin() ? 'admin' : 'ql', from: p_month + '-01', to: p_month + '-30', pending, locked: false, rows,
+        branches: T.branches.filter((b) => b.status === 'Đang hoạt động').map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) };
+    },
+    app_gap_match({ p_short, p_over, p_item, p_amount, p_reason }) {
+      if (!(p_reason || '').trim()) throw new Error('Ghi lý do ghép (vd: khách CK tối 13 về sáng 14).'); if (!(p_amount > 0)) throw new Error('Nhập số tiền ghép lớn hơn 0.');
+      T.gap_m = T.gap_m || []; const id = T.gap_m.length + 1; const st = admin() ? 'da_duyet' : 'cho_duyet';
+      T.gap_m.push({ id, short: p_short, over: p_over, item: p_item, amount: p_amount, reason: p_reason, status: st });
+      if (st === 'da_duyet') { let ex = p_amount; (T.gap_tl || []).filter((x) => x.report_id === p_short && x.item === p_item && x.status === 'tru_luong').reverse().forEach((x) => { if (ex <= 0) return; const t = Math.min(ex, x.amount); if (t === x.amount) x.status = 'huy'; else x.amount -= t; ex -= t; }); }
+      return id;
+    },
+    app_gap_match_approve({ p_id, p_ok }) { if (!admin()) throw new Error('Chỉ Chủ / Quản lý tổng duyệt ghép.'); const m = T.gap_m.find((x) => x.id === p_id); if (p_ok) m.status = 'da_duyet'; else T.gap_m = T.gap_m.filter((x) => x.id !== p_id); },
+    app_gap_match_delete({ p_id }) { T.gap_m = (T.gap_m || []).filter((x) => x.id !== p_id); },
+    app_gap_tl({ p_report, p_item, p_people, p_reason }) {
+      if (!(p_reason || '').trim()) throw new Error('Ghi lý do.'); if (!(p_people || []).length) throw new Error('Chọn nhân viên chịu.');
+      T.gap_tl = T.gap_tl || []; const g = (T.gap_fx || []).find((x) => x.report_id === p_report && x.item === p_item);
+      p_people.forEach((x) => T.gap_tl.push({ id: T.gap_tl.length + 1, report_id: p_report, item: p_item, amount: x.amount, status: 'tru_luong', name: (g?.staff || []).find((s) => s.employee_id === x.employee_id)?.name || 'NV' }));
+    },
+    app_gap_decide({ p_report, p_item, p_kind, p_amount, p_reason }) {
+      if (p_kind === 'quan_chiu' && !admin()) throw new Error('Chỉ Chủ / Quản lý tổng bấm Quán chịu.'); if (!(p_amount > 0)) throw new Error('Nhập số tiền lớn hơn 0.');
+      T.gap_d = T.gap_d || []; const id = T.gap_d.length + 1; T.gap_d.push({ id, report_id: p_report, item: p_item, kind: p_kind, amount: p_amount, reason: p_reason || '' }); return id;
+    },
+    app_gap_decision_delete({ p_id }) { T.gap_d = (T.gap_d || []).filter((x) => x.id !== p_id); },
     // bước 70: khách nợ (quản lý ghi, không thuộc ca) + khách nợ từ phiếu ca
     app_cn_debts({ p_branch }) {
       const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);

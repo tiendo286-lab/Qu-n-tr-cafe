@@ -430,7 +430,16 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **"+ Thêm khoản"**: chọn loại ngay (Chi / Thu / Cho vay), nhóm **bắt buộc**, ngày lùi được (tháng chưa chốt).
 - **Bước 70 ĐÃ LÀM** (`70_cong_no.sql`): khung **Công nợ** thay khung Cho vay — nhóm **Kho tổng** (vay + **trả hộ** cộng chung, Kho tổng trả thì "Ghi trả nợ"; nút "+ Trả hộ Kho tổng" chỉ LHP, cài đặt `tra_ho_co_so`; Sổ quỹ ghi "Trả hộ Kho tổng"), **Người vay**, **Khách hàng nợ** (từ phiếu ca + quản lý ghi thêm: tên, SĐT, ngày, số ngày nợ — đỏ khi quá 7 ngày; quản lý sửa / xoá khoản mình ghi khi chưa thu). **Cho vay mở mọi cơ sở.** Quyền Công nợ: Chủ, QL tổng, QL cơ sở. Nhân viên không được vay / ứng (ghi chú).
 - Phiếu chốt ca: **dòng nhắc "Khách đang nợ"** ở đầu phiếu; mục "Khách trả nợ cũ trong ca" có ô **số tiền khách trả** → **trả một phần** (phần đã thu cộng vào ca, phần còn lại vẫn nhắc ở ca sau; bỏ chọn thì gộp lại).
-- Còn làm ở bước sau: tab **Âm tiền** riêng (ô Chênh lệch bấm sang đó), luân chuyển quỹ (không hiện ở Thu chi).
+- Còn làm ở bước sau: luân chuyển quỹ (không hiện ở Thu chi).
+
+## 5r8. Tab Âm tiền — CHỐT 13/11/2026 (mẫu https://claude.ai/artifact/4rxfnB6uUJuHYUZtv5ENHo), ĐÃ LÀM (`supabase/71_am_tien.sql`, trang `#/quan-ly/am-tien`)
+- Quản lý ca › **Âm tiền** (Chủ, QL tổng, QL cơ sở; kế toán không): mỗi lần 1 cơ sở, theo tháng. Ô Chênh lệch tiền ở Thu chi bấm sang đây.
+- Mỗi ca đã chốt × tiền mặt / chuyển khoản có **lệch > 5.000** (≤ 5.000 coi như khớp — đối soát tự duyệt luôn): cột trái **ca thiếu** (Chờ tiền về = CK, Chờ gán = TM, Đã xử lý), cột phải **ca dư**. 4 ô số bấm để lọc.
+- **Đối soát**: chọn THIẾU ở Tiền mặt / Chuyển khoản → mặc định **"Chờ tiền về"** (CK) / **"Để tab Âm tiền xử lý"** (TM): ca vẫn hoàn thành đối soát, chưa báo nhân viên; vẫn chọn được "Chọn người chịu ngay" như cũ.
+- **Ghép** ca thiếu với ca dư cùng loại tiền (web gợi ý ca dư cùng cơ sở trong 3 ngày; ghép từng phần; lý do bắt buộc). Chủ / QL tổng ghép → có hiệu lực ngay; QL cơ sở ghép → **chờ Chủ / QL tổng duyệt**. Bỏ ghép được (trước chốt tháng). Ghép chỉ là bản ghi đối chiếu, **không sửa số của ca đã đối soát**. Ghép có hiệu lực → báo nhân viên ca thiếu; nếu đã trừ lương thì **tự huỷ / giảm** (đã nộp bù → huỷ = quán hoàn lại), báo từng người.
+- Không có tiền về: **Trừ lương…** (mặc định chia đều người làm ca, sửa được; báo nhân viên, giải trình được) hoặc **Quán chịu** (chỉ Chủ / QL tổng; khoản chi nhóm "Âm tiền – quán chịu", tính chi phí, **không đổi quỹ**).
+- Ca dư không ghép: **Thu khác** (khoản thu nhóm "Thu khác", không đổi quỹ). Khoản Quán chịu / Thu khác hiện ở Thu chi nhưng chỉ sửa / bỏ ở tab Âm tiền.
+- Còn ca **Chờ tiền về / Chờ gán / ghép chờ duyệt** → **không cho chốt tháng**. Khoản âm tháng 11 đã trừ lương hiện ở "Đã xử lý" để xem lại (ghép được thì tự huỷ trừ lương).
 
 ## 6. Đã bỏ hẳn
 

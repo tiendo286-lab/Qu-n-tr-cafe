@@ -286,8 +286,9 @@ export function makeCa(T, me) {
       if (p_result !== 'khop' && !(p_reason || '').trim()) throw new Error('Ghi lý do.');
       if (SF.some((k) => k.report_id === p_id && k.item === p_item && ['da_bu', 'tru_luong', 'mien'].includes(k.status))) throw new Error('Khoản âm của hạng mục này đã được xử lý nên không đổi được kết quả.');
       if (p_result === 'thieu') {
-        if (!(p_people || []).length) throw new Error('Chọn nhân viên chịu khoản thiếu.');
-        const tot = p_people.reduce((a, x) => a + x.amount, 0); if (tot !== amt) throw new Error(`Tổng tiền chia cho nhân viên (${tot}) phải bằng số tiền thiếu (${amt}).`);
+        const defer = ['tien_mat', 'chuyen_khoan'].includes(p_item) && !(p_people || []).length;   // bước 71: để tab Âm tiền xử lý
+        if (!defer && !(p_people || []).length) throw new Error('Chọn nhân viên chịu khoản thiếu.');
+        const tot = (p_people || []).reduce((a, x) => a + x.amount, 0); if (!defer && tot !== amt) throw new Error(`Tổng tiền chia cho nhân viên (${tot}) phải bằng số tiền thiếu (${amt}).`);
       }
       for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && (SF[i].status === 'chua_xu_ly' || SF[i].auto_tru)) SF.splice(i, 1);
       if (p_result === 'thieu') p_people.forEach((x) => SF.push({ id: sfSeq++, report_id: p_id, item: p_item, employee_id: x.employee_id, amount: x.amount, reason: p_reason, status: 'tru_luong', auto_tru: true, status_note: 'Mặc định trừ lương khi đối soát', created_by: me.account_id, created_at: now() }));

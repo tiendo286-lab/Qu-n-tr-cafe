@@ -791,6 +791,7 @@ function mount(R, ed, C0, ctx = {}) {
     const amt0 = cur ? cur.amount : comp ? Math.abs(comp) : '';
     const staff = (v.staff || []).filter((x) => x.worked).map((x) => ({ id: x.employee_id, name: ($(`.st-row[data-emp="${x.employee_id}"] strong`)?.textContent) || ((R.staff || []).find((y) => y.employee_id === x.employee_id) || {}).name || ('NV ' + x.employee_id) }));
     const had = (R.shortfalls || []).filter((k) => k.item === item);
+    const MONEY_DEFER = item === 'tien_mat' || item === 'chuyen_khoan';   // bước 71: thiếu tiền để tab Âm tiền xử lý
     const d = dialog(html`<form class="stack rs-dlg" style="gap:12px">
       <h2 style="margin:0">Đối soát: ${CHECK_LABEL[item]}</h2>
       ${comp !== null ? html`<div class="diff-card"><div><strong>Web tính: ${signed(comp)}</strong> ${result(comp)}</div><div class="st-meta">${basis}</div></div>` : html`<div class="st-meta">Kiểm tra chứng từ của hạng mục rồi chọn kết quả.</div>`}
@@ -799,7 +800,11 @@ function mount(R, ed, C0, ctx = {}) {
         <label class="pc-f"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${amt0 ? fmt(amt0) : ''}" autocomplete="off"></label>
         <label class="pc-f"><span>Lý do (bắt buộc)</span><input class="input" name="why" value="${cur?.reason || ''}" placeholder="vd: thiếu tiền két, chưa rõ nguyên nhân" autocomplete="off"></label>
       </div>
-      <div class="rs-people" ${sug === 'thieu' ? '' : 'hidden'}>
+      ${MONEY_DEFER ? html`<div class="rs-who" ${sug === 'thieu' ? '' : 'hidden'}><div class="pc-line" role="radiogroup" aria-label="Xử lý khoản thiếu">
+          <label class="radio-pill"><input type="radio" name="who" value="tab" ${had.length ? '' : 'checked'}> ${item === 'chuyen_khoan' ? 'Chờ tiền về' : 'Để tab Âm tiền xử lý'}</label>
+          <label class="radio-pill"><input type="radio" name="who" value="now" ${had.length ? 'checked' : ''}> Chọn người chịu ngay</label></div>
+        <div class="st-meta">${item === 'chuyen_khoan' ? 'Khách chuyển khoản có thể về hôm sau: ca vẫn hoàn thành đối soát, chưa báo nhân viên. Xử lý (ghép tiền về / trừ lương / quán chịu) ở Quản lý ca › Âm tiền.' : 'Ca vẫn hoàn thành đối soát, chưa báo nhân viên. Chọn người chịu / quán chịu ở Quản lý ca › Âm tiền.'}</div></div>` : ''}
+      <div class="rs-people" ${sug === 'thieu' && (!MONEY_DEFER || had.length) ? '' : 'hidden'}>
         <div class="pc-sub">NHÂN VIÊN CHỊU KHOẢN THIẾU <span class="st-meta">— web chia đều cho người được tích (sửa được số từng người); mặc định ghi <strong>TRỪ LƯƠNG</strong>, mỗi người nhận thông báo</span></div>
         ${staff.length ? staff.map((p) => { const h = had.find((k) => k.employee_id === p.id); return html`<div class="pc-line rs-p" data-emp="${p.id}"><label class="grow" style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${h ? 'checked' : ''}> ${p.name}</label>
           <input class="input sm money rs-pa" inputmode="numeric" value="${h ? fmt(h.amount) : ''}" style="width:130px" aria-label="Số tiền của ${p.name}"></div>`; })
@@ -813,6 +818,7 @@ function mount(R, ed, C0, ctx = {}) {
     bindMoneyInputs(d);
     const f = d.querySelector('form');
     const val = () => f.querySelector('input[name=res]:checked')?.value;
+    const who = () => f.querySelector('input[name=who]:checked')?.value || 'now';
     const split = () => {
       const tot = parseMoney(f.amt.value) || 0; const on = [...d.querySelectorAll('.rs-p')].filter((r) => r.querySelector('input[type=checkbox]').checked);
       if (on.length) { const each = Math.floor(tot / on.length / 1000) * 1000; on.forEach((r, i) => { r.querySelector('.rs-pa').value = fmt(i === on.length - 1 ? tot - each * (on.length - 1) : each); }); }
@@ -825,9 +831,11 @@ function mount(R, ed, C0, ctx = {}) {
     };
     f.addEventListener('change', (e) => {
       if (e.target.name === 'res') {
-        d.querySelector('.rs-more').hidden = val() === 'khop'; d.querySelector('.rs-people').hidden = val() !== 'thieu';
-        if (val() === 'thieu' && !d.querySelector('.rs-p input[type=checkbox]:checked')) tickAll();
+        d.querySelector('.rs-more').hidden = val() === 'khop'; const rw = d.querySelector('.rs-who'); if (rw) rw.hidden = val() !== 'thieu';
+        d.querySelector('.rs-people').hidden = val() !== 'thieu' || (MONEY_DEFER && who() !== 'now');
+        if (!d.querySelector('.rs-people').hidden && !d.querySelector('.rs-p input[type=checkbox]:checked')) tickAll();
       }
+      if (e.target.name === 'who') { d.querySelector('.rs-people').hidden = who() !== 'now'; if (who() === 'now' && !d.querySelector('.rs-p input[type=checkbox]:checked')) tickAll(); }
       if (e.target.type === 'checkbox') split();
     });
     f.amt.addEventListener('input', split);
@@ -842,12 +850,12 @@ function mount(R, ed, C0, ctx = {}) {
     });
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      const res = val(); const people = res === 'thieu' ? [...d.querySelectorAll('.rs-p')].filter((r) => r.querySelector('input[type=checkbox]').checked).map((r) => ({ employee_id: Number(r.dataset.emp), amount: parseMoney(r.querySelector('.rs-pa').value) || 0 })) : null;
+      const res = val(); const people = res === 'thieu' && MONEY_DEFER && who() === 'tab' ? [] : res === 'thieu' ? [...d.querySelectorAll('.rs-p')].filter((r) => r.querySelector('input[type=checkbox]').checked).map((r) => ({ employee_id: Number(r.dataset.emp), amount: parseMoney(r.querySelector('.rs-pa').value) || 0 })) : null;
       const btn = f.querySelector('[type=submit]'); btn.disabled = true;
       try {
         if (saveNow) await saveNow().catch(() => {});
         await rpc('app_ca_result_set', { p_id: R.id, p_item: item, p_result: res, p_amount: res === 'khop' ? null : parseMoney(f.amt.value), p_reason: f.why.value, p_people: people });
-        d.close(); flash(res === 'thieu' && people?.length ? `Đã lưu. ${people.length} nhân viên đã được báo khoản âm — mặc định trừ lương.` : 'Đã lưu kết quả đối soát.'); rerender();
+        d.close(); flash(res === 'thieu' && people?.length ? `Đã lưu. ${people.length} nhân viên đã được báo khoản âm — mặc định trừ lương.` : res === 'thieu' && MONEY_DEFER ? `Đã lưu THIẾU — ${item === 'chuyen_khoan' ? 'chờ tiền về' : 'chờ gán'} ở Quản lý ca › Âm tiền.` : 'Đã lưu kết quả đối soát.'); rerender();
       } catch (e) { btn.disabled = false; d.querySelector('#rs-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
     });
   }
