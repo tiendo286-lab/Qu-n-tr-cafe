@@ -8,7 +8,7 @@ import { bindMoneyInputs, dmy, dt, fmt, parseMoney, result, signed, vnd } from '
 import { $, $$, flash, html, showSaved } from '../ui.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { KA_STATUS } from './phieu_ca.js';
-import { NB_CSS, STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker, debtBadges } from './chot_ca.js';
+import { ND_CSS, NB_CSS, STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker, debtLines, debtSection } from './chot_ca.js';
 
 export const perm = 'doi_soat';
 
@@ -50,34 +50,31 @@ function weekTables(WD, cn, DEBT = new Map()) {
   const stCell = (s, d) => {
     if (!s) return html`<td class="dw-na">—</td>`;
     const st = stOf(s, d); const [lb, cls] = WST[st];
-    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${st === 'am' ? html`<span class="dw-sub">−${fmt(s.short_total)}</span>` : ''}${s.report_id ? debtBadges(DEBT.get(s.report_id)) : ''}`;
+    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${st === 'am' ? html`<span class="dw-sub">−${fmt(s.short_total)}</span>` : ''}${done(s) ? money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0) : ''}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}`;
     const h = href(s);
     return html`<td>${h ? html`<a class="dw-c ${cls}" href="${h}">${inner}</a>` : html`<span class="dw-c ${cls}">${inner}</span>`}</td>`;
   };
-  const endCell = (c, d) => {
-    if (!c || !c.shifts || (d > today && !c.done)) return html`<td class="dw-na">—</td>`;
+  const endCell = (c, d, mn) => {
+    if (!c || !c.shifts || (d > today && !c.done)) return html`<span class="dw-na">—</span>`;
     const ready = c.done >= c.shifts;
     const [lb, cls] = c.done_at ? ['✓ Đã kiểm đếm', 'ok'] : ready ? ['Chưa kiểm đếm', 'warn'] : [`Xong ${c.done}/${c.shifts} ca`, 'none'];
-    return html`<td><a class="dw-c ${cls}" href="#/quan-ly/doi-soat?xem=ngay&ngay=${d}"><span class="dw-st">${lb}</span></a></td>`;
+    return html`<a class="dw-c ${cls}" href="#/quan-ly/doi-soat?xem=ngay&ngay=${d}"><span class="dw-st">${lb}</span>${mn || ''}</a>`;
   };
   const all = days.flatMap((d, i) => shifts.map((sh) => [get(i, sh), d])).filter(([x]) => x);
   const n = (k) => all.filter(([x, d]) => stOf(x, d) === k).length;
   const done = (s) => s && s.status === 'hoan_thanh' && s.cash_left != null;
   const sumDay = (i, k) => shifts.reduce((t, sh) => { const s = get(i, sh); return t + (done(s) ? Number(s[k]) || 0 : 0); }, 0);
   const money = (tm, ck, strong) => html`<span class="dw-mn ${strong ? 'tot' : ''}"><span class="${tm < 0 ? 'neg' : tm > 0 ? 'pos' : ''}">TM ${kf(tm)}</span><span class="${ck < 0 ? 'neg' : ck > 0 ? 'pos' : ''}">CK ${kf(ck)}</span></span>`;
-  const mnCell = (s) => (done(s) ? html`<td>${money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0)}</td>` : html`<td class="dw-na">${s ? (s.report_id ? '…' : '—') : '—'}</td>`);
   const wkTM = days.reduce((t, _, i) => t + sumDay(i, 'cash_left'), 0); const wkCK = days.reduce((t, _, i) => t + sumDay(i, 'transfer_left'), 0);
+  const reps = days.flatMap((d, i) => shifts.map((sh) => get(i, sh)).filter((x) => x && x.report_id).map((x) => ({ report_id: x.report_id, day: d, shift: x.shift })));
   return html`
-    <section class="card dw-card"><div class="dw-h"><h2>① Trạng thái đối soát</h2>
-        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ <b>${n('cho') + n('sua')}</b>${n('kt') ? ` · chờ kế toán ${n('kt')}` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <b class="neg">${n('tre')} thiếu phiếu</b>` : ''}</span></div>
-      <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cuối ngày</th></tr></thead>
-        <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</tr>`)}</tbody></table></div>
-      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="nb open">Nợ … chưa trả</span><span class="nb ok">Nợ … đã trả</span><span class="nb thu">Thu nợ …</span><span class="st-meta">Bấm ô để mở trang Đối soát ca; ô Cuối ngày mở trang kiểm đếm tiền mặt cuối ngày.</span></div></section>
-    <section class="card dw-card"><div class="dw-h"><h2>② Tiền — lệch tiền mặt / chuyển khoản</h2><span class="st-meta">Cả tuần: ${money(wkTM, wkCK, true)}</span></div>
-      <div class="dw-wrap"><table class="dw-t dw-m"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cả ngày</th></tr></thead>
-        <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => mnCell(get(i, sh)))}<td class="dw-day">${shifts.some((sh) => done(get(i, sh))) ? money(sumDay(i, 'cash_left'), sumDay(i, 'transfer_left'), true) : html`<span class="st-meta">—</span>`}</td></tr>`)}
-          <tr class="dw-wk"><th><b>Cả tuần</b></th>${shifts.map(() => html`<td></td>`)}<td>${money(wkTM, wkCK, true)}</td></tr></tbody></table></div>
-      <div class="st-meta">Âm = thiếu, dương = dư (lệch ≤ 5.000 coi như khớp). Ca thiếu / dư xử lý ở <a href="#/quan-ly/am-tien">Quản lý ca › Âm tiền</a>.</div></section>`;
+    <section class="card dw-card"><div class="dw-h"><h2>Bảng ca tuần</h2>
+        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ <b>${n('cho') + n('sua')}</b>${n('kt') ? ` · chờ kế toán ${n('kt')}` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <b class="neg">${n('tre')} thiếu phiếu</b>` : ''} · cả tuần ${money(wkTM, wkCK, true)}</span></div>
+      <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cả ngày</th></tr></thead>
+        <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}
+          <td>${endCell((cds[i] || []).find((c) => c.branch_id === cn), d, shifts.some((sh) => done(get(i, sh))) ? money(sumDay(i, 'cash_left'), sumDay(i, 'transfer_left'), true) : '')}</td></tr>`)}</tbody></table></div>
+      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/am-tien">Âm tiền</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; ô Cả ngày mở kiểm đếm cuối ngày.</span></div></section>
+    ${debtSection(DEBT, reps)}`;
 }
 
 const DW_CSS = html`<style>
@@ -85,7 +82,7 @@ const DW_CSS = html`<style>
   .dw-wk-nav { display: flex; align-items: center; gap: 8px; } .dw-wt { display: flex; flex-direction: column; align-items: center; min-width: 130px; font-size: 13px; }
   .dw-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .dw-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; } .dw-h h2 { margin: 0; font-size: 17px; }
-  .dw-wrap { overflow-x: auto; }
+  .dw-wrap { overflow-x: auto; } .dw-c .dw-mn { color: var(--ink-2); }
   .dw-t { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
   .dw-t thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
   .dw-t thead th:first-child { width: 52px; }
@@ -98,8 +95,8 @@ const DW_CSS = html`<style>
   .dw-c.cho { background: var(--info-bg); border-color: #c4d3e2; color: var(--info-ink); } .dw-c.kt { background: var(--plum-bg); border-color: #dcc6d9; color: var(--plum-ink); }
   .dw-c.none { background: #fff; color: var(--muted); } .dw-c.miss { background: var(--off-bg); border-color: #f3b4ad; color: #991b1b; }
   .dw-st { font-size: 12.5px; font-weight: 800; } .dw-sub { font-size: 11px; font-weight: 600; }
-  .dw-mn { display: flex; flex-direction: column; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 6px 8px; background: var(--subtle); border-radius: 10px; min-height: 44px; justify-content: center; }
-  .dw-mn.tot { background: transparent; padding: 0; min-height: 0; font-weight: 800; } .dw-day .dw-mn.tot { padding: 6px 8px; background: var(--caramel-soft); border-radius: 10px; min-height: 44px; }
+  .dw-mn { display: flex; flex-direction: column; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.3; }
+  .dw-mn.tot { font-weight: 800; }
   .dw-h .dw-mn.tot { display: inline-flex; flex-direction: row; gap: 8px; }
   .dw-mn .neg, .dw-h .neg { color: #b91c1c; } .dw-mn .pos { color: var(--ok-ink); }
   .dw-wk th, .dw-wk td { border-top: 2px solid var(--line); padding-top: 6px; }
@@ -292,7 +289,7 @@ export async function render({ params }) {
           <div class="dw-wk-nav"><a class="btn sm secondary" href="#/quan-ly/doi-soat?tuan=${addDays(WD.mon, -7)}&cn=${cn}" aria-label="Tuần trước">‹</a>
             <div class="dw-wt"><b>${dmy(WD.mon).slice(0, 5)} – ${dmy(WD.days[6])}</b>${vnToday() >= WD.mon && vnToday() <= WD.days[6] ? html`<span class="pill info">Tuần này</span>` : html`<a href="#/quan-ly/doi-soat?cn=${cn}">Về tuần này</a>`}</div>
             <a class="btn sm secondary" href="#/quan-ly/doi-soat?tuan=${addDays(WD.mon, 7)}&cn=${cn}" aria-label="Tuần sau">›</a></div></section>
-        ${NB_CSS}${cn ? weekTables(WD, cn, WD.debt) : html`<div class="card">Chưa có cơ sở nào bật ca làm việc.</div>`}
+        ${NB_CSS}${ND_CSS}${cn ? weekTables(WD, cn, WD.debt) : html`<div class="card">Chưa có cơ sở nào bật ca làm việc.</div>`}
         ${todo}
       </div>` : html`
       <div class="stack" style="max-width:1100px;gap:12px">

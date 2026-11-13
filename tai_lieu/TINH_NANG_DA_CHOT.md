@@ -474,6 +474,10 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Trang **Đối soát ca trên máy tính**: tab **① Phần việc / ② Phần tiền / ③ Hoàn thành**, mỗi lần 1 phần, tự mở phần còn việc (điện thoại vẫn từng bước).
 - **Bảng tuần tab Chốt ca và tab Đối soát**: ô ca có nhãn **"Nợ … chưa trả"** (đỏ — còn khách nợ / khách mượn của ca chưa trả), **"Nợ … đã trả"** (xanh — trả hết), **"Thu nợ …"** (xanh dương — ca này thu được nợ ca trước); rê chuột / giữ vào nhãn để xem tên khách, trả ở ca nào, TM hay CK (`app_ca_debt_week`).
 
+## 5r15. Bảng ca tuần gộp tiền + nợ — CHỐT và ĐÃ LÀM 13/11/2026 (chỉ giao diện)
+- Vẫn **2 tab riêng** (Chốt ca, Đối soát), mỗi tab **1 bảng tuần** (tab Đối soát bỏ kiểu 2 bảng). Mỗi ô ca: trạng thái (phiếu / đối soát) → **TM / CK âm dương** → **từng khoản nợ**: "Nợ Bàn 9 50k · chưa trả" (đỏ) hoặc "· đã trả CK ca Chiều 12/11" (xanh); ca thu nợ ghi "Thu nợ … (nợ ca … ngày …)" (xanh dương). Tab Đối soát có cột **Cả ngày** (kiểm đếm cuối ngày + tổng tiền ngày), tổng cả tuần ở đầu bảng.
+- **Dưới bảng ở cả 2 tab**: phần **"Khách nợ / khách mượn trong tuần"** — ngày, ca, khách, số tiền, "Chưa trả · x ngày" hoặc "✓ Đã trả TM/CK · ca … ngày …" (bấm mở phiếu). Tab Đối soát: phần nợ nằm trên "Việc chờ đối soát".
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

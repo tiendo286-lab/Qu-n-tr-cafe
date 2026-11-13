@@ -26,7 +26,7 @@ export default async ({ sleep, out }) => {
     r.push(`Mặc định: ${txt('.ck-view')} · cơ sở ${$$('.dw-bar .branch-tabs a').map((a) => a.innerText.trim()).join(',')} (đang ${txt('.dw-bar .branch-tabs a.on')}) · tuần ${txt('.dw-wt')}`);
     const tabs = $$('.dw-t'); r.push(`${tabs.length} bảng: ${$$('.dw-card h2').map((h) => h.innerText.trim()).join(' | ')}`);
     r.push(`① ${txt('.dw-card .dw-h .st-meta')} · hôm nay: ${[...(tabs[0]?.querySelector('tr.today')?.querySelectorAll('td') || [])].map((td) => td.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
-    r.push(`② hôm nay: ${[...(tabs[1]?.querySelector('tr.today')?.querySelectorAll('td') || [])].map((td) => td.innerText.replace(/\s+/g, ' ')).join(' | ')} · cả tuần: ${txt('.dw-wk td:last-child')}`);
+    r.push(`phần Nợ dưới bảng: ${txt('.nd-h')} · cả tuần ${txt('.dw-h .dw-mn')}`);
     r.push(`ô có link: ${[...(tabs[0]?.querySelectorAll('td a') || [])].map((a) => a.getAttribute('href')).filter((h) => h.includes('id=') || h.includes('xem=ngay')).slice(0, 4).join(', ')}`);
     r.push(`việc chờ (lọc cơ sở, ô chọn ẩn ${$('#td-br')?.hidden}): ${txt('.td-kpis')} · ${W()}`);
     $$('.ck-view a')[1].click(); await wait('.bc-grid'); await sleep(1000);

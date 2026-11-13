@@ -21,9 +21,11 @@ export default async ({ sleep, out }) => {
     r.push(`bảng: ${$$('.cw-t tbody tr').length} hàng × ${$$('.cw-t thead th').length - 1} ca (${$$('.cw-t thead th').map((t) => t.innerText.trim()).filter(Boolean).join('/')}) · hôm nay ${txt('.cw-t tr.today th')}`);
     const cnt = (c) => $$(`.cw-t .cw-c.${c}`).length;
     r.push(`ô: xong ${cnt('ok')} · đang ${cnt('warn')} · chưa mở ${cnt('none')} · thiếu phiếu ${cnt('miss')} · tổng ${txt('.cw-h .st-meta')}`);
-    r.push(`nhãn nợ: ${$$('.cw-t .nb').map((b) => b.innerText + ' [' + (b.title || '').replace(/\n/g, '; ') + ']').join(' | ')}`);
+    r.push(`nợ trong ô: ${$$('.cw-t .nl').map((b) => b.innerText).join(' | ')} · tiền ô xong: ${$$('.cw-t .cw-c.ok .cw-m').map((b) => b.innerText.replace(/\s+/g, ' ')).join(' / ')}`);
+    r.push(`phần Nợ dưới bảng: ${txt('.nd-h')} · ${$$('.nd-r').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
     { location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat?cn=1'; await wait('.dw-t', 600); await sleep(800);
-      r.push(`Đối soát nhãn nợ: ${$$('.dw-t .nb').map((b) => b.innerText).join(' | ')}`);
+      if (!$('.dw-t')) r.push(`Đối soát chưa thấy bảng: ${location.hash} · ${txt('#root').slice(0, 300)} · lỗi ${(window.__ERR || []).slice(-2).join(' / ').slice(0, 300)}`);
+      r.push(`Đối soát: ${$$('.dw-t').length} bảng · nợ trong ô: ${$$('.dw-t .nl').map((b) => b.innerText).join(' | ')} · phần Nợ: ${txt('.nd-h')}`);
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca?cn=1'; await wait('.cw-t', 600); await sleep(600); }
     $$('.cw-bar .branch-tabs a')[1]?.click(); await sleep(1500); await wait('.cw-t', 300);
     r.push(`đổi cơ sở → ${txt('.cw-h h2')}`);

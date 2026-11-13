@@ -22,6 +22,43 @@ export function debtBadges(x) {
       : html`<span class="nb ok" title="${tao.map((d) => `${who(d)} — đã trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'} ca ${d.paid_shift || ''} ${String(d.paid_date || '').slice(8, 10)}/${String(d.paid_date || '').slice(5, 7)}`).join('\n')}">${word(tao)} ${nk(sumA(tao))} đã trả</span>`) : ''}
     ${thu.length ? html`<span class="nb thu" title="${thu.map((d) => `${who(d)} (từ ca ${d.from_shift || 'quản lý ghi'} ${String(d.from_date || '').slice(8, 10)}/${String(d.from_date || '').slice(5, 7)}) trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'}`).join('\n')}">Thu nợ ${nk(sumA(thu))}</span>` : ''}`;
 }
+
+// Bước 80 (anh Tiến 13/11): trong ô ca ghi từng khoản nợ + "đã trả ca … ngày …"; dưới bảng có phần Nợ của tuần
+const dmS = (d) => (d ? `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}` : '');
+const pk = (k) => (k === 'chuyen_khoan' ? 'CK' : 'TM');
+export function debtLines(x) {
+  if (!x) return '';
+  const tao = x.tao || []; const thu = x.thu || [];
+  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Mượn' : 'Nợ'} ${d.name} ${nk(d.amount)} · ${d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
+  const two = (d) => html`<span class="nl thu">Thu nợ ${d.name} ${nk(d.amount)} (${pk(d.collect_kind)}, nợ ca ${d.from_shift || 'QL ghi'} ${dmS(d.from_date)})</span>`;
+  return html`${tao.map(one)}${thu.map(two)}`;
+}
+// reps: [{ report_id, day, shift }] theo thứ tự bảng
+export function debtSection(DEBT, reps) {
+  const rows = []; reps.forEach((r) => { const x = DEBT.get(r.report_id); (x?.tao || []).forEach((d) => rows.push({ ...d, day: r.day, shift: r.shift, report_id: r.report_id })); });
+  const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  const days = (d) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 864e5));
+  const open = rows.filter((d) => !d.paid); const sumA = (a) => a.reduce((t, d) => t + Number(d.amount || 0), 0);
+  return html`<section class="card nd-card"><div class="nd-h"><h2>Khách nợ / khách mượn trong tuần</h2><span class="st-meta">${rows.length ? html`${rows.length} khoản · <b class="${open.length ? 'neg' : ''}">còn ${open.length} chưa trả (${nk(sumA(open))})</b>` : 'Không có'}</span></div>
+    ${rows.length ? html`<div class="nd-list">${rows.map((d) => html`<a class="nd-r ${d.paid ? 'ok' : 'open'}" href="#/ca/phieu?id=${d.report_id}">
+        <span class="nd-w"><b>${dmS(d.day)}</b> · ca ${d.shift}</span>
+        <span class="nd-n"><b>${d.name}</b> <span class="st-meta">${d.kind === 'muon' ? 'khách mượn' : 'khách nợ'}</span></span>
+        <span class="nd-a">${nk(d.amount)}</span>
+        <span class="nd-s">${d.paid ? `✓ Đã trả ${pk(d.collect_kind)} · ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : `Chưa trả · ${days(d.day)} ngày`}</span></a>`)}</div>` : ''}
+    <div class="st-meta">Khoản nợ còn từ các tuần trước xem ở Thu chi › Công nợ.</div></section>`;
+}
+export const ND_CSS = html`<style>
+  .nl { display: block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 5px; margin-top: 2px; line-height: 1.35; overflow-wrap: anywhere; }
+  .nl.open { background: #fee2e2; color: #991b1b; } .nl.ok { background: var(--ok-bg); color: var(--ok-ink); } .nl.thu { background: var(--info-bg); color: var(--info-ink); }
+  .nd-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; } .nd-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; } .nd-h h2 { margin: 0; font-size: 17px; }
+  .nd-h .neg { color: #b91c1c; }
+  .nd-list { display: flex; flex-direction: column; }
+  .nd-r { display: grid; grid-template-columns: 110px minmax(0, 1fr) auto minmax(0, 220px); gap: 4px 10px; align-items: center; padding: 8px 6px; border-top: 1px solid var(--line-soft); text-decoration: none; color: inherit; font-size: 14px; }
+  .nd-r:hover { background: var(--subtle); } .nd-a { font-weight: 800; font-variant-numeric: tabular-nums; }
+  .nd-r.open .nd-s { color: #991b1b; font-weight: 700; } .nd-r.ok .nd-s { color: var(--ok-ink); font-weight: 600; }
+  @media (max-width: 640px) { .nd-r { grid-template-columns: minmax(0, 1fr) auto; } .nd-w { grid-column: 1 / -1; font-size: 12px; color: var(--muted); } .nd-s { grid-column: 1 / -1; font-size: 13px; } }
+</style>`;
+
 export const NB_CSS = html`<style>
   .nb { display: inline-block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 5px; margin-top: 2px; line-height: 1.5; white-space: nowrap; }
   .nb.open { background: #fee2e2; color: #991b1b; } .nb.ok { background: var(--ok-bg); color: var(--ok-ink); } .nb.thu { background: var(--info-bg); color: var(--info-ink); }
@@ -76,11 +113,12 @@ export async function render({ params }) {
     if (!s) return html`<td class="cw-na">—</td>`;
     const miss = !s.report_id && d < today && d >= START;
     const [cls, lb] = s.status === 'hoan_thanh' ? ['ok', 'Xong'] : s.report_id ? ['warn', 'Đang chốt'] : miss ? ['miss', 'Thiếu phiếu'] : ['none', 'Chưa mở'];
-    const money = '';   // bước 77: tiền xem ở tab Đối soát (bảng ② Tiền)
+    // bước 80: hiện lại tiền mặt / chuyển khoản âm dương dưới trạng thái
+    const money = s.status === 'hoan_thanh' && s.cash_left != null ? html`<span class="cw-m"><span class="${Number(s.cash_left) < 0 ? 'neg' : Number(s.cash_left) > 0 ? 'pos' : ''}">TM ${kfmt(s.cash_left)}</span><span class="${Number(s.transfer_left) < 0 ? 'neg' : Number(s.transfer_left) > 0 ? 'pos' : ''}">CK ${kfmt(s.transfer_left)}</span></span>` : '';
     return html`<td><button type="button" class="ca-shift cw-c ${cls}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}">
-      <span class="cw-st">${lb}</span>${money}${s.report_id ? debtBadges(DEBT.get(s.report_id)) : ''}</button></td>`;
+      <span class="cw-st">${lb}</span>${money}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}</button></td>`;
   };
-  const body = html`${STYLE}${WSTYLE}${NB_CSS}
+  const body = html`${STYLE}${WSTYLE}${NB_CSS}${ND_CSS}
     <section class="card cw-bar">
       <nav class="branch-tabs" aria-label="Cơ sở">${branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav>
       <div class="cw-wk"><a class="btn sm secondary" href="${q({ tuan: addDays(wk, -7) })}" aria-label="Tuần trước">‹</a>
@@ -91,7 +129,8 @@ export async function render({ params }) {
       <div class="cw-wrap"><table class="cw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}</tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
-      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="nb open">Nợ … chưa trả</span><span class="nb ok">Nợ … đã trả</span><span class="nb thu">Thu nợ …</span><span class="st-meta">Bấm ô để mở phiếu (rê chuột / giữ vào nhãn nợ để xem tên khách). Tiền lệch xem ở tab <a href="#/quan-ly/doi-soat">Đối soát</a>.</span></div></section>`}`;
+      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div></section>
+    ${debtSection(DEBT, days.flatMap((d, i) => shifts.map((sh) => mine[i].find((r) => r.shift === sh)).filter((s) => s && s.report_id).map((s) => ({ report_id: s.report_id, day: d, shift: s.shift }))))}`}`;
   return {
     title: 'Chốt ca',
     html: isManager() ? html`<div class="page-head"><div><h1>Chốt ca</h1><div class="sub">Xem theo tuần, từng cơ sở: nhân viên chốt ca, quản lý đối soát. Ô đỏ là ngày đã qua mà chưa có phiếu.</div></div></div><div class="stack" style="max-width:900px;gap:12px">${body}</div>`
@@ -126,7 +165,7 @@ const WSTYLE = html`<style>
   .cw-c.ok { background: var(--ok-bg); border-color: #b7d8ab; color: var(--ok-ink); } .cw-c.warn { background: var(--warn-bg); border-color: #f6d58a; color: var(--warn-ink); }
   .cw-c.none { background: #fff; color: var(--muted); } .cw-c.miss { background: var(--off-bg); border-color: #f3b4ad; color: #991b1b; }
   .cw-st { font-size: 13px; font-weight: 800; } .cw-m { display: flex; flex-direction: column; font-size: 11px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; line-height: 1.3; }
-  .cw-m .neg, .cw-h .neg { color: #b91c1c; }
+  .cw-m .neg, .cw-h .neg { color: #b91c1c; } .cw-m .pos { color: var(--ok-ink); }
   .cw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .cw-lg .cw-c { width: auto; min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; cursor: default; }
   @media (max-width: 560px) { .cw-t { border-spacing: 3px; } .cw-c { padding: 5px 6px; } .cw-t thead th:first-child { width: 42px; } }
 </style>`;
