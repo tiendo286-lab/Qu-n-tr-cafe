@@ -1,7 +1,7 @@
 // Giả lập các hàm app_fin_* (Chốt tháng) trong bộ nhớ — chỉ để chạy thử giao diện (lấy số từ phiếu ca giả, không qua bản đối soát)
 export function makeFin(T, me) {
   for (const t of ['fin_entries', 'fin_move_cats', 'fin_month_closes', 'fin_close_log', 'fin_branch_managers']) T[t] = T[t] || [];
-  T.fin_categories = T.fin_categories || [['chi', 'Nguyên liệu'], ['chi', 'Lương'], ['chi', 'Mặt bằng'], ['chi', 'Điện nước'], ['chi', 'Sửa chữa & thiết bị'], ['chi', 'Marketing'], ['chi', 'Vật dụng'], ['chi', 'Khác'], ['thu', 'Thu khác']]
+  T.fin_categories = T.fin_categories || [['chi', 'Nguyên liệu'], ['chi', 'Lương'], ['chi', 'Mặt bằng'], ['chi', 'Điện nước'], ['chi', 'Sửa chữa & thiết bị'], ['chi', 'Marketing'], ['chi', 'Vật dụng'], ['chi', 'Khác'], ['chi', 'Âm tiền – quán chịu'], ['thu', 'Thu khác']]
     .map(([kind, name], i) => ({ id: i + 1, kind, name, sort_order: i, active: 1 }));
   // bước 57: loại thu chi (tầng trên nhóm)
   T.fin_cat_types = T.fin_cat_types || [{ id: 1, kind: 'chi', name: 'Chi phí cố định', sort_order: 1, active: true }, { id: 2, kind: 'chi', name: 'Chi phí bán hàng', sort_order: 2, active: true },
@@ -60,6 +60,7 @@ export function makeFin(T, me) {
         out.push({ src: 'ca', report_id: r.id, mkey, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: x.amount < 0 ? 'chi' : 'thu', pay: x.kind, amount: Math.abs(x.amount), note: x.note,
           category_id: c ? c.category_id : null, category: T.fin_categories.find((k) => k.id === c?.category_id)?.name || null, excluded: c ? !!c.excluded : x.amount > 0,
           loan_id: (T.branch_loans || []).find((l) => l.report_id === r.id && l.mkey === mkey)?.id || null,
+          ka_n: (T.__SF || []).filter((k) => k.report_id === r.id && k.move_mkey === mkey && k.status !== 'huy').length,
           status: c?.checked ? 'da' : 'cho', checked_by: c?.checked ? name(c.checked_by) : null, checked_at: c?.checked_at || null, by: 'NV chốt ca', locked: locked(r.branch_id, r.work_date) });
       });
     });
@@ -67,7 +68,7 @@ export function makeFin(T, me) {
       const r = T.shift_reports.find((x) => x.id === k.report_id); if (!r || !brs.includes(r.branch_id) || r.work_date < from || r.work_date > to) return;
       const e = T.employees.find((x) => x.id === k.employee_id) || {};
       out.push({ src: 'ka', id: k.id, report_id: r.id, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: 'chi', pay: null, amount: k.amount, note: `Thiếu tiền ca – ${e.code} – ${e.name}`,
-        item: k.item, item_label: { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' }[k.item], employee_id: k.employee_id, employee: `${e.code} – ${e.name}`,
+        item: k.item, item_label: { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ', am_tien: 'Âm tiền (phiếu ca)' }[k.item], move_mkey: k.move_mkey || null, employee_id: k.employee_id, employee: `${e.code} – ${e.name}`,
         reason: k.reason, ka_status: k.status, auto_tru: !!k.auto_tru, status_note: k.status_note, reply: k.reply || null, seen_at: k.seen_at || null,
         category_id: null, category: null, excluded: true, status: 'da', by: name(k.created_by), locked: locked(r.branch_id, r.work_date) });
     });
@@ -130,6 +131,20 @@ export function makeFin(T, me) {
       const s2 = {}; let nk = null; T.shift_report_moves.filter((x) => x.report_id === p_report && x.amount).forEach((x) => { const h = `${x.kind}|${x.amount}|${x.note}`; s2[h] = (s2[h] || 0) + 1; if (x === mv) nk = h + '#' + s2[h]; });
       T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === p_report && (z.mkey === p_mkey || z.mkey === nk))).concat([{ report_id: p_report, mkey: nk, category_id: p.excluded ? null : Number(p.category_id), excluded: p.excluded ? 1 : 0, checked: 1, checked_by: me.account_id, checked_at: now() }]);
       return { money, direct: money && admin(), auto: null, recon_status: r.recon_status };
+    },
+    // bước 68: gán khoản "Âm tiền" thành trừ lương / bỏ gán
+    app_tc_move_to_ka({ p_report, p_mkey, p_people, p_reason }) {
+      const row = tcRows(null, '2000-01-01', '2999-12-31').find((x) => x.src === 'ca' && x.report_id === p_report && x.mkey === p_mkey);
+      const tot = p_people.reduce((t, x) => t + x.amount, 0);
+      if (!p_people.length) throw new Error('Chọn ít nhất 1 người chịu.');
+      if (tot !== row.amount) throw new Error(`Tổng người chịu (${tot}) phải bằng số tiền khoản (${row.amount}).`);
+      const SF = T.__SF; let id = Math.max(0, ...SF.map((k) => k.id)) + 1;
+      p_people.forEach((x) => SF.push({ id: id++, report_id: p_report, item: 'am_tien', employee_id: x.employee_id, amount: x.amount, reason: p_reason || row.note, status: 'tru_luong', auto_tru: true, move_mkey: p_mkey, created_by: me.account_id }));
+      tc.app_tc_check({ p_report, p_mkey, p_category: null, p_excluded: true, p_checked: true }); return p_people.length;
+    },
+    app_tc_move_ka_undo({ p_report, p_mkey }) {
+      T.__SF.filter((k) => k.report_id === p_report && k.move_mkey === p_mkey).forEach((k) => { k.status = 'huy'; });
+      T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === p_report && z.mkey === p_mkey));
     },
     app_tc_bulk_cat({ p_items, p_category, p_excluded }) {
       let n = 0;

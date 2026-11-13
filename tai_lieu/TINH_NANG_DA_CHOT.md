@@ -414,6 +414,12 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Sửa thẳng: chỉ mở ô của đúng mục đó (các ô khác khoá), sửa xong bấm "Xong, khoá lại". Phiếu **giữ nguyên đối soát**, không duyệt lại; nhật ký ghi số cũ → số mới, lý do "Chủ sửa thẳng: …".
 - Chỉ các mục có số liệu (Thời gian, Doanh thu, Tiền mặt, Chuyển khoản, Thu chi, Nhân viên, Nhập hàng); Bàn giao / Công nợ chỉ Mở lại mục. Người khác: như cũ (mở lại mục). Tháng đã chốt: không sửa được.
 
+## 5r6. Gộp âm tiền và trừ lương ở Thu chi — CHỐT và ĐÃ LÀM 13/11/2026 (`supabase/68_gop_am_tien_tru_luong.sql`)
+- Mỗi ca thiếu tiền = **1 dòng "Âm tiền – ca …"** (nhãn đỏ TL nếu có người trừ lương, ÂM nếu chưa); bấm **Chi tiết** thấy khoản nhân viên ghi + từng người chịu (Sửa / huỷ từng người). Không còn từng dòng TL riêng.
+- Khoản chi nhân viên ghi "Âm tiền / thiếu tiền" trên phiếu ca (hoặc khoản chi bất kỳ qua nút "Đây là âm tiền…" trong hộp Sửa) → quản lý gán:
+  **Trừ lương…** (chọn người chịu, mặc định chia đều theo nhân viên trong ca, tổng = khoản; khoản chi thành "Không tính", sinh khoản âm mục "Âm tiền (phiếu ca)", mặc định trừ lương, báo nhân viên) hoặc **Quán chịu** (nhóm chi "Âm tiền – quán chịu", tính chi phí). **Bỏ gán** / huỷ hết người chịu → khoản trở lại "Chờ gán".
+- Khoản âm từ đối soát vẫn như cũ (chọn người chịu khi đối soát), hiện chung trong dòng Âm tiền của ca.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

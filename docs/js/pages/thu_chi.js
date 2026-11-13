@@ -5,6 +5,8 @@
 //    Quản lý + Chủ sửa (người chịu, số tiền, Trừ lương / Đã bù / Miễn) hoặc xóa được tới khi chốt tháng.
 //  * Bước 65: đổi nhóm ngay tại dòng (chọn nhóm = đã đối soát), sửa khoản phiếu ca (số tiền / nội dung / TM–CK, vào bản đối soát),
 //    tích nhiều dòng → đổi nhóm hàng loạt.
+//  * Bước 68: mỗi ca thiếu tiền = 1 dòng "Âm tiền" (khoản âm TL + khoản chi "Âm tiền" nhân viên ghi), bấm Chi tiết để xem ai chịu;
+//    khoản chi "Âm tiền" gán Trừ lương (chọn người chịu) hoặc Quán chịu (nhóm "Âm tiền – quán chịu").
 import { render as rerender } from '../app.js';
 import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
@@ -16,6 +18,8 @@ import { mountLoans, toLoan } from '../cho_vay.js';
 export const perm = 'doi_soat';
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
 const F = { st: '', kind: '', src: '', q: '', pay: '', type: '', cat: '' };
+const OPEN = new Set();   // dòng Âm tiền đang mở (giữ qua lần vẽ lại)
+const AM_RE = /(âm|thiếu)\s*tiền/i;
 const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 7); };
 const lastDay = (m) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10); };
@@ -68,21 +72,52 @@ export async function render(ctx) {
     return html`<select class="input sm tc-cat" aria-label="Nhóm" title="Chọn nhóm là đối soát luôn">${catOpts(r.kind, v, r.src === 'ca', v === '')}</select>`; };
   const loanOn = (b) => (D.loan_branches || []).includes(b);
   const lead = (r, pick) => html`<span class="tc-lead">${pick && !r.locked ? html`<input type="checkbox" class="tc-pick" aria-label="Chọn khoản">` : html`<span class="tc-pick0"></span>`}${pmTag(r)}</span>`;
-  const kaRow = (r) => {
-    const br = brById.get(r.branch_id); const st = KA_STATUS[r.ka_status] || [r.ka_status, 'mute'];
-    const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
-      : html`<span class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary ka-ed">Sửa</button><button type="button" class="btn sm secondary danger ka-del" aria-label="Xóa phiếu">×</button></span>`;
-    return html`<div class="tc-r ka" data-i="${r.i}" data-st="da" data-kind="chi" data-src="ka" data-pay="ka" data-type="" data-cat="" data-q="${norm(`${r.note} ${r.reason || ''} ${br?.code || ''} tru luong khoan am`)}">
-      ${lead(r, false)}<div class="tc-m"><strong>${r.note}</strong>
-        <div class="st-meta">${dmy(r.date)} · ${br?.code || ''} · <a href="#/ca/phieu?id=${r.report_id}">Phiếu ca ${r.shift}</a> · ${r.item_label}${r.reason ? ` · ${r.reason}` : ''}</div>
-        ${r.reply ? html`<div class="st-meta ka-rep">Nhân viên giải trình: ${r.reply}</div>` : ''}
-        ${r.status_note && !r.auto_tru ? html`<div class="st-meta">Ghi chú: ${r.status_note}</div>` : ''}</div>
-      <div class="tc-a neg">−${fmt(r.amount)}đ</div>
-      <div class="tc-s"><span class="pill ${st[1]}">${st[0]}${r.auto_tru ? ' (mặc định)' : ''}</span><div class="st-meta">${r.seen_at ? 'NV đã xem' : 'NV chưa xem'} · không tính chi phí quán</div></div>
-      <div class="tc-act">${act}</div></div>`;
+  // bước 68: gộp âm tiền theo ca — khoản âm (TL) + khoản chi "Âm tiền" nhân viên ghi trên phiếu ca
+  const qcCat = D.categories.find((c) => c.kind === 'chi' && c.name === 'Âm tiền – quán chịu');
+  const isAm = (r) => r.src === 'ca' && r.kind === 'chi' && !r.auto && !r.loan_id && (Number(r.ka_n) > 0 || AM_RE.test(r.note || ''));
+  const AMG = new Map();
+  rows.forEach((r) => {
+    if (r.src !== 'ka' && !isAm(r)) return;
+    let g = AMG.get(r.report_id);
+    if (!g) AMG.set(r.report_id, g = { report_id: r.report_id, branch_id: r.branch_id, date: r.date, shift: r.shift, moves: [], ka: [] });
+    (r.src === 'ka' ? g.ka : g.moves).push(r);
+  });
+  const kaLine = (k) => { const st = KA_STATUS[k.ka_status] || [k.ka_status, 'mute'];
+    return html`<div class="tc-aml" data-i="${k.i}"><div class="grow"><b>${k.employee}</b> chịu <b>${fmt(k.amount)}đ</b> <span class="pill ${st[1]}">${st[0]}${k.auto_tru ? ' (mặc định)' : ''}</span>
+        <div class="st-meta">${k.move_mkey ? '' : `Đối soát ${k.item_label}${k.reason ? ' · ' + k.reason : ''} · `}${k.seen_at ? 'NV đã xem' : 'NV chưa xem'}${k.status_note && !k.auto_tru ? ' · ' + k.status_note : ''}</div>
+        ${k.reply ? html`<div class="st-meta ka-rep">Nhân viên giải trình: ${k.reply}</div>` : ''}</div>
+      ${k.locked ? '' : html`<span class="toolbar tc-amb"><button type="button" class="btn sm secondary ka-ed">Sửa</button><button type="button" class="btn sm secondary danger ka-del" aria-label="Huỷ khoản">×</button></span>`}</div>`; };
+  const moveLine = (m, g) => { const tl = g.ka.filter((k) => k.move_mkey === m.mkey);
+    const state = tl.length ? 'trừ lương' : m.status === 'cho' ? 'chờ gán' : m.excluded ? 'không tính' : `quán chịu (${m.category || 'chưa nhóm'})`;
+    return html`<div class="tc-amm" data-i="${m.i}"><div class="tc-aml"><div class="grow">Nhân viên ghi khoản chi “${m.note}” <b>${fmt(m.amount)}đ</b> (${PAY[m.pay] || ''}) → <b>${state}</b></div>
+        ${m.locked ? '' : tl.length ? html`<span class="toolbar tc-amb"><button type="button" class="btn sm secondary tc-amundo">Bỏ gán</button></span>`
+          : html`<span class="toolbar tc-amb"><button type="button" class="btn sm tc-amtl">Trừ lương…</button>${m.status === 'cho' || !qcCat || m.category_id !== qcCat.id ? html`<button type="button" class="btn sm secondary tc-amqc">Quán chịu</button>` : ''}</span>`}</div>
+      ${tl.map(kaLine)}</div>`; };
+  const amRow = (g) => {
+    const br = brById.get(g.branch_id); const tot = sum(g.moves) + sum(g.ka.filter((k) => !k.move_mkey));
+    const wait = g.moves.some((m) => m.status === 'cho' && !g.ka.some((k) => k.move_mkey === m.mkey));
+    const tlN = new Set(g.ka.filter((k) => k.ka_status === 'tru_luong').map((k) => k.employee_id)).size;
+    const qc = g.moves.some((m) => m.status === 'da' && !m.excluded && !g.ka.some((k) => k.move_mkey === m.mkey));
+    const what = wait ? 'chờ gán: trừ lương hay quán chịu' : [tlN ? `trừ lương ${tlN} người` : '', g.ka.some((k) => k.ka_status === 'da_bu') ? 'có người đã bù' : '',
+      g.ka.some((k) => k.ka_status === 'mien') ? 'có khoản miễn' : '', qc ? 'quán chịu' : ''].filter(Boolean).join(' · ');
+    const open = OPEN.has(g.report_id);
+    return html`<div class="tc-r am ${wait ? 'todo' : ''}" data-g="${g.report_id}" data-st="${wait ? 'cho' : 'da'}" data-kind="chi" data-src="ka" data-pay="ka" data-type="" data-cat=""
+        data-q="${norm(`am tien tru luong khoan am thieu tien ${br?.code || ''} ${g.ka.map((k) => `${k.employee} ${k.reason || ''}`).join(' ')} ${g.moves.map((m) => m.note).join(' ')}`)}">
+      <span class="tc-lead"><span class="tc-pick0"></span><span class="tc-pm ka" title="Âm tiền / trừ lương">${tlN ? 'TL' : 'ÂM'}</span></span>
+      <div class="tc-m"><strong>Âm tiền – ca ${g.shift}</strong><div class="st-meta">${dmy(g.date)} · ${br?.code || ''} · <a href="#/ca/phieu?id=${g.report_id}">Phiếu ca ${g.shift}</a> · ${what}</div></div>
+      <div class="tc-a neg">−${fmt(tot)}đ</div>
+      <div class="tc-s">${wait ? html`<span class="pill warn">Chờ gán</span>` : html`<span class="pill ok">✓ Đã xử lý</span>`}</div>
+      <div class="tc-act"><button type="button" class="btn sm secondary tc-amx" aria-expanded="${open}">${open ? 'Thu gọn' : 'Chi tiết'}</button></div>
+      <div class="tc-amd" ${open ? '' : 'hidden'}>${g.moves.map((m) => moveLine(m, g))}${g.ka.filter((k) => !k.move_mkey).map(kaLine)}</div></div>`;
   };
-  const row = (r) => {
-    if (r.src === 'ka') return kaRow(r);
+  const seenG = new Set();
+  const listHtml = rows.map((r) => {
+    const g = r.src === 'ka' || isAm(r) ? AMG.get(r.report_id) : null;
+    if (!g) return row(r);
+    if (seenG.has(g.report_id)) return '';
+    seenG.add(g.report_id); return amRow(g);
+  });
+  function row(r) {
     const br = brById.get(r.branch_id);
     const src = r.src === 'ca' ? html`<a href="#/ca/phieu?id=${r.report_id}">Phiếu ca ${r.shift}</a>${r.by ? ` (${r.by})` : ''}` : html`Quản lý tạo · ${r.by || ''}`;
     const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
@@ -97,7 +132,7 @@ export async function render(ctx) {
       <div class="tc-s">${r.status === 'cho' ? html`<span class="pill warn">Chờ đối soát</span>` : html`<span class="pill ok" title="${r.src === 'ca' ? `${r.checked_by || ''} · ${dt(r.checked_at)}` : ''}">✓ Đã đối soát</span>`}
         ${r.src === 'ca' ? html`<div><a class="st-meta" href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Đối soát ca ›</a></div>` : ''}</div>
       <div class="tc-act">${act}</div></div>`;
-  };
+  }
 
   return {
     title: 'Thu chi',
@@ -115,7 +150,7 @@ export async function render(ctx) {
           <span class="tc-pk-g"><span>Thu</span><b class="pos">+${fmt(x.thu)}</b><span>Chi</span><b class="neg">−${fmt(x.chi)}</b><span>Thu − chi</span><b class="${left < 0 ? 'neg' : ''}">${left < 0 ? '−' : ''}${fmt(Math.abs(left))}đ</b></span></button>`; })}</div>
       <div class="tc-chips">
         <button type="button" class="tc-chip warn" id="tc-pend">Chờ đối soát: <b>${pend.length} khoản</b>${pend.length ? ` · ${vnd(sum(pend))}` : ' · đã hết'}</button>
-        <button type="button" class="tc-chip neg" id="tc-ka">Trừ lương: <b>${vnd(luong)}</b> · ${kaRows.length} phiếu</button>
+        <button type="button" class="tc-chip neg" id="tc-ka">Âm tiền: <b>${AMG.size} ca</b> · trừ lương ${vnd(luong)}</button>
         <span class="st-meta">Tổng cả 2: thu ${vnd(thu)} · chi ${vnd(chi)}</span></div>
       ${byType.length ? html`<section class="card stack tc-types" style="gap:8px"><div class="tc-ty-h"><h2 style="margin:0">Chi theo loại</h2><span class="st-meta">${vnd(chiTot)} · bấm để lọc · <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></span></div>
         ${byType.map((g) => html`<div class="tc-ty"><button type="button" class="tc-tyb" data-ft="${g.id || ''}" aria-pressed="${String(F.type) === String(g.id || '') && !!g.id}"><span class="grow"><b>${g.name}</b></span><span class="tc-meter"><i style="width:${pct(g.sum)}%"></i></span><b class="tc-tys">${fmt(g.sum)}</b><span class="st-meta">${pct(g.sum)}%</span></button>
@@ -126,13 +161,13 @@ export async function render(ctx) {
         <div class="toolbar" style="gap:8px">
           <select class="input sm" id="f-st" aria-label="Trạng thái"><option value="">Mọi trạng thái</option><option value="cho" ${F.st === 'cho' ? 'selected' : ''}>Chờ đối soát</option><option value="da" ${F.st === 'da' ? 'selected' : ''}>Đã đối soát</option></select>
           <select class="input sm" id="f-kind" aria-label="Loại"><option value="">Thu và chi</option><option value="thu" ${F.kind === 'thu' ? 'selected' : ''}>Chỉ khoản thu</option><option value="chi" ${F.kind === 'chi' ? 'selected' : ''}>Chỉ khoản chi</option></select>
-          <select class="input sm" id="f-src" aria-label="Nguồn"><option value="">Mọi nguồn</option><option value="ca" ${F.src === 'ca' ? 'selected' : ''}>Từ phiếu chốt ca</option><option value="tay" ${F.src === 'tay' ? 'selected' : ''}>Quản lý tạo</option><option value="ka" ${F.src === 'ka' ? 'selected' : ''}>Phiếu trừ lương (khoản âm)</option></select>
+          <select class="input sm" id="f-src" aria-label="Nguồn"><option value="">Mọi nguồn</option><option value="ca" ${F.src === 'ca' ? 'selected' : ''}>Từ phiếu chốt ca</option><option value="tay" ${F.src === 'tay' ? 'selected' : ''}>Quản lý tạo</option><option value="ka" ${F.src === 'ka' ? 'selected' : ''}>Âm tiền / trừ lương</option></select>
           <select class="input sm" id="f-type" aria-label="Loại"><option value="">Mọi loại</option>${FT.types.filter((t) => t.active).map((t) => html`<option value="${t.id}" ${String(F.type) === String(t.id) ? 'selected' : ''}>${t.kind === 'chi' ? 'Chi' : 'Thu'} · ${t.name}</option>`)}</select>
           <select class="input sm" id="f-cat" aria-label="Nhóm"><option value="">Mọi nhóm</option>${FT.cats.filter((c) => c.active).map((c) => html`<option value="${c.id}" data-t="${c.type_id || ''}" ${String(F.cat) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}</select>
           <input class="input sm" type="search" id="f-q" placeholder="Tìm nội dung, nhóm" value="${F.q}" style="flex:1 1 160px;min-width:0">
           <span class="st-meta" id="f-n"></span></div>
         <label class="st-meta tc-allw"><input type="checkbox" id="tc-all"> Chọn tất cả khoản đang hiện</label>
-        <div id="tc-list">${rows.map(row)}</div>
+        <div id="tc-list">${listHtml}</div>
         <div class="tc-bulk" id="tc-bulk" hidden><span>Đã chọn <b id="tc-bn">0</b> khoản</span>
           <select class="input sm" id="tc-bcat" aria-label="Nhóm cho các khoản đã chọn"></select>
           <button type="button" class="btn sm" id="tc-bgo">Đổi nhóm</button><button type="button" class="btn sm secondary" id="tc-bclr">Bỏ chọn</button>
@@ -166,7 +201,26 @@ export async function render(ctx) {
       $$('[data-fpay]').forEach((b) => b.addEventListener('click', () => { F.pay = b.dataset.fpay; apply(); }));
       $$('.tc-pk').forEach((b) => b.addEventListener('click', () => { F.pay = F.pay === b.dataset.pay ? '' : b.dataset.pay; apply(); }));
       $('#tc-pend').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; $('#f-st').value = F.st; apply(); });
-      const rowOf = (b) => rows[Number(b.closest('.tc-r').dataset.i)];
+      const rowOf = (b) => rows[Number(b.closest('[data-i]').dataset.i)];
+      // bước 68: dòng Âm tiền — mở / gán trừ lương / quán chịu / bỏ gán
+      $$('.tc-amx').forEach((b) => b.addEventListener('click', () => {
+        const el = b.closest('.tc-r'); const d = el.querySelector('.tc-amd'); const g = Number(el.dataset.g);
+        d.hidden = !d.hidden; b.setAttribute('aria-expanded', String(!d.hidden)); b.textContent = d.hidden ? 'Chi tiết' : 'Thu gọn';
+        if (d.hidden) OPEN.delete(g); else OPEN.add(g);
+      }));
+      $$('.tc-amtl').forEach((b) => b.addEventListener('click', () => amForm(rowOf(b))));
+      $$('.tc-amqc').forEach((b) => b.addEventListener('click', async () => {
+        const m = rowOf(b); if (!qcCat) { showSaved('Chưa có nhóm "Âm tiền – quán chịu". Tải lại trang.', true); return; }
+        b.disabled = true;
+        try { await rpc('app_tc_check', { p_report: m.report_id, p_mkey: m.mkey, p_category: qcCat.id, p_excluded: false, p_checked: true }); OPEN.add(m.report_id); await again('Đã gán: quán chịu (không trừ lương).'); }
+        catch (e) { showSaved(e.message, true); b.disabled = false; }
+      }));
+      $$('.tc-amundo').forEach((b) => b.addEventListener('click', async () => {
+        const m = rowOf(b); if (!confirm('Bỏ gán trừ lương khoản này? Các nhân viên được báo khoản âm đã huỷ, khoản trở lại "chờ gán".')) return;
+        b.disabled = true;
+        try { await rpc('app_tc_move_ka_undo', { p_report: m.report_id, p_mkey: m.mkey }); OPEN.add(m.report_id); await again('Đã bỏ gán — khoản chờ gán lại.'); }
+        catch (e) { showSaved(e.message, true); b.disabled = false; }
+      }));
       // bước 65: đổi nhóm hàng loạt
       let bsig = '';
       function bulk() {
@@ -294,9 +348,10 @@ export async function render(ctx) {
             : html`Đổi số tiền / hình thức chỉ được khi mục <b>Tiền mặt / Chuyển khoản</b> của ca chưa đối soát. Ca đã đối soát thì nhờ Chủ / Quản lý tổng sửa.`}</div>
           <label class="field tc-why" hidden><span>Lý do sửa số tiền / hình thức (bắt buộc)</span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm 50.000 thành 500.000"></label>
           <div id="tc-err"></div>
-          <div class="toolbar" style="justify-content:flex-end">${r.kind === 'chi' && loanOn(r.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+          <div class="toolbar" style="justify-content:flex-end;flex-wrap:wrap">${r.kind === 'chi' ? html`<button type="button" class="btn sm secondary tc-2am">Đây là âm tiền…</button>` : ''}${r.kind === 'chi' && loanOn(r.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         bindMoneyInputs(d);
         d.querySelector('.tc-2loan')?.addEventListener('click', () => { d.close(); toLoan(br, r, again); });
+        d.querySelector('.tc-2am')?.addEventListener('click', () => { d.close(); amForm(r); });
         const f = d.querySelector('form'); const val = () => ({ kind: f.querySelector('[name=kind]:checked').value, amt: parseMoney(f.amt.value), pay: f.querySelector('[name=pay]:checked').value });
         const sync = () => { const x = val(); const ch = x.kind !== r.kind || x.amt !== Number(r.amount) || x.pay !== (r.pay || 'tien_mat'); d.querySelector('.tc-mw').hidden = !ch; d.querySelector('.tc-why').hidden = !ch; return ch; };
         f.addEventListener('input', sync);
@@ -309,6 +364,46 @@ export async function render(ctx) {
             d.close();
             await again(res?.direct ? 'Đã sửa thẳng khoản (ca giữ nguyên đối soát, đã ghi nhật ký).' : res?.money ? 'Đã sửa số tiền khoản.' : 'Đã lưu khoản.');
           } catch (err) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">${err.message}</div>`); }
+        });
+      }
+
+      // Bước 68: gán khoản "Âm tiền" ở phiếu ca thành trừ lương — chọn người chịu, mặc định chia đều
+      async function amForm(m) {
+        let R = null; let emps = [];
+        try { [R, emps] = await Promise.all([rpc('app_ca_get', { p_id: m.report_id }), rpc('app_ca_employees').then((x) => x || []).catch(() => [])]); } catch (e) { showSaved(e.message, true); return; }
+        const staff = (R?.staff || []).filter((s) => s.worked !== false && s.worked !== 0);
+        const inCa = new Set(staff.map((s) => s.employee_id));
+        const pRow = (id, label, on) => html`<div class="tc-pp" data-e="${id}"><label class="tc-ppl"><input type="checkbox" class="tc-pon" ${on ? 'checked' : ''}> <span>${label}</span></label><input class="input sm money tc-pamt" inputmode="numeric" autocomplete="off" aria-label="Số tiền ${label}"></div>`;
+        const d = dialog(html`<form class="stack tc-dlg" style="gap:12px"><h2 style="margin:0">Âm tiền → trừ lương</h2>
+          <div class="st-meta">${dmy(m.date)} · Phiếu ca ${m.shift} · “${m.note}” <b>${vnd(m.amount)}</b>. Khoản chi thành “Không tính” (không còn là chi phí quán); mỗi người được báo, mặc định trừ lương, giải trình được.</div>
+          <div class="tc-ppw">${staff.length ? staff.map((s) => pRow(s.employee_id, `${s.code || ''} – ${s.name || ''}`, true)) : html`<div class="st-meta">Phiếu ca không có danh sách nhân viên — chọn người ở dưới.</div>`}</div>
+          <label class="field"><span>Thêm người khác</span><select class="input" id="tc-addp"><option value="">— Chọn —</option>${emps.filter((e) => !inCa.has(e.id)).map((e) => html`<option value="${e.id}">${e.code} – ${e.name}</option>`)}</select></label>
+          <div class="st-meta" id="tc-psum"></div>
+          <label class="field"><span>Lý do</span><input class="input" name="why" value="${m.note}" autocomplete="off"></label>
+          <div id="tc-err"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Gán trừ lương</button></div></form>`);
+        bindMoneyInputs(d);
+        const total = Number(m.amount); let manual = false;
+        const on = () => $$('.tc-pp', d).filter((x) => x.querySelector('.tc-pon').checked);
+        const show = () => { const s = on().reduce((t, x) => t + parseMoney(x.querySelector('.tc-pamt').value || '0'), 0);
+          d.querySelector('#tc-psum').textContent = `Tổng người chịu: ${fmt(s)}đ / cần ${fmt(total)}đ${s === total ? ' ✓' : ''}`; };
+        const split = () => { const L = on(); $$('.tc-pp', d).forEach((x) => { if (!x.querySelector('.tc-pon').checked) x.querySelector('.tc-pamt').value = ''; });
+          if (L.length) { const base = Math.floor(total / L.length / 1000) * 1000; L.forEach((x, i) => { x.querySelector('.tc-pamt').value = fmt(i === 0 ? total - base * (L.length - 1) : base); }); } show(); };
+        split();
+        d.addEventListener('change', (ev) => { if (ev.target.classList.contains('tc-pon') && !manual) split(); else show(); });
+        d.addEventListener('input', (ev) => { if (ev.target.classList.contains('tc-pamt')) { manual = true; const x = ev.target.closest('.tc-pp'); if (x) x.querySelector('.tc-pon').checked = true; show(); } });
+        d.querySelector('#tc-addp').addEventListener('change', (ev) => {
+          const o = ev.target.selectedOptions[0]; if (!o.value) return;
+          d.querySelector('.tc-ppw').insertAdjacentHTML('beforeend', str(pRow(Number(o.value), o.text, true))); bindMoneyInputs(d.querySelector('.tc-ppw').lastElementChild);
+          o.remove(); ev.target.value = ''; if (!manual) split(); else show();
+        });
+        d.querySelector('[data-x]').addEventListener('click', () => d.close());
+        d.querySelector('form').addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          const people = on().map((x) => ({ employee_id: Number(x.dataset.e), amount: parseMoney(x.querySelector('.tc-pamt').value || '0') })).filter((x) => x.amount > 0);
+          try { await rpc('app_tc_move_to_ka', { p_report: m.report_id, p_mkey: m.mkey, p_people: people, p_reason: d.querySelector('[name=why]').value });
+            d.close(); OPEN.add(m.report_id); await again(`Đã gán trừ lương ${people.length} người. Nhân viên đã được báo.`); }
+          catch (err) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">${err.message}</div>`); }
         });
       }
 
@@ -347,7 +442,14 @@ const STYLE = html`<style>
   @media (max-width: 560px) { .tc-meter { display: none; } .tc-tys { min-width: 0; } }
   .tc-pm { display: inline-flex; align-items: center; justify-content: center; min-width: 30px; height: 22px; padding: 0 5px; border-radius: 6px; font-size: 11px; font-weight: 800; letter-spacing: .03em; }
   .tc-pm.tm { background: #fef3c7; color: #92400e; } .tc-pm.ck { background: #dbeafe; color: #1e40af; } .tc-pm.ka { background: #fee2e2; color: #991b1b; }
-  .tc-r.ka { border-left: 3px solid #fca5a5; }
+  .tc-r.ka, .tc-r.am { border-left: 3px solid #fca5a5; }
+  .tc-amd { grid-column: 1 / -1; border-top: 1px dashed var(--line); padding: 8px 0 2px 40px; display: flex; flex-direction: column; gap: 8px; }
+  .tc-amd[hidden] { display: none; }
+  .tc-aml { display: flex; gap: 8px; align-items: flex-start; flex-wrap: wrap; font-size: 14px; } .tc-aml .grow { flex: 1 1 220px; min-width: 0; overflow-wrap: anywhere; }
+  .tc-amm { display: flex; flex-direction: column; gap: 6px; } .tc-amm > .tc-aml + .tc-aml { padding-left: 16px; border-left: 2px solid var(--line); }
+  .tc-amb { flex-wrap: nowrap; width: auto; gap: 6px; } .tc-amb .btn { width: auto; }
+  .tc-ppw { display: flex; flex-direction: column; gap: 6px; } .tc-pp { display: flex; gap: 8px; align-items: center; } .tc-ppl { flex: 1 1 auto; min-width: 0; display: flex; gap: 6px; align-items: center; }
+  .tc-pp .tc-pamt { width: 130px; flex: 0 0 auto; }
   .ka-rep { background: var(--line-soft); border-radius: 6px; padding: 3px 6px; margin-top: 3px; }
   .tc-lead { display: inline-flex; align-items: center; gap: 6px; } .tc-pick { width: 18px; height: 18px; margin: 0; } .tc-pick0 { width: 18px; }
   .tc-allw { display: inline-flex; gap: 6px; align-items: center; align-self: flex-start; cursor: pointer; }
@@ -370,6 +472,7 @@ const STYLE = html`<style>
     .tc-pk-h { font-size: 14px; gap: 6px; white-space: nowrap; } .tc-pk-h small { display: none; }
     .tc-r { grid-template-columns: auto minmax(0, 1fr) auto; row-gap: 4px; }
     .tc-s { grid-column: 2; } .tc-act { grid-column: 2 / -1; justify-content: flex-start; }
+    .tc-amd { padding-left: 0; }
     .tc-do { justify-content: flex-start; flex-wrap: nowrap; width: 100%; } .tc-do select { flex: 1 1 auto; width: auto; min-width: 0; }
   }
 </style>`;
