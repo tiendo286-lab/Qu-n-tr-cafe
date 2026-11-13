@@ -23,7 +23,7 @@ export default async ({ sleep, out }) => {
     if (!$('[data-t]')) r.push(`(1) chưa thấy ô giờ: ${location.hash} · ${txt('#root').slice(0, 200)}`);
     r.push(`(1) bước ${txt('.cm-card h2')}: ${$$('.cm-person').slice(0, 3).map((p) => `${(p.querySelector('strong')?.innerText || '').trim()} ${[...p.querySelectorAll('input[type=time]')].map((i) => i.value).join('–')}`).join(' | ')}`);
     // (3) gõ ô Số dư đầu từng số — ô không bị vẽ lại / mất số
-    try { sessionStorage.setItem('cm:' + id, JSON.stringify({ step: 2 })); } catch (_) { /* bỏ qua */ }
+    try { sessionStorage.setItem('cm:' + id, JSON.stringify({ code: 2, viecDone: true })); } catch (_) { /* bỏ qua */ }
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id; await wait('[data-f="ipos_opening"]', 300); await sleep(600);
     const el = $('[data-f="ipos_opening"]'); el.focus();
     for (const v of ['1', '12', '123', '1.234', '12.345']) { typ(el, v); await sleep(120); }

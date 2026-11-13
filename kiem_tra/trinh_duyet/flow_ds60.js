@@ -21,14 +21,16 @@ export default async ({ sleep, out }) => {
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     const o2 = ov.find((x) => x.branch_id === o.branch_id && x.shift !== o.shift);
     if (o2) await rpc('app_ca_open', { p_branch: o2.branch_id, p_date: day, p_shift: o2.shift });
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat?ngay=' + day; await wait('.ck-view'); await sleep(800);
-    r.push(`Trang ngày: ${txt('.ck-view')} · ${W()}`);
-    $$('.ck-view a')[1].click(); await wait('table.ds-w'); await sleep(1200);
-    r.push(`Bảng tuần: ${txt('.toolbar strong')} · ${$$('table.ds-w').length} bảng · chú thích: ${txt('.ck-w-legend')}`);
-    const sec = $$('table.ds-w').map((t) => t.closest('section')).find((x) => x.querySelector('h2').innerText.startsWith(o.branch_code));
-    r.push(`${txt('.ck-w-h')}`);
-    r.push(`Hàng: ${[...sec.querySelectorAll('tbody tr')].map((tr) => tr.innerText.replace(/\s+/g, ' ').slice(0, 170)).join(' | ')}`);
-    r.push(`ô có link: ${[...sec.querySelectorAll('td a')].map((a) => a.getAttribute('href')).join(', ')} · ${W()}`);
+    // bước 77: mặc định bảng tuần của 1 cơ sở — ① trạng thái, ② tiền, việc chờ ở dưới
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat?cn=' + o.branch_id; await wait('.dw-t'); await sleep(1200);
+    r.push(`Mặc định: ${txt('.ck-view')} · cơ sở ${$$('.dw-bar .branch-tabs a').map((a) => a.innerText.trim()).join(',')} (đang ${txt('.dw-bar .branch-tabs a.on')}) · tuần ${txt('.dw-wt')}`);
+    const tabs = $$('.dw-t'); r.push(`${tabs.length} bảng: ${$$('.dw-card h2').map((h) => h.innerText.trim()).join(' | ')}`);
+    r.push(`① ${txt('.dw-card .dw-h .st-meta')} · hôm nay: ${[...(tabs[0]?.querySelector('tr.today')?.querySelectorAll('td') || [])].map((td) => td.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
+    r.push(`② hôm nay: ${[...(tabs[1]?.querySelector('tr.today')?.querySelectorAll('td') || [])].map((td) => td.innerText.replace(/\s+/g, ' ')).join(' | ')} · cả tuần: ${txt('.dw-wk td:last-child')}`);
+    r.push(`ô có link: ${[...(tabs[0]?.querySelectorAll('td a') || [])].map((a) => a.getAttribute('href')).filter((h) => h.includes('id=') || h.includes('xem=ngay')).slice(0, 4).join(', ')}`);
+    r.push(`việc chờ (lọc cơ sở, ô chọn ẩn ${$('#td-br')?.hidden}): ${txt('.td-kpis')} · ${W()}`);
+    $$('.ck-view a')[1].click(); await wait('.bc-grid'); await sleep(1000);
+    r.push(`Theo ngày: ${$$('.bc').length} ô ca · ${$$('.ds-day').length} khung cuối ngày`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'bảng tuần đối soát', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

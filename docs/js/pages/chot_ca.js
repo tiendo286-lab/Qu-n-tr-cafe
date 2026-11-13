@@ -56,7 +56,7 @@ export async function render({ params }) {
     if (!s) return html`<td class="cw-na">—</td>`;
     const miss = !s.report_id && d < today && d >= START;
     const [cls, lb] = s.status === 'hoan_thanh' ? ['ok', 'Xong'] : s.report_id ? ['warn', 'Đang chốt'] : miss ? ['miss', 'Thiếu phiếu'] : ['none', 'Chưa mở'];
-    const money = s.status === 'hoan_thanh' && s.cash_left != null ? html`<span class="cw-m"><span class="${Number(s.cash_left) < 0 ? 'neg' : ''}">TM ${kfmt(s.cash_left)}</span><span class="${Number(s.transfer_left) < 0 ? 'neg' : ''}">CK ${kfmt(s.transfer_left)}</span></span>` : '';
+    const money = '';   // bước 77: tiền xem ở tab Đối soát (bảng ② Tiền)
     return html`<td><button type="button" class="ca-shift cw-c ${cls}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}">
       <span class="cw-st">${lb}</span>${money}</button></td>`;
   };
@@ -71,7 +71,7 @@ export async function render({ params }) {
       <div class="cw-wrap"><table class="cw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}</tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
-      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu). Bấm ô để mở phiếu.</span></div></section>`}`;
+      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">Bấm ô để mở phiếu. Tiền lệch xem ở tab <a href="#/quan-ly/doi-soat">Đối soát</a>.</span></div></section>`}`;
   return {
     title: 'Chốt ca',
     html: isManager() ? html`<div class="page-head"><div><h1>Chốt ca</h1><div class="sub">Xem theo tuần, từng cơ sở: nhân viên chốt ca, quản lý đối soát. Ô đỏ là ngày đã qua mà chưa có phiếu.</div></div></div><div class="stack" style="max-width:900px;gap:12px">${body}</div>`

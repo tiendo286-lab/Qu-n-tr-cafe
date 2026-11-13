@@ -36,8 +36,8 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'tien', p_force: false });
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_su', p_force: false });
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_hang', p_force: false });
-    // Giao diện chốt ca mới: bước Bàn giao & nhận hàng là bước áp chót.
-    sessionStorage.setItem('cm:' + id, JSON.stringify({ step: 7 }));
+    // Bước 77: bước Bàn giao & nhận hàng thuộc Phần việc.
+    sessionStorage.setItem('cm:' + id, JSON.stringify({ code: 8 }));
     location.hash = '#/ca/phieu?id=' + id; await wait('.nh-card', 900); await sleep(500);
     const c = $('.nh-card'); const head = txt('.nh-head', c);
     $('.nh-duall', c).click(); const q = $$('.nh-q', c); q[2].value = '2'; q[2].dispatchEvent(new Event('input'));

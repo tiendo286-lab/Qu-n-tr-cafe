@@ -464,6 +464,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Quản lý ca › **Chốt ca**: bảng **tuần** (hàng = ngày Thứ 2 → CN, cột = ca), **mỗi lần 1 cơ sở** (nút chọn cơ sở, web nhớ cơ sở xem lần trước, chung với Thu chi / Âm tiền / Sổ quỹ); nút ‹ › đổi tuần, "Về tuần này".
 - Mỗi ô ca: màu + chữ ngắn — **Xong** (xanh), **Đang chốt** (vàng), **Chưa mở** (trắng), **Thiếu phiếu** (đỏ: ngày đã qua mà chưa mở phiếu, từ 01/11); phiếu xong ghi thêm **TM / CK lệch** (âm = thiếu). Bấm ô để mở phiếu (ô thiếu phiếu → mở phiếu bổ sung). Đường dẫn cũ `#/ca?ngay=…` mở đúng tuần của ngày đó.
 
+## 5r13. Chốt ca / Đối soát tách 2 phần, tiền tách riêng — CHỐT và ĐÃ LÀM 13/11/2026 (chỉ giao diện)
+- **Tab Chốt ca** (bảng tuần, 1 cơ sở): chỉ **trạng thái phiếu** (Xong / Đang chốt / Chưa mở / Thiếu phiếu) — tiền lệch xem ở tab Đối soát.
+- **Tab Đối soát** mặc định **theo tuần, 1 cơ sở** (nút chọn cơ sở, ‹ › đổi tuần): bảng **① Trạng thái đối soát** (hàng ngày × cột ca + cột Cuối ngày: Đã đối soát / Chờ đối soát x/9 / Đang sửa / Chờ kế toán / Đang chốt / Thiếu phiếu / Có khoản âm; bấm ô mở Đối soát ca, ô Cuối ngày mở trang kiểm đếm theo ngày) và bảng **② Tiền** (TM / CK lệch từng ca + cột Cả ngày + hàng Cả tuần). **Việc chờ đối soát** của cơ sở đặt dưới 2 bảng. Kiểu **Theo ngày** vẫn giữ (kiểm đếm tiền mặt cuối ngày).
+- **Phiếu chốt ca** (nhân viên) chia **2 phần**: **① Phần việc** (Ai làm ca · Số cốc · Bàn giao & nhận hàng) → nút **"Xong phần việc"**; **② Phần tiền** (Phiếu Fabi · Khách nợ · Thu chi · Chuyển khoản hotline · Kết quả tiền · Kiểm tra → GỬI PHIẾU) **chỉ mở khi xong phần việc**. Đầu phiếu có 2 khối phần (tiến độ riêng, bấm để chuyển phần). **Nhận hàng không chặn phần tiền.**
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

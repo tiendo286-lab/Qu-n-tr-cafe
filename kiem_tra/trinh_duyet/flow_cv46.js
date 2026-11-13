@@ -30,7 +30,7 @@ export default async ({ sleep, out }) => {
     };
     const o1 = ov.find((x) => x.shift === ov[0].shift && x.branch_id === ov[0].branch_id);
     const id1 = await mk(o1);
-    try { sessionStorage.setItem('cm:' + id1, JSON.stringify({ step: 9, noMoves: true })); } catch (_) { /* bỏ qua */ }
+    try { sessionStorage.setItem('cm:' + id1, JSON.stringify({ code: 9, viecDone: true, noMoves: true })); } catch (_) { /* bỏ qua */ }
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id1; await wait('#cm-root'); await sleep(1500);
     for (let i = 0; i < 100 && ($('#cm-cv')?.hidden ?? true); i++) await sleep(100);
     await sleep(500);

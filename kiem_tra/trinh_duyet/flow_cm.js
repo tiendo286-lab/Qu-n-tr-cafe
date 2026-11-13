@@ -26,8 +26,12 @@ export default async ({ sleep, out }) => {
     r.push(`B2 Ai làm ca: ${$$('.cm-person').length} người · giờ gợi ý ${$$('[data-t]').map((i) => i.value).join(',')} · ${txt('.cm-sh')}`);
     if (!$$('.cm-person').length) { await sleep(500); $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); r.push('thêm người làm hộ: ' + $$('.cm-person').length); }
     $$('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '06:45' : '12:45'); });
+    r.push(`2 phần: ${$$('.cm-part').map((b) => b.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
+    $$('.cm-part')[1].click(); await sleep(400); r.push(`bấm Phần tiền khi chưa xong việc: ${txt('#saved-indicator')} · vẫn ở ${txt('#cm-root h2')}`);
     await next();
-    r.push(`B3 tiêu đề: ${txt('#cm-root h2')}`);
+    r.push(`bước kế (phần việc): ${txt('#cm-root h2')} · nút ${txt('#cm-next')}`);
+    $('#cm-add-ho').click(); await sleep(200); setv($('[data-ho="0"]'), 'Máy xay kêu to'); await next();
+    r.push(`B3 tiêu đề: ${txt('#cm-root h2')} · ${txt('.cm-sh .cm-n')} · 2 phần: ${$$('.cm-part').map((b) => b.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
     $('#cm-next').click(); await sleep(300); r.push(`chưa ảnh: ${txt('#cm-err')}`);
     // ảnh phiếu
     const cv = document.createElement('canvas'); cv.width = 40; cv.height = 60; cv.getContext('2d').fillRect(0, 0, 40, 60);
@@ -56,8 +60,6 @@ export default async ({ sleep, out }) => {
     r.push(`B8 kết quả: ${txt('#cm-body .alert')}`);
     $('#cm-next').click(); await sleep(300); r.push(`chưa lý do: ${txt('#cm-err')}`);
     setv($('#cm-diff-note'), 'Khách bo 20.000'); await next();
-    r.push(`B9 bàn giao: ${txt('#cm-root h2')} · ${W()}`);
-    $('#cm-add-ho').click(); await sleep(200); setv($('[data-ho="0"]'), 'Máy xay kêu to'); await next();
     r.push(`B10 tóm tắt: ${txt('#cm-body').slice(0, 300)}`);
     await next(); await sleep(1500);
     const R = await rpc('app_ca_get', { p_id: id });
@@ -69,7 +71,7 @@ export default async ({ sleep, out }) => {
     $('#cm-claim').click(); await wait('[data-hp]'); await sleep(800);
     if (!$$('.cm-person').length) { $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); }
     $$('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '12:30' : '17:30'); });
-    await next();
+    await next(); await next();   // bước 77: Ai làm ca → Bàn giao (Xong phần việc) → Phiếu Fabi
     const inp2 = $('#cm-photo'); inp2.files = dt.files; inp2.dispatchEvent(new Event('change')); await sleep(1500);
     if ($('#cm-open')) setv($('#cm-open'), '12:40');
     setv($('#cm-close'), '17:10');
@@ -101,7 +103,7 @@ export default async ({ sleep, out }) => {
     await next();
     typ($('#cm-hot'), '1000000'); await sleep(300); r.push(`Chiều hotline: ${txt('#cm-ck-box')}`); await next();
     r.push(`Chiều kết quả: ${txt('#cm-body .alert')}`);
-    await next(); await next(); await next(); await sleep(1500);
+    await next(); await next(); await sleep(1500);
     const R2 = await rpc('app_ca_get', { p_id: id2 });
     r.push(`còn khách mượn chưa trả: ${(await rpc('app_ca_loans_open')).length}`);
     r.push(`Chiều GỬI → ${R2.status} · nợ ${R2.debts.map((d) => d.table_name + ' ' + d.amount).join(',')} · chi ${R2.moves.map((m) => m.amount).join(',')} · ${W()}`);

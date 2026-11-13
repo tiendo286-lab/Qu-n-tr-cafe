@@ -12,7 +12,10 @@ const GOI_DAU = 1000000;
 // Nội dung từng bước theo mã (B[mã], stepError); thứ tự hiện ra theo ORDER — ghi hết các khoản tiền (Thu chi) TRƯỚC khi đối chiếu
 // chuyển khoản hotline, để không phải lùi lại khi thu chi / khách trả tiền mượn bằng chuyển khoản làm lệch (anh Tiến chốt 12/11/2026)
 const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kiểm tra lần cuối'];
-const ORDER_ALL = [0, 1, 2, 3, 5, 6, 4, 7, 8, 9];   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
+// Bước 77 (anh Tiến chốt 13/11): phiếu chia 2 phần — ① PHẦN VIỆC (Ai làm ca · Số cốc · Bàn giao & nhận hàng) làm trước,
+// ② PHẦN TIỀN (Fabi · Khách nợ · Thu chi · Chuyển khoản · Kết quả tiền · Kiểm tra) mở khi xong phần việc. Nhận hàng không chặn phần tiền.
+const ORDER_ALL = [0, 1, 6, 8, 2, 3, 5, 4, 7, 9];   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
+const VIEC = [1, 6, 8]; const TIEN = [2, 3, 5, 4, 7, 9];
 const hm = (x) => (x ? String(x).slice(0, 5) : '');
 const sum = (a, f) => (a || []).reduce((s, x) => s + (Number(f(x)) || 0), 0);
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -30,6 +33,8 @@ export async function renderNew(R0, P, SH) {
   let fabiBranch = true; try { fabiBranch = !!(await rpc('app_ca_kt_state', { p_id: R0.id }))?.need; } catch (_) { /* chưa có bước 44 */ }
   const ORDER = fabiBranch ? ORDER_ALL.filter((k) => k !== 6) : ORDER_ALL;
   const STEPS = ORDER.map((k) => LABEL[k]);
+  const firstTien = ORDER.findIndex((k) => TIEN.includes(k)); const lastViec = firstTien - 1;
+  const partOf = (i) => (VIEC.includes(ORDER[i]) ? 'viec' : TIEN.includes(ORDER[i]) ? 'tien' : '');
   const PT = Object.fromEntries((P.parts || []).map((p) => [p.part, p]));
   const first = R.shift === R.first_shift;
   const hand = R.cash_hand || null;
@@ -54,6 +59,10 @@ export async function renderNew(R0, P, SH) {
     handover: (R.handover || []).map((h) => ({ ...h })), tried: false,
   };
   const photos = (R.photos || []).filter((p) => p.kind === 'ipos');
+  // bước 77: phần việc xong (đã bấm "Xong phần việc", hoặc phiếu đã có số tiền) thì mới mở phần tiền
+  V.viecDone = !!mem.viecDone || V.f.ipos_opening !== null || photos.length > 0;
+  if (tienMine && !waiting && mem.code != null && ORDER.includes(Number(mem.code))) V.step = ORDER.indexOf(Number(mem.code));
+  if (V.step >= firstTien && !V.viecDone) V.step = Math.min(1, V.step);
   const HP = { tab: '', q: '' }; let HELP = null;   // bước 48: chọn người làm hộ — mục đang mở, chữ lọc, danh sách nhân viên
   const billSum = () => sum(V.debts.filter((d) => !isLoan(d)), (d) => d.amount);
   const prevCash = hand && hand.prev_cash !== null && hand.prev_cash !== undefined ? Number(hand.prev_cash) : null;
@@ -102,7 +111,7 @@ export async function renderNew(R0, P, SH) {
     const r = await rpc('app_ca_save', { p_id: R.id, p: payload() });
     const ho = V.handover.filter((h) => !h.task_id); (r.handover_ids || []).forEach((id, i) => { if (ho[i] && id) ho[i].id = id; });
     (r.debt_ids || []).forEach((id, i) => { if (V.debts[i] && id) V.debts[i].id = id; });
-    try { sessionStorage.setItem(key, JSON.stringify({ step: V.step, noMoves: V.noMoves })); } catch (_) { /* bỏ qua */ }
+    try { sessionStorage.setItem(key, JSON.stringify({ step: V.step, noMoves: V.noMoves, viecDone: V.viecDone })); } catch (_) { /* bỏ qua */ }
   }
 
   // ------------------------------------------------------------ các bước
@@ -336,12 +345,19 @@ export async function renderNew(R0, P, SH) {
     const s = V.step; const err = V.tried ? stepError() : '';
     const odOpen = (R.open_debts || []).filter((d) => !d.closed_at);   // bước 75: cả khách nợ lẫn khách mượn
     const nhac = odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ / mượn: ${odOpen.length} khoản · ${fmt(sum(odOpen, (d) => d.amount))}đ</strong>
-        <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${(d.kind === 'muon' ? 'Khách mượn – ' + d.table_name : d.by_ql ? d.table_name : 'Bàn ' + d.table_name)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ / trả tiền mượn trong ca" (bước ${STEPS[ORDER.indexOf(2)] ? ORDER.indexOf(2) + 1 : 3} · ${LABEL[2]}).</div></div>` : '';
-    return html`${nhac}<div class="card cm-card" style="gap:8px"><div class="cm-sh"><span class="cm-n">Bước ${s + 1}/${STEPS.length}</span><span class="st-meta">${R.shift} · ${dmy(R.work_date)}${tienMine ? ' · bạn là người chốt' : ''}</span></div>
-        <div class="cm-steps">${STEPS.map((_, i) => html`<i class="${i < s ? 'done' : i === s ? 'cur' : ''}"></i>`)}</div><h2 style="margin:0">${STEPS[s]}</h2></div>
+        <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${(d.kind === 'muon' ? 'Khách mượn – ' + d.table_name : d.by_ql ? d.table_name : 'Bàn ' + d.table_name)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ / trả tiền mượn trong ca" (② Phần tiền · ${LABEL[2]}).</div></div>` : '';
+    const pt = partOf(s); const idx = (p) => ORDER.map((_, i) => i).filter((i) => partOf(i) === p);
+    const vI = idx('viec'); const tI = idx('tien');
+    const partCard = (p, no, lbl, list, open) => { const cur = pt === p; const doneP = p === 'viec' ? V.viecDone : false; const k = list.filter((i) => i < s).length;
+      return html`<button type="button" class="cm-part ${cur ? 'cur' : ''} ${doneP && !cur ? 'done' : ''} ${open ? '' : 'lock'}" data-part="${p}" ${open ? '' : 'aria-disabled="true"'}>
+        <span class="cm-pn">${no} ${lbl}</span><span class="cm-ps">${!open ? '🔒 làm sau phần việc' : doneP && !cur ? '✓ Xong' : cur ? `bước ${list.indexOf(s) + 1}/${list.length}` : k ? `${k}/${list.length}` : 'chưa làm'}</span>
+        <span class="cm-steps">${list.map((i) => html`<i class="${i < s || (p === 'viec' && V.viecDone) ? 'done' : i === s ? 'cur' : ''}"></i>`)}</span></button>`; };
+    const parts = s > 0 ? html`<div class="cm-parts">${partCard('viec', '①', 'Phần việc', vI, true)}${partCard('tien', '②', 'Phần tiền', tI, V.viecDone)}</div>` : '';
+    return html`${nhac}${parts}<div class="card cm-card" style="gap:8px"><div class="cm-sh"><span class="cm-n">${pt === 'viec' ? `① Phần việc · bước ${vI.indexOf(s) + 1}/${vI.length}` : pt === 'tien' ? `② Phần tiền · bước ${tI.indexOf(s) + 1}/${tI.length}` : `Bước ${s + 1}/${STEPS.length}`}</span><span class="st-meta">${R.shift} · ${dmy(R.work_date)}${tienMine ? ' · bạn là người chốt' : ''}</span></div>
+        <h2 style="margin:0">${STEPS[s]}</h2></div>
       <div class="card stack cm-card" id="cm-body">${B[ORDER[s]]()}${s === 0 && tienOther ? nhanHang() : ''}</div>
       <div id="cm-err">${err ? html`<div class="alert error">${err}</div>` : ''}</div>
-      ${s > 0 ? html`<div class="cm-nav"><button type="button" class="btn secondary" id="cm-back" ${s === 1 ? 'hidden' : ''}>‹ Quay lại</button><button type="button" class="btn" id="cm-next">${s === STEPS.length - 1 ? 'GỬI PHIẾU' : 'Tiếp ›'}</button></div>` : ''}`;
+      ${s > 0 ? html`<div class="cm-nav"><button type="button" class="btn secondary" id="cm-back" ${s === 1 ? 'hidden' : ''}>‹ Quay lại</button><button type="button" class="btn" id="cm-next">${s === STEPS.length - 1 ? 'GỬI PHIẾU' : s === lastViec ? 'Xong phần việc ›' : 'Tiếp ›'}</button></div>` : ''}`;
   }
 
   return {
@@ -393,12 +409,18 @@ export async function renderNew(R0, P, SH) {
           b.addEventListener('click', () => busy(async () => { await save(); V.step = ORDER.indexOf(Number(b.dataset.jump)); V.tried = false; draw(true); }));
         });
         bindJump();
+        $$('.cm-part', root).forEach((b) => b.addEventListener('click', () => busy(async () => {
+          if (b.dataset.part === 'tien' && !V.viecDone) { showSaved('Làm xong phần việc (Ai làm ca, bàn giao…) rồi mới tới phần tiền.', true); return; }
+          if (partOf(V.step) === b.dataset.part) return;
+          await save(); V.step = b.dataset.part === 'tien' ? firstTien : 1; V.tried = false; draw(true);
+        })));
         $('#cm-back')?.addEventListener('click', () => busy(async () => { await save(); V.step--; V.tried = false; draw(true); }));
         $('#cm-next')?.addEventListener('click', () => busy(async () => {
           const e = stepError();
           if (e) { V.tried = true; $('#cm-err').innerHTML = str(html`<div class="alert error">${e}</div>`); $('#cm-err').scrollIntoView({ block: 'nearest' }); return; }
           V.tried = false;
-          if (V.step < STEPS.length - 1) { V.step++; try { await save(); } catch (er) { V.step--; throw er; } draw(true); showSaved('Đã lưu'); return; }
+          if (V.step === lastViec) V.viecDone = true;   // bước 77: xong phần việc → mở phần tiền
+          if (V.step < STEPS.length - 1) { V.step++; try { await save(); } catch (er) { V.step--; throw er; } draw(true); showSaved(V.step === firstTien ? 'Đã xong phần việc — làm tiếp phần tiền' : 'Đã lưu'); return; }
           await save();
           await rpc('app_ca_part_done', { p_id: R.id, p_part: 'tien', p_on: true });
           let r = await rpc('app_ca_part_done', { p_id: R.id, p_part: 'nhan_su', p_on: true });
@@ -541,7 +563,12 @@ const CM_CSS = html`<style>
   .cm-card { gap: 10px; }
   .cm-sh { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
   .cm-n { font-size: 12px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
-  .cm-steps { display: flex; gap: 3px; } .cm-steps i { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+  .cm-steps { display: flex; gap: 3px; width: 100%; } .cm-steps i { flex: 1; height: 5px; border-radius: 3px; background: var(--line); }
+  .cm-parts { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .cm-part { font: inherit; color: inherit; text-align: left; background: var(--card); border: 2px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; min-width: 0; }
+  .cm-part.cur { border-color: var(--primary); background: var(--caramel-soft); } .cm-part.done { border-color: var(--ok-line); background: var(--ok-bg); }
+  .cm-part.lock { opacity: .6; cursor: not-allowed; }
+  .cm-pn { font-weight: 800; font-size: 14px; } .cm-ps { font-size: 12px; color: var(--ink-2); }
   .cm-steps i.done { background: var(--ok-line); } .cm-steps i.cur { background: var(--primary); }
   .cm-nav { display: flex; gap: 8px; } .cm-nav .btn { flex: 1; min-height: 46px; }
   .cm-fabi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 170px); gap: 8px 10px; align-items: center; }

@@ -32,7 +32,7 @@ export default async ({ sleep, out }) => {
     $('#cm-claim').click(); await wait('#cm-helper'); await sleep(800);
     if (!document.querySelectorAll('.cm-person').length) { $('[data-hp="in"]').click(); for (let i = 0; i < 100 && !document.querySelector('[data-add-emp]'); i++) await sleep(50); document.querySelector('[data-add-emp]')?.click(); await sleep(300); }
     document.querySelectorAll('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '12:40' : '17:10'); });
-    $('#cm-next').click(); await sleep(700);
+    $('#cm-next').click(); await sleep(700); $('#cm-next').click(); await sleep(700);   // bước 77: Ai làm ca → Bàn giao (Xong phần việc) → Phiếu Fabi
     const cv = document.createElement('canvas'); cv.width = 40; cv.height = 60; cv.getContext('2d').fillRect(0, 0, 40, 60);
     const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg'));
     const dt = new DataTransfer(); dt.items.add(new File([blob], 'phieu.jpg', { type: 'image/jpeg' }));
@@ -54,8 +54,7 @@ export default async ({ sleep, out }) => {
     $('#cm-add-debt').click(); await sleep(200); setv($('[data-db="0"][data-k="table_name"]'), '7'); setv($('[data-db="0"][data-k="amount"]'), '28000'); await next();
     $('#cm-nomoves').click(); await sleep(100); await next();
     typ($('#cm-hot'), '2298000'); await sleep(300); await next();
-    setv($('#cm-diff-note'), 'thiếu 40.000'); await next();
-    await next(); await sleep(500);
+    setv($('#cm-diff-note'), 'thiếu 40.000'); await next(); await sleep(500);
     r.push(`Bước 10: ${txt('#cm-root h2')} · ${txt('.cm-real')} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'khách trả nợ ở bước Phiếu Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });

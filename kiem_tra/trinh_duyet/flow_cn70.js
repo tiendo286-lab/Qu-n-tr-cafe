@@ -39,7 +39,7 @@ export default async ({ sleep, out }) => {
     const id = await rpc('app_ca_open', { p_branch: lhp.branch_id, p_date: day, p_shift: pick.shift });
     r.push(`ca thử: ${pick.shift} · trạng thái ${(await rpc('app_ca_get', { p_id: id })).status} · ô ca: ${Object.keys(pick).join(',')}`.slice(0, 200));
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
-    try { sessionStorage.setItem('cm:' + id, JSON.stringify({ step: 2 })); } catch (_) { /* bỏ qua */ }
+    try { sessionStorage.setItem('cm:' + id, JSON.stringify({ code: 2, viecDone: true })); } catch (_) { /* bỏ qua */ }
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id; await wait('.pc-nhac', 300); await sleep(800);
     if (new URLSearchParams(location.search).get('shot')) return;
     r.push(`nhắc đầu phiếu: ${txt('.pc-nhac') || 'KHÔNG CÓ'} · bước ${txt('.cm-card h2')}`);

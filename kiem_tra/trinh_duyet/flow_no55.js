@@ -26,7 +26,7 @@ export default async ({ sleep, out }) => {
     const id2 = await mk(sh[1], { total_revenue: 2000000, pos_cash: 1000000, pos_transfer: 1000000, pos_debt: 0, reported_transfer: 1000000, cash_counted: 4050000, ipos_opening: 3000000, opening_cash: 3000000, debts: [] },
       async (id, R) => { const d = (R.open_debts || [])[0]; if (d) await rpc('app_ca_debt_collect', { p_debt: d.id, p_report: id, p_kind: 'tien_mat', p_note: null }); else r.push('ca 2 không thấy nợ ca 1'); });
     r.push(`trạng thái: ${(await rpc('app_ca_get', { p_id: id1 })).status} / ${(await rpc('app_ca_get', { p_id: id2 })).status}`);
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat'; await wait('.bc'); await sleep(1000);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat?xem=ngay'; await wait('.bc'); await sleep(1000);
     r.push(`Bảng ca: ${$$('.bc').map((x) => x.innerText.replace(/\s+/g, ' ')).filter((t) => /nợ/i.test(t)).join(' | ') || 'không ô nào ghi nợ'} · ${W()}`);
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id1; await wait('#debts'); await sleep(1500);
     r.push(`Ca nợ (${sh[0]}): ${txt('#debts')} · link ${$('.db-paid a')?.getAttribute('href')}`);

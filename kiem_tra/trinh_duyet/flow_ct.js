@@ -64,7 +64,7 @@ export default async ({ sleep, out }) => {
   await step('Khung 390px không tràn ngang', async () => {
     const W = document.documentElement.clientWidth; const chk = () => $$('#root *').filter((el) => el.offsetParent && el.getBoundingClientRect().right > W + 0.5).map((el) => el.tagName + '.' + String(el.className).slice(0, 30)).slice(0, 6).join(', ') || 'không';
     const a = chk(); const sa = document.documentElement.scrollWidth; await go(`#/quan-ly/chot-thang?thang=${M}&cn=all`); const b = chk(); const sb2 = document.documentElement.scrollWidth;
-    location.hash = '#/quan-ly/doi-soat'; await wait('.bc-grid', 300); await sleep(500); const c = document.documentElement.scrollWidth;
+    location.hash = '#/quan-ly/doi-soat?xem=ngay'; await wait('.bc-grid', 300); await sleep(500); const c = document.documentElement.scrollWidth;
     return `rộng ${W} · trang chi tiết ${sa} / tổng hợp ${sb2} / (so sánh) Đối soát ${c} · chi tiết tràn: ${a} · tổng hợp tràn: ${b}`;
   });
 };

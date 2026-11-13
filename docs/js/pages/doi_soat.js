@@ -1,7 +1,7 @@
 // Đối soát (bước 35): Bảng ca theo ngày + VIỆC CHỜ ĐỐI SOÁT gom 1 chỗ (phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm)
 // + đối soát tiền mặt cuối ngày theo cơ sở. Đối soát từng phiếu ca làm ở trang riêng #/quan-ly/doi-soat/ca.
 import { render as rerender } from '../app.js';
-import { addDays, vnToday } from '../data.js';
+import { addDays, vnToday } from '../data.js';   // bước 77: Đối soát theo tuần, 1 cơ sở
 import { DOW, WEEK_CSS, mondayOf } from './ke_toan_ck.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, result, signed, vnd } from '../tien.js';
@@ -12,80 +12,114 @@ import { STAFF_LABEL, STYLE as CA_STYLE, bindDatePicker, datePicker } from './ch
 
 export const perm = 'doi_soat';
 
-// Bảng tuần: mỗi cơ sở 1 bảng, hàng = ca + Cuối ngày, cột = 7 ngày; ô = trạng thái đối soát, doanh thu, tiền còn lệch
-const dsTabs = (day, wk) => html`<nav class="ck-view" aria-label="Cách xem"><a href="#/quan-ly/doi-soat?ngay=${day}" class="${wk ? '' : 'on'}">Theo ngày</a><a href="#/quan-ly/doi-soat?xem=tuan&ngay=${day}" class="${wk ? 'on' : ''}">Bảng tuần</a></nav>`;
-const WK_ST = { chua: ['Chưa mở', 'st-meta'], tre: ['Quá giờ chưa chốt', 'ck-w-bad'], dang: ['Đang chốt', 'ck-w-miss'], kt: ['Chờ kế toán', 'ds-w-ktx'], cho: ['Chờ đối soát', 'ck-w-miss'], xong: ['✓ Đã đối soát', 'ck-w-ok'], am: ['Có khoản âm', 'ck-w-bad'] };
-async function renderWeek(day) {
+// Bước 77 (anh Tiến chốt 13/11): Đối soát theo TUẦN, mỗi lần 1 cơ sở — bảng ① trạng thái đối soát (hàng ngày × cột ca + Cuối ngày),
+// bảng ② tiền (TM / CK lệch từng ca + cộng cả ngày, cả tuần); "Việc chờ đối soát" của cơ sở đặt dưới. Xem theo ngày vẫn có (kiểm đếm cuối ngày).
+const LS_BR = 'tcBranch';
+const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; } catch (_) { return null; } };
+const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
+const kf = (n) => { const v = Number(n) || 0; const a = Math.abs(v); const s = v < 0 ? '−' : v > 0 ? '+' : ''; return a === 0 ? '0' : a >= 1e6 ? `${s}${(a / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}tr` : a >= 1000 ? `${s}${Math.round(a / 1000)}k` : `${s}${a}`; };
+const dsTabs = (day, wk, cn) => html`<nav class="ck-view" aria-label="Cách xem"><a href="#/quan-ly/doi-soat?tuan=${day}${cn ? `&cn=${cn}` : ''}" class="${wk ? 'on' : ''}">Theo tuần</a><a href="#/quan-ly/doi-soat?xem=ngay&ngay=${day}" class="${wk ? '' : 'on'}">Theo ngày</a></nav>`;
+const WST = { chua: ['Chưa mở', 'none'], tre: ['Thiếu phiếu', 'miss'], dang: ['Đang chốt', 'warn'], kt: ['Chờ kế toán', 'kt'], cho: ['Chờ đối soát', 'cho'], sua: ['Đang sửa', 'cho'], xong: ['Đã đối soát', 'ok'], am: ['Có khoản âm', 'miss'] };
+
+async function weekData(day) {
   const mon = mondayOf(day); const days = [...Array(7)].map((_, i) => addDays(mon, i));
   let ovs; let cds; let KW;
   try { const W = await rpc('app_ds_week', { p_from: mon }); ovs = W.days.map((x) => x.ov || []); cds = W.days.map((x) => x.cd || []); KW = W.kt || []; }
-  catch (_) {   // máy chủ chưa có bước 60
+  catch (_) {
     [ovs, cds, KW] = await Promise.all([Promise.all(days.map((d) => rpc('app_ca_overview', { p_date: d }))), Promise.all(days.map((d) => rpc('app_ca_day', { p_date: d }).catch(() => []))),
       rpc('app_ca_kt_wait').catch(() => [])]);
   }
+  return { mon, days, ovs, cds, KW };
+}
+
+function weekTables(WD, cn) {
+  const { days, ovs, cds, KW } = WD;
   const kt = new Set((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => k.id));
   const nowHm = new Date(Date.now() + 7 * 3600e3).toISOString().slice(11, 16); const today = vnToday();
   const stOf = (s, d) => {
-    if (!s.report_id) return d < today || (d === today && s.end_time && String(s.end_time).slice(0, 5) < nowHm) ? 'tre' : 'chua';
+    if (!s.report_id) return d < today || (d === today && s.end_time && String(s.end_time).slice(0, 5) < nowHm) ? (d >= '2026-11-01' ? 'tre' : 'chua') : 'chua';
     if (s.status !== 'hoan_thanh') return 'dang';
-    if (s.recon_status !== 'hoan_thanh') return kt.has(s.report_id) ? 'kt' : 'cho';
+    if (s.recon_status !== 'hoan_thanh') return kt.has(s.report_id) ? 'kt' : s.recon_status === 'mo_lai' ? 'sua' : 'cho';
     return Number(s.short_total) > 0 ? 'am' : 'xong';
   };
-  const branches = []; const shifts = [];
-  ovs.forEach((rows) => rows.forEach((r) => { if (!branches.some((b) => b.id === r.branch_id)) branches.push({ id: r.branch_id, code: r.branch_code }); if (!shifts.includes(r.shift)) shifts.push(r.shift); }));
-  const cell = (s, d) => {
-    if (!s) return html`<td class="ck-w-c"><span class="st-meta">—</span></td>`;
-    const st = stOf(s, d); const [lbl, cls] = WK_ST[st];
-    const left = (v, k) => (v !== null && v !== undefined && Number(v) !== 0 ? html`<span class="ck-w-bad">${k} ${signed(v)}</span>` : '');
-    const body = html`<span class="${cls}">${st === 'cho' && s.recon_status === 'mo_lai' ? 'Đang sửa' : lbl}${st === 'cho' ? ` ${s.checks}/9` : ''}</span>
-      ${s.status === 'hoan_thanh' && s.revenue != null ? html`<b>${fmt(s.revenue)}</b>` : ''}
-      ${st === 'am' ? html`<span class="ck-w-bad">−${fmt(s.short_total)}</span>` : ''}
-      ${s.status === 'hoan_thanh' && st !== 'xong' && st !== 'am' ? html`${left(s.cash_left, 'TM')}${left(s.transfer_left, 'CK')}` : ''}`;
-    const href = !s.report_id ? null : s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
-    return html`<td class="ck-w-c ds-w-${st}">${href ? html`<a href="${href}">${body}</a>` : body}</td>`;
+  const mine = ovs.map((rows) => (rows || []).filter((r) => r.branch_id === cn));
+  const shifts = []; mine.flat().forEach((r) => { if (!shifts.includes(r.shift)) shifts.push(r.shift); });
+  const get = (i, sh) => mine[i].find((r) => r.shift === sh) || null;
+  const dname = (d, i) => html`<b>${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][i]}</b><span>${dmy(d).slice(0, 5)}</span>`;
+  const href = (s) => (!s.report_id ? null : s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`);
+  const stCell = (s, d) => {
+    if (!s) return html`<td class="dw-na">—</td>`;
+    const st = stOf(s, d); const [lb, cls] = WST[st];
+    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${st === 'am' ? html`<span class="dw-sub">−${fmt(s.short_total)}</span>` : ''}`;
+    const h = href(s);
+    return html`<td>${h ? html`<a class="dw-c ${cls}" href="${h}">${inner}</a>` : html`<span class="dw-c ${cls}">${inner}</span>`}</td>`;
   };
   const endCell = (c, d) => {
-    if (!c || !c.shifts || (d > today && !c.done)) return html`<td class="ck-w-c"><span class="st-meta">—</span></td>`;
+    if (!c || !c.shifts || (d > today && !c.done)) return html`<td class="dw-na">—</td>`;
     const ready = c.done >= c.shifts;
-    return html`<td class="ck-w-c">${c.done_at ? html`<span class="ck-w-ok">✓ đã kiểm đếm</span>` : ready ? html`<span class="ck-w-miss">chưa kiểm đếm</span>` : html`<span class="st-meta">xong ${c.done}/${c.shifts} ca</span>`}</td>`;
+    const [lb, cls] = c.done_at ? ['✓ Đã kiểm đếm', 'ok'] : ready ? ['Chưa kiểm đếm', 'warn'] : [`Xong ${c.done}/${c.shifts} ca`, 'none'];
+    return html`<td><a class="dw-c ${cls}" href="#/quan-ly/doi-soat?xem=ngay&ngay=${d}"><span class="dw-st">${lb}</span></a></td>`;
   };
-  const table = (b) => {
-    const get = (i, sh) => (ovs[i] || []).find((r) => r.branch_id === b.id && r.shift === sh) || null;
-    const all = days.flatMap((d, i) => shifts.map((sh) => [get(i, sh), d])).filter(([x]) => x);
-    const n = (k) => all.filter(([x, d]) => stOf(x, d) === k).length;
-    return html`<section class="card stack" style="gap:8px"><div class="ck-w-h"><h2 style="margin:0">${b.code}</h2>
-        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ đối soát <b>${n('cho')}</b>${n('kt') ? html` · chờ kế toán <b>${n('kt')}</b>` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <span class="ck-w-bad">${n('tre')} ca quá giờ chưa chốt</span>` : ''}${n('am') ? html` · <span class="ck-w-bad">${n('am')} ca có khoản âm</span>` : ''}</span></div>
-      <div class="table-wrap ck-w-wrap"><table class="ck-w ds-w">
-        <thead><tr><th>Ca</th>${days.map((d) => html`<th class="${d === today ? 'today' : ''}"><a href="#/quan-ly/doi-soat?ngay=${d}">${DOW[new Date(d + 'T00:00:00Z').getUTCDay()]}<br><span>${dmy(d).slice(0, 5)}</span></a></th>`)}</tr></thead>
-        <tbody>${shifts.map((sh) => html`<tr><th>${sh}</th>${days.map((d, i) => cell(get(i, sh), d))}</tr>`)}
-          <tr class="ck-w-tot"><th>Cuối ngày</th>${days.map((d, i) => endCell((cds[i] || []).find((c) => c.branch_id === b.id), d))}</tr></tbody></table></div></section>`;
-  };
-  return {
-    title: 'Đối soát',
-    html: html`<style>${WEEK_CSS}${DS_W_CSS}</style>
-      <div class="page-head"><div><h1>Đối soát</h1><div class="sub">Bảng tuần: mỗi ô là tình trạng đối soát của ca, doanh thu và tiền mặt (TM) / chuyển khoản (CK) còn lệch. Bấm ô để mở trang Đối soát ca; bấm tên ngày để xem ngày đó.</div></div></div>
-      <div class="stack" style="max-width:1100px;gap:12px">
-        <section class="card toolbar" style="padding:12px 14px;gap:8px">${dsTabs(day, true)}
-          <a class="btn sm secondary" href="#/quan-ly/doi-soat?xem=tuan&ngay=${addDays(mon, -7)}">‹ Tuần trước</a>
-          <input class="input sm" type="date" id="ds-wday" value="${day}" aria-label="Ngày trong tuần">
-          <a class="btn sm secondary" href="#/quan-ly/doi-soat?xem=tuan&ngay=${addDays(mon, 7)}">Tuần sau ›</a>
-          <strong>${dmy(mon)} – ${dmy(days[6])}</strong></section>
-        <div class="ck-w-legend st-meta">${Object.values(WK_ST).map(([l, c], i) => html`${i ? ' · ' : ''}<span class="${c}" style="display:inline">${l}</span>`)}</div>
-        ${branches.map(table)}
-      </div>`,
-    mount() { $('#ds-wday').addEventListener('change', (e) => { location.hash = '#/quan-ly/doi-soat?xem=tuan&ngay=' + e.target.value; }); },
-  };
+  const all = days.flatMap((d, i) => shifts.map((sh) => [get(i, sh), d])).filter(([x]) => x);
+  const n = (k) => all.filter(([x, d]) => stOf(x, d) === k).length;
+  const done = (s) => s && s.status === 'hoan_thanh' && s.cash_left != null;
+  const sumDay = (i, k) => shifts.reduce((t, sh) => { const s = get(i, sh); return t + (done(s) ? Number(s[k]) || 0 : 0); }, 0);
+  const money = (tm, ck, strong) => html`<span class="dw-mn ${strong ? 'tot' : ''}"><span class="${tm < 0 ? 'neg' : tm > 0 ? 'pos' : ''}">TM ${kf(tm)}</span><span class="${ck < 0 ? 'neg' : ck > 0 ? 'pos' : ''}">CK ${kf(ck)}</span></span>`;
+  const mnCell = (s) => (done(s) ? html`<td>${money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0)}</td>` : html`<td class="dw-na">${s ? (s.report_id ? '…' : '—') : '—'}</td>`);
+  const wkTM = days.reduce((t, _, i) => t + sumDay(i, 'cash_left'), 0); const wkCK = days.reduce((t, _, i) => t + sumDay(i, 'transfer_left'), 0);
+  return html`
+    <section class="card dw-card"><div class="dw-h"><h2>① Trạng thái đối soát</h2>
+        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ <b>${n('cho') + n('sua')}</b>${n('kt') ? ` · chờ kế toán ${n('kt')}` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <b class="neg">${n('tre')} thiếu phiếu</b>` : ''}</span></div>
+      <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cuối ngày</th></tr></thead>
+        <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</tr>`)}</tbody></table></div>
+      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">Bấm ô để mở trang Đối soát ca; ô Cuối ngày mở trang kiểm đếm tiền mặt cuối ngày.</span></div></section>
+    <section class="card dw-card"><div class="dw-h"><h2>② Tiền — lệch tiền mặt / chuyển khoản</h2><span class="st-meta">Cả tuần: ${money(wkTM, wkCK, true)}</span></div>
+      <div class="dw-wrap"><table class="dw-t dw-m"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cả ngày</th></tr></thead>
+        <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => mnCell(get(i, sh)))}<td class="dw-day">${shifts.some((sh) => done(get(i, sh))) ? money(sumDay(i, 'cash_left'), sumDay(i, 'transfer_left'), true) : html`<span class="st-meta">—</span>`}</td></tr>`)}
+          <tr class="dw-wk"><th><b>Cả tuần</b></th>${shifts.map(() => html`<td></td>`)}<td>${money(wkTM, wkCK, true)}</td></tr></tbody></table></div>
+      <div class="st-meta">Âm = thiếu, dương = dư (lệch ≤ 5.000 coi như khớp). Ca thiếu / dư xử lý ở <a href="#/quan-ly/am-tien">Quản lý ca › Âm tiền</a>.</div></section>`;
 }
-const DS_W_CSS = `
-  .ds-w td { min-width: 104px; }
-  .ds-w-ktx { color: #7e22ce; font-size: 12px; font-weight: 700; }
-  .ds-w td.ds-w-xong { background: #f0fdf4; } .ds-w td.ds-w-am, .ds-w td.ds-w-tre { background: #fef2f2; } .ds-w td.ds-w-cho, .ds-w td.ds-w-dang { background: #fffbeb; } .ds-w td.ds-w-kt { background: #faf5ff; }
-`;
+
+const DW_CSS = html`<style>
+  .dw-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; }
+  .dw-wk-nav { display: flex; align-items: center; gap: 8px; } .dw-wt { display: flex; flex-direction: column; align-items: center; min-width: 130px; font-size: 13px; }
+  .dw-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
+  .dw-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; } .dw-h h2 { margin: 0; font-size: 17px; }
+  .dw-wrap { overflow-x: auto; }
+  .dw-t { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
+  .dw-t thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
+  .dw-t thead th:first-child { width: 52px; }
+  .dw-t tbody th { text-align: left; font-size: 13px; font-weight: 400; color: var(--ink-2); } .dw-t tbody th b { display: block; } .dw-t tbody th span { font-size: 11px; color: var(--muted); }
+  .dw-t tr.today th, .dw-t tr.today th span { color: var(--primary); }
+  .dw-t td { padding: 0; vertical-align: top; } .dw-na { text-align: center; color: var(--muted); padding-top: 8px !important; }
+  .dw-c { display: flex; flex-direction: column; gap: 1px; min-height: 44px; border-radius: 10px; padding: 6px 8px; border: 1px solid var(--line); text-decoration: none; justify-content: center; }
+  a.dw-c:hover { filter: brightness(.97); }
+  .dw-c.ok { background: var(--ok-bg); border-color: #b7d8ab; color: var(--ok-ink); } .dw-c.warn { background: var(--warn-bg); border-color: #f6d58a; color: var(--warn-ink); }
+  .dw-c.cho { background: var(--info-bg); border-color: #c4d3e2; color: var(--info-ink); } .dw-c.kt { background: var(--plum-bg); border-color: #dcc6d9; color: var(--plum-ink); }
+  .dw-c.none { background: #fff; color: var(--muted); } .dw-c.miss { background: var(--off-bg); border-color: #f3b4ad; color: #991b1b; }
+  .dw-st { font-size: 12.5px; font-weight: 800; } .dw-sub { font-size: 11px; font-weight: 600; }
+  .dw-mn { display: flex; flex-direction: column; font-size: 12px; font-weight: 600; font-variant-numeric: tabular-nums; padding: 6px 8px; background: var(--subtle); border-radius: 10px; min-height: 44px; justify-content: center; }
+  .dw-mn.tot { background: transparent; padding: 0; min-height: 0; font-weight: 800; } .dw-day .dw-mn.tot { padding: 6px 8px; background: var(--caramel-soft); border-radius: 10px; min-height: 44px; }
+  .dw-h .dw-mn.tot { display: inline-flex; flex-direction: row; gap: 8px; }
+  .dw-mn .neg, .dw-h .neg { color: #b91c1c; } .dw-mn .pos { color: var(--ok-ink); }
+  .dw-wk th, .dw-wk td { border-top: 2px solid var(--line); padding-top: 6px; }
+  .dw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .dw-lg .dw-c { min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; display: inline-flex; }
+  @media (max-width: 560px) { .dw-t { border-spacing: 3px; } .dw-c, .dw-mn { padding: 5px 5px; } .dw-t thead th:first-child { width: 38px; } .dw-st { font-size: 11.5px; } .dw-mn { font-size: 11px; } }
+</style>`;
 
 export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
-  if (params.xem === 'tuan') return renderWeek(day);
-  const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: null }),
+  const wkMode = params.xem !== 'ngay';   // bước 77: mặc định xem theo tuần, 1 cơ sở
+  const wkDay = /^\d{4}-\d{2}-\d{2}$/.test(params.tuan || '') ? params.tuan : day;
+  let WD = null; let cn = null; const BRS = [];
+  if (wkMode) {
+    WD = await weekData(wkDay);
+    WD.ovs.forEach((rows0) => (rows0 || []).forEach((r) => { if (!BRS.some((x) => x.id === r.branch_id)) BRS.push({ id: r.branch_id, code: r.branch_code, name: r.branch_name }); }));
+    const has = (v) => BRS.some((x) => String(x.id) === String(v));
+    cn = has(params.cn) ? Number(params.cn) : has(lsGet()) ? Number(lsGet()) : BRS[0]?.id || null;
+    if (cn) lsSet(cn);
+  }
+  const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: wkMode ? cn : null }),
     rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => [])]);
   const DM = new Map(((await rpc('app_ca_debt_marks', { p_date: day }).catch(() => null)) || []).map((x) => [x.report_id, x]));   // bước 55
   // bước 44: phần tiền chờ kế toán (thiếu file chốt ca Fabi / chuyển khoản ngân hàng)
@@ -249,11 +283,20 @@ export async function render({ params }) {
         @media (max-width: 760px) { .td-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
         @media (max-width: 640px) { .bc-grid { gap: 5px; grid-template-columns: 40px repeat(3, minmax(0, 1fr)) !important; } .bc { padding: 7px; border-left-width: 4px; } .bc-lbl { font-size: 11.5px; } .bc-m, .bc-rev { font-size: 11px; } }
       </style>
-      <style>${WEEK_CSS}</style><div class="page-head"><div><h1>Đối soát</h1><div class="sub">Mọi việc chờ đối soát gom ở đây: phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm. Bấm vào để làm ngay.</div></div>
+      <style>${WEEK_CSS}</style>${DW_CSS}<div class="page-head"><div><h1>Đối soát</h1><div class="sub">${wkMode ? 'Theo tuần, từng cơ sở: ① trạng thái đối soát, ② tiền lệch; việc chờ đối soát ở dưới.' : 'Mọi việc chờ đối soát gom ở đây: phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm. Bấm vào để làm ngay.'}</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
+      ${wkMode ? html`<div class="stack" style="max-width:1100px;gap:12px">
+        <section class="card dw-bar"><div class="toolbar" style="gap:8px">${dsTabs(wkDay, true, cn)}</div>
+          <nav class="branch-tabs" aria-label="Cơ sở">${BRS.map((x) => html`<a class="${cn === x.id ? 'on' : ''}" href="#/quan-ly/doi-soat?tuan=${WD.mon}&cn=${x.id}" title="${x.name}">${x.code}</a>`)}</nav>
+          <div class="dw-wk-nav"><a class="btn sm secondary" href="#/quan-ly/doi-soat?tuan=${addDays(WD.mon, -7)}&cn=${cn}" aria-label="Tuần trước">‹</a>
+            <div class="dw-wt"><b>${dmy(WD.mon).slice(0, 5)} – ${dmy(WD.days[6])}</b>${vnToday() >= WD.mon && vnToday() <= WD.days[6] ? html`<span class="pill info">Tuần này</span>` : html`<a href="#/quan-ly/doi-soat?cn=${cn}">Về tuần này</a>`}</div>
+            <a class="btn sm secondary" href="#/quan-ly/doi-soat?tuan=${addDays(WD.mon, 7)}&cn=${cn}" aria-label="Tuần sau">›</a></div></section>
+        ${cn ? weekTables(WD, cn) : html`<div class="card">Chưa có cơ sở nào bật ca làm việc.</div>`}
+        ${todo}
+      </div>` : html`
       <div class="stack" style="max-width:1100px;gap:12px">
         <div class="toolbar" style="gap:8px">${dsTabs(day, false)}</div>
-        ${datePicker('/quan-ly/doi-soat', day)}
+        ${datePicker('/quan-ly/doi-soat', day, '&xem=ngay')}
         <section class="card bc-card">
           <div class="bc-head"><h2 style="margin:0">Bảng ca ${day === vnToday() ? 'hôm nay' : 'ngày'} ${dmy(day)}</h2>
             <span class="st-meta">NV hoàn thành ${staffDone}/${total} · Đã đối soát ${reconDone}/${total}</span>
@@ -270,7 +313,7 @@ export async function render({ params }) {
         ${todo}
         <h2 style="margin:8px 0 0">Đối soát tiền mặt cuối ngày</h2>
         <div class="grid2">${days.map(dayCard)}</div>
-      </div>`,
+      </div>`}`,
     mount() {
       bindDatePicker();
       $$('.td-k[data-to]').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.to)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
@@ -281,6 +324,7 @@ export async function render({ params }) {
         TB.cn = e.target.value;
         $$('#td [data-br]').forEach((el) => { el.hidden = !!TB.cn && el.dataset.br !== TB.cn; });
       });
+      if (wkMode && cn) { const sel = $('#td-br'); sel.value = String(cn); sel.dispatchEvent(new Event('change')); sel.hidden = true; }   // bước 77
       $$('.td-keep').forEach((b) => b.addEventListener('click', async () => {
         const k = T.ka[Number(b.closest('.td-r').dataset.i)]; b.disabled = true;
         try { await rpc('app_ka_edit', { p_id: k.id, p_employee: k.employee_id, p_amount: k.amount, p_status: 'tru_luong', p_note: 'Đã xem giải trình — giữ trừ lương' }); flash('Đã giữ trừ lương. Nhân viên đã được báo.'); rerender(); }
