@@ -13,7 +13,8 @@ import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 export const perm = 'doi_soat';
 const LS_BR = 'tcBranch';
 const ITEM = { tien_mat: ['TM', 'tiền mặt'], chuyen_khoan: ['CK', 'chuyển khoản'] };
-const STATE = { cho_tien: ['Chờ tiền về', 'wait'], cho_gan: ['Chờ gán', 'todo'], du: ['Chưa xử lý', 'todo'], xong: ['✓ Đã xử lý', 'ok'] };
+const STATE = { cho_tien: ['Chờ tiền về', 'wait'], cho_no: ['Chờ khách trả nợ', 'wait'], cho_gan: ['Chờ gán', 'todo'], du: ['Chưa xử lý', 'todo'], xong: ['✓ Đã xử lý', 'ok'] };
+const FGROUP = (st) => (st === 'cho_no' ? 'cho_tien' : st);   // bước 74: Chờ khách trả nợ nằm chung ô Chờ tiền về
 let FILTER = '';
 const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 7); };
@@ -40,7 +41,7 @@ export async function render(ctx) {
   const shorts = inM.filter((r) => r.kind === 'thieu'); const overs = inM.filter((r) => r.kind === 'du');
   const sum = (a, f) => a.reduce((s, r) => s + Number(f(r)), 0);
   const K = {
-    cho_tien: shorts.filter((r) => r.state === 'cho_tien'), cho_gan: shorts.filter((r) => r.state === 'cho_gan'),
+    cho_tien: shorts.filter((r) => r.state === 'cho_tien' || r.state === 'cho_no'), cho_gan: shorts.filter((r) => r.state === 'cho_gan'),
     du: overs.filter((r) => r.state === 'du'), xong: inM.filter((r) => r.state === 'xong'),
   };
   const free = (r) => Math.max(0, Number(r.remain) - Number(r.mp));
@@ -60,7 +61,8 @@ export async function render(ctx) {
       ${r.locked || (d.kind === 'quan_chiu' && !admin) ? '' : html`<span class="at-btns"><button type="button" class="btn sm secondary at-und">Bỏ</button></span>`}</div>`;
   const shortCard = (r) => {
     const sug = r.locked ? [] : sugOf(r); const can = !r.locked && shortFree(r) > 0;
-    return html`<article class="at-card st-${r.state}" data-i="${r.i}" data-st="${r.state}">${head(r)}
+    return html`<article class="at-card st-${r.state}" data-i="${r.i}" data-st="${FGROUP(r.state)}">${head(r)}
+      ${(r.debts || []).length ? html`<div class="at-logs">${r.debts.map((d) => html`<div class="at-log">${d.closed ? '✓' : '📌'} Khách nợ <b>${d.name}</b> ${fmt(d.amount)}${d.phone ? ` · ${d.phone}` : ''} · ${d.closed ? `đã trả ${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'} ở ca ${d.closed_shift || ''} ${d.closed_date ? dmy(d.closed_date).slice(0, 5) : ''} — đã bù` : 'chờ khách trả (ghi nhận ở đối soát)'}</div>`)}</div>` : ''}
       ${r.people.length ? html`<div class="at-ppl">${r.people.map((p) => html`<div><span>${p.name} chịu</span><b>${fmt(p.amount)} · ${p.status === 'tru_luong' ? 'trừ lương' : p.status === 'da_bu' ? 'đã bù' : p.status === 'mien' ? 'miễn' : p.status}</b></div>`)}</div>` : ''}
       ${r.matches.length || r.decisions.length ? html`<div class="at-logs">${r.matches.map((m) => matchLine(r, m))}${r.decisions.map((d) => decLine(r, d))}</div>` : ''}
       ${can && sug.length ? html`<div class="at-sug"><span class="at-t">Gợi ý ghép${r.tl > 0 ? ' — ghép được sẽ huỷ / giảm trừ lương' : ''}</span>${sug.slice(0, 3).map((o) => { const v = Math.min(free(o), shortFree(r));
@@ -87,7 +89,7 @@ export async function render(ctx) {
         <nav class="branch-tabs" aria-label="Cơ sở">${D.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav></section>
       ${nWait || pendM ? html`<div class="alert warn">Còn <b>${nWait} ca</b> đang chờ${pendM ? ` và <b>${pendM} khoản ghép</b> chờ duyệt` : ''}. Tháng này chưa chốt được cho tới khi xử lý xong.</div>` : inM.length ? html`<div class="alert ok">Không còn ca nào chờ xử lý trong tháng.</div>` : ''}
       <div class="at-kpis">
-        ${kpi('cho_tien', 'wait', 'Chờ tiền về', K.cho_tien, `${K.cho_tien.length} ca thiếu CK`)}
+        ${kpi('cho_tien', 'wait', 'Chờ tiền về', K.cho_tien, `${K.cho_tien.length} ca${K.cho_tien.some((r) => r.state === 'cho_no') ? ' · có chờ khách trả nợ' : ' thiếu CK'}`)}
         ${kpi('cho_gan', 'todo', 'Chờ gán', K.cho_gan, `${K.cho_gan.length} ca thiếu TM`)}
         ${kpi('du', 'du', 'Ca dư', K.du, `${K.du.length} ca chưa xử lý`)}
         ${kpi('xong', '', 'Đã xử lý', K.xong, `${K.xong.length} khoản`)}

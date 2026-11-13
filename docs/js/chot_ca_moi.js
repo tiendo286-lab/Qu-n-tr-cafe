@@ -42,7 +42,9 @@ export async function renderNew(R0, P, SH) {
   const V = {
     step: tienMine && !waiting ? Math.min(STEPS.length - 1, Math.max(1, Number(mem.step) || 1)) : 0,
     staff: (R.staff || []).map((s) => ({ ...s, worked: s.worked === undefined ? true : !!s.worked,
-      time_in: s.time_in || (s.source === 'lich' && SH ? hm(SH.start) : null), time_out: s.time_out || (s.source === 'lich' && SH ? hm(SH.end) : null) })),
+      // bước 74: gợi ý giờ theo LỊCH TUẦN của từng người (ca đã xếp, vd FULL TIME); người không có lịch ca này để trống
+      time_in: s.time_in || (s.source === 'lich' ? (s.sched?.start ? hm(s.sched.start) : SH ? hm(SH.start) : null) : null),
+      time_out: s.time_out || (s.source === 'lich' ? (s.sched?.end ? hm(s.sched.end) : SH ? hm(SH.end) : null) : null) })),
     open: hm(R.rev_start ? R.rev_start.slice(11) : ''), close: hm(R.rev_end ? R.rev_end.slice(11) : ''),
     f: { ipos_opening: num(R.ipos_opening), total_revenue: num(R.total_revenue), pos_transfer: num(R.pos_transfer), pos_cash: num(R.pos_cash),
       pos_debt: num(R.pos_debt), cash_counted: num(R.cash_counted), pos_diff: num(R.pos_diff) },
@@ -187,7 +189,7 @@ export async function renderNew(R0, P, SH) {
         ${oldBills().length ? html`<h3 style="margin:8px 0 0">Khách trả nợ cũ trong ca</h3>
           <div class="st-meta">Phiếu Fabi có mục <strong>PHIẾU THANH TOÁN NỢ</strong> thì chọn khách đã trả ở đây (Fabi đã cộng tiền khách trả bằng tiền mặt vào tiền phải có).</div>
           ${oldBills().map(debtPayRow)}` : ''}
-        ${money().startBad ? html`<label class="pc-f"><span>Lý do số dư đầu khác ${expStart.src} (bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
+        ${expStart ? html`<label class="pc-f" id="cm-open-wrap" ${money().startBad ? '' : 'hidden'}><span>Lý do số dư đầu khác ${expStart.src} (bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
     },
     3: () => {
       const od = (R.open_debts || []).filter((d) => !isLoan(d));
@@ -349,7 +351,8 @@ export async function renderNew(R0, P, SH) {
       const root = $('#cm-root');
       const draw = (top) => { const y = window.scrollY; root.innerHTML = str(shell()); bind(); if (top) window.scrollTo(0, 0); else window.scrollTo(0, y); };
       const soft = () => {
-        if (ORDER[V.step] === 2) { $('#cm-checks').innerHTML = str(fabiChecks().h); if (!!$('#cm-open-note') !== !!money().startBad) draw(); }
+        // bước 74: không vẽ lại cả bước khi đang gõ (trước đây ô Số dư đầu bị nhảy / mất số) — chỉ ẩn / hiện ô lý do tại chỗ
+        if (ORDER[V.step] === 2) { $('#cm-checks').innerHTML = str(fabiChecks().h); const w = $('#cm-open-wrap'); if (w) w.hidden = !money().startBad; }
         if (V.tried) { const e = stepError(); $('#cm-err').innerHTML = e ? str(html`<div class="alert error">${e}</div>`) : ''; }
       };
       const busy = async (fn) => { try { await fn(); } catch (e) { showSaved(e.message, true); } };
@@ -419,7 +422,7 @@ export async function renderNew(R0, P, SH) {
           const hit = (x, q) => !q || norm(x.code).startsWith(q) || norm(x.name).startsWith(q) || norm(x.name).split(/\s+/).some((y) => y.startsWith(q));
           const addEmp = (e) => {
             if (V.staff.some((st) => st.employee_id === e.id)) { showSaved('Người này đã có trong danh sách.', true); return; }
-            V.staff.push({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, source: 'ho_tro', worked: true, pay_cash: e.pay_cash, time_in: SH ? hm(SH.start) : null, time_out: SH ? hm(SH.end) : null });
+            V.staff.push({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, source: 'ho_tro', worked: true, pay_cash: e.pay_cash, time_in: null, time_out: null });   // bước 74: người làm hộ để trống giờ
             showSaved(`Đã thêm ${e.code} – ${e.name}`); draw();
           };
           const showList = () => {

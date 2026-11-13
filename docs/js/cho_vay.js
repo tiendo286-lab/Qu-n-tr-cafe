@@ -13,8 +13,9 @@ const payRadio = (sel = 'tien_mat') => html`<div class="pc-line" role="radiogrou
 export const LOAN_CSS = html`<style>
   .ln-sec { padding: 14px; margin-bottom: 12px; }
   .ln-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: center; }
-  .ln-p { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; align-items: center; padding: 8px 4px; border-top: 1px solid var(--line); }
+  .ln-p { display: flex; flex-direction: column; gap: 6px; padding: 8px 4px; border-top: 1px solid var(--line); }   /* bước 74: 2 tầng — không vỡ chữ ở cột hẹp */
   .ln-p .grow { min-width: 0; overflow-wrap: anywhere; } .ln-owe { font-weight: 800; color: #b91c1c; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .ln-p > .toolbar { display: flex; flex-direction: row; flex-wrap: wrap; justify-content: space-between; align-items: center; width: 100%; gap: 8px; } .ln-p > .toolbar .btn { width: auto; }
   .ln-l { padding: 8px 4px; border-top: 1px solid var(--line-soft, var(--line)); font-size: 14px; }
   .ln-l .pc-line { flex-wrap: wrap; } .ln-pay { padding-left: 14px; }
   .ln-dlg { width: min(480px, calc(100vw - 56px)); }
@@ -78,8 +79,8 @@ function section(b, d) {
     ${owing.length ? html`<div class="ln-g">Người vay</div>${owing.map((p) => person(p, `Đã vay ${vnd(p.lent)} · đã trả ${vnd(p.paid)}`))}` : ''}
     <div class="ln-g">Khách hàng nợ</div>
     ${cus.length ? cus.map((x) => { const n = daysAgo(x.date); return html`<div class="ln-p cn-row" data-id="${x.id}"><div class="grow"><strong>${x.name}</strong>${x.phone ? html` · <span class="st-meta">${x.phone}</span>` : ''}
-        <div class="st-meta">${dmy(x.date)} · <span class="${n > 7 ? 'ln-late' : ''}">${n ? `${n} ngày` : 'hôm nay'}</span> · ${x.by_ql ? `quản lý ghi (${x.by || ''})` : html`<a href="#/ca/phieu?id=${x.report_id}">phiếu ca ${x.shift || ''}</a>`}${x.paid_before ? ` · đã trả ${vnd(x.paid_before)}` : ''}${x.note ? ` · ${x.note}` : ''}</div></div>
-        <span class="toolbar ln-act" style="gap:6px"><span class="ln-owe">${vnd(x.amount)}</span>${x.by_ql && !x.split && d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-ed">Sửa</button><button type="button" class="btn sm secondary danger cn-del" aria-label="Xoá khách nợ">×</button>` : ''}</span></div>`; })
+        <div class="st-meta">${dmy(x.date)} · <span class="${n > 7 ? 'ln-late' : ''}">${n ? `${n} ngày` : 'hôm nay'}</span> · ${x.gap_report ? html`<a href="#/quan-ly/doi-soat/ca?id=${x.gap_report}">ghi nhận ở đối soát ca ${x.gap_ca || ''}</a>` : x.by_ql ? `quản lý ghi (${x.by || ''})` : html`<a href="#/ca/phieu?id=${x.report_id}">phiếu ca ${x.shift || ''}</a>`}${x.paid_before ? ` · đã trả ${vnd(x.paid_before)}` : ''}${x.note ? ` · ${x.note}` : ''}</div></div>
+        <span class="toolbar ln-act" style="gap:6px"><span class="ln-owe">${vnd(x.amount)}</span>${x.by_ql && !x.split && !x.gap_report && d.cn?.can_edit ? html`<button type="button" class="btn sm secondary cn-ed">Sửa</button><button type="button" class="btn sm secondary danger cn-del" aria-label="Xoá khách nợ">×</button>` : ''}</span></div>`; })
       : html`<div class="st-meta">Không có khách nợ.</div>`}
     <div class="st-meta">Khách trả nợ: nhân viên bấm "Khách đã trả" ở phiếu chốt ca (trả một phần được). Nhân viên không được vay / ứng tiền của quán. Cho vay / trả hộ không tính chi phí.</div>
     ${d.loans.length ? html`<details><summary style="cursor:pointer;font-weight:600">Lịch sử vay / trả hộ (${d.loans.length} khoản)</summary>

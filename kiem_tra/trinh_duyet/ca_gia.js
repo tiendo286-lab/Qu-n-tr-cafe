@@ -114,7 +114,9 @@ export function makeCa(T, me) {
         shortfalls: SF.filter((k) => k.report_id === r.id && k.status !== 'huy').map((k) => ({ ...k, employee: `${emp(k.employee_id).code} – ${emp(k.employee_id).name}` })),
         money: r.status === 'hoan_thanh' && me.perms.doi_soat ? money(r.id) : null,
         moves: T.shift_report_moves.filter((m) => m.report_id === r.id),
-        staff: T.shift_report_staff.filter((x) => x.report_id === r.id).map((x) => ({ ...x, code: emp(x.employee_id).code, name: emp(x.employee_id).name, rank: emp(x.employee_id).rank, pay_cash: !!emp(x.employee_id).pay_cash })),
+        staff: T.shift_report_staff.filter((x) => x.report_id === r.id).map((x) => ({ ...x, code: emp(x.employee_id).code, name: emp(x.employee_id).name, rank: emp(x.employee_id).rank, pay_cash: !!emp(x.employee_id).pay_cash,
+          sched: x.source === 'lich' ? ((T.sched_fx || []).find((f) => f.employee_id === x.employee_id) || null) : null })),
+        recon_debts: (T.shift_debts || []).filter((d) => d.gap_report === r.id).map((d) => ({ id: d.id, name: d.table_name, phone: d.phone || null, amount: d.amount, item: d.gap_item, closed: !!d.closed_at, collect_kind: d.collect_kind || null, by: 'admin – Chủ' })),
         handover: T.handover_items.filter((h) => h.report_id === r.id).map((h) => ({ ...h, created_by_name: name(h.created_by) })),
         carried: T.handover_items.filter((h) => h.branch_id === r.branch_id && h.report_id !== r.id && before(rep(h.report_id)) && (!h.done_at || h.done_report_id === r.id))
           .map((h) => ({ ...h, from_date: rep(h.report_id).work_date, from_shift: rep(h.report_id).shift, created_by_name: name(h.created_by), done_by_name: name(h.done_by) })),
@@ -218,6 +220,13 @@ export function makeCa(T, me) {
       return T.shift_debts.filter((d) => d.kind === 'muon' && !d.closed_at).map((d) => { const o = rep(d.report_id); const b = T.branches.find((x) => x.id === d.branch_id) || {};
         return { id: d.id, branch_id: d.branch_id, branch: b.display_code || b.code, name: d.table_name, amount: d.amount, note: d.note, date: o.work_date, shift: o.shift, report_id: o.id, days: 0, by: 'Nhân viên thử' }; });
     },
+    app_ca_recon_debt({ p_report, p_item, p_name, p_phone, p_amount, p_note }) {
+      if (!(p_name || '').trim()) throw new Error('Ghi tên / bàn khách nợ.'); if (!(p_amount > 0)) throw new Error('Nhập số tiền nợ lớn hơn 0.');
+      const r = rep(p_report); const id = Math.max(0, ...T.shift_debts.map((x) => x.id)) + 1;
+      T.shift_debts.push({ id, branch_id: r.branch_id, report_id: null, table_name: p_name.trim(), phone: p_phone || null, amount: p_amount, note: (p_note || '') + ' · ghi nhận ở đối soát ca ' + r.shift, kind: 'bill', created_at: r.work_date + ' 09:00:00', gap_report: p_report, gap_item: p_item });
+      return id;
+    },
+    app_ca_recon_debt_delete({ p_id }) { T.shift_debts = T.shift_debts.filter((x) => x.id !== p_id); },
     app_ca_debt_collect_part({ p_debt, p_report, p_kind, p_amount, p_note }) {
       const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_at) throw new Error('Khoản nợ này đã được thu hoặc không còn.');
       if (!(p_amount > 0)) throw new Error('Nhập số tiền khách trả lớn hơn 0.'); if (p_amount > d.amount) throw new Error('Khách trả nhiều hơn số nợ.');

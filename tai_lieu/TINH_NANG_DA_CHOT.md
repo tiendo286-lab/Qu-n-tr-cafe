@@ -453,6 +453,12 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Phiếu chốt ca (bước Thu chi trong ca): nhân viên chỉ chọn **Thu / Chi** + nội dung + số tiền (quản lý phân loại sau). **Không cho ghi "âm / thiếu / hụt tiền" vào thu chi** — két thiếu thì đếm đúng số thực tế, web tự tính chênh lệch, quản lý xử lý ở Đối soát / tab Âm tiền. Bản phiếu ở trang quản lý cũng chặn như vậy.
 - Quỹ ngoài: khoản chi / thu ngoài mặc định gợi ý **chia đều** cho các cơ sở (Chủ tự cân đối, đổi cách chia được).
 
+## 5r11. Sửa sau khi dùng thử — CHỐT và ĐÃ LÀM 13/11/2026 (`supabase/74_ghi_nhan_no_gio_lich.sql`)
+- **Giờ gợi ý khi chốt ca** (bước Ai làm ca): theo **Lịch tuần của từng người** (ca đã xếp, vd FULL TIME → giờ FULL TIME theo cài đặt ca của cơ sở). Người làm hộ (không có lịch ca này) **để trống**, nhân viên tự gõ giờ thật.
+- **Ghi nhận nợ ở Đối soát ca** (tình huống mẫu: ĐK ca Sáng 01/11 — khách nợ nhưng nhân viên bấm thanh toán chuyển khoản trên Fabi): mục Công nợ của trang Đối soát có nút **"+ Ghi nhận nợ"** (tên / bàn, SĐT, số tiền, NV bấm nhầm Chuyển khoản hay Tiền mặt). Số tiền của ca **không đổi** (ca thiếu khoản đó); khoản nợ vào **Công nợ** + nhắc ở các ca sau; tab Âm tiền ghi ca **"Chờ khách trả nợ"** (nằm ở ô Chờ tiền về). Ca sau khách trả → nhân viên chọn "Khách trả nợ cũ" như thường (trả một phần được) → **web tự bù** phần thiếu của ca gốc. Còn chờ khách trả → **chưa chốt được tháng**. Khoản ghi nhận chỉ xoá được khi khách chưa trả.
+- **Lỗi gõ ô Số dư đầu** (phiếu chốt ca): đang gõ không còn bị nhảy / mất số (ô lý do lệch hiện / ẩn tại chỗ, không vẽ lại cả bước).
+- **Khung Công nợ** (cột phải Thu chi): mỗi người 2 tầng — tên + chi tiết / còn nợ + nút Ghi trả nợ (hết vỡ chữ).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
