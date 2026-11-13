@@ -17,7 +17,7 @@ export const perm = 'doi_soat';
 const LS_BR = 'tcBranch';
 const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; } catch (_) { return null; } };
 const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
-const kf = (n) => { const v = Number(n) || 0; const a = Math.abs(v); const s = v < 0 ? '−' : v > 0 ? '+' : ''; return a === 0 ? '0' : a >= 1e6 ? `${s}${(a / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}tr` : a >= 1000 ? `${s}${Math.round(a / 1000)}k` : `${s}${a}`; };
+const kf = (n) => { const v = Number(n) || 0; return (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v)); };   // bước 81: ghi số đầy đủ
 const dsTabs = (day, wk, cn) => html`<nav class="ck-view" aria-label="Cách xem"><a href="#/quan-ly/doi-soat?tuan=${day}${cn ? `&cn=${cn}` : ''}" class="${wk ? 'on' : ''}">Theo tuần</a><a href="#/quan-ly/doi-soat?xem=ngay&ngay=${day}" class="${wk ? '' : 'on'}">Theo ngày</a></nav>`;
 const WST = { chua: ['Chưa mở', 'none'], tre: ['Thiếu phiếu', 'miss'], dang: ['Đang chốt', 'warn'], kt: ['Chờ kế toán', 'kt'], cho: ['Chờ đối soát', 'cho'], sua: ['Đang sửa', 'cho'], xong: ['Đã đối soát', 'ok'], am: ['Có khoản âm', 'miss'] };
 
@@ -50,7 +50,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
   const stCell = (s, d) => {
     if (!s) return html`<td class="dw-na">—</td>`;
     const st = stOf(s, d); const [lb, cls] = WST[st];
-    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${st === 'am' ? html`<span class="dw-sub">−${fmt(s.short_total)}</span>` : ''}${done(s) ? money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0) : ''}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}`;
+    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${done(s) ? money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0) : ''}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}`;
     const h = href(s);
     return html`<td>${h ? html`<a class="dw-c ${cls}" href="${h}">${inner}</a>` : html`<span class="dw-c ${cls}">${inner}</span>`}</td>`;
   };
@@ -63,17 +63,15 @@ function weekTables(WD, cn, DEBT = new Map()) {
   const all = days.flatMap((d, i) => shifts.map((sh) => [get(i, sh), d])).filter(([x]) => x);
   const n = (k) => all.filter(([x, d]) => stOf(x, d) === k).length;
   const done = (s) => s && s.status === 'hoan_thanh' && s.cash_left != null;
-  const sumDay = (i, k) => shifts.reduce((t, sh) => { const s = get(i, sh); return t + (done(s) ? Number(s[k]) || 0 : 0); }, 0);
-  const money = (tm, ck, strong) => html`<span class="dw-mn ${strong ? 'tot' : ''}"><span class="${tm < 0 ? 'neg' : tm > 0 ? 'pos' : ''}">TM ${kf(tm)}</span><span class="${ck < 0 ? 'neg' : ck > 0 ? 'pos' : ''}">CK ${kf(ck)}</span></span>`;
-  const wkTM = days.reduce((t, _, i) => t + sumDay(i, 'cash_left'), 0); const wkCK = days.reduce((t, _, i) => t + sumDay(i, 'transfer_left'), 0);
+  const money = (tm, ck) => html`<span class="dw-mn"><span class="${tm < 0 ? 'neg' : tm > 0 ? 'pos' : ''}">TM ${kf(tm)}</span><span class="${ck < 0 ? 'neg' : ck > 0 ? 'pos' : ''}">CK ${kf(ck)}</span></span>`;
   const reps = days.flatMap((d, i) => shifts.map((sh) => get(i, sh)).filter((x) => x && x.report_id).map((x) => ({ report_id: x.report_id, day: d, shift: x.shift })));
   return html`
     <section class="card dw-card"><div class="dw-h"><h2>Bảng ca tuần</h2>
-        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ <b>${n('cho') + n('sua')}</b>${n('kt') ? ` · chờ kế toán ${n('kt')}` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <b class="neg">${n('tre')} thiếu phiếu</b>` : ''} · cả tuần ${money(wkTM, wkCK, true)}</span></div>
-      <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th>Cả ngày</th></tr></thead>
+        <span class="st-meta">Đã đối soát <b>${n('xong') + n('am')}</b> · chờ <b>${n('cho') + n('sua')}</b>${n('kt') ? ` · chờ kế toán ${n('kt')}` : ''}${n('dang') ? ` · đang chốt ${n('dang')}` : ''}${n('tre') ? html` · <b class="neg">${n('tre')} thiếu phiếu</b>` : ''}</span></div>
+      <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th class="dw-end">Kiểm đếm</th></tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}
-          <td>${endCell((cds[i] || []).find((c) => c.branch_id === cn), d, shifts.some((sh) => done(get(i, sh))) ? money(sumDay(i, 'cash_left'), sumDay(i, 'transfer_left'), true) : '')}</td></tr>`)}</tbody></table></div>
-      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/am-tien">Âm tiền</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; ô Cả ngày mở kiểm đếm cuối ngày.</span></div></section>
+          <td>${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</td></tr>`)}</tbody></table></div>
+      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/am-tien">Âm tiền</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
     ${debtSection(DEBT, reps)}`;
 }
 
@@ -83,25 +81,24 @@ const DW_CSS = html`<style>
   .dw-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .dw-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; } .dw-h h2 { margin: 0; font-size: 17px; }
   .dw-wrap { overflow-x: auto; } .dw-c .dw-mn { color: var(--ink-2); }
-  .dw-t { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
+  .dw-t { width: 100%; min-width: 700px; border-collapse: separate; border-spacing: 5px; table-layout: fixed; } .dw-t thead th.dw-end { width: 110px; }
   .dw-t thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
   .dw-t thead th:first-child { width: 52px; }
   .dw-t tbody th { text-align: left; font-size: 13px; font-weight: 400; color: var(--ink-2); } .dw-t tbody th b { display: block; } .dw-t tbody th span { font-size: 11px; color: var(--muted); }
   .dw-t tr.today th, .dw-t tr.today th span { color: var(--primary); }
-  .dw-t td { padding: 0; vertical-align: top; } .dw-na { text-align: center; color: var(--muted); padding-top: 8px !important; }
-  .dw-c { display: flex; flex-direction: column; gap: 1px; min-height: 44px; border-radius: 10px; padding: 6px 8px; border: 1px solid var(--line); text-decoration: none; justify-content: center; }
+  .dw-t td { padding: 0; vertical-align: top; height: 1px; } .dw-na { text-align: center; color: var(--muted); padding-top: 8px !important; }
+  .dw-c { display: flex; flex-direction: column; gap: 2px; height: 100%; min-height: 56px; border-radius: 10px; padding: 8px 10px; border: 1px solid var(--line); text-decoration: none; justify-content: flex-start; }
   a.dw-c:hover { filter: brightness(.97); }
   .dw-c.ok { background: var(--ok-bg); border-color: #b7d8ab; color: var(--ok-ink); } .dw-c.warn { background: var(--warn-bg); border-color: #f6d58a; color: var(--warn-ink); }
   .dw-c.cho { background: var(--info-bg); border-color: #c4d3e2; color: var(--info-ink); } .dw-c.kt { background: var(--plum-bg); border-color: #dcc6d9; color: var(--plum-ink); }
   .dw-c.none { background: #fff; color: var(--muted); } .dw-c.miss { background: var(--off-bg); border-color: #f3b4ad; color: #991b1b; }
-  .dw-st { font-size: 12.5px; font-weight: 800; } .dw-sub { font-size: 11px; font-weight: 600; }
-  .dw-mn { display: flex; flex-direction: column; font-size: 11px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.3; }
+  .dw-st { font-size: 14px; font-weight: 800; } .dw-sub { font-size: 12.5px; font-weight: 600; }
+  .dw-mn { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.3; }
   .dw-mn.tot { font-weight: 800; }
-  .dw-h .dw-mn.tot { display: inline-flex; flex-direction: row; gap: 8px; }
   .dw-mn .neg, .dw-h .neg { color: #b91c1c; } .dw-mn .pos { color: var(--ok-ink); }
   .dw-wk th, .dw-wk td { border-top: 2px solid var(--line); padding-top: 6px; }
-  .dw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .dw-lg .dw-c { min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; display: inline-flex; }
-  @media (max-width: 560px) { .dw-t { border-spacing: 3px; } .dw-c, .dw-mn { padding: 5px 5px; } .dw-t thead th:first-child { width: 38px; } .dw-st { font-size: 11.5px; } .dw-mn { font-size: 11px; } }
+  .dw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .dw-lg .dw-c { height: auto; min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; display: inline-flex; }
+  @media (max-width: 560px) { .dw-t { border-spacing: 3px; } .dw-c { padding: 6px 7px; } .dw-t thead th:first-child { width: 40px; } }
 </style>`;
 
 export async function render({ params }) {

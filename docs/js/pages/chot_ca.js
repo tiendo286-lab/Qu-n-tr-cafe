@@ -2,7 +2,7 @@
 import { isManager } from '../app.js';
 import { WEEKDAYS, addDays, vnToday, weekStart } from '../data.js';
 import { rpc } from '../sb.js';
-import { dmy, signed } from '../tien.js';
+import { dmy, fmt, signed } from '../tien.js';
 import { $$, go, html, showSaved } from '../ui.js';
 
 export const perm = 'chot_ca';
@@ -26,11 +26,12 @@ export function debtBadges(x) {
 // Bước 80 (anh Tiến 13/11): trong ô ca ghi từng khoản nợ + "đã trả ca … ngày …"; dưới bảng có phần Nợ của tuần
 const dmS = (d) => (d ? `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}` : '');
 const pk = (k) => (k === 'chuyen_khoan' ? 'CK' : 'TM');
+const nf = (n) => fmt(Math.abs(Number(n) || 0));   // bước 81: số đầy đủ
 export function debtLines(x) {
   if (!x) return '';
   const tao = x.tao || []; const thu = x.thu || [];
-  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Mượn' : 'Nợ'} ${d.name} ${nk(d.amount)} · ${d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
-  const two = (d) => html`<span class="nl thu">Thu nợ ${d.name} ${nk(d.amount)} (${pk(d.collect_kind)}, nợ ca ${d.from_shift || 'QL ghi'} ${dmS(d.from_date)})</span>`;
+  const one = (d) => html`<span class="nl ${d.paid ? 'ok' : 'open'}">${d.kind === 'muon' ? 'Mượn' : 'Nợ'} ${d.name} ${nf(d.amount)} · ${d.paid ? `đã trả ${pk(d.collect_kind)} ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : 'chưa trả'}</span>`;
+  const two = (d) => html`<span class="nl thu">Thu nợ ${d.name} ${nf(d.amount)} (${pk(d.collect_kind)}, nợ ca ${d.from_shift || 'QL ghi'} ${dmS(d.from_date)})</span>`;
   return html`${tao.map(one)}${thu.map(two)}`;
 }
 // reps: [{ report_id, day, shift }] theo thứ tự bảng
@@ -38,18 +39,18 @@ export function debtSection(DEBT, reps) {
   const rows = []; reps.forEach((r) => { const x = DEBT.get(r.report_id); (x?.tao || []).forEach((d) => rows.push({ ...d, day: r.day, shift: r.shift, report_id: r.report_id })); });
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
   const days = (d) => Math.max(0, Math.round((Date.parse(today) - Date.parse(d)) / 864e5));
-  const open = rows.filter((d) => !d.paid); const sumA = (a) => a.reduce((t, d) => t + Number(d.amount || 0), 0);
-  return html`<section class="card nd-card"><div class="nd-h"><h2>Khách nợ / khách mượn trong tuần</h2><span class="st-meta">${rows.length ? html`${rows.length} khoản · <b class="${open.length ? 'neg' : ''}">còn ${open.length} chưa trả (${nk(sumA(open))})</b>` : 'Không có'}</span></div>
+  const open = rows.filter((d) => !d.paid);
+  return html`<section class="card nd-card"><div class="nd-h"><h2>Khách nợ / khách mượn trong tuần</h2><span class="st-meta">${rows.length ? html`${rows.length} khoản · <b class="${open.length ? 'neg' : ''}">còn ${open.length} chưa trả</b>` : 'Không có'}</span></div>
     ${rows.length ? html`<div class="nd-list">${rows.map((d) => html`<a class="nd-r ${d.paid ? 'ok' : 'open'}" href="#/ca/phieu?id=${d.report_id}">
         <span class="nd-w"><b>${dmS(d.day)}</b> · ca ${d.shift}</span>
         <span class="nd-n"><b>${d.name}</b> <span class="st-meta">${d.kind === 'muon' ? 'khách mượn' : 'khách nợ'}</span></span>
-        <span class="nd-a">${nk(d.amount)}</span>
+        <span class="nd-a">${nf(d.amount)}</span>
         <span class="nd-s">${d.paid ? `✓ Đã trả ${pk(d.collect_kind)} · ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : `Chưa trả · ${days(d.day)} ngày`}</span></a>`)}</div>` : ''}
     <div class="st-meta">Khoản nợ còn từ các tuần trước xem ở Thu chi › Công nợ.</div></section>`;
 }
 export const ND_CSS = html`<style>
-  .nl { display: block; font-size: 11px; font-weight: 700; border-radius: 6px; padding: 1px 5px; margin-top: 2px; line-height: 1.35; overflow-wrap: anywhere; }
-  .nl.open { background: #fee2e2; color: #991b1b; } .nl.ok { background: var(--ok-bg); color: var(--ok-ink); } .nl.thu { background: var(--info-bg); color: var(--info-ink); }
+  .nl { display: block; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 2px 6px; margin-top: 3px; line-height: 1.4; overflow-wrap: anywhere; }
+  .nl.open { background: #fee2e2; color: #991b1b; } .nl.ok { background: #fff; color: var(--ok-ink); border: 1px solid #b7d8ab; } .nl.thu { background: var(--info-bg); color: var(--info-ink); }
   .nd-card { padding: 14px; display: flex; flex-direction: column; gap: 8px; } .nd-h { display: flex; justify-content: space-between; gap: 8px; flex-wrap: wrap; align-items: baseline; } .nd-h h2 { margin: 0; font-size: 17px; }
   .nd-h .neg { color: #b91c1c; }
   .nd-list { display: flex; flex-direction: column; }
@@ -90,7 +91,7 @@ const LS_BR = 'tcBranch';
 const START = '2026-11-01';   // ngày bắt đầu dùng web — trước ngày này không báo "Thiếu phiếu"
 const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; } catch (_) { return null; } };
 const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
-const kfmt = (n) => { const a = Math.abs(Number(n) || 0); const s = Number(n) < 0 ? '−' : Number(n) > 0 ? '+' : ''; return a === 0 ? '0' : a >= 1e6 ? `${s}${(a / 1e6).toFixed(2).replace(/\.?0+$/, '').replace('.', ',')}tr` : a >= 1000 ? `${s}${Math.round(a / 1000)}k` : `${s}${a}`; };
+const kfmt = (n) => { const v = Number(n) || 0; return (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v)); };   // bước 81: ghi số đầy đủ
 
 export async function render({ params }) {
   const today = vnToday();
@@ -133,7 +134,7 @@ export async function render({ params }) {
     ${debtSection(DEBT, days.flatMap((d, i) => shifts.map((sh) => mine[i].find((r) => r.shift === sh)).filter((s) => s && s.report_id).map((s) => ({ report_id: s.report_id, day: d, shift: s.shift }))))}`}`;
   return {
     title: 'Chốt ca',
-    html: isManager() ? html`<div class="page-head"><div><h1>Chốt ca</h1><div class="sub">Xem theo tuần, từng cơ sở: nhân viên chốt ca, quản lý đối soát. Ô đỏ là ngày đã qua mà chưa có phiếu.</div></div></div><div class="stack" style="max-width:900px;gap:12px">${body}</div>`
+    html: isManager() ? html`<div class="page-head"><div><h1>Chốt ca</h1><div class="sub">Xem theo tuần, từng cơ sở: nhân viên chốt ca, quản lý đối soát. Ô đỏ là ngày đã qua mà chưa có phiếu.</div></div></div><div class="stack" style="max-width:1200px;gap:12px">${body}</div>`
       : html`<div class="stack" style="gap:12px">${body}</div>`,
     mount() {
       $$('.cw-c[data-b]').forEach((b) => b.addEventListener('click', async () => {
@@ -154,20 +155,20 @@ const WSTYLE = html`<style>
   .cw-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }
   .cw-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; flex-wrap: wrap; } .cw-h h2 { margin: 0; font-size: 17px; }
   .cw-wrap { overflow-x: auto; }
-  .cw-t { width: 100%; border-collapse: separate; border-spacing: 4px; table-layout: fixed; }
+  .cw-t { width: 100%; min-width: 620px; border-collapse: separate; border-spacing: 5px; table-layout: fixed; }
   .cw-t thead th { font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); font-weight: 700; }
   .cw-t thead th:first-child { width: 58px; }
   .cw-t tbody th { text-align: left; font-size: 13px; font-weight: 400; color: var(--ink-2); }
   .cw-t tbody th b { display: block; } .cw-t tbody th span { font-size: 11px; color: var(--muted); }
   .cw-t tr.today th { color: var(--primary); } .cw-t tr.today th span { color: var(--primary); }
-  .cw-t td { padding: 0; } .cw-na { text-align: center; color: var(--muted); }
-  .cw-c { width: 100%; min-height: 48px; border-radius: 10px; padding: 6px 8px; display: flex; flex-direction: column; gap: 2px; align-items: flex-start; justify-content: center; font: inherit; cursor: pointer; border: 1px solid var(--line); text-align: left; }
+  .cw-t td { padding: 0; vertical-align: top; height: 1px; } .cw-na { text-align: center; color: var(--muted); }
+  .cw-c { width: 100%; height: 100%; min-height: 56px; border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 2px; align-items: stretch; justify-content: flex-start; font: inherit; cursor: pointer; border: 1px solid var(--line); text-align: left; }
   .cw-c.ok { background: var(--ok-bg); border-color: #b7d8ab; color: var(--ok-ink); } .cw-c.warn { background: var(--warn-bg); border-color: #f6d58a; color: var(--warn-ink); }
   .cw-c.none { background: #fff; color: var(--muted); } .cw-c.miss { background: var(--off-bg); border-color: #f3b4ad; color: #991b1b; }
-  .cw-st { font-size: 13px; font-weight: 800; } .cw-m { display: flex; flex-direction: column; font-size: 11px; font-weight: 600; color: var(--ink-2); font-variant-numeric: tabular-nums; line-height: 1.3; }
+  .cw-st { font-size: 14px; font-weight: 800; } .cw-m { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; line-height: 1.3; }
   .cw-m .neg, .cw-h .neg { color: #b91c1c; } .cw-m .pos { color: var(--ok-ink); }
-  .cw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .cw-lg .cw-c { width: auto; min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; cursor: default; }
-  @media (max-width: 560px) { .cw-t { border-spacing: 3px; } .cw-c { padding: 5px 6px; } .cw-t thead th:first-child { width: 42px; } }
+  .cw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .cw-lg .cw-c { width: auto; height: auto; min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; cursor: default; }
+  @media (max-width: 560px) { .cw-t { border-spacing: 3px; } .cw-c { padding: 6px 7px; } .cw-t thead th:first-child { width: 42px; } }
 </style>`;
 
 export const STYLE = html`<style>
