@@ -34,7 +34,7 @@ export async function render() {
           const r = await rpc('app_login_email', { p_login: $('#ma').value.trim() });
           if (r.error) throw new Error(LOGIN_ERROR);
           const { error } = await sb.auth.signInWithPassword({ email: r.email, password: $('#mat_khau').value });
-          if (error) throw new Error(viError(error));
+          if (error) throw new Error(/Invalid login credentials/i.test(error.message || '') ? LOGIN_ERROR : viError(error));   // bước 63: sai mã hay sai mật khẩu đều cùng 1 câu
           await rpc('app_touch_login');
           const me = await loadMe();
           if (!me) throw new Error('Tài khoản không còn hoạt động.');
