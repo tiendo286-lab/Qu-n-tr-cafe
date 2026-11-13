@@ -21,6 +21,8 @@ export function makeFund(T, me) {
     });
     T.fin_entries.filter((e) => e.branch_id === b && e.entry_date >= f && e.entry_date <= to).forEach((e) => out.push({ date: e.entry_date, method: e.pay_method, type: 'thu_chi', label: (e.kind === 'chi' ? 'Chi: ' : 'Thu: ') + e.note, amount: e.kind === 'chi' ? -e.amount : e.amount, auto: false, ref: {} }));
     T.fund_withdrawals.filter((w) => w.branch_id === b && w.wdate >= f && w.wdate <= to).forEach((w) => out.push({ date: w.wdate, method: w.method, type: 'rut', label: (w.kind === 'cuoi_thang' ? 'Rút cuối tháng' : 'Rút giữ hộ') + (w.status === 'da_nhan' ? ' · Chủ đã nhận' : ' · chờ Chủ xác nhận'), amount: -w.amount, auto: false, ref: {} }));
+    (T.fund_transfers || []).filter((t) => t.branch_id === b && t.tdate >= f && t.tdate <= to).forEach((t) => ['tien_mat', 'chuyen_khoan'].forEach((m) => out.push({ date: t.tdate, method: m, type: 'luan_chuyen',
+      label: (t.direction === 'tm_tk' ? 'Luân chuyển: tiền mặt → tài khoản' : 'Luân chuyển: tài khoản → tiền mặt') + (t.note ? ' · ' + t.note : ''), amount: (t.direction === 'tm_tk') === (m === 'tien_mat') ? -t.amount : t.amount, auto: false, ref: { transfer_id: t.id } })));
     return out.sort((x, y) => (x.date < y.date ? -1 : x.date > y.date ? 1 : 0));
   };
   const opening = (b, m) => Number(T.fund_openings.find((o) => o.branch_id === b && o.method === m)?.amount || 0);
@@ -87,8 +89,12 @@ export function makeFund(T, me) {
           return { date: d, counted: c?.counted ?? null, cash_auto: c?.counted != null ? c.counted - FLOAT : null, cash_set: v?.cash_amount ?? null, cash_note: v?.cash_note ?? null, bank_auto: null, bank_set: v?.bank_amount ?? null, bank_note: v?.bank_note ?? null,
             reports: (T.shift_reports || []).filter((r) => r.branch_id === b.id && r.work_date === d && r.status === 'hoan_thanh').length }; }),
         withdrawals: T.fund_withdrawals.filter((w) => w.branch_id === b.id && ((w.wdate >= d0 && w.wdate <= d1) || w.status === 'cho_nhan')).map((w) => ({ ...w, by: name(w.created_by), locked: w.status === 'da_nhan' || locked(w.branch_id, w.wdate) })).sort((x, y) => (x.wdate < y.wdate ? 1 : -1)),
-        counts: T.fund_counts.filter((c) => c.branch_id === b.id && c.count_date >= d0 && c.count_date <= d1).map((c) => ({ ...c, by: name(c.created_by) })),
-        locked: locked(b.id, d0), owner: me.role === 'chu' };
+        counts: T.fund_counts.filter((c) => c.branch_id === b.id && c.count_date >= d0 && c.count_date <= d1).map((c) => { const e = c.adj_entry_id ? T.fin_entries.find((x) => x.id === c.adj_entry_id) : null; return { ...c, by: name(c.created_by), adj: e ? { id: e.id, kind: e.kind, amount: e.amount, category: 'Nhóm' } : null }; }),
+        locked: locked(b.id, d0), owner: me.role === 'chu',
+        transfers: (T.fund_transfers || []).filter((t) => t.branch_id === b.id && t.tdate >= d0 && t.tdate <= d1).map((t) => ({ ...t, by: name(t.created_by), locked: false })),
+        last_count: { tien_mat: T.fund_counts.filter((c) => c.branch_id === b.id && c.method === 'tien_mat').map((c) => c.count_date).sort().pop() || null,
+          chuyen_khoan: T.fund_counts.filter((c) => c.branch_id === b.id && c.method === 'chuyen_khoan').map((c) => c.count_date).sort().pop() || null },
+        can_move: ['chu', 'ql_tong', 'ql'].includes(me.role) };
     },
     app_fund_balance({ p_branch, p_method, p_date }) { need(); return balance(p_branch, p_method, p_date); },
     app_fund_day_set({ p_branch, p_date, p_method, p_amount, p_note }) {
@@ -112,6 +118,19 @@ export function makeFund(T, me) {
     app_fund_withdraw_confirm({ p_id }) {
       if (me.role !== 'chu') throw new Error('Chỉ Chủ xác nhận đã nhận tiền.'); const w = T.fund_withdrawals.find((x) => x.id === p_id);
       if (w.status === 'da_nhan') throw new Error('Phiếu này đã xác nhận rồi.'); Object.assign(w, { status: 'da_nhan', received_by: me.account_id, received_at: now() });
+    },
+    app_fund_transfer_save({ p_id, p }) {
+      need(); if (!['tm_tk', 'tk_tm'].includes(p.direction)) throw new Error('Chọn chiều luân chuyển.'); if (!(p.amount > 0)) throw new Error('Nhập số tiền lớn hơn 0.');
+      T.fund_transfers = T.fund_transfers || [];
+      if (p_id) { Object.assign(T.fund_transfers.find((t) => t.id === p_id), { tdate: p.date, direction: p.direction, amount: p.amount, note: p.note || '' }); return p_id; }
+      const id = T.fund_transfers.length + 1; T.fund_transfers.push({ id, branch_id: p.branch_id, tdate: p.date, direction: p.direction, amount: p.amount, note: p.note || '', created_by: me.account_id }); return id;
+    },
+    app_fund_transfer_delete({ p_id }) { T.fund_transfers = (T.fund_transfers || []).filter((t) => t.id !== p_id); },
+    app_fund_count_adjust({ p_count, p_category, p_note }) {
+      const c = T.fund_counts.find((x) => x.id === p_count); if (c.adj_entry_id) throw new Error('Lần kiểm này đã điều chỉnh rồi.'); if (!p_category) throw new Error('Chọn nhóm.');
+      const k = c.counted < c.book ? 'chi' : 'thu'; const id = Math.max(0, ...T.fin_entries.map((e) => e.id)) + 1;
+      T.fin_entries.push({ id, branch_id: c.branch_id, entry_date: c.count_date, kind: k, category_id: p_category, amount: Math.abs(c.book - c.counted), note: 'Điều chỉnh kiểm quỹ ' + (p_note || ''), pay_method: c.method, created_by: me.account_id });
+      c.adj_entry_id = id; return id;
     },
     app_fund_count_save({ p_branch, p_method, p_date, p_counted, p_note }) {
       need(); if (p_counted == null) throw new Error('Nhập số tiền thực tế.'); const bk = balance(p_branch, p_method, p_date);

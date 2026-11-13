@@ -2,6 +2,8 @@
 //  * Vào: nộp quỹ cuối ngày (tự động = đếm cuối ngày − 1.000.000đ, sửa được), chuyển khoản thực nhận, NV bù khoản âm, khoản thu quản lý tạo
 //  * Ra: khoản chi quản lý tạo, phiếu rút (Chủ bấm "Đã nhận tiền" → khóa)
 //  * Kiểm quỹ (so số thực tế với sổ), nhắc rút bớt khi quỹ tiền mặt vượt mức
+//  * Bước 72: mỗi lần 1 cơ sở (bỏ "Tất cả"); 5 ô số; 2 cột (sổ chi tiết theo ngày | nộp quỹ, phiếu rút, luân chuyển, kiểm quỹ);
+//    nộp quỹ cuối ngày tự động = đếm két ca cuối − 1.000.000; luân chuyển quỹ TM ↔ TK; kiểm quỹ lệch → Điều chỉnh; nhắc kiểm quỹ quá 7 ngày.
 import { render as rerender } from '../app.js';
 import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
@@ -14,113 +16,116 @@ const KIND = { giua_thang: 'Rút giữ hộ', cuoi_thang: 'Rút cuối tháng' }
 const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); return new Date(Date.UTC(y, mo - 1 + k, 1)).toISOString().slice(0, 7); };
 let LEDGER = 'tien_mat';
+const LS_BR = 'tcBranch';
+const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; } catch (_) { return null; } };
+const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
 
 export async function render({ params }) {
   const cur = vnToday().slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : cur;
   const O = await rpc('app_fund_overview', { p_month: month });
   if (!O.branches.length) return { title: 'Sổ quỹ', html: html`${STYLE}<div class="page-head"><div><h1>Sổ quỹ</h1></div></div><div class="card">Bạn chưa được giao cơ sở nào.</div>` };
-  const many = O.branches.length > 1;
-  const cn = params.cn === 'ngoai' && O.owner ? 'ngoai'
-    : params.cn && params.cn !== 'all' && O.branches.some((b) => String(b.id) === params.cn) ? Number(params.cn) : many ? 'all' : O.branches[0].id;
+  // bước 72: mỗi lần 1 cơ sở (bỏ "Tất cả") — địa chỉ, rồi cơ sở xem lần trước (chung với Thu chi), rồi cơ sở đầu
+  const has = (v) => O.branches.some((b) => String(b.id) === String(v));
+  const cn = params.cn === 'ngoai' && O.owner ? 'ngoai' : has(params.cn) ? Number(params.cn) : has(lsGet()) ? Number(lsGet()) : O.branches[0].id;
+  if (cn !== 'ngoai') lsSet(cn);
   const q = (o) => '#/quan-ly/so-quy?' + Object.entries({ thang: month, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
-  const head = html`<div class="page-head"><div><h1>Sổ quỹ</h1>
-      <div class="sub">Quỹ tiền mặt (ngoài két — 1.000.000đ đầu ca sáng để nguyên trong két) và tài khoản của từng cơ sở. Cuối tháng rút hết về 0. Phiếu rút Chủ đã bấm "Đã nhận tiền" thì bị khóa.</div></div>
-      <div id="saved-indicator" class="saved" role="status" hidden></div></div>
-    <section class="card sq-bar">
+  const bar = html`<section class="card sq-bar">
       <div class="sq-month"><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a>
         <strong>${monthLabel(month)}</strong>${month === cur ? html`<span class="pill info">Tháng này</span>` : ''}
         <a class="btn sm secondary" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
-      <nav class="branch-tabs" aria-label="Cơ sở">${many ? html`<a class="${cn === 'all' ? 'on' : ''}" href="${q({ cn: 'all' })}">Tất cả</a>` : ''}
-        ${O.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}
+      <nav class="branch-tabs" aria-label="Cơ sở">${O.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}
         ${O.owner ? html`<a class="sq-ext-tab ${cn === 'ngoai' ? 'on' : ''}" href="${q({ cn: 'ngoai' })}" title="Quỹ ngoài của Chủ">Quỹ ngoài</a>` : ''}</nav></section>`;
+  const head = html`<div class="page-head"><div><h1>Sổ quỹ</h1>
+      <div class="sub">Quỹ tiền mặt (ngoài két — 1.000.000đ gối đầu để nguyên trong két) và tài khoản của từng cơ sở. Cuối tháng rút hết về 0.</div></div>
+      <div id="saved-indicator" class="saved" role="status" hidden></div></div>${bar}`;
 
   if (month < O.start.slice(0, 7)) return { title: 'Sổ quỹ', html: html`${STYLE}${head}<div class="card">Sổ quỹ bắt đầu từ ${dmy(O.start)}.</div>` };
-
   if (cn === 'ngoai') return renderExt(month, head);
-
-  if (cn === 'all') {
-    const tot = (k) => O.branches.reduce((s, b) => s + Number(b[k] || 0), 0);
-    return {
-      title: 'Sổ quỹ',
-      html: html`${STYLE}${head}
-        <section class="card flush"><div class="card-head"><h2>Số dư các cơ sở</h2><span class="st-meta">Nhắc rút bớt khi quỹ tiền mặt vượt ${vnd(O.alert)}</span></div>
-          <div class="table-wrap"><table class="table rt sq-ov"><thead><tr><th>Cơ sở</th><th class="r">Quỹ tiền mặt</th><th class="r">Tài khoản (sổ)</th><th class="r">Tài khoản (kế toán nhập)</th><th class="r">Đã rút TM</th><th class="r">Đã rút CK</th><th>Phiếu chờ nhận</th></tr></thead>
-          <tbody>${O.branches.map((b) => html`<tr>
-            <td data-label="Cơ sở"><a href="${q({ cn: b.id })}"><strong>${b.code}</strong></a> <span class="st-meta">${b.name}</span>${b.closed ? html` <span class="pill ok">Đã chốt</span>` : ''}</td>
-            <td class="r" data-label="Quỹ tiền mặt">${b.cash > O.alert ? html`<span class="pill off">${vnd(b.cash)} · nên rút</span>` : vnd(b.cash)}</td>
-            <td class="r" data-label="Tài khoản (sổ)">${vnd(b.bank)}</td>
-            <td class="r" data-label="TK kế toán nhập">${b.bank_actual?.amount != null ? html`${vnd(b.bank_actual.amount)} <span class="st-meta">${dmy(b.bank_actual.at)}</span>` : '—'}</td>
-            <td class="r" data-label="Đã rút TM">${vnd(b.out_cash)}</td><td class="r" data-label="Đã rút CK">${vnd(b.out_bank)}</td>
-            <td data-label="Phiếu chờ nhận">${b.pending ? html`<span class="pill warn">${b.pending} phiếu</span>` : '—'}</td></tr>`)}
-            <tr class="sq-total"><td data-label="">Tổng</td><td class="r" data-label="Quỹ tiền mặt">${vnd(tot('cash'))}</td><td class="r" data-label="Tài khoản (sổ)">${vnd(tot('bank'))}</td><td></td>
-              <td class="r" data-label="Đã rút TM">${vnd(tot('out_cash'))}</td><td class="r" data-label="Đã rút CK">${vnd(tot('out_bank'))}</td><td data-label="Phiếu chờ">${tot('pending') || '—'}</td></tr></tbody></table></div></section>`,
-    };
-  }
 
   const D = await rpc('app_fund_branch', { p_branch: cn, p_month: month });
   const B = D.balance; const out = (m) => D.withdrawals.filter((w) => w.method === m && w.wdate >= D.from && w.wdate <= D.to).reduce((s, w) => s + Number(w.amount), 0);
   const pend = D.withdrawals.filter((w) => w.status === 'cho_nhan');
   const editable = !D.locked;
   const ba = D.bank_actual || {};
+  const lastC = [D.last_count?.tien_mat, D.last_count?.chuyen_khoan].filter(Boolean).sort().pop() || null;
+  const ago = lastC ? Math.round((Date.parse(vnToday()) - Date.parse(lastC)) / 864e5) : null;
+  const countLate = month === cur && (ago === null || ago > 7);
 
+  const dayHas = (d) => d.reports > 0 || d.cash_set != null || d.bank_set != null || d.cash_auto != null || d.bank_auto != null;
   const dayCell = (d, m) => {
     const set = m === 'tien_mat' ? d.cash_set : d.bank_set; const auto = m === 'tien_mat' ? d.cash_auto : d.bank_auto;
     const v = set ?? auto; const note = m === 'tien_mat' ? d.cash_note : d.bank_note;
-    return html`<div class="sq-dc"><span>${v == null ? '—' : vnd(v)}</span>
-      <span class="st-meta">${set != null ? 'QL nhập' + (note ? ` · ${note}` : '') : auto != null ? 'tự động' : 'chưa có'}</span>
+    return html`<div class="sq-dc"><b>${v == null ? '—' : vnd(v)}</b>
+      <span class="st-meta">${set != null ? 'QL sửa' + (note ? ` · ${note}` : '') : auto != null ? (m === 'tien_mat' ? `tự động (${d.counted_src || 'đếm'} ${fmt(d.counted)} − ${fmt(D.float)})` : 'tự động (kế toán)') : 'chưa có số'}</span>
       ${editable ? html`<button type="button" class="link-btn sq-day" data-d="${d.date}" data-m="${m}">${v == null ? 'Nhập' : 'Sửa'}</button>` : ''}</div>`;
   };
-  const wRow = (w) => html`<div class="sq-w ${w.status === 'cho_nhan' ? 'todo' : ''}">
+  const wRow = (w) => html`<div class="sq-it ${w.status === 'cho_nhan' ? 'todo' : ''}">
       <div class="grow"><strong>${KIND[w.kind]} · ${M[w.method]}</strong>${w.note ? html` — ${w.note}` : ''}
-        <div class="st-meta">${dmy(w.wdate)} · tạo bởi ${w.by || ''}${w.status === 'da_nhan' ? html` · <strong>Chủ đã nhận</strong> ${dt(w.received_at)}` : ''}</div></div>
-      <div class="sq-amt">−${fmt(w.amount)}đ</div>
-      <div>${w.status === 'da_nhan' ? html`<span class="pill ok">Đã nhận · khóa</span>` : html`<span class="pill warn">Chờ Chủ nhận</span>`}</div>
-      <div class="toolbar" style="gap:6px">${w.status === 'cho_nhan' && D.owner ? html`<button type="button" class="btn sm sq-ok" data-id="${w.id}">Đã nhận tiền</button>` : ''}
+        <div class="st-meta">${dmy(w.wdate)} · ${w.by || ''} ${w.status === 'da_nhan' ? html`<span class="pill ok">Đã nhận · khoá</span>` : html`<span class="pill warn">Chờ Chủ nhận</span>`}</div></div>
+      <div class="sq-amt">−${fmt(w.amount)}</div>
+      <div class="sq-acts">${w.status === 'cho_nhan' && D.owner ? html`<button type="button" class="btn sm sq-ok" data-id="${w.id}">Đã nhận tiền</button>` : ''}
         ${!w.locked ? html`<button type="button" class="btn sm secondary sq-wed" data-id="${w.id}">Sửa</button><button type="button" class="btn sm secondary danger sq-wdel" data-id="${w.id}" aria-label="Xóa">×</button>` : ''}</div></div>`;
+  const tRow = (t) => html`<div class="sq-it">
+      <div class="grow"><strong>${t.direction === 'tm_tk' ? 'Tiền mặt → Tài khoản' : 'Tài khoản → Tiền mặt'}</strong>${t.note ? ` — ${t.note}` : ''}<div class="st-meta">${dmy(t.tdate)} · ${t.by || ''}</div></div>
+      <div class="sq-amt mv">${fmt(t.amount)}</div>
+      ${!t.locked && D.can_move ? html`<div class="sq-acts"><button type="button" class="btn sm secondary sq-ted" data-id="${t.id}">Sửa</button><button type="button" class="btn sm secondary danger sq-tdel" data-id="${t.id}" aria-label="Xóa">×</button></div>` : ''}</div>`;
+  const cRow = (c) => html`<div class="sq-it">
+      <div class="grow"><strong>${M[c.method]} · ${dmy(c.count_date)}</strong> <span>${c.counted === c.book ? html`<span class="pill ok">KHỚP</span>` : c.counted < c.book ? html`<span class="pill off">THIẾU ${fmt(c.book - c.counted)}</span>` : html`<span class="pill warn">THỪA ${fmt(c.counted - c.book)}</span>`}</span>
+        <div class="st-meta">thực tế ${vnd(c.counted)} · sổ ${vnd(c.book)} · ${c.by || ''}${c.note ? ` · ${c.note}` : ''}</div>
+        ${c.adj ? html`<div class="st-meta sq-adj">✓ Đã điều chỉnh: khoản ${c.adj.kind} ${vnd(c.adj.amount)} (${c.adj.category || ''}) ở Thu chi</div>` : ''}</div>
+      ${c.counted !== c.book && !c.adj && editable && D.can_move ? html`<div class="sq-acts"><button type="button" class="btn sm sq-adjb" data-id="${c.id}">Điều chỉnh…</button></div>` : ''}</div>`;
 
+  // sổ chi tiết theo ngày (mới nhất trên cùng), mỗi dòng ghi số còn sau khoản đó
+  const TAG = { nop_quy: 'tự động', ck_ve: 'tự động', luan_chuyen: 'luân chuyển' };
   const ledger = (m) => {
     let bal = Number(D.open[m] || 0);
     const rows = D.rows.filter((r) => r.method === m).map((r) => { bal += Number(r.amount); return { ...r, bal }; });
-    return html`<div class="table-wrap"><table class="table rt sq-led"><thead><tr><th>Ngày</th><th>Nội dung</th><th class="r">Vào</th><th class="r">Ra</th><th class="r">Còn</th></tr></thead>
-      <tbody><tr class="sq-total"><td data-label="Ngày">${dmy(D.from)}</td><td data-label="Nội dung">Số dư đầu tháng</td><td></td><td></td><td class="r" data-label="Còn">${vnd(D.open[m])}</td></tr>
-      ${rows.map((r) => html`<tr><td data-label="Ngày">${dmy(r.date)}</td><td data-label="Nội dung">${r.label}${r.ref?.note ? html` <span class="st-meta">· ${r.ref.note}</span>` : ''}</td>
-        <td class="r sq-in" data-label="Vào">${r.amount > 0 ? fmt(r.amount) : ''}</td><td class="r sq-out" data-label="Ra">${r.amount < 0 ? fmt(-r.amount) : ''}</td><td class="r" data-label="Còn"><strong>${vnd(r.bal)}</strong></td></tr>`)}
-      </tbody></table></div>`;
+    const days = []; [...rows].reverse().forEach((r) => { let d = days[days.length - 1]; if (!d || d.date !== r.date) days.push(d = { date: r.date, items: [] }); d.items.push(r); });
+    return html`${days.map((d) => html`<div class="sq-lday"><div class="sq-dh">${dmy(d.date)}</div>${d.items.map((r) => html`<div class="sq-led ${r.type === 'luan_chuyen' ? 'mv' : ''}">
+        <span class="grow"><b>${r.label}</b>${r.auto && TAG[r.type] ? html`<span class="sq-tag">${TAG[r.type]}</span>` : r.type === 'nop_quy' && !r.auto ? html`<span class="sq-tag ql">QL sửa</span>` : r.type === 'luan_chuyen' ? html`<span class="sq-tag mv">luân chuyển</span>` : ''}${r.ref?.note ? html` <span class="st-meta">· ${r.ref.note}</span>` : ''}</span>
+        <span class="sq-a ${r.type === 'luan_chuyen' ? 'mv' : r.amount < 0 ? 'neg' : 'pos'}">${r.amount < 0 ? '−' : '+'}${fmt(Math.abs(r.amount))}</span>
+        <span class="sq-bal">còn ${fmt(r.bal)}</span></div>`)}</div>`)}
+      <div class="sq-lday"><div class="sq-dh">Đầu tháng</div><div class="sq-led"><span class="grow"><b>Số dư đầu tháng</b></span><span class="sq-a">${fmt(D.open[m] || 0)}</span><span class="sq-bal"></span></div></div>`;
   };
 
   return {
     title: `Sổ quỹ ${D.code}`,
     html: html`${STYLE}${head}
       ${D.locked ? html`<div class="alert ok">Tháng này đã chốt — sổ quỹ chỉ xem.</div>` : ''}
-      ${B.tien_mat > D.alert ? html`<div class="alert warn">Quỹ tiền mặt ${D.code} đang giữ <strong>${vnd(B.tien_mat)}</strong>, vượt mức ${vnd(D.alert)}. Nên rút bớt về (tạo phiếu rút).</div>` : ''}
-      <div class="sq-kpis">
-        <div class="sq-k ${B.tien_mat > D.alert ? 'neg' : ''}"><span>Quỹ tiền mặt</span><b>${vnd(B.tien_mat)}</b><small>đến ${dmy(D.upto)}</small></div>
-        <div class="sq-k"><span>Tài khoản (sổ)</span><b>${vnd(B.chuyen_khoan)}</b><small>${ba.amount != null ? html`Kế toán nhập: ${vnd(ba.amount)} (${dmy(ba.at)})${Number(ba.amount) !== Number(B.chuyen_khoan) ? html` · <span class="sq-out">lệch ${signed(ba.amount - B.chuyen_khoan)}</span>` : ' · khớp'}` : 'Kế toán chưa nhập số dư'}</small></div>
-        <div class="sq-k pos"><span>Đã rút trong tháng</span><b>${vnd(out('tien_mat') + out('chuyen_khoan'))}</b><small>TM ${vnd(out('tien_mat'))} · CK ${vnd(out('chuyen_khoan'))}</small></div>
-        <div class="sq-k ${pend.length ? 'warn' : ''}"><span>Phiếu chờ Chủ nhận</span><b>${pend.length}</b><small>${pend.length ? vnd(pend.reduce((s, w) => s + Number(w.amount), 0)) : 'Không có'}</small></div></div>
-      ${editable ? html`<div class="toolbar" style="margin-bottom:12px"><button type="button" class="btn" id="sq-new">+ Phiếu rút</button><button type="button" class="btn secondary" id="sq-count">Kiểm quỹ</button>
+      ${B.tien_mat > D.alert ? html`<div class="alert error">Quỹ tiền mặt ${D.code} đang giữ <strong>${vnd(B.tien_mat)}</strong>, vượt ${vnd(D.alert)}. Nên rút bớt (tạo phiếu rút).</div>` : ''}
+      ${countLate ? html`<div class="alert warn">${ago === null ? 'Chưa kiểm quỹ lần nào.' : html`Đã <strong>${ago} ngày</strong> chưa kiểm quỹ (lần cuối ${dmy(lastC)}).`} Mỗi tuần kiểm 1 lần — quản lý tự chọn ngày.</div>` : ''}
+      <div class="sq-kpis k5">
+        <div class="sq-k ${B.tien_mat > D.alert ? 'neg' : ''}"><span>Quỹ tiền mặt</span><b>${vnd(B.tien_mat)}</b><small>đến ${dmy(D.upto)}${B.tien_mat > D.alert ? ' · nên rút' : ''}</small></div>
+        <div class="sq-k"><span>Tài khoản (sổ)</span><b>${vnd(B.chuyen_khoan)}</b><small>${ba.amount != null ? html`kế toán nhập ${vnd(ba.amount)} (${dmy(ba.at)})${Number(ba.amount) !== Number(B.chuyen_khoan) ? html` · <span class="sq-out">lệch ${signed(Number(ba.amount) - Number(B.chuyen_khoan))}</span>` : ' · khớp'}` : 'kế toán chưa nhập số dư'}</small></div>
+        <div class="sq-k pos"><span>Đã rút tháng này</span><b>${vnd(out('tien_mat') + out('chuyen_khoan'))}</b><small>TM ${vnd(out('tien_mat'))} · CK ${vnd(out('chuyen_khoan'))}</small></div>
+        <div class="sq-k ${pend.length ? 'warn' : ''}"><span>Phiếu chờ Chủ nhận</span><b>${pend.length}</b><small>${pend.length ? vnd(pend.reduce((s, w) => s + Number(w.amount), 0)) : 'Không có'}</small></div>
+        <div class="sq-k ${countLate ? 'warn' : ''}"><span>Kiểm quỹ lần cuối</span><b>${ago === null ? 'Chưa có' : ago === 0 ? 'Hôm nay' : `${ago} ngày trước`}</b><small>${lastC ? dmy(lastC) : 'mỗi tuần 1 lần'}</small></div></div>
+      ${editable ? html`<div class="toolbar sq-tb"><button type="button" class="btn" id="sq-new">+ Phiếu rút</button>${D.can_move ? html`<button type="button" class="btn secondary" id="sq-move">+ Luân chuyển quỹ</button>` : ''}<button type="button" class="btn secondary" id="sq-count">Kiểm quỹ</button>
         ${D.is_start_month ? html`<button type="button" class="btn secondary" id="sq-open">Số dư đầu ${dmy(D.start).slice(0, 5)}</button>` : ''}</div>` : ''}
+      <div class="sq-cols">
+        <section class="card stack sq-sec"><div class="sq-subhead"><h2>Sổ chi tiết</h2>
+            <nav class="branch-tabs" aria-label="Quỹ">${Object.entries(M).map(([k, l]) => html`<a href="javascript:void 0" class="sq-lt ${LEDGER === k ? 'on' : ''}" data-m="${k}">${l}</a>`)}</nav></div>
+          <div class="st-meta">Mới nhất trên cùng · mỗi dòng ghi số còn lại sau khoản đó.</div>
+          <div id="sq-led">${ledger(LEDGER)}</div></section>
+        <div class="sq-side">
+          <section class="card stack sq-sec"><h2>Nộp quỹ cuối ngày <small>tự tính, QL sửa khi khác</small></h2>
+            <div class="st-meta">Tiền mặt = số đếm két ca cuối (hoặc quản lý đếm cuối ngày) − ${vnd(D.float)} gối đầu. Chuyển khoản về lấy từ số dư kế toán nhập.</div>
+            ${D.days.length ? [...D.days].reverse().filter(dayHas).map((d) => html`<div class="sq-dayv"><div class="sq-dvh"><b>${dmy(d.date).slice(0, 5)}</b><span class="st-meta">${d.reports} phiếu ca xong</span></div>
+                <div class="sq-dvg"><span class="st-meta">TM</span>${dayCell(d, 'tien_mat')}<span class="st-meta">CK</span>${dayCell(d, 'chuyen_khoan')}</div></div>`)
+              : html`<div class="st-meta">Chưa tới ngày nào.</div>`}
+            ${D.days.some((d) => !dayHas(d)) ? html`<details class="sq-more"><summary>${D.days.filter((d) => !dayHas(d)).length} ngày chưa có phiếu ca / chưa có số — bấm để nhập</summary>
+              ${[...D.days].reverse().filter((d) => !dayHas(d)).map((d) => html`<div class="sq-dayv"><div class="sq-dvh"><b>${dmy(d.date).slice(0, 5)}</b></div>
+                <div class="sq-dvg"><span class="st-meta">TM</span>${dayCell(d, 'tien_mat')}<span class="st-meta">CK</span>${dayCell(d, 'chuyen_khoan')}</div></div>`)}</details>` : ''}</section>
+          <section class="card stack sq-sec"><h2>Phiếu rút <small>Chủ xác nhận</small></h2>
+            ${D.withdrawals.length ? D.withdrawals.map(wRow) : html`<div class="st-meta">Tháng này chưa có phiếu rút.</div>`}</section>
+          <section class="card stack sq-sec"><h2>Luân chuyển quỹ <small>không tính thu / chi</small></h2>
+            ${(D.transfers || []).length ? D.transfers.map(tRow) : html`<div class="st-meta">Chưa có. Nộp tiền mặt vào tài khoản hoặc rút tài khoản ra tiền mặt thì ghi ở đây.</div>`}</section>
+          <section class="card stack sq-sec"><h2>Kiểm quỹ <small>mỗi tuần 1 lần</small></h2>
+            ${D.counts.length ? D.counts.map(cRow) : html`<div class="st-meta">Tháng này chưa kiểm quỹ lần nào.</div>`}</section>
+        </div>
+      </div>`,
 
-      <section class="card stack sq-sec"><h2>Phiếu rút</h2>
-        ${D.withdrawals.length ? html`<div>${D.withdrawals.map(wRow)}</div>` : html`<div class="st-meta">Tháng này chưa có phiếu rút.</div>`}</section>
-
-      <section class="card stack sq-sec"><h2>Theo ngày: nộp quỹ và tiền về</h2>
-        <div class="st-meta">Nộp quỹ tiền mặt tự tính = số quản lý đếm cuối ngày − ${vnd(D.float)} để lại cho ca sáng. Chuyển khoản về lấy từ số dư kế toán nhập. Ngày chưa có số thì bấm <strong>Nhập</strong> (nhập bổ sung các ngày đã qua).</div>
-        ${D.days.length ? html`<div class="table-wrap"><table class="table rt sq-days"><thead><tr><th>Ngày</th><th class="r">Phiếu ca xong</th><th class="r">Đếm cuối ngày</th><th>Nộp quỹ tiền mặt</th><th>Chuyển khoản về</th></tr></thead>
-          <tbody>${[...D.days].reverse().map((d) => html`<tr><td data-label="Ngày"><strong>${dmy(d.date)}</strong></td><td class="r" data-label="Phiếu ca xong">${d.reports}</td>
-            <td class="r" data-label="Đếm cuối ngày">${d.counted == null ? '—' : vnd(d.counted)}</td><td data-label="Nộp quỹ TM">${dayCell(d, 'tien_mat')}</td><td data-label="CK về">${dayCell(d, 'chuyen_khoan')}</td></tr>`)}</tbody></table></div>`
-          : html`<div class="st-meta">Chưa tới ngày nào.</div>`}</section>
-
-      <section class="card stack sq-sec"><div class="sq-subhead"><h2>Sổ chi tiết</h2>
-          <nav class="branch-tabs" aria-label="Quỹ">${Object.entries(M).map(([k, l]) => html`<a href="javascript:void 0" class="sq-lt ${LEDGER === k ? 'on' : ''}" data-m="${k}">${l}</a>`)}</nav></div>
-        <div id="sq-led">${ledger(LEDGER)}</div></section>
-
-      <section class="card stack sq-sec"><h2>Kiểm quỹ</h2>
-        ${D.counts.length ? D.counts.map((c) => html`<div class="sq-w"><div class="grow"><strong>${M[c.method]} · ${dmy(c.count_date)}</strong> — thực tế ${vnd(c.counted)}, sổ ${vnd(c.book)}
-            <div class="st-meta">${c.by || ''} · ${dt(c.created_at)}${c.note ? ` · ${c.note}` : ''}</div></div>
-            <div>${c.counted === c.book ? html`<span class="pill ok">KHỚP</span>` : c.counted < c.book ? html`<span class="pill off">THIẾU ${fmt(c.book - c.counted)}đ</span>` : html`<span class="pill warn">THỪA ${fmt(c.counted - c.book)}đ</span>`}</div></div>`)
-          : html`<div class="st-meta">Tháng này chưa kiểm quỹ lần nào.</div>`}</section>`,
     mount() {
       $$('.sq-lt').forEach((a) => a.addEventListener('click', () => { LEDGER = a.dataset.m; $$('.sq-lt').forEach((x) => x.classList.toggle('on', x === a)); $('#sq-led').innerHTML = str(ledger(LEDGER)); }));
       const errBox = (d, e) => { d.querySelector('.sq-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); };
@@ -231,6 +236,53 @@ export async function render({ params }) {
           } catch (e) { errBox(d, e); }
         });
       });
+
+      // bước 72: luân chuyển quỹ tiền mặt ↔ tài khoản (lưu là xong)
+      const tForm = (t = {}) => {
+        const dir0 = t.direction || 'tm_tk';
+        const d = dialog(html`<form class="stack sq-dlg" style="gap:12px"><h2 style="margin:0">${t.id ? 'Sửa luân chuyển quỹ' : 'Luân chuyển quỹ'} · ${D.code}</h2>
+          <div class="pc-line" role="radiogroup" aria-label="Chiều"><label class="radio-pill"><input type="radio" name="dir" value="tm_tk" ${dir0 === 'tm_tk' ? 'checked' : ''}> Tiền mặt → Tài khoản</label><label class="radio-pill"><input type="radio" name="dir" value="tk_tm" ${dir0 === 'tk_tm' ? 'checked' : ''}> Tài khoản → Tiền mặt</label></div>
+          <label class="field"><span>Ngày</span><input class="input" type="date" name="d" value="${t.tdate || today}" min="${D.start}" max="${vnToday()}"></label>
+          <label class="field"><span>Số tiền</span><input class="input money" name="amt" inputmode="numeric" value="${t.amount ? fmt(t.amount) : ''}" autocomplete="off"></label>
+          <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${t.note || ''}" placeholder="vd: gửi ngân hàng / rút ra trả lương" autocomplete="off"></label>
+          <div class="st-meta">Quỹ này giảm, quỹ kia tăng cùng số. Không vào Thu chi, không tính lãi lỗ.</div>
+          <div class="sq-err"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+        bindMoneyInputs(d); const f = d.querySelector('form');
+        d.querySelector('[data-x]').addEventListener('click', () => d.close());
+        f.addEventListener('submit', async (ev) => {
+          ev.preventDefault();
+          try { await rpc('app_fund_transfer_save', { p_id: t.id || null, p: { branch_id: cn, date: f.d.value, direction: f.querySelector('[name=dir]:checked').value, amount: parseMoney(f.amt.value), note: f.note.value } });
+            d.close(); flash(t.id ? 'Đã sửa phiếu luân chuyển.' : 'Đã ghi luân chuyển quỹ.'); rerender(); }
+          catch (e) { errBox(d, e); }
+        });
+      };
+      $('#sq-move')?.addEventListener('click', () => tForm());
+      $$('.sq-ted').forEach((b) => b.addEventListener('click', () => tForm(D.transfers.find((x) => x.id === Number(b.dataset.id)))));
+      $$('.sq-tdel').forEach((b) => b.addEventListener('click', async () => {
+        const t = D.transfers.find((x) => x.id === Number(b.dataset.id));
+        if (!confirm(`Xóa phiếu luân chuyển ${vnd(t.amount)} ngày ${dmy(t.tdate)}?`)) return;
+        try { await rpc('app_fund_transfer_delete', { p_id: t.id }); flash('Đã xóa phiếu luân chuyển.'); rerender(); } catch (e) { showSaved(e.message, true); }
+      }));
+      // bước 72: kiểm quỹ lệch → điều chỉnh (khoản chi / thu ở Thu chi, nhóm bắt buộc)
+      $$('.sq-adjb').forEach((b) => b.addEventListener('click', async () => {
+        const c = D.counts.find((x) => x.id === Number(b.dataset.id)); const k = c.counted < c.book ? 'chi' : 'thu'; const diff = Math.abs(c.book - c.counted);
+        let FT = { types: [], cats: [] }; try { FT = await rpc('app_fin_types'); } catch (_) { /* bỏ qua */ }
+        const cats = (FT.cats || []).filter((x) => x.kind === k && x.active);
+        const d = dialog(html`<form class="stack sq-dlg" style="gap:12px"><h2 style="margin:0">Điều chỉnh lệch quỹ · ${M[c.method]}</h2>
+          <div class="st-meta">Kiểm ${dmy(c.count_date)}: thực tế ${vnd(c.counted)}, sổ ${vnd(c.book)} → ${k === 'chi' ? 'thiếu' : 'thừa'} <b>${vnd(diff)}</b>. Web tạo một khoản <b>${k}</b> ${vnd(diff)} ở Thu chi (ngày kiểm) để sổ khớp tiền thật.</div>
+          <label class="field"><span>Nhóm (bắt buộc)</span><select class="input" name="cat"><option value="">— Chọn nhóm —</option>${cats.map((x) => html`<option value="${x.id}">${x.name}</option>`)}</select></label>
+          <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${c.note || ''}" placeholder="vd: phí ngân hàng" autocomplete="off"></label>
+          <div class="sq-err"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Tạo khoản điều chỉnh</button></div></form>`);
+        const f = d.querySelector('form');
+        d.querySelector('[data-x]').addEventListener('click', () => d.close());
+        f.addEventListener('submit', async (ev) => {
+          ev.preventDefault(); if (!f.cat.value) { errBox(d, new Error('Chọn nhóm cho khoản điều chỉnh.')); return; }
+          try { await rpc('app_fund_count_adjust', { p_count: c.id, p_category: Number(f.cat.value), p_note: f.note.value }); d.close(); flash('Đã tạo khoản điều chỉnh — sổ đã khớp tiền thật.'); rerender(); }
+          catch (e) { errBox(d, e); }
+        });
+      }));
     },
   };
 }
@@ -380,6 +432,28 @@ const STYLE = html`<style>
   .table .r { text-align: right; }
   .sq-total td { background: var(--sage-bg); font-weight: 700; }
   .sq-dlg { width: min(520px, calc(100vw - 56px)); }
+  .sq-tb { margin-bottom: 12px; flex-wrap: wrap; }
+  .sq-cols { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: 12px; align-items: start; }
+  .sq-side { display: flex; flex-direction: column; min-width: 0; }
+  .sq-sec h2 small { font-weight: 500; color: var(--muted); font-size: 13px; margin-left: 4px; }
+  .sq-kpis.k5 { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+  .sq-lday { display: flex; flex-direction: column; }
+  .sq-dh { padding: 6px 4px; border-bottom: 1px solid var(--line); font-size: 13px; font-weight: 700; color: var(--ink-2); }
+  .sq-led { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1px 10px; padding: 7px 4px; border-bottom: 1px solid var(--line-soft); font-size: 14px; }
+  .sq-led .grow { min-width: 0; overflow-wrap: anywhere; } .sq-led b { font-weight: 600; }
+  .sq-led.mv { background: var(--plum-bg); }
+  .sq-a { font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; white-space: nowrap; } .sq-a.neg { color: #b91c1c; } .sq-a.pos { color: var(--ok-ink); } .sq-a.mv { color: var(--plum-ink); }
+  .sq-bal { grid-column: 1 / -1; text-align: right; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .sq-tag { font-size: 11px; font-weight: 700; border-radius: 6px; padding: 0 6px; margin-left: 6px; background: var(--info-bg); color: var(--info-ink); } .sq-tag.ql { background: var(--warn-bg); color: var(--warn-ink); } .sq-tag.mv { background: var(--plum-bg); color: var(--plum-ink); }
+  .sq-it { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 10px; padding: 8px 2px; border-top: 1px solid var(--line-soft); }
+  .sq-it .grow { min-width: 0; overflow-wrap: anywhere; } .sq-it.todo { background: var(--warn-bg); border-radius: 8px; padding: 8px; }
+  .sq-acts { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; } .sq-acts .btn { width: auto; }
+  .sq-amt.mv { color: var(--plum-ink); } .sq-adj { color: var(--ok-ink); }
+  .sq-dayv { border-top: 1px solid var(--line-soft); padding: 6px 2px; display: flex; flex-direction: column; gap: 4px; }
+  .sq-more summary { cursor: pointer; font-size: 13px; color: var(--primary); font-weight: 600; padding: 6px 0; }
+  .sq-dvh { display: flex; justify-content: space-between; gap: 8px; } .sq-dvg { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 2px 8px; align-items: baseline; }
+  @media (max-width: 1100px) { .sq-kpis.k5 { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+  @media (max-width: 900px) { .sq-cols { grid-template-columns: minmax(0, 1fr); } .sq-kpis.k5 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 900px) { .sq-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 760px) { .table.rt td.r { text-align: left; } }
 </style>`;

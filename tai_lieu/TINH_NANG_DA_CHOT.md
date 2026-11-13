@@ -430,7 +430,6 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **"+ Thêm khoản"**: chọn loại ngay (Chi / Thu / Cho vay), nhóm **bắt buộc**, ngày lùi được (tháng chưa chốt).
 - **Bước 70 ĐÃ LÀM** (`70_cong_no.sql`): khung **Công nợ** thay khung Cho vay — nhóm **Kho tổng** (vay + **trả hộ** cộng chung, Kho tổng trả thì "Ghi trả nợ"; nút "+ Trả hộ Kho tổng" chỉ LHP, cài đặt `tra_ho_co_so`; Sổ quỹ ghi "Trả hộ Kho tổng"), **Người vay**, **Khách hàng nợ** (từ phiếu ca + quản lý ghi thêm: tên, SĐT, ngày, số ngày nợ — đỏ khi quá 7 ngày; quản lý sửa / xoá khoản mình ghi khi chưa thu). **Cho vay mở mọi cơ sở.** Quyền Công nợ: Chủ, QL tổng, QL cơ sở. Nhân viên không được vay / ứng (ghi chú).
 - Phiếu chốt ca: **dòng nhắc "Khách đang nợ"** ở đầu phiếu; mục "Khách trả nợ cũ trong ca" có ô **số tiền khách trả** → **trả một phần** (phần đã thu cộng vào ca, phần còn lại vẫn nhắc ở ca sau; bỏ chọn thì gộp lại).
-- Còn làm ở bước sau: luân chuyển quỹ (không hiện ở Thu chi).
 
 ## 5r8. Tab Âm tiền — CHỐT 13/11/2026 (mẫu https://claude.ai/artifact/4rxfnB6uUJuHYUZtv5ENHo), ĐÃ LÀM (`supabase/71_am_tien.sql`, trang `#/quan-ly/am-tien`)
 - Quản lý ca › **Âm tiền** (Chủ, QL tổng, QL cơ sở; kế toán không): mỗi lần 1 cơ sở, theo tháng. Ô Chênh lệch tiền ở Thu chi bấm sang đây.
@@ -440,6 +439,15 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Không có tiền về: **Trừ lương…** (mặc định chia đều người làm ca, sửa được; báo nhân viên, giải trình được) hoặc **Quán chịu** (chỉ Chủ / QL tổng; khoản chi nhóm "Âm tiền – quán chịu", tính chi phí, **không đổi quỹ**).
 - Ca dư không ghép: **Thu khác** (khoản thu nhóm "Thu khác", không đổi quỹ). Khoản Quán chịu / Thu khác hiện ở Thu chi nhưng chỉ sửa / bỏ ở tab Âm tiền.
 - Còn ca **Chờ tiền về / Chờ gán / ghép chờ duyệt** → **không cho chốt tháng**. Khoản âm tháng 11 đã trừ lương hiện ở "Đã xử lý" để xem lại (ghép được thì tự huỷ trừ lương).
+
+## 5r9. Sổ quỹ giao diện mới — CHỐT 13/11/2026 (mẫu https://claude.ai/artifact/4nhoqEprUBM2nq3uz7aeww), ĐÃ LÀM (`supabase/72_so_quy.sql`)
+- **Mỗi lần 1 cơ sở** (bỏ "Tất cả"; nút Quỹ ngoài giữ nguyên, chỉ Chủ). Web nhớ cơ sở xem lần trước (chung với Thu chi / Âm tiền).
+- **5 ô**: Quỹ tiền mặt (đỏ + nhắc rút khi quá 20.000.000), Tài khoản (sổ, so với số kế toán nhập), Đã rút tháng này, Phiếu chờ Chủ nhận, Kiểm quỹ lần cuối.
+- **2 cột**: trái **Sổ chi tiết** Tiền mặt / Tài khoản theo ngày (mới nhất trên cùng, mỗi dòng ghi số còn lại; nhãn "tự động", "QL sửa", "luân chuyển"); phải **Nộp quỹ cuối ngày** (ngày chưa có phiếu ca thu gọn) → **Phiếu rút** → **Luân chuyển quỹ** → **Kiểm quỹ**.
+- **Nộp quỹ cuối ngày tự động** = số đếm két **ca cuối đã chốt** trong ngày (quản lý đếm cuối ngày thì lấy số quản lý) − 1.000.000 gối đầu; khác thì quản lý sửa.
+- **Luân chuyển quỹ** tiền mặt ↔ tài khoản (Chủ, QL tổng, QL cơ sở; lưu là xong): quỹ này giảm, quỹ kia tăng cùng số; **không** tính thu / chi, **không hiện ở Thu chi**.
+- **Kiểm quỹ** mỗi tuần 1 lần (quản lý tự chọn ngày), web nhắc khi quá 7 ngày. Kiểm lệch → **Điều chỉnh…**: tạo khoản chi (thiếu) / thu (thừa) ở Thu chi cùng ngày kiểm, nhóm bắt buộc, để sổ khớp tiền thật (mỗi lần kiểm điều chỉnh 1 lần).
+- Số dư đầu 01/11 = 0 (giữ nút nhập số dư đầu của tháng bắt đầu sổ).
 
 ## 6. Đã bỏ hẳn
 
