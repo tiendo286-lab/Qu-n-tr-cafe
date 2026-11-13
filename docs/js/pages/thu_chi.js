@@ -287,7 +287,8 @@ export async function render(ctx) {
           <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" ${r.pay !== 'chuyen_khoan' ? 'checked' : ''} ${dis}> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan" ${r.pay === 'chuyen_khoan' ? 'checked' : ''} ${dis}> Chuyển khoản</label></div>
           <label class="field"><span>Nhóm</span><select class="input" name="cat">${catOpts(r.kind, v0, true)}</select></label>
           ${cm ? '' : html`<div class="st-meta">Bạn đổi được nội dung và nhóm. Sửa số tiền / hình thức cần quyền Đối soát.</div>`}
-          <div class="alert warn tc-mw" hidden>Đổi số tiền / hình thức: mục <b>Tiền mặt / Chuyển khoản</b> của ca sẽ mở lại để duyệt lại (ca dùng file Fabi thì web tự xét lại ngay).</div>
+          <div class="alert warn tc-mw" hidden>${D.can_direct ? html`Bạn là Chủ / Quản lý tổng: <b>sửa thẳng</b> — ca đã đối soát giữ nguyên, không phải duyệt lại; web ghi nhật ký số cũ → số mới.`
+            : html`Đổi số tiền / hình thức chỉ được khi mục <b>Tiền mặt / Chuyển khoản</b> của ca chưa đối soát. Ca đã đối soát thì nhờ Chủ / Quản lý tổng sửa.`}</div>
           <label class="field tc-why" hidden><span>Lý do sửa số tiền / hình thức (bắt buộc)</span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm 50.000 thành 500.000"></label>
           <div id="tc-err"></div>
           <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
@@ -301,9 +302,8 @@ export async function render(ctx) {
           ev.preventDefault(); const x = val(); const c = f.cat.value;
           try {
             const res = await rpc('app_tc_move_edit', { p_report: r.report_id, p_mkey: r.mkey, p: { kind: x.kind, amount: x.amt, pay: x.pay, note: f.note.value, category_id: c && c !== 'x' ? Number(c) : null, excluded: c === 'x', reason: sync() ? f.why.value : '' } });
-            const LB = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' }; const open = (res?.still_open || []).map((k) => LB[k] || k);
             d.close();
-            await again(open.length ? `Đã sửa khoản. Mục ${open.join(' và ')} của ca mở lại — vào Đối soát ca duyệt lại.` : res?.reopened?.length ? 'Đã sửa khoản. Web đã tự đối soát lại: vẫn khớp.' : 'Đã lưu khoản.');
+            await again(res?.direct ? 'Đã sửa thẳng khoản (ca giữ nguyên đối soát, đã ghi nhật ký).' : res?.money ? 'Đã sửa số tiền khoản.' : 'Đã lưu khoản.');
           } catch (err) { d.querySelector('#tc-err').innerHTML = str(html`<div class="alert error">${err.message}</div>`); }
         });
       }

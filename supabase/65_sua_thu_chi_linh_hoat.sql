@@ -3,8 +3,9 @@
 --  * Khoản từ phiếu chốt ca: đổi nhóm (hoặc "Không tính") NGAY trên trang Thu chi, kể cả khoản đã đối soát.
 --  * Sửa số tiền / nội dung / tiền mặt – chuyển khoản / thu – chi của khoản ở phiếu ca (app_tc_move_edit):
 --      - sửa vào BẢN ĐỐI SOÁT của phiếu (phiếu nhân viên giữ nguyên), nhóm đã chọn đi theo khoản;
---      - đổi số tiền / hình thức → cần quyền Đối soát + ghi lý do; mục Tiền mặt / Chuyển khoản của ca MỞ LẠI để duyệt lại
---        (phiếu dùng file Fabi thì web tự xét lại ngay). Mục web tự đối soát chỉ Chủ sửa; khoản âm đã xử lý thì không sửa được;
+--      - đổi số tiền / hình thức → ghi lý do. CHỦ / QUẢN LÝ TỔNG SỬA THẲNG: không mở lại mục tiền, ca đã đối soát giữ nguyên
+--        (kể cả mục web tự duyệt, khoản âm đã xử lý), ghi nhật ký đối soát. Người có quyền Đối soát khác chỉ sửa được khi mục
+--        Tiền mặt / Chuyển khoản liên quan của ca CHƯA đối soát (ca dùng file Fabi thì web xét tự duyệt lại);
 --      - chỉ đổi nội dung / nhóm → không mở lại gì.
 --      - khoản tự động (chi lương, khách mượn) không sửa ở đây.
 --  * Đổi nhóm hàng loạt (app_tc_bulk_cat): tích nhiều dòng → 1 nhóm (khoản phiếu ca thì tính luôn là đã đối soát).
@@ -79,7 +80,7 @@ begin
      where s.status <> 'huy' and r.branch_id = any(brs) and r.work_date between p_from and p_to
   ) z;
 
-  return jsonb_build_object('rows', rows, 'can_money', coalesce(public.app_can('doi_soat'), false),
+  return jsonb_build_object('rows', rows, 'can_money', coalesce(public.app_can('doi_soat'), false), 'can_direct', coalesce(public.app__fin_admin(), false),
     'branches', coalesce((select jsonb_agg(jsonb_build_object('id', b.id, 'code', coalesce(b.display_code, b.code), 'name', b.name) order by b.sort_order)
                  from public.branches b where b.status = 'Đang hoạt động' and public.app__tc_can(b.id)), '[]'),
     'categories', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'kind', c.kind, 'name', c.name, 'active', c.active = 1) order by c.kind, c.sort_order, c.name)
@@ -115,7 +116,7 @@ create or replace function public.app_tc_move_edit(p_report bigint, p_mkey text,
 language plpgsql security definer set search_path = public as $$
 declare a public.accounts; r public.shift_reports; m record; d jsonb; mv jsonb; nmv jsonb; n int;
         k text; amt bigint; pm text; nt text; cat bigint; ex boolean; why text; signed bigint; money boolean;
-        oldk jsonb; newk jsonb; saved jsonb; it text; reopen text[] := '{}'; res text := null; x record;
+        oldk jsonb; newk jsonb; saved jsonb; it text; adm boolean := false; res text := null; x record;
 begin
   select * into r from public.shift_reports where id = p_report for update;
   if r.id is null then raise exception 'Không tìm thấy phiếu ca.'; end if;
@@ -137,19 +138,19 @@ begin
   signed := case when k = 'chi' then -amt else amt end;
   money := signed <> m.amount or pm <> m.pay;
 
+  -- anh Tiến chốt: Chủ / Quản lý tổng SỬA THẲNG (không mở lại mục tiền, ca đã đối soát giữ nguyên, ghi nhật ký + lý do);
+  -- người có quyền Đối soát khác chỉ sửa được khi mục Tiền mặt / Chuyển khoản liên quan của ca CHƯA đối soát.
   if money then
-    if not coalesce(public.app_can('doi_soat'), false) then raise exception 'Sửa số tiền / hình thức khoản ở phiếu ca cần quyền Đối soát. Bạn đổi được nhóm và nội dung.'; end if;
     if why is null then raise exception 'Ghi lý do sửa số tiền / hình thức.'; end if;
-    foreach it in array array[m.pay, pm] loop
-      if it = any(reopen) then continue; end if;
-      if exists (select 1 from public.shift_report_checks c where c.report_id = p_report and c.item = it) then
-        if exists (select 1 from public.shift_report_checks c where c.report_id = p_report and c.item = it and c.auto = 1) and coalesce(a.system_role, '') <> 'chu' then
-          raise exception 'Mục % của ca này web đã tự đối soát theo file Fabi và ngân hàng — chỉ Chủ sửa được số tiền / hình thức.', public.app__ca_item_label(it);
+    adm := coalesce(public.app__fin_admin(), false);
+    if not adm then
+      if not coalesce(public.app_can('doi_soat'), false) then raise exception 'Sửa số tiền / hình thức khoản ở phiếu ca cần quyền Đối soát. Bạn đổi được nhóm và nội dung.'; end if;
+      foreach it in array array[m.pay, pm] loop
+        if exists (select 1 from public.shift_report_checks c where c.report_id = p_report and c.item = it) then
+          raise exception 'Mục % của ca này đã đối soát xong — chỉ Chủ / Quản lý tổng sửa được số tiền / hình thức. Bạn đổi được nhóm và nội dung.', public.app__ca_item_label(it);
         end if;
-        perform public.app__ca_item_reopen(p_report, it, a.id, 'Sửa khoản thu chi ở trang Thu chi: ' || why);
-        reopen := reopen || it;
-      end if;
-    end loop;
+      end loop;
+    end if;
   end if;
 
   -- mkey cũ theo thứ tự + nhóm đã chọn (để mang sang mkey mới)
@@ -191,11 +192,11 @@ begin
   on conflict (report_id, mkey) do update set category_id = excluded.category_id, excluded = excluded.excluded, by_account = excluded.by_account, at = excluded.at,
           checked = 1, checked_by = excluded.checked_by, checked_at = excluded.checked_at;
 
-  if cardinality(reopen) > 0 then res := public.app__ca_auto_green(p_report); end if;
-  perform public.app_log('thu_chi_sua_khoan_ca', 'report=' || p_report || ' ' || m.amount || ' → ' || signed || ' ' || nt);
-  return jsonb_build_object('reopened', to_jsonb(reopen), 'auto', res,
-    'recon_status', (select recon_status from public.shift_reports where id = p_report),
-    'still_open', coalesce((select jsonb_agg(u) from unnest(reopen) u where not exists (select 1 from public.shift_report_checks c where c.report_id = p_report and c.item = u)), '[]'));
+  -- người không phải quản trị (mục tiền chưa đối soát): ca dùng file Fabi thì web xét tự duyệt lại
+  if money and not adm then res := public.app__ca_auto_green(p_report); end if;
+  perform public.app_log('thu_chi_sua_khoan_ca', 'report=' || p_report || ' ' || m.amount || ' → ' || signed || ' ' || nt || case when money and adm then ' (sửa thẳng)' else '' end);
+  return jsonb_build_object('money', money, 'direct', money and adm, 'auto', res,
+    'recon_status', (select recon_status from public.shift_reports where id = p_report));
 end $$;
 
 -- ---------------------------------------------------------------- Đổi nhóm hàng loạt

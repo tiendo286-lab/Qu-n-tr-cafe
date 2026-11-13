@@ -38,7 +38,7 @@ export default async ({ sleep, out }) => {
     r.push(`lưu không lý do: ${txt('#tc-err', dl)}`);
     typ(dl.querySelector('[name=why]'), 'nhân viên ghi nhầm'); dl.querySelector('[type=submit]').click();
     for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('.tc-r', 300); await sleep(300);
-    r.push(`sau sửa: Mua sữa ${info('Mua sữa thử')} · báo: ${txt('.alert')}`);
+    r.push(`sau sửa (Chủ sửa thẳng): Mua sữa ${info('Mua sữa thử')} · báo: ${txt('.alert')}`);
     // 4) đổi nhóm hàng loạt
     row('Mua đá thử').querySelector('.tc-pick').click(); row('Mua sữa thử').querySelector('.tc-pick').click(); await sleep(200);
     r.push(`chọn 2 khoản chi: thanh ${!$('#tc-bulk').hidden} · ${txt('#tc-bulk')}`.slice(0, 160));

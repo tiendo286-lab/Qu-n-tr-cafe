@@ -76,7 +76,7 @@ export function makeFin(T, me) {
     return out.sort((x, y) => (x.date < y.date ? 1 : x.date > y.date ? -1 : 0));
   };
   const tc = {
-    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), can_money: !!me.perms?.doi_soat, categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
+    app_tc_list: ({ p_branch, p_from, p_to }) => ({ rows: tcRows(p_branch, p_from, p_to), can_money: !!me.perms?.doi_soat, can_direct: admin(), categories: T.fin_categories.map((c) => ({ ...c, active: !!c.active })),
       branches: T.branches.filter((b) => b.status === 'Đang hoạt động' && tcCan(b.id)).sort((a, c) => a.sort_order - c.sort_order).map((b) => ({ id: b.id, code: b.display_code || b.code, name: b.name })) }),
     // Bước 35: gom việc chờ đối soát
     app_ds_todo() {
@@ -128,8 +128,7 @@ export function makeFin(T, me) {
       Object.assign(mv, { kind: p.pay, amount: signed, note: p.note.trim() });
       const s2 = {}; let nk = null; T.shift_report_moves.filter((x) => x.report_id === p_report && x.amount).forEach((x) => { const h = `${x.kind}|${x.amount}|${x.note}`; s2[h] = (s2[h] || 0) + 1; if (x === mv) nk = h + '#' + s2[h]; });
       T.fin_move_cats = T.fin_move_cats.filter((z) => !(z.report_id === p_report && (z.mkey === p_mkey || z.mkey === nk))).concat([{ report_id: p_report, mkey: nk, category_id: p.excluded ? null : Number(p.category_id), excluded: p.excluded ? 1 : 0, checked: 1, checked_by: me.account_id, checked_at: now() }]);
-      const reopened = money ? [...new Set([mv.kind, p.pay])] : [];
-      return { reopened, still_open: reopened, auto: null, recon_status: 'mo_lai' };
+      return { money, direct: money && admin(), auto: null, recon_status: r.recon_status };
     },
     app_tc_bulk_cat({ p_items, p_category, p_excluded }) {
       let n = 0;
