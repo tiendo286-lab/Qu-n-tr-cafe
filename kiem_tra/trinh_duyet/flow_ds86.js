@@ -49,6 +49,14 @@ export default async ({ sleep, out }) => {
     // tuần: đang Hoàn thành 1 phần
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat?cn=' + o.branch_id; await wait('.dw-t'); await sleep(1500);
     r.push(`bảng tuần: ${$$('.dw-t .dw-c').map((c) => c.innerText.replace(/\s+/g, ' ')).filter((t) => /Hoàn thành 1 phần|Chờ đối soát|Đã đối soát/.test(t)).slice(0, 2).join(' | ')} · chú thích có "${$$('.dw-lg .dw-c').map((c) => c.innerText).find((t) => /1 phần/.test(t)) || 'KHÔNG'}"`);
+    // bước 88: Tiền thực nhận — thu theo ca (quản lý đếm) / thu cuối ngày
+    try { sessionStorage.setItem('ds_step:' + id, '6'); } catch (_) { /* bỏ qua */ }
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=7'; await wait('.cm88'); await sleep(1500);
+    r.push(`cách thu mặc định: ${$$('[data-cmode].on').map((b2) => b2.innerText).join()} · ${txt('.cm88 .pc-line:last-of-type')}`);
+    $('[data-cmode="ca"]').click(); await sleep(2500); await wait('.cm88'); await sleep(800);
+    const ip = $('#ql-count'); if (ip) { ip.value = '5.370.000'; ip.dispatchEvent(new Event('input', { bubbles: true })); $('#ql-save').click(); await sleep(2500); await wait('.cm88'); await sleep(800); }
+    const M5 = (await rpc('app_ca_get', { p_id: id })).money || {};
+    r.push(`thu theo ca: ${txt('.cm88')} · máy chủ TM lệch ${M5.tm_left} · ${txt('#cm88-err')}`);
     // chia đều người làm ca
     await open();
     const box = $$('.lx-box').find((b) => b.dataset.item === 'tien_mat');

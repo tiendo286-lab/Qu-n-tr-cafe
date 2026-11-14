@@ -150,8 +150,16 @@ export async function renderNew(R0, P, SH) {
   // Khung so sánh chuyển khoản hotline (vẽ lại riêng khi gõ)
   function ckBox() {   // bước 84: tính cả Nợ CK mới; lệch không bắt ghi lý do — quản lý kiểm tra khi đối soát
     const c = money(); const bad = c.ckLeft !== null && c.ckLeft !== 0;
-    return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}">Phải thấy: chuyển khoản trên phiếu <b>${fmt(V.f.pos_transfer)}</b>${c.colCK ? html` + khách trả nợ chuyển khoản <b>${fmt(c.colCK)}</b>` : ''}${c.mvCK ? html` + thu chi chuyển khoản <b>${signed(c.mvCK)}</b>` : ''}${c.ckOut ? html` − Nợ CK mới <b>${fmt(c.ckOut)}</b>` : ''} = <b>${fmt(c.ckExp)}</b>
-        ${V.reported_transfer === null ? '' : bad ? html`<br>🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b>` : html`<br>✅ Khớp`}</div>
+    const thu = sum(V.moves.filter((m) => m.kind === 'chuyen_khoan' && Number(m.amount) > 0), (m) => m.amount); const chi = sum(V.moves.filter((m) => m.kind === 'chuyen_khoan' && Number(m.amount) < 0), (m) => m.amount);
+    const sg = (n) => (Number(n) < 0 ? '−' : Number(n) > 0 ? '+' : '') + fmt(Math.abs(Number(n) || 0));
+    return html`<div class="alert ${V.reported_transfer === null ? 'info' : bad ? 'error' : 'ok'}"><div class="kv cm-ckkv">
+        <div>Chuyển khoản trên phiếu Fabi</div><div>${fmt(V.f.pos_transfer)}</div>
+        <div>+ Khách trả nợ bằng chuyển khoản</div><div>${fmt(c.colCK)}</div>
+        <div>+ Thu chuyển khoản (bước Thu chi)</div><div>${fmt(thu)}</div>
+        <div>− Chi chuyển khoản (bước Thu chi)</div><div>${sg(chi)}</div>
+        <div>− Nợ CK mới trong ca</div><div>${sg(-c.ckOut)}</div>
+        <div class="cm-ckt">= Phải thấy trên hotline</div><div class="cm-ckt">${fmt(c.ckExp)}</div></div>
+        ${V.reported_transfer === null ? '' : bad ? html`<div style="margin-top:6px">🔴 Bạn nhập ${fmt(V.reported_transfer)}, lệch <b>${signed(c.ckLeft)}</b></div>` : html`<div style="margin-top:6px">✅ <b>Khớp</b></div>`}</div>
       ${bad ? html`<div class="st-meta">Lệch thì cộng lại các giao dịch trên hotline. Quên ghi khoản thu / chi chuyển khoản? <button type="button" class="btn sm secondary" data-jump="5">Về bước Thu chi</button> · Khách ấn nhầm chuyển khoản mà chưa chuyển? <button type="button" class="btn sm secondary" data-jump="3">Về bước Khách nợ</button></div>
         <label class="pc-f"><span>Ghi chú (không bắt buộc — quản lý kiểm tra khi đối soát)</span><input class="input" id="cm-ck-note" value="${V.transfer_note}" placeholder="vd: 1 khách chuyển nhầm sang tài khoản khác"></label>` : ''}`;
   }
@@ -596,6 +604,7 @@ const CM_CSS = html`<style>
   .cm-line .cm-wide { grid-column: 1 / -1; grid-row: 2; }
   .cm-line2 { display: grid; grid-template-columns: minmax(0, 1fr) 130px; gap: 6px; align-items: center; }
   .cm-big { font-size: 24px; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .cm-ckkv { grid-template-columns: minmax(0, 1fr) auto; } .cm-ckkv > div:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; } .cm-ckkv > .cm-ckt { border-top: 2px solid currentColor; padding-top: 4px; font-weight: 800; }
   .cm-dkk { display: flex; flex-direction: column; gap: 6px; font-size: 13px; line-height: 1.45; } .cm-dkk b:first-child { display: inline-block; min-width: 30px; }
   .cm-dk { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; } .cm-dk .input { flex: 1 1 150px; min-width: 0; width: auto; }
   .cm-debt .cm-line { grid-template-columns: minmax(0, 1fr) 120px auto; }

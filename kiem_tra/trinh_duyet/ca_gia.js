@@ -26,7 +26,8 @@ export function makeCa(T, me) {
     const loan = T.shift_debts.filter((x) => x.report_id === id && x.kind === 'muon').reduce((a, x) => a + (x.amount || 0), 0);   // bước 43
     const ckOut = T.shift_debts.filter((x) => x.report_id === id && x.kind === 'ck').reduce((a, x) => a + (x.amount || 0), 0);   // bước 84
     const col = (k) => T.shift_debts.filter((x) => x.closed_report_id === id && x.collect_kind === k).reduce((a, x) => a + (x.amount || 0), 0);
-    const tm = d.cash_counted - d.opening_cash - d.pos_cash - mv('tien_mat') - col('tien_mat') + loan;
+    const rr0 = rep(id); const cc0 = rr0 && rr0.cash_mode === 'ca' && rr0.ql_counted != null ? rr0.ql_counted : d.cash_counted;   // bước 88: thu theo ca → lệch theo số quản lý đếm
+    const tm = cc0 - d.opening_cash - d.pos_cash - mv('tien_mat') - col('tien_mat') + loan;
     const ck = d.reported_transfer - d.pos_transfer - mv('chuyen_khoan') - col('chuyen_khoan') + ckOut;
     const r = rep(id); const sh = shifts(); const ns = sh[sh.indexOf(r.shift) + 1];
     const nx = ns ? T.shift_reports.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === ns) : null;
@@ -144,6 +145,13 @@ export function makeCa(T, me) {
       T.shift_debts = T.shift_debts.filter((d) => d.report_id !== r.id || d.closed_at || keepD.includes(d.id));
       const dIds = p.debts.map((d) => { if (!d.table_name.trim()) return null; if (d.id) { Object.assign(T.shift_debts.find((x) => x.id === d.id), { table_name: d.table_name, amount: d.amount || 0, note: d.note, ...(d.kind ? { kind: d.kind } : {}) }); return d.id; } const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: d.table_name, amount: d.amount || 0, note: d.note, kind: ['muon', 'ck'].includes(d.kind) ? d.kind : 'bill', created_by: me.account_id, created_at: now() }); return id; });
       return { at: now(), rev_start: r.rev_start, handover_ids: hIds, debt_ids: dIds };
+    },
+    app_ca_debt_kind({ p_debt, p_kind }) {   // bước 89
+      const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_at) throw new Error('Khoản nợ đã thu.'); if (!['bill', 'muon', 'ck'].includes(p_kind)) throw new Error('Loại nợ không đúng.'); d.kind = p_kind;
+    },
+    app_ca_cash_mode({ p_id, p_mode, p_counted }) {   // bước 88
+      const r = rep(p_id); if (!['ca', 'ngay'].includes(p_mode)) throw new Error('Chọn cách thu.'); if (r.recon_status === 'hoan_thanh') throw new Error('Ca đã hoàn thành đối soát.');
+      Object.assign(r, { cash_mode: p_mode, ql_counted: p_mode === 'ca' ? (p_counted ?? null) : null });
     },
     app_ca_complete({ p_id, __only }) {
       const r = needEdit(p_id); const f = forced(r); if (f) r.rev_start = f;
