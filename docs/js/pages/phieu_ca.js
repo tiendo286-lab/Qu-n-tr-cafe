@@ -152,9 +152,10 @@ function staffRow(s, ed, SH) {
       <input class="input sm st-note grow" placeholder="Ghi chú" aria-label="Ghi chú" value="${s.note || ''}" ${ed ? '' : 'disabled'}>
       ${ed && s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Bỏ người hỗ trợ">×</button>` : ''}</div></div>`;
 }
-const hoRow = (h, ed) => html`<div class="pc-line ho-row" data-id="${h.id || ''}">
+const hoRow = (h, ed, giao) => html`<div class="pc-line ho-row" data-id="${h.id || ''}">
   <textarea class="input ho-text grow" rows="2" placeholder="Việc cần ca sau làm tiếp / thiết bị / vệ sinh / an toàn / sự cố" aria-label="Nội dung bàn giao" ${ed && !h.task_id ? '' : 'disabled'}>${h.content || ''}</textarea>
-  ${h.done_at ? html`<span class="pill ok">Đã xong ${dt(h.done_at)}</span>` : h.task_id ? html`<span class="pill warn">Đã giao việc</span>` : ''}
+  ${h.done_at ? html`<span class="pill ok">Đã xong ${dt(h.done_at)}</span>` : h.task_id ? html`<span class="pill warn">Đã giao việc${h.task_assignee ? ` cho ${h.task_assignee}` : ''}</span>` : ''}
+  ${giao ? html`<button type="button" class="btn sm secondary ho-giao" data-id="${h.id}">+ Giao thành việc</button>` : ''}
   ${ed && !h.task_id && !h.done_at ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa việc">×</button>` : ''}</div>`;
 const goodRow = (g, ed) => html`<div class="pc-line gd-row">
   <input class="input sm gd-item grow" placeholder="Mặt hàng" aria-label="Mặt hàng thiếu" value="${g.item || ''}" ${ed ? '' : 'disabled'}>
@@ -400,7 +401,7 @@ export async function render({ params }) {
             : html`<button type="button" class="btn sm ho-done" data-id="${h.id}">Đã xong</button>`)
             : h.done_at ? html`<span class="pill ok">Đã xong</span>` : html`<span class="pill off">Chưa xong</span>`}</div>`)}` : ''}
     <div class="pc-sub">BÀN GIAO CỦA CA NÀY <span class="st-meta">— công việc, thiết bị, vệ sinh, an toàn, sự cố</span></div>
-    <div id="handover" class="stack" style="gap:8px">${(R.handover || []).map((h) => hoRow(h, edSharedN))}</div>
+    <div id="handover" class="stack" style="gap:8px">${(R.handover || []).map((h) => hoRow(h, edSharedN, isDs && !!R.can_recon && !!h.id && !h.task_id && !h.done_at))}</div>
     ${edSharedN ? html`<div><button type="button" class="btn sm secondary" id="add-ho">+ THÊM CÔNG VIỆC</button></div>` : (R.handover || []).length ? '' : html`<div class="st-meta">Không có.</div>`}`);
 
   // G. Nhập hàng từ kho tổng (bước 31): hóa đơn kế toán gửi → nhân viên kiểm từng món + ảnh; quản lý đối soát từng ảnh
@@ -479,26 +480,28 @@ export async function render({ params }) {
 
   // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước
   const dsLeft = (i) => (DS_ITEMS[i] || []).filter((it) => !(R.checks || {})[it] && !(R.results || {})[it] && !lkItem(it));
-  const dsHd = (i) => html`${i === 0 || i === 2 ? html`<div class="pc-part-h">${DS_PART[i]}</div>` : ''}<div class="ds-hd"><span>BƯỚC ${i + 1} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${i < DS_LAST
+  const dsHd = (i) => html`${i === 0 || i === 3 ? html`<div class="pc-part-h">${DS_PART[i]}</div>` : ''}<div class="ds-hd"><span>BƯỚC ${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${i < DS_LAST
     ? (dsLeft(i).length ? html`<span class="pill off">Còn ${dsLeft(i).length}/${DS_ITEMS[i].length} hạng mục</span>` : html`<span class="pill ok">✓ Đã đối soát</span>`) : ''}</div>`;
   const PDT = PD ? Object.fromEntries((PD.parts || []).map((p) => [p.part, p])) : {};
   const whoPart = (k) => { const p = PDT[k]; if (!p || !p.done_at) return ''; return html`<div class="st-meta ds-who">Phần ${p.label}: ${p.done_name || p.claimed_name || ''}${p.done_ql ? html` · <strong>quản lý tự làm — đã tự đối soát</strong>` : ''}</div>`; };
   const dsSum = isDs ? html`<section class="card stack pc-sec"><div class="pc-sec-head"><h2>Tóm tắt đối soát</h2></div>
-      ${DS_ITEMS.map((_, i) => html`<div class="pc-line ds-sum"><strong class="grow">Bước ${i + 1} · ${DS_STEPS[i]}</strong>${dsLeft(i).length
+      ${DS_ITEMS.map((_, i) => (i === DS_X2 ? '' : html`<div class="pc-line ds-sum"><strong class="grow">Bước ${i + 1} · ${DS_STEPS[i]}</strong>${dsLeft(i).length
         ? html`<span class="st-meta">Còn: ${dsLeft(i).map((it) => CHECK_LABEL[it]).join(', ')}</span><button type="button" class="btn sm secondary" data-ds-go="${i}">Làm bước ${i + 1}</button>`
-        : html`<span class="pill ok">✓ Xong</span>`}</div>`)}
+        : html`<span class="pill ok">✓ Xong</span>`}</div>`))}
       <div id="ds-cv-sum"></div>
       <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
   const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
-  const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
+  const dsX2 = isDs && (R.staff || []).some((s2) => !s2.worked || (s2.source && s2.source !== 'lich'));   // bước 87: có người nghỉ / làm hộ / ca bổ sung
+  const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       ${!dsPhone ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', dsLeft(0).length + dsLeft(1).length], ['tien', '② Phần tiền', dsLeft(2).length], ['xong', '③ Hoàn thành', -1]].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" data-left="${n}">${l}${n > 0 ? html`<span class="ds-ptn">còn ${n}</span>` : n === 0 ? html`<span class="ds-pto">✓</span>` : ''}</button>`)}</nav>` : ''}
-      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
-      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('tien')}${caTime}${secTime}${secMoney}</div>
-      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${secDebt}</div>
-      <div class="ds-pane stack" data-ds="4">${dsHd(4)}${secTc}</div>
-      <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secThuc}${secDiff}</div>
-      <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secLech}${dsSum}${dsFoot}</div>
+      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}</div>
+      <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
+      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
+      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${whoPart('tien')}${caTime}${secTime}${secMoney}</div>
+      <div class="ds-pane stack" data-ds="4">${dsHd(4)}${secDebt}</div>
+      <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secTc}</div>
+      <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secThuc}${secDiff}</div>
+      <div class="ds-pane stack" data-ds="7">${dsHd(7)}${secLech}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">✓ Duyệt & tiếp ›</button></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
@@ -529,9 +532,11 @@ const WZ_STEPS = ['Tiền: số liệu', 'Tiền: thu chi', 'Nhân sự & bàn g
 const STEP_PART = ['tien', 'tien', 'nhan_su'];
 // 11/11/2026: nhân sự trước (biết đủ người để chia tiền âm). Bước 78 (13/11): ① Phần việc (nhân sự & bàn giao, nhận hàng) → ② Phần tiền
 // Bước 86 (anh Tiến 14/11): đối soát đi từng bước như phiếu chốt ca — mỗi bước "Duyệt & tiếp"; bước cuối xử lý lệch & hoàn thành
-const DS_STEPS = ['Ai làm ca', 'Bàn giao & nhận hàng', 'Phiếu Fabi', 'Khách nợ', 'Thu chi', 'Tiền thực nhận', 'Xử lý lệch & hoàn thành'];
-const DS_ITEMS = [['nhan_su'], ['ban_giao', 'nhap_hang'], ['thoi_gian', 'doanh_thu'], ['cong_no'], ['thu_chi'], ['tien_mat', 'chuyen_khoan']];
-const DS_PART = ['① Phần việc', '① Phần việc', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền'];
+// bước 87: bước "Nghỉ & ca bổ sung (x2)" (QL tổng phân loại, Chủ duyệt) chỉ hiện khi ca có người nghỉ / làm hộ
+const DS_STEPS = ['Ai làm ca', 'Nghỉ & ca bổ sung (x2)', 'Bàn giao & nhận hàng', 'Phiếu Fabi', 'Khách nợ', 'Thu chi', 'Tiền thực nhận', 'Xử lý lệch & hoàn thành'];
+const DS_ITEMS = [['nhan_su'], [], ['ban_giao', 'nhap_hang'], ['thoi_gian', 'doanh_thu'], ['cong_no'], ['thu_chi'], ['tien_mat', 'chuyen_khoan']];
+const DS_PART = ['① Phần việc', '① Phần việc', '① Phần việc', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền'];
+const DS_X2 = 1;
 const DS_LAST = DS_STEPS.length - 1;
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
 function missingList(v, c, R) {
@@ -768,12 +773,13 @@ function mount(R, ed, C0, ctx = {}) {
   if (isDs) {
     const key = 'ds_step:' + R.id;
     const go = (i) => {
-      const st = Math.max(0, Math.min(DS_LAST, i));
+      let st = Math.max(0, Math.min(DS_LAST, i));
+      if (st === DS_X2 && $('.ds-pane[data-skip]')) st = goDir < 0 ? 0 : DS_X2 + 1;   // bước 87: không có người nghỉ / làm hộ → bỏ qua bước x2
       try { sessionStorage.setItem(key, String(st)); } catch (_) { /* bỏ qua */ }
       if (!dsPhone) { showPart(PART(st)); $(`.ds-pane[data-ds="${st}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       $$('.ds-pane').forEach((p) => { p.hidden = Number(p.dataset.ds) !== st; });
       $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
-      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === DS_LAST; $('#ds-pos').textContent = `Bước ${st + 1}/${DS_LAST + 1}`;
+      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === DS_LAST; const sk = $('.ds-pane[data-skip]') ? 1 : 0; $('#ds-pos').textContent = `Bước ${st + 1 - (sk && st > DS_X2 ? 1 : 0)}/${DS_LAST + 1 - sk}`;
       $('#ds-next').textContent = canApprove ? '✓ Duyệt & tiếp ›' : 'Tiếp ›';
       window.scrollTo({ top: 0 });
     };
@@ -800,6 +806,7 @@ function mount(R, ed, C0, ctx = {}) {
       $$('.ds-pt').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.ptab === pt)));
       try { sessionStorage.setItem('ds_part:' + R.id, pt); } catch (_) { /* bỏ qua */ }
     }
+    let goDir = 1;
     let cur = 0; try { cur = Number(sessionStorage.getItem(key)) || 0; } catch (_) { /* bỏ qua */ }
     if (dsStep) cur = dsStep - 1;
     if (!dsPhone) {
@@ -811,11 +818,11 @@ function mount(R, ed, C0, ctx = {}) {
     }
     form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-ds-go]'); if (g) { cur = Number(g.dataset.dsGo); go(cur); } });
     if (dsPhone) {
-      $('#ds-prev').addEventListener('click', () => { cur = Math.max(0, cur - 1); go(cur); });
+      $('#ds-prev').addEventListener('click', () => { goDir = -1; cur = Math.max(0, cur - 1); if (cur === DS_X2 && $('.ds-pane[data-skip]')) cur = 0; go(cur); goDir = 1; });
       $('#ds-next').addEventListener('click', async () => {
         const b = $('#ds-next'); b.disabled = true;
         let n = 0; try { n = await approveStep(cur); } catch (e) { showSaved(e.message, true); b.disabled = false; return; }
-        b.disabled = false; cur = Math.min(DS_LAST, cur + 1);
+        b.disabled = false; cur = Math.min(DS_LAST, cur + 1); if (cur === DS_X2 && $('.ds-pane[data-skip]')) cur = DS_X2 + 1;
         if (n) { try { sessionStorage.setItem(key, String(cur)); } catch (_) { /* bỏ qua */ } flash(`Đã duyệt bước ${cur}.`); rerender(); return; }
         go(cur);
       });
@@ -855,6 +862,28 @@ function mount(R, ed, C0, ctx = {}) {
       });
       go(cur);
     } else if (dsStep) setTimeout(() => go(cur), 300);
+    // bước 87: bàn giao → giao thành việc (người nhận được thông báo, việc hiện ở Công việc; làm xong thì bàn giao tự "đã xử lý")
+    $$('.ho-giao').forEach((b) => b.addEventListener('click', async () => {
+      const h = (R.handover || []).find((x) => String(x.id) === b.dataset.id); if (!h) return;
+      let people = []; try { people = await rpc('app_viec_people'); } catch (e) { showSaved(e.message, true); return; }
+      const d = dialog(html`<form class="stack" style="gap:12px;max-width:460px"><h2 style="margin:0">Giao thành việc</h2>
+        <div class="st-meta">Từ bàn giao ca ${R.shift} ${dmy(R.work_date)} · ${R.branch_code}</div>
+        <div class="pc-line carried"><div class="grow">${h.content}</div></div>
+        <label class="pc-f"><span>Người nhận</span><select class="input" name="who"><option value="">— Chọn người nhận —</option>${people.map((p) => html`<option value="${p.id}">${p.name}</option>`)}</select></label>
+        <div class="pc-line" style="gap:8px"><label class="pc-f grow"><span>Mức độ</span><select class="input" name="pri"><option value="gap">Gấp</option><option value="binh_thuong" selected>Bình thường</option><option value="thap">Thấp</option></select></label>
+          <label class="pc-f grow"><span>Hạn (không bắt buộc)</span><input class="input" type="date" name="due"></label></div>
+        <div class="st-meta">Người nhận được <b>thông báo</b>; việc hiện ở <b>Công việc</b>. Làm xong thì bàn giao này tự ghi "đã xử lý".</div>
+        <div id="hg-err"></div>
+        <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Giao việc</button></div></form>`);
+      const f = d.querySelector('form'); d.querySelector('[data-x]').addEventListener('click', () => d.close());
+      f.addEventListener('submit', async (ev) => {
+        ev.preventDefault(); const btn = f.querySelector('[type=submit]');
+        if (!f.who.value) { d.querySelector('#hg-err').innerHTML = str(html`<div class="alert error">Chọn người nhận.</div>`); return; }
+        btn.disabled = true;
+        try { await rpc('app_viec_add', { p_meeting: null, p: { kind: 'viec', handover_item_id: h.id, assignee_id: f.who.value, due_date: f.due.value || null, priority: f.pri.value } }); d.close(); flash('Đã giao việc — người nhận đã được thông báo.'); rerender(); }
+        catch (e) { btn.disabled = false; d.querySelector('#hg-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
+      });
+    }));
     const loadTc = () => rpc('app_tc_list', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }).then((D) => {
       const box = $('#ds-tc'); if (!box) return;
       tcList(box, (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id), { cats: D.categories || [], showReport: false, onChange: loadTc });

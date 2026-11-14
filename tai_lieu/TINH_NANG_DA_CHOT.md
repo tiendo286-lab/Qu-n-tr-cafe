@@ -507,7 +507,8 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Nút **"✓ Duyệt & tiếp"** duyệt các hạng mục của bước (tiền mặt / chuyển khoản chỉ tự duyệt khi khớp). Đèn đối soát ở đầu trang vẫn giữ (nút "Xử lý" nhảy đúng bước).
 - Bước cuối **Xử lý lệch** cho tiền mặt và chuyển khoản: **Quán chịu** (thừa: Ghi thu khác — Chủ / QL tổng) · **Chia đều người làm ca** (tích / bỏ tích, sửa số, tổng = lệch; thành khoản âm trừ lương) · **Đối soát lại sau** (mặc định).
 - Bảng tuần tab Đối soát: ô ca đã duyệt một phần mà chưa hoàn thành → **vàng "Hoàn thành 1 phần"** (x/9 mục); xanh lá Đã đối soát; xanh dương Chờ đối soát; đỏ Thiếu phiếu.
-- Chưa làm (để sau nếu anh cần): bước Nghỉ & ca bổ sung x2 tách riêng; "Giao thành việc" ở bàn giao; thu theo ca / cuối ngày ở Tiền thực nhận; chặn hoàn thành khi Chủ chưa duyệt x2.
+- Bước 87 (14/11): thêm bước **Nghỉ & ca bổ sung (x2)** riêng — chỉ hiện khi ca có người nghỉ / làm hộ (QL tổng phân loại, Chủ duyệt; ca chỉ hoàn thành khi Chủ duyệt — web đã kiểm sẵn). Bàn giao có nút **"+ Giao thành việc"** (người nhận, mức độ, hạn → người nhận được thông báo, việc hiện ở Công việc, xong thì bàn giao tự "đã xử lý").
+- Còn: thu theo ca / cuối ngày ở Tiền thực nhận (cần cập nhật máy chủ).
 
 ## 6. Đã bỏ hẳn
 

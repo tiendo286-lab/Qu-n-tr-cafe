@@ -53,7 +53,9 @@ export function makeViec(T, me) {
         employees: T.employees.filter((e) => e.status === 'Đang làm').map(({ id, code, name: n, rank }) => ({ id, code, name: n, rank })) };
     },
     app_viec_add({ p_meeting, p }) {
-      const content = (p.content || (p.handover_item_id ? HO.find((h) => h.id === p.handover_item_id).content : '')).trim(); if (!content) throw new Error('Nhập nội dung công việc.');
+      const hoIt = p.handover_item_id ? (HO.find((h) => h.id === p.handover_item_id) || (T.handover_items || []).find((h) => h.id === p.handover_item_id)) : null;   // bước 87: bàn giao của phiếu ca
+      if (hoIt && T.handover_items?.includes(hoIt)) hoIt.task_id = -1;
+      const content = (p.content || (hoIt ? hoIt.content : '')).trim(); if (!content) throw new Error('Nhập nội dung công việc.');
       if (p.kind === 'dao_tao' && !p.employee_id) throw new Error('Chọn nhân viên cần đào tạo.');
       const cat = p.category || (p.kind === 'dao_tao' ? 'quan_ly' : 'van_hanh'); const top = p.topic || (p.kind === 'dao_tao' ? 'dao_tao' : p.handover_item_id ? 'ban_giao' : cat === 'quan_ly' ? 'khac_ql' : 'khac_vh');
       if (!TOP[cat] || !TOP[cat].includes(top)) throw new Error('Nhóm việc không thuộc loại đã chọn.');

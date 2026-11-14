@@ -32,7 +32,7 @@ export async function mountCover(box, R, ctx = {}) {
   const st = CV_STATE[C.state] || [C.state, 'mute'];
   if (ctx.sum) {
     ctx.sum.innerHTML = C.state === 'khong_can' ? '' : str(html`<div class="pc-line ds-sum"><strong class="grow">Nghỉ & làm thay (x2)</strong><span class="pill ${st[1]}">${st[0]}</span>
-      ${C.state === 'da_duyet' ? '' : html`<span class="st-meta">Chủ duyệt thì phiếu mới hoàn thành đối soát.</span><button type="button" class="btn sm secondary" data-ds-go="0">Làm ở bước 1</button>`}</div>`);
+      ${C.state === 'da_duyet' ? '' : html`<span class="st-meta">Chủ duyệt thì phiếu mới hoàn thành đối soát.</span><button type="button" class="btn sm secondary" data-ds-go="1">Mở bước Nghỉ & làm thay</button>`}</div>`);
   }
   if (C.state === 'khong_can') {
     box.innerHTML = str(html`<div class="pc-sec-head"><h2>Nghỉ & làm thay</h2></div><div class="st-meta">Ca này không có người nghỉ hay người hỗ trợ phát sinh — không cần phân loại.</div>`);

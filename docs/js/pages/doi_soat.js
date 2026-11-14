@@ -196,7 +196,7 @@ export async function render({ params }) {
   const goodRow = (g) => html`<div class="td-r" data-br="${g.branch_id}">
       <div class="td-m"><strong>${g.kind === 'khong_hd' ? 'Nhận không hóa đơn' : `Hóa đơn ${g.doc_no || ''}`} · ${bcode(g.branch_id)}</strong>
         <div class="st-meta">Ca ${g.shift} ${dmy(g.date)} · ${g.received_by || ''} · còn ${g.n_unchecked}/${g.n_lines} món chưa đối soát</div></div>
-      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${g.report_id}&buoc=2">Đối soát hàng ›</a>`
+      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${g.report_id}&buoc=3">Đối soát hàng ›</a>`
         : html`<a class="btn sm secondary" href="#/ca/phieu?id=${g.report_id}">Phiếu ca chưa hoàn thành</a>`}</div>`;
   const kaRow = (k, i) => html`<div class="td-r" data-br="${k.branch_id}" data-i="${i}">
       <div class="td-m"><strong>${k.employee} · −${fmt(k.amount)}đ</strong> <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}${k.auto_tru ? ' (mặc định)' : ''}</span>
@@ -228,7 +228,7 @@ export async function render({ params }) {
           <div class="st-meta" style="font-weight:700;margin-top:4px">${lbl} (${list.length})</div>
           ${list.length ? list.map((c) => html`<div class="td-r" data-br="${c.branch_id}"><div class="td-m"><strong>${dmy(c.date)} · ${c.branch} · Ca ${c.shift}</strong>${c.state === 'lech' ? html` <span class="pill off">nhân sự đã đổi — phân loại lại</span>` : ''}
               <div class="st-meta">${c.absent ? `Nghỉ: ${c.absent}` : ''}${c.absent && c.helper ? ' · ' : ''}${c.helper ? `Hỗ trợ: ${c.helper}` : ''}${c.x2 ? ` · x2: ${c.x2}` : ''}${c.set_by ? ` · phân loại: ${c.set_by}` : ''}</div></div>
-            <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${c.id}&buoc=1">Mở bước Nhân sự ›</a></div>`) : html`<div class="st-meta">Không có.</div>`}`)}</div>
+            <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${c.id}&buoc=2">Mở bước Nghỉ & làm thay ›</a></div>`) : html`<div class="st-meta">Không có.</div>`}`)}</div>
       <div class="td-sec" id="td-muon"><h3>5. Nợ TM chưa trả</h3>${(LO || []).length ? LO.map(loanRow) : html`<div class="st-meta">Không có.</div>`}</div>
     </section>`;
 

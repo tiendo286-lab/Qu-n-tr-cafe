@@ -31,6 +31,16 @@ export default async ({ sleep, out }) => {
     $('#ds-next').click(); await sleep(2500); await wait('.ds-pane'); await sleep(800);
     const R2 = await rpc('app_ca_get', { p_id: id });
     r.push(`Duyệt bước 1 → đã duyệt: ${Object.keys(R2.checks || {}).join(',') || 'chưa'} · hiện ${vis()} · ${txt('#ds-pos')}`);
+    // bước 87: bước x2 riêng (ca có người làm hộ) → Tiếp → Bàn giao: Giao thành việc
+    r.push(`bước x2: hiện ${vis()} · có khung phân loại ${!!$('#ds-cv')} · ${txt('#ds-pos')}`);
+    $('#ds-next').click(); await sleep(1500); await wait('.ds-pane'); await sleep(600);
+    r.push(`bàn giao: hiện ${vis()} · nút Giao thành việc ${$$('.ho-giao').length}`);
+    $('.ho-giao')?.click(); await wait('dialog[open] form', 100); await sleep(300);
+    { const dl = $('dialog[open]'); r.push(`hộp: ${dl?.querySelector('h2')?.innerText} · người nhận ${dl?.querySelectorAll('[name=who] option').length - 1}`);
+      if (dl) { dl.querySelector('[type=submit]').click(); await sleep(300); r.push(`chưa chọn người: ${dl.querySelector('#hg-err')?.innerText}`);
+        dl.querySelector('[name=who]').selectedIndex = 1; dl.querySelector('[type=submit]').click(); await sleep(2500); } }
+    r.push(`sau giao: lỗi ${$("dialog[open] #hg-err")?.innerText || "không"} · hộp còn mở ${!!$("dialog[open]")} · việc ${JSON.stringify((await rpc('app_viec_all')).tasks?.filter?.((t) => t.handover_item_id).length ?? 'n/a')}`);
+    await wait('.ds-pane'); await sleep(800);
     for (let k = 0; k < 4; k++) { $('#ds-next').click(); await sleep(2500); await wait('.ds-pane'); await sleep(600); }
     const R3 = await rpc('app_ca_get', { p_id: id });
     r.push(`sau 5 bước: kiểm ${Object.keys(R3.checks || {}).join(',')} · kết quả ${Object.keys(R3.results || {}).join(',')} · hiện ${vis()} · ${$$('.ds-pane:not([hidden]) h2').map((x) => x.innerText).join(' / ')} · ${txt('.cm-err, #err') || ''}`);
