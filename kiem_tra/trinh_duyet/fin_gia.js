@@ -60,6 +60,7 @@ export function makeFin(T, me) {
         const c = T.fin_move_cats.find((z) => z.report_id === r.id && z.mkey === mkey);
         out.push({ src: 'ca', report_id: r.id, mkey, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: x.amount < 0 ? 'chi' : 'thu', pay: x.kind, amount: Math.abs(x.amount), note: x.note,
           category_id: c ? c.category_id : null, category: T.fin_categories.find((k) => k.id === c?.category_id)?.name || null, excluded: c ? !!c.excluded : x.amount > 0,
+          employee_id: c?.employee_id || null,   // bước 90
           loan_id: (T.branch_loans || []).find((l) => l.report_id === r.id && l.mkey === mkey)?.id || null,
           ka_n: (T.__SF || []).filter((k) => k.report_id === r.id && k.move_mkey === mkey && k.status !== 'huy').length,
           status: c?.checked ? 'da' : 'cho', checked_by: c?.checked ? name(c.checked_by) : null, checked_at: c?.checked_at || null, by: 'NV chốt ca', locked: locked(r.branch_id, r.work_date) });
@@ -112,6 +113,11 @@ export function makeFin(T, me) {
           return { ...k, employee: `${e.code} – ${e.name}`, item_label: lbl[k.item], branch_id: r.branch_id, branch: (T.branches.find((b) => b.id === r.branch_id) || {}).code, work_date: r.work_date, shift: r.shift };
         }),
       };
+    },
+    app_tc_move_emp({ p_report, p_mkey, p_emp }) {   // bước 90: gán chi lương cho nhân viên
+      let c = T.fin_move_cats.find((z) => z.report_id === p_report && z.mkey === p_mkey);
+      if (!c) { c = { report_id: p_report, mkey: p_mkey, category_id: null, excluded: 0, checked: 0 }; T.fin_move_cats.push(c); }
+      c.employee_id = p_emp || null;
     },
     app_tc_check({ p_report, p_mkey, p_category, p_excluded, p_checked }) {
       const r = T.shift_reports.find((x) => x.id === p_report); if (!tcCan(r.branch_id)) throw new Error('Bạn không được xem / sửa thu chi của cơ sở này.'); guard(r.branch_id, r.work_date);

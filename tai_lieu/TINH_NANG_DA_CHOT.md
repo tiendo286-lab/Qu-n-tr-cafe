@@ -511,6 +511,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Bước 88–89 (14/11, máy chủ 84_thu_tien_mat.sql): anh báo đối soát "như cũ" → làm lại phần bên trong cho giống ảnh mẫu: **Ai làm ca** (từng người Đúng lịch ✓ / đến muộn / về sớm / ngoài lịch), **Phiếu Fabi** (bảng NV ghi · file Fabi · ✓/✗, khách trả nợ cũ ghi cách kiểm), **Khách nợ** (quản lý bấm đổi HĐ / TM / CK — `app_ca_debt_kind`), **Tiền thực nhận** (chuyển khoản: phải nhận từng dòng, so NV cộng + sao kê; tiền mặt: phải có từng dòng, so NV đếm). Ô sửa số liệu cũ gom vào mục "Sửa số liệu…" thu gọn.
 - **Thu theo ca / Thu cuối ngày** (mỗi ca, `app_ca_cash_mode`): thu theo ca → quản lý nhập số đếm thực nhận (`shift_reports.ql_counted`), web tính thu về quỹ (trừ gối đầu 1.000.000), lệch tiền mặt tính theo số quản lý đếm; thu cuối ngày → điều kiện tiền kết ca = tiền mở ca sau (lệch báo đỏ).
 - Phiếu nhân viên › Chuyển khoản hotline ghi từng dòng như ảnh mẫu.
+- Bước 90 (14/11, máy chủ 85_gan_chi_luong.sql): Thu chi ở đối soát chia 2 phần Tiền mặt / Chuyển khoản; khoản **Chi lương** tiền mặt có ô **Gán cho nhân viên** (không bắt buộc, `fin_move_cats.employee_id`, `app_tc_move_emp`) → Bảng công cộng vào "Lương tiền mặt đã trả". Quản lý **sửa số phải ghi lý do** (ô Lý do sửa trong từng mục "Sửa số liệu"; chưa có lý do thì web chưa lưu).
 
 ## 6. Đã bỏ hẳn
 

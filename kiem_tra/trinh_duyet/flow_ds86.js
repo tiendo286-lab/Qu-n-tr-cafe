@@ -20,7 +20,7 @@ export default async ({ sleep, out }) => {
     const e = (await rpc('app_ca_employees'))[0];
     const staff = (R.staff || []).length ? (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:39' })) : [{ employee_id: e.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' }];
     await rpc('app_ca_save', { p_id: id, p: { rev_start: R.rev_start || day + ' 06:45', rev_end: day + ' 12:39', reported_transfer: 2400000, total_revenue: 7000000, pos_cash: 4500000, pos_transfer: 2400000,
-      cash_counted: 5380000, ipos_opening: 1000000, pos_debt: 100000, pos_diff: -120000, cups: 50, moves: [{ kind: 'tien_mat', amount: -100000, note: 'Mua đá' }], goods: [], handover: [{ content: 'Máy xay kêu to' }],
+      cash_counted: 5180000, ipos_opening: 1000000, pos_debt: 100000, pos_diff: -320000, cups: 50, moves: [{ kind: 'tien_mat', amount: -100000, note: 'Mua đá' }, { kind: 'tien_mat', amount: -200000, note: 'Chi lương Quang hỗ trợ' }], goods: [], handover: [{ content: 'Máy xay kêu to' }],
       debts: [{ table_name: '3', amount: 100000, kind: 'bill' }], staff } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
@@ -54,7 +54,7 @@ export default async ({ sleep, out }) => {
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=7'; await wait('.cm88'); await sleep(1500);
     r.push(`cách thu mặc định: ${$$('[data-cmode].on').map((b2) => b2.innerText).join()} · ${txt('.cm88 .pc-line:last-of-type')}`);
     $('[data-cmode="ca"]').click(); await sleep(2500); await wait('.cm88'); await sleep(800);
-    const ip = $('#ql-count'); if (ip) { ip.value = '5.370.000'; ip.dispatchEvent(new Event('input', { bubbles: true })); $('#ql-save').click(); await sleep(2500); await wait('.cm88'); await sleep(800); }
+    const ip = $('#ql-count'); if (ip) { ip.value = '5.170.000'; ip.dispatchEvent(new Event('input', { bubbles: true })); $('#ql-save').click(); await sleep(2500); await wait('.cm88'); await sleep(800); }
     const M5 = (await rpc('app_ca_get', { p_id: id })).money || {};
     r.push(`thu theo ca: ${txt('.cm88')} · máy chủ TM lệch ${M5.tm_left} · ${txt('#cm88-err')}`);
     // chia đều người làm ca
@@ -67,6 +67,13 @@ export default async ({ sleep, out }) => {
       const R4 = await rpc('app_ca_get', { p_id: id });
       r.push(`sau chia: kết quả TM ${JSON.stringify((R4.results || {}).tien_mat || null).slice(0, 120)} · khoản âm ${(R4.shortfalls || []).length} · ${txt('.lx-err')}`);
     } else r.push('không thấy khung xử lý tiền mặt');
+    // bước 90: gán chi lương cho nhân viên ở bước Thu chi
+    try { sessionStorage.setItem('ds_step:' + id, '5'); } catch (_) { /* bỏ qua */ }
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6'; await wait('.dt-r'); await sleep(1500);
+    r.push(`thu chi 2 phần: ${$$('#ds-tc h3').map((h) => h.innerText).join(' / ')} · ô gán NV ${$$('.dt-empsel').length}`);
+    const es = $('.dt-empsel'); if (es) { es.selectedIndex = 1; es.dispatchEvent(new Event('change')); await sleep(1500); }
+    const L = await rpc('app_tc_list', { p_branch: o.branch_id, p_from: day, p_to: day });
+    r.push(`sau gán: ${(L.rows || []).filter((x) => x.employee_id).map((x) => x.note + ' → NV ' + x.employee_id).join(', ') || 'chưa gán'}`);
     r.push(`cuối: ${W()}`);
   } catch (e) { r.push('LỖI ' + (e.stack || e)); }
   out.push({ route: 'đối soát từng bước 86', title: r.join(' || '), len: 0, errs: [...window.__ERR] });

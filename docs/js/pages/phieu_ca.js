@@ -435,11 +435,12 @@ export async function render({ params }) {
   const caTime = isDs ? html`<section class="card stack pc-sec" style="gap:6px"><div class="ca-time">Giờ doanh thu <strong>${hm(R.rev_start)} → ${hm(R.rev_end)}</strong> ${(R.checks || {}).thoi_gian ? html`<span class="pill ok">✓ đã đối soát</span>` : timeOk ? html`<span class="pill ok">✓</span>` : html`<span class="pill off">chưa đúng — sửa ở mục 1 bên dưới</span>`}</div>
     <div class="st-meta">So số nhân viên ghi với phiếu Fabi (ảnh, file Fabi kế toán tải). Sai thì sửa ngay ở các ô dưới — ghi lý do ở cuối trang.</div></section>` : '';
   const secTc = isDs ? html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Thu chi của ca</h2><div class="rc-chips">${chip('thu_chi')}</div></div>
-    <div class="st-meta">Chọn <b>nhóm</b> cho từng khoản (vào Sổ quỹ / báo cáo); khoản quản lý rút thì chọn "Không tính". Chi lương tiền mặt chọn nhóm Lương.</div>
+    <div class="st-meta">Chọn <b>nhóm</b> cho từng khoản (vào Sổ quỹ / báo cáo); khoản quản lý rút thì chọn "Không tính". Chi lương tiền mặt chọn nhóm Lương, <b>gán cho nhân viên</b> nếu muốn Bảng công ghi đã trả.</div>
     <div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section>` : '';
   const secThuc = isDs ? html`<section class="card stack pc-sec ca-sec" style="gap:10px"><div class="pc-sec-head"><h2>Tiền thực nhận</h2><div class="rc-chips">${chip('tien_mat')}${chip('chuyen_khoan')}</div></div>
     <div class="st-meta">So <b>tiền phải có</b> với <b>tiền thực nhận</b>: chuyển khoản theo sao kê ngân hàng (kế toán nhập), tiền mặt theo số đếm. Lệch thì xử lý ở bước cuối.</div>
     ${thucCmp()}</section>` : '';
+  const rcWhy = isDs && ed && !DIR ? html`<label class="pc-f"><span>Lý do sửa <b>(bắt buộc khi sửa số)</b></span><input class="input rc-why" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label><div class="alert error rc-need" style="margin:0" hidden>Ghi lý do sửa ở ô trên — chưa có lý do thì web chưa lưu số vừa sửa.</div>` : '';
   const caBoxSec = isDs ? html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Tiền của ca <span class="st-meta">— máy chủ tính, phiếu chi chuyển khoản</span></h2></div><div id="ca-box" class="stack" style="gap:8px"></div></section>` : '';
   const M86 = (R0 && R0.money) || {};
   // bước 88: tiền mặt thực nhận — Thu theo ca (quản lý đếm & thu ngay, lệch theo số quản lý đếm) / Thu cuối ngày (bắt buộc tiền kết ca = tiền mở ca sau)
@@ -560,7 +561,7 @@ export async function render({ params }) {
       ${R0.recon_status === 'hoan_thanh' ? html`<div class="alert ok">HOÀN THÀNH ĐỐI SOÁT: ${R0.recon_by_name || ''} · ${dt(R0.recon_at)}. Số liệu trên đây là số chính thức của ca.</div>`
         : R0.recon_status === 'mo_lai' ? html`<div class="alert warn"><strong>ĐANG SỬA</strong>: ${(R.check_items || []).filter((it) => !(R.checks || {})[it]).map((it) => CHECK_LABEL[it]).join(', ')} — duyệt lại ${(R.check_items || []).filter((it) => !(R.checks || {})[it]).length > 1 ? 'các mục này' : 'mục này'} là phiếu tự hoàn thành đối soát.</div>`
         : html`<div class="st-meta">Sửa trực tiếp trên bản này (phiếu nhân viên giữ nguyên). Mục đã đối soát nhạt đi và khoá; muốn sửa bấm “Sửa” ở mục đó (Đèn đối soát). Đủ ${nItems} hạng mục thì phiếu tự HOÀN THÀNH ĐỐI SOÁT.</div>`}
-      ${ed ? html`<label class="pc-f"><span>Lý do sửa (không bắt buộc)</span><input class="input" id="rc-reason" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label>` : ''}
+      ${ed ? html`<label class="pc-f"><span>Lý do sửa (bắt buộc khi sửa số)</span><input class="input" id="rc-reason" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label>` : ''}
       <div class="toolbar" style="gap:8px">
         ${LK?.is_chu && (LK.done || []).length ? html`<button type="button" class="btn sm secondary" id="rc-reopen">Mở lại cả phiếu</button>` : ''}
         ${R0.can_reopen ? html`<button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button>` : ''}</div>
@@ -590,13 +591,13 @@ export async function render({ params }) {
   const dsX2 = isDs && (R.staff || []).some((s2) => !s2.worked || (s2.source && s2.source !== 'lich'));   // bước 87: có người nghỉ / làm hộ / ca bổ sung
   const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       ${!dsPhone ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', dsLeft(0).length + dsLeft(1).length], ['tien', '② Phần tiền', dsLeft(2).length], ['xong', '③ Hoàn thành', -1]].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" data-left="${n}">${l}${n > 0 ? html`<span class="ds-ptn">còn ${n}</span>` : n === 0 ? html`<span class="ds-pto">✓</span>` : ''}</button>`)}</nav>` : ''}
-      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(ghi lý do sửa ở cuối trang)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${secStaff}</div></details></div>
+      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secStaff}</div></details></div>
       <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${whoPart('tien')}${fabiCmp}<details class="ca-more ds-edit"><summary>Sửa số liệu phiếu Fabi <span class="st-meta">(giờ, số tiền, ảnh)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${secTime}${secMoney}</div></details></div>
-      <div class="ds-pane stack" data-ds="4">${dsHd(4)}${debtCmp}<details class="ca-more ds-edit"><summary>Chi tiết công nợ <span class="st-meta">(khách trả nợ cũ, ghi nhận nợ khi đối soát)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${secDebt}</div></details></div>
+      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${whoPart('tien')}${fabiCmp}<details class="ca-more ds-edit"><summary>Sửa số liệu phiếu Fabi <span class="st-meta">(giờ, số tiền, ảnh)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secTime}${secMoney}</div></details></div>
+      <div class="ds-pane stack" data-ds="4">${dsHd(4)}${debtCmp}<details class="ca-more ds-edit"><summary>Chi tiết công nợ <span class="st-meta">(khách trả nợ cũ, ghi nhận nợ khi đối soát)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secDebt}</div></details></div>
       <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secTc}</div>
-      <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secThuc}<details class="ca-more ds-edit"><summary>Chi tiết / sửa <span class="st-meta">(phiếu chi chuyển khoản, số dư ngân hàng, khoản thu chi)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${caBoxSec}${secDiff}</div></details></div>
+      <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secThuc}<details class="ca-more ds-edit"><summary>Chi tiết / sửa <span class="st-meta">(phiếu chi chuyển khoản, số dư ngân hàng, khoản thu chi)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${caBoxSec}${secDiff}</div></details></div>
       <div class="ds-pane stack" data-ds="7">${dsHd(7)}${secLech}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button></section>` : ''}` : '';
 
@@ -686,6 +687,7 @@ function collect() {
 function mount(R, ed, C0, ctx = {}) {
   const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT, DIR } = ctx;
   let saveNow = null;
+  const rcWhyVal = () => [...$$('.rc-why'), $('#rc-reason')].map((x) => (x?.value || '').trim()).find(Boolean) || '';
   // bước 51: trường thuộc mục web đã tự đối soát → không sửa được (máy chủ cũng giữ nguyên số cũ)
   // bước 67: Chủ sửa thẳng → chỉ mở trường của mục đang sửa, khoá mọi trường khác
   const dirF = DIR ? DIR.items.flatMap((i) => ITEM_FIELDS[i] || []) : null;
@@ -994,9 +996,15 @@ function mount(R, ed, C0, ctx = {}) {
         catch (e) { btn.disabled = false; d.querySelector('#hg-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
       });
     }));
-    const loadTc = () => rpc('app_tc_list', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }).then((D) => {
-      const box = $('#ds-tc'); if (!box) return;
-      tcList(box, (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id), { cats: D.categories || [], showReport: false, onChange: loadTc });
+    let EMPS = null;
+    const loadTc = () => Promise.all([rpc('app_tc_list', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }), EMPS ? Promise.resolve(EMPS) : rpc('app_ca_employees').catch(() => [])]).then(([D, em]) => {
+      EMPS = em || []; const box = $('#ds-tc'); if (!box) return;
+      const rows = (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id);
+      // bước 90: chia 2 phần như phiếu nhân viên — tiền mặt / chuyển khoản
+      box.innerHTML = '<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div><h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>';
+      const opt = { cats: D.categories || [], showReport: false, onChange: loadTc, emps: EMPS };
+      tcList($('#ds-tc-tm'), rows.filter((x) => x.pay !== 'chuyen_khoan'), opt);
+      tcList($('#ds-tc-ck'), rows.filter((x) => x.pay === 'chuyen_khoan'), opt);
     }).catch((e) => { const box = $('#ds-tc'); if (box) box.textContent = 'Không tải được thu chi: ' + e.message; });
     loadTc();
   }
@@ -1164,12 +1172,16 @@ function mount(R, ed, C0, ctx = {}) {
     clearTimeout(timer);
     if (saving) { await saving; if (!dirty) return; }
     if (!dirty) return;
+    if (isDs && !DIR && !rcWhyVal()) {   // bước 90: quản lý sửa số phải ghi lý do
+      $$('.rc-need').forEach((x) => { x.hidden = false; }); showSaved('Ghi lý do sửa (bắt buộc) — web chưa lưu.', true); return;
+    }
+    $$('.rc-need').forEach((x) => { x.hidden = true; });
     dirty = false;
     const hoRows = $$('.ho-row'); const dbRows = $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id);
     const payload = collect();
     payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon' || d.kind === 'ck').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: d.kind })));
     const call = isDs ? (DIR ? rpc('app_ca_recon_direct', { p_id: R.id, p: payload, p_reason: DIR.why, p_items: DIR.items })
-      : rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: $('#rc-reason')?.value || null })) : rpc('app_ca_save', { p_id: R.id, p: payload });
+      : rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: rcWhyVal() || null })) : rpc('app_ca_save', { p_id: R.id, p: payload });
     saving = call.then((res) => {
       if (!isDs) {
         (res.handover_ids || []).forEach((nid, i) => { if (nid && hoRows[i]) hoRows[i].dataset.id = nid; });
@@ -1183,8 +1195,16 @@ function mount(R, ed, C0, ctx = {}) {
     return saving;
   };
   const changed = () => { dirty = true; srvFresh = false; recalc(); clearTimeout(timer); timer = setTimeout(() => saveNow().catch(() => {}), 1200); };
-  form.addEventListener('input', changed);
+  // bước 90: ô lý do sửa không tính là sửa số; các khung tự lưu riêng (cách thu, xử lý lệch, thu chi, nghỉ & làm thay…) không chạy lưu phiếu
+  const noSave = (t) => !!t.closest('.cm88, .lx-box, #ds-tc, #ds-cv, #ds-dg, #ds-lights, dialog');
+  const isWhy = (t) => t.matches('.rc-why, #rc-reason');
+  form.addEventListener('input', (ev) => {
+    if (isWhy(ev.target)) { $$('.rc-why, #rc-reason').forEach((x) => { if (x !== ev.target) x.value = ev.target.value; }); if (dirty) { clearTimeout(timer); timer = setTimeout(() => saveNow().catch(() => {}), 900); } return; }
+    if (noSave(ev.target)) return;
+    changed();
+  });
   form.addEventListener('change', (ev) => {
+    if (isWhy(ev.target) || noSave(ev.target)) return;
     if (ev.target.classList.contains('st-worked')) {
       const row = ev.target.closest('.st-row'); const w = ev.target.value === '1';
       row.querySelector('.st-times').hidden = !w; row.querySelector('.st-reason').hidden = w;

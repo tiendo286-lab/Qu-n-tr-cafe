@@ -15,11 +15,12 @@ export const DT_CSS = html`<style>
   .dt-a.neg { color: #b91c1c; } .dt-a.pos { color: var(--ok-ink); }
   .dt-do { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
   .dt-do select { width: 170px; max-width: 100%; }
+  .dt-emp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; } .dt-emp select { width: auto; max-width: 100%; }
   @media (max-width: 760px) { .dt-r { grid-template-columns: minmax(0, 1fr) auto; } .dt-do { grid-column: 1 / -1; justify-content: flex-start; } .dt-do select { flex: 1 1 160px; width: auto; } }
 </style>`;
 
 // rows: dòng dạng app_tc_list / app_ds_todo (src 'ca'); cats: danh mục nhóm; brById: Map id → {code}
-export function tcList(box, rows, { cats = [], brById = null, showReport = true, onChange = () => {} } = {}) {
+export function tcList(box, rows, { cats = [], brById = null, showReport = true, onChange = () => {}, emps = null } = {}) {
   const catsOf = (kind) => cats.filter((c) => c.kind === kind && c.active);
   const sel = (r) => {
     // "Chi lương – …" (người trả lương tiền mặt, bước 39): chọn sẵn nhóm Lương
@@ -27,6 +28,9 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
     const v = r.status === 'cho' ? r.category_id || luong || '' : r.excluded ? 'x' : r.category_id || '';
     return html`<select class="input sm dt-cat" aria-label="Nhóm">${v === '' ? html`<option value="">— Chọn nhóm —</option>` : ''}${catsOf(r.kind).map((c) => html`<option value="${c.id}" ${String(v) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}<option value="x" ${v === 'x' ? 'selected' : ''}>Không tính</option></select>`;
   };
+  // bước 90: khoản chi lương tiền mặt → gán cho nhân viên (không bắt buộc) — Bảng công cộng vào "Lương tiền mặt đã trả"
+  const isLuong = (r) => r.kind === 'chi' && r.pay === 'tien_mat' && (/lương/i.test(r.note || '') || r.category === 'Lương' || !!r.employee_id);
+  const empSel = (r) => (emps && isLuong(r) ? html`<label class="dt-emp st-meta">Gán cho nhân viên <i>(không bắt buộc)</i> <select class="input sm dt-empsel" ${r.locked ? 'disabled' : ''}><option value="">— Không gán —</option>${emps.map((e) => html`<option value="${e.id}" ${String(e.id) === String(r.employee_id || '') ? 'selected' : ''}>${e.code} – ${e.name}</option>`)}</select></label>` : '');
   const row = (r, i) => {
     const br = brById ? brById.get(r.branch_id) : null;
     const act = r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
@@ -35,6 +39,7 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
     return html`<div class="dt-r ${r.status === 'cho' ? 'todo' : ''}" data-i="${i}" data-br="${r.branch_id}">
       <div class="dt-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
         <div class="st-meta">${dmy(r.date)}${br ? ` · ${br.code}` : ''}${showReport ? html` · <a href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Phiếu ca ${r.shift}</a>` : ''} · ${PAY[r.pay] || ''}${r.by ? ` · ${r.by}` : ''}${r.status === 'da' && r.checked_at ? ` · đối soát ${r.checked_by || ''} ${dt(r.checked_at)}` : ''}</div></div>
+      ${empSel(r)}</div>
       <div class="dt-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ</div>
       <div>${act}</div></div>`;
   };
@@ -50,6 +55,12 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
     const el = b.closest('.dt-r'); const r = rows[Number(el.dataset.i)]; const s = el.querySelector('.dt-cat');
     if (!s.value) { showSaved('Chọn nhóm (hoặc "Không tính") trước khi đối soát.', true); s.focus(); return; }
     call(b, r, s.value, true);
+  }));
+  box.querySelectorAll('.dt-empsel').forEach((s) => s.addEventListener('change', async () => {
+    const r = rows[Number(s.closest('.dt-r').dataset.i)]; s.disabled = true;
+    try { await rpc('app_tc_move_emp', { p_report: r.report_id, p_mkey: r.mkey, p_emp: s.value ? Number(s.value) : null }); r.employee_id = s.value || null; showSaved(s.value ? 'Đã gán — Bảng công ghi lương tiền mặt đã trả' : 'Đã bỏ gán'); }
+    catch (e) { showSaved(e.message, true); }
+    s.disabled = false;
   }));
   box.querySelectorAll('.dt-undo').forEach((b) => b.addEventListener('click', () => {
     const r = rows[Number(b.closest('.dt-r').dataset.i)]; call(b, r, r.excluded ? 'x' : r.category_id, false);
