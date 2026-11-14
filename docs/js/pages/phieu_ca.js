@@ -5,7 +5,7 @@ import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { CV_CSS, mountCover } from '../nghi_thay.js';
 import { rpc, sb } from '../sb.js';
-import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, vnd } from '../tien.js';
+import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
@@ -395,7 +395,7 @@ export async function render({ params }) {
       <div class="st-meta">${d.by_ql ? `Quản lý ghi ${dmy(d.from_date)}` : `Nợ ca ${d.from_shift || ''} ${dmy(d.from_date)}`}${d.note ? ' · ' + d.note : ''}</div>
       ${canQl ? html`<div class="pc-line" style="gap:8px;justify-content:flex-end"><button type="button" class="btn sm secondary" data-qlno="${d.id}" data-k="tien_mat">Đã trả TM</button><button type="button" class="btn sm secondary" data-qlno="${d.id}" data-k="chuyen_khoan">Đã trả CK</button></div>` : ''}</div>`;
     const openMain = openD.filter((d) => !d.family);   // nợ kho tổng / nợ khác không hiện ở đây — thu ở tab Công nợ
-    const how = (d) => ((!d.kind || d.kind === 'bill') ? html`<span class="fb-ok">✓</span> so với file Fabi (phiếu thanh toán nợ)`
+    const how = (d) => ((!d.kind || d.kind === 'bill') && traNoFabi(R.work_date) ? html`<span class="fb-ok">✓</span> so với file Fabi (phiếu thanh toán nợ)`
       : d.collect_kind === 'chuyen_khoan' ? html`→ đã cộng vào <b>tiền phải nhận trên hotline</b> — chưa chuyển thật thì bước Tiền thực nhận báo lệch`
         : html`→ đã cộng vào <b>tiền phải có trong két</b> — không trả thật thì bước Tiền thực nhận báo lệch`);
     return html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Phiếu Fabi</h2><div class="rc-chips">${chip('thoi_gian')}${chip('doanh_thu')}</div></div>
@@ -417,7 +417,7 @@ export async function render({ params }) {
     const fno = FB ? Number(FB.no) : Number(R.pos_debt || 0);
     return html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Khách nợ trong ca</h2><div class="rc-chips">${chip('cong_no')}</div></div>
       <div class="st-meta">Kiểm tra loại nợ nhân viên chọn. Sai thì bấm đổi. (Đổi nhóm Kho tổng / Nợ khác ở tab <b>Công nợ</b>.)</div>
-      ${R.can_recon ? html`<div class="pc-line" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn sm secondary" data-rdgo="1">+ Thêm khách nợ</button><span class="st-meta grow">khách nợ nhưng nhân viên bấm nhầm thanh toán tiền mặt / chuyển khoản trên Fabi</span></div>` : ''}
+      ${R.can_recon ? html`<div class="pc-line" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn sm secondary" data-rdgo="1">+ Thêm khách nợ</button><span class="st-meta grow">${traNoFabi(R.work_date) ? 'khách nợ nhưng nhân viên bấm nhầm thanh toán tiền mặt / chuyển khoản trên Fabi' : 'khách nợ (đã bấm thanh toán TM / CK trên Fabi) mà nhân viên quên ghi'}</span></div>` : ''}
       ${ds.length ? ds.map((d) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${(!d.kind || d.kind === 'bill') ? 'Bàn ' : ''}${d.table_name} · ${fmt(d.amount)}</strong>
           <span class="seg cm88-seg">${[['bill', 'HĐ'], ['muon', 'TM'], ['ck', 'CK']].map(([k, l]) => html`<button type="button" class="${(d.kind || 'bill') === k ? 'on' : ''}" data-dkind="${k}" data-debt="${d.id}" ${canKind && !d.closed_at ? '' : 'disabled'}>${l}</button>`)}</span></div>
           <div class="st-meta">${d.note || ''}${d.note && d.closed_at ? ' · ' : ''}${d.closed_at ? html`<span class="db-paid" data-debt="${d.id}">Đã thu ngày ${dmy(String(d.closed_at).slice(0, 10))}${d.collect_kind === 'chuyen_khoan' ? ' · chuyển khoản' : d.collect_kind === 'tien_mat' ? ' · tiền mặt' : ''}${d.closed_report_id ? '' : ' (quản lý thu, không qua ca)'}</span>` : (d.note ? '' : 'Chưa thu')}</div></div>`) : html`<div class="st-meta">Ca này không có khách nợ mới.</div>`}
@@ -1048,7 +1048,7 @@ function mount(R, ed, C0, ctx = {}) {
       EMPS = em || []; const box = $('#ds-tc'); if (!box) return;
       const all = (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id);
       // Nợ TM của khách đã khai ở bước Khách nợ → web tự thêm dòng "Khách mượn – …" (Không tính) cho két khớp; không hiện lại ở đây cho đỡ nhầm (còn chờ đối soát thì vẫn hiện)
-      const hideLoan = (x) => x.auto === 'muon' && x.status !== 'cho';
+      const hideLoan = (x) => (x.auto === 'muon' && x.status !== 'cho') || !!x.loan_id;   // + khoản cho vay cũ (đã chuyển sang Công nợ)
       const rows = all.filter((x) => !hideLoan(x)); const loanTM = all.filter(hideLoan).reduce((t, x) => t + Number(x.amount || 0), 0);
       const loanNote = loanTM ? `<div class="st-meta">Nợ tiền mặt của khách <b>${fmt(loanTM)}</b> đã khai ở bước Khách nợ — web tự trừ tiền két, không ghi lại ở đây.</div>` : '';
       // bước 90: chia 2 phần như phiếu nhân viên — tiền mặt / chuyển khoản

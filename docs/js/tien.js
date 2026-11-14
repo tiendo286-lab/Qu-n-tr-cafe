@@ -7,6 +7,8 @@ export function fmt(n) {
   const v = Math.round(Number(n));
   return (v < 0 ? '-' : '') + String(Math.abs(v)).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 }
+// bước 96: từ ca 15/11/2026 anh Tiến tắt "khách thanh toán nợ" trên Fabi POS — Fabi không ghi khách trả nợ nữa (máy chủ: app__fabi_tra_no_on)
+export const traNoFabi = (d) => String(d || '') < '2026-11-15';
 export const vnd = (n) => (n === null || n === undefined || n === '' ? '—' : fmt(n) + 'đ');
 // Có dấu: +50.000đ / −20.000đ
 export const signed = (n) => (Number(n) > 0 ? '+' : Number(n) < 0 ? '−' : '') + fmt(Math.abs(Number(n) || 0)) + 'đ';

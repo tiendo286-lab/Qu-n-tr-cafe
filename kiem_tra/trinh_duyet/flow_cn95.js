@@ -63,6 +63,10 @@ export default async ({ sleep, out }) => {
     r.push(`sau Thành nợ: ${txt('.dt-r .pill.warn')}`);
     const B = await rpc('app_cn_book', { p_branch: o.branch_id });
     r.push(`tab Công nợ có: ${B.rows.filter((x) => x.mv_report).map((x) => x.name + ' ' + x.amount + ' ' + x.kind + ' từ ca ' + x.mv_ca).join(', ')}`);
+    { // bước 96: trang Thu chi không hiện khoản đã thành nợ, chỉ 1 dòng ghi số khoản
+      const back = location.hash; await go('#/quan-ly/thu-chi?cn=' + o.branch_id, '.tc-r'); await sleep(2500);
+      r.push(`96 trang Thu chi: dòng "thành nợ" ${$$('.tc-r').filter((x) => /thành nợ/i.test(x.innerText)).length} · ghi chú: ${$$('#tc-loans .st-meta').map((x) => x.innerText).join(' ') || 'KHÔNG'}`);
+      await go(back, '.dt-undebt'); }
     $('.dt-undebt').click(); await sleep(2500); await wait('.dt-2no');
     r.push(`bỏ: còn ${(await rpc('app_cn_book', { p_branch: o.branch_id })).rows.filter((x) => x.mv_report).length} khoản từ thu chi · ${W()}`);
   } catch (e) { r.push('LỖI ' + (e.stack || e)); }

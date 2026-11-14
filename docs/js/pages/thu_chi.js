@@ -57,7 +57,10 @@ export async function render(ctx) {
   const brById = new Map(D.branches.map((b) => [b.id, b])); const BR = brById.get(cn) || { id: cn, code: '' };
   const cats = (kind) => D.categories.filter((c) => c.kind === kind && c.active);
   const q = (o) => '#/quan-ly/thu-chi?' + Object.entries({ thang: month, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
-  const rows = D.rows.map((r, i) => ({ ...r, i }));
+  // bước 96: khoản nợ từ phiếu ca (nợ TM của khách — dòng tự thêm, khoản đã thành nợ, khoản cho vay cũ) không hiện ở Thu chi — xem ở tab Công nợ
+  const isNo = (r) => r.src === 'ca' && (r.auto === 'muon' || !!r.loan_id || !!r.debt);
+  const noRows = D.rows.filter(isNo);
+  const rows = D.rows.filter((r) => !isNo(r)).map((r, i) => ({ ...r, i }));
   const counted = rows.filter((r) => !r.excluded && r.src !== 'ka');
   const sum = (a) => a.reduce((s, r) => s + Number(r.amount), 0);
   const thuR = counted.filter((r) => r.kind === 'thu'); const chiR = counted.filter((r) => r.kind === 'chi');
@@ -472,7 +475,7 @@ export async function render(ctx) {
         const kho = open.filter((r) => r.grp === 'kho');
         const setK = (id, v, sub) => { const el = $(id); if (el) { el.querySelector('.v').textContent = fmt(v); el.querySelector('.s').textContent = sub; } };
         setK('#k-no', owe, `${open.length} khoản chưa thu — bấm mở tab Công nợ`); setK('#k-vay', kho.reduce((t, r) => t + Number(r.amount), 0), `${kho.length} khoản — trong tab Công nợ`);
-        box.innerHTML = str(html`<section class="card" style="padding:12px 14px"><div class="pc-line" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="grow">Công nợ ${BR.code} còn <b>${vnd(owe)}</b> · ${open.length} khoản</span><a class="btn sm" href="#/quan-ly/cong-no?cn=${cn}">Mở tab Công nợ ›</a></div></section>`);
+        box.innerHTML = str(html`<section class="card" style="padding:12px 14px"><div class="pc-line" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="grow">Công nợ ${BR.code} còn <b>${vnd(owe)}</b> · ${open.length} khoản</span><a class="btn sm" href="#/quan-ly/cong-no?cn=${cn}">Mở tab Công nợ ›</a></div>${noRows.length ? html`<div class="st-meta" style="margin-top:4px">${noRows.length} khoản nợ ghi ở phiếu ca trong kỳ này (${vnd(noRows.reduce((t, r) => t + Number(r.amount || 0), 0))}: nợ TM của khách, khoản đã thành nợ) không hiện ở Thu chi — xem ở tab Công nợ.</div>` : ''}</section>`);
       }).catch(() => { const box = $('#tc-loans'); if (box) box.innerHTML = ''; });
     },
   };

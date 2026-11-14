@@ -3,7 +3,7 @@
 // Bước 44 (tài liệu 5o): PHẦN TIỀN chờ kế toán đủ file chốt ca Fabi + chuyển khoản ngân hàng; Nhân sự, Bàn giao, Nhập hàng làm ngay.
 import { render as rerender } from './app.js';
 import { rpc } from './sb.js';
-import { fmt, signed } from './tien.js';
+import { fmt, signed, traNoFabi } from './tien.js';
 import { $, dialog, html, showSaved, str } from './ui.js';
 import { openBankOut } from './phieu_chi_ck.js';
 
@@ -54,7 +54,7 @@ export function judge(R0, R, fabi, kt) {
   const paid = (R0.open_debts || []).filter((d) => d.kind !== 'muon' && d.closed_report_id === R0.id);
   const cTm = paid.filter((d) => d.collect_kind !== 'chuyen_khoan').reduce((t, d) => t + Number(d.amount || 0), 0);
   const cCk = paid.filter((d) => d.collect_kind === 'chuyen_khoan').reduce((t, d) => t + Number(d.amount || 0), 0);
-  const noOk = !fabi || (fTm === cTm && fCk === cCk);
+  const noOk = !fabi || !traNoFabi(R0.work_date) || (fTm === cTm && fCk === cCk);   // bước 96: từ 15/11 Fabi không ghi khách trả nợ
   add('cong_no', noOk, `Fabi ghi khách trả nợ TM ${fmt(fTm)} · CK ${fmt(fCk)}, phiếu ghi TM ${fmt(cTm)} · CK ${fmt(cCk)} — sửa "Khách đã trả" ở mục Công nợ, hoặc xem lại rồi bấm "Đã xem — duyệt"`, true);
   add('nhap_hang', !!checks.nhap_hang, 'Còn hàng nhận chưa đối soát từng ảnh');
   return out;

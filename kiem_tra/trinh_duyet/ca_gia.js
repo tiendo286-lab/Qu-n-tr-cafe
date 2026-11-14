@@ -176,7 +176,7 @@ export function makeCa(T, me) {
       if (r.total_revenue !== r.pos_cash + r.pos_transfer + r.pos_debt) throw new Error('Chuyển khoản + Tiền mặt + Nợ phải bằng Doanh thu NET.');
       if (debtNew !== r.pos_debt) throw new Error('Tổng các bàn nợ phải bằng dòng Nợ trên phiếu Fabi.');
       const cl = (k) => T.shift_debts.filter((d) => d.closed_report_id === r.id && d.collect_kind === k).reduce((a, d) => a + d.amount, 0);
-      const clBill = T.shift_debts.filter((d) => d.closed_report_id === r.id && d.collect_kind === 'tien_mat' && (!d.kind || d.kind === 'bill')).reduce((a, d) => a + d.amount, 0);
+      const clBill = T.shift_debts.filter((d) => d.closed_report_id === r.id && d.collect_kind === 'tien_mat' && (!d.kind || d.kind === 'bill') && String(r.work_date) < '2026-11-15').reduce((a, d) => a + d.amount, 0);   // bước 96: từ 15/11 Fabi không ghi khách trả nợ
       if (r.cash_counted - r.ipos_opening - r.pos_cash - clBill !== r.pos_diff) throw new Error('Tổng tiền − Số dư đầu − Tiền mặt khác Tiền chênh lệch trên phiếu.');
       // bước 84: lệch tiền mặt / chuyển khoản / số dư đầu không bắt ghi lý do — quản lý tự chốt khi đối soát
       if (T.shift_debts.some((d) => d.report_id === r.id && (d.kind === 'muon' || d.kind === 'ck') && !String(d.table_name || '').trim())) throw new Error('Nợ TM / Nợ CK: ghi tên khách.');

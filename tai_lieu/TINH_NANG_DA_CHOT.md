@@ -523,6 +523,13 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Nhân viên chỉ ghi thu chi bình thường; **Đối soát ca › Thu chi**: khoản chi có nút **Thành nợ** (chọn nhóm + người nợ; Nợ TM / Nợ CK theo hình thức chi; không tính chi phí, số tiền ca không đổi; Bỏ được khi chưa trả — `app_tc_move_to_debt` / `app_tc_move_undebt`). Chỉ một phần là nợ: tách 2 dòng ở "Sửa / thêm khoản thu chi" rồi đổi dòng nợ.
 - Trang Thu chi bỏ khung Công nợ, còn 1 dòng "Công nợ … còn … — Mở tab Công nợ ›". Quyền như khung cũ: QL cơ sở (cơ sở mình), QL tổng + Chủ (mọi cơ sở); nhân viên không thấy tab.
 
+## 5r22. Tắt "khách thanh toán nợ" trên Fabi POS từ ca 15/11/2026 — CHỐT và ĐÃ LÀM 14/11/2026 (bước 96, máy chủ 88_tat_tra_no_fabi.sql)
+- Cuối ca, bàn chưa trả: nhân viên **bấm thanh toán TM hoặc CK trên Fabi**, rồi ghi khách nợ trên web loại **TM / CK** (như cũ — nợ TM trừ tiền két, nợ CK trừ tiền hotline). Dòng Nợ trên Fabi thường = 0; loại HĐ vẫn còn cho trường hợp Fabi để nợ.
+- Khách trả nợ: Fabi **không ghi nữa**, chỉ ghi trên web (nhân viên chọn ở bước Phiếu Fabi; quản lý ghi ở Đối soát › Phiếu Fabi / Thu chi, hoặc tab Công nợ). Tiền khách trả vẫn cộng vào tiền phải có của ca.
+- Từ ca 15/11 (`app__fabi_tra_no_on(work_date)` / `traNoFabi()` trong `tien.js`): phép kiểm phiếu Fabi **không trừ "khách trả nợ tiền mặt"** (Tổng tiền − Số dư đầu − Tiền mặt = Tiền chênh lệch); đèn tự đối soát **Công nợ không so với file Fabi**. Ca trước 15/11 giữ cách cũ.
+- Đối soát ca › Thu chi (cùng ngày): nút **Xoá** khoản thu chi (bắt buộc lý do, chỉ bỏ ở bản đối soát) và mục **3. Khách trả nợ trong ca** (+ Khách trả nợ trong ca); không hiện lại dòng "Khách mượn – …" (nợ TM đã khai ở bước Khách nợ).
+- **Trang Thu chi không hiện khoản nợ** (dòng tự thêm nợ TM của khách, khoản đã thành nợ, khoản cho vay cũ) — chỉ 1 dòng "n khoản nợ … xem ở tab Công nợ". Máy chủ 89 dọn dòng nợ cũ "chưa đối soát" → Không tính + đã đối soát. Bỏ thành nợ: ở Đối soát ca › Thu chi.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
