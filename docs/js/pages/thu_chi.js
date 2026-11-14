@@ -177,10 +177,9 @@ export async function render(ctx) {
       <div class="tc-kpis">
         ${kpi('k-thu', 'thu', 'Thu', `+${fmt(thu)}`, `TM ${short(byPm(thuR, 'tien_mat'))} · CK ${short(byPm(thuR, 'chuyen_khoan'))}`)}
         ${kpi('k-chi', 'chi', 'Chi', `−${fmt(chi)}`, `TM ${short(byPm(chiR, 'tien_mat'))} · CK ${short(byPm(chiR, 'chuyen_khoan'))}`)}
-        ${kpi('k-no', '', 'Công nợ', '…', 'chưa thu — bấm mở tab Công nợ')}
-        ${kpi('k-vay', '', 'Nợ kho tổng', '…', 'trong tab Công nợ')}
+        ${kpi('k-quy', '', 'Tiền về quỹ', '…', 'TM nộp quỹ + CK về — bấm mở Sổ quỹ')}
         ${kpi('k-ds', pend.length ? 'warn' : '', 'Đã đối soát', `${nChk} / ${real.length}`, pend.length ? `còn ${pend.length} khoản chờ` : 'đã hết')}
-        ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Chênh lệch tiền', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)} ›`)}
+        ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Lệch tiền ca', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)} ›`)}
       </div>
       <div class="tc-cols">
         <section class="card tc-book"><div class="tc-bh"><h2>Sổ thu chi</h2><span class="st-meta" id="f-n"></span></div>
@@ -246,9 +245,9 @@ export async function render(ctx) {
       $('#k-thu').addEventListener('click', () => { F.kind = F.kind === 'thu' ? '' : 'thu'; apply(); toBook(); });
       $('#k-chi').addEventListener('click', () => { F.kind = F.kind === 'chi' ? '' : 'chi'; apply(); toBook(); });
       $('#k-ds').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; apply(); toBook(); });
-      $('#k-lech').addEventListener('click', () => { location.hash = `#/quan-ly/am-tien?thang=${month}&cn=${cn}`; });   // bước 71: sang tab Âm tiền
+      $('#k-lech').addEventListener('click', () => { location.hash = `#/quan-ly/lech-tien?thang=${month}&cn=${cn}`; });   // bước 71 / 97: sang tab Lệch tiền ca
       // bước 95: 2 ô Công nợ / Nợ kho tổng → mở tab Công nợ (đã bỏ mục Cho vay)
-      ['#k-no', '#k-vay'].forEach((k) => $(k)?.addEventListener('click', () => { location.hash = '#/quan-ly/cong-no?cn=' + cn; }));
+      $('#k-quy')?.addEventListener('click', () => { location.hash = `#/quan-ly/so-quy?thang=${month}&cn=${cn}`; });   // bước 97
       $('#tc-allpend')?.addEventListener('click', () => { F.st = 'cho'; apply(); toBook(); });
       apply();
       const rowOf = (b) => rows[Number(b.closest('[data-i]').dataset.i)];
@@ -474,11 +473,14 @@ export async function render(ctx) {
       // bước 95: Công nợ sang tab riêng — ở đây chỉ còn 1 dòng
       rpc('app_cn_book', { p_branch: cn }).then((B) => { const box = $('#tc-loans'); if (!box) return;
         const open = (B.rows || []).filter((r) => !r.closed); const owe = open.reduce((t, r) => t + Number(r.amount), 0);
-        const kho = open.filter((r) => r.grp === 'kho');
-        const setK = (id, v, sub) => { const el = $(id); if (el) { el.querySelector('.v').textContent = fmt(v); el.querySelector('.s').textContent = sub; } };
-        setK('#k-no', owe, `${open.length} khoản chưa thu — bấm mở tab Công nợ`); setK('#k-vay', kho.reduce((t, r) => t + Number(r.amount), 0), `${kho.length} khoản — trong tab Công nợ`);
         box.innerHTML = str(html`<section class="card" style="padding:12px 14px"><div class="pc-line" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="grow">Công nợ ${BR.code} còn <b>${vnd(owe)}</b> · ${open.length} khoản</span><a class="btn sm" href="#/quan-ly/cong-no?cn=${cn}">Mở tab Công nợ ›</a></div>${noRows.length ? html`<div class="st-meta" style="margin-top:4px">${noRows.length} khoản nợ ghi ở phiếu ca trong kỳ này (${vnd(noRows.reduce((t, r) => t + Number(r.amount || 0), 0))}: nợ TM của khách, khoản đã thành nợ) không hiện ở Thu chi — xem ở tab Công nợ.</div>` : ''}</section>`);
       }).catch(() => { const box = $('#tc-loans'); if (box) box.innerHTML = ''; });
+      // bước 97: ô Tiền về quỹ = tiền mặt nộp quỹ + chuyển khoản về trong tháng (Sổ quỹ) — chỉ người xem được Sổ quỹ
+      rpc('app_fund_branch', { p_branch: cn, p_month: month }).then((Q) => { const el = $('#k-quy'); if (!el) return;
+        const sm = (m) => (Q.rows || []).filter((r) => (r.type === 'nop_quy' || r.type === 'ck_ve') && r.method === m).reduce((t, r) => t + Number(r.amount || 0), 0);
+        const tm = sm('tien_mat'); const ck = sm('chuyen_khoan');
+        el.querySelector('.v').textContent = fmt(tm + ck); el.querySelector('.s').textContent = `TM ${short(tm)} · CK ${short(ck)} ›`;
+      }).catch(() => { $('#k-quy')?.remove(); });
     },
   };
 }
@@ -487,7 +489,7 @@ const STYLE = html`<style>
   .tc-bar { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; padding: 12px 16px; margin-bottom: 12px; }
   .tc-month { display: flex; align-items: center; gap: 10px; }
   .tc-month strong { font-size: 17px; min-width: 120px; text-align: center; }
-  .tc-kpis { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; margin-bottom: 12px; }
+  .tc-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; margin-bottom: 12px; }
   .tc-kpi { font: inherit; color: inherit; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 2px; min-width: 0; cursor: pointer; }
   .tc-kpi:hover { border-color: var(--caramel-line); }
   .tc-kpi .k { font-size: 12px; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .04em; }
@@ -553,7 +555,6 @@ const STYLE = html`<style>
   .tc-tyc { display: flex; flex-direction: column; padding-left: 12px; font-size: 13px; } .tc-cb span:last-child { font-variant-numeric: tabular-nums; }
   .tc-kinds { display: flex; gap: 6px; flex-wrap: wrap; }
   .tc-dlg { width: min(520px, calc(100vw - 56px)); }
-  @media (max-width: 1100px) { .tc-kpis { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
   @media (max-width: 900px) { .tc-cols { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 560px) { .tc-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } .tc-kpi .v { font-size: 17px; } .tc-amd { padding-left: 0; } }
 </style>`;

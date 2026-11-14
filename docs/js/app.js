@@ -7,7 +7,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
   ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', ['doi_soat', 'ke_toan']]], null, 'Vận hành'],   // bước 62: trang chủ theo vai trò
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Âm tiền', '/quan-ly/am-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']], null, 'Vận hành'],
@@ -68,7 +68,8 @@ const PAGES = {
   '/cai-dat/thu-chi': 'cai_dat_thu_chi',
   '/cai-dat/nguoi-vay': 'cai_dat_nguoi_vay',
   '/quan-ly/thu-chi': 'thu_chi',
-  '/quan-ly/am-tien': 'am_tien',
+  '/quan-ly/am-tien': 'am_tien',   // đường dẫn cũ — vẫn mở được
+  '/quan-ly/lech-tien': 'am_tien',   // bước 97: tab đổi tên "Lệch tiền ca"
   '/quan-ly/cong-no': 'cong_no',   // bước 95
   '/cua-toi/khoan-am': 'khoan_am_toi',
   '/cua-toi/danh-gia': 'danh_gia_toi',

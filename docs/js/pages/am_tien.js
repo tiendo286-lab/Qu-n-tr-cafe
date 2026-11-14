@@ -30,12 +30,12 @@ export async function render(ctx) {
   if (!D) {
     const L = await rpc('app_tc_list', { p_branch: null, p_from: vnToday(), p_to: vnToday() }).catch(() => ({ branches: [] }));
     for (const b of L.branches) { D = await rpc('app_gap_list', { p_branch: b.id, p_month: month }).catch(() => null); if (D) { cn = b.id; break; } }
-    if (!D) return { title: 'Âm tiền', html: html`<div class="page-head"><h1>Âm tiền</h1></div><div class="alert warn">Chỉ Chủ, Quản lý tổng, Quản lý cơ sở dùng tab Âm tiền.</div>` };
+    if (!D) return { title: 'Lệch tiền ca', html: html`<div class="page-head"><h1>Lệch tiền ca</h1></div><div class="alert warn">Chỉ Chủ, Quản lý tổng, Quản lý cơ sở dùng tab Lệch tiền ca.</div>` };
   }
   lsSet(cn);
   const admin = D.role === 'admin';
   const BR = D.branches.find((b) => b.id === cn) || { code: '' };
-  const q = (o) => '#/quan-ly/am-tien?' + Object.entries({ thang: month, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
+  const q = (o) => '#/quan-ly/lech-tien?' + Object.entries({ thang: month, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
   const rows = D.rows.map((r, i) => ({ ...r, i, key: `${r.report_id}-${r.item}` }));
   const inM = rows.filter((r) => r.in_month);
   const shorts = inM.filter((r) => r.kind === 'thieu'); const overs = inM.filter((r) => r.kind === 'du');
@@ -79,9 +79,9 @@ export async function render(ctx) {
   const pendM = inM.reduce((s, r) => s + r.matches.filter((m) => m.status === 'cho_duyet' && r.kind === 'thieu').length, 0);
 
   return {
-    title: `Âm tiền ${BR.code}`,
+    title: `Lệch tiền ca ${BR.code}`,
     html: html`${STYLE}
-      <div class="page-head"><div><h1>Âm tiền · ${BR.code}</h1>
+      <div class="page-head"><div><h1>Lệch tiền ca · ${BR.code}</h1>
         <div class="sub">Ca thiếu / dư tiền mặt, chuyển khoản (lệch ≤ 5.000 coi như khớp). Ghép ca thiếu với ca dư khi tiền về chậm; không có tiền về thì trừ lương hoặc quán chịu.</div></div>
         <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div><a class="btn secondary" href="#/quan-ly/thu-chi?thang=${month}&cn=${cn}">‹ Thu chi</a></div></div>
       <section class="card at-bar">

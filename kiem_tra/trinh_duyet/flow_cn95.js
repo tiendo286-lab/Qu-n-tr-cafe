@@ -31,7 +31,12 @@ export default async ({ sleep, out }) => {
     await go('#/quan-ly/cong-no?cn=' + o.branch_id, '.cn-g');
     r.push(`menu: ${[...document.querySelectorAll('a')].some((a) => a.getAttribute('href') === '#/quan-ly/cong-no') ? 'có Công nợ' : 'KHÔNG'}`);
     r.push(`nhóm: ${$$('.cn-g').map((g) => g.querySelector('h2').innerText + ' ' + g.querySelector('.cn-gsum').innerText + ' (' + g.querySelectorAll('.cn-p').length + ' người)').join(' | ')}`);
-    r.push(`tổng: ${txt('.cn-big')} · quá hạn: ${txt('.cn-latebox')} · ${W()}`);
+    r.push(`ô số: ${$$('.cn-ks .cn-k').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · quá hạn: ${txt('.cn-latebox')} · ${W()}`);
+    { // bước 97: bấm ô nhóm → chỉ hiện nhóm đó; bấm lại → cả 3 nhóm
+      $('.cn-k[href*="g=kho"]').click(); await sleep(300); await wait('.cn-g'); await sleep(1200);
+      r.push(`97 lọc Kho tổng: ${$$('.cn-g').map((g) => g.dataset.g).join(',')} · ô đang chọn ${txt('.cn-k.on .k')}`);
+      $('.cn-k.on').click(); await sleep(300); await wait('.cn-g'); await sleep(1200);
+      r.push(`bỏ lọc: ${$$('.cn-g').map((g) => g.dataset.g).join(',')}`); }
     const STOP = new URLSearchParams(location.search).get('dung'); const halt = async (k) => { if (STOP === k) { window.scrollTo(0, 0); await new Promise(() => {}); } };   // chụp ảnh
     await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: o.branch_id, grp: 'kho', name: 'Kho tổng', amount: 1200000, kind: 'muon', date: d10, note: 'trả hộ tiền sữa' } });
     if (STOP) { await go('#/quan-ly/cong-no?cn=' + o.branch_id, '.cn-g'); } await halt('1');

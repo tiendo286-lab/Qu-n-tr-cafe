@@ -81,6 +81,11 @@ export async function render(ctx) {
   const onlyLate = params.qua === '1';
   const shown = (p) => (p.owe > 0 || p.rows.some((r) => r.closed && String(r.paid_date).slice(0, 7) === month)) && (!onlyLate || lateP.includes(p));
   const total = P.reduce((t, p) => t + p.owe, 0); const nOwe = P.filter((p) => p.owe > 0).length;
+  // bước 97: ô số đầu trang; bấm ô nhóm → chỉ hiện nhóm đó (?g=), bấm lại → cả 3 nhóm
+  const gOn = ['khach', 'kho', 'khac'].includes(params.g) ? params.g : '';
+  const gSum = (g) => P.filter((p) => p.grp === g).reduce((t, p) => t + p.owe, 0); const gN = (g) => P.filter((p) => p.grp === g && p.owe > 0).length;
+  const paidM = D.rows.filter((r) => r.closed && String(r.paid_date).slice(0, 7) === month);
+  const tile = (g) => html`<a class="cn-k ${gOn === g ? 'on' : ''}" href="${q({ g: gOn === g ? '' : g, qua: params.qua })}"><span class="k">${GRP[g]}</span><b>${fmt(gSum(g))}</b><small>${gN(g)} người${gOn === g ? ' · đang lọc — bấm bỏ lọc' : ''}</small></a>`;
   const card = (p) => { const rs = p.rows.filter((r) => !r.closed || String(r.paid_date).slice(0, 7) === month);
     return html`<div class="cn-p ${p.owe ? '' : 'done'}" data-s="${(p.name + ' ' + (p.phone || '')).toLowerCase()}">
       <a class="cn-ph" href="${q({ p: p.key })}"><span class="grow"><b>${p.name}</b>${p.phone ? html` <span class="st-meta">${p.phone}</span>` : ''}</span>
@@ -96,10 +101,14 @@ export async function render(ctx) {
     title: `Công nợ ${BR.code}`,
     html: html`${STYLE}<div class="cn-wrap"><div class="page-head"><div><h1>Công nợ</h1><div class="sub">Người nợ quán theo từng cơ sở</div></div></div>
       <nav class="branch-tabs" aria-label="Cơ sở">${D.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${'#/quan-ly/cong-no?cn=' + b.id}" title="${b.name}">${b.code}</a>`)}</nav>
-      <section class="card stack cn-sum"><div class="cn-big">${BR.code} còn nợ <b>${vnd(total)}</b> <span class="st-meta">· ${nOwe} người</span></div>
+      <div class="cn-ks">
+        <a class="cn-k tot ${gOn ? '' : 'on'}" href="${q({ qua: params.qua })}"><span class="k">Còn nợ</span><b>${fmt(total)}</b><small>${nOwe} người${gOn ? ' · bấm xem cả 3 nhóm' : ''}</small></a>
+        <div class="cn-k paid"><span class="k">Đã thu tháng này</span><b>${fmt(paidM.reduce((t, r) => t + Number(r.amount || 0), 0))}</b><small>${paidM.length} khoản</small></div>
+        ${['khach', 'kho', 'khac'].map(tile)}</div>
+      <section class="card stack cn-sum">
         ${lateP.length ? html`<a class="cn-latebox ${onlyLate ? 'on' : ''}" href="${q({ qua: onlyLate ? '' : '1' })}">⚠ Khách nợ quá ${LATE} ngày: <b>${lateP.length} khách · ${fmt(lateP.reduce((t, p) => t + p.open.filter(late).reduce((s, r) => s + Number(r.amount), 0), 0))}</b> ${onlyLate ? '— bấm để xem tất cả' : '— bấm để lọc'}</a>` : html`<div class="st-meta">Không có khách nợ quá ${LATE} ngày.</div>`}
         <input class="input" id="cn-find" type="search" placeholder="Tìm tên / số điện thoại…" autocomplete="off"></section>
-      ${['khach', 'kho', 'khac'].map(group)}
+      ${['khach', 'kho', 'khac'].filter((g) => !gOn || g === gOn).map(group)}
       <div class="st-meta">Khách trả trong ca: nhân viên chọn ở phiếu chốt ca (chỉ Nợ khách hàng). Trả ngoài ca: bấm vào người → <b>Đã thu</b> (Sổ quỹ cộng vào). Khoản chi của ca thành nợ: Đối soát ca › Thu chi › <b>Thành nợ</b>.</div></div>`,
     mount() {
       $('#cn-find').addEventListener('input', (e) => { const s = e.target.value.trim().toLowerCase();
@@ -191,6 +200,10 @@ export async function render(ctx) {
 const STYLE = html`<style>
   .cn-wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
   .cn-sum { gap: 8px; } .cn-big { font-size: 18px; } .cn-big b { font-size: 22px; color: #b91c1c; }
+  .cn-ks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+  .cn-k { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; }
+  .cn-k .k { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink-2); } .cn-k b { font-size: 19px; font-variant-numeric: tabular-nums; } .cn-k small { color: var(--ink-2); font-size: 12px; }
+  .cn-k.on { border-color: var(--accent, #8b5a2b); box-shadow: 0 0 0 2px var(--accent, #8b5a2b) inset; } .cn-k.tot b { color: #b91c1c; } .cn-k.paid b { color: var(--ok-ink); }
   .cn-latebox { display: block; padding: 8px 10px; border-radius: 10px; background: var(--warn-bg); color: #92400e; text-decoration: none; }
   .cn-latebox.on { outline: 2px solid #d97706; }
   .cn-g { gap: 8px; } .cn-gh { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; } .cn-gh h2 { margin: 0; } .cn-gsum { font-size: 17px; white-space: nowrap; }

@@ -224,4 +224,4 @@ input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirr
 
 /* bước 73: thanh mục con (Quản lý ca có 4 mục) vừa màn hình điện thoại */
 @media (max-width: 560px) { .hub-tabs { gap: 0; } .hub-tabs a { padding: 9px 8px; font-size: 13px; } }
-@media (max-width: 420px) { .hub-tabs a { padding: 9px 6px; font-size: 12px; } }   /* bước 95: 5 tab Quản lý ca vừa khung điện thoại */
+@media (max-width: 420px) { .hub-tabs a { padding: 9px 4px; font-size: 11px; letter-spacing: 0; } }   /* bước 95 / 97: 5 tab Quản lý ca (Lệch tiền ca) vừa khung điện thoại */

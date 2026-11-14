@@ -530,6 +530,12 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Đối soát ca › Thu chi (cùng ngày): nút **Xoá** khoản thu chi (bắt buộc lý do, chỉ bỏ ở bản đối soát) và mục **3. Khách trả nợ trong ca** (+ Khách trả nợ trong ca); không hiện lại dòng "Khách mượn – …" (nợ TM đã khai ở bước Khách nợ).
 - **Trang Thu chi không hiện khoản nợ** (dòng tự thêm nợ TM của khách, khoản đã thành nợ, khoản cho vay cũ) — chỉ 1 dòng "n khoản nợ … xem ở tab Công nợ". Máy chủ 89 dọn dòng nợ cũ "chưa đối soát" → Không tính + đã đối soát. Bỏ thành nợ: ở Đối soát ca › Thu chi.
 
+## 5r23. Sắp xếp lại tên và ô số — CHỐT và ĐÃ LÀM 15/11/2026 (bước 97, chỉ giao diện)
+- Rà soát 15/11: anh **giữ đối soát ca đi từng bước** (không làm "duyệt nhanh").
+- Tab **Âm tiền → "Lệch tiền ca"** (`#/quan-ly/lech-tien`; đường dẫn cũ `#/quan-ly/am-tien` vẫn mở). Chữ "Âm tiền" còn lại chỉ dùng cho **khoản âm tiền** nhân viên ghi ở thu chi và nhóm "Âm tiền – quán chịu".
+- Trang Thu chi: 5 ô **Thu · Chi · Tiền về quỹ · Đã đối soát · Lệch tiền ca** (bỏ ô Công nợ / Nợ kho tổng). Tiền về quỹ = nộp quỹ TM + CK về trong tháng (Sổ quỹ), chỉ hiện với người xem được Sổ quỹ.
+- Tab Công nợ: ô số đầu trang **Còn nợ · Đã thu tháng này · ① ② ③ từng nhóm**; bấm ô nhóm → chỉ hiện nhóm đó (`?g=`), bấm lại → cả 3.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

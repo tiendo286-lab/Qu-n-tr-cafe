@@ -17,7 +17,7 @@ export default async ({ sleep, out }) => {
       { branch_id: 1, report_id: 802, date: m + '-04', shift: 'Sáng', item: 'chuyen_khoan', kind: 'du', total: 600000, staff },
       { branch_id: 1, report_id: 803, date: m + '-03', shift: 'Chiều', item: 'tien_mat', kind: 'thieu', total: 131000, staff },
       { branch_id: 1, report_id: 804, date: m + '-01', shift: 'Tối', item: 'chuyen_khoan', kind: 'du', total: 207000, staff }]);
-    const go = async () => { location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/am-tien?cn=1&thang=' + m; await wait('.at-kpis', 600); await sleep(600); };
+    const go = async () => { location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/lech-tien?cn=1&thang=' + m; await wait('.at-kpis', 600); await sleep(600); };
     await go();
     r.push(`trang: ${txt('#root h1')} · menu ${$$('.hub-tabs a').map((a) => a.innerText.trim()).join(' · ')} · ${txt('.alert')}`);
     r.push(`ô: ${$$('.at-kpi').map((k) => k.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
