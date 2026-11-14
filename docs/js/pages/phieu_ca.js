@@ -1053,8 +1053,17 @@ function mount(R, ed, C0, ctx = {}) {
       const loanNote = loanTM ? `<div class="st-meta">Nợ tiền mặt của khách <b>${fmt(loanTM)}</b> đã khai ở bước Khách nợ — web tự trừ tiền két, không ghi lại ở đây.</div>` : '';
       // bước 90: chia 2 phần như phiếu nhân viên — tiền mặt / chuyển khoản
       const addB = (k, l) => (edT ? `<div><button type="button" class="btn sm secondary" data-addmv="${k}">+ Thêm thu chi ${l}</button></div>` : '');   // bước 93
-      box.innerHTML = `<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div>${loanNote}${addB('tien_mat', 'tiền mặt')}<h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>${addB('chuyen_khoan', 'chuyển khoản')}`;
-      const opt = { cats: D.categories || [], showReport: false, onChange: loadTc, emps: EMPS, toDebt: true };   // bước 95: Thành nợ
+      // bước 96: khách trả nợ trong ca — ghi ngay ở bước Thu chi (cùng cách với nút Đã trả TM / CK ở bước Phiếu Fabi)
+      const paidD = (R.open_debts || []).filter((d) => d.closed_report_id === R.id);
+      const qlNoF = (d) => String(d.close_note || '').startsWith('Quản lý ghi khi đối soát:');
+      const canQ = !!R.can_recon && R0?.recon_status !== 'hoan_thanh';
+      const openK = (R.open_debts || []).filter((d) => !d.closed_at && !d.family);
+      const sec3 = str(html`<h3 style="margin:10px 0 0">3. Khách trả nợ trong ca</h3>
+        ${paidD.length ? paidD.map((d) => html`<div class="fb-row"><div class="pc-line"><strong class="grow">${noName(d)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}</strong><b>${fmt(d.amount)}</b></div>${qlNoF(d) ? html`<div class="pc-line" style="gap:8px"><span class="st-meta grow">🖊 ${d.close_note}</span>${canQ ? html`<button type="button" class="btn sm secondary" data-qlno-undo="${d.id}">Bỏ</button>` : ''}</div>` : ''}</div>`) : html`<div class="st-meta">Chưa có khách trả nợ trong ca.</div>`}
+        ${canQ && openK.length ? html`<div><button type="button" class="btn sm secondary" data-qlpick>+ Khách trả nợ trong ca</button></div><div class="st-meta">Nếu nhân viên đã ghi tiền khách trả nợ thành khoản <b>Thu</b> ở trên thì bấm <b>Xoá</b> dòng Thu đó, tránh cộng 2 lần.</div>` : ''}`);
+      box.innerHTML = `<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div>${loanNote}${addB('tien_mat', 'tiền mặt')}<h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>${addB('chuyen_khoan', 'chuyển khoản')}${sec3}`;
+      const opt = { cats: D.categories || [], showReport: false, onChange: loadTc, emps: EMPS, toDebt: true,   // bước 95: Thành nợ
+        onDel: edT ? (r) => form.dispatchEvent(new CustomEvent('ds-mv-del', { detail: r })) : null };   // bước 96: Xoá
       tcList($('#ds-tc-tm'), rows.filter((x) => x.pay !== 'chuyen_khoan'), opt);
       tcList($('#ds-tc-ck'), rows.filter((x) => x.pay === 'chuyen_khoan'), opt);
     }).catch((e) => { const box = $('#ds-tc'); if (box) box.textContent = 'Không tải được thu chi: ' + e.message; });
@@ -1189,9 +1198,24 @@ function mount(R, ed, C0, ctx = {}) {
       catch (e) { u.disabled = false; showSaved(e.message, true); }
       return;
     }
+    if (ev.target.closest('[data-qlpick]')) { qlPick(); return; }   // bước 96: ở bước Thu chi
     const b = ev.target.closest('[data-qlno]'); if (!b) return;
     const dd = (R.open_debts || []).find((x) => x.id === Number(b.dataset.qlno)); if (!dd) return;
-    const k = b.dataset.k; const kl = k === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt';
+    qlnoOpen(dd, b.dataset.k);
+  });
+  function qlPick() {
+    const list = (R.open_debts || []).filter((x) => !x.closed_at && !x.family);
+    const d = dialog(html`<div class="stack" style="gap:10px;width:min(460px, calc(100vw - 56px))"><h2 style="margin:0">Khách trả nợ trong ca ${R.shift} ${dmy(R.work_date)}</h2>
+      <div class="st-meta">Chọn khách đã trả và cách trả (chỉ Nợ khách hàng; Nợ kho tổng / nợ khác thu ở tab Công nợ).</div>
+      <div class="stack" style="gap:6px;max-height:60vh;overflow:auto">${list.map((x) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${noName(x)}</strong><b>${fmt(x.amount)}</b></div>
+        <div class="st-meta">${x.by_ql ? `Quản lý ghi ${dmy(x.from_date)}` : `Nợ ca ${x.from_shift || ''} ${dmy(x.from_date)}`}${x.note ? ' · ' + x.note : ''}</div>
+        <div class="pc-line" style="gap:8px;justify-content:flex-end"><button type="button" class="btn sm secondary" data-pk="${x.id}" data-k="tien_mat">Trả TM</button><button type="button" class="btn sm secondary" data-pk="${x.id}" data-k="chuyen_khoan">Trả CK</button></div></div>`)}</div>
+      <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Đóng</button></div></div>`);
+    d.querySelector('[data-x]').addEventListener('click', () => d.close());
+    d.querySelectorAll('[data-pk]').forEach((b) => b.addEventListener('click', () => { const dd = list.find((x) => x.id === Number(b.dataset.pk)); d.close(); if (dd) qlnoOpen(dd, b.dataset.k); }));
+  }
+  function qlnoOpen(dd, k) {
+    const kl = k === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt';
     const d = dialog(html`<form class="stack" style="gap:12px;width:min(440px, calc(100vw - 56px))"><h2 style="margin:0">Khách trả nợ trong ca ${R.shift} ${dmy(R.work_date)}</h2>
       <div><strong>${noName(dd)}</strong> · còn nợ ${fmt(dd.amount)}đ · trả bằng <b>${kl}</b></div>
       <div class="st-meta">Tiền cộng vào <b>${k === 'chuyen_khoan' ? 'tiền phải nhận trên hotline' : 'tiền phải có trong két'}</b> của ca này. Trả một phần thì phần còn lại vẫn là nợ.</div>
@@ -1208,7 +1232,7 @@ function mount(R, ed, C0, ctx = {}) {
         d.close(); flash(`Đã ghi khách trả ${kl} — cộng vào tiền của ca.`); rerender();
       } catch (er) { btn.disabled = false; d.querySelector('#qn-err').innerHTML = str(html`<div class="alert error">${er.message}</div>`); }
     });
-  });
+  }
   // bước 74: Ghi nhận nợ ở đối soát — số tiền ca không đổi; nợ vào Công nợ; khách trả ở ca sau thì tự bù ca này
   $('#rd-add')?.addEventListener('click', () => {
     const d = dialog(html`<form class="stack" style="gap:12px;max-width:460px"><h2 style="margin:0">Ghi nhận nợ · ca ${R.shift} ${dmy(R.work_date)}</h2>
@@ -1317,6 +1341,36 @@ function mount(R, ed, C0, ctx = {}) {
     add('#moves', moveRow({ kind: b.dataset.addmv, amount: null, note: '' }, true), '.mv-amt');
     $('#moves')?.lastElementChild?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     showSaved('Ghi số tiền, nội dung và lý do sửa — web tự lưu.');
+  });
+  // bước 96: Xoá khoản thu chi ở bước Thu chi — bỏ dòng khỏi bản đối soát (phiếu gốc giữ nguyên), bắt buộc lý do
+  form.addEventListener('ds-mv-del', (ev) => {
+    const r = ev.detail;
+    if (tcDone || !$('#add-move')) {
+      const den = $('#ds-lights .den-edit[data-item="thu_chi"]');
+      if (den) { den.click(); showSaved('Mục Thu chi đã đối soát — mở sửa lại rồi bấm Xoá.', true); } else showSaved('Mục Thu chi đang khoá — chưa xoá được.', true);
+      return;
+    }
+    const sAmt = r.kind === 'chi' ? -Number(r.amount) : Number(r.amount); const nth = Number(String(r.mkey || '').split('#').pop()) || 1;
+    const row = $$('#moves .mv-row').filter((x) => x.querySelector('.mv-kind').value === r.pay
+      && (parseMoney(x.querySelector('.mv-amt').value) || 0) * (x.querySelector('.mv-sign').value === '-' ? -1 : 1) === sAmt
+      && x.querySelector('.mv-note').value.trim() === String(r.note || '').trim())[nth - 1];
+    if (!row) { showSaved('Không tìm thấy khoản này trong phiếu — tải lại trang rồi thử lại.', true); return; }
+    const d = dialog(html`<form class="stack" style="gap:12px;width:min(440px, calc(100vw - 56px))"><h2 style="margin:0">Xoá khoản thu chi</h2>
+      <div><strong>${r.note || '(không ghi nội dung)'}</strong> · ${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ · ${r.pay === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}</div>
+      <div class="st-meta">Khoản bị bỏ khỏi bản đối soát, tiền của ca tính lại. Phiếu nhân viên gửi (gốc) giữ nguyên.</div>
+      <label class="field"><span>Lý do xoá <b>(bắt buộc)</b></span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi trùng / khách trả nợ đã ghi ở mục Khách trả nợ"></label>
+      <div id="mvd-err"></div>
+      <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm danger" type="submit">Xoá khoản</button></div></form>`);
+    const f = d.querySelector('form'); d.querySelector('[data-x]').addEventListener('click', () => d.close());
+    f.addEventListener('submit', async (e2) => {
+      e2.preventDefault(); const why = f.why.value.trim();
+      if (!why) { d.querySelector('#mvd-err').innerHTML = str(html`<div class="alert error">Ghi lý do xoá.</div>`); f.why.focus(); return; }
+      const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+      $$('.rc-why, #rc-reason').forEach((x) => { x.value = why; });
+      row.remove(); changed();
+      try { await saveNow(); d.close(); flash('Đã xoá khoản thu chi.'); }
+      catch (er) { btn.disabled = false; d.querySelector('#mvd-err').innerHTML = str(html`<div class="alert error">${er.message}</div>`); }
+    });
   });
   $('#add-debt')?.addEventListener('click', () => add('#debts', debtRow({}, true), '.db-table'));
   $('#add-ho')?.addEventListener('click', () => add('#handover', hoRow({}, true), '.ho-text'));

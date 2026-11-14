@@ -59,6 +59,23 @@ export default async ({ sleep, out }) => {
       r.push(`chưa lý do: ${$$('.rc-need').some((x) => !x.hidden) ? 'nhắc ghi lý do' : 'KHÔNG nhắc'}`);
       setv($('#ds-mv-ed .rc-why'), 'Nhân viên quên ghi'); await sleep(3000);
       const n1 = await mvN(); r.push(`thu chi máy chủ: ${n0} → ${n1} · danh sách CK hiện ${$$('#ds-tc-ck .dt-r').length} dòng`);
+      // bước 96: Xoá khoản thu chi + Khách trả nợ trong ca ở bước Thu chi
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6'; await wait('#ds-tc .dt-del'); await sleep(1500);
+      const nB = await mvN();
+      const del = $$('#ds-tc-tm .dt-r').find((x) => x.innerText.includes('Mua đá'))?.querySelector('.dt-del');
+      r.push(`96 nút Xoá: ${$$('#ds-tc .dt-del').length} · dòng Mua đá có nút ${!!del}`);
+      del.click(); await wait('dialog[open] form [name=why]'); let f9 = $$('dialog[open] form').pop();
+      f9.requestSubmit(); await sleep(500); r.push(`xoá không lý do: ${txt('#mvd-err')}`);
+      f9.why.value = 'Nhân viên ghi trùng'; f9.requestSubmit(); await sleep(3500);
+      r.push(`sau xoá: thu chi máy chủ ${nB} → ${await mvN()} · hộp đóng ${!$('dialog[open]')} · còn Mua đá trong phiếu ${$$('#moves .mv-row').some((x) => x.querySelector('.mv-note').value === 'Mua đá')}`);
+      r.push(`mục 3 nút: ${!!$('#ds-tc [data-qlpick]')} · ${$$('#ds-tc h3').map((x) => x.innerText).join(' / ')}`);
+      $('#ds-tc [data-qlpick]').click(); await wait('dialog[open] [data-pk]'); await sleep(300);
+      r.push(`hộp chọn khách: ${$$('dialog[open] [data-pk][data-k="tien_mat"]').length} khách · ${txt('dialog[open] h2')}`);
+      $(`dialog[open] [data-pk="${did}"][data-k="chuyen_khoan"]`).click(); await wait('dialog[open] form [name=amt]'); await sleep(300);
+      f9 = $$('dialog[open] form').pop(); f9.amt.value = '300.000'; f9.why.value = 'Khách CK, nhân viên không biết'; f9.requestSubmit(); await sleep(3000);
+      await wait('#ds-tc [data-qlno-undo]'); await sleep(800);
+      r.push(`sau ghi khách trả: ${$$('#ds-tc .fb-row').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')} · col_ck ${(await rpc('app_ca_get', { p_id: id })).money?.col_ck} · ${W()}`);
+      if (new URLSearchParams(location.search).get('dung') === '961') { $('#ds-tc h3:nth-of-type(3)')?.scrollIntoView(); await new Promise(() => {}); }
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=5'; await wait('[data-rdgo]'); await sleep(1200);
       $('[data-rdgo]').click(); await sleep(800); r.push(`thêm khách nợ: ${txt('dialog h2')}`); $('dialog [data-x]')?.click();
     }

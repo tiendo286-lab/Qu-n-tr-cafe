@@ -21,7 +21,7 @@ export const DT_CSS = html`<style>
 </style>`;
 
 // rows: dòng dạng app_tc_list / app_ds_todo (src 'ca'); cats: danh mục nhóm; brById: Map id → {code}
-export function tcList(box, rows, { cats = [], brById = null, showReport = true, onChange = () => {}, emps = null, toDebt = false } = {}) {
+export function tcList(box, rows, { cats = [], brById = null, showReport = true, onChange = () => {}, emps = null, toDebt = false, onDel = null } = {}) {
   const catsOf = (kind) => cats.filter((c) => c.kind === kind && c.active);
   const sel = (r) => {
     // "Chi lương – …" (người trả lương tiền mặt, bước 39): chọn sẵn nhóm Lương
@@ -36,10 +36,12 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
     const br = brById ? brById.get(r.branch_id) : null;
     const canDebt = toDebt && r.src === 'ca' && r.kind === 'chi' && !r.auto && !r.locked && !r.ka_n;   // bước 95
     const debtBtn = canDebt ? html`<button type="button" class="btn sm secondary dt-2no">Thành nợ</button>` : '';
+    // bước 96: đối soát ca — xoá khoản thu chi (bắt buộc lý do); không xoá dòng tự thêm / đã thành nợ / cho vay / đã chia âm tiền / tháng đã chốt
+    const delBtn = onDel && r.src === 'ca' && !r.auto && !r.locked && !r.debt && !r.loan_id && !r.ka_n ? html`<button type="button" class="btn sm secondary danger dt-del">Xoá</button>` : '';
     const act = r.debt ? html`<span class="dt-do"><span class="pill warn">→ ${GRP_NO[r.debt.grp] || 'Nợ'}: ${r.debt.name}</span> <span class="st-meta">không tính chi phí</span>${!r.locked && !r.debt.closed ? html`<button type="button" class="btn sm secondary dt-undebt">Bỏ</button>` : ''}</span>`
       : r.locked ? html`<span class="st-meta">Tháng đã chốt</span>`
-      : r.status === 'cho' ? html`<span class="dt-do">${sel(r)}<button type="button" class="btn sm dt-ok">Đối soát</button>${debtBtn}</span>`
-      : html`<span class="dt-do"><span class="pill ok">Đã đối soát</span> <span class="st-meta">${r.excluded ? 'Không tính' : r.category || ''}</span><button type="button" class="btn sm secondary dt-undo">Bỏ đối soát</button>${debtBtn}</span>`;
+      : r.status === 'cho' ? html`<span class="dt-do">${sel(r)}<button type="button" class="btn sm dt-ok">Đối soát</button>${debtBtn}${delBtn}</span>`
+      : html`<span class="dt-do"><span class="pill ok">Đã đối soát</span> <span class="st-meta">${r.excluded ? 'Không tính' : r.category || ''}</span><button type="button" class="btn sm secondary dt-undo">Bỏ đối soát</button>${debtBtn}${delBtn}</span>`;
     return html`<div class="dt-r ${r.status === 'cho' ? 'todo' : ''}" data-i="${i}" data-br="${r.branch_id}">
       <div class="dt-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
         <div class="st-meta">${dmy(r.date)}${br ? ` · ${br.code}` : ''}${showReport ? html` · <a href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Phiếu ca ${r.shift}</a>` : ''} · ${PAY[r.pay] || ''}${r.by ? ` · ${r.by}` : ''}${r.status === 'da' && r.checked_at ? ` · đối soát ${r.checked_by || ''} ${dt(r.checked_at)}` : ''}</div>
@@ -97,6 +99,7 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
     b.disabled = true;
     try { await rpc('app_tc_move_undebt', { p_report: r.report_id, p_mkey: r.mkey }); showSaved('Đã bỏ thành nợ'); onChange(); } catch (e) { b.disabled = false; showSaved(e.message, true); }
   }));
+  box.querySelectorAll('.dt-del').forEach((b) => b.addEventListener('click', () => onDel(rows[Number(b.closest('.dt-r').dataset.i)])));
   box.querySelectorAll('.dt-undo').forEach((b) => b.addEventListener('click', () => {
     const r = rows[Number(b.closest('.dt-r').dataset.i)]; call(b, r, r.excluded ? 'x' : r.category_id, false);
   }));
