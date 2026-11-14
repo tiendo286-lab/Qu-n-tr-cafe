@@ -209,10 +209,10 @@ export async function mountReportEval(box, R) {
     let marks = []; try { marks = (await rpc('app_dg_report', { p_report: R.id })) || []; } catch (_) { /* bỏ qua */ }
     box.innerHTML = str(html`<div class="pc-sec-head"><h2>Đánh giá nhân viên trong ca <span class="st-meta">(không bắt buộc)</span></h2></div>
       <div class="st-meta">Nhân viên phạm lỗi thì trừ điểm vào đúng tiêu chí (1–5 điểm) hoặc nhắc nhở. Bấm tên để xem toàn bộ lịch sử trước khi chọn mức.</div>
-      ${staff.length ? staff.map((s) => { const mk = marks.filter((m) => m.employee_id === s.employee_id); return html`<div class="pc-line" style="justify-content:space-between;gap:8px;flex-wrap:wrap">
-          <div><strong>${s.code || ''}${s.code ? ' – ' : ''}${s.name || 'NV ' + s.employee_id}</strong>
+      ${staff.length ? staff.map((s) => { const mk = marks.filter((m) => m.employee_id === s.employee_id); return html`<div class="pc-line" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:nowrap">
+          <div style="flex:1;min-width:0"><strong>${s.code || ''}${s.code ? ' – ' : ''}${s.name || 'NV ' + s.employee_id}</strong>
             ${mk.length ? html`<div class="st-meta">Ca này: ${mk.map((m) => `${ptsLabel(m.points)} · ${m.criterion_name}`).join('; ')}</div>` : ''}</div>
-          <button type="button" class="btn sm secondary dg-open" data-emp="${s.employee_id}">Trừ điểm / nhắc nhở</button></div>`; })
+          <button type="button" class="btn sm secondary dg-open" style="flex-shrink:0" data-emp="${s.employee_id}">Trừ điểm / nhắc nhở</button></div>`; })
         : html`<div class="st-meta">Ca này chưa có nhân viên.</div>`}`);
     $$('.dg-open', box).forEach((b) => b.addEventListener('click', () => openEmployee(Number(b.dataset.emp), {
       report: { id: R.id, date: R.work_date, shift: R.shift, branch: R.branch_code || R.branch || '' }, onChange: draw })));
