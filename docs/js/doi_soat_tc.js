@@ -16,7 +16,7 @@ export const DT_CSS = html`<style>
   .dt-do { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; justify-content: flex-end; min-width: 0; }
   .dt-do select { width: 170px; max-width: 100%; }
   .dt-emp { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-top: 4px; } .dt-emp select { width: auto; max-width: 100%; }
-  @media (max-width: 760px) { .dt-r { grid-template-columns: minmax(0, 1fr) auto; } .dt-do { grid-column: 1 / -1; justify-content: flex-start; } .dt-do select { flex: 1 1 160px; width: auto; } }
+  @media (max-width: 760px) { .dt-r { grid-template-columns: minmax(0, 1fr) auto; } .dt-do, .dt-act { grid-column: 1 / -1; justify-content: flex-start; } .dt-do select { flex: 1 1 160px; width: auto; } }
 </style>`;
 
 // rows: dòng dạng app_tc_list / app_ds_todo (src 'ca'); cats: danh mục nhóm; brById: Map id → {code}
@@ -38,10 +38,10 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
       : html`<span class="dt-do"><span class="pill ok">Đã đối soát</span> <span class="st-meta">${r.excluded ? 'Không tính' : r.category || ''}</span><button type="button" class="btn sm secondary dt-undo">Bỏ đối soát</button></span>`;
     return html`<div class="dt-r ${r.status === 'cho' ? 'todo' : ''}" data-i="${i}" data-br="${r.branch_id}">
       <div class="dt-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
-        <div class="st-meta">${dmy(r.date)}${br ? ` · ${br.code}` : ''}${showReport ? html` · <a href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Phiếu ca ${r.shift}</a>` : ''} · ${PAY[r.pay] || ''}${r.by ? ` · ${r.by}` : ''}${r.status === 'da' && r.checked_at ? ` · đối soát ${r.checked_by || ''} ${dt(r.checked_at)}` : ''}</div></div>
-      ${empSel(r)}</div>
+        <div class="st-meta">${dmy(r.date)}${br ? ` · ${br.code}` : ''}${showReport ? html` · <a href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Phiếu ca ${r.shift}</a>` : ''} · ${PAY[r.pay] || ''}${r.by ? ` · ${r.by}` : ''}${r.status === 'da' && r.checked_at ? ` · đối soát ${r.checked_by || ''} ${dt(r.checked_at)}` : ''}</div>
+        ${empSel(r)}</div>
       <div class="dt-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ</div>
-      <div>${act}</div></div>`;
+      <div class="dt-act">${act}</div></div>`;
   };
   box.innerHTML = str(rows.length ? html`${rows.map(row)}` : html`<div class="st-meta" style="padding:6px 0">Không có khoản thu chi nào.</div>`);
   const call = async (b, r, catVal, ok) => {

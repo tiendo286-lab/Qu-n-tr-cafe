@@ -298,13 +298,7 @@ export async function render({ params }) {
       ${edSharedT ? html`<label class="btn sm secondary" style="align-self:flex-start">📷 Chụp phiếu chốt ca iPOS<input type="file" class="ph-input" data-kind="ipos" id="ipos-input" accept="image/*" multiple hidden></label><div class="st-meta ph-status"></div>` : ''}</div>`);
 
   // C. Chênh lệch, thu chi
-  const secDiff = sec('3. Chênh lệch và chi tiết thu chi', ['tien_mat', 'chuyen_khoan', 'thu_chi'], html`
-    <div class="pc-grid" id="diff-box"></div>
-    ${isDs && R0.money && R0.money.next_hand ? nextHandCard(R0.money.next_hand, R.shift) : ''}
-    ${isDs ? html`<div id="bank-box"></div><div id="bank-outs" class="diff-card"></div>` : ''}
-    ${done && (R.shortfalls || []).length ? html`<div class="ka-box"><div class="pc-sub" style="margin:0">KHOẢN ÂM ĐÃ GÁN CHO NHÂN VIÊN</div>
-      ${R.shortfalls.map((k) => html`<div class="pc-line"><strong>${k.employee}</strong> · ${CHECK_LABEL[k.item]} · ${vnd(k.amount)} <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}</span>${k.seen_at ? html`<span class="st-meta">đã xem</span>` : ''}${k.reply ? html`<span class="st-meta">· giải trình: ${k.reply}</span>` : ''}</div>`)}
-      <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am">Mở phiếu trừ lương trong Thu chi</a></div>` : ''}
+  const movesEd = html`
     <div class="pc-sub">CHI TIẾT THU CHI <span class="st-meta">— giải trình từng khoản làm tiền lệch (số âm = chi/thiếu, số dương = thu/thừa)</span></div>
     <div id="moves">${(R.moves || []).map((m) => moveRow(m, edT))}</div>
     ${(R.debts || []).filter((d) => d.kind === 'muon').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Nợ TM – ${d.table_name}</strong> · ${vnd(-d.amount)} · tiền mặt
@@ -313,7 +307,15 @@ export async function render({ params }) {
         <div class="st-meta">Fabi ghi chuyển khoản nhưng khách chưa chuyển — trừ khỏi tiền phải nhận trên hotline${d.note ? ' · ' + d.note : ''}${d.closed_at ? ` · đã trả ${dt(d.closed_at)}` : ''}</div></div></div>`)}
     ${(R.open_debts || []).filter((d) => d.kind === 'muon' && d.closed_report_id === R.id).map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Khách trả Nợ TM – ${d.table_name}</strong> · +${vnd(d.amount)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}
         <div class="st-meta">Nợ ca ${d.from_shift} ${dmy(d.from_date)}</div></div></div>`)}
-    ${edT ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`);
+    ${edT ? html`<div><button type="button" class="btn sm secondary" id="add-move">+ Thêm dòng thu chi</button></div>` : ''}`;
+  const secDiff = sec('3. Chênh lệch và chi tiết thu chi', ['tien_mat', 'chuyen_khoan', 'thu_chi'], html`
+    <div class="pc-grid" id="diff-box"></div>
+    ${isDs && R0.money && R0.money.next_hand ? nextHandCard(R0.money.next_hand, R.shift) : ''}
+    ${isDs ? html`<div id="bank-box"></div><div id="bank-outs" class="diff-card"></div>` : ''}
+    ${done && (R.shortfalls || []).length ? html`<div class="ka-box"><div class="pc-sub" style="margin:0">KHOẢN ÂM ĐÃ GÁN CHO NHÂN VIÊN</div>
+      ${R.shortfalls.map((k) => html`<div class="pc-line"><strong>${k.employee}</strong> · ${CHECK_LABEL[k.item]} · ${vnd(k.amount)} <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}</span>${k.seen_at ? html`<span class="st-meta">đã xem</span>` : ''}${k.reply ? html`<span class="st-meta">· giải trình: ${k.reply}</span>` : ''}</div>`)}
+      <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am">Mở phiếu trừ lương trong Thu chi</a></div>` : ''}
+    ${isDs ? '' : movesEd}`);   // bước 93: đối soát — sửa / thêm thu chi ở bước Thu chi
 
   // D. Công nợ
   const secDebt = sec('4. Khách chưa thanh toán (công nợ)', ['cong_no'], html`
@@ -404,6 +406,7 @@ export async function render({ params }) {
     const fno = FB ? Number(FB.no) : Number(R.pos_debt || 0);
     return html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Khách nợ trong ca</h2><div class="rc-chips">${chip('cong_no')}</div></div>
       <div class="st-meta">Kiểm tra loại nợ nhân viên chọn. Sai thì bấm đổi. (Công nợ gia đình phân loại ở <b>Thu chi › Công nợ</b>, không làm ở đây.)</div>
+      ${R.can_recon ? html`<div class="pc-line" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn sm secondary" data-rdgo="1">+ Thêm khách nợ</button><span class="st-meta grow">khách nợ nhưng nhân viên bấm nhầm thanh toán tiền mặt / chuyển khoản trên Fabi</span></div>` : ''}
       ${ds.length ? ds.map((d) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${(!d.kind || d.kind === 'bill') ? 'Bàn ' : ''}${d.table_name} · ${fmt(d.amount)}</strong>
           <span class="seg cm88-seg">${[['bill', 'HĐ'], ['muon', 'TM'], ['ck', 'CK']].map(([k, l]) => html`<button type="button" class="${(d.kind || 'bill') === k ? 'on' : ''}" data-dkind="${k}" data-debt="${d.id}" ${canKind && !d.closed_at ? '' : 'disabled'}>${l}</button>`)}</span></div>
           <div class="st-meta">${d.note || ''}${d.note && d.closed_at ? ' · ' : ''}${d.closed_at ? html`<span class="db-paid" data-debt="${d.id}">Đã thu ngày ${dmy(String(d.closed_at).slice(0, 10))}${d.collect_kind === 'chuyen_khoan' ? ' · chuyển khoản' : d.collect_kind === 'tien_mat' ? ' · tiền mặt' : ''}${d.closed_report_id ? '' : ' (quản lý thu, không qua ca)'}</span>` : (d.note ? '' : 'Chưa thu')}</div></div>`) : html`<div class="st-meta">Ca này không có khách nợ mới.</div>`}
@@ -441,6 +444,8 @@ export async function render({ params }) {
     <div class="st-meta">So <b>tiền phải có</b> với <b>tiền thực nhận</b>: chuyển khoản theo sao kê ngân hàng (kế toán nhập), tiền mặt theo số đếm. Lệch thì xử lý ở bước cuối.</div>
     ${thucCmp()}</section>` : '';
   const rcWhy = isDs && ed && !DIR ? html`<label class="pc-f"><span>Lý do sửa <b>(bắt buộc khi sửa số)</b></span><input class="input rc-why" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label><div class="alert error rc-need" style="margin:0" hidden>Ghi lý do sửa ở ô trên — chưa có lý do thì web chưa lưu số vừa sửa.</div>` : '';
+  // bước 93: bước Thu chi — thêm / sửa khoản thu chi ngay tại đây (bắt buộc ghi lý do)
+  const mvEdDs = isDs && edT ? html`<details class="ca-more ds-edit" id="ds-mv-ed"><summary>Sửa / thêm khoản thu chi <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${movesEd}</div></details>` : '';
   const caBoxSec = isDs ? html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Tiền của ca <span class="st-meta">— máy chủ tính, phiếu chi chuyển khoản</span></h2></div><div id="ca-box" class="stack" style="gap:8px"></div></section>` : '';
   const M86 = (R0 && R0.money) || {};
   // bước 88: tiền mặt thực nhận — Thu theo ca (quản lý đếm & thu ngay, lệch theo số quản lý đếm) / Thu cuối ngày (bắt buộc tiền kết ca = tiền mở ca sau)
@@ -596,7 +601,7 @@ export async function render({ params }) {
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
       <div class="ds-pane stack" data-ds="3">${dsHd(3)}${whoPart('tien')}${fabiCmp}<details class="ca-more ds-edit"><summary>Sửa số liệu phiếu Fabi <span class="st-meta">(giờ, số tiền, ảnh)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secTime}${secMoney}</div></details></div>
       <div class="ds-pane stack" data-ds="4">${dsHd(4)}${debtCmp}<details class="ca-more ds-edit"><summary>Chi tiết công nợ <span class="st-meta">(khách trả nợ cũ, ghi nhận nợ khi đối soát)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secDebt}</div></details></div>
-      <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secTc}</div>
+      <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secTc}${mvEdDs}</div>
       <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secThuc}<details class="ca-more ds-edit"><summary>Chi tiết / sửa <span class="st-meta">(phiếu chi chuyển khoản, số dư ngân hàng, khoản thu chi)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${caBoxSec}${secDiff}</div></details></div>
       <div class="ds-pane stack" data-ds="7">${dsHd(7)}${secLech}${dsSum}${dsFoot}</div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button><div class="ds-end" id="ds-end" hidden><button type="button" class="btn ok" id="ds-done">✓ Hoàn thành</button><button type="button" class="btn" id="ds-nextca">Ca tiếp theo ›</button></div></section>` : ''}` : '';
@@ -621,7 +626,7 @@ export async function render({ params }) {
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
     html: html`${STYLE}${HD_CSS}${DT_CSS}<div class="${isDs ? 'ph-wrap' : ''}">${head}${nhacNo}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form></div>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT, DIR }); },
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT, DIR, edT, tcDone: isDs && doneItem('thu_chi') }); },
   };
 }
 
@@ -685,7 +690,7 @@ function collect() {
 }
 
 function mount(R, ed, C0, ctx = {}) {
-  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT, DIR } = ctx;
+  const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT, DIR, edT, tcDone } = ctx;
   let saveNow = null;
   const rcWhyVal = () => [...$$('.rc-why'), $('#rc-reason')].map((x) => (x?.value || '').trim()).find(Boolean) || '';
   // bước 51: trường thuộc mục web đã tự đối soát → không sửa được (máy chủ cũng giữ nguyên số cũ)
@@ -1032,12 +1037,14 @@ function mount(R, ed, C0, ctx = {}) {
       EMPS = em || []; const box = $('#ds-tc'); if (!box) return;
       const rows = (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id);
       // bước 90: chia 2 phần như phiếu nhân viên — tiền mặt / chuyển khoản
-      box.innerHTML = '<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div><h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>';
+      const addB = (k, l) => (edT ? `<div><button type="button" class="btn sm secondary" data-addmv="${k}">+ Thêm thu chi ${l}</button></div>` : '');   // bước 93
+      box.innerHTML = `<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div>${addB('tien_mat', 'tiền mặt')}<h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>${addB('chuyen_khoan', 'chuyển khoản')}`;
       const opt = { cats: D.categories || [], showReport: false, onChange: loadTc, emps: EMPS };
       tcList($('#ds-tc-tm'), rows.filter((x) => x.pay !== 'chuyen_khoan'), opt);
       tcList($('#ds-tc-ck'), rows.filter((x) => x.pay === 'chuyen_khoan'), opt);
     }).catch((e) => { const box = $('#ds-tc'); if (box) box.textContent = 'Không tải được thu chi: ' + e.message; });
     loadTc();
+    form.addEventListener('ds-tc-reload', () => loadTc());
   }
   // ---------- Bản đối soát: chuyển khoản thực nhận do kế toán nhập
   if (isDs) mountBankOuts($('#bank-outs'), R.id, () => rerender());   // bước 54: phiếu chi chuyển khoản
@@ -1219,6 +1226,7 @@ function mount(R, ed, C0, ctx = {}) {
         (res.debt_ids || []).forEach((nid, i) => { if (nid && dbRows[i]) dbRows[i].dataset.id = nid; });
       }
       if (!res?.skipped) showSaved((isDs ? 'Đã lưu bản đối soát · ' : 'Đã lưu · ') + hhmm());
+      if (isDs && !res?.skipped) form.dispatchEvent(new Event('ds-tc-reload'));   // bước 93: danh sách thu chi ở bước Thu chi cập nhật dòng vừa thêm
       if (isDs && R0) rpc('app_ca_money', { p_id: R.id }).then((m) => { if (m && !dirty) { R0.money = m; srvFresh = true; recalc(); } }).catch(() => {});
       const sk = JSON.stringify(payload.staff);
       if (sk !== staffKey) { staffKey = sk; if (isDs) mountCover($('#ds-cv'), R, cvCtx); }
@@ -1251,6 +1259,20 @@ function mount(R, ed, C0, ctx = {}) {
     box.lastElementChild.querySelector(focusSel)?.focus(); changed();
   };
   $('#add-move')?.addEventListener('click', () => add('#moves', moveRow({ kind: 'tien_mat', amount: null, note: '' }, true), '.mv-amt'));
+  // bước 93: đối soát — "+ Thêm thu chi tiền mặt / chuyển khoản" ở bước Thu chi; "+ Thêm khách nợ" ở bước Khách nợ
+  form.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-rdgo]')) { $('#rd-add')?.click(); return; }
+    const b = ev.target.closest('[data-addmv]'); if (!b) return;
+    if (tcDone || !$('#add-move')) {
+      const den = $('#ds-lights .den-edit[data-item="thu_chi"]');
+      if (den) den.click(); else showSaved('Mục Thu chi đang khoá — chưa thêm được.', true);
+      return;
+    }
+    const dd = $('#ds-mv-ed'); if (dd) dd.open = true;
+    add('#moves', moveRow({ kind: b.dataset.addmv, amount: null, note: '' }, true), '.mv-amt');
+    $('#moves')?.lastElementChild?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    showSaved('Ghi số tiền, nội dung và lý do sửa — web tự lưu.');
+  });
   $('#add-debt')?.addEventListener('click', () => add('#debts', debtRow({}, true), '.db-table'));
   $('#add-ho')?.addEventListener('click', () => add('#handover', hoRow({}, true), '.ho-text'));
   $('#add-good')?.addEventListener('click', () => add('#goods', goodRow({}, true), '.gd-item'));
