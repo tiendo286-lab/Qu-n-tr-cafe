@@ -394,7 +394,7 @@ export async function render({ params }) {
     const openRow = (d) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${noName(d)}</strong><b>${fmt(d.amount)}</b></div>
       <div class="st-meta">${d.by_ql ? `Quản lý ghi ${dmy(d.from_date)}` : `Nợ ca ${d.from_shift || ''} ${dmy(d.from_date)}`}${d.note ? ' · ' + d.note : ''}</div>
       ${canQl ? html`<div class="pc-line" style="gap:8px;justify-content:flex-end"><button type="button" class="btn sm secondary" data-qlno="${d.id}" data-k="tien_mat">Đã trả TM</button><button type="button" class="btn sm secondary" data-qlno="${d.id}" data-k="chuyen_khoan">Đã trả CK</button></div>` : ''}</div>`;
-    const openFam = openD.filter((d) => d.family); const openMain = openD.filter((d) => !d.family);
+    const openMain = openD.filter((d) => !d.family);   // nợ kho tổng / nợ khác không hiện ở đây — thu ở tab Công nợ
     const how = (d) => ((!d.kind || d.kind === 'bill') ? html`<span class="fb-ok">✓</span> so với file Fabi (phiếu thanh toán nợ)`
       : d.collect_kind === 'chuyen_khoan' ? html`→ đã cộng vào <b>tiền phải nhận trên hotline</b> — chưa chuyển thật thì bước Tiền thực nhận báo lệch`
         : html`→ đã cộng vào <b>tiền phải có trong két</b> — không trả thật thì bước Tiền thực nhận báo lệch`);
@@ -402,9 +402,9 @@ export async function render({ params }) {
       <div class="pc-line" style="gap:8px;flex-wrap:wrap">${has ? html`<span class="pill ok">File Fabi: đã có ✓</span>` : html`<span class="pill off">Chưa có file Fabi — kế toán tải ở Kế toán › File ca Fabi</span>`}<span class="st-meta">Giờ doanh thu ${R.rev_start ? String(R.rev_start).slice(11, 16) : '—'} → ${R.rev_end ? String(R.rev_end).slice(11, 16) : '—'}</span></div>
       ${g4(rows)}
       ${paid.length ? html`<h3 style="margin:6px 0 0">Khách trả nợ cũ trong ca</h3>${paid.map((d) => html`<div class="fb-row"><div class="pc-line"><strong class="grow">${noName(d)} · ${d.collect_kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}</strong><b>${fmt(d.amount)}</b></div><div class="st-meta">${how(d)}</div>${qlNo(d) ? html`<div class="pc-line" style="gap:8px"><span class="st-meta grow">🖊 ${d.close_note} · ${d.closed_by_name || ''}</span>${canQl ? html`<button type="button" class="btn sm secondary" data-qlno-undo="${d.id}">Bỏ</button>` : ''}</div>` : ''}</div>`)}` : ''}
-      ${openD.length ? html`<h3 style="margin:6px 0 0">Khách còn nợ <span class="st-meta">(${openD.length} khoản · ${fmt(openD.reduce((t, d) => t + Number(d.amount || 0), 0))})</span></h3>
+      ${openMain.length ? html`<h3 style="margin:6px 0 0">Khách còn nợ <span class="st-meta">(${openMain.length} khoản · ${fmt(openMain.reduce((t, d) => t + Number(d.amount || 0), 0))})</span></h3>
         <div class="st-meta">Khách trả trong ca này mà nhân viên không ghi → bấm <b>Đã trả TM</b> / <b>Đã trả CK</b> (ghi lý do). Tiền cộng vào tiền phải có của ca.</div>
-        ${openMain.map(openRow)}${openFam.length ? html`<details class="ca-more"><summary>Nợ kho tổng / nợ khác (${openFam.length})</summary><div class="stack" style="gap:6px;margin-top:6px">${openFam.map(openRow)}</div></details>` : ''}` : ''}
+        ${openMain.map(openRow)}` : ''}
       ${has ? html`<div class="alert ${bad ? 'warn' : 'ok'}" style="margin:0">${bad ? html`⚠️ Lệch file Fabi <b>${bad}</b> dòng — sửa ở mục "Sửa số liệu phiếu Fabi" bên dưới` : html`✅ Khớp file Fabi <b>${okN}/${rows.length}</b> dòng.`}</div>` : ''}</section>`;
   })();
   // Khách nợ trong ca: HĐ / TM / CK — quản lý đổi được loại
