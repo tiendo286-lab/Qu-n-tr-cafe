@@ -27,6 +27,8 @@ export default async ({ sleep, out }) => {
     const open = async () => { location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id; await wait('.ds-pane'); await sleep(1500); };
     try { sessionStorage.removeItem('ds_step:' + id); } catch (_) { /* bỏ qua */ }
     await open();
+    const STOP = new URLSearchParams(location.search).get('dung');   // chụp ảnh: &dung=<bước> dừng ở bước đó
+    if (STOP) { if (STOP !== '1') { location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=' + STOP; await wait('.ds-pane'); await sleep(1500); } window.scrollTo(0, 0); await new Promise(() => {}); }
     r.push(`các bước: ${$$('.ds-st span').map((x) => x.innerText).join(' | ')} · hiện ${vis()} · ${txt('#ds-pos')} · nút ${txt('#ds-next')} · ${W()}`);
     $('#ds-next').click(); await sleep(2500); await wait('.ds-pane'); await sleep(800);
     const R2 = await rpc('app_ca_get', { p_id: id });

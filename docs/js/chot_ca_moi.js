@@ -375,9 +375,9 @@ export async function renderNew(R0, P, SH) {
 
   return {
     title: `Chốt ca ${R.shift}`,
-    html: html`${CM_CSS}<div class="page-head"><div><a href="#/ca?ngay=${R.work_date}" style="font-size:14px;font-weight:600">‹ Danh sách ca</a>
+    html: html`${CM_CSS}<div class="ph-wrap"><div class="page-head"><div><a href="#/ca?ngay=${R.work_date}" style="font-size:14px;font-weight:600">‹ Danh sách ca</a>
         <h1 style="margin-top:6px">Chốt ca ${R.shift} · ${R.branch_code || ''}</h1></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
-      <div class="cm-col" id="cm-root">${shell()}</div>`,
+      <div class="cm-col" id="cm-root">${shell()}</div></div>`,
     mount() {
       const root = $('#cm-root');
       const draw = (top) => { const y = window.scrollY; root.innerHTML = str(shell()); bind(); if (top) window.scrollTo(0, 0); else window.scrollTo(0, y); };
@@ -575,6 +575,7 @@ export async function renderNew(R0, P, SH) {
 }
 
 const CM_CSS = html`<style>
+  .ph-wrap { max-width: 560px; margin: 0 auto; }   /* bước 91: máy tính hiện giống điện thoại — 1 cột hẹp ở giữa */
   .cm-col { max-width: 560px; display: flex; flex-direction: column; gap: 12px; }
   .cm-card { gap: 10px; }
   .cm-sh { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; flex-wrap: wrap; }
