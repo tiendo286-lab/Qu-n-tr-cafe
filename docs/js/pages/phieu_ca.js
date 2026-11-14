@@ -406,7 +406,7 @@ export async function render({ params }) {
       <div class="st-meta">Kiểm tra loại nợ nhân viên chọn. Sai thì bấm đổi. (Công nợ gia đình phân loại ở <b>Thu chi › Công nợ</b>, không làm ở đây.)</div>
       ${ds.length ? ds.map((d) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${(!d.kind || d.kind === 'bill') ? 'Bàn ' : ''}${d.table_name} · ${fmt(d.amount)}</strong>
           <span class="seg cm88-seg">${[['bill', 'HĐ'], ['muon', 'TM'], ['ck', 'CK']].map(([k, l]) => html`<button type="button" class="${(d.kind || 'bill') === k ? 'on' : ''}" data-dkind="${k}" data-debt="${d.id}" ${canKind && !d.closed_at ? '' : 'disabled'}>${l}</button>`)}</span></div>
-          <div class="st-meta">${d.note || '—'}${d.closed_at ? ' · đã thu' : ''}</div></div>`) : html`<div class="st-meta">Ca này không có khách nợ mới.</div>`}
+          <div class="st-meta">${d.note || ''}${d.note && d.closed_at ? ' · ' : ''}${d.closed_at ? html`<span class="db-paid" data-debt="${d.id}">Đã thu ngày ${dmy(String(d.closed_at).slice(0, 10))}${d.collect_kind === 'chuyen_khoan' ? ' · chuyển khoản' : d.collect_kind === 'tien_mat' ? ' · tiền mặt' : ''}${d.closed_report_id ? '' : ' (quản lý thu, không qua ca)'}</span>` : (d.note ? '' : 'Chưa thu')}</div></div>`) : html`<div class="st-meta">Ca này không có khách nợ mới.</div>`}
       <div class="alert ${billS === fno ? 'ok' : 'warn'}" style="margin:0">${billS === fno ? '✅' : '⚠️'} Nợ HĐ <b>${fmt(billS)}</b> ${billS === fno ? '=' : '≠'} Nợ trên ${FB ? 'file Fabi' : 'phiếu Fabi'} (${fmt(fno)})${tmS ? html`<br>Nợ TM ${fmt(tmS)} → trừ tiền két` : ''}${ckS ? html`<br>Nợ CK ${fmt(ckS)} → trừ tiền hotline` : ''}</div>
       <div class="lx-err" id="dk-err"></div></section>`;
   })();
