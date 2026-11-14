@@ -1,9 +1,10 @@
-// Bước 62: Chuyển khoản thực nhận — chỉ nhập số dư cuối; số đầu ca sau tự theo số cuối ca trước; Lưu cả ngày. role=chu (confirm=1, điện thoại)
+// Bước 62 / 99: Chuyển khoản thực nhận — BẢNG theo ngày (hàng = tài khoản, cột = ca theo giờ đóng ca Fabi); chỉ gõ số dư lúc đóng ca;
+// số đầu ca sau tự theo số cuối ca trước; tự lưu; nút ⋯ (chuyển ra, ghi chú). Không còn so khớp / lệch. role=chu (confirm=1, điện thoại)
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const txt = (s, r) => ($(s, r)?.innerText || '').replace(/\s+/g, ' ').trim();
   const wait = async (sel, n = 600) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
-  const typ = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); };
+  const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const W = () => `rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`;
   const r = [];
   try {
@@ -15,20 +16,24 @@ export default async ({ sleep, out }) => {
     const id1 = await rpc('app_ca_open', { p_branch: br, p_date: day, p_shift: sh[0] });
     const id2 = await rpc('app_ca_open', { p_branch: br, p_date: day, p_shift: sh[1] });
     const acc = await rpc('app_kt_account_save', { p_id: null, p_branch: br, p_bank: 'VCB', p_no: '1234567890', p_holder: 'Chủ', p_label: null, p_active: true });
-    // hôm trước đã có số dư cuối 5.000.000 → ca Sáng hôm nay tự lấy làm số đầu
     await rpc('app_kt_bank_save_accounts', { p_report: id1, p_rows: [{ account_id: acc, opening: 4000000, closing: 5000000, transfers_out: 0, note: null }] });
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/chuyen-khoan?ngay=' + day; await wait('.ck-row[data-report]'); await sleep(800);
-    const [r1, r2] = $$('.ck-row[data-report]');
-    r.push(`Ca 1: số đầu ô nhập (đã có số khác ca trước) ${!!$('.ck-open:not([hidden])', r1)} · Ca 2: số đầu hiện chữ "${txt('.ck-oa', r2)}" ${txt('.ck-osrc', r2)} · nút Lưu cả ngày ${!!$('#ck-save-all')} · ${W()}`);
-    typ($('.ck-close', r1), '6.200.000'); await sleep(200);
-    r.push(`Gõ số cuối ca 1 = 6.200.000 → ca 2 số đầu: ${txt('.ck-ov', r2)} (${txt('.ck-osrc', r2)}) · ${txt('#ck-dirty')}`);
-    typ($('.ck-close', r2), '7.000.000'); await sleep(200);
-    r.push(`ca 2: ${txt('.ck-res', r2)}`);
-    $('#ck-save-all').click(); for (let i = 0; i < 60 && txt('#ck-dirty'); i++) await sleep(100); await sleep(500);
-    const b1 = await rpc('app_kt_bank_get', { p_report: id1 }); const b2 = await rpc('app_kt_bank_get', { p_report: id2 });
-    r.push(`Lưu cả ngày: ${txt('#saved-indicator')} · máy chủ: ca 1 ${b1.accounts[0].opening}→${b1.accounts[0].closing} · ca 2 ${b2.accounts[0].opening}→${b2.accounts[0].closing} nhận ${b2.received}`);
-    $('.ck-oe', r2)?.click(); await sleep(100);
-    r.push(`Bấm Sửa số đầu ca 2: ô nhập hiện ${!$('.ck-open', r2).hidden} · ${W()}`);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/chuyen-khoan?ngay=' + day; await wait('table.ckt'); await sleep(1000);
+    const sec = $$('table.ckt').map((t) => t.closest('section')).find((s) => s.querySelector(`.ckt-c[data-k="${id1}|${acc}"]`));
+    const c1 = $(`.ckt-c[data-k="${id1}|${acc}"]`, sec); const c2 = $(`.ckt-c[data-k="${id2}|${acc}"]`, sec);
+    r.push(`bảng: cột ${$$('thead th', sec).map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · còn chữ khớp/lệch ${/khớp|lệch|so với/i.test(sec.innerText)} · nút Lưu ${!!$('#ck-save-all')}`);
+    r.push(`ca 1: ${txt('.ckt-o', c1)} · ca 2: ${txt('.ckt-o', c2)} · thực nhận: ${$$('.ckt-tot', sec).map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
+    setv($('.ckt-close', c1), '6.200.000'); await sleep(1500);
+    r.push(`gõ cuối ca 1 = 6.200.000 → ca 2: ${txt('.ckt-o', c2)} · thực nhận ca 1: ${txt(`.ckt-tot[data-r="${id1}"]`, sec)} · ${txt('#saved-indicator')}`);
+    setv($('.ckt-close', c2), '7.000.000'); await sleep(1500);
+    let b1 = await rpc('app_kt_bank_get', { p_report: id1 }); let b2 = await rpc('app_kt_bank_get', { p_report: id2 });
+    r.push(`tự lưu: ca 1 ${b1.accounts[0].opening}→${b1.accounts[0].closing} · ca 2 ${b2.accounts[0].opening}→${b2.accounts[0].closing} · thực nhận ca 2: ${txt(`.ckt-tot[data-r="${id2}"]`, sec)}`);
+    $('.ckt-more', c2).click(); await wait('dialog[open] form .m-out'); await sleep(300);
+    const f = $$('dialog[open] form').pop();
+    r.push(`hộp ⋯: ${txt('h2', f)} · ô ${$$('.field > span:first-child', f).map((x) => x.innerText).join(' / ')} · ${txt('summary', f)}`);
+    f.querySelector('.m-out').value = '300.000'; f.note.value = 'rút về TK chủ'; f.requestSubmit(); await sleep(1500);
+    b2 = await rpc('app_kt_bank_get', { p_report: id2 });
+    r.push(`sau ⋯: ${txt('.ckt-o', c2)} · chấm ${$('.ckt-more', c2).classList.contains('dot')} · thực nhận ca 2: ${txt(`.ckt-tot[data-r="${id2}"]`, sec)} · máy chủ chuyển ra ${b2.accounts[0].transfers_out} ghi chú ${b2.accounts[0].note} · ${W()}`);
+    if (new URLSearchParams(location.search).get('dung')) { sec.scrollIntoView(); await new Promise(() => {}); }
   } catch (e) { r.push('LỖI ' + e.stack); }
-  out.push({ route: 'chuyển khoản: chỉ nhập số cuối', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
+  out.push({ route: 'chuyển khoản: bảng theo ngày', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

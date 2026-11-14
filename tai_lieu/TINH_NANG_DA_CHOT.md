@@ -536,6 +536,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Trang Thu chi: 5 ô **Thu · Chi · Tiền về quỹ · Đã đối soát · Lệch tiền ca** (bỏ ô Công nợ / Nợ kho tổng). Tiền về quỹ = nộp quỹ TM + CK về trong tháng (Sổ quỹ), chỉ hiện với người xem được Sổ quỹ.
 - Tab Công nợ: ô số đầu trang **Còn nợ · Đã thu tháng này · ① ② ③ từng nhóm**; bấm ô nhóm → chỉ hiện nhóm đó (`?g=`), bấm lại → cả 3.
 
+## 5r24. Chuyển khoản thực nhận dạng bảng — CHỐT và ĐÃ LÀM 15/11/2026 (bước 99, chỉ giao diện)
+- Theo ngày: mỗi cơ sở 1 bảng, hàng = tài khoản, cột = ca, tiêu đề cột là **giờ đóng ca trên Fabi** (chưa có Fabi thì giờ trên phiếu, ghi "(theo phiếu)").
+- Kế toán chỉ gõ **số dư lúc đóng ca**; số dư đầu tự = cuối ca trước; hàng **Thực nhận** = cuối − đầu + chuyển ra ± tiền về chậm. **Tự lưu** khi rời ô.
+- Anh chốt: bảng này **không báo khớp / lệch** (việc so để Đối soát). Nút ⋯ từng ô: số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm. Bỏ khung cảnh báo vàng cố định. Bảng tuần giữ nguyên.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
