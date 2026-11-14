@@ -95,7 +95,7 @@ export async function render(ctx) {
 
   // bước 68: gộp âm tiền theo ca
   const qcCat = D.categories.find((c) => c.kind === 'chi' && c.name === 'Âm tiền – quán chịu');
-  const isAm = (r) => r.src === 'ca' && r.kind === 'chi' && !r.auto && !r.loan_id && (Number(r.ka_n) > 0 || AM_RE.test(r.note || ''));
+  const isAm = (r) => r.src === 'ca' && r.kind === 'chi' && !r.auto && !r.loan_id && !r.debt && (Number(r.ka_n) > 0 || AM_RE.test(r.note || ''));
   const AMG = new Map();
   rows.forEach((r) => {
     if (r.src !== 'ka' && !isAm(r)) return;
@@ -133,8 +133,8 @@ export async function render(ctx) {
   function row(r) {
     const src = r.src === 'ca' ? html`<a href="#/ca/phieu?id=${r.report_id}">Ca ${r.shift}</a> · ghi: ${r.by || '—'}` : html`Quản lý tạo · ${r.by || ''}`;
     const ok = r.status === 'da';
-    const catTxt = r.loan_id ? 'Đã đổi thành cho vay' : r.status === 'cho' ? (r.category_id ? `${path(r)} (chưa xác nhận)` : 'Chưa phân loại') : r.excluded ? 'Không tính' : path(r);
-    const catCls = r.loan_id ? 'loan' : r.status === 'cho' ? 'need' : r.excluded ? 'off' : '';
+    const catTxt = r.debt ? `Đã thành nợ: ${r.debt.name}` : r.loan_id ? 'Đã đổi thành cho vay' : r.status === 'cho' ? (r.category_id ? `${path(r)} (chưa xác nhận)` : 'Chưa phân loại') : r.excluded ? 'Không tính' : path(r);
+    const catCls = r.loan_id || r.debt ? 'loan' : r.status === 'cho' ? 'need' : r.excluded ? 'off' : '';
     const who = r.src === 'ca' ? [r.checked_by, dt(r.checked_at)].filter(Boolean).join(' · ') : 'quản lý tạo';
     return html`<div class="tc-r ${ok ? (r.excluded ? 'off' : '') : 'todo'}" data-i="${r.i}" role="button" tabindex="0" data-st="${r.status}" data-kind="${r.kind}" data-src="${r.src}" data-pay="${r.pay || 'tien_mat'}" data-type="${typeOf(r)?.id || ''}" data-cat="${r.category_id || ''}" data-q="${norm(`${r.note} ${r.category || ''} ${typeOf(r)?.name || ''} ${r.by || ''} ${r.checked_by || ''} ${PAY[r.pay] || ''} ca ${r.shift || ''}`)}">
       ${pmTag(r)}<div class="tc-m"><strong>${ntm(r.note) || '(không ghi nội dung)'}</strong>
@@ -173,8 +173,8 @@ export async function render(ctx) {
       <div class="tc-kpis">
         ${kpi('k-thu', 'thu', 'Thu', `+${fmt(thu)}`, `TM ${short(byPm(thuR, 'tien_mat'))} · CK ${short(byPm(thuR, 'chuyen_khoan'))}`)}
         ${kpi('k-chi', 'chi', 'Chi', `−${fmt(chi)}`, `TM ${short(byPm(chiR, 'tien_mat'))} · CK ${short(byPm(chiR, 'chuyen_khoan'))}`)}
-        ${kpi('k-no', '', 'Nợ', fmt(SM?.debts?.sum || 0), `Nợ TM + Nợ HĐ chưa thu · ${SM?.debts?.n || 0} khoản`)}
-        ${kpi('k-vay', '', 'Cho vay', fmt(SM?.loans_left || 0), 'còn nợ (vay + trả hộ − đã trả)')}
+        ${kpi('k-no', '', 'Công nợ', '…', 'chưa thu — bấm mở tab Công nợ')}
+        ${kpi('k-vay', '', 'Nợ kho tổng', '…', 'trong tab Công nợ')}
         ${kpi('k-ds', pend.length ? 'warn' : '', 'Đã đối soát', `${nChk} / ${real.length}`, pend.length ? `còn ${pend.length} khoản chờ` : 'đã hết')}
         ${kpi('k-lech', ca.n_short ? 'lech' : '', 'Chênh lệch tiền', `${lech < 0 ? '−' : lech > 0 ? '+' : ''}${fmt(lech)}`, `${ca.n_short || 0} ca thiếu ${short(ca.short || 0)} · ${ca.n_over || 0} ca dư ${short(ca.over || 0)} ›`)}
       </div>
@@ -202,7 +202,7 @@ export async function render(ctx) {
                 <span class="grow">${g.name}</span><span class="tc-meter"><i style="width:${Math.round((g.sum / maxT) * 100)}%"></i></span><b class="tc-tys">${fmt(g.sum)}</b>${cmp(g)}</button>
               ${g.cats.length ? html`<div class="tc-tyc">${g.cats.map((c) => html`<button type="button" class="tc-cb" data-fc="${c.id || ''}" aria-pressed="${String(F.cat) === String(c.id || '') && !!c.id}"><span class="grow">${c.name} <span class="st-meta">· ${c.n}</span></span><span>${fmt(c.sum)}</span></button>`)}</div>` : ''}</div>`)
               : html`<div class="st-meta">Tháng này chưa có khoản chi.</div>`}
-            <div class="st-meta">Không tính vào chi: cho vay, trả hộ Kho tổng, khoản "Không tính". Bấm một loại / nhóm để lọc sổ. <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></div></section>
+            <div class="st-meta">Không tính vào chi: khoản đã thành nợ (tab Công nợ), khoản "Không tính". Bấm một loại / nhóm để lọc sổ. <a href="#/cai-dat/thu-chi">Sửa loại & nhóm</a></div></section>
           <div id="tc-loans"></div>
         </div>
       </div>`,
@@ -243,8 +243,8 @@ export async function render(ctx) {
       $('#k-chi').addEventListener('click', () => { F.kind = F.kind === 'chi' ? '' : 'chi'; apply(); toBook(); });
       $('#k-ds').addEventListener('click', () => { F.st = F.st === 'cho' ? '' : 'cho'; apply(); toBook(); });
       $('#k-lech').addEventListener('click', () => { location.hash = `#/quan-ly/am-tien?thang=${month}&cn=${cn}`; });   // bước 71: sang tab Âm tiền
-      $('#k-vay').addEventListener('click', () => $('#tc-loans').scrollIntoView({ behavior: 'smooth', block: 'start' }));
-      $('#k-no').addEventListener('click', () => $('#tc-loans').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      // bước 95: 2 ô Công nợ / Nợ kho tổng → mở tab Công nợ (đã bỏ mục Cho vay)
+      ['#k-no', '#k-vay'].forEach((k) => $(k)?.addEventListener('click', () => { location.hash = '#/quan-ly/cong-no?cn=' + cn; }));
       $('#tc-allpend')?.addEventListener('click', () => { F.st = 'cho'; apply(); toBook(); });
       apply();
       const rowOf = (b) => rows[Number(b.closest('[data-i]').dataset.i)];
@@ -280,7 +280,8 @@ export async function render(ctx) {
       // bấm dòng → khung sửa; ô tích → đối soát
       const openRow = (r) => {
         if (r.locked) { showSaved('Tháng đã chốt — khoản này chỉ xem.'); return; }
-        if (r.loan_id) { showSaved('Khoản đã đổi thành cho vay — xem ở khung Cho vay (xoá khoản vay thì khoản trở lại Thu chi).'); return; }
+        if (r.loan_id) { showSaved('Khoản đã đổi thành cho vay (mục cũ) — xem ở tab Công nợ.'); return; }
+        if (r.debt) { showSaved(`Khoản đã thành nợ (${r.debt.name}) — bỏ ở Đối soát ca › Thu chi, xem ở tab Công nợ.`); return; }
         if (r.src === 'tay') entryForm(r); else if (r.auto) catForm(r); else moveForm(r);
       };
       $$('.tc-r[data-i]').forEach((el) => {
@@ -468,6 +469,9 @@ export async function render(ctx) {
       // bước 95: Công nợ sang tab riêng — ở đây chỉ còn 1 dòng
       rpc('app_cn_book', { p_branch: cn }).then((B) => { const box = $('#tc-loans'); if (!box) return;
         const open = (B.rows || []).filter((r) => !r.closed); const owe = open.reduce((t, r) => t + Number(r.amount), 0);
+        const kho = open.filter((r) => r.grp === 'kho');
+        const setK = (id, v, sub) => { const el = $(id); if (el) { el.querySelector('.v').textContent = fmt(v); el.querySelector('.s').textContent = sub; } };
+        setK('#k-no', owe, `${open.length} khoản chưa thu — bấm mở tab Công nợ`); setK('#k-vay', kho.reduce((t, r) => t + Number(r.amount), 0), `${kho.length} khoản — trong tab Công nợ`);
         box.innerHTML = str(html`<section class="card" style="padding:12px 14px"><div class="pc-line" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="grow">Công nợ ${BR.code} còn <b>${vnd(owe)}</b> · ${open.length} khoản</span><a class="btn sm" href="#/quan-ly/cong-no?cn=${cn}">Mở tab Công nợ ›</a></div></section>`);
       }).catch(() => { const box = $('#tc-loans'); if (box) box.innerHTML = ''; });
     },
