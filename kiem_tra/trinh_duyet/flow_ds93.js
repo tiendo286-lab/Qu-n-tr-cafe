@@ -41,6 +41,13 @@ export default async ({ sleep, out }) => {
       const L2 = (await rpc('app_ca_get', { p_id: id })).open_debts.filter((x) => x.table_name === 'Anh Bình');
       r.push(`sau bỏ: col_tm ${await col()} · Anh Bình ${L2.map((x) => (x.closed_at ? 'đã trả ' : 'còn ') + x.amount).join(', ')}`);
 
+      // bước 96: dòng "Khách mượn – …" tự thêm (nợ TM khai ở bước Khách nợ) không hiện ở bước Thu chi
+      { const { sb } = await import('../js/sb.js');
+        await sb.from('shift_report_moves').insert({ report_id: id, kind: 'tien_mat', amount: -50000, note: 'Khách mượn – Anh Test', auto: 'muon' });
+        await sb.from('fin_move_cats').insert({ report_id: id, mkey: 'tien_mat|-50000|Khách mượn – Anh Test#1', category_id: null, excluded: 1, checked: 1, checked_by: 1, checked_at: day + ' 12:00' });
+        location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6'; await wait('#ds-tc-tm .dt-r'); await sleep(1500);
+        r.push(`96 ẩn nợ TM: dòng tiền mặt ${$$('#ds-tc-tm .dt-r').map((x) => x.querySelector('strong')?.innerText).join(' / ')} · có dòng Khách mượn ${$$('#ds-tc-tm .dt-r').some((x) => x.innerText.includes('Khách mượn'))} · ghi chú: ${$$('#ds-tc .st-meta').map((x) => x.innerText).find((t) => t.includes('Nợ tiền mặt')) || 'KHÔNG'}`);
+        if (new URLSearchParams(location.search).get('dung') === '96') { $('#ds-tc')?.scrollIntoView(); await new Promise(() => {}); } }
       // bước 93: thêm thu chi ngay ở bước Thu chi; thêm khách nợ ở bước Khách nợ
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6'; await wait('[data-addmv]'); await sleep(1500);
       const mvN = async () => (((await rpc('app_ca_recon', { p_id: id })) || {}).data?.moves || []).length; const n0 = await mvN();

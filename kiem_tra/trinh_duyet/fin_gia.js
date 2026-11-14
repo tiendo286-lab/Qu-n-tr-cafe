@@ -61,6 +61,7 @@ export function makeFin(T, me) {
         out.push({ src: 'ca', report_id: r.id, mkey, branch_id: r.branch_id, date: r.work_date, shift: r.shift, kind: x.amount < 0 ? 'chi' : 'thu', pay: x.kind, amount: Math.abs(x.amount), note: x.note,
           category_id: c ? c.category_id : null, category: T.fin_categories.find((k) => k.id === c?.category_id)?.name || null, excluded: c ? !!c.excluded : x.amount > 0,
           employee_id: c?.employee_id || null,   // bước 90
+          auto: x.auto || null,   // bước 96: dòng tự thêm (muon = nợ TM khách)
           loan_id: (T.branch_loans || []).find((l) => l.report_id === r.id && l.mkey === mkey)?.id || null,
           debt: (() => { const d = (T.shift_debts || []).find((z) => z.mv_report === r.id && z.mv_key === mkey); return d ? { id: d.id, grp: d.grp, name: d.table_name, closed: !!d.closed_at || (T.shift_debts || []).some((z) => z.split_from === d.id) } : null; })(),   // bước 95
           ka_n: (T.__SF || []).filter((k) => k.report_id === r.id && k.move_mkey === mkey && k.status !== 'huy').length,

@@ -1046,10 +1046,14 @@ function mount(R, ed, C0, ctx = {}) {
     let EMPS = null;
     const loadTc = () => Promise.all([rpc('app_tc_list', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }), EMPS ? Promise.resolve(EMPS) : rpc('app_ca_employees').catch(() => [])]).then(([D, em]) => {
       EMPS = em || []; const box = $('#ds-tc'); if (!box) return;
-      const rows = (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id);
+      const all = (D.rows || []).filter((x) => x.src === 'ca' && x.report_id === R.id);
+      // Nợ TM của khách đã khai ở bước Khách nợ → web tự thêm dòng "Khách mượn – …" (Không tính) cho két khớp; không hiện lại ở đây cho đỡ nhầm (còn chờ đối soát thì vẫn hiện)
+      const hideLoan = (x) => x.auto === 'muon' && x.status !== 'cho';
+      const rows = all.filter((x) => !hideLoan(x)); const loanTM = all.filter(hideLoan).reduce((t, x) => t + Number(x.amount || 0), 0);
+      const loanNote = loanTM ? `<div class="st-meta">Nợ tiền mặt của khách <b>${fmt(loanTM)}</b> đã khai ở bước Khách nợ — web tự trừ tiền két, không ghi lại ở đây.</div>` : '';
       // bước 90: chia 2 phần như phiếu nhân viên — tiền mặt / chuyển khoản
       const addB = (k, l) => (edT ? `<div><button type="button" class="btn sm secondary" data-addmv="${k}">+ Thêm thu chi ${l}</button></div>` : '');   // bước 93
-      box.innerHTML = `<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div>${addB('tien_mat', 'tiền mặt')}<h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>${addB('chuyen_khoan', 'chuyển khoản')}`;
+      box.innerHTML = `<h3 style="margin:4px 0 0">1. Tiền mặt</h3><div id="ds-tc-tm"></div>${loanNote}${addB('tien_mat', 'tiền mặt')}<h3 style="margin:10px 0 0">2. Chuyển khoản</h3><div id="ds-tc-ck"></div>${addB('chuyen_khoan', 'chuyển khoản')}`;
       const opt = { cats: D.categories || [], showReport: false, onChange: loadTc, emps: EMPS, toDebt: true };   // bước 95: Thành nợ
       tcList($('#ds-tc-tm'), rows.filter((x) => x.pay !== 'chuyen_khoan'), opt);
       tcList($('#ds-tc-ck'), rows.filter((x) => x.pay === 'chuyen_khoan'), opt);
