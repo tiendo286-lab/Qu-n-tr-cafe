@@ -21,15 +21,13 @@ export default async ({ sleep, out }) => {
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     const acc = await rpc('app_kt_account_save', { p_id: null, p_branch: o.branch_id, p_bank: 'VCB', p_no: '1234567890', p_holder: 'Chủ', p_label: null, p_active: true });
     await rpc('app_kt_bank_save_accounts', { p_report: id, p_rows: [{ account_id: acc, opening: 1000000, closing: 3935000, transfers_out: 0, note: null }] });   // nhận 2.935.000, lệch −65.000
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/chuyen-khoan?ngay=' + day; await wait('.ck-view'); await sleep(800);
-    r.push(`Trang ngày: nút ${txt('.ck-view')} · ${W()}`);
-    $$('.ck-view a')[1].click(); await wait('table.ck-w'); await sleep(1200);
-    r.push(`Bảng tuần: ${txt('.toolbar strong')} · ${$$('table.ck-w').length} bảng · ${txt('.ck-w-legend')}`);
-    const t = $$('table.ck-w').find((x) => x.closest('section').querySelector('h2').innerText.startsWith(o.branch_code));
-    r.push(`${o.branch_code}: ${txt('.ck-w-h')}`);
-    r.push(`Hàng: ${[...t.querySelectorAll('tbody tr')].map((tr) => tr.innerText.replace(/\s+/g, ' ').slice(0, 140)).join(' | ')}`);
-    r.push(`${W()}`);
-    const a = t.querySelector('td.ok a, td.bad a'); r.push(`bấm ô → ${a?.getAttribute('href')}`);
+    // bước 100: bảng tuần của 1 cơ sở — đổi cơ sở, đổi tuần, số thực nhận của ca vừa kê khai
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/chuyen-khoan?cn=' + o.branch_id + '&ngay=' + day; await wait('table.ckw'); await sleep(1200);
+    r.push(`Bảng tuần ${txt('.branch-tabs a.on')}: ${txt('.ckw-nav strong')} · ${$$('table.ckw').length} bảng · thực nhận ca ${o.shift}: ${txt('.ckw-t[data-r="' + id + '"]')} · ${W()}`);
+    const other = $$('.branch-tabs a').find((a) => !a.classList.contains('on')); other.click(); await sleep(400); await wait('.ckw-bar'); await sleep(1200);
+    r.push(`đổi cơ sở → ${txt('.branch-tabs a.on')} · ${txt('#root h2')}`);
+    $$('.ckw-nav a')[0].click(); await sleep(400); await wait('.ckw-bar'); await sleep(1200);
+    r.push(`tuần trước → ${txt('.ckw-nav strong')} · nút Tuần này ${!!$$('.ckw-nav a').find((a) => a.innerText.toLowerCase().includes('tuần này'))} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'bảng tuần chuyển khoản', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

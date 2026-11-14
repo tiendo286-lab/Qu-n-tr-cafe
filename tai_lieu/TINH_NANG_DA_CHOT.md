@@ -539,7 +539,9 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 ## 5r24. Chuyển khoản thực nhận dạng bảng — CHỐT và ĐÃ LÀM 15/11/2026 (bước 99, chỉ giao diện)
 - Theo ngày: mỗi cơ sở 1 bảng, hàng = tài khoản, cột = ca, tiêu đề cột là **giờ đóng ca trên Fabi** (chưa có Fabi thì giờ trên phiếu, ghi "(theo phiếu)").
 - Kế toán chỉ gõ **số dư lúc đóng ca**; số dư đầu tự = cuối ca trước; hàng **Thực nhận** = cuối − đầu + chuyển ra ± tiền về chậm. **Tự lưu** khi rời ô.
-- Anh chốt: bảng này **không báo khớp / lệch** (việc so để Đối soát). Nút ⋯ từng ô: số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm. Bỏ khung cảnh báo vàng cố định. Bảng tuần giữ nguyên.
+- Anh chốt: bảng này **không báo khớp / lệch** (việc so để Đối soát). Nút ⋯ từng ô: số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm. Bỏ khung cảnh báo vàng cố định.
+- **Bước 100 (cùng ngày):** chỉ còn **bảng tuần của 1 cơ sở** (chọn cơ sở + tuần; cột = 7 ngày + Cả tuần; hàng = ca → tài khoản → Thực nhận ca; dòng Thực nhận cả ngày), bỏ cách xem theo ngày và bảng tuần nhiều cơ sở cũ.
+- **Không thay đổi số đã kê khai:** số dư đầu chỉ tự điền cho ca chưa nhập gì; ca đã có số giữ nguyên, chỉ nhắc "khác cuối ca trước"; tự lưu đúng phiếu ca vừa sửa.
 
 ## 6. Đã bỏ hẳn
 
