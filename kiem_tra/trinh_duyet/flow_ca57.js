@@ -27,10 +27,8 @@ export default async ({ sleep, out }) => {
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=3'; await wait('#ca-box .ca-row'); await sleep(1500);
     r.push(`Khung: ${txt('.ca-sec .pc-sec-head')} · ${txt('.ca-time')}`);
     r.push(`Dòng: ${$$('#ca-box .ca-row').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')}`);
-    r.push(`Thu chi trong khung: ${!!$('.ca-sec #ds-tc')} · còn mục "Phân nhóm" riêng: ${$$('.pc-sec h2').some((h) => /Phân nhóm thu chi/.test(h.innerText))} · "Xem / sửa số liệu" đóng: ${!$('#ca-more').open} · ${W()}`);
-    $$('[data-ca="more"]')[0]?.click() || $('#ca-more').setAttribute('open', '');
-    await sleep(500);
-    r.push(`Mở "Xem / sửa số liệu": ${$('#ca-more').open} · có ô Tổng doanh thu ${!!$('#ca-more #total_revenue')} · ảnh iPOS ${!!$('#ca-more .photos')} · ${W()}`);
+    // bước 86: đối soát 7 bước — Thu chi ở bước 5, số liệu Fabi ở bước 3, mục sửa chênh lệch hiện sẵn ở bước Tiền thực nhận
+    r.push(`Thu chi ở bước riêng: ${$('#ds-tc')?.closest('.ds-pane')?.dataset.ds} · số liệu Fabi ở bước ${$('#total_revenue')?.closest('.ds-pane')?.dataset.ds} · ảnh iPOS ${!!$('.photos')} · chênh lệch ở bước ${$('#diff-box')?.closest('.ds-pane')?.dataset.ds} · ${W()}`);
     $('[data-ca="pc"]')?.click(); await wait('dialog[open]', 100); await sleep(300);
     r.push(`Nút Tạo phiếu chi → ${txt('dialog[open] h2')} · gợi ý ${$('dialog[open] [name=amt]')?.value}`); $('dialog[open]')?.close();
     $('[data-ca="res"][data-item="tien_mat"]')?.click(); await wait('dialog[open]', 100); await sleep(300);

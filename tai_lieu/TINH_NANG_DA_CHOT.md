@@ -502,6 +502,13 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Phiếu chốt ca: khung nhắc đầu phiếu không nhắc công nợ gia đình; ở bước Phiếu Fabi các khoản gia đình nằm trong mục thu gọn "Công nợ gia đình (N)" — người nhà trả trong ca vẫn chọn được.
 - Bỏ: Cài đặt › Người vay (khỏi menu), "+ Cho vay", "+ Trả hộ Kho tổng", "Đổi thành cho vay" ở Thu chi, nút "→ Gia đình" (bước 83). Máy chủ chặn tạo khoản cho vay mới.
 
+## 5r20. Đối soát từng ca đi từng bước như phiếu chốt ca — CHỐT và ĐÃ LÀM 14/11/2026 (bước 86 · đợt 3, chỉ giao diện)
+- Trang Đối soát ca (cả máy tính và điện thoại) đi **7 bước**, mỗi lần 1 bước, cùng thứ tự phiếu nhân viên: ① Ai làm ca (kèm phân loại Nghỉ & làm thay x2 — QL tổng phân loại, Chủ duyệt) · ① Bàn giao & nhận hàng · ② Phiếu Fabi · ② Khách nợ · ② Thu chi (chọn nhóm) · ② Tiền thực nhận · ② Xử lý lệch & hoàn thành.
+- Nút **"✓ Duyệt & tiếp"** duyệt các hạng mục của bước (tiền mặt / chuyển khoản chỉ tự duyệt khi khớp). Đèn đối soát ở đầu trang vẫn giữ (nút "Xử lý" nhảy đúng bước).
+- Bước cuối **Xử lý lệch** cho tiền mặt và chuyển khoản: **Quán chịu** (thừa: Ghi thu khác — Chủ / QL tổng) · **Chia đều người làm ca** (tích / bỏ tích, sửa số, tổng = lệch; thành khoản âm trừ lương) · **Đối soát lại sau** (mặc định).
+- Bảng tuần tab Đối soát: ô ca đã duyệt một phần mà chưa hoàn thành → **vàng "Hoàn thành 1 phần"** (x/9 mục); xanh lá Đã đối soát; xanh dương Chờ đối soát; đỏ Thiếu phiếu.
+- Chưa làm (để sau nếu anh cần): bước Nghỉ & ca bổ sung x2 tách riêng; "Giao thành việc" ở bàn giao; thu theo ca / cuối ngày ở Tiền thực nhận; chặn hoàn thành khi Chủ chưa duyệt x2.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

@@ -349,6 +349,37 @@ export async function render({ params }) {
       <div class="stack" style="gap:12px;margin-top:10px">${secTime}${secMoney}${secDiff}</div></details>
   </section>` : '';
 
+  // Bước 86: khung riêng cho từng bước tiền
+  const caTime = isDs ? html`<section class="card stack pc-sec" style="gap:6px"><div class="ca-time">Giờ doanh thu <strong>${hm(R.rev_start)} → ${hm(R.rev_end)}</strong> ${(R.checks || {}).thoi_gian ? html`<span class="pill ok">✓ đã đối soát</span>` : timeOk ? html`<span class="pill ok">✓</span>` : html`<span class="pill off">chưa đúng — sửa ở mục 1 bên dưới</span>`}</div>
+    <div class="st-meta">So số nhân viên ghi với phiếu Fabi (ảnh, file Fabi kế toán tải). Sai thì sửa ngay ở các ô dưới — ghi lý do ở cuối trang.</div></section>` : '';
+  const secTc = isDs ? html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Thu chi của ca</h2><div class="rc-chips">${chip('thu_chi')}</div></div>
+    <div class="st-meta">Chọn <b>nhóm</b> cho từng khoản (vào Sổ quỹ / báo cáo); khoản quản lý rút thì chọn "Không tính". Chi lương tiền mặt chọn nhóm Lương.</div>
+    <div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section>` : '';
+  const secThuc = isDs ? html`<section class="card stack pc-sec ca-sec" style="gap:10px"><div class="pc-sec-head"><h2>Tiền thực nhận</h2><div class="rc-chips">${chip('tien_mat')}${chip('chuyen_khoan')}</div></div>
+    <div class="st-meta">So <b>tiền phải có</b> với <b>tiền thực nhận</b>: chuyển khoản theo sao kê ngân hàng (kế toán nhập), tiền mặt theo số đếm. Lệch thì xử lý ở bước cuối.</div>
+    <div id="ca-box" class="stack" style="gap:8px"></div></section>` : '';
+  const M86 = (R0 && R0.money) || {};
+  const lxBox = (item) => {
+    const x = (R.results || {})[item]; const g = item === 'tien_mat' ? M86.tm_left : M86.ck_left; const lbl = item === 'tien_mat' ? 'Tiền mặt' : 'Chuyển khoản';
+    if (x) return html`<div class="pc-line"><strong class="grow">${lbl}</strong><span class="rc-chip ${RES[x.result][1]}">${resText(x)}</span></div>`;
+    if (lkItem(item)) return html`<div class="pc-line"><strong class="grow">${lbl}</strong><span class="pill ok">🔒 Web tự đối soát</span></div>`;
+    if (g === null || g === undefined) return html`<div class="pc-line"><strong class="grow">${lbl}</strong><span class="st-meta">Chưa đủ số liệu (chờ kế toán / ngân hàng)</span></div>`;
+    if (Number(g) === 0) return html`<div class="pc-line"><strong class="grow">${lbl}</strong><span class="pill ok">KHỚP ✓</span></div>`;
+    const ppl = (R.staff || []).filter((s2) => s2.worked);
+    return html`<div class="lx-box stack" data-item="${item}" data-gap="${g}" style="gap:6px;border:1px solid var(--line);border-radius:12px;padding:10px">
+      <div class="pc-line"><strong class="grow">${lbl}: ${Number(g) < 0 ? 'THIẾU' : 'THỪA'} ${signed(g)}</strong></div>
+      <label class="radio-pill"><input type="radio" name="lx-${item}" value="qc"> ${Number(g) < 0 ? 'Quán chịu' : 'Ghi thu khác (quán giữ)'} <span class="st-meta">(Chủ / Quản lý tổng)</span></label>
+      ${Number(g) < 0 ? html`<label class="radio-pill"><input type="radio" name="lx-${item}" value="chia"> Chia đều người làm ca <span class="st-meta">(khoản âm, trừ lương)</span></label>` : ''}
+      <label class="radio-pill"><input type="radio" name="lx-${item}" value="sau" checked> Đối soát lại sau</label>
+      <div class="lx-people stack" style="gap:4px" hidden>${ppl.length ? ppl.map((p2) => html`<div class="pc-line lx-p" data-emp="${p2.employee_id}"><label class="grow" style="display:flex;gap:8px;align-items:center"><input type="checkbox" checked> ${p2.code ? p2.code + ' – ' : ''}${p2.name || 'NV ' + p2.employee_id}</label><input class="input sm money lx-pa" inputmode="numeric" style="width:120px" aria-label="Số tiền"></div>`) : html`<div class="st-meta">Ca chưa có người làm.</div>`}<div class="st-meta lx-sum"></div></div>
+      <input class="input sm lx-why" placeholder="Ghi chú của quản lý (không bắt buộc)">
+      <div class="lx-err"></div>
+      <div><button type="button" class="btn sm lx-save">Lưu cách xử lý</button></div></div>`;
+  };
+  const secLech = isDs ? html`<style>.lx-people[hidden] { display: none !important; }</style><section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Xử lý lệch</h2></div>
+    ${lxBox('tien_mat')}${lxBox('chuyen_khoan')}
+    <div class="st-meta">"Đối soát lại sau": ca thành <b>Hoàn thành 1 phần</b> (màu vàng ở bảng tuần) — mở lại lúc nào cũng được. Ca có bước Nghỉ & làm thay (x2) chỉ hoàn thành khi Chủ đã duyệt.</div></section>` : '';
+
   // E. Nhân viên
   const secStaff = sec('5. Nhân viên thực tế làm trong ca', ['nhan_su'], html`
     <div class="st-meta">Danh sách theo lịch đã xếp. Ghi nhận ở đây không sửa lịch đã xếp.</div>
@@ -447,25 +478,28 @@ export async function render({ params }) {
         ${R.can_reopen ? html`<div><button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button></div>` : ''}</section>`;
 
   // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước
-  const dsLeft = (i) => (DS_ITEMS[i] || []).filter((it) => !(R.checks || {})[it]);
-  const dsHd = (i) => html`${i === 0 || i === 2 ? html`<div class="pc-part-h">${DS_PART[i]}</div>` : ''}<div class="ds-hd"><span>BƯỚC ${i + 1} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${i < 3
+  const dsLeft = (i) => (DS_ITEMS[i] || []).filter((it) => !(R.checks || {})[it] && !(R.results || {})[it] && !lkItem(it));
+  const dsHd = (i) => html`${i === 0 || i === 2 ? html`<div class="pc-part-h">${DS_PART[i]}</div>` : ''}<div class="ds-hd"><span>BƯỚC ${i + 1} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${i < DS_LAST
     ? (dsLeft(i).length ? html`<span class="pill off">Còn ${dsLeft(i).length}/${DS_ITEMS[i].length} hạng mục</span>` : html`<span class="pill ok">✓ Đã đối soát</span>`) : ''}</div>`;
   const PDT = PD ? Object.fromEntries((PD.parts || []).map((p) => [p.part, p])) : {};
   const whoPart = (k) => { const p = PDT[k]; if (!p || !p.done_at) return ''; return html`<div class="st-meta ds-who">Phần ${p.label}: ${p.done_name || p.claimed_name || ''}${p.done_ql ? html` · <strong>quản lý tự làm — đã tự đối soát</strong>` : ''}</div>`; };
   const dsSum = isDs ? html`<section class="card stack pc-sec"><div class="pc-sec-head"><h2>Tóm tắt đối soát</h2></div>
-      ${[0, 1, 2].map((i) => html`<div class="pc-line ds-sum"><strong class="grow">Bước ${i + 1} · ${DS_STEPS[i]}</strong>${dsLeft(i).length
+      ${DS_ITEMS.map((_, i) => html`<div class="pc-line ds-sum"><strong class="grow">Bước ${i + 1} · ${DS_STEPS[i]}</strong>${dsLeft(i).length
         ? html`<span class="st-meta">Còn: ${dsLeft(i).map((it) => CHECK_LABEL[it]).join(', ')}</span><button type="button" class="btn sm secondary" data-ds-go="${i}">Làm bước ${i + 1}</button>`
         : html`<span class="pill ok">✓ Xong</span>`}</div>`)}
       <div id="ds-cv-sum"></div>
       <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
-  const dsPhone = isDs && window.matchMedia('(max-width: 760px)').matches;
-  const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < 3 && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
+  const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
+  const dsBody = isDs ? html`${DEN_CSS}<section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}"><b>${i + 1}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       ${!dsPhone ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', dsLeft(0).length + dsLeft(1).length], ['tien', '② Phần tiền', dsLeft(2).length], ['xong', '③ Hoàn thành', -1]].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" data-left="${n}">${l}${n > 0 ? html`<span class="ds-ptn">còn ${n}</span>` : n === 0 ? html`<span class="ds-pto">✓</span>` : ''}</button>`)}</nav>` : ''}
-      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}</div>
-      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('tien')}${secCa}${secDebt}</div>
-      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${dsSum}${dsFoot}</div>
-      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Tiếp ›</button></section>` : ''}` : '';
+      <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${secStaff}${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
+      <div class="ds-pane stack" data-ds="1">${dsHd(1)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
+      <div class="ds-pane stack" data-ds="2">${dsHd(2)}${whoPart('tien')}${caTime}${secTime}${secMoney}</div>
+      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${secDebt}</div>
+      <div class="ds-pane stack" data-ds="4">${dsHd(4)}${secTc}</div>
+      <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secThuc}${secDiff}</div>
+      <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secLech}${dsSum}${dsFoot}</div>
+      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">✓ Duyệt & tiếp ›</button></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
   const wizard = !isDs && ed && (!isManager() || window.matchMedia('(max-width: 760px)').matches);
@@ -494,9 +528,11 @@ export async function render({ params }) {
 const WZ_STEPS = ['Tiền: số liệu', 'Tiền: thu chi', 'Nhân sự & bàn giao', 'Nhận hàng', 'Tiến độ'];
 const STEP_PART = ['tien', 'tien', 'nhan_su'];
 // 11/11/2026: nhân sự trước (biết đủ người để chia tiền âm). Bước 78 (13/11): ① Phần việc (nhân sự & bàn giao, nhận hàng) → ② Phần tiền
-const DS_STEPS = ['Nhân sự & bàn giao', 'Nhận hàng', 'Tiền', 'Hoàn thành'];
-const DS_ITEMS = [['nhan_su', 'ban_giao'], ['nhap_hang'], ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no']];
-const DS_PART = ['① Phần việc', '① Phần việc', '② Phần tiền', ''];
+// Bước 86 (anh Tiến 14/11): đối soát đi từng bước như phiếu chốt ca — mỗi bước "Duyệt & tiếp"; bước cuối xử lý lệch & hoàn thành
+const DS_STEPS = ['Ai làm ca', 'Bàn giao & nhận hàng', 'Phiếu Fabi', 'Khách nợ', 'Thu chi', 'Tiền thực nhận', 'Xử lý lệch & hoàn thành'];
+const DS_ITEMS = [['nhan_su'], ['ban_giao', 'nhap_hang'], ['thoi_gian', 'doanh_thu'], ['cong_no'], ['thu_chi'], ['tien_mat', 'chuyen_khoan']];
+const DS_PART = ['① Phần việc', '① Phần việc', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền'];
+const DS_LAST = DS_STEPS.length - 1;
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
 function missingList(v, c, R) {
   const out = []; const m = (step, t) => out.push([step, t]);
@@ -694,7 +730,7 @@ function mount(R, ed, C0, ctx = {}) {
     const k = b.dataset.ca;
     if (k === 'res') { openResult(b.dataset.item); return; }
     if (k === 'more' || k === 'mv') {
-      const d = $('#ca-more'); if (d) d.open = true;
+      const d = $('#diff-box')?.closest('.pc-sec') || $('#ca-more'); if (d && d.tagName === 'DETAILS') d.open = true;   // bước 86: mục sửa số liệu đã hiện sẵn ở bước Tiền thực nhận
       if (k === 'mv' && $('#add-move')) { $('#add-move').click(); $('#moves')?.scrollIntoView({ block: 'center', behavior: 'smooth' }); } else d?.scrollIntoView({ block: 'start', behavior: 'smooth' });
       return;
     }
@@ -732,16 +768,32 @@ function mount(R, ed, C0, ctx = {}) {
   if (isDs) {
     const key = 'ds_step:' + R.id;
     const go = (i) => {
-      const st = Math.max(0, Math.min(3, i));
+      const st = Math.max(0, Math.min(DS_LAST, i));
       try { sessionStorage.setItem(key, String(st)); } catch (_) { /* bỏ qua */ }
       if (!dsPhone) { showPart(PART(st)); $(`.ds-pane[data-ds="${st}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       $$('.ds-pane').forEach((p) => { p.hidden = Number(p.dataset.ds) !== st; });
       $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
-      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === 3; $('#ds-pos').textContent = `Bước ${st + 1}/4`;
+      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === DS_LAST; $('#ds-pos').textContent = `Bước ${st + 1}/${DS_LAST + 1}`;
+      $('#ds-next').textContent = canApprove ? '✓ Duyệt & tiếp ›' : 'Tiếp ›';
       window.scrollTo({ top: 0 });
     };
     // bước 79: máy tính — tab ① Phần việc / ② Phần tiền / ③ Hoàn thành, mỗi lần 1 phần
-    function PART(st) { return st <= 1 ? 'viec' : st === 2 ? 'tien' : 'xong'; }
+    function PART(st) { return st <= 1 ? 'viec' : st < DS_LAST ? 'tien' : 'xong'; }
+    const canApprove = !!R.can_recon && (R0 || R).recon_status !== 'hoan_thanh';
+    // bước 86: "Duyệt & tiếp" — duyệt các hạng mục của bước (tiền mặt / chuyển khoản chỉ tự duyệt khi khớp; lệch xử lý ở bước cuối)
+    async function approveStep(i) {
+      if (!canApprove) return 0;
+      const M = (R0 || R).money || {}; let n = 0;
+      if (saveNow) await saveNow().catch(() => {});
+      for (const it of DS_ITEMS[i] || []) {
+        if ((R.checks || {})[it] || (R.results || {})[it] || (LK && (LK.items || []).includes(it))) continue;
+        if (it === 'tien_mat' || it === 'chuyen_khoan') { const g = it === 'tien_mat' ? M.tm_left : M.ck_left; if (g === null || g === undefined || Number(g) !== 0) continue; }
+        if (MONEY_ITEMS.includes(it)) await rpc('app_ca_result_set', { p_id: R.id, p_item: it, p_result: 'khop', p_amount: null, p_reason: '', p_people: null });
+        else await rpc('app_ca_check', { p_id: R.id, p_item: it, p_on: true });
+        n++;
+      }
+      return n;
+    }
     function showPart(pt) {
       if (dsPhone) return;
       $$('.ds-pane').forEach((p) => { p.hidden = PART(Number(p.dataset.ds)) !== pt; });
@@ -760,7 +812,47 @@ function mount(R, ed, C0, ctx = {}) {
     form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-ds-go]'); if (g) { cur = Number(g.dataset.dsGo); go(cur); } });
     if (dsPhone) {
       $('#ds-prev').addEventListener('click', () => { cur = Math.max(0, cur - 1); go(cur); });
-      $('#ds-next').addEventListener('click', () => { cur = Math.min(3, cur + 1); go(cur); });
+      $('#ds-next').addEventListener('click', async () => {
+        const b = $('#ds-next'); b.disabled = true;
+        let n = 0; try { n = await approveStep(cur); } catch (e) { showSaved(e.message, true); b.disabled = false; return; }
+        b.disabled = false; cur = Math.min(DS_LAST, cur + 1);
+        if (n) { try { sessionStorage.setItem(key, String(cur)); } catch (_) { /* bỏ qua */ } flash(`Đã duyệt bước ${cur}.`); rerender(); return; }
+        go(cur);
+      });
+      // bước 86: xử lý lệch — Quán chịu / Chia đều người làm ca / Đối soát lại sau
+      $$('.lx-box').forEach((box) => {
+        const item = box.dataset.item; const gap = Number(box.dataset.gap); const amt = Math.abs(gap);
+        const rows = () => [...box.querySelectorAll('.lx-p')];
+        const split = () => { const on = rows().filter((r2) => r2.querySelector('input[type=checkbox]').checked); const each = on.length ? Math.floor(amt / on.length / 1000) * 1000 : 0;
+          rows().forEach((r2) => { r2.querySelector('.lx-pa').value = ''; }); on.forEach((r2, k) => { r2.querySelector('.lx-pa').value = fmt(k === on.length - 1 ? amt - each * (on.length - 1) : each); }); sum2(); };
+        const sum2 = () => { const got = rows().filter((r2) => r2.querySelector('input[type=checkbox]').checked).reduce((t, r2) => t + (parseMoney(r2.querySelector('.lx-pa').value) || 0), 0);
+          box.querySelector('.lx-sum').textContent = `Đã chia ${fmt(got)}đ / ${fmt(amt)}đ${got !== amt ? ' — chưa khớp' : ''}`; return got; };
+        bindMoneyInputs(box);
+        box.addEventListener('change', (e) => { if (e.target.name === `lx-${item}`) { box.querySelector('.lx-people').hidden = e.target.value !== 'chia'; if (e.target.value === 'chia') split(); } if (e.target.type === 'checkbox') split(); });
+        box.querySelectorAll('.lx-pa').forEach((x) => x.addEventListener('input', sum2));
+        box.querySelector('.lx-save').addEventListener('click', async () => {
+          const how = box.querySelector(`input[name="lx-${item}"]:checked`)?.value; const why = box.querySelector('.lx-why').value.trim(); const err = box.querySelector('.lx-err'); err.innerHTML = '';
+          if (how === 'sau') { flash('Để đối soát lại sau — ca hiện "Hoàn thành 1 phần" ở bảng tuần.'); return; }
+          const btn = box.querySelector('.lx-save'); btn.disabled = true;
+          try {
+            if (saveNow) await saveNow().catch(() => {});
+            if (how === 'qc') {
+              const res = gap < 0 ? 'thieu' : 'thua';
+              await rpc('app_ca_result_set', { p_id: R.id, p_item: item, p_result: res, p_amount: amt, p_reason: why || (res === 'thieu' ? 'Quán chịu' : 'Thu khác'), p_people: [] });
+              try { await rpc('app_gap_decide', { p_report: R.id, p_item: item, p_kind: res === 'thieu' ? 'quan_chiu' : 'thu_khac', p_amount: amt, p_reason: why || (res === 'thieu' ? 'Quán chịu' : 'Thu khác') }); }
+              catch (e2) { await rpc('app_ca_result_clear', { p_id: R.id, p_item: item }).catch(() => {}); throw e2; }
+              flash(res === 'thieu' ? 'Đã ghi Quán chịu.' : 'Đã ghi Thu khác.');
+            } else {
+              const people = rows().filter((r2) => r2.querySelector('input[type=checkbox]').checked).map((r2) => ({ employee_id: Number(r2.dataset.emp), amount: parseMoney(r2.querySelector('.lx-pa').value) || 0 }));
+              if (!people.length) throw new Error('Tích ít nhất 1 người chịu.');
+              if (sum2() !== amt) throw new Error('Tổng chia phải bằng số lệch.');
+              await rpc('app_ca_result_set', { p_id: R.id, p_item: item, p_result: 'thieu', p_amount: amt, p_reason: why || 'Chia người làm ca', p_people: people });
+              flash(`Đã chia cho ${people.length} người — mỗi người nhận thông báo khoản âm.`);
+            }
+            rerender();
+          } catch (e) { btn.disabled = false; err.innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
+        });
+      });
       go(cur);
     } else if (dsStep) setTimeout(() => go(cur), 300);
     const loadTc = () => rpc('app_tc_list', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }).then((D) => {

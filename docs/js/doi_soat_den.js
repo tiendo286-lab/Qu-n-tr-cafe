@@ -19,7 +19,7 @@ function setDirect(d) { try { sessionStorage.setItem(DKEY, JSON.stringify(d)); }
 export function clearDirect() { try { sessionStorage.removeItem(DKEY); } catch (_) { /* bỏ qua */ } }
 const LBL = { nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', thoi_gian: 'Thời gian doanh thu', doanh_thu: 'Doanh thu & số cốc', tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ', nhap_hang: 'Nhập hàng' };
 const KT_ITEMS = ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
-const STEP = { nhan_su: 0, ban_giao: 0, nhap_hang: 1, thoi_gian: 2, doanh_thu: 2, tien_mat: 2, chuyen_khoan: 2, thu_chi: 2, cong_no: 2 };   // bước 78: Phần việc → Phần tiền
+const STEP = { nhan_su: 0, ban_giao: 1, nhap_hang: 1, thoi_gian: 2, doanh_thu: 2, cong_no: 3, thu_chi: 4, tien_mat: 5, chuyen_khoan: 5 };   // bước 86: 7 bước như phiếu chốt ca
 
 // Xét từng hạng mục: { item, ok (xanh), why (vì sao đỏ), done (đã đối soát) }
 export function judge(R0, R, fabi, kt) {

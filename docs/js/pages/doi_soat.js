@@ -19,7 +19,7 @@ const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; 
 const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
 const kf = (n) => { const v = Number(n) || 0; return (v < 0 ? '−' : v > 0 ? '+' : '') + fmt(Math.abs(v)); };   // bước 81: ghi số đầy đủ
 const dsTabs = (day, wk, cn) => html`<nav class="ck-view" aria-label="Cách xem"><a href="#/quan-ly/doi-soat?tuan=${day}${cn ? `&cn=${cn}` : ''}" class="${wk ? 'on' : ''}">Theo tuần</a><a href="#/quan-ly/doi-soat?xem=ngay&ngay=${day}" class="${wk ? '' : 'on'}">Theo ngày</a></nav>`;
-const WST = { chua: ['Chưa mở', 'none'], tre: ['Thiếu phiếu', 'miss'], dang: ['Đang chốt', 'warn'], kt: ['Chờ kế toán', 'kt'], cho: ['Chờ đối soát', 'cho'], sua: ['Đang sửa', 'cho'], xong: ['Đã đối soát', 'ok'], am: ['Có khoản âm', 'miss'] };
+const WST = { chua: ['Chưa mở', 'none'], tre: ['Thiếu phiếu', 'miss'], dang: ['Đang chốt', 'none'], kt: ['Chờ kế toán', 'kt'], cho: ['Chờ đối soát', 'cho'], sua: ['Đang sửa', 'cho'], mot: ['Hoàn thành 1 phần', 'warn'], xong: ['Đã đối soát', 'ok'], am: ['Có khoản âm', 'miss'] };   // bước 86: vàng = hoàn thành 1 phần
 
 async function weekData(day) {
   const mon = mondayOf(day); const days = [...Array(7)].map((_, i) => addDays(mon, i));
@@ -39,7 +39,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
   const stOf = (s, d) => {
     if (!s.report_id) return d < today || (d === today && s.end_time && String(s.end_time).slice(0, 5) < nowHm) ? (d >= '2026-11-01' ? 'tre' : 'chua') : 'chua';
     if (s.status !== 'hoan_thanh') return 'dang';
-    if (s.recon_status !== 'hoan_thanh') return kt.has(s.report_id) ? 'kt' : s.recon_status === 'mo_lai' ? 'sua' : 'cho';
+    if (s.recon_status !== 'hoan_thanh') return kt.has(s.report_id) ? 'kt' : s.recon_status === 'mo_lai' ? 'sua' : Number(s.checks) > 0 ? 'mot' : 'cho';
     return Number(s.short_total) > 0 ? 'am' : 'xong';
   };
   const mine = ovs.map((rows) => (rows || []).filter((r) => r.branch_id === cn));
@@ -50,7 +50,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
   const stCell = (s, d) => {
     if (!s) return html`<td class="dw-na">—</td>`;
     const st = stOf(s, d); const [lb, cls] = WST[st];
-    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${done(s) ? money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0) : ''}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}`;
+    const inner = html`<span class="dw-st">${lb}</span>${st === 'cho' || st === 'sua' || st === 'mot' ? html`<span class="dw-sub">${s.checks}/9 mục</span>` : ''}${done(s) ? money(Number(s.cash_left) || 0, Number(s.transfer_left) || 0) : ''}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}`;
     const h = href(s);
     return html`<td>${h ? html`<a class="dw-c ${cls}" href="${h}">${inner}</a>` : html`<span class="dw-c ${cls}">${inner}</span>`}</td>`;
   };
@@ -71,7 +71,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
       <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th class="dw-end">Kiểm đếm</th></tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}
           <td>${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</td></tr>`)}</tbody></table></div>
-      <div class="dw-lg">${['xong', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/am-tien">Âm tiền</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
+      <div class="dw-lg">${['xong', 'mot', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/am-tien">Âm tiền</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
     ${debtSection(DEBT, reps)}`;
 }
 
