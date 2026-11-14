@@ -13,6 +13,7 @@ import { bindMoneyInputs, dmy, dt, fmt, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, norm, showSaved, str } from '../ui.js';
 import { KA_STATUS } from './phieu_ca.js';
 import { toLoan } from '../cho_vay.js';
+import { toDebtDlg } from '../doi_soat_tc.js';
 const ntm = (s) => String(s || '').replace(/^Khách mượn – /, 'Nợ TM – ');   // bước 82: bỏ chữ "khách mượn" (ghi chú tự động cũ từ máy chủ)
 
 export const perm = 'doi_soat';
@@ -410,10 +411,11 @@ export async function render(ctx) {
             : html`Đổi số tiền / hình thức chỉ được khi mục <b>Tiền mặt / Chuyển khoản</b> của ca chưa đối soát. Ca đã đối soát thì nhờ Chủ / Quản lý tổng sửa.`}</div>
           <label class="field tc-why" hidden><span>Lý do sửa số tiền / hình thức (bắt buộc)</span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm 50.000 thành 500.000"></label>
           <div id="tc-err"></div>
-          <div class="toolbar" style="justify-content:flex-end;flex-wrap:wrap">${r.kind === 'chi' ? html`<button type="button" class="btn sm secondary tc-2am">Đây là âm tiền…</button>` : ''}${r.kind === 'chi' && loanOn(r.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+          <div class="toolbar" style="justify-content:flex-end;flex-wrap:wrap">${r.kind === 'chi' && !r.auto ? html`<button type="button" class="btn sm secondary tc-2no">Đây là nợ…</button>` : ''}${r.kind === 'chi' ? html`<button type="button" class="btn sm secondary tc-2am">Đây là âm tiền…</button>` : ''}${r.kind === 'chi' && loanOn(r.branch_id) ? html`<button type="button" class="btn sm secondary tc-2loan" style="margin-right:auto">Đổi thành cho vay</button>` : ''}<button type="button" class="btn sm secondary" data-x>Hủy</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         bindMoneyInputs(d);
         d.querySelector('.tc-2loan')?.addEventListener('click', () => { d.close(); toLoan(br, r, again); });
         d.querySelector('.tc-2am')?.addEventListener('click', () => { d.close(); amForm(r); });
+        d.querySelector('.tc-2no')?.addEventListener('click', () => { d.close(); toDebtDlg(r, () => again('Đã ghi thành nợ — khoản chuyển sang tab Công nợ.')); });   // bước 96
         const f = d.querySelector('form'); const val = () => ({ kind: f.querySelector('[name=kind]:checked').value, amt: parseMoney(f.amt.value), pay: f.querySelector('[name=pay]:checked').value });
         const sync = () => { const x = val(); const ch = x.kind !== r.kind || x.amt !== Number(r.amount) || x.pay !== (r.pay || 'tien_mat'); d.querySelector('.tc-mw').hidden = !ch; d.querySelector('.tc-why').hidden = !ch; return ch; };
         f.addEventListener('input', sync);

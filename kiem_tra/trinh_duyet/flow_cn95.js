@@ -69,6 +69,16 @@ export default async ({ sleep, out }) => {
       await go(back, '.dt-undebt'); }
     $('.dt-undebt').click(); await sleep(2500); await wait('.dt-2no');
     r.push(`bỏ: còn ${(await rpc('app_cn_book', { p_branch: o.branch_id })).rows.filter((x) => x.mv_report).length} khoản từ thu chi · ${W()}`);
+    { // bước 96: trang Thu chi › Sửa khoản ở phiếu ca › "Đây là nợ…"
+      await go('#/quan-ly/thu-chi?cn=' + o.branch_id, '.tc-r[data-i]'); await sleep(2000);
+      const el = $$('.tc-r[data-i]').find((x) => /−|-/.test(x.innerText) && x.innerText.includes(R.shift || '')) || $$('.tc-r[data-i]')[0];
+      const n0 = $$('.tc-r[data-i]').length; el.click(); await wait('dialog[open] .tc-2no'); await sleep(300);
+      r.push(`96 hộp sửa: nút ${$$('dialog[open] .toolbar button').map((x) => x.innerText).join(' / ')}`);
+      $('dialog[open] .tc-2no').click(); await wait('dialog[open] form [name=grp]'); await sleep(800);
+      f = $$('dialog[open] form').pop(); [...f.grp].find((x) => x.value === 'khach').checked = true; f.name.value = 'A Thắng'; f.requestSubmit(); await sleep(3500);
+      await wait('.tc-r[data-i]'); await sleep(800);
+      r.push(`sau Đây là nợ: dòng ${n0} → ${$$('.tc-r[data-i]').length} · ghi chú: ${$$('#tc-loans .st-meta').map((x) => x.innerText).join(' ') || 'KHÔNG'} · tab Công nợ: ${(await rpc('app_cn_book', { p_branch: o.branch_id })).rows.filter((x) => x.mv_report).map((x) => x.name + ' ' + x.grp).join(', ')} · ${W()}`);
+    }
   } catch (e) { r.push('LỖI ' + (e.stack || e)); }
   out.push({ route: 'tab công nợ 95', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

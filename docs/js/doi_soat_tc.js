@@ -69,30 +69,7 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
     s.disabled = false;
   }));
   // bước 95: khoản chi của ca → nợ (Nợ khách hàng / Nợ kho tổng / Nợ khác)
-  box.querySelectorAll('.dt-2no').forEach((b) => b.addEventListener('click', async () => {
-    const r = rows[Number(b.closest('.dt-r').dataset.i)];
-    const g0 = /kho\s*t[ổo]ng/i.test(r.note || '') ? 'kho' : 'khac';
-    let names = {}; try { const B = await rpc('app_cn_book', { p_branch: r.branch_id }); (B.rows || []).forEach((x) => { (names[x.grp] = names[x.grp] || new Set()).add(x.name); }); } catch (_) { /* bỏ qua */ }
-    const d = dialog(html`<form class="stack" style="gap:12px;width:min(460px, calc(100vw - 56px))"><h2 style="margin:0">Thành nợ</h2>
-      <div><strong>${r.note || '(không ghi nội dung)'}</strong> · chi ${PAY[r.pay] || ''} <b>${fmt(r.amount)}đ</b></div>
-      <div class="pc-line" role="radiogroup" aria-label="Nhóm">${Object.entries(GRP_NO).map(([k, l]) => html`<label class="radio-pill"><input type="radio" name="grp" value="${k}" ${k === g0 ? 'checked' : ''}> ${l}</label>`)}</div>
-      <label class="field"><span>Người nợ</span><input class="input" name="name" list="dt-no-names" autocomplete="off" value="${g0 === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Kho tổng, Anh Huy"><datalist id="dt-no-names"></datalist></label>
-      <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>
-      <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" value="${r.note || ''}"></label>
-      <div class="st-meta">Khoản chi này <b>không tính chi phí</b>, số tiền của ca không đổi; khoản nợ vào tab Công nợ (${r.pay === 'chuyen_khoan' ? 'Nợ CK' : 'Nợ TM'} ${fmt(r.amount)}đ). Chỉ một phần là nợ: tách thành 2 dòng ở mục <b>Sửa / thêm khoản thu chi</b> rồi đổi dòng nợ.</div>
-      <div class="dt-err"></div>
-      <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Ghi thành nợ</button></div></form>`);
-    const f = d.querySelector('form');
-    const fill = () => { d.querySelector('#dt-no-names').innerHTML = str(html`${[...(names[f.grp.value] || [])].map((n) => html`<option value="${n}"></option>`)}`); };
-    fill(); f.addEventListener('change', (e) => { if (e.target.name === 'grp') { fill(); if (f.grp.value === 'kho' && !f.name.value) f.name.value = 'Kho tổng'; } });
-    d.querySelector('[data-x]').addEventListener('click', () => d.close());
-    f.addEventListener('submit', async (ev) => {
-      ev.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
-      try { await rpc('app_tc_move_to_debt', { p_report: r.report_id, p_mkey: r.mkey, p_grp: f.grp.value, p_name: f.name.value, p_phone: f.phone.value, p_note: f.note.value });
-        d.close(); showSaved('Đã ghi thành nợ — xem ở tab Công nợ'); onChange(); }
-      catch (e) { btn.disabled = false; d.querySelector('.dt-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
-    });
-  }));
+  box.querySelectorAll('.dt-2no').forEach((b) => b.addEventListener('click', () => toDebtDlg(rows[Number(b.closest('.dt-r').dataset.i)], onChange)));
   box.querySelectorAll('.dt-undebt').forEach((b) => b.addEventListener('click', async () => {
     const r = rows[Number(b.closest('.dt-r').dataset.i)];
     if (!confirm(`Bỏ "thành nợ" cho khoản "${r.note || ''}"? Khoản nợ bị xoá, khoản chi quay lại chờ chọn nhóm.`)) return;
@@ -103,4 +80,29 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
   box.querySelectorAll('.dt-undo').forEach((b) => b.addEventListener('click', () => {
     const r = rows[Number(b.closest('.dt-r').dataset.i)]; call(b, r, r.excluded ? 'x' : r.category_id, false);
   }));
+}
+
+// bước 95/96: hộp "Thành nợ" — khoản chi của phiếu ca → nợ (dùng ở Đối soát ca › Thu chi và trang Thu chi › Sửa khoản ở phiếu ca)
+export async function toDebtDlg(r, onDone = () => {}) {
+  const g0 = /kho\s*t[ổo]ng/i.test(r.note || '') ? 'kho' : 'khac';
+  let names = {}; try { const B = await rpc('app_cn_book', { p_branch: r.branch_id }); (B.rows || []).forEach((x) => { (names[x.grp] = names[x.grp] || new Set()).add(x.name); }); } catch (_) { /* bỏ qua */ }
+  const d = dialog(html`<form class="stack" style="gap:12px;width:min(460px, calc(100vw - 56px))"><h2 style="margin:0">Thành nợ</h2>
+    <div><strong>${r.note || '(không ghi nội dung)'}</strong> · chi ${PAY[r.pay] || ''} <b>${fmt(r.amount)}đ</b></div>
+    <div class="pc-line" role="radiogroup" aria-label="Nhóm">${Object.entries(GRP_NO).map(([k, l]) => html`<label class="radio-pill"><input type="radio" name="grp" value="${k}" ${k === g0 ? 'checked' : ''}> ${l}</label>`)}</div>
+    <label class="field"><span>Người nợ</span><input class="input" name="name" list="dt-no-names" autocomplete="off" value="${g0 === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Kho tổng, Anh Huy"><datalist id="dt-no-names"></datalist></label>
+    <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>
+    <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" value="${r.note || ''}"></label>
+    <div class="st-meta">Khoản chi này <b>không tính chi phí</b>, số tiền của ca không đổi; khoản nợ vào tab Công nợ (${r.pay === 'chuyen_khoan' ? 'Nợ CK' : 'Nợ TM'} ${fmt(r.amount)}đ). Chỉ một phần là nợ: tách thành 2 dòng ở mục <b>Sửa / thêm khoản thu chi</b> rồi đổi dòng nợ.</div>
+    <div class="dt-err"></div>
+    <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Ghi thành nợ</button></div></form>`);
+  const f = d.querySelector('form');
+  const fill = () => { d.querySelector('#dt-no-names').innerHTML = str(html`${[...(names[f.grp.value] || [])].map((n) => html`<option value="${n}"></option>`)}`); };
+  fill(); f.addEventListener('change', (e) => { if (e.target.name === 'grp') { fill(); if (f.grp.value === 'kho' && !f.name.value) f.name.value = 'Kho tổng'; } });
+  d.querySelector('[data-x]').addEventListener('click', () => d.close());
+  f.addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+    try { await rpc('app_tc_move_to_debt', { p_report: r.report_id, p_mkey: r.mkey, p_grp: f.grp.value, p_name: f.name.value, p_phone: f.phone.value, p_note: f.note.value });
+      d.close(); showSaved('Đã ghi thành nợ — xem ở tab Công nợ'); onDone(); }
+    catch (e) { btn.disabled = false; d.querySelector('.dt-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
+  });
 }
