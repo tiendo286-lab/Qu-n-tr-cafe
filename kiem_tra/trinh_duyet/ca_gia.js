@@ -270,6 +270,18 @@ export function makeCa(T, me) {
       RLOG.push({ report_id: p_id, action: 'mo_lai_muc', field: p_item, reason: p_reason, by: name(me.account_id), at: now() });
     },
     // bước 55: nợ đã thu ở ca nào + đánh dấu Bảng ca
+    app_ca_recon_debt_collect({ p_report, p_debt, p_kind, p_amount, p_reason }) {   // bước 94
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do (vd: khách trả nhưng nhân viên không biết).');
+      const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_at) throw new Error('Khoản nợ này đã được thu hoặc không còn.');
+      if (!(p_amount > 0) || p_amount > d.amount) throw new Error('Số tiền không đúng.');
+      if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: Math.max(...T.shift_debts.map((x) => x.id)) + 1, amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
+      Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, collect_kind: p_kind, close_note: 'Quản lý ghi khi đối soát: ' + p_reason.trim() });
+    },
+    app_ca_recon_debt_uncollect({ p_report, p_debt }) {
+      const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_report_id !== p_report) throw new Error('Chỉ bỏ được khoản quản lý ghi.');
+      const k = T.shift_debts.findIndex((x) => x.split_from === d.id && !x.closed_at); if (k >= 0) { d.amount += T.shift_debts[k].amount; T.shift_debts.splice(k, 1); }
+      Object.assign(d, { closed_at: null, closed_by: null, closed_report_id: null, collect_kind: null, close_note: null });
+    },
     app_ca_debts_paid({ p_id }) {
       return T.shift_debts.filter((d) => d.report_id === p_id && d.closed_at && d.kind !== 'muon').map((d) => { const c = rep(d.closed_report_id); return { id: d.id, report_id: c.id, shift: c.shift, work_date: c.work_date, status: c.status, kind: d.collect_kind, amount: d.amount }; });
     },

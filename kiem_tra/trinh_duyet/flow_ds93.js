@@ -24,6 +24,23 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     {
+      // bước 94: Phiếu Fabi — hiện khách còn nợ, quản lý ghi "đã trả trong ca này"
+      const d0 = new Date(Date.now() - 17 * 3600e3).toISOString().slice(0, 10);
+      const did = await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: o.branch_id, name: 'Anh Bình', amount: 300000, kind: 'muon', date: d0 } });
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait(`[data-qlno="${did}"]`); await sleep(1200);
+      if (new URLSearchParams(location.search).get('dung')) { $('.fb-row')?.closest('section')?.scrollIntoView(); await new Promise(() => {}); }   // chụp ảnh
+      const col = async () => (await rpc('app_ca_get', { p_id: id })).money?.col_tm;
+      r.push(`khách còn nợ: ${$$('[data-qlno][data-k="tien_mat"]').length} khoản · col_tm ${await col()}`);
+      $(`[data-qlno="${did}"][data-k="tien_mat"]`).click(); await wait('dialog form [name=amt]'); await sleep(300);
+      const f = $('dialog form'); f.amt.value = '100.000'; f.requestSubmit(); await sleep(800);
+      r.push(`không lý do: ${txt('#qn-err')}`);
+      f.why.value = 'Khách trả nhưng nhân viên không biết'; f.requestSubmit(); await sleep(2500); await wait('[data-qlno-undo]'); await sleep(800);
+      const L = (await rpc('app_ca_get', { p_id: id })).open_debts.filter((x) => x.table_name === 'Anh Bình');
+      r.push(`sau ghi: col_tm ${await col()} · Anh Bình ${L.map((x) => (x.closed_at ? 'đã trả ' : 'còn ') + x.amount).join(', ')} · nút Bỏ ${$$('[data-qlno-undo]').length}`);
+      $('[data-qlno-undo]').click(); await sleep(2500); await wait(`[data-qlno="${did}"]`);
+      const L2 = (await rpc('app_ca_get', { p_id: id })).open_debts.filter((x) => x.table_name === 'Anh Bình');
+      r.push(`sau bỏ: col_tm ${await col()} · Anh Bình ${L2.map((x) => (x.closed_at ? 'đã trả ' : 'còn ') + x.amount).join(', ')}`);
+
       // bước 93: thêm thu chi ngay ở bước Thu chi; thêm khách nợ ở bước Khách nợ
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6'; await wait('[data-addmv]'); await sleep(1500);
       const mvN = async () => (((await rpc('app_ca_recon', { p_id: id })) || {}).data?.moves || []).length; const n0 = await mvN();
