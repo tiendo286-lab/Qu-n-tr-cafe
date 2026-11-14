@@ -80,7 +80,12 @@ export default async ({ sleep, out }) => {
     { const o2 = ov.find((x) => x.branch_id === o.branch_id && x.shift !== o.shift); const id2 = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o2.shift });
       const dd = (await rpc('app_ca_get', { p_id: id })).debts[0]; await rpc('app_ca_debt_collect', { p_debt: dd.id, p_report: id2, p_kind: 'tien_mat', p_note: '' });
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=5'; await wait('.db-paid'); await sleep(1500);
-      r.push(`nợ đã thu: ${txt('.db-paid')}`); }
+      r.push(`nợ đã thu: ${txt('.db-paid')}`);
+      // bước 92: bước cuối — Hoàn thành / Ca tiếp theo
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=8'; await wait('#ds-end'); await sleep(1500);
+      r.push(`bước cuối nút: ${$('#ds-end').hidden ? 'ẨN' : $$('#ds-end .btn').map((x) => x.innerText).join(' / ')}`);
+      $('#ds-nextca').click(); await sleep(2500); r.push(`ca tiếp theo: ${txt('#saved-indicator')} · ${location.hash}`);
+      $('#ds-done').click(); await sleep(2000); r.push(`Hoàn thành → ${location.hash}`); }
     r.push(`cuối: ${W()}`);
   } catch (e) { r.push('LỖI ' + (e.stack || e)); }
   out.push({ route: 'đối soát từng bước 86', title: r.join(' || '), len: 0, errs: [...window.__ERR] });

@@ -599,7 +599,7 @@ export async function render({ params }) {
       <div class="ds-pane stack" data-ds="5">${dsHd(5)}${secTc}</div>
       <div class="ds-pane stack" data-ds="6">${dsHd(6)}${secThuc}<details class="ca-more ds-edit"><summary>Chi tiết / sửa <span class="st-meta">(phiếu chi chuyển khoản, số dư ngân hàng, khoản thu chi)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${caBoxSec}${secDiff}</div></details></div>
       <div class="ds-pane stack" data-ds="7">${dsHd(7)}${secLech}${dsSum}${dsFoot}</div>
-      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button></section>` : ''}` : '';
+      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button><div class="ds-end" id="ds-end" hidden><button type="button" class="btn ok" id="ds-done">✓ Hoàn thành</button><button type="button" class="btn" id="ds-nextca">Ca tiếp theo ›</button></div></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
   const wizard = !isDs && ed && (!isManager() || window.matchMedia('(max-width: 760px)').matches);
@@ -879,6 +879,7 @@ function mount(R, ed, C0, ctx = {}) {
       $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
       $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === DS_LAST; const sk = $('.ds-pane[data-skip]') ? 1 : 0; $('#ds-pos').textContent = `Bước ${st + 1 - (sk && st > DS_X2 ? 1 : 0)}/${DS_LAST + 1 - sk}`;
       $('#ds-next').textContent = canApprove ? 'Duyệt & tiếp ›' : 'Tiếp ›';
+      $('#ds-end').hidden = st !== DS_LAST;   // bước 92: bước cuối — Hoàn thành / Ca tiếp theo
       paintParts(st);
       { const lg = $('#ds-lights'); if (lg) lg.hidden = !(st === 0 || st === DS_LAST); }   // bước 91: đèn tổng chỉ hiện ở bước đầu và bước cuối — các bước giữa gọn như phiếu chốt ca
       window.scrollTo({ top: 0 });
@@ -929,6 +930,24 @@ function mount(R, ed, C0, ctx = {}) {
     form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-ds-go]'); if (g) { cur = Number(g.dataset.dsGo); go(cur); } });
     if (dsPhone) {
       $('#ds-prev').addEventListener('click', () => { goDir = -1; cur = Math.max(0, cur - 1); if (cur === DS_X2 && $('.ds-pane[data-skip]')) cur = 0; go(cur); goDir = 1; });
+      // bước 92: Hoàn thành → về trang Đối soát; Ca tiếp theo → mở đối soát ca kế tiếp cùng cơ sở (Sáng → Chiều → Tối → Sáng hôm sau)
+      const leaveOk = async () => { if (saveNow) await saveNow().catch(() => {}); return !$$('.rc-need').some((x) => !x.hidden); };
+      $('#ds-done').addEventListener('click', async () => { if (await leaveOk()) location.hash = `#/quan-ly/doi-soat?ngay=${R.work_date}`; });
+      $('#ds-nextca').addEventListener('click', async () => {
+        const b = $('#ds-nextca'); if (!(await leaveOk())) return; b.disabled = true;
+        try {
+          const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+          const addDay = (d) => new Date(new Date(d + 'T00:00:00Z').getTime() + 864e5).toISOString().slice(0, 10);
+          let day = R.work_date; let rows = (await rpc('app_ca_overview', { p_date: day })).filter((x) => x.branch_id === R.branch_id);
+          let nx = rows[rows.findIndex((x) => x.shift === R.shift) + 1];
+          if (!nx) { day = addDay(day); rows = day <= today ? (await rpc('app_ca_overview', { p_date: day })).filter((x) => x.branch_id === R.branch_id) : []; nx = rows[0]; }
+          if (!nx) { showSaved('Đây là ca cuối cùng — chưa có ca tiếp theo.', true); b.disabled = false; return; }
+          const lb = `ca ${nx.shift} ${dmy(day)}`;
+          if (!nx.report_id) { showSaved(`${lb[0].toUpperCase() + lb.slice(1)} chưa có phiếu chốt ca.`, true); b.disabled = false; return; }
+          if (nx.status !== 'hoan_thanh') { showSaved(`${lb[0].toUpperCase() + lb.slice(1)}: nhân viên chưa gửi phiếu — chưa đối soát được.`, true); b.disabled = false; return; }
+          location.hash = `#/quan-ly/doi-soat/ca?id=${nx.report_id}`;
+        } catch (e) { showSaved(e.message, true); b.disabled = false; }
+      });
       $('#ds-next').addEventListener('click', async () => {
         const b = $('#ds-next'); b.disabled = true;
         let n = 0; try { n = await approveStep(cur); } catch (e) { showSaved(e.message, true); b.disabled = false; return; }
@@ -1478,6 +1497,9 @@ const STYLE = html`<style>
   .wz-foot { position: sticky; bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 4; }
   .wz-foot .btn { min-height: 44px; white-space: nowrap; padding: 0 14px; flex: 1 1 0; min-width: 0; font-size: 15px; }
   .wz-foot #wz-pos { flex: 0 0 auto; }
+  .wz-foot:has(#ds-end:not([hidden])) { flex-wrap: wrap; }
+  .ds-end { display: flex; gap: 8px; flex: 1 1 100%; }   /* bước 92 */
+  .ds-end .btn.ok { background: var(--ok-ink); border-color: var(--ok-ink); color: #fff; }
   .wz-foot [hidden], .wz-pane[hidden], .ds-pane[hidden] { display: none !important; }
   .ds-steps { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .ds-pane { gap: 12px; }
