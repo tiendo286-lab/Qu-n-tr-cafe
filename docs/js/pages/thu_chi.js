@@ -12,7 +12,7 @@ import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, norm, showSaved, str } from '../ui.js';
 import { KA_STATUS } from './phieu_ca.js';
-import { mountLoans, toLoan } from '../cho_vay.js';
+import { toLoan } from '../cho_vay.js';
 const ntm = (s) => String(s || '').replace(/^Khách mượn – /, 'Nợ TM – ');   // bước 82: bỏ chữ "khách mượn" (ghi chú tự động cũ từ máy chủ)
 
 export const perm = 'doi_soat';
@@ -465,7 +465,11 @@ export async function render(ctx) {
         });
       }
 
-      await mountLoans($('#tc-loans'), D.branches.filter((b) => b.id === cn), (m) => again(m));   // bước 64 + 70: Công nợ
+      // bước 95: Công nợ sang tab riêng — ở đây chỉ còn 1 dòng
+      rpc('app_cn_book', { p_branch: cn }).then((B) => { const box = $('#tc-loans'); if (!box) return;
+        const open = (B.rows || []).filter((r) => !r.closed); const owe = open.reduce((t, r) => t + Number(r.amount), 0);
+        box.innerHTML = str(html`<section class="card" style="padding:12px 14px"><div class="pc-line" style="gap:8px;flex-wrap:wrap;align-items:center"><span class="grow">Công nợ ${BR.code} còn <b>${vnd(owe)}</b> · ${open.length} khoản</span><a class="btn sm" href="#/quan-ly/cong-no?cn=${cn}">Mở tab Công nợ ›</a></div></section>`);
+      }).catch(() => { const box = $('#tc-loans'); if (box) box.innerHTML = ''; });
     },
   };
 }

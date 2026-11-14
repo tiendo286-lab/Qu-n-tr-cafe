@@ -513,6 +513,16 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Phiếu nhân viên › Chuyển khoản hotline ghi từng dòng như ảnh mẫu.
 - Bước 90 (14/11, máy chủ 85_gan_chi_luong.sql): Thu chi ở đối soát chia 2 phần Tiền mặt / Chuyển khoản; khoản **Chi lương** tiền mặt có ô **Gán cho nhân viên** (không bắt buộc, `fin_move_cats.employee_id`, `app_tc_move_emp`) → Bảng công cộng vào "Lương tiền mặt đã trả". Quản lý **sửa số phải ghi lý do** (ô Lý do sửa trong từng mục "Sửa số liệu"; chưa có lý do thì web chưa lưu).
 
+- Bước 91–94 (14/11): máy tính hiện phiếu chốt ca + đối soát ca như điện thoại (1 cột giữa, thanh ① Phần việc / ② Phần tiền, đèn chỉ ở bước đầu / cuối); bước cuối có **✓ Hoàn thành** + **Ca tiếp theo ›**; bước Thu chi có **+ Thêm thu chi tiền mặt / chuyển khoản** (lý do bắt buộc), bước Khách nợ có **+ Thêm khách nợ**; khoản nợ đã thu ghi rõ "Đã thu ở ca … ngày …"; bước Phiếu Fabi hiện **Khách còn nợ** — quản lý ghi khách đã trả TM / CK trong ca mà nhân viên không biết (lý do bắt buộc, trả một phần, bỏ được; máy chủ 86_ql_thu_no_doi_soat.sql).
+
+## 5r21. Tab Công nợ riêng — CHỐT và ĐÃ LÀM 14/11/2026 (bước 95, máy chủ 87_tab_cong_no.sql)
+- Menu **Quản lý ca › Công nợ**, theo từng cơ sở. 3 nhóm (`shift_debts.grp`): **① Nợ khách hàng** (Nợ HĐ + khách ngoài — phiếu chốt ca nhắc thu), **② Nợ kho tổng**, **③ Nợ khác** (thêm người nợ được). Bỏ nhãn "Gia đình": khoản gia đình cũ → Nợ khác; khoản tên "Kho tổng" / trả hộ Kho tổng → Nợ kho tổng. Cột `family` tự đồng bộ (= 1 khi không phải Nợ khách hàng).
+- Mỗi người 1 dòng tổng còn nợ; từng khoản **"Nợ ngày … → Trả ngày …"** (chưa trả: N ngày, Nợ khách hàng quá 7 ngày ⚠; trả một phần: phần còn lại; đã trả hết hiện mờ trong tháng). Ô tìm tên / SĐT; ô đếm khách nợ quá 7 ngày (bấm để lọc).
+- Bấm vào người: còn nợ, **Đã thu** gộp (trừ dần từ khoản cũ nhất — `app_cn_collect_many`), lịch sử đã trả (180 ngày), Bỏ đã thu (lần quản lý thu, tháng chưa chốt), **Sửa tên / SĐT / nhóm** cho mọi khoản của người đó (`app_cn_person_save`), + Ghi thêm nợ.
+- Phiếu chốt ca nhân viên **chỉ nhắc / cho ghi trả Nợ khách hàng**; Nợ kho tổng / Nợ khác chỉ quản lý thu ở tab Công nợ (hoặc ở đối soát › Phiếu Fabi › Khách còn nợ).
+- Nhân viên chỉ ghi thu chi bình thường; **Đối soát ca › Thu chi**: khoản chi có nút **Thành nợ** (chọn nhóm + người nợ; Nợ TM / Nợ CK theo hình thức chi; không tính chi phí, số tiền ca không đổi; Bỏ được khi chưa trả — `app_tc_move_to_debt` / `app_tc_move_undebt`). Chỉ một phần là nợ: tách 2 dòng ở "Sửa / thêm khoản thu chi" rồi đổi dòng nợ.
+- Trang Thu chi bỏ khung Công nợ, còn 1 dòng "Công nợ … còn … — Mở tab Công nợ ›". Quyền như khung cũ: QL cơ sở (cơ sở mình), QL tổng + Chủ (mọi cơ sở); nhân viên không thấy tab.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

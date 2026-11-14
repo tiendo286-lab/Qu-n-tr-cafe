@@ -38,10 +38,10 @@ export default async ({ sleep, out }) => {
     for (let i = 0; i < 50 && $('dialog[open]'); i++) await sleep(100); await sleep(1500); await wait('#rd-add', 300); await sleep(500);
     r.push(`sau ghi nhận: ${$$('.rd-del').length} khoản · ${txt('#rd-add')}`);
     // (4) Công nợ ở Thu chi — 2 tầng, khoản ghi nhận có link đối soát
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/thu-chi?cn=' + lhp.branch_id; await wait('.ln-sec', 600); await sleep(800);
-    const row = $$('.cn-row').find((x) => x.innerText.includes('Bàn 5'));
-    r.push(`(4) Công nợ: ${row ? row.innerText.replace(/\s+/g, ' ') : 'KHÔNG THẤY'} · nút sửa ${!!row?.querySelector('.cn-ed')}`);
-    const g = row?.querySelector('.grow'); r.push(`tên rộng ${g ? Math.round(g.getBoundingClientRect().width) : 0}px / khung ${Math.round($('.ln-sec').getBoundingClientRect().width)}px · ${W()}`);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/cong-no?cn=' + lhp.branch_id; await wait('.cn-g', 600); await sleep(800);   // bước 95: Công nợ sang tab riêng
+    const row = $$('.cn-p').find((x) => x.innerText.includes('Bàn 5'));
+    r.push(`(4) Công nợ: ${row ? row.innerText.replace(/\s+/g, ' ') : 'KHÔNG THẤY'}`);
+    const g = row?.querySelector('.cn-ph .grow'); r.push(`tên rộng ${g ? Math.round(g.getBoundingClientRect().width) : 0}px / khung ${Math.round(($('.cn-g')?.getBoundingClientRect().width) || 0)}px · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.message); }
   out.push({ route: 'sửa 74', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

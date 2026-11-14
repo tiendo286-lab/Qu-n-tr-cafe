@@ -241,11 +241,11 @@ export async function renderNew(R0, P, SH) {
         </div>
         <div id="cm-checks">${ch.h}</div>
         ${(() => {   // bước 85: công nợ gia đình (cuối tháng thu) để trong mục thu gọn — người nhà trả trong ca thì vẫn chọn được
-          const cus = oldAll().filter((d) => !d.family); const fam = oldAll().filter((d) => d.family);
+          const cus = oldAll().filter((d) => !d.family); const fam = oldAll().filter((d) => d.family && d.closed_report_id === R.id);   // bước 95: kho tổng / nợ khác chỉ quản lý thu — chỉ hiện khoản đã chọn trước đây
           return cus.length || fam.length ? html`<h3 style="margin:8px 0 0">Khách trả nợ trong ca (Nợ HĐ / Nợ TM / Nợ CK)</h3>
           <div class="st-meta">Khoản nợ ở các ca trước — khách trả trong ca này thì chọn ở đây (trả thiếu thì sửa số tiền). Phiếu Fabi có mục <strong>PHIẾU THANH TOÁN NỢ</strong> là khách trả Nợ HĐ.</div>
           ${cus.map(debtPayRow)}
-          ${fam.length ? html`<details ${fam.some((d) => d.closed_report_id === R.id) ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Công nợ gia đình (${fam.length}) — chỉ mở khi người nhà trả trong ca</summary><div class="stack" style="gap:8px;margin-top:8px">${fam.map(debtPayRow)}</div></details>` : ''}` : ''; })()}
+          ${fam.length ? html`<details ${fam.some((d) => d.closed_report_id === R.id) ? 'open' : ''}><summary style="cursor:pointer;font-weight:600">Nợ kho tổng / nợ khác đã chọn (${fam.length})</summary><div class="stack" style="gap:8px;margin-top:8px">${fam.map(debtPayRow)}</div></details>` : ''}` : ''; })()}
         ${expStart ? html`<label class="pc-f" id="cm-open-wrap" ${money().startBad ? '' : 'hidden'}><span>Ghi chú số dư đầu khác ${expStart.src} (không bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
     },
     3: () => {   // bước 84: gộp Nợ HĐ + Nợ TM + Nợ CK vào một bước
