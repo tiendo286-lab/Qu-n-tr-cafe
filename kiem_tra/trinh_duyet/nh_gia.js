@@ -83,6 +83,8 @@ export function makeNh(T, me) {
     const bs = T.delivery_followups.filter((f) => f.kind === 'hd_bs' && f.status === 'xong' && (!br || f.branch_id === br) && f.resolved_month === mo).reduce((t, f) => t + (f.resolved_amount || 0), 0);
     return { invoices: inv.reduce((t, i) => t + (i.total || 0), 0), n_invoices: inv.length, bu, hd_bs: bs, payable: inv.reduce((t, i) => t + (i.total || 0), 0) - bu + bs };
   };
+  const started = (id) => T.delivery_receipt_photos.some((p) => p.invoice_id === id) || (() => { const i = T.delivery_invoices.find((x) => x.id === id); return !!(i && (i.deliv_path || i.deliv_note)); })()
+    || T.delivery_lines.some((l) => l.invoice_id === id && (l.qty_invoice == null || l.qty_received != null));
   const addLine = (inv, x, k, extra = {}) => { const id = nid('delivery_lines'); T.delivery_lines.push({ id, invoice_id: inv, sort: k, code: x.code || null, name: x.name, unit: x.unit || null, qty_invoice: null, price: null, amount: null, qty_received: null, qty_checked: null, ...extra }); return id; };
   return {
     app_nh_kho_map: () => Object.fromEntries(T.nh_kho_map.map((m) => [m.kho_code, m.branch_id])),
@@ -108,7 +110,17 @@ export function makeNh(T, me) {
       Object.assign(tg, meta, { kind: 'hoa_don', state: 'da_nhan', matched_at: now(), matched_by: me.account_id });
       return tg.id;
     },
-    app_nh_delete({ p_id }) { const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i) return []; if (i.state !== 'dang_chuyen') throw new Error('Hàng đã được báo nhận, không xóa hóa đơn được.'); T.delivery_invoices = T.delivery_invoices.filter((x) => x !== i); return []; },
+    app_nh_delete({ p_id }) { const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i) return []; if (i.state !== 'dang_chuyen') throw new Error('Hàng đã được báo nhận, không xoá phiếu xuất được.');
+      if (started(p_id)) throw new Error('Nhân viên đang nhận hàng theo phiếu này — không xoá được.'); T.delivery_invoices = T.delivery_invoices.filter((x) => x !== i); return []; },
+    app_nh_replace({ p_id, p }) {
+      if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
+      const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i) throw new Error('Không tìm thấy phiếu xuất.');
+      if (i.state !== 'dang_chuyen') throw new Error('Hàng đã được báo nhận — không thay phiếu được.'); if (started(p_id)) throw new Error('Nhân viên đang nhận hàng theo phiếu này — không thay phiếu được.');
+      if (!p.doc_no) throw new Error('File không có Số đơn.'); if (T.delivery_invoices.some((x) => x.id !== p_id && (x.doc_no || '').toUpperCase() === p.doc_no.toUpperCase())) throw new Error(`Phiếu ${p.doc_no} đã có (lần tải khác).`);
+      T.delivery_lines = T.delivery_lines.filter((l) => l.invoice_id !== p_id); T.delivery_invoice_files = T.delivery_invoice_files.filter((f) => f.invoice_id !== p_id);
+      Object.assign(i, { doc_no: p.doc_no, total: p.total, ship_at: p.ship_at, work_date: p.ship_at.slice(0, 10), kho_code: p.kho_code, kho_name: p.kho_name });
+      p.lines.forEach((x, k) => addLine(p_id, x, k + 1, { qty_invoice: x.qty, price: x.price, amount: x.amount })); return [];
+    },
     app_nh_list({ p_month, p_branch }) {
       const all = T.delivery_invoices.filter((i) => !p_branch || i.branch_id === p_branch).map((i) => json(i));
       return { rows: all.filter((i) => i.work_date.startsWith(p_month)).sort((a, b) => (a.work_date < b.work_date ? 1 : -1)), open: all.filter((i) => i.missing.length),

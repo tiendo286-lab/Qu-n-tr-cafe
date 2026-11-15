@@ -582,6 +582,14 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Nhắc việc chậm**: chỉ nhắc **phiếu xuất quá ngày giao mà chưa nhận** (nhắc quản lý cơ sở). Không nhắc chờ đối soát / chờ giao bù / chờ hoá đơn bổ sung.
 - Cần máy chủ: hàm thêm món ngoài phiếu vào lần giao có phiếu (dòng `qty_invoice` trống), `app__nh_followups` tạo mục hd_bs cho dòng ngoài phiếu (giá trống), hàm mở lại đối soát kiểm tra mục Kiểm soát chưa xử lý, nhắc quá ngày giao.
 
+## 5r29. Hàng hoá › Phiếu xuất thiết kế lại — CHỐT 15/11/2026, mẫu đã duyệt, ĐÃ LÀM (bước 107, máy chủ `93_phieu_xuat_tai_lai.sql`)
+- **Phạm vi**: chỉ để kế toán **tải + tra cứu phiếu** (tải, ghép phiếu vào lần nhận chưa có phiếu xuất, xem / xoá / tải lại, xem ảnh hoá đơn giao). **Bỏ** phần "Hồ sơ nhận hàng còn thiếu" (đã có ở Đối soát / Kiểm soát) và ô "phải trả kho tổng" (tiền tháng chỉ xem ở Kiểm soát để không lệch số).
+- **Tải nhiều file Excel 1 lần**: chọn cùng lúc nhiều file → web đọc hết, tự nhận cơ sở theo mã kho → bảng xem trước (file trùng số đơn / lỗi đọc / chưa rõ cơ sở để chọn) → "Lưu tất cả".
+- **Cách xem**: mặc định **tất cả cơ sở, nhóm theo ngày giao** (mới nhất trên); lọc cơ sở + trạng thái + tìm số đơn; chọn tháng. (Bỏ cách xem Tuần | Tháng từng cơ sở của bước 102.)
+- **Sửa / xoá**: phiếu **chưa nhận** thì xoá hoặc **tải file mới thay thế** (kho sửa phiếu); đã nhận thì không sửa — lệch xử lý bằng giao bù / hoá đơn bổ sung.
+- Xem 1 phiếu: danh sách món (phiếu / NV nhận / QL sửa), ảnh hàng, **ảnh hoá đơn giao**, hoá đơn bù, file Excel gốc, trạng thái (đang chuyển → đã nhận → đối soát xong), đường dẫn sang Đối soát / Kiểm soát.
+- Anh đồng ý thêm: **không cho tải file thay thế khi nhân viên đã bắt đầu chụp ảnh** theo phiếu (báo "Nhân viên đang nhận hàng theo phiếu này"); **lúc ghép phiếu xuất** vào lần nhận chưa có phiếu: hiện **ảnh hoá đơn giao** cạnh danh sách món để so.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
