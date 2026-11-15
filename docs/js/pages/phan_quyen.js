@@ -18,6 +18,7 @@ const PERMISSIONS = [
   ['doi_soat', 'Đối soát phiếu chốt ca, tiền mặt cuối ngày'],
   ['mo_lai_phieu_ca', 'Mở lại phiếu chốt ca đã hoàn thành'],
   ['hop_giao_viec', 'Giao việc cho nhân viên, họp'],
+  ['phan_cong', 'Xem Bảng phân công và Quá hạn & phạt (chỉ Chủ sửa / xác nhận phạt)'],
   ['soan_tai_lieu', 'Soạn, sửa, đăng nội quy và quy trình'],
   ['dao_tao', 'Đào tạo: tạo phiếu, cập nhật mọi phiếu đào tạo'],
 ];

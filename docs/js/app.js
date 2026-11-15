@@ -13,7 +13,8 @@ export const HUBS = [
     ['Kiểm soát', '/hang-hoa/kiem-soat', ['ke_toan', 'doi_soat']]], 'cn', 'Vận hành'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
-  ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']], null, 'Vận hành'],
+  // bước 109: Bảng phân công công việc chung (Đợt 1) — việc tự tạo theo bảng + Giao việc riêng + Quá hạn & phạt
+  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
   ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', 'ke_toan']], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
@@ -38,9 +39,11 @@ const PAGES = {
   '/ca/phieu': 'phieu_ca',
   '/quan-ly/doi-soat': 'doi_soat',
   '/quan-ly/doi-soat/ca': 'doi_soat_ca',
-  '/quan-ly/hop': 'giao_viec', // đường dẫn cũ (thông báo cũ) → Công việc
-  '/viec': 'viec',
-  '/quan-ly/giao-viec': 'giao_viec',
+  '/quan-ly/hop': 'cv_tat_ca', // đường dẫn cũ (thông báo cũ) → Công việc
+  '/viec': 'cv_toi',
+  '/cong-viec/phan-cong': 'cv_phan_cong',
+  '/cong-viec/qua-han': 'cv_qua_han',
+  '/quan-ly/giao-viec': 'cv_tat_ca',
   '/noi-quy': 'tai_lieu',
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',

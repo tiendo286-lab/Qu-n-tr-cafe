@@ -602,6 +602,40 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Xem 1 phiếu: danh sách món (phiếu / NV nhận / QL sửa), ảnh hàng, **ảnh hoá đơn giao**, hoá đơn bù, file Excel gốc, trạng thái (đang chuyển → đã nhận → đối soát xong), đường dẫn sang Đối soát / Kiểm soát.
 - Anh đồng ý thêm: **không cho tải file thay thế khi nhân viên đã bắt đầu chụp ảnh** theo phiếu (báo "Nhân viên đang nhận hàng theo phiếu này"); **lúc ghép phiếu xuất** vào lần nhận chưa có phiếu: hiện **ảnh hoá đơn giao** cạnh danh sách món để so.
 
+## 5r30. Bảng phân công công việc chung (đối soát + vận hành) — CHỐT 15/11/2026 · **ĐỢT 1 ĐÃ LÀM (bước 109)**
+Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho mã công khai) — người cụ thể chọn trên web; "QL tổng" = quản lý tổng, "Chủ duyệt" = tài khoản vai trò Chủ được chọn, "người đối soát" = quản lý được phân công cơ sở (LHP 2 người, ĐK 1, LL 1, HS 2; LLB để sau).
+- **Quy định chung:** giao việc ở tab **Công việc**, việc tự xong khi hồ sơ gốc xong · quá hạn → trang **Quá hạn & phạt**: anh bấm **Phạt** (mặc định **50.000đ / lần**, sửa được, lý do "Bị phạt do không hoàn thành công việc đúng hạn") hoặc **Bỏ qua** — web không tự phạt; **mỗi việc ghi cảnh báo** mức phạt khi quá hạn · cơ sở 2 người: giao cả 2, ai làm trước cũng được · không có người dự phòng · **quản lý chỉ thấy cơ sở mình được phân công**, QL tổng thấy hết · việc nhiều cấp duyệt **chia nhiều bước**, mỗi bước người + hạn riêng, thêm bước được.
+- **Kế toán:** anh chọn **bất kỳ nhân viên nào** và gán chức năng kế toán; **gỡ quyền Kế toán cộng thêm của QL tổng** (làm khi bắt đầu đợt 1).
+
+| # | Việc | Ai làm | Hạn | Tạo việc |
+|---|---|---|---|---|
+| 1 | Đối soát ca (gồm phiếu chi CK) | Người đối soát | 1 ngày từ khi kế toán có đủ file | Mỗi ca; phiếu có phát sinh nghỉ / làm thay vẫn hoàn thành 1 phần |
+| 2 | Phân chia nhân viên phát sinh (nghỉ / làm thay / x2) | QL tổng phân loại → Chủ duyệt | Tổng 4 ngày: 2 + 2 | Mỗi ca có phát sinh |
+| 3 | File ca Fabi | Kế toán (chung 4 cơ sở) | 1 ngày | Gộp mỗi ngày mỗi cơ sở |
+| 4 | Chuyển khoản thực nhận | Kế toán | 1 ngày | Gộp mỗi ngày mỗi cơ sở |
+| 6 | Kiểm đếm tiền mặt cuối ngày | Người đối soát | Không | **Không tạo việc**; lệch → chuyển sang Lệch tiền ca |
+| 7 | Lệch tiền ca | Người đối soát — **mở quyền ghép / trừ lương / quán chịu cho quản lý cơ sở, không cần duyệt** | 5 ngày (CK chờ tiền về chưa tính) | Có |
+| 8 | Xem giải trình trừ lương | Quản lý cơ sở + QL tổng | Không | Có; nhân viên có **3 ngày** giải trình, quá hạn giữ nguyên khoản trừ |
+| 9 | Khách nợ | Người đối soát | Không, không phạt | **Hiện ưu tiên đầu phần Công việc ngay từ lúc ghi nợ** (+ thông báo Công nợ) |
+| 10 | Kiểm quỹ hằng tuần | Người đối soát | 4 ngày | Mỗi tuần mỗi cơ sở; lệch → ghi **"Lệch kiểm quỹ"**, **quản lý cơ sở chịu** |
+| 11 | Nhận hàng quá ngày giao | Người đối soát | 1 ngày | Gộp mỗi cơ sở 1 việc nhắc |
+| 12 | Đối soát hàng | Người đối soát | 1 ngày từ khi NV báo nhận | Gộp mỗi cơ sở |
+| 13 | Hoá đơn bù & ghép phiếu xuất | Kế toán | 2 ngày | Gộp |
+| 14 | Giao bù & hoá đơn bổ sung | Kế toán | 2 ngày | Gộp |
+| 16 | Xếp lịch tuần | QL tổng mở order (hạn **Thứ Hai**) + xếp lịch → Chủ chốt (hạn **23:59 Thứ Bảy**); đôn đốc order: **web nhắc mọi nhân viên chưa order** | | Mỗi tuần |
+| 17 | Bảng công | QL tổng kiểm → Chủ duyệt | Ngày 3 tháng sau | Mỗi tháng |
+| 18 | Đào tạo nhân viên mới | 1 quản lý chịu trách nhiệm chính, phân người hướng dẫn | **12 ngày** (phiếu đào tạo giữ 8 ngày, có thể chưa xong) | Mỗi NV mới |
+| 19 | Đôn đốc đọc nội quy / quy trình | 1 nhân viên được giao (cho xem tiến độ đọc) | 12 ngày | Mỗi tài liệu mới 1 việc, có danh sách đã / chưa đọc |
+| 20 | Cam kết | Cùng người việc 19 (nhận bản giấy) | 12 ngày | Mỗi NV mới |
+| 23 | Hỗ trợ nhân viên | QL tổng phân công người giải đáp | 1 ngày | Mỗi yêu cầu |
+| 24 | **Giao việc riêng** (bàn giao ca + mọi việc giao tay) | Bàn giao ca: người đối soát ca phân loại / giao; việc giao tay: người giao | Phân loại 1 ngày · làm: người giao chọn · kiểm tra 1 ngày | Mỗi nội dung 1 việc (xem dưới) |
+
+- **Không đưa vào bảng:** đôn đốc ca thiếu phiếu (bỏ) · tải phiếu xuất (đã có trong việc 13) · sao lưu (Chủ quyết, giữ như cũ) · việc thỉnh thoảng / giao tay giữ như cũ.
+- **Việc 24 · Giao việc riêng (chốt 15/11):** việc gì cũng đưa vào được (sửa chữa, mua đồ, vệ sinh, nội dung bàn giao ca…). Đi 5 bước **Chờ giao → Chờ nhận → Đang làm → Chờ kiểm tra → Hoàn thành**. ① Bàn giao ca: mỗi nội dung tự thành 1 việc cho người đối soát ca của cơ sở, hạn 1 ngày để chọn **Giao người khác** / **Tự làm** / **Không cần xử lý** (bắt buộc lý do). Người giao chọn **người làm + người kiểm tra** (phân công người kiểm tra) + hạn + mức độ. ② Người làm bấm **Nhận việc**, **ghi tiến độ** (chữ + ảnh), **xin gia hạn** (lý do → người giao đồng ý / không). ③ **Báo xong**: bắt buộc kết quả + ảnh. ④ Người kiểm tra (hạn **1 ngày**) bấm **Đạt** (đóng) hoặc **Làm lại** (lý do + hạn mới). Mỗi việc có **dòng thời gian**; người giao có mục **"Việc tôi đã giao — đang theo dõi"**; tab Tất cả công việc có ô đếm 5 bước. Quá hạn ở bước nào thì người đang giữ việc ở bước đó vào trang Quá hạn & phạt. Thay cho quy định 07/11 "không còn bước duyệt" — việc giao tay của Chủ / QL tổng cũng đi đúng 5 bước này.
+- **Đã làm Đợt 1 (bước 109, tệp `95_bang_phan_cong.sql`, `96_quyen_phan_cong.sql`):** menu Công việc = Việc của tôi (chia theo hạng mục, khách nợ đầu trang, mục "Việc tôi đã giao") · Tất cả công việc · Bảng phân công · Quá hạn & phạt (quyền mới `phan_cong`: Chủ + QL tổng xem, chỉ Chủ sửa / xác nhận phạt). Web tự tạo việc 5 phút/lần (lịch `phan-cong-tu-dong`) **từ ngày 16/11/2026** (tồn cũ không tạo việc, không phạt). Phạt đã xác nhận: nhân viên được báo + thấy ở Việc của tôi; trừ lương khi làm Bảng công (đợt 3). Việc gộp quá hạn: phạt 1 lần cho cả việc; việc trễ nhiều ngày: 1 lần; cơ sở 2 người: hiện cả 2, Chủ chọn — theo bản thử, anh chưa đổi.
+- **Phần Công việc của phiên khác (bước 108):** **tắt quy tắc tự giao "Đối soát ca" và đóng 44 việc** đang giao khi bắt đầu đợt 1.
+- **Làm 3 đợt** (mỗi đợt vẽ mẫu duyệt trước): ① bảng phân công + việc 1–14 + trang Quá hạn & phạt · ② quản lý chỉ thấy cơ sở mình (cả máy chủ) · ③ việc 16–20, 23 + thay đổi nghiệp vụ (kiểm đếm lệch → Lệch tiền ca, Lệch kiểm quỹ, khách nợ ưu tiên, nhắc order, giải trình 3 ngày, quyền lệch tiền cho QL cơ sở).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
