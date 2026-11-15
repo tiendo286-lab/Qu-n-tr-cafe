@@ -40,7 +40,9 @@ export default async ({ sleep, out }) => {
     if ($('#cm-open')) setv($('#cm-open'), '12:40');
     setv($('#cm-close'), '17:10');
     num('ipos_opening', '1000000'); num('total_revenue', '3322000'); num('pos_transfer', '2298000'); num('pos_cash', '996000'); num('pos_debt', '28000'); num('cash_counted', '2039000');
-    $('[data-sign="-1"]').click(); await sleep(300); num('pos_diff', '40000'); await sleep(400);
+    // bước 96: từ ca 15/11 Fabi không cộng khách trả nợ → Tiền chênh lệch Fabi = Tổng tiền − Số dư đầu − Tiền mặt = +43.000 (gồm 83.000 khách trả nợ − thiếu 40.000)
+    const moi = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10) >= '2026-11-15';
+    $(moi ? '[data-sign="1"]' : '[data-sign="-1"]').click(); await sleep(300); num('pos_diff', moi ? '43000' : '40000'); await sleep(400);
     r.push(`Chưa chọn khách trả nợ: ${txt('#cm-checks')}`);
     r.push(`Mục ở bước Phiếu Fabi: ${txt('#cm-body h3')} · ${document.querySelectorAll('#cm-body [data-paid]').length} khoản · ${W()}`);
     const sel = $('#cm-body [data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change')); await sleep(1500);

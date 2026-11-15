@@ -42,7 +42,9 @@ export default async ({ sleep, out }) => {
     if ($('#cm-open')) setv($('#cm-open'), '06:40');
     setv($('#cm-close'), '12:39');
     num('ipos_opening', '1000000'); num('total_revenue', '7000000'); num('pos_transfer', '2400000'); num('pos_cash', '4500000'); num('pos_debt', '100000'); num('cash_counted', '5400000');
-    $('[data-sign="-1"]')?.click(); await sleep(300); num('pos_diff', '220000'); await sleep(400);
+    // bước 96: từ ca 15/11 Fabi không cộng khách trả nợ → Tiền chênh lệch = Tổng tiền − Số dư đầu − Tiền mặt (không trừ khách trả nợ TM)
+    const vnDay = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+    $('[data-sign="-1"]')?.click(); await sleep(300); num('pos_diff', vnDay >= '2026-11-15' ? '100000' : '220000'); await sleep(400);
     r.push(`Fabi: ${txt('#cm-checks')}`);
     if (halt('fabi')) return;
     await next();

@@ -1,5 +1,5 @@
 // Nhập hàng kho tổng (role=chu): kế toán tải phiếu xuất Excel (file tự tạo, không phải dữ liệu thật) → phiếu ca: nhân viên kiểm từng món + ảnh
-// → nhận không hóa đơn → quản lý đối soát từng ảnh → ghép hóa đơn → Chốt tháng / Quỹ ngoài thấy tiền hàng kho tổng
+// → nhận không hóa đơn → quản lý đối soát từng ảnh → ghép hóa đơn (bước 103: nhận + đối soát ở trang Giao hàng) → Chốt tháng / Quỹ ngoài thấy tiền hàng kho tổng
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 300) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -40,47 +40,54 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'tien', p_force: false });
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_su', p_force: false });
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_hang', p_force: false });
-    // Bước 77: bước Bàn giao & nhận hàng thuộc Phần việc.
-    sessionStorage.setItem('cm:' + id, JSON.stringify({ code: 8 }));
-    location.hash = '#/ca/phieu?id=' + id; await wait('.nh-card', 900); await sleep(500);
-    const c = $('.nh-card'); const head = txt('.nh-head', c);
-    $('.nh-duall', c).click(); const q = $$('.nh-q', c); q[2].value = '2'; q[2].dispatchEvent(new Event('input'));
-    $('.nh-send', c).click(); await sleep(1500); await wait('.nh-card', 50);
-    return `${head.slice(0, 90)} → sau gửi: ${txt('.nh-card .nh-pills')}`;
+    // Bước 103: nhận hàng ở trang Quản lý ca › Giao hàng — chụp ảnh → chọn món trong ảnh → gửi
+    const inv = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.state === 'dang_chuyen');
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/giao-hang?nhan=' + inv.id; await wait('#gh-shot', 1500); await sleep(500);
+    const head = txt('#gh-recv h1');
+    setFiles($('#gh-shot'), [img]); await wait('.gh-pickc', 80); await sleep(300);
+    $$('.gh-sel .gh-c').forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
+    const q2 = $$('.gh-sel')[2].querySelector('.gh-q'); q2.value = '2'; q2.dispatchEvent(new Event('input', { bubbles: true }));
+    const nt = $$('.gh-note').find((n) => !n.hidden); if (nt) { nt.querySelector('input').value = 'thiếu 1 chai'; }
+    $('#gh-ps').click(); await sleep(2500); await wait('#gh-send', 80);
+    $('#gh-send').click(); await sleep(3000);
+    const S1 = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.id === inv.id);
+    return `${head} → sau gửi: ${S1.state} · lệch ${S1.n_mismatch} · ${S1.photos.length} ảnh`;
   });
   await step('Chụp ảnh + gắn món', async () => {
-    const c = $('.nh-card'); setFiles($('.nh-ph-in', c), [img]); await wait('dialog[open] .nh-tags', 80); await sleep(200);
-    const d = dlg(); const n = $$('input[type=checkbox]', d).length; $$('input[type=checkbox]', d).forEach((x) => { x.checked = true; }); $('button[type=submit]', d).click();
-    await sleep(1500); await wait('.nh-card', 50);
-    return `hộp chọn ${n} món → ${txt('.nh-card .nh-pills')} · ảnh: ${txt('.nh-photos figcaption')}`;
+    const S1 = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.kind !== 'khong_hd');
+    const RR = await rpc('app_ca_get', { p_id: id }); const PP = await rpc('app_ca_parts', { p_id: id }).catch(() => null);
+    return `ảnh gắn ${S1.photos.map((p) => p.lines.length).join('+')} món · thiếu ảnh ${S1.n_unphoto} món · phiếu ${RR.status} · phần ${JSON.stringify(PP?.parts || PP).slice(0, 200)}`;
   });
   await step('Nhận hàng KHÔNG có hóa đơn', async () => {
-    $('#nh-new').click(); await wait('.nh-rc-save', 30);
-    const row = $('.nh-rcrow'); row.querySelector('.nh-rc-name').value = 'Đá viên'; row.querySelector('.nh-rc-qty').value = '3';
-    $('.nh-rc-save').click(); await sleep(1500); await wait('.nh-card', 50);
-    return `${$$('.nh-card').length} thẻ · thẻ mới: ${txt('.nh-card:last-of-type .nh-pills')}`;
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/giao-hang'; await wait('.gh-nohd', 1500); await sleep(300);
+    $('.gh-nohd').click(); await wait('dialog[open] .gh-nn', 80); await sleep(300);
+    const row = $('dialog[open] .gh-nr'); row.querySelector('.gh-nn').value = 'Đá viên'; row.querySelector('.gh-nq').value = '3';
+    $$('dialog[open] form').pop().requestSubmit(); await sleep(2500); await wait('#gh-shot', 300); await sleep(300);
+    setFiles($('#gh-shot'), [img]); await wait('.gh-pickc', 80); await sleep(300);
+    $$('.gh-sel .gh-c').forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }); $('#gh-ps').click(); await sleep(2500); await wait('#gh-send', 80);
+    const btn = txt('#gh-send'); $('#gh-send').click(); await sleep(2500);
+    const rows = (await rpc('app_nh_for_report', { p_report: id })).rows;
+    const R5 = await rpc('app_ca_get', { p_id: id });
+    return `nút ${btn} · ${rows.length} lần giao · không HĐ: ${rows.filter((x) => x.kind === 'khong_hd').map((x) => x.state + ' ' + x.photos.length + ' ảnh').join(', ')} · phiếu ${R5.status}`;
   });
   if (new URLSearchParams(location.search).get('nhshot')) { $('[data-go="3"]')?.click(); await sleep(500); $('#hd-box')?.scrollIntoView(); await sleep(300); return; }   // dừng ở phiếu ca để chụp màn hình
   await step('Phiếu ca hoàn thành không bị đòi mục 7', async () => {
-    const R = await rpc('app_ca_get', { p_id: id });
+    const R = await rpc('app_ca_get', { p_id: id }); if (R.status !== 'dang_chot') return 'phiếu đã ' + R.status + ' trước bước này';
     await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 23:00', total_revenue: 1000000, pos_cash: 600000, pos_transfer: 400000, reported_transfer: 400000, cash_counted: 1600000, opening_cash: 1000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: 0, diff_note: null, cups: 10,
       moves: [], staff: (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:30' })), handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
-    for (const k of ['tien', 'nhan_su', 'nhan_hang']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }); for (const k of ['tien', 'nhan_su', 'nhan_hang']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
+    for (const k of ['tien', 'nhan_su', 'nhan_hang']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }).catch(() => {}); for (const k of ['tien', 'nhan_su', 'nhan_hang']) { if ((await rpc('app_ca_get', { p_id: id })).status === 'hoan_thanh') break; await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true }); }   // bước 103: nhận hàng ở trang Giao hàng đã tự xong phần nhận hàng
     return (await rpc('app_ca_get', { p_id: id })).status;
   });
   await step('Quản lý đối soát từng ảnh', async () => {
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=2'; await wait('.nh-recon', 900); await sleep(500);
-    const btn = $('.nh-recon'); const before = btn.innerText; btn.click(); await wait('dialog[open] .nh-rcd h2', 50); await sleep(300);
-    const first = txt('dialog[open] .nh-rcd .nh-head');
-    const w = $('dialog[open] .nh-wrong'); w.click(); const row = w.closest('.nh-rcl'); row.querySelector('.nh-fq').value = '9'; row.querySelector('.nh-fn').value = 'đếm lại thiếu 1'; row.querySelector('.nh-fsave').click(); await sleep(600);
-    for (let k = 0; k < 6 && $('dialog[open] [data-ok]'); k++) { $('dialog[open] [data-ok]').click(); await sleep(700); }
-    const end = txt('dialog[open] .nh-rcd .nh-head'); $('dialog[open] [data-x]')?.click(); await sleep(3000); await wait('.nh-recon', 80);
+    const inv = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.kind !== 'khong_hd');
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/giao-hang?ds=' + inv.id; await wait('.gh-pc', 1500); await sleep(800);
+    const before = txt('#gh-ds .gh-prog');
+    const fix = $$('.gh-dl').find((x) => x.querySelector('.gh-fix')); fix.querySelector('.gh-fix').click(); await wait('dialog[open] form', 50); await sleep(200);
+    const f = $$('dialog[open] form').pop(); f.q.value = '9'; f.nt.value = 'đếm lại thiếu 1'; f.requestSubmit(); await sleep(1500);
+    for (let k = 0; k < 6 && $('.gh-all, .gh-one'); k++) { $('.gh-all, .gh-one').click(); await sleep(1500); }
     const S = await rpc('app_nh_for_report', { p_report: id });
-    const after = $$('.nh-recon').map((b) => b.innerText).join(' / ');
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=2'; await wait('.nh-recon', 900); await sleep(800);
-    r.push(`ngay sau khi đóng: ${after} · mở lại trang: ${$$('.nh-recon').map((b) => b.innerText).join(' / ')}`);
-    return `${before} · mở: ${first} · cuối: ${end} → máy chủ: còn ${S.rows.map((x) => x.n_unchecked).join('/')} món chưa đối soát · nút: ${txt('.nh-recon')} · hạng mục Nhập hàng: ${$$('.rc-chip').map((c) => c.innerText).find((t) => /nhập hàng/i.test(t)) || '?'}`;
+    return `${before} → ${txt('#gh-ds .gh-prog')} → máy chủ: còn ${S.rows.filter((x) => x.kind !== 'khong_hd').map((x) => x.n_unchecked).join('/')} món chưa đối soát · kết quả: ${txt('#gh-ds .alert.ok').slice(0, 80)}`;
   });
   await step('Kế toán ghép hóa đơn vào phiếu không hóa đơn', async () => {
     const L = await rpc('app_nh_list', { p_month: day.slice(0, 7), p_branch: null }); const w = L.rows.find((x) => x.state === 'cho_hoa_don');

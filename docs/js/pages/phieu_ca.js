@@ -1,6 +1,7 @@
 // Phiếu chốt ca: nhân viên chốt ca (tự động lưu) → Hoàn thành → quản lý đối soát trên BẢN ĐỐI SOÁT riêng (phiếu gốc giữ nguyên)
 import { render as rerender, isManager, can } from '../app.js';
-import { mountDeliveries, NH_CSS } from '../nhap_hang.js';
+import { NH_CSS } from '../nhap_hang.js';
+import { reportSummary } from './giao_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { CV_CSS, mountCover } from '../nghi_thay.js';
@@ -877,12 +878,8 @@ function mount(R, ed, C0, ctx = {}) {
   }
 
   // ---------- Nhập hàng kho tổng (bước 31)
-  mountDeliveries($('#hd-box'), R0 || R, {
-    canRecv: !isDs && !!(R0 || R).can_edit && (P ? !!edH : true),
-    canPhoto: can('chot_ca') || can('doi_soat'),
-    canRecon: !!isDs && !!R.can_recon && (R0 || R).recon_status !== 'hoan_thanh' && (R0 || R).status === 'hoan_thanh',
-    onRecon: () => rerender(),
-  });
+  // bước 103: nhận hàng + đối soát hàng chuyển sang trang Quản lý ca › Giao hàng — ở đây chỉ tóm tắt + link
+  reportSummary($('#hd-box'), R0 || R, { recon: !!isDs });
   // ---------- Trang Đối soát ca: các bước + phân nhóm thu chi của ca
   if (isDs) {
     const key = 'ds_step:' + R.id;

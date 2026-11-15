@@ -2,7 +2,8 @@
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender } from './app.js';
 import { CV_CSS, mountCover } from './nghi_thay.js';
-import { mountDeliveries, NH_CSS } from './nhap_hang.js';
+import { NH_CSS } from './nhap_hang.js';
+import { reportSummary } from './pages/giao_hang.js';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, flash, html, showSaved, str } from './ui.js';
@@ -307,7 +308,7 @@ export async function renderNew(R0, P, SH) {
   function nhanHang() {
     const p = PT.nhan_hang || {};
     return html`<h3 style="margin:6px 0 0">Nhận hàng kho tổng</h3>
-      <div class="st-meta">${p.done_at ? `✓ ${p.done_name || ''} đã xong phần nhận hàng` : p.mine ? 'Bạn đang làm phần nhận hàng.' : p.claimed_by ? `${p.claimed_name} đang làm phần nhận hàng.` : 'Ca có hàng tới thì 1 người bấm nhận phần này rồi kiểm từng món.'}</div>
+      <div class="st-meta">${p.done_at ? `✓ ${p.done_name || ''} đã xong phần nhận hàng` : p.mine ? 'Bạn đang làm phần nhận hàng.' : p.claimed_by ? `${p.claimed_name} đang làm phần nhận hàng.` : 'Hàng kho tổng tới thì nhận ở trang Giao hàng (thẻ "Có hàng đang chuyển tới" ở trang Chốt ca): chụp nhóm hàng → chọn món → gửi.'}</div>
       ${!p.claimed_by && P.can_claim ? html`<button type="button" class="btn sm secondary" id="cm-nh-claim" style="align-self:flex-start">Tôi nhận phần nhận hàng</button>` : ''}
       ${p.mine && !p.done_at && !tienMine ? html`<button type="button" class="btn sm" id="cm-nh-done" style="align-self:flex-start">Xong phần nhận hàng</button>` : ''}
       ${NH_CSS}<div id="cm-hd" class="stack" style="gap:10px"><div class="st-meta">Đang tải hàng kho tổng…</div></div>`;
@@ -398,7 +399,7 @@ export async function renderNew(R0, P, SH) {
           const cvCtx = { onChange: () => mountCover(cvBox, R, cvCtx) };
           rpc('app_cv_get', { p_id: R.id }).then((C) => { if (C && C.can_classify && C.state !== 'khong_can') { cvBox.hidden = false; mountCover(cvBox, R, cvCtx); } }).catch(() => {});
         }
-        if ($('#cm-hd')) mountDeliveries($('#cm-hd'), R, { canRecv: !!PT.nhan_hang?.mine && !PT.nhan_hang?.done_at, canPhoto: true, canRecon: false, onRecon: () => rerender() });
+        if ($('#cm-hd')) reportSummary($('#cm-hd'), R);   // bước 103: nhận hàng ở trang Giao hàng
         $('#cm-claim')?.addEventListener('click', () => busy(async () => {
           await rpc('app_ca_part_claim', { p_id: R.id, p_part: 'tien', p_force: false });
           try { await rpc('app_ca_part_claim', { p_id: R.id, p_part: 'nhan_su', p_force: false }); }

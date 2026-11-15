@@ -551,6 +551,14 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Đầu trang luôn có 3 ô: tuần / tháng này, còn thiếu hồ sơ, **phải trả kho tổng cả tháng** của cơ sở. Danh sách "Hồ sơ nhận hàng còn thiếu" của cơ sở ở cuối trang.
 - Tab File ca Fabi: anh đã duyệt mẫu (1 cơ sở, bỏ Danh sách) nhưng **chưa làm** — chờ anh bảo.
 
+## 5r26. Giao hàng kho tổng — trang riêng nhận hàng + đối soát — CHỐT 15/11/2026, ĐỢT 1 ĐÃ LÀM (bước 103, chỉ giao diện)
+- Phạm vi (anh chốt): đặt hàng làm ở web riêng; web này chỉ **nhân viên nhận hàng + chụp ảnh → quản lý đối soát → kế toán kho kiểm soát → tính tiền cuối tháng**.
+- **Trang Quản lý ca › Giao hàng** (`#/quan-ly/giao-hang`, quyền chot_ca / doi_soat / ke_toan). Trang Chốt ca (trang chủ nhân viên) có thẻ nổi **"🚚 Có hàng kho tổng đang chuyển tới — NHẬN HÀNG"**; nhận lúc nào cũng được, không cần ở trong phiếu chốt ca (web tự dùng phiếu ca đang mở hôm nay của cơ sở, tự nhận + xong phần "nhận hàng").
+- **Nhân viên nhận (cách anh đề xuất):** chụp 1 nhóm hàng → chọn các món có trong ảnh (số tự điền = số phiếu; khác thì sửa, ô cam, **bắt buộc ghi chú**) → lặp tới hết món. Món kho quên giao: **"Không nhận được"** (số 0 + ghi chú). Món có số > 0 phải nằm trong ít nhất 1 ảnh; đủ hết mới hiện **GỬI BÁO NHẬN** (sửa được tới hết ngày). Ghi chú các món lệch gộp vào ghi chú nhận hàng.
+- **Nhận hàng KHÔNG có hoá đơn** giữ nguyên chức năng, làm trên trang này: ghi tên + số lượng → chụp ảnh chọn món như thường → lưu phiếu (chờ kế toán ghép hoá đơn).
+- **Quản lý đối soát theo từng ảnh** ngay trên trang (ảnh có món lệch hiện trước): **"✓ Đúng cả ảnh"** hoặc từng món **Đúng / Sai số…** (số đúng + ghi chú → báo nhân viên đếm sai). Bỏ khung nhận hàng khỏi **phiếu chốt ca** và **Đối soát ca** — chỉ còn dòng tóm tắt + link.
+- Đợt 2 (chưa làm): **Chờ giao bù** (thiếu → kho giao bù, bill giữ nguyên; tick "giao bù" khi tải phiếu xuất sau, không tính tiền lần 2; quá 7 ngày nhắc kế toán), **Chờ hoá đơn bổ sung** (thừa → tính thêm tiền, kế toán lên hoá đơn cho kho rồi ghép), **Tiền tháng**, gộp trang Kế toán › Hoá đơn giao hàng vào trang Giao hàng.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

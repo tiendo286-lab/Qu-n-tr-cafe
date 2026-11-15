@@ -3,7 +3,8 @@ import { isManager } from '../app.js';
 import { WEEKDAYS, addDays, vnToday, weekStart } from '../data.js';
 import { rpc } from '../sb.js';
 import { dmy, fmt, noKind, signed } from '../tien.js';
-import { $$, go, html, showSaved } from '../ui.js';
+import { $, $$, go, html, showSaved } from '../ui.js';
+import { homeCard } from './giao_hang.js';
 
 export const perm = 'chot_ca';
 
@@ -119,7 +120,7 @@ export async function render({ params }) {
     return html`<td><button type="button" class="ca-shift cw-c ${cls}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}">
       <span class="cw-st">${lb}</span>${money}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}</button></td>`;
   };
-  const body = html`${STYLE}${WSTYLE}${NB_CSS}${ND_CSS}
+  const body = html`${STYLE}${WSTYLE}${NB_CSS}${ND_CSS}<div id="gh-home"></div>
     <section class="card cw-bar">
       <nav class="branch-tabs" aria-label="Cơ sở">${branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav>
       <div class="cw-wk"><a class="btn sm secondary" href="${q({ tuan: addDays(wk, -7) })}" aria-label="Tuần trước">‹</a>
@@ -137,6 +138,7 @@ export async function render({ params }) {
     html: isManager() ? html`<div class="page-head"><div><h1>Chốt ca</h1><div class="sub">Xem theo tuần, từng cơ sở: nhân viên chốt ca, quản lý đối soát. Ô đỏ là ngày đã qua mà chưa có phiếu.</div></div></div><div class="stack" style="max-width:1200px;gap:12px">${body}</div>`
       : html`<div class="stack" style="gap:12px">${body}</div>`,
     mount() {
+      homeCard($('#gh-home'));   // bước 103
       $$('.cw-c[data-b]').forEach((b) => b.addEventListener('click', async () => {
         if (b.dataset.id) return go(`/ca/phieu?id=${b.dataset.id}`);
         const d = b.dataset.d;
