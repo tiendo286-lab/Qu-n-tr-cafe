@@ -56,7 +56,7 @@ export function judge(R0, R, fabi, kt) {
   const cCk = paid.filter((d) => d.collect_kind === 'chuyen_khoan').reduce((t, d) => t + Number(d.amount || 0), 0);
   const noOk = !fabi || !traNoFabi(R0.work_date) || (fTm === cTm && fCk === cCk);   // bước 96: từ 15/11 Fabi không ghi khách trả nợ
   add('cong_no', noOk, `Fabi ghi khách trả nợ TM ${fmt(fTm)} · CK ${fmt(fCk)}, phiếu ghi TM ${fmt(cTm)} · CK ${fmt(cCk)} — sửa "Khách đã trả" ở mục Công nợ, hoặc xem lại rồi bấm "Đã xem — duyệt"`, true);
-  add('nhap_hang', !!checks.nhap_hang, 'Còn hàng nhận chưa đối soát từng ảnh');
+  add('nhap_hang', !!checks.nhap_hang, 'Còn hàng kho tổng chưa đối soát — làm ở menu Hàng hoá › Đối soát');
   return out;
 }
 

@@ -10,6 +10,7 @@ export default async ({ sleep, out }) => {
   const { rpc } = await import('../js/sb.js'); const { xlsx } = await import('../js/excel.js');
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
   const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10); const dmyS = day.split('-').reverse().join('/');
+  const NH = async () => ({ rows: (await rpc('app_nh_list', { p_month: day.slice(0, 7), p_branch: 1 })).rows });   // bước 104: hàng không gắn phiếu ca
   const X = await xlsx();
   const aoa = [['Phiếu xuất điều chuyển'], ['Số đơn: XNBTEST001'], [`Ngày tạo: ${dmyS} 15:48`], ['Người tạo: ketoan@test.vn'], ['Trạng thái: Hoàn thành'],
     ['Kho xuất', 'Kho Tổng (KT0)'], ['Hình thức xuất', 'Bán nội bộ'], ['Thời gian xuất', `${dmyS} 15:48`], ['Kho nhập', 'Milano Coffee - Lê Hồng Phong (KHOTEST1)'], ['Tham chiếu', 'PO1, NNB1'],
@@ -22,13 +23,13 @@ export default async ({ sleep, out }) => {
   const img = new File([await new Promise((ok) => cv.toBlob(ok, 'image/png'))], 'hang.png', { type: 'image/png' });
 
   await step('Kế toán tải Excel', async () => {
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ke-toan/hoa-don?xem=thang&cn=1'; await wait('#nh-file', 1500); await sleep(300);   // bước 102: xem Tháng
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/hang-hoa/phieu-xuat?xem=thang&cn=1'; await wait('#nh-file', 1500); await sleep(300);   // bước 102: xem Tháng
     setFiles($('#nh-file'), [xfile]); await wait('dialog[open] form', 50); await sleep(300);
     const d = dlg(); const info = `${txt('h2', d)} · cơ sở chọn sẵn: ${$('[name=br]', d).selectedOptions[0]?.text} · ${txt('div > strong', d)}`;
     $('button[type=submit]', d).click(); await sleep(1500); await wait('.nh-list', 50);
     const res = `${info} → danh sách: ${txt('.nh-list tbody tr td:nth-child(3)')} · ô tổng: ${txt('.nhw-k.tot b')}`;
     // bước 102: xem Tuần của 1 cơ sở — thẻ lần giao ở cột ngày (máy tính) hoặc dải ngày (điện thoại)
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ke-toan/hoa-don?cn=1'; await wait('.nhw-bar', 1500); await sleep(800);
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/hang-hoa/phieu-xuat?cn=1'; await wait('.nhw-bar', 1500); await sleep(800);
     const lay = $('.nhw-grid') ? 'cột ngày' : $('.nhw-days') ? 'dải ngày' : 'KHÔNG RÕ';
     return `${res} || Tuần: ${lay} · cơ sở ${txt('.branch-tabs a.on')} · cách xem ${txt('.nhw-view a.on')} · ${txt('.nhw-nav strong')} · dải: ${$$('.nhw-d').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · thẻ: ${$$('.nhw-day:not([hidden]) .nhw-c, .nhw-grid .nhw-c').map((x) => x.innerText.replace(/\s+/g, ' ').slice(0, 60)).join(' / ')} · ô: ${$$('.nhw-k').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')}`;
   });
@@ -39,10 +40,9 @@ export default async ({ sleep, out }) => {
     id = await rpc('app_ca_open', { p_branch: 1, p_date: day, p_shift: o.shift });
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'tien', p_force: false });
     await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_su', p_force: false });
-    await rpc('app_ca_part_claim', { p_id: id, p_part: 'nhan_hang', p_force: false });
-    // Bước 103: nhận hàng ở trang Quản lý ca › Giao hàng — chụp ảnh → chọn món trong ảnh → gửi
-    const inv = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.state === 'dang_chuyen');
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/giao-hang?nhan=' + inv.id; await wait('#gh-shot', 1500); await sleep(500);
+    // Bước 104: nhận hàng ở menu Hàng hoá › Nhận hàng (không gắn phiếu ca) — chụp ảnh → chọn món trong ảnh → gửi
+    const inv = (await NH()).rows.find((x) => x.state === 'dang_chuyen');
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/hang-hoa/nhan?nhan=' + inv.id; await wait('#gh-shot', 1500); await sleep(500);
     const head = txt('#gh-recv h1');
     setFiles($('#gh-shot'), [img]); await wait('.gh-pickc', 80); await sleep(300);
     $$('.gh-sel .gh-c').forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
@@ -50,23 +50,23 @@ export default async ({ sleep, out }) => {
     const nt = $$('.gh-note').find((n) => !n.hidden); if (nt) { nt.querySelector('input').value = 'thiếu 1 chai'; }
     $('#gh-ps').click(); await sleep(2500); await wait('#gh-send', 80);
     $('#gh-send').click(); await sleep(3000);
-    const S1 = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.id === inv.id);
+    const S1 = (await NH()).rows.find((x) => x.id === inv.id);
     return `${head} → sau gửi: ${S1.state} · lệch ${S1.n_mismatch} · ${S1.photos.length} ảnh`;
   });
   await step('Chụp ảnh + gắn món', async () => {
-    const S1 = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.kind !== 'khong_hd');
+    const S1 = (await NH()).rows.find((x) => x.kind !== 'khong_hd');
     const RR = await rpc('app_ca_get', { p_id: id }); const PP = await rpc('app_ca_parts', { p_id: id }).catch(() => null);
     return `ảnh gắn ${S1.photos.map((p) => p.lines.length).join('+')} món · thiếu ảnh ${S1.n_unphoto} món · phiếu ${RR.status} · phần ${JSON.stringify(PP?.parts || PP).slice(0, 200)}`;
   });
   await step('Nhận hàng KHÔNG có hóa đơn', async () => {
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/giao-hang'; await wait('.gh-nohd', 1500); await sleep(300);
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/hang-hoa/nhan?cn=1'; await wait('.gh-nohd', 1500); await sleep(300);
     $('.gh-nohd').click(); await wait('dialog[open] .gh-nn', 80); await sleep(300);
     const row = $('dialog[open] .gh-nr'); row.querySelector('.gh-nn').value = 'Đá viên'; row.querySelector('.gh-nq').value = '3';
     $$('dialog[open] form').pop().requestSubmit(); await sleep(2500); await wait('#gh-shot', 300); await sleep(300);
     setFiles($('#gh-shot'), [img]); await wait('.gh-pickc', 80); await sleep(300);
     $$('.gh-sel .gh-c').forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }); $('#gh-ps').click(); await sleep(2500); await wait('#gh-send', 80);
     const btn = txt('#gh-send'); $('#gh-send').click(); await sleep(2500);
-    const rows = (await rpc('app_nh_for_report', { p_report: id })).rows;
+    const rows = (await NH()).rows;
     const R5 = await rpc('app_ca_get', { p_id: id });
     return `nút ${btn} · ${rows.length} lần giao · không HĐ: ${rows.filter((x) => x.kind === 'khong_hd').map((x) => x.state + ' ' + x.photos.length + ' ảnh').join(', ')} · phiếu ${R5.status}`;
   });
@@ -76,23 +76,23 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_save', { p_id: id, p: { rev_end: day + ' 23:00', total_revenue: 1000000, pos_cash: 600000, pos_transfer: 400000, reported_transfer: 400000, cash_counted: 1600000, opening_cash: 1000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: 0, diff_note: null, cups: 10,
       moves: [], staff: (R.staff || []).map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:30' })), handover: [], goods: [], debts: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
-    for (const k of ['tien', 'nhan_su', 'nhan_hang']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }).catch(() => {}); for (const k of ['tien', 'nhan_su', 'nhan_hang']) { if ((await rpc('app_ca_get', { p_id: id })).status === 'hoan_thanh') break; await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true }); }   // bước 103: nhận hàng ở trang Giao hàng đã tự xong phần nhận hàng
+    for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false }).catch(() => {}); for (const k of ['tien', 'nhan_su']) { if ((await rpc('app_ca_get', { p_id: id })).status === 'hoan_thanh') break; await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true }); }   // bước 104: phiếu ca không còn phần nhận hàng
     return (await rpc('app_ca_get', { p_id: id })).status;
   });
   await step('Quản lý đối soát từng ảnh', async () => {
-    const inv = (await rpc('app_nh_for_report', { p_report: id })).rows.find((x) => x.kind !== 'khong_hd');
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/giao-hang?ds=' + inv.id; await wait('.gh-pc', 1500); await sleep(800);
+    const inv = (await NH()).rows.find((x) => x.kind !== 'khong_hd');
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/hang-hoa/doi-soat?ds=' + inv.id; await wait('.gh-pc', 1500); await sleep(800);
     const before = txt('#gh-ds .gh-prog');
     const fix = $$('.gh-dl').find((x) => x.querySelector('.gh-fix')); fix.querySelector('.gh-fix').click(); await wait('dialog[open] form', 50); await sleep(200);
     const f = $$('dialog[open] form').pop(); f.q.value = '9'; f.nt.value = 'đếm lại thiếu 1'; f.requestSubmit(); await sleep(1500);
     for (let k = 0; k < 6 && $('.gh-all, .gh-one'); k++) { $('.gh-all, .gh-one').click(); await sleep(1500); }
-    const S = await rpc('app_nh_for_report', { p_report: id });
+    const S = await NH();
     return `${before} → ${txt('#gh-ds .gh-prog')} → máy chủ: còn ${S.rows.filter((x) => x.kind !== 'khong_hd').map((x) => x.n_unchecked).join('/')} món chưa đối soát · kết quả: ${txt('#gh-ds .alert.ok').slice(0, 80)}`;
   });
   await step('Kế toán ghép hóa đơn vào phiếu không hóa đơn', async () => {
     const L = await rpc('app_nh_list', { p_month: day.slice(0, 7), p_branch: null }); const w = L.rows.find((x) => x.state === 'cho_hoa_don');
     await rpc('app_nh_create', { p: { branch_id: 1, doc_no: 'XNBTEST002', ship_at: day + ' 16:00', total: 30000, merge_id: w.id, lines: [{ code: 'T009', name: 'Đá viên', unit: 'Bao', qty: 3, price: 10000, amount: 30000 }] } });
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/hoa-don?xem=thang&cn=1'; await wait('.nh-list', 200); await sleep(400);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/hang-hoa/phieu-xuat?xem=thang&cn=1'; await wait('.nh-list', 200); await sleep(400);
     $$('.nh-view')[0].click(); await wait('dialog[open] .nh-t', 30); const v = txt('dialog[open] .nh-head'); dlg().close();
     return `${$$('.nh-list tbody tr').length} dòng · xem: ${v.slice(0, 120)}`;
   });

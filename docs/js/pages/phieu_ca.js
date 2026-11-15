@@ -1,7 +1,6 @@
 // Phiếu chốt ca: nhân viên chốt ca (tự động lưu) → Hoàn thành → quản lý đối soát trên BẢN ĐỐI SOÁT riêng (phiếu gốc giữ nguyên)
 import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
-import { reportSummary } from './giao_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { CV_CSS, mountCover } from '../nghi_thay.js';
@@ -520,8 +519,10 @@ export async function render({ params }) {
 
   // G. Nhập hàng từ kho tổng (bước 31): hóa đơn kế toán gửi → nhân viên kiểm từng món + ảnh; quản lý đối soát từng ảnh
   const legacyGoods = ['du', 'thieu'].includes(R.goods_status) || goodsPhotos.length > 0 || (R.goods || []).length > 0;
-  const secGoods = sec('7. Nhập hàng từ kho tổng', ['nhap_hang'], html`${NH_CSS}
-    <div id="hd-box" class="stack" style="gap:10px"><div class="st-meta">Đang tải hàng kho tổng…</div></div>
+  // bước 104: nhận hàng / đối soát hàng tách hẳn sang menu Hàng hoá — phiếu ca chỉ còn nhắc (ca cũ có hàng chưa đối soát) + ghi nhận kiểu cũ
+  const goodsOpen = isDs && !(R.checks || {}).nhap_hang && !(R.results || {}).nhap_hang;
+  const secGoods = !legacyGoods && !goodsOpen ? html`<input type="hidden" id="goods-keep" value="${R.goods_status || ''}">` : sec('7. Nhập hàng từ kho tổng', ['nhap_hang'], html`${NH_CSS}
+    ${goodsOpen ? html`<div class="alert warn" style="margin:0">Ca này còn hàng kho tổng chưa đối soát — làm ở <a href="#/hang-hoa/doi-soat?cn=${R.branch_id}">Hàng hoá › Đối soát ›</a></div>` : ''}
     <input type="hidden" id="goods-keep" value="${R.goods_status || ''}">
     ${legacyGoods ? html`<details class="pc-legacy"><summary>Ghi nhận nhập hàng kiểu cũ (trước 11/11/2026)</summary>
       <div class="stack" style="gap:8px;margin-top:8px"><div>Kết quả: <strong>${GOODS_LABEL[R.goods_status] || '—'}</strong></div>
@@ -647,7 +648,7 @@ const STEP_PART = ['tien', 'tien', 'nhan_su'];
 // 11/11/2026: nhân sự trước (biết đủ người để chia tiền âm). Bước 78 (13/11): ① Phần việc (nhân sự & bàn giao, nhận hàng) → ② Phần tiền
 // Bước 86 (anh Tiến 14/11): đối soát đi từng bước như phiếu chốt ca — mỗi bước "Duyệt & tiếp"; bước cuối xử lý lệch & hoàn thành
 // bước 87: bước "Nghỉ & ca bổ sung (x2)" (QL tổng phân loại, Chủ duyệt) chỉ hiện khi ca có người nghỉ / làm hộ
-const DS_STEPS = ['Ai làm ca', 'Nghỉ & ca bổ sung (x2)', 'Bàn giao & nhận hàng', 'Phiếu Fabi', 'Khách nợ', 'Thu chi', 'Tiền thực nhận', 'Xử lý lệch & hoàn thành'];
+const DS_STEPS = ['Ai làm ca', 'Nghỉ & ca bổ sung (x2)', 'Bàn giao', 'Phiếu Fabi', 'Khách nợ', 'Thu chi', 'Tiền thực nhận', 'Xử lý lệch & hoàn thành'];
 const DS_ITEMS = [['nhan_su'], [], ['ban_giao', 'nhap_hang'], ['thoi_gian', 'doanh_thu'], ['cong_no'], ['thu_chi'], ['tien_mat', 'chuyen_khoan']];
 const DS_PART = ['① Phần việc', '① Phần việc', '① Phần việc', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền', '② Phần tiền'];
 const DS_X2 = 1;
@@ -877,9 +878,6 @@ function mount(R, ed, C0, ctx = {}) {
     show(0);
   }
 
-  // ---------- Nhập hàng kho tổng (bước 31)
-  // bước 103: nhận hàng + đối soát hàng chuyển sang trang Quản lý ca › Giao hàng — ở đây chỉ tóm tắt + link
-  reportSummary($('#hd-box'), R0 || R, { recon: !!isDs });
   // ---------- Trang Đối soát ca: các bước + phân nhóm thu chi của ca
   if (isDs) {
     const key = 'ds_step:' + R.id;

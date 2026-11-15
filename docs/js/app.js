@@ -7,12 +7,15 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
   ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', ['doi_soat', 'ke_toan']]], null, 'Vận hành'],   // bước 62: trang chủ theo vai trò
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Giao hàng', '/quan-ly/giao-hang', ['chot_ca', 'doi_soat', 'ke_toan']], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
+  // bước 104: Hàng hoá kho tổng tách hẳn khỏi chốt ca — nhận hàng · đối soát · phiếu xuất (kế toán tải) · kiểm soát (giao bù, hoá đơn bổ sung, tiền tháng)
+  ['Hàng hoá', [['Nhận hàng', '/hang-hoa/nhan', ['chot_ca', 'doi_soat', 'ke_toan']], ['Đối soát', '/hang-hoa/doi-soat', 'doi_soat'], ['Phiếu xuất', '/hang-hoa/phieu-xuat', ['ke_toan', 'doi_soat']],
+    ['Kiểm soát', '/hang-hoa/kiem-soat', ['ke_toan', 'doi_soat']]], 'cn', 'Vận hành'],
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
   ['Công việc', [['Công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Việc của tôi', '/viec', 'nhan_viec']], null, 'Vận hành'],
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
-  ['Kế toán', [['Hóa đơn giao hàng', '/ke-toan/hoa-don', ['ke_toan', 'doi_soat']], ['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', 'ke_toan']], null, 'Tiền'],
+  ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', 'ke_toan']], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
   ['Cài đặt', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
@@ -59,7 +62,6 @@ const PAGES = {
   '/quan-ly/phan-quyen': 'phan_quyen',
   '/quan-ly/du-lieu': 'du_lieu',
   '/quan-ly/log': 'he_thong',
-  '/ke-toan/hoa-don': 'ke_toan_hoa_don',
   '/ke-toan/chuyen-khoan': 'ke_toan_ck',
   '/ke-toan/fabi': 'ke_toan_fabi',
   '/hom-nay': 'hom_nay',
@@ -70,7 +72,10 @@ const PAGES = {
   '/quan-ly/thu-chi': 'thu_chi',
   '/quan-ly/am-tien': 'am_tien',   // đường dẫn cũ — vẫn mở được
   '/quan-ly/lech-tien': 'am_tien',
-  '/quan-ly/giao-hang': 'giao_hang',   // bước 103: giao hàng kho tổng (nhận hàng + đối soát)   // bước 97: tab đổi tên "Lệch tiền ca"
+  '/hang-hoa/nhan': 'giao_hang',   // bước 104: Hàng hoá (đường dẫn cũ /quan-ly/giao-hang, /ke-toan/hoa-don tự chuyển sang)
+  '/hang-hoa/doi-soat': 'giao_hang',
+  '/hang-hoa/phieu-xuat': 'ke_toan_hoa_don',
+  '/hang-hoa/kiem-soat': 'hang_kiem_soat',
   '/quan-ly/cong-no': 'cong_no',   // bước 95
   '/cua-toi/khoan-am': 'khoan_am_toi',
   '/cua-toi/danh-gia': 'danh_gia_toi',
@@ -118,7 +123,7 @@ function parseHash() {
 const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p))) && !(href === '/viec' && state.me?.role === 'chu'); // Chủ là người giao việc
 const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
-const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka });
+const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka, '/hang-hoa/nhan': state.ghNhan, '/hang-hoa/doi-soat': state.ghDs });
 
 // Trang mở đầu cho quản lý khi Tổng quan đang tạm ẩn: tab đầu tiên mình có quyền
 function homePath() {
@@ -187,8 +192,8 @@ function layout(path, body, flashMsg) {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
         ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
       ${weekStrip(path)}</header>
-    <div class="content">${alert}${body}
-      <div class="m-foot"><a href="#/cua-toi/khoan-am">Khoản âm${state.ka ? html` <span class="badge">${state.ka}</span>` : ''}</a><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/cua-toi/cong">Công của tôi</a><a href="#/cua-toi/danh-gia">Điểm đánh giá</a>${can('ke_toan') ? html`<a href="#/ke-toan/hoa-don">Kế toán</a>` : ''}<a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
+    <div class="content">${alert}${state.ghNhan && can('chot_ca') && !path.startsWith('/hang-hoa') ? html`<a class="gh-banner" href="#/hang-hoa/nhan">🚚 Có ${state.ghNhan} lần hàng kho tổng đang tới — <b>NHẬN HÀNG ›</b></a>` : ''}${body}
+      <div class="m-foot"><a href="#/cua-toi/khoan-am">Khoản âm${state.ka ? html` <span class="badge">${state.ka}</span>` : ''}</a><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/cua-toi/cong">Công của tôi</a><a href="#/cua-toi/danh-gia">Điểm đánh giá</a>${can('chot_ca') ? html`<a href="#/hang-hoa/nhan">Nhận hàng${state.ghNhan ? html` <span class="badge">${state.ghNhan}</span>` : ''}</a>` : ''}${can('ke_toan') ? html`<a href="#/hang-hoa/phieu-xuat">Kế toán</a>` : ''}<a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
     </div>
     <nav class="tabbar pillbar" aria-label="Menu nhân viên">
       <div class="tb-side">
@@ -252,6 +257,15 @@ async function refreshBadges() {
     try { sessionStorage.setItem('nh_tick', vnToday()); } catch (_) { /* bỏ qua */ }
     rpc('app_nh_tick').catch(() => {});
   }
+  // bước 104: số lần giao hàng kho tổng đang chờ nhận / chờ đối soát (nhân viên: chỉ cơ sở của mình)
+  if (can('chot_ca') || can('doi_soat')) {
+    try {
+      const G = await rpc('app_gh_inbox', { p_branch: null }); const mine = new Set(G.my_branches || []);
+      const rows = (G.rows || []).filter((d) => isManager() || !mine.size || mine.has(d.branch_id));
+      state.ghNhan = rows.filter((d) => d.state === 'dang_chuyen').length;
+      state.ghDs = can('doi_soat') ? rows.filter((d) => d.state !== 'dang_chuyen').length : 0;
+    } catch (_) { /* bỏ qua */ }
+  }
   if (state.me.employee_id) { try { state.ka = (await rpc('app_ka_mine')).filter((k) => (k.status === 'chua_xu_ly' || k.auto_tru) && !k.seen_at).length; } catch (_) { /* bỏ qua */ } }
   if (can('nhan_viec') || can('hop_giao_viec')) {
     try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
@@ -279,6 +293,9 @@ export async function render() {
   // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
   if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());
   if (path === '/quan-ly/bao-cao-ca') return go('/quan-ly/thu-chi');
+  // bước 104: giao hàng kho tổng chuyển sang menu Hàng hoá (giữ link cũ trong thông báo)
+  if (path === '/quan-ly/giao-hang') return go((params.nhan ? '/hang-hoa/nhan' : params.ds || params.xem || can('doi_soat') ? '/hang-hoa/doi-soat' : '/hang-hoa/nhan') + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
+  if (path === '/ke-toan/hoa-don') return go('/hang-hoa/phieu-xuat' + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
   if (cleanup) { try { cleanup(); } catch (_) { /* bỏ qua */ } cleanup = null; }
   if (me) await refreshBadges();
 

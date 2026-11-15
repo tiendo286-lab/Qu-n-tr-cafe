@@ -2,8 +2,6 @@
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender } from './app.js';
 import { CV_CSS, mountCover } from './nghi_thay.js';
-import { NH_CSS } from './nhap_hang.js';
-import { reportSummary } from './pages/giao_hang.js';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, flash, html, showSaved, str } from './ui.js';
@@ -12,7 +10,7 @@ const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
 // Nội dung từng bước theo mã (B[mã], stepError); thứ tự hiện ra theo ORDER — ghi hết các khoản tiền (Thu chi) TRƯỚC khi đối chiếu
 // chuyển khoản hotline, để không phải lùi lại khi thu chi / khách trả tiền mượn bằng chuyển khoản làm lệch (anh Tiến chốt 12/11/2026)
-const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ trong ca', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao & nhận hàng', 'Kết quả tiền & gửi phiếu'];
+const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ trong ca', 'Chuyển khoản hotline', 'Thu chi trong ca', 'Số cốc', 'Kết quả tiền', 'Bàn giao', 'Kết quả tiền & gửi phiếu'];
 // Bước 77 (anh Tiến chốt 13/11): phiếu chia 2 phần — ① PHẦN VIỆC (Ai làm ca · Số cốc · Bàn giao & nhận hàng) làm trước,
 // ② PHẦN TIỀN (Fabi · Khách nợ · Thu chi · Chuyển khoản · Kết quả tiền · Kiểm tra) mở khi xong phần việc. Nhận hàng không chặn phần tiền.
 const ORDER_ALL = [0, 1, 6, 8, 2, 3, 5, 4, 9];   // bước 84: gộp Kết quả tiền (7) vào bước cuối (9)   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
@@ -204,9 +202,9 @@ export async function renderNew(R0, P, SH) {
       <div class="cm-rc cm-rt"><div class="kv">${row('Doanh thu NET (Phiếu Fabi)', fmt(V.f.total_revenue))}${row(`= Tiền mặt ${fmt(V.f.pos_cash)} + CK ${fmt(V.f.pos_transfer)} + Nợ HĐ ${fmt(V.f.pos_debt)}`, '', 'cm-sub')}</div></div></div>`;
   }
   const B = {
-    0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Người khác trong ca chỉ giúp phần nhận hàng.</div>
+    0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Hàng kho tổng tới thì nhận ở menu <b>Hàng hoá › Nhận hàng</b> (không cần phiếu chốt ca).</div>
       <div class="kv"><div>Cơ sở</div><div>${R.branch_code || ''} ${R.branch_name || ''}</div><div>Ca</div><div>${R.shift} · ${dmy(R.work_date)}</div></div>
-      ${tienOther ? html`<div class="alert info"><strong>${PT.tien.claimed_name}</strong> đang chốt ca này (nhận lúc ${dt(PT.tien.claimed_at)}). Bạn giúp được phần nhận hàng ở dưới.</div>
+      ${tienOther ? html`<div class="alert info"><strong>${PT.tien.claimed_name}</strong> đang chốt ca này (nhận lúc ${dt(PT.tien.claimed_at)}). Hàng kho tổng tới thì nhận ở menu Hàng hoá › Nhận hàng.</div>
         ${P.can_claim ? html`<button type="button" class="btn secondary" id="cm-force">Nhận lại việc chốt ca này</button>` : ''}`
         : html`<button type="button" class="btn" id="cm-claim">Tôi chốt ca này</button>`}`,
     1: () => html`<div class="st-meta">Danh sách lấy sẵn từ lịch. Chỉ sửa chỗ khác thực tế.</div>
@@ -305,13 +303,12 @@ export async function renderNew(R0, P, SH) {
         ${CV_CSS}<section class="stack" id="cm-cv" style="gap:8px" hidden></section>`;
     },
   };
+  // bước 104: nhận hàng đã tách hẳn sang menu Hàng hoá — chỉ còn nút cho phiếu cũ có người đã nhận phần "nhận hàng"
   function nhanHang() {
     const p = PT.nhan_hang || {};
-    return html`<h3 style="margin:6px 0 0">Nhận hàng kho tổng</h3>
-      <div class="st-meta">${p.done_at ? `✓ ${p.done_name || ''} đã xong phần nhận hàng` : p.mine ? 'Bạn đang làm phần nhận hàng.' : p.claimed_by ? `${p.claimed_name} đang làm phần nhận hàng.` : 'Hàng kho tổng tới thì nhận ở trang Giao hàng (thẻ "Có hàng đang chuyển tới" ở trang Chốt ca): chụp nhóm hàng → chọn món → gửi.'}</div>
-      ${!p.claimed_by && P.can_claim ? html`<button type="button" class="btn sm secondary" id="cm-nh-claim" style="align-self:flex-start">Tôi nhận phần nhận hàng</button>` : ''}
-      ${p.mine && !p.done_at && !tienMine ? html`<button type="button" class="btn sm" id="cm-nh-done" style="align-self:flex-start">Xong phần nhận hàng</button>` : ''}
-      ${NH_CSS}<div id="cm-hd" class="stack" style="gap:10px"><div class="st-meta">Đang tải hàng kho tổng…</div></div>`;
+    if (!p.claimed_by || p.done_at) return '';
+    return html`<div class="st-meta" style="margin-top:6px">Phần nhận hàng (phiếu cũ): ${p.mine ? 'bạn' : p.claimed_name} đã nhận phần này. Nhận hàng kho tổng giờ làm ở menu Hàng hoá.</div>
+      ${p.mine && !tienMine ? html`<button type="button" class="btn sm" id="cm-nh-done" style="align-self:flex-start">Xong phần nhận hàng</button>` : ''}`;
   }
   function stepError() {
     const c = money();
@@ -399,7 +396,6 @@ export async function renderNew(R0, P, SH) {
           const cvCtx = { onChange: () => mountCover(cvBox, R, cvCtx) };
           rpc('app_cv_get', { p_id: R.id }).then((C) => { if (C && C.can_classify && C.state !== 'khong_can') { cvBox.hidden = false; mountCover(cvBox, R, cvCtx); } }).catch(() => {});
         }
-        if ($('#cm-hd')) reportSummary($('#cm-hd'), R);   // bước 103: nhận hàng ở trang Giao hàng
         $('#cm-claim')?.addEventListener('click', () => busy(async () => {
           await rpc('app_ca_part_claim', { p_id: R.id, p_part: 'tien', p_force: false });
           try { await rpc('app_ca_part_claim', { p_id: R.id, p_part: 'nhan_su', p_force: false }); }
@@ -413,7 +409,6 @@ export async function renderNew(R0, P, SH) {
           try { sessionStorage.setItem(key, JSON.stringify({ step: 1 })); } catch (_) { /* bỏ qua */ }
           flash('Bạn đã nhận lại việc chốt ca này.'); rerender();
         }));
-        $('#cm-nh-claim')?.addEventListener('click', () => busy(async () => { await save(); await rpc('app_ca_part_claim', { p_id: R.id, p_part: 'nhan_hang', p_force: false }); rerender(); }));
         $('#cm-nh-done')?.addEventListener('click', () => busy(async () => { const r = await rpc('app_ca_part_done', { p_id: R.id, p_part: 'nhan_hang', p_on: true }); flash(r.completed ? 'Phiếu đã hoàn thành.' : 'Đã xong phần nhận hàng.'); rerender(); }));
         $('#cm-undo')?.addEventListener('click', () => busy(async () => {
           await rpc('app_ca_part_done', { p_id: R.id, p_part: 'tien', p_on: false }); await rpc('app_ca_part_done', { p_id: R.id, p_part: 'nhan_su', p_on: false }).catch(() => {});

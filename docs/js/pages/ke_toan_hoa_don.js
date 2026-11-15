@@ -1,4 +1,4 @@
-// Kế toán · Hóa đơn giao hàng từ kho tổng (bước 31): tải file Excel phiếu xuất → ĐANG CHUYỂN; theo dõi nhận hàng, hồ sơ còn thiếu, tổng phải trả kho tổng
+// Hàng hoá › Phiếu xuất (trước là Kế toán › Hóa đơn giao hàng, bước 31; chuyển menu ở bước 104): tải file Excel phiếu xuất → ĐANG CHUYỂN; theo dõi nhận hàng, hồ sơ còn thiếu, tổng phải trả kho tổng
 import { render as rerender } from '../app.js';
 import { catalog, vnToday, addDays } from '../data.js';
 import { rpc, sb } from '../sb.js';
@@ -88,7 +88,7 @@ export async function render({ params }) {
   const open = (D.open || []).filter((o) => !br || o.branch_id === br);
   const all = [...rowsAll, ...open.filter((o) => !seen.has(o.id))];
   const byId = (id) => all.find((x) => x.id === Number(id));
-  const q = (o) => '#/ke-toan/hoa-don?' + Object.entries({ xem: view, cn: br, ngay: day, thang: view === 'thang' ? month : '', tt: view === 'thang' ? st : '', ...o })
+  const q = (o) => '#/hang-hoa/phieu-xuat?' + Object.entries({ xem: view, cn: br, ngay: day, thang: view === 'thang' ? month : '', tt: view === 'thang' ? st : '', ...o })
     .filter(([, v]) => v !== '' && v !== null && v !== undefined).map(([k, v]) => `${k}=${v}`).join('&');
   const shiftMonth = (k) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7); };
   const monthTotal = Number(((D.by_branch || []).find((b) => b.branch_id === br || b.code === bcode(BR)) || {}).total || 0);
@@ -143,9 +143,9 @@ export async function render({ params }) {
       ${D.money ? html`<div class="nhw-k tot"><span>Phải trả kho tổng tháng ${Number(month.slice(5))} (${bcode(BR)})</span><b>${fmt(monthTotal)}đ</b><small>thanh toán 1 lần cuối tháng</small></div>` : ''}</div>`;
 
   return {
-    title: 'Hóa đơn giao hàng',
-    html: html`${HD_CSS}${NH_CSS}${NH_PAGE_CSS}<div class="page-head"><div><h1>Hóa đơn giao hàng (kho tổng)</h1>
-        <div class="sub">${mob ? 'Kế toán tải phiếu xuất trước khi giao → nhân viên kiểm hàng trong phiếu chốt ca → quản lý đối soát.' : html`Kế toán tải file Excel phiếu xuất cho từng cơ sở <strong>trước khi giao</strong> → hàng ở trạng thái ĐANG CHUYỂN. Nhân viên kiểm từng món + chụp ảnh trong phiếu chốt ca; quản lý đối soát trong Đối soát ca.`}</div></div>
+    title: 'Phiếu xuất kho tổng',
+    html: html`${HD_CSS}${NH_CSS}${NH_PAGE_CSS}<div class="page-head"><div><h1>Phiếu xuất kho tổng</h1>
+        <div class="sub">${mob ? 'Kế toán tải phiếu xuất trước khi giao → nhân viên nhận hàng ở Hàng hoá › Nhận hàng → quản lý đối soát.' : html`Kế toán tải file Excel phiếu xuất cho từng cơ sở <strong>trước khi giao</strong> → hàng ở trạng thái ĐANG CHUYỂN. Nhân viên nhận hàng (chụp ảnh → chọn món) ở <strong>Hàng hoá › Nhận hàng</strong>; quản lý đối soát ở <strong>Hàng hoá › Đối soát</strong>; món thiếu / thừa theo dõi ở <strong>Kiểm soát</strong>.`}</div></div>
         <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>
           ${D.kt ? html`<label class="btn">+ Tải phiếu xuất (Excel)<input type="file" id="nh-file" accept=".xlsx,.xls" hidden></label>` : ''}</div></div>
       <section class="card nhw-bar">

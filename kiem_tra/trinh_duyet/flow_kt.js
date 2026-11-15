@@ -19,7 +19,7 @@ export default async ({ sleep, out }) => {
   }
   const { rpc } = await import('../js/sb.js');
   let rid;
-  await step('Menu Kế toán', async () => { await go('#/ke-toan/hoa-don', '#hd-new'); return txt('.nav').includes('Kế toán') + ' · tab: ' + txt('.hub-tabs'); });
+  await step('Menu Kế toán', async () => { await go('#/hang-hoa/phieu-xuat', '#hd-new'); return txt('.nav').includes('Kế toán') + ' · tab: ' + txt('.hub-tabs'); });
   // 13/11/2026: bỏ 3 bước hoá đơn giao hàng kiểu cũ (giao diện hoá đơn đã đổi ở bước 31 — xem flow_nh.js); tạo phiếu ca trực tiếp cho các bước số dư
   await step('Tạo phiếu ca hôm nay (cơ sở đầu, ca đầu)', async () => {
     const ov = await rpc('app_ca_overview', { p_date: day });

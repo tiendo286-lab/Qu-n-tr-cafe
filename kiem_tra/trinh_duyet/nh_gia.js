@@ -1,6 +1,6 @@
 // Giả lập các hàm app_nh_* (Nhập hàng kho tổng, bước 31) trong bộ nhớ — chỉ để chạy thử giao diện
 export function makeNh(T, me) {
-  for (const t of ['delivery_invoices', 'delivery_lines', 'delivery_receipt_photos', 'delivery_photo_lines', 'delivery_invoice_files', 'nh_kho_map']) T[t] = T[t] || [];
+  for (const t of ['delivery_invoices', 'delivery_lines', 'delivery_receipt_photos', 'delivery_photo_lines', 'delivery_invoice_files', 'nh_kho_map', 'delivery_followups']) T[t] = T[t] || [];
   const now = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
   const today = () => now().slice(0, 10);
   const nid = (t) => Math.max(0, ...T[t].map((x) => x.id || 0)) + 1;
@@ -39,15 +39,44 @@ export function makeNh(T, me) {
     if (i.recon_at) throw new Error('Quản lý đã đối soát hàng này nên không sửa được nữa.');
     if (i.received_date !== today()) throw new Error('Chỉ sửa được báo cáo nhận hàng trong ngày nhận.');
   };
+  // bước 104: đối soát xong → món thiếu "chờ giao bù", món thừa "chờ hoá đơn bổ sung"; bỏ đối soát → xoá mục còn chờ
+  const followups = (inv) => {
+    const i = T.delivery_invoices.find((x) => x.id === inv);
+    if (!i.recon_at) { T.delivery_followups = T.delivery_followups.filter((f) => !(f.invoice_id === inv && f.status === 'cho')); return; }
+    if (i.kind === 'khong_hd' && !i.doc_no) return;
+    lines(inv).filter((l) => l.qty_invoice != null && !l.bu_followup_id).forEach((l) => {
+      const q = l.qty_checked ?? l.qty_received ?? 0;
+      if (eq(q, l.qty_invoice) || T.delivery_followups.some((f) => f.line_id === l.id && f.status !== 'huy')) return;
+      const qty = Math.abs(l.qty_invoice - q);
+      T.delivery_followups.push({ id: nid('delivery_followups'), branch_id: i.branch_id, invoice_id: i.id, line_id: l.id, kind: q < l.qty_invoice ? 'bu' : 'hd_bs', name: l.name, unit: l.unit, qty, price: l.price, amount: Math.round(qty * (l.price || 0)), status: 'cho', created_at: now() });
+    });
+  };
   const afterCheck = (inv) => {
     const i = T.delivery_invoices.find((x) => x.id === inv);
-    if (lines(inv).some((l) => !l.checked_at)) { i.recon_at = null; i.recon_by = null; T.shift_report_checks = (T.shift_report_checks || []).filter((c) => !(c.report_id === i.received_report_id && c.item === 'nhap_hang')); return; }
+    if (lines(inv).some((l) => !l.checked_at)) { i.recon_at = null; i.recon_by = null; T.shift_report_checks = (T.shift_report_checks || []).filter((c) => !(c.report_id === i.received_report_id && c.item === 'nhap_hang')); followups(inv); return; }
     if (!i.recon_at) { i.recon_at = now(); i.recon_by = me.account_id; }
+    followups(inv);
     const rid = i.received_report_id;
     if (rid && !T.delivery_invoices.filter((d) => d.received_report_id === rid).some((d) => lines(d.id).some((l) => !l.checked_at))) {
       T.shift_report_checks = T.shift_report_checks || [];
       if (!T.shift_report_checks.some((c) => c.report_id === rid && c.item === 'nhap_hang')) T.shift_report_checks.push({ report_id: rid, item: 'nhap_hang', checked_by: me.account_id, checked_at: now() });
     }
+  };
+  const ghCan = (i) => {
+    if (!i) throw new Error('Không tìm thấy lần giao hàng.');
+    if (i.recon_at) throw new Error('Quản lý đã đối soát hàng này nên không sửa được nữa.');
+    if (i.state === 'dang_chuyen') { if (i.work_date > today()) throw new Error('Chưa tới ngày giao.'); return; }
+    if (i.received_date !== today() && !can('doi_soat')) throw new Error('Chỉ sửa được báo cáo nhận hàng trong ngày nhận.');
+  };
+  const days = (a) => Math.round((Date.parse(today()) - Date.parse(String(a).slice(0, 10))) / 864e5);
+  const fuJson = (f) => { const m = money(); const inv = T.delivery_invoices.find((d) => d.id === f.invoice_id) || {};
+    return { ...f, price: m ? f.price : null, amount: m ? f.amount : null, resolved_amount: m ? f.resolved_amount : null, resolved_by: name(f.resolved_by),
+      resolved_doc: T.delivery_invoices.find((d) => d.id === f.resolved_invoice_id)?.doc_no || null, doc_no: inv.doc_no || null, work_date: inv.work_date || null, days: days(f.created_at) }; };
+  const monthTotal = (br, mo) => {
+    const inv = T.delivery_invoices.filter((i) => (!br || i.branch_id === br) && i.doc_no && String(i.work_date).startsWith(mo));
+    const bu = T.delivery_lines.filter((l) => l.bu_followup_id && inv.some((i) => i.id === l.invoice_id)).reduce((t, l) => t + (l.amount || 0), 0);
+    const bs = T.delivery_followups.filter((f) => f.kind === 'hd_bs' && f.status === 'xong' && (!br || f.branch_id === br) && f.resolved_month === mo).reduce((t, f) => t + (f.resolved_amount || 0), 0);
+    return { invoices: inv.reduce((t, i) => t + (i.total || 0), 0), n_invoices: inv.length, bu, hd_bs: bs, payable: inv.reduce((t, i) => t + (i.total || 0), 0) - bu + bs };
   };
   const addLine = (inv, x, k, extra = {}) => { const id = nid('delivery_lines'); T.delivery_lines.push({ id, invoice_id: inv, sort: k, code: x.code || null, name: x.name, unit: x.unit || null, qty_invoice: null, price: null, amount: null, qty_received: null, qty_checked: null, ...extra }); return id; };
   return {
@@ -118,6 +147,76 @@ export function makeNh(T, me) {
     },
     app_nh_uncheck({ p_line }) { const l = T.delivery_lines.find((x) => x.id === p_line); Object.assign(l, { qty_checked: null, check_note: null, checked_by: null, checked_at: null }); afterCheck(l.invoice_id); },
     app_nh_tick: () => 0,
+    // ---------------------------------------------------------------- bước 104: Hàng hoá (không gắn phiếu ca)
+    app_gh_inbox({ p_branch }) {
+      if (!can('chot_ca') && !can('doi_soat') && !can('ke_toan')) throw new Error('Bạn không có quyền.');
+      return { rows: T.delivery_invoices.filter((i) => (!p_branch || i.branch_id === p_branch) && !i.recon_at && ((i.state === 'dang_chuyen' && i.work_date <= today()) || ['da_nhan', 'cho_hoa_don'].includes(i.state))).sort((a, b) => (a.work_date < b.work_date ? -1 : a.work_date > b.work_date ? 1 : a.id - b.id)).map((i) => json(i)),
+        catalog: [...new Map(T.delivery_lines.filter((l) => l.qty_invoice != null).map((l) => [l.name.toUpperCase(), { code: l.code, name: l.name, unit: l.unit }])).values()],
+        my_branches: (T.employee_branches || []).filter((e) => e.employee_id === me.employee_id).map((e) => e.branch_id), today: today(), can_recv: can('chot_ca'), can_recon: can('doi_soat') };
+    },
+    app_gh_receive({ p_id, p_lines, p_note }) {
+      if (!can('chot_ca')) throw new Error('Bạn không có quyền.');
+      const i = T.delivery_invoices.find((x) => x.id === p_id); ghCan(i);
+      if (i.state === 'cho_hoa_don') throw new Error('Phiếu nhận không hoá đơn: dùng nút Lưu phiếu nhận.');
+      if (lines(p_id).some((l) => !p_lines.some((y) => y.id === l.id && y.qty !== null && y.qty !== undefined))) throw new Error('Nhập số thực nhận cho tất cả các món.');
+      p_lines.forEach((y) => { const l = T.delivery_lines.find((x) => x.id === y.id); if (l) l.qty_received = y.qty; });
+      Object.assign(i, { state: 'da_nhan', received_by: me.account_id, received_at: now(), received_date: today(), received_report_id: null, receive_note: p_note || null });
+      return { mismatch: lines(p_id).filter((l) => !eq(l.qty_invoice, l.qty_received)).length };
+    },
+    app_gh_receipt_save({ p_id, p_branch, p_lines, p_note }) {
+      if (!can('chot_ca')) throw new Error('Bạn không có quyền.');
+      if (!p_lines.length) throw new Error('Ghi ít nhất 1 món hàng đã nhận.');
+      if (p_lines.some((x) => !(x.qty > 0))) throw new Error('Nhập số lượng nhận cho từng món.');
+      let id = p_id;
+      if (!id) { if (!T.branches.some((b) => b.id === p_branch)) throw new Error('Chọn cơ sở nhận hàng.'); id = nid('delivery_invoices'); T.delivery_invoices.push({ id, branch_id: p_branch, work_date: today(), created_by: me.account_id, created_at: now(), kind: 'khong_hd', state: 'cho_hoa_don', received_by: me.account_id, received_at: now(), received_date: today(), received_report_id: null, receive_note: p_note || null }); }
+      else { const i = T.delivery_invoices.find((x) => x.id === id); ghCan(i); if (i.state !== 'cho_hoa_don') throw new Error('Phiếu này đã được ghép hoá đơn.'); i.receive_note = p_note || null; }
+      const keep = p_lines.map((x, k) => { const l = x.id && T.delivery_lines.find((y) => y.id === x.id && y.invoice_id === id); if (l) { Object.assign(l, { sort: k + 1, code: x.code, name: x.name, unit: x.unit, qty_received: x.qty }); return l.id; } return addLine(id, x, k + 1, { qty_received: x.qty }); });
+      T.delivery_lines = T.delivery_lines.filter((l) => l.invoice_id !== id || keep.includes(l.id));
+      return id;
+    },
+    app_gh_photo_add({ p_id, p_path, p_lines }) {
+      const i = T.delivery_invoices.find((x) => x.id === p_id); ghCan(i);
+      if (!new RegExp('^gh' + p_id + '/[^/]+$').test(p_path || '')) throw new Error('Đường dẫn ảnh không hợp lệ.');
+      const id = nid('delivery_receipt_photos'); T.delivery_receipt_photos.push({ id, invoice_id: p_id, path: p_path, created_by: me.account_id, created_at: now() });
+      (p_lines || []).forEach((l) => T.delivery_photo_lines.push({ photo_id: id, line_id: l })); return id;
+    },
+    app_gh_photo_del({ p_photo }) { const p = T.delivery_receipt_photos.find((x) => x.id === p_photo); if (!p) return null; ghCan(T.delivery_invoices.find((x) => x.id === p.invoice_id));
+      T.delivery_receipt_photos = T.delivery_receipt_photos.filter((x) => x !== p); T.delivery_photo_lines = T.delivery_photo_lines.filter((x) => x.photo_id !== p_photo); return p.path; },
+    app_gh_control({ p_branch, p_month }) {
+      if (!can('ke_toan') && !can('doi_soat')) throw new Error('Bạn không có quyền.');
+      const F = T.delivery_followups.filter((f) => !p_branch || f.branch_id === p_branch);
+      return { open: F.filter((f) => f.status === 'cho').map(fuJson), done: F.filter((f) => f.status !== 'cho' && String(f.resolved_at || f.created_at).startsWith(p_month)).map(fuJson),
+        money: money() ? monthTotal(p_branch, p_month) : null, kt: can('ke_toan'), today: today() };
+    },
+    app_gh_bu_lines({ p_followup }) {
+      if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
+      const f = T.delivery_followups.find((x) => x.id === p_followup); const norm = (x) => String(x || '').trim().toUpperCase();
+      return T.delivery_lines.filter((l) => { const i = T.delivery_invoices.find((d) => d.id === l.invoice_id); return i && i.branch_id === f.branch_id && i.id !== f.invoice_id && i.doc_no && l.qty_invoice != null && !l.bu_followup_id && i.work_date >= f.created_at.slice(0, 10); })
+        .map((l) => { const i = T.delivery_invoices.find((d) => d.id === l.invoice_id); return { line_id: l.id, invoice_id: i.id, doc_no: i.doc_no, work_date: i.work_date, name: l.name, unit: l.unit, qty: l.qty_invoice, amount: l.amount, same: norm(l.name) === norm(f.name) }; })
+        .sort((a, b) => Number(b.same) - Number(a.same));
+    },
+    app_gh_fu_resolve({ p_id, p_line, p_ref, p_amount, p_note }) {
+      if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
+      const f = T.delivery_followups.find((x) => x.id === p_id); if (!f || f.status !== 'cho') throw new Error('Mục này đã xử lý rồi.');
+      if (f.kind === 'bu') { const l = T.delivery_lines.find((x) => x.id === p_line); const i = l && T.delivery_invoices.find((d) => d.id === l.invoice_id);
+        if (!i || i.branch_id !== f.branch_id || !i.doc_no) throw new Error('Chọn dòng hàng giao bù trong phiếu xuất của cùng cơ sở.'); if (l.bu_followup_id) throw new Error('Dòng này đã được dùng cho món giao bù khác.');
+        l.bu_followup_id = f.id; Object.assign(f, { status: 'xong', resolved_invoice_id: i.id, resolved_line_id: l.id, resolved_amount: l.amount, resolved_month: i.work_date.slice(0, 7) });
+      } else { if (!(p_ref || '').trim()) throw new Error('Ghi số hoá đơn bổ sung.'); if (p_amount == null || p_amount < 0) throw new Error('Nhập số tiền hoá đơn bổ sung.');
+        Object.assign(f, { status: 'xong', resolved_ref: p_ref.trim(), resolved_amount: p_amount, resolved_month: today().slice(0, 7) }); }
+      Object.assign(f, { resolved_at: now(), resolved_by: me.account_id, note: (p_note || '').trim() || null });
+    },
+    app_gh_fu_cancel({ p_id, p_reason }) {
+      if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
+      const f = T.delivery_followups.find((x) => x.id === p_id); if (!f || f.status !== 'cho') throw new Error('Mục này đã xử lý rồi.');
+      if (!(p_reason || '').trim()) throw new Error('Ghi lý do huỷ.');
+      Object.assign(f, { status: 'huy', note: p_reason.trim(), resolved_at: now(), resolved_by: me.account_id });
+    },
+    app_gh_fu_undo({ p_id }) {
+      if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
+      const f = T.delivery_followups.find((x) => x.id === p_id); if (!f || f.status === 'cho') return;
+      T.delivery_lines.filter((l) => l.bu_followup_id === f.id).forEach((l) => { l.bu_followup_id = null; });
+      Object.assign(f, { status: 'cho', resolved_invoice_id: null, resolved_line_id: null, resolved_ref: null, resolved_amount: null, resolved_month: null, resolved_at: null, resolved_by: null });
+    },
     app_ext_kho: ({ p_month }) => ({ total: T.delivery_invoices.filter((i) => i.doc_no && i.work_date.startsWith(p_month)).reduce((s, i) => s + (i.total || 0), 0), paid: 0, by_branch: [] }),
   };
 }
