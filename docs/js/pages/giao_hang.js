@@ -1,4 +1,4 @@
-// Hàng hoá › Nhận hàng · Đối soát (bước 104, anh Tiến chốt 15/11/2026) — tách hẳn khỏi chốt ca / đối soát ca.
+// Hàng hoá › Nhận hàng · Đối soát (bước 104; bước 106 thêm món ngoài phiếu, hoá đơn giao, xác nhận đối soát xong — anh Tiến chốt 15/11/2026).
 //  * Nhận hàng (/hang-hoa/nhan): nhân viên CHỤP 1 nhóm hàng → CHỌN các món có trong ảnh (số tự điền = số phiếu, khác thì sửa + ghi chú)
 //    → lặp tới hết món → GỬI BÁO NHẬN. Món kho quên giao: "Không nhận được" (số 0 + ghi chú). Nhận hàng KHÔNG có hoá đơn cũng ở đây.
 //    Không cần mở phiếu chốt ca (máy chủ: app_gh_*, không gắn phiếu ca).
@@ -6,7 +6,7 @@
 //    Đối soát xong: món thiếu → "Chờ giao bù", món thừa → "Chờ hoá đơn bổ sung" ở tab Kiểm soát.
 import { addDays, catalog, vnToday } from '../data.js';
 import { rpc, sb } from '../sb.js';
-import { dmy, fmt } from '../tien.js';
+import { dmy } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { BUCKET, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
@@ -24,11 +24,6 @@ const routePath = () => location.hash.slice(1).split('?')[0];
 const NHAN = '#/hang-hoa/nhan'; const DS = '#/hang-hoa/doi-soat';
 const qs = (base, o) => base + '?' + Object.entries(o).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${encodeURIComponent(v)}`).join('&');
 
-const stTag = (d) => (d.state === 'dang_chuyen' ? html`<span class="pill info">Đang chuyển</span>`
-  : d.state === 'cho_hoa_don' ? html`<span class="pill warn">Chờ hoá đơn</span>`
-    : d.n_unchecked ? html`<span class="pill warn">Chờ đối soát ${d.n_unchecked} món</span>`
-      : d.result === 'lech' ? html`<span class="pill off">Lệch ${d.n_mismatch} món</span>` : html`<span class="pill ok">Xong</span>`);
-
 // cơ sở: nhân viên chỉ thấy cơ sở mình làm (employee_branches); quản lý / kế toán thấy tất cả
 async function branchesFor(params, G, can) {
   const cat = await catalog().catch(() => ({ activeBranches: [] }));
@@ -44,7 +39,7 @@ async function branchesFor(params, G, can) {
 // ================================================================= TRANG
 export async function render({ params, can }) {
   if (params.nhan) return receivePage(params.nhan === 'moi' ? 'moi' : Number(params.nhan), params, can);
-  if (params.ds || params.xem) return reconPage(Number(params.ds || params.xem), !!params.ds && can('doi_soat'));
+  if (params.ds || params.xem) return reconPage(Number(params.ds || params.xem), !!params.ds && can('doi_soat'), can);
   return routePath() === '/hang-hoa/doi-soat' ? listPage(params, can) : nhanList(params, can);
 }
 
@@ -57,19 +52,22 @@ async function nhanList(params, can) {
   const nDs = (G.rows || []).filter((d) => d.branch_id === br && d.state !== 'dang_chuyen').length;
   return {
     title: 'Nhận hàng',
-    html: html`${GH_CSS}<div class="gh-wrap"><div class="page-head"><div><h1>Nhận hàng kho tổng</h1><div class="sub">Hàng tới thì bấm Nhận hàng: chụp từng nhóm hàng → chọn các món có trong ảnh → hết món thì Gửi. Không cần mở phiếu chốt ca.</div></div></div>
+    html: html`${GH_CSS}<div class="gh-wrap"><div class="page-head"><div><h1>Nhận hàng kho tổng</h1><div class="sub">Hàng tới thì bấm Nhận hàng: chụp từng nhóm hàng → chọn món trong ảnh → chụp hoá đơn giao → xác nhận. Không cần mở phiếu chốt ca.</div></div></div>
       ${brs.length > 1 ? html`<nav class="branch-tabs" aria-label="Cơ sở">${brs.map((b) => html`<a class="${b.id === br ? 'on' : ''}" href="${qs(NHAN, { cn: b.id })}">${b.code}${nWait(b.id) ? html` <span class="badge">${nWait(b.id)}</span>` : ''}</a>`)}</nav>` : ''}
-      ${rows.length ? rows.map((d) => html`<div class="card gh-hero ${d.state === 'dang_chuyen' ? '' : 'gh-hero2'}"><div class="gh-hero-t">${d.state === 'dang_chuyen' ? '🚚 Đang chuyển tới' : noHd(d) ? '🧾 Nhận không hoá đơn — chờ kế toán ghép hoá đơn ·' : '✓ Đã báo nhận — còn sửa được hôm nay ·'} ${d.branch_code}</div>
-            <div class="st-meta">${d.doc_no ? `Phiếu ${d.doc_no}` : 'Nhận hàng không hoá đơn'} · ${d.n_lines} món${d.ship_at ? ` · kho xuất ${String(d.ship_at).slice(11, 16)} ${dmy(d.ship_at.slice(0, 10)).slice(0, 5)}` : ''}${d.received_by ? ` · ${d.received_by}` : ''}</div>
+      ${rows.length ? rows.map((d) => html`<div class="card gh-hero ${d.state === 'dang_chuyen' ? '' : 'gh-hero2'}"><div class="gh-hero-t">${d.state === 'dang_chuyen' ? '🚚 Đang chuyển tới' : noHd(d) ? '🧾 Chưa có phiếu xuất — chờ kế toán ghép ·' : '✓ Đã báo nhận — còn sửa được hôm nay ·'} ${d.branch_code}</div>
+            <div class="st-meta">${d.doc_no ? `Phiếu ${d.doc_no}` : 'Chưa có phiếu xuất'} · ${d.n_lines} món${d.ship_at ? ` · kho xuất ${String(d.ship_at).slice(11, 16)} ${dmy(d.ship_at.slice(0, 10)).slice(0, 5)}` : ''}${d.received_by ? ` · ${d.received_by}` : ''}</div>
             ${G.can_recv ? html`<a class="btn gh-big ${d.state === 'dang_chuyen' ? '' : 'secondary'}" href="${qs(NHAN, { nhan: d.id })}">${d.state === 'dang_chuyen' ? 'NHẬN HÀNG ›' : 'XEM / SỬA ›'}</a>` : ''}</div>`)
         : html`<div class="card st-meta">Không có hàng kho tổng nào đang chuyển tới ${BR.code || ''}.</div>`}
-      ${G.can_recv && br ? html`<div class="toolbar"><a class="btn secondary gh-nohd" href="${qs(NHAN, { nhan: 'moi', cn: br })}">+ Nhận hàng KHÔNG có hoá đơn · ${BR.code}</a></div>` : ''}
+      ${G.can_recv && br ? html`<div class="toolbar"><a class="btn secondary gh-nohd" href="${qs(NHAN, { nhan: 'moi', cn: br })}">+ Nhận hàng chưa có phiếu xuất · ${BR.code}</a></div>` : ''}
       ${can('doi_soat') && nDs ? html`<a class="card gh-link" href="${qs(DS, { cn: br })}">✔ ${nDs} lần giao của ${BR.code} chờ đối soát ›</a>` : ''}</div>`,
   };
 }
 
-// ---------------------------------------------------------------- nhân viên: nhận 1 lần giao (chụp → chọn món → lặp → gửi)
-// Không hoá đơn (bước 104b, anh Tiến 15/11): cũng chụp trước → ghi tên + số lượng các món trong ảnh → lặp → lưu (id = 'moi': phiếu tạo khi lưu ảnh đầu).
+// ---------------------------------------------------------------- nhân viên: nhận 1 lần giao — 3 bước (bước 106, anh Tiến chốt 15/11/2026)
+//  1. Chụp hàng: chụp 1 nhóm → chọn món trong phiếu có trong ảnh (khác số thì sửa + ghi chú) + "Món KHÔNG có trong phiếu" (kho giao dư) → lặp tới hết.
+//     Không hoá đơn (chưa có phiếu xuất trên web): chụp → ghi tên + số lượng → lặp (id = 'moi': phiếu tạo khi lưu ảnh đầu).
+//  2. Hoá đơn giao: chụp tờ hoá đơn tài xế mang kèm (bắt buộc) — hoặc "Tài xế không mang hoá đơn giao" + ghi chú.
+//  3. Xác nhận: ảnh hoá đơn giao + danh sách đã nhận trên web để so → "Đã nhận đủ hàng hoá giống hoá đơn" / "Xác nhận số thực nhận: thiếu / thừa như trên".
 async function receivePage(id, params = {}, can = () => false) {
   const G = await rpc('app_gh_inbox', { p_branch: null });
   let d = null;
@@ -88,12 +86,19 @@ async function receivePage(id, params = {}, can = () => false) {
   d.lines.forEach((l) => { Q[l.id] = dr.q && dr.q[l.id] !== undefined ? dr.q[l.id] : d.state !== 'dang_chuyen' && l.qty_received !== null && l.qty_received !== undefined ? Number(l.qty_received) : null; N[l.id] = (dr.n && dr.n[l.id]) || ''; });
   const save = () => draftSet(d.id || id, { q: Q, n: N });
   const nh = noHd(d);
+  const isEx = (l) => !nh && (l.qty_invoice === null || l.qty_invoice === undefined);   // món ngoài phiếu
+  const has = (l) => Q[l.id] !== null && Q[l.id] !== undefined;
   const covered = () => { const s = new Set(); d.photos.forEach((p) => (p.lines || []).forEach((x) => s.add(x))); return s; };
-  const done = (l) => Q[l.id] !== null && Q[l.id] !== undefined && (Q[l.id] === 0 || covered().has(l.id));
-  const base = (l) => Number((noHd(d) ? l.qty_received : l.qty_invoice) ?? 0);   // số để so: phiếu xuất / số đã ghi (không hoá đơn)
-  const lab = noHd(d) ? 'đã ghi' : 'phiếu';
-  const lech = (l) => !nh && Q[l.id] !== null && Q[l.id] !== undefined && Number(Q[l.id]) !== base(l);   // không hoá đơn: số do nhân viên ghi, không có "lệch"
+  const done = (l) => has(l) && (Q[l.id] === 0 || covered().has(l.id));
+  const base = (l) => Number((nh ? l.qty_received : l.qty_invoice) ?? 0);   // số để so: phiếu xuất / số đã ghi (không hoá đơn)
+  const lab = nh ? 'đã ghi' : 'phiếu';
+  const lech = (l) => !nh && has(l) && (isEx(l) ? Number(Q[l.id]) > 0 : Number(Q[l.id]) !== base(l));
+  const lechTag = (l) => (isEx(l) ? html`<span class="pill off">ngoài phiếu</span>` : Number(Q[l.id]) === 0 ? html`<span class="pill warn">không nhận</span>`
+    : Number(Q[l.id]) < base(l) ? html`<span class="pill warn">thiếu ${q3(base(l) - Number(Q[l.id]))}</span>` : html`<span class="pill info">thừa ${q3(Number(Q[l.id]) - base(l))}</span>`);
+  const lechTxt = (l) => (isEx(l) ? `${l.name} ngoài phiếu ${q3(Q[l.id])} ${l.unit || ''}` : Number(Q[l.id]) === 0 ? `${l.name} không nhận ${q3(base(l))} ${l.unit || ''}`
+    : `${l.name} ${Number(Q[l.id]) < base(l) ? 'thiếu' : 'thừa'} ${q3(Math.abs(Number(Q[l.id]) - base(l)))} ${l.unit || ''}`).trim();
   const payload = () => d.lines.map((l) => ({ id: l.id, code: l.code, name: l.name, unit: l.unit, qty: Q[l.id] ?? l.qty_received }));
+  const refetch = async () => { const f = ((await rpc('app_gh_inbox', { p_branch: d.branch_id })).rows || []).find((x) => x.id === d.id); if (!f) throw new Error('Đã lưu nhưng không tải lại được phiếu — tải lại trang.'); return f; };
 
   return {
     title: 'Nhận hàng',
@@ -103,49 +108,90 @@ async function receivePage(id, params = {}, can = () => false) {
 
   function draw() {
     const L = d.lines; const nDone = L.filter(done).length; const left = L.filter((l) => !done(l));
+    const s1 = L.length > 0 && !left.length; const hasDeliv = !!(d.deliv_path || d.deliv_note);
+    const lechs = L.filter(lech);
     const box = $('#gh-recv'); if (!box) return;
-    box.innerHTML = str(html`<div class="page-head"><div><a href="${back}" class="st-meta">‹ Nhận hàng</a><h1>Nhận hàng · ${d.doc_no || 'không hoá đơn'}</h1>
+    box.innerHTML = str(html`<div class="page-head"><div><a href="${back}" class="st-meta">‹ Nhận hàng</a><h1>Nhận hàng · ${d.doc_no || 'chưa có phiếu xuất'}</h1>
         <div class="sub">${d.branch_code} · ${dmy(G.today || vnToday())}${!d.id ? ' · chụp nhóm hàng đầu tiên rồi ghi tên + số lượng' : d.state !== 'dang_chuyen' ? ' · đã báo nhận, sửa được tới hết hôm nay' : ''}</div></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
-      <div class="gh-prog"><b>${nh ? `Đã ghi ${L.length} món` : `Đã nhận ${nDone} / ${L.length} món`}</b><span class="pill ${L.some(lech) ? 'warn' : 'mute'}">${d.photos.length} ảnh${L.some(lech) ? ` · ${L.filter(lech).length} lệch` : ''}</span></div>
+      <nav class="gh-steps" aria-label="Các bước"><span class="${s1 ? 'ok' : 'on'}">1. Chụp hàng${s1 ? ' ✓' : ''}</span><span class="${hasDeliv && s1 ? 'ok' : s1 ? 'on' : ''}">2. Hoá đơn giao${hasDeliv && s1 ? ' ✓' : ''}</span><span class="${s1 && hasDeliv ? 'on' : ''}">3. Xác nhận</span></nav>
+      <div class="gh-prog"><b>${nh ? `Đã ghi ${L.length} món` : `Đã nhận ${nDone} / ${L.length} món`}</b><span class="pill ${lechs.length ? 'warn' : 'mute'}">${d.photos.length} ảnh${lechs.length ? ` · ${lechs.length} khác phiếu` : ''}</span></div>
       <div class="gh-bar"><i style="width:${L.length ? Math.round((nDone / L.length) * 100) : 0}%"></i></div>
-      ${nh || left.length ? html`<label class="gh-cam"><input type="file" accept="image/*" capture="environment" id="gh-shot" hidden><span class="gh-shot"></span><b>📷 ${!d.photos.length ? 'CHỤP 1 NHÓM HÀNG' : nh ? 'Chụp nhóm tiếp' : `Chụp nhóm tiếp — còn ${left.length} món`}</b>
+      ${nh || left.length || !L.length ? html`<label class="gh-cam"><input type="file" accept="image/*" capture="environment" id="gh-shot" hidden><span class="gh-shot"></span><b>📷 ${!d.photos.length ? 'CHỤP 1 NHÓM HÀNG' : nh || !left.length ? 'Chụp nhóm tiếp' : `Chụp nhóm tiếp — còn ${left.length} món`}</b>
           <span class="st-meta">${nh ? 'Bày 1 nhóm hàng ra → chụp → ghi tên + số lượng các món trong ảnh' : 'Bày 1 nhóm hàng ra → chụp → chọn các món có trong ảnh'}</span></label>`
-        : html`<div class="alert ok" style="margin:0"><b>✓ Đã nhận đủ ${L.length} / ${L.length} món · ${d.photos.length} ảnh</b></div>`}
+        : html`<label class="gh-more"><input type="file" accept="image/*" capture="environment" id="gh-shot" hidden>✓ Đã chụp hết ${L.length} món · <u>còn món ngoài phiếu? chụp thêm</u></label>`}
       <div id="gh-pick"></div>
-      ${d.photos.length ? html`<section class="card stack" style="gap:6px"><b>Đã chụp</b><div class="gh-thumbs">${d.photos.map((p, i) => html`<button type="button" class="gh-th ${(p.lines || []).some((x) => { const l = L.find((y) => y.id === x); return l && lech(l); }) ? 'warn' : ''}" data-ph="${p.id}"><img data-path="${p.path}" alt="Ảnh ${i + 1}"><span>ảnh ${i + 1} · ${(p.lines || []).length} món</span></button>`)}</div></section>` : ''}
-      ${nh && L.length - left.length ? html`<section class="card stack" style="gap:2px"><b>Đã ghi (${L.length - left.length} món)</b>${L.filter((l) => !left.includes(l)).map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b></div><b>${q3(Q[l.id])} ${l.unit || ''}</b></div>`)}</section>` : ''}
-      ${left.length ? html`<section class="card stack" style="gap:2px"><b>${nh ? 'Đã ghi, chưa có ảnh' : 'Chưa nhận'} (${left.length})</b>${left.map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}${Q[l.id] !== null && Q[l.id] !== undefined && Q[l.id] > 0 ? ' · đã đếm, chưa có ảnh' : ''}</span></div>
-          ${noHd(d) ? '' : html`<button type="button" class="btn sm secondary gh-none" data-l="${l.id}">Không nhận được</button>`}</div>`)}</section>` : ''}
-      ${L.some(lech) ? html`<section class="card stack" style="gap:2px"><b>Món lệch phiếu</b>${L.filter(lech).map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} · nhận <b>${q3(Q[l.id])}</b> ${l.unit || ''} · ${Number(Q[l.id]) < base(l) ? 'thiếu' : 'thừa'} ${q3(Math.abs(Number(Q[l.id]) - base(l)))}${N[l.id] ? ' · ' + N[l.id] : ''}</span></div></div>`)}</section>` : ''}
-      ${nh && L.length && !left.length ? html`<section class="card stack" style="gap:8px"><div class="gh-kv"><span>Món đã ghi</span><b>${L.length}</b><span>Ảnh</span><b>${d.photos.length}</b></div>
-          <input class="input sm" id="gh-anote" value="${d.receive_note || ''}" placeholder="Ghi chú (vd: tài xế giao, chưa có phiếu)" aria-label="Ghi chú">
-          <div class="st-meta">Hết hàng thì bấm Xong. Kế toán sẽ ghép phiếu xuất sau.</div>
-          <button type="button" class="btn gh-big gh-ok" id="gh-send">XONG — LƯU PHIẾU NHẬN (CHỜ HOÁ ĐƠN)</button></section>` : ''}
-      ${!nh && !left.length ? html`<section class="card stack" style="gap:8px"><div class="gh-kv"><span>Khớp phiếu</span><b>${L.filter((l) => !lech(l)).length}</b><span>Lệch</span><b>${L.filter(lech).length}</b><span>Ảnh</span><b>${d.photos.length}</b></div>
-          <button type="button" class="btn gh-big gh-ok" id="gh-send">${noHd(d) ? 'LƯU PHIẾU NHẬN (CHỜ HOÁ ĐƠN)' : d.state === 'dang_chuyen' ? 'GỬI BÁO NHẬN' : 'GỬI LẠI BÁO NHẬN'}</button></section>` : ''}`);
+      ${d.photos.length ? html`<section class="card stack" style="gap:6px"><b>Đã chụp <span class="st-meta">— bấm ảnh để xem / sửa số</span></b><div class="gh-thumbs">${d.photos.map((p, i) => html`<button type="button" class="gh-th ${(p.lines || []).some((x) => { const l = L.find((y) => y.id === x); return l && lech(l); }) ? 'warn' : ''}" data-ph="${p.id}"><img data-path="${p.path}" alt="Ảnh ${i + 1}"><span>ảnh ${i + 1} · ${(p.lines || []).length} món</span></button>`)}</div></section>` : ''}
+      ${left.length ? html`<section class="card stack" style="gap:2px"><b>${nh ? 'Đã ghi, chưa có ảnh' : 'Chưa nhận'} (${left.length})</b>${left.map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}${has(l) && Q[l.id] > 0 ? ' · đã đếm, chưa có ảnh' : ''}</span></div>
+          ${nh || isEx(l) ? '' : html`<button type="button" class="btn sm secondary gh-none" data-l="${l.id}">Không nhận được</button>`}</div>`)}</section>` : ''}
+      ${s1 && !hasDeliv ? html`<label class="gh-cam gh-cam2"><input type="file" accept="image/*" capture="environment" id="gh-dshot" hidden><span class="gh-shot"></span><b>📄 CHỤP HOÁ ĐƠN GIAO</b>
+          <span class="st-meta">Tờ hoá đơn tài xế mang kèm hàng — chụp rõ cả tờ</span></label>
+        <div style="text-align:center"><button type="button" class="btn secondary" id="gh-dnone">Tài xế không mang hoá đơn giao</button></div>` : ''}
+      ${s1 && hasDeliv ? html`<section class="card stack" style="gap:8px" id="gh-step3"><div class="gh-ch"><b>Hoá đơn giao</b>
+            <span><label class="btn sm secondary">${d.deliv_path ? 'Chụp lại' : 'Chụp hoá đơn'}<input type="file" accept="image/*" capture="environment" id="gh-dshot" hidden></label>${d.deliv_path ? '' : html` <button type="button" class="btn sm secondary" id="gh-dnone">Sửa ghi chú</button>`}</span></div>
+          ${d.deliv_path ? html`<a target="_blank" rel="noopener" class="gh-inv"><img class="gh-prev" data-path="${d.deliv_path}" alt="Ảnh hoá đơn giao"><span>🔍 bấm để phóng to</span></a>`
+            : html`<div class="alert warn" style="margin:0">Tài xế không mang hoá đơn giao: ${d.deliv_note}<br><span class="st-meta">Kế toán sẽ tải hoá đơn bù thì quản lý mới đối soát xong.</span></div>`}
+        </section>
+        <section class="card stack" style="gap:6px"><b>Danh sách đã nhận trên web <span class="st-meta">— so từng dòng với hoá đơn giao</span></b>
+          <div>${L.map((l) => html`<div class="gh-cmp"><span class="grow">${l.name}${isEx(l) ? '' : ''}</span><b>${q3(Q[l.id])} ${l.unit || ''}</b>${lech(l) ? lechTag(l) : ''}</div>`)}</div>
+          <div class="st-meta">Ghi sai? Bấm vào ảnh đã chụp ở trên để sửa số, hoặc chụp thêm món.</div></section>
+        ${nh ? html`<input class="input sm" id="gh-anote" value="${d.receive_note || ''}" placeholder="Ghi chú (không bắt buộc)" aria-label="Ghi chú">` : ''}
+        ${lechs.length ? html`<div class="gh-warnbox"><b>Có ${lechs.length} món khác hoá đơn:</b><br>${lechs.map(lechTxt).join(' · ')}</div>`
+          : html`<div class="gh-okbox"><b>✓ ${nh ? `${L.length} món đã ghi` : `Khớp hoá đơn — ${L.length}/${L.length} món`}</b></div>`}
+        <button type="button" class="btn gh-big gh-ok" id="gh-send">${lechs.length ? 'XÁC NHẬN SỐ THỰC NHẬN: THIẾU / THỪA NHƯ TRÊN' : 'ĐÃ NHẬN ĐỦ HÀNG HOÁ GIỐNG HOÁ ĐƠN'}</button>` : ''}`);
     signLinks(box);
     $('#gh-shot')?.addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) pick(f); });
+    $('#gh-dshot')?.addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) delivShot(f); });
+    $('#gh-dnone')?.addEventListener('click', delivNone);
     $$('.gh-none', box).forEach((b) => b.addEventListener('click', () => none(L.find((l) => l.id === Number(b.dataset.l)))));
     $$('.gh-th', box).forEach((b) => b.addEventListener('click', () => photoBox(d.photos.find((p) => p.id === Number(b.dataset.ph)))));
     $('#gh-send')?.addEventListener('click', send);
   }
 
-  // chọn các món có trong ảnh vừa chụp
+  // bước 2: ảnh hoá đơn giao / không có hoá đơn giao
+  async function delivShot(file) {
+    showSaved('Đang tải ảnh hoá đơn giao…');
+    try {
+      await uploadFiles(`gh${d.id}`, [file], async (path) => {
+        const old = await rpc('app_gh_deliv', { p_id: d.id, p_path: path, p_note: null });
+        if (old) sb.storage.from(BUCKET).remove([old]).catch(() => {});
+        d.deliv_path = path; d.deliv_note = null;
+      });
+      showSaved('Đã lưu ảnh hoá đơn giao'); draw(); $('#gh-step3')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    } catch (e) { showSaved(e.message, true); }
+  }
+  function delivNone() {
+    const dl = dialog(html`<form class="stack" style="gap:10px;width:min(420px, calc(100vw - 56px))"><h2 style="margin:0">Tài xế không mang hoá đơn giao</h2>
+      <div class="st-meta">Vẫn gửi được. Kế toán sẽ phải tải <b>hoá đơn bù</b> thì quản lý mới đối soát xong.</div>
+      <label class="field"><span>Ghi chú (bắt buộc)</span><input class="input" name="nt" value="${d.deliv_note || ''}" placeholder="vd: tài xế quên phiếu" autocomplete="off"></label><div class="gh-err"></div>
+      <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+    const f = dl.querySelector('form'); dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
+    f.addEventListener('submit', async (e) => { e.preventDefault(); const nt = f.nt.value.trim();
+      if (!nt) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Ghi chú vì sao không có hoá đơn giao.</div>`); return; }
+      try { const old = await rpc('app_gh_deliv', { p_id: d.id, p_path: null, p_note: nt }); if (old) sb.storage.from(BUCKET).remove([old]).catch(() => {});
+        d.deliv_path = null; d.deliv_note = nt; dl.close(); draw(); }
+      catch (er) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${er.message}</div>`); } });
+  }
+
+  // bước 1: chọn các món có trong ảnh vừa chụp (+ món ngoài phiếu / món ghi tay khi chưa có phiếu xuất)
   function pick(file) {
     const cov = covered(); const L = d.lines.filter((l) => !cov.has(l.id) && Q[l.id] !== 0);
     const url = URL.createObjectURL(file);
     const box = $('#gh-pick');
     box.innerHTML = str(html`<section class="card stack gh-pickc" style="gap:8px"><img class="gh-prev" src="${url}" alt="Ảnh vừa chụp">
+      <datalist id="gh-cat">${cat.map((c) => html`<option value="${c.name}">${c.unit || ''}</option>`)}</datalist>
       ${nh ? html`<b>Món có trong ảnh này</b><span class="st-meta">Gõ vài chữ để chọn tên món từng nhận, ghi số lượng. Ảnh có nhiều món thì bấm "+ Thêm món".</span>
-        <datalist id="gh-cat">${cat.map((c) => html`<option value="${c.name}">${c.unit || ''}</option>`)}</datalist>
-        <div class="gh-nrs">${nrow()}</div><button type="button" class="btn sm secondary" id="gh-nadd" style="align-self:flex-start">+ Thêm món</button>
+        <div class="gh-nrs">${nrow()}</div><button type="button" class="btn sm secondary gh-nadd" style="align-self:flex-start">+ Thêm món</button>
         ${L.length ? html`<b>Hoặc tick món đã ghi trước (chưa có ảnh)</b>` : ''}`
-      : html`<b>Món có trong ảnh này?</b><span class="st-meta">Tick món → số tự điền bằng số phiếu. Đếm khác thì sửa số và ghi chú.</span>`}
+      : html`<b>Món trong phiếu có trong ảnh này?</b><span class="st-meta">Tick món → số tự điền bằng số phiếu. Đếm khác thì sửa số và ghi chú.</span>`}
       <div>${L.map((l) => html`<div class="gh-sel" data-l="${l.id}"><label class="gh-chk"><input type="checkbox" class="gh-c"><span><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}</span></span></label>
           <input class="input sm gh-q" inputmode="decimal" autocomplete="off" disabled aria-label="Số thực nhận ${l.name}"></div><div class="gh-note" data-n="${l.id}" hidden><input class="input sm" placeholder="Ghi chú (bắt buộc): vd thiếu 1 bao…" aria-label="Ghi chú ${l.name}"></div>`)}</div>
+      ${!nh ? html`<div class="gh-extra"><b>+ Món KHÔNG có trong phiếu</b><span class="st-meta">Kho giao dư món ngoài phiếu thì ghi ở đây (tên + ĐVT + số lượng).</span>
+        <div class="gh-nrs"></div><button type="button" class="btn sm secondary gh-nadd" style="align-self:flex-start">+ Thêm món ngoài phiếu</button></div>` : ''}
       <div class="gh-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" id="gh-pc">Huỷ ảnh</button><button type="button" class="btn sm gh-ok" id="gh-ps">✓ Lưu ảnh</button></div></section>`);
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    const freeRows = () => $$('.gh-nr', box).map((r) => { const nm = r.querySelector('.gh-nn').value.trim(); const hit = cat.find((c) => c.name.toLowerCase() === nm.toLowerCase());
+      return { code: hit ? hit.code : null, name: nm, unit: r.querySelector('.gh-nu').value.trim(), qty: numOf(r.querySelector('.gh-nq').value) }; }).filter((l) => l.name || l.qty !== null);
     const upd = () => {
       let n = 0;
       $$('.gh-sel', box).forEach((row) => {
@@ -157,9 +203,7 @@ async function receivePage(id, params = {}, can = () => false) {
       n += freeRows().length;
       $('#gh-ps').textContent = n ? `✓ Lưu ảnh · ${n} món` : '✓ Lưu ảnh';
     };
-    const freeRows = () => (nh ? $$('.gh-nr', box).map((r) => { const nm = r.querySelector('.gh-nn').value.trim(); const hit = cat.find((c) => c.name.toLowerCase() === nm.toLowerCase());
-      return { code: hit ? hit.code : null, name: nm, unit: r.querySelector('.gh-nu').value.trim(), qty: numOf(r.querySelector('.gh-nq').value) }; }).filter((l) => l.name || l.qty !== null) : []);
-    $('#gh-nadd')?.addEventListener('click', () => { box.querySelector('.gh-nrs').insertAdjacentHTML('beforeend', str(nrow())); });
+    $$('.gh-nadd', box).forEach((b) => b.addEventListener('click', () => { b.previousElementSibling.insertAdjacentHTML('beforeend', str(nrow())); b.previousElementSibling.lastElementChild.querySelector('input')?.focus(); upd(); }));
     box.addEventListener('change', (e) => { if (e.target.classList.contains('gh-nn')) { const hit = cat.find((c) => c.name.toLowerCase() === e.target.value.trim().toLowerCase()); const u = e.target.closest('.gh-nr').querySelector('.gh-nu'); if (hit && !u.value) u.value = hit.unit || ''; } });
     box.addEventListener('change', upd); box.addEventListener('input', upd);
     $('#gh-pc').addEventListener('click', () => { box.innerHTML = ''; URL.revokeObjectURL(url); });
@@ -170,7 +214,7 @@ async function receivePage(id, params = {}, can = () => false) {
       });
       const err = (m) => { box.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${m}</div>`); };
       const free = freeRows();
-      if (!picked.length && !free.length) { err(nh ? 'Ghi ít nhất 1 món có trong ảnh (tên + số lượng).' : 'Tick ít nhất 1 món có trong ảnh.'); return; }
+      if (!picked.length && !free.length) { err(nh ? 'Ghi ít nhất 1 món có trong ảnh (tên + số lượng).' : 'Tick ít nhất 1 món có trong ảnh (hoặc ghi món ngoài phiếu).'); return; }
       if (free.some((l) => !l.name || !(l.qty > 0))) { err('Mỗi món cần tên và số lượng lớn hơn 0.'); return; }
       const bad = picked.find((x) => x.qv === null || x.qv < 0); if (bad) { err(`Nhập số thực nhận cho ${bad.l.name}.`); return; }
       const zero = picked.find((x) => x.qv === 0); if (zero) { err(`${zero.l.name}: số 0 thì không chọn trong ảnh — bấm "Không nhận được".`); return; }
@@ -178,16 +222,18 @@ async function receivePage(id, params = {}, can = () => false) {
       ev.target.disabled = true; ev.target.textContent = 'Đang tải ảnh…';
       try {
         let newIds = [];
-        if (free.length) {   // không hoá đơn: lưu món mới trước (tạo phiếu ở ảnh đầu) để có mã món gắn vào ảnh
+        if (free.length && nh) {   // chưa có phiếu xuất: lưu món mới trước (tạo phiếu ở ảnh đầu) để có mã món gắn vào ảnh
           const before = new Set(d.lines.map((l) => l.id)); const pl = payload();
           picked.forEach((x) => { const y = pl.find((z) => z.id === x.l.id); if (y) y.qty = x.qv; });
           const nid = await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: [...pl, ...free], p_note: d.receive_note || null });
-          const fresh = ((await rpc('app_gh_inbox', { p_branch: d.branch_id })).rows || []).find((x) => x.id === nid);
-          if (!fresh) throw new Error('Đã lưu món nhưng không tải lại được phiếu — tải lại trang.');
           if (!d.id) { d.id = nid; try { history.replaceState(null, '', qs(NHAN, { nhan: nid })); } catch (_) { /* bỏ qua */ } }
+          const fresh = await refetch();
           d.lines = fresh.lines; newIds = fresh.lines.filter((l) => !before.has(l.id)).map((l) => l.id);
-          fresh.lines.forEach((l) => { if (newIds.includes(l.id)) { Q[l.id] = Number(l.qty_received); N[l.id] = ''; } });
+        } else if (free.length) {   // có phiếu xuất: món ngoài phiếu
+          newIds = ((await rpc('app_gh_extra_add', { p_id: d.id, p_lines: free })) || []).map(Number);
+          d.lines = (await refetch()).lines;
         }
+        d.lines.forEach((l) => { if (newIds.includes(l.id)) { Q[l.id] = Number(l.qty_received); N[l.id] = ''; } });
         const ids = [...picked.map((x) => x.l.id), ...newIds];
         await uploadFiles(`gh${d.id}`, [file], async (path) => {
           const pid = await rpc('app_gh_photo_add', { p_id: d.id, p_path: path, p_lines: ids });
@@ -212,9 +258,9 @@ async function receivePage(id, params = {}, can = () => false) {
   // xem / sửa 1 ảnh đã chụp
   function photoBox(p) {
     const L = d.lines.filter((l) => (p.lines || []).includes(l.id));
-    const dl = dialog(html`<form class="stack" style="gap:8px;width:min(460px, calc(100vw - 40px))"><img class="gh-prev" data-path="${p.path}" alt="Ảnh đã chụp">
-      <b>Các món trong ảnh</b>${L.map((l) => html`<div class="gh-sel" data-l="${l.id}"><span class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}</span></span><input class="input sm gh-q" inputmode="decimal" value="${q3(Q[l.id])}" aria-label="Số thực nhận ${l.name}"></div>
-        <div class="gh-note" data-n="${l.id}" ${nh ? 'hidden' : ''}><input class="input sm" value="${N[l.id] || ''}" placeholder="Ghi chú khi số khác phiếu"></div>`)}
+    const dl = dialog(html`<form class="stack" style="gap:8px;width:min(460px, calc(100vw - 40px))"><a target="_blank" rel="noopener"><img class="gh-prev" data-path="${p.path}" alt="Ảnh đã chụp"></a>
+      <b>Các món trong ảnh</b>${L.map((l) => html`<div class="gh-sel" data-l="${l.id}"><span class="grow"><b>${l.name}</b><span class="st-meta">${isEx(l) ? 'ngoài phiếu' : `${lab} ${q3(base(l))}`} ${l.unit || ''}</span></span><input class="input sm gh-q" inputmode="decimal" value="${q3(Q[l.id])}" aria-label="Số thực nhận ${l.name}"></div>
+        <div class="gh-note" data-n="${l.id}" ${nh || isEx(l) ? 'hidden' : ''}><input class="input sm" value="${N[l.id] || ''}" placeholder="Ghi chú khi số khác phiếu"></div>`)}
       <div class="gh-err"></div>
       <div class="toolbar" style="justify-content:space-between"><button type="button" class="btn sm secondary danger" id="gh-pdel">Xoá ảnh</button><span><button type="button" class="btn sm secondary" data-x>Đóng</button> <button class="btn sm" type="submit">Lưu</button></span></div></form>`);
     signLinks(dl);
@@ -222,16 +268,19 @@ async function receivePage(id, params = {}, can = () => false) {
     f.addEventListener('submit', (e) => { e.preventDefault();
       for (const l of L) { const qv = numOf(f.querySelector(`.gh-sel[data-l="${l.id}"] .gh-q`).value); const nt = f.querySelector(`.gh-note[data-n="${l.id}"] input`).value.trim();
         if (qv === null || qv <= 0) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${l.name}: nhập số lớn hơn 0 (không có hàng thì xoá ảnh, chọn "Không nhận được").</div>`); return; }
-        if (!nh && qv !== base(l) && !nt) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Ghi chú cho ${l.name} (số khác phiếu).</div>`); return; }
+        if (!nh && !isEx(l) && qv !== base(l) && !nt) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Ghi chú cho ${l.name} (số khác phiếu).</div>`); return; }
         Q[l.id] = qv; N[l.id] = nt; }
       save(); dl.close(); draw(); });
     dl.querySelector('#gh-pdel').addEventListener('click', async () => {
-      const rest = d.lines.filter((l) => !(p.lines || []).includes(l.id));
+      const others = new Set(d.photos.filter((x) => x.id !== p.id).flatMap((x) => x.lines || []));
+      const gone = d.lines.filter((l) => (p.lines || []).includes(l.id) && (nh || isEx(l)) && !others.has(l.id));   // món ghi tay chỉ có trong ảnh này → xoá theo ảnh
+      const rest = d.lines.filter((l) => !gone.includes(l));
       if (nh && !rest.length) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Phiếu cần ít nhất 1 món — chụp nhóm khác trước rồi mới xoá ảnh này.</div>`); return; }
-      if (!confirm(nh ? 'Xoá ảnh này và các món ghi trong ảnh?' : 'Xoá ảnh này? Các món trong ảnh quay lại "chưa nhận".')) return;
+      if (!confirm(gone.length ? `Xoá ảnh này và ${gone.length} món ghi trong ảnh (${gone.map((l) => l.name).join(', ')})?` : 'Xoá ảnh này? Các món trong ảnh quay lại "chưa nhận".')) return;
       try {
         const path = await rpc('app_gh_photo_del', { p_photo: p.id }); if (path) await sb.storage.from(BUCKET).remove([path]); d.photos = d.photos.filter((x) => x.id !== p.id);
         if (nh) { d.lines = rest; await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: payload(), p_note: d.receive_note || null }); }
+        else { for (const l of gone) await rpc('app_gh_extra_del', { p_line: l.id }); d.lines = rest; }
         dl.close(); draw();
       }
       catch (e) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
@@ -241,106 +290,168 @@ async function receivePage(id, params = {}, can = () => false) {
   async function send(ev) {
     const L = d.lines;
     if (L.some((l) => !done(l))) { showSaved('Còn món chưa nhận.', true); return; }
-    const notes = L.filter((l) => lech(l) || (Q[l.id] === 0 && N[l.id])).map((l) => `${l.name}: phiếu ${q3(l.qty_invoice)}, nhận ${q3(Q[l.id])}${N[l.id] ? ' — ' + N[l.id] : ''}`);
+    if (!d.deliv_path && !d.deliv_note) { showSaved('Chụp hoá đơn giao trước khi gửi.', true); return; }
+    const notes = L.filter((l) => lech(l) || (Q[l.id] === 0 && N[l.id])).map((l) => (isEx(l) ? `${l.name}: ngoài phiếu, nhận ${q3(Q[l.id])}` : `${l.name}: phiếu ${q3(l.qty_invoice)}, nhận ${q3(Q[l.id])}${N[l.id] ? ' — ' + N[l.id] : ''}`));
     ev.target.disabled = true;
     try {
       const r = nh
         ? (await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: payload(), p_note: ($('#gh-anote')?.value ?? d.receive_note ?? '').trim() || null }), { mismatch: 0, nohd: true })
         : await rpc('app_gh_receive', { p_id: d.id, p_lines: L.map((l) => ({ id: l.id, qty: Q[l.id] })), p_note: notes.join('; ') });
       draftDel(d.id || id);
-      flash(r.nohd ? 'Đã lưu phiếu nhận hàng không hoá đơn — chờ kế toán ghép hoá đơn.' : r.mismatch ? `Đã gửi báo nhận — ${r.mismatch} món lệch phiếu, đã báo quản lý.` : 'Đã gửi báo nhận — nhận đủ.', r.mismatch ? 'warn' : 'ok');
+      flash(r.nohd ? 'Đã lưu phiếu nhận hàng — chờ kế toán ghép phiếu xuất.' : r.mismatch ? `Đã gửi báo nhận — ${r.mismatch} món khác phiếu, đã báo quản lý.` : 'Đã gửi báo nhận — nhận đủ hàng giống hoá đơn.', r.mismatch ? 'warn' : 'ok');
       location.hash = back;
     } catch (e) { ev.target.disabled = false; showSaved(e.message, true); }
   }
 }
 
-// ---------------------------------------------------------------- Đối soát: các lần giao của cơ sở (chờ đối soát / đang chuyển / lệch / xong)
+// ---------------------------------------------------------------- Đối soát: danh sách (bước 106) — tất cả cơ sở, cũ nhất trước; Chờ đối soát · Chưa nhận · Đã xong
 async function listPage(params, can) {
   const today = vnToday();
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : today.slice(0, 7);
   const G = await rpc('app_gh_inbox', { p_branch: null });
-  const { brs, br } = await branchesFor(params, G, can);
-  const Dm = await rpc('app_nh_list', { p_month: month, p_branch: br || null });
-  const seen = new Set(); const rows = [];
-  [...(G.rows || []), ...(Dm.rows || [])].forEach((r) => { if (r.branch_id === br && !seen.has(r.id)) { seen.add(r.id); rows.push(r); } });
-  const tab = ['dang', 'cho', 'lech', 'xong'].includes(params.tt) ? params.tt : null;
-  const grp = (d) => (d.state === 'dang_chuyen' ? 'dang' : d.state === 'cho_hoa_don' || d.n_unchecked ? 'cho' : d.result === 'lech' ? 'lech' : 'xong');
-  const cnt = (k) => rows.filter((d) => grp(d) === k).length;
-  const def = tab || (cnt('cho') ? 'cho' : cnt('dang') ? 'dang' : 'xong');
-  const list = rows.filter((d) => grp(d) === def).sort((a, b) => String(b.work_date).localeCompare(String(a.work_date)) || b.id - a.id);
-  const nCho = (id) => (G.rows || []).filter((d) => d.branch_id === id && d.state !== 'dang_chuyen').length;
-  const q = (o) => qs(DS, { cn: br, thang: month, tt: def, ...o });
+  const cat = await catalog().catch(() => ({ activeBranches: [] }));
+  const brs = (cat.activeBranches || []).map((b) => ({ id: b.id, code: b.display_code || b.code }));
+  const br = brs.some((b) => String(b.id) === String(params.cn)) ? Number(params.cn) : null;   // null = tất cả cơ sở
+  const open = (G.rows || []).filter((d) => br === null || d.branch_id === br);
+  const cho = open.filter((d) => d.state !== 'dang_chuyen').sort((a, b) => String(a.received_at || a.work_date).localeCompare(String(b.received_at || b.work_date)) || a.id - b.id);
+  const dang = open.filter((d) => d.state === 'dang_chuyen').sort((a, b) => String(a.work_date).localeCompare(String(b.work_date)) || a.id - b.id);
+  const tab = ['cho', 'dang', 'xong'].includes(params.tt) ? params.tt : 'cho';
+  let xong = [];
+  if (tab === 'xong') {
+    const Dm = await rpc('app_nh_list', { p_month: month, p_branch: br });
+    xong = (Dm.rows || []).filter((d) => d.recon_at).sort((a, b) => String(b.recon_at).localeCompare(String(a.recon_at)));
+  }
+  const nCho = (id) => (G.rows || []).filter((d) => (id === null || d.branch_id === id) && d.state !== 'dang_chuyen').length;
+  const q = (o) => qs(DS, { cn: br ?? '', tt: tab, thang: tab === 'xong' ? month : '', ...o });
   const shiftMonth = (k) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7); };
-  const life = (d) => { const step = d.state === 'dang_chuyen' ? 1 : d.n_unchecked || d.state === 'cho_hoa_don' ? 2 : 3;
-    return html`<div class="gh-life"><span class="on">Xuất</span><i></i><span class="${step >= 2 ? 'on' : ''}">Nhận</span><i></i><span class="${step >= 3 ? 'on' : ''}">Đối soát</span><i></i><span class="${step >= 3 ? (d.result === 'lech' ? 'x' : 'on') : ''}">${step >= 3 && d.result === 'lech' ? `Lệch ${d.n_mismatch}` : 'Xong'}</span></div>`; };
-  const card = (d) => html`<div class="card gh-card"><div class="gh-ch"><b>${d.doc_no || 'Nhận hàng không hoá đơn'} · ${dmy(d.work_date).slice(0, 5)}</b>${stTag(d)}</div>${life(d)}
-      <div class="st-meta">${d.n_lines} món${d.received_by ? ` · ${d.received_by}` : ''}${d.photos ? ` · ${d.photos.length} ảnh` : ''}${Dm.money && d.total != null ? ` · ${fmt(d.total)}đ` : ''}</div>
-      <div class="toolbar" style="gap:6px">${grp(d) === 'cho' && can('doi_soat') ? html`<a class="btn sm" href="${qs(DS, { ds: d.id })}">ĐỐI SOÁT ›</a>` : ''}
-        ${d.state === 'dang_chuyen' && G.can_recv ? html`<a class="btn sm" href="${qs(NHAN, { nhan: d.id })}">Nhận hàng ›</a>` : ''}
-        ${d.state !== 'dang_chuyen' ? html`<a class="btn sm secondary" href="${qs(DS, { xem: d.id })}">Xem</a>` : ''}</div></div>`;
+  const days = (d) => (d.received_date ? Math.round((Date.parse(today) - Date.parse(d.received_date)) / 864e5) : 0);
+  const thumbs = (d) => html`<div class="ql-th">${(d.photos || []).slice(0, 3).map((p) => html`<img data-path="${p.path}" alt="">`)}</div>`;
+  const cnts = (d) => { const doc = !!d.doc_no; const L = d.lines || [];
+    const ex = doc ? L.filter((l) => l.qty_invoice == null && Number(l.qty_received ?? 0) > 0).length : 0;
+    const le = doc ? L.filter((l) => l.qty_invoice != null && Number(l.qty_received ?? 0) !== Number(l.qty_invoice)).length : 0;
+    return doc ? html`<span class="pill ok">${L.length - ex - le} khớp</span>${le ? html`<span class="pill warn">${le} lệch</span>` : ''}${ex ? html`<span class="pill off">${ex} ngoài phiếu</span>` : ''}`
+      : html`<span class="pill info">${L.length} món NV ghi · chưa có phiếu xuất</span>`; };
+  const docTag = (d) => (d.deliv_path ? html`<span class="pill ok">📄 có HĐ giao</span>` : d.bu_path ? html`<span class="pill ok">📄 có hoá đơn bù</span>`
+    : d.state === 'dang_chuyen' ? '' : html`<span class="pill off">📄 thiếu HĐ giao — chờ hoá đơn bù</span>`);
+  const card = (d) => html`<div class="card ql-card">${thumbs(d)}<div class="grow"><b class="ql-t">${d.branch_code} · ${d.doc_no || 'Chưa có phiếu xuất'}</b>
+      <span class="st-meta"> · nhận ${d.received_at ? `${dmy(String(d.received_at).slice(0, 10)).slice(0, 5)} ${String(d.received_at).slice(11, 16)}` : ''}${d.received_by ? ` · ${d.received_by}` : ''}</span>
+      <div class="ql-p">${cnts(d)}${docTag(d)}${d.n_unchecked < d.n_lines ? html`<span class="pill mute">đã soát ${d.n_lines - d.n_unchecked}/${d.n_lines}</span>` : ''}</div></div>
+      <span class="ql-r">${days(d) > 0 ? html`<span class="${days(d) >= 1 ? 'neg' : ''}">chờ ${days(d)} ngày</span>` : html`<span class="st-meta">hôm nay</span>`}
+        <a class="btn sm" href="${qs(DS, { [can('doi_soat') ? 'ds' : 'xem']: d.id })}">${can('doi_soat') ? 'ĐỐI SOÁT ›' : 'Xem ›'}</a></span></div>`;
+  const dcard = (d) => html`<div class="card ql-card"><div class="grow"><b class="ql-t">${d.branch_code} · ${d.doc_no || ''}</b><span class="st-meta"> · ${d.n_lines} món${d.ship_at ? ` · kho xuất ${String(d.ship_at).slice(11, 16)} ${dmy(String(d.ship_at).slice(0, 10)).slice(0, 5)}` : ''}</span>
+      <div class="ql-p">${d.work_date < today ? html`<span class="pill off">quá ngày giao ${dmy(d.work_date).slice(0, 5)} — chưa nhận</span>` : html`<span class="pill info">đang chuyển</span>`}</div></div>
+      ${G.can_recv ? html`<a class="btn sm secondary" href="${qs(NHAN, { nhan: d.id })}">Nhận hàng ›</a>` : ''}</div>`;
+  const xcard = (d) => html`<div class="card ql-card ql-done"><div class="grow"><b class="ql-t">✓ ${d.branch_code} · ${d.doc_no || 'Chưa có phiếu xuất'}</b>
+      <span class="st-meta"> · xong ${dmy(String(d.recon_at).slice(0, 10)).slice(0, 5)}${d.recon_by ? ` · ${d.recon_by}` : ''}</span>
+      <div class="st-meta">${d.n_mismatch ? `${d.n_mismatch} món lệch đã sang Kiểm soát${d.n_fu_done ? ' · kế toán đã xử lý' : ' · kế toán chưa xử lý'}` : 'Nhận đủ, không lệch'}</div></div>
+      <span class="ql-r"><a class="btn sm secondary" href="${qs(DS, { xem: d.id })}">Xem</a>${can('doi_soat') ? (d.n_fu_done ? html`<button type="button" class="btn sm secondary" disabled title="Kế toán đã xử lý — kế toán Hoàn tác ở Kiểm soát trước">Mở lại</button>`
+        : html`<button type="button" class="btn sm secondary ql-reopen" data-id="${d.id}">Mở lại đối soát</button>`) : ''}</span></div>`;
+  const list = tab === 'cho' ? cho : tab === 'dang' ? dang : xong;
   return {
     title: 'Đối soát hàng',
-    html: html`${GH_CSS}<div class="gh-wrap gh-wide"><div class="page-head"><div><h1>Đối soát hàng kho tổng</h1><div class="sub">Đối soát theo từng ảnh nhân viên chụp. Đối soát xong: món thiếu sang "Chờ giao bù", món thừa sang "Chờ hoá đơn bổ sung" ở tab Kiểm soát.</div></div></div>
-      <section class="card gh-bar2"><nav class="branch-tabs" aria-label="Cơ sở">${brs.map((b) => html`<a class="${b.id === br ? 'on' : ''}" href="${q({ cn: b.id, tt: '' })}">${b.code}${nCho(b.id) ? html` <span class="badge">${nCho(b.id)}</span>` : ''}</a>`)}</nav>
-        <div class="gh-mon"><a class="btn sm secondary" href="${q({ thang: shiftMonth(-1) })}" aria-label="Tháng trước">‹</a><strong>Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(1) })}" aria-label="Tháng sau">›</a></div></section>
-      <nav class="gh-tabs" aria-label="Lọc">${[['cho', '✔ Chờ đối soát'], ['dang', '🚚 Đang chuyển'], ['lech', '⚠ Lệch'], ['xong', '✓ Xong']].map(([k, l]) => html`<a class="${def === k ? 'on' : ''}" href="${q({ tt: k })}">${l} <b>${cnt(k)}</b></a>`)}</nav>
-      <div class="gh-grid">${list.length ? list.map(card) : html`<div class="card st-meta">Không có lần giao nào ở mục này.</div>`}</div></div>`,
+    html: html`${GH_CSS}<div class="gh-wrap gh-wide"><div class="page-head"><div><h1>Đối soát hàng kho tổng</h1><div class="sub">Lần giao nhân viên đã nhận — món lệch xem trước, món khớp theo từng ảnh, rồi Xác nhận xong. Cũ nhất lên trước.</div></div></div>
+      <section class="card stack" style="gap:8px;padding:12px 14px"><nav class="branch-tabs" aria-label="Cơ sở"><a class="${br === null ? 'on' : ''}" href="${q({ cn: 'all' })}">Tất cả${nCho(null) ? html` <span class="badge">${nCho(null)}</span>` : ''}</a>${brs.map((b) => html`<a class="${b.id === br ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}${nCho(b.id) ? html` <span class="badge">${nCho(b.id)}</span>` : ''}</a>`)}</nav>
+        <nav class="gh-tabs" aria-label="Lọc"><a class="${tab === 'cho' ? 'on' : ''}" href="${q({ tt: 'cho', thang: '' })}">✔ Chờ đối soát <b>${cho.length}</b></a><a class="${tab === 'dang' ? 'on' : ''}" href="${q({ tt: 'dang', thang: '' })}">🚚 Chưa nhận <b>${dang.length}</b></a><a class="${tab === 'xong' ? 'on' : ''}" href="${q({ tt: 'xong' })}">✓ Đã xong</a></nav>
+        ${tab === 'xong' ? html`<div class="gh-mon"><a class="btn sm secondary" href="${q({ thang: shiftMonth(-1) })}" aria-label="Tháng trước">‹</a><strong>Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(1) })}" aria-label="Tháng sau">›</a></div>` : ''}</section>
+      ${list.length ? list.map(tab === 'cho' ? card : tab === 'dang' ? dcard : xcard) : html`<div class="card st-meta">${tab === 'cho' ? 'Không có lần giao nào chờ đối soát.' : tab === 'dang' ? 'Không có phiếu xuất nào đang chuyển.' : 'Chưa có lần giao nào đối soát xong trong tháng này.'}</div>`}</div>`,
+    mount() {
+      signLinks($('.gh-wrap'));
+      $$('.ql-reopen').forEach((b) => b.addEventListener('click', async () => {
+        if (!confirm('Mở lại đối soát lần giao này? Các món lệch đang chờ ở Kiểm soát sẽ gỡ ra cho tới khi xác nhận xong lại.')) return;
+        b.disabled = true;
+        try { await rpc('app_gh_recon_reopen', { p_id: Number(b.dataset.id) }); flash('Đã mở lại đối soát.'); location.hash = qs(DS, { ds: b.dataset.id }); }
+        catch (e) { b.disabled = false; showSaved(e.message, true); }
+      }));
+    },
   };
 }
 
-// ---------------------------------------------------------------- quản lý: đối soát theo từng ảnh (ds) / xem (xem)
-async function reconPage(id, editable) {
+// ---------------------------------------------------------------- Đối soát 1 lần giao (bước 106): ① món lệch + ngoài phiếu xem trước · ② món khớp theo ảnh · ③ Xác nhận xong
+async function reconPage(id, editable0, can) {
   let d = null;
   const find = async () => {
     const G = await rpc('app_gh_inbox', { p_branch: null }).catch(() => null);
     const x0 = G && (G.rows || []).find((r) => r.id === id); if (x0) return x0;
-    const today = vnToday();
-    for (const m of [today.slice(0, 7), addDays(today.slice(0, 7) + '-01', -1).slice(0, 7), addDays(addDays(today.slice(0, 7) + '-01', -1).slice(0, 7) + '-01', -1).slice(0, 7)]) {
+    let m = vnToday().slice(0, 7);
+    for (let k = 0; k < 3; k++) {
       const D = await rpc('app_nh_list', { p_month: m, p_branch: null }).catch(() => null);
       const x = D && [...(D.rows || []), ...(D.open || [])].find((r) => r.id === id); if (x) return x;
+      m = addDays(m + '-01', -1).slice(0, 7);
     }
     return null;
   };
   d = await find();
   if (!d) return { title: 'Đối soát hàng', html: html`${GH_CSS}<div class="gh-wrap"><div class="page-head"><h1>Đối soát hàng</h1></div><div class="alert warn">Không tìm thấy lần giao này. <a href="${DS}">‹ Về Đối soát hàng</a></div></div>` };
-  return { title: 'Đối soát hàng', html: html`${GH_CSS}<div class="gh-wrap" id="gh-ds"></div>`, mount() { draw(); } };
+  let editable = editable0;
+  return { title: 'Đối soát hàng', html: html`${GH_CSS}<div class="gh-wrap gh-wide" id="gh-ds"></div>`, mount() { draw(); } };
 
   function draw() {
     const box = $('#gh-ds'); if (!box) return;
-    const L = d.lines; const byId = new Map(L.map((l) => [l.id, l]));
-    const isLech = (l) => l.qty_invoice != null && Number(l.qty_received ?? 0) !== Number(l.qty_invoice ?? 0);   // không hoá đơn: chưa có số để so
-    const photos = [...d.photos].sort((a, b) => Number((b.lines || []).some((x) => byId.get(x) && isLech(byId.get(x)))) - Number((a.lines || []).some((x) => byId.get(x) && isLech(byId.get(x)))));
-    const inPhoto = new Set(d.photos.flatMap((p) => p.lines || []));
-    const noPhoto = L.filter((l) => !inPhoto.has(l.id));
-    const nChk = L.filter((l) => l.checked_at).length;
-    const can = editable && d.state !== 'dang_chuyen';
-    const row = (l) => { const q = l.qty_checked ?? l.qty_received; const diff = l.qty_invoice != null && Number(q ?? 0) !== Number(l.qty_invoice ?? 0);
-      return html`<div class="gh-dl ${l.checked_at ? 'done' : ''}" data-l="${l.id}"><div class="grow"><b>${l.name}</b>
-          <span class="st-meta">${l.qty_invoice != null ? `phiếu ${q3(l.qty_invoice)} · ` : 'chưa có hoá đơn · '}NV ${q3(l.qty_received)}${l.qty_checked != null && Number(l.qty_checked) !== Number(l.qty_received) ? html` · <b>QL sửa ${q3(l.qty_checked)}</b>` : ''} ${l.unit || ''}${diff ? html` <span class="pill ${Number(q ?? 0) < Number(l.qty_invoice ?? 0) ? 'warn' : 'info'}">${Number(q ?? 0) < Number(l.qty_invoice ?? 0) ? 'thiếu' : 'thừa'} ${q3(Math.abs(Number(q ?? 0) - Number(l.qty_invoice ?? 0)))}</span>` : ''}${l.check_note ? ' · ' + l.check_note : ''}</span></div>
-        <span class="gh-act">${l.checked_at ? html`<span class="pill ok">✓</span>${can ? html`<button type="button" class="btn sm secondary gh-un">Bỏ</button>` : ''}` : can ? html`<button type="button" class="btn sm gh-ok gh-one">Đúng</button><button type="button" class="btn sm secondary gh-fix">Sai số…</button>` : ''}</span></div>`; };
-    box.innerHTML = str(html`<div class="page-head"><div><a href="${qs(DS, { cn: d.branch_id })}" class="st-meta">‹ Đối soát hàng</a><h1>${editable ? 'Đối soát' : 'Lần giao'} · ${d.doc_no || 'không hoá đơn'}</h1>
-        <div class="sub">${d.branch_code} · ${dmy(d.work_date)}${d.received_by ? ` · nhận: ${d.received_by} ca ${d.received_shift || '?'}` : ''} · ${stTag(d)}</div></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
-      ${d.receive_note ? html`<div class="alert warn" style="margin:0">Ghi chú nhân viên: ${d.receive_note}</div>` : ''}
-      <div class="gh-prog"><b>Đã đối soát ${nChk} / ${L.length} món</b><span class="pill mute">${d.photos.length} ảnh</span></div><div class="gh-bar"><i style="width:${L.length ? Math.round((nChk / L.length) * 100) : 0}%"></i></div>
-      ${nChk === L.length && d.state !== 'dang_chuyen' ? html`<div class="alert ok" style="margin:0"><b>✓ Đã đối soát ${L.length}/${L.length} món.</b> Khớp ${L.filter((l) => Number(l.qty_checked ?? l.qty_received ?? 0) === Number(l.qty_invoice ?? 0)).length} · lệch ${L.filter((l) => Number(l.qty_checked ?? l.qty_received ?? 0) !== Number(l.qty_invoice ?? 0)).length}${L.some((l) => l.qty_checked != null && Number(l.qty_checked) !== Number(l.qty_received)) ? ' · món quản lý sửa số đã báo nhân viên' : ''}${L.some((l) => Number(l.qty_checked ?? l.qty_received ?? 0) !== Number(l.qty_invoice ?? 0)) && d.doc_no ? ' · món lệch đã chuyển sang Kiểm soát (giao bù / hoá đơn bổ sung)' : ''}. <a href="${qs(DS, { cn: d.branch_id })}">‹ Về Đối soát hàng</a></div>` : ''}
-      ${photos.map((p, i) => { const PL = (p.lines || []).map((x) => byId.get(x)).filter(Boolean); const open = PL.filter((l) => !l.checked_at).length;
-        return html`<section class="card gh-pc" data-ph="${p.id}"><a target="_blank" rel="noopener"><img class="gh-prev" data-path="${p.path}" alt="Ảnh ${i + 1}"></a>
-          <div class="gh-ch"><b>Ảnh ${i + 1} · ${PL.length} món</b>${can && open > 1 ? html`<button type="button" class="btn sm gh-ok gh-all">✓ Đúng cả ảnh (${open} món)</button>` : ''}</div>${PL.map(row)}</section>`; })}
-      ${noPhoto.length ? html`<section class="card gh-pc"><b>Món không có ảnh (nhân viên ghi không nhận được)</b>${noPhoto.map(row)}</section>` : ''}`);
+    const L = d.lines; const byId = new Map(L.map((l) => [l.id, l])); const doc = !!d.doc_no;
+    const can2 = editable && !d.recon_at && d.state !== 'dang_chuyen';
+    const qOf = (l) => Number(l.qty_checked ?? l.qty_received ?? 0);
+    const isEx = (l) => doc && (l.qty_invoice === null || l.qty_invoice === undefined);
+    const isLech = (l) => doc && (isEx(l) ? Number(l.qty_received ?? 0) > 0 || qOf(l) > 0 : Number(l.qty_received ?? 0) !== Number(l.qty_invoice) || qOf(l) !== Number(l.qty_invoice));
+    const S1 = L.filter(isLech); const S2 = L.filter((l) => !isLech(l));
+    const photoOf = (l) => d.photos.find((p) => (p.lines || []).includes(l.id));
+    const nvNote = (l) => { const seg = String(d.receive_note || '').split('; ').find((s) => s.startsWith(l.name + ':')); return seg && seg.includes(' — ') ? seg.split(' — ').slice(1).join(' — ') : ''; };
+    const diff = (l) => { const qv = qOf(l); if (isEx(l)) return html`<b class="ds-x">ngoài phiếu</b>`; const inv = Number(l.qty_invoice);
+      return qv === inv ? html`<b class="ds-ok">khớp</b>` : qv === 0 ? html`<b class="ds-w">không nhận</b>` : qv < inv ? html`<b class="ds-w">thiếu ${q3(inv - qv)}</b>` : html`<b class="ds-i">thừa ${q3(qv - inv)}</b>`; };
+    const nUn = L.filter((l) => !l.checked_at).length;
+    const ok1 = S1.every((l) => l.checked_at); const ok2 = S2.every((l) => l.checked_at);
+    const act = (l, big) => (l.checked_at ? html`<span class="pill ok">✓ ${l.qty_checked != null && Number(l.qty_checked) !== Number(l.qty_received) ? `QL sửa ${q3(l.qty_checked)}` : 'đúng'}</span>${can2 ? html`<button type="button" class="btn sm secondary gh-un">Bỏ</button>` : ''}`
+      : can2 ? html`${big ? html`<button type="button" class="btn sm gh-ok gh-one">✓ Đúng như NV</button>` : ''}<button type="button" class="btn sm secondary gh-fix">${big ? 'Sửa số…' : 'Sai số…'}</button>` : html`<span class="pill mute">chưa soát</span>`);
+    const thumb = (l) => { const p = photoOf(l); return p ? html`<a target="_blank" rel="noopener" class="ds-thumb"><img data-path="${p.path}" alt="Ảnh ${l.name}"></a>` : html`<span class="ds-thumb ds-noph">không có ảnh</span>`; };
+    const bu = doc ? L.filter((l) => !isEx(l) && qOf(l) < Number(l.qty_invoice)) : []; const bs = doc ? L.filter((l) => isEx(l) ? qOf(l) > 0 : qOf(l) > Number(l.qty_invoice)) : [];
+    const amt = (l) => (isEx(l) ? `${q3(qOf(l))} ${l.unit || ''}` : `${q3(Math.abs(qOf(l) - Number(l.qty_invoice)))} ${l.unit || ''}`).trim();
+    const photos = d.photos.map((p, i) => ({ p, i, ls: (p.lines || []).map((x) => byId.get(x)).filter((l) => l && !isLech(l)) })).filter((x) => x.ls.length);
+    const noPh = S2.filter((l) => !photoOf(l));
+    box.innerHTML = str(html`<div class="page-head"><div><a href="${qs(DS, { cn: d.branch_id })}" class="st-meta">‹ Đối soát hàng</a><h1>${can2 ? 'Đối soát' : 'Lần giao'} · ${d.doc_no || 'chưa có phiếu xuất'}</h1>
+        <div class="sub">${d.branch_code}${d.received_at ? ` · nhận ${dmy(String(d.received_at).slice(0, 10)).slice(0, 5)} ${String(d.received_at).slice(11, 16)}` : ''}${d.received_by ? ` · ${d.received_by}` : ''} · ${L.length} món · ${d.photos.length} ảnh</div></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
+      ${d.recon_at ? html`<div class="alert ok" style="margin:0;display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="grow"><b>✓ Đã xác nhận đối soát xong</b> · ${d.recon_by || ''} ${dmy(String(d.recon_at).slice(0, 10)).slice(0, 5)}${d.n_mismatch ? ` · món lệch đã sang Kiểm soát${d.n_fu_done ? ' (kế toán đã xử lý)' : ''}` : ''}</span>
+          ${can('doi_soat') ? (d.n_fu_done ? html`<span class="st-meta">Kế toán đã xử lý — muốn mở lại thì kế toán Hoàn tác ở Kiểm soát trước.</span>` : html`<button type="button" class="btn sm secondary" id="gh-reopen">Mở lại đối soát</button>`) : ''}</div>` : ''}
+      ${d.state === 'dang_chuyen' ? html`<div class="alert warn" style="margin:0">Nhân viên chưa báo nhận hàng này.</div>` : ''}
+      <nav class="gh-steps"><span class="${ok1 ? 'ok' : 'on'}">1. Món lệch &amp; ngoài phiếu (${S1.length})${ok1 ? ' ✓' : ''}</span><span class="${ok2 ? 'ok' : ok1 ? 'on' : ''}">2. Món khớp theo ảnh (${S2.length})${ok2 ? ' ✓' : ''}</span><span class="${d.recon_at ? 'ok' : ok1 && ok2 ? 'on' : ''}">3. Xác nhận xong${d.recon_at ? ' ✓' : ''}</span></nav>
+      <section class="card ds-top"><div class="ds-doc"><b>📄 Hoá đơn giao</b>
+          ${d.deliv_path ? html`<a target="_blank" rel="noopener"><img class="gh-prev" data-path="${d.deliv_path}" alt="Ảnh hoá đơn giao"></a><span class="st-meta">bấm để phóng to</span>`
+            : html`<div class="ds-lock">Nhân viên: tài xế không mang hoá đơn giao${d.deliv_note ? ` — ${d.deliv_note}` : ''}.</div>`}
+          ${d.bu_path ? html`<a class="btn sm secondary" target="_blank" rel="noopener" data-path="${d.bu_path}">📎 Hoá đơn bù: ${d.bu_name || 'tệp'}</a>` : !d.deliv_path ? html`<span class="pill off">Chờ kế toán tải hoá đơn bù</span>` : ''}</div>
+        <div class="ds-main"><div><b>NV xác nhận:</b> ${S1.length ? html`<span class="pill warn">Số thực nhận khác hoá đơn</span>` : html`<span class="pill ok">Đã nhận đủ giống hoá đơn</span>`}
+            ${!doc ? html`<span class="pill info">chưa có phiếu xuất trên web</span>` : ''}</div>
+          ${S1.length ? html`<div class="st-meta">${S1.map((l) => `${l.name} ${isEx(l) ? 'ngoài phiếu ' + q3(l.qty_received) : Number(l.qty_received) === 0 ? 'không nhận' : Number(l.qty_received) < Number(l.qty_invoice) ? 'thiếu ' + q3(Number(l.qty_invoice) - Number(l.qty_received)) : 'thừa ' + q3(Number(l.qty_received) - Number(l.qty_invoice))} ${l.unit || ''}`).join(' · ')}</div>` : ''}
+          ${d.receive_note && !S1.length ? html`<div class="ds-nt">Ghi chú NV: ${d.receive_note}</div>` : ''}
+          ${S1.length ? html`<h3 class="ds-h">⚠ Món lệch &amp; ngoài phiếu — xem trước</h3>${S1.map((l) => html`<div class="ds-lech ${isEx(l) ? 'ex' : ''} ${l.checked_at ? 'done' : ''}" data-l="${l.id}">${thumb(l)}
+              <div class="grow"><b>${l.name}</b>${isEx(l) ? html` <span class="pill off">ngoài phiếu</span>` : ''}
+                <div class="ds-cmp"><span>Phiếu</span><span>NV đếm</span><span>${l.qty_checked != null && Number(l.qty_checked) !== Number(l.qty_received) ? 'QL sửa' : 'Lệch'}</span>
+                  <b>${isEx(l) ? '—' : `${q3(l.qty_invoice)} ${l.unit || ''}`}</b><b>${q3(l.qty_received)} ${l.unit || ''}</b><span>${l.qty_checked != null && Number(l.qty_checked) !== Number(l.qty_received) ? html`<b>${q3(l.qty_checked)}</b> · ` : ''}${diff(l)}</span></div>
+                ${nvNote(l) ? html`<div class="ds-nt">NV: ${nvNote(l)}</div>` : ''}${l.check_note ? html`<div class="ds-nt">QL: ${l.check_note}</div>` : ''}</div>
+              <span class="ds-act">${act(l, true)}</span></div>`)}` : ''}</div></section>
+      ${S2.length ? html`<section class="card stack" style="gap:10px"><h3 class="ds-h">✓ Món khớp — theo từng ảnh</h3>
+        ${photos.map(({ p, i, ls }) => { const open = ls.filter((l) => !l.checked_at); return html`<div class="ds-split" data-ph="${p.id}"><a target="_blank" rel="noopener"><img class="gh-prev" data-path="${p.path}" alt="Ảnh ${i + 1}"></a>
+          <div><div class="gh-ch"><b>Ảnh ${i + 1} <span class="st-meta">· ${ls.length} món khớp</span></b>${can2 && open.length ? html`<button type="button" class="btn sm gh-ok gh-all">✓ Đúng cả ảnh (${open.length} món)</button>` : ''}</div>
+            ${ls.map((l) => html`<div class="gh-dl ${l.checked_at ? 'done' : ''}" data-l="${l.id}"><div class="grow">${l.name}<span class="st-meta">${doc ? `phiếu ${q3(l.qty_invoice)} · ` : ''}NV ${q3(l.qty_received)} ${l.unit || ''}</span></div><span class="gh-act">${act(l, false)}</span></div>`)}</div></div>`; })}
+        ${noPh.length ? html`<div><b>Món không có ảnh</b>${noPh.map((l) => html`<div class="gh-dl ${l.checked_at ? 'done' : ''}" data-l="${l.id}"><div class="grow">${l.name}<span class="st-meta">NV ${q3(l.qty_received)} ${l.unit || ''}</span></div><span class="gh-act">${act(l, true)}</span></div>`)}</div>` : ''}</section>` : ''}
+      ${!d.recon_at && d.state !== 'dang_chuyen' ? html`<section class="ds-sum"><b>3. Xác nhận đối soát xong</b>
+          ${nUn ? html`<div class="st-meta2">Còn ${nUn} món chưa đối soát.</div>` : ''}
+          ${!d.has_doc ? html`<div class="ds-lock">🔒 Chờ kế toán tải <b>hoá đơn bù</b> (nhân viên không có hoá đơn giao) — vẫn đối soát từng món được, chưa xác nhận xong được.</div>` : ''}
+          ${doc ? html`<div class="st-meta2">${bu.length ? html`→ Chờ giao bù: ${bu.map((l) => `${l.name} ${amt(l)}`).join(', ')}<br>` : ''}${bs.length ? html`→ Chờ hoá đơn bổ sung: ${bs.map((l) => `${l.name} ${amt(l)}${isEx(l) ? ' (ngoài phiếu)' : ''}`).join(', ')}` : ''}${!bu.length && !bs.length ? 'Nhận đủ — không có món chuyển sang Kiểm soát.' : ''}</div>`
+            : html`<div class="st-meta2">Chưa có phiếu xuất trên web — món lệch sẽ tự sang Kiểm soát khi kế toán ghép phiếu xuất.</div>`}
+          ${can2 ? html`<button type="button" class="btn gh-ok" id="gh-done" ${nUn || !d.has_doc ? 'disabled' : ''}>XÁC NHẬN XONG · sang lần giao tiếp ›</button>` : ''}</section>` : ''}`);
     signLinks(box);
-    const act = async (b, fn) => { b.disabled = true; try { await fn(); } catch (e) { showSaved(e.message, true); } b.disabled = false; };
+    const busy = async (b, fn) => { b.disabled = true; try { await fn(); } catch (e) { showSaved(e.message, true); } b.disabled = false; };
     const setL = (lid, res) => { const l = byId.get(lid); l.qty_checked = res.qty; l.checked_at = new Date().toISOString(); };
-    $$('.gh-one', box).forEach((b) => b.addEventListener('click', () => act(b, async () => { const lid = Number(b.closest('[data-l]').dataset.l); setL(lid, await rpc('app_nh_check', { p_line: lid, p_qty: null, p_note: null })); draw(); })));
-    $$('.gh-all', box).forEach((b) => b.addEventListener('click', () => act(b, async () => {
+    const lidOf = (b) => Number(b.closest('[data-l]').dataset.l);
+    $$('.gh-one', box).forEach((b) => b.addEventListener('click', () => busy(b, async () => { const lid = lidOf(b); setL(lid, await rpc('app_nh_check', { p_line: lid, p_qty: null, p_note: null })); draw(); })));
+    $$('.gh-all', box).forEach((b) => b.addEventListener('click', () => busy(b, async () => {
       const p = d.photos.find((x) => x.id === Number(b.closest('[data-ph]').dataset.ph));
-      for (const lid of (p.lines || [])) { const l = byId.get(lid); if (l && !l.checked_at) setL(lid, await rpc('app_nh_check', { p_line: lid, p_qty: null, p_note: null })); }
+      for (const lid of (p.lines || [])) { const l = byId.get(lid); if (l && !l.checked_at && !isLech(l)) setL(lid, await rpc('app_nh_check', { p_line: lid, p_qty: null, p_note: null })); }
       showSaved('Đã đối soát cả ảnh'); draw();
     })));
-    $$('.gh-un', box).forEach((b) => b.addEventListener('click', () => act(b, async () => { const lid = Number(b.closest('[data-l]').dataset.l); await rpc('app_nh_uncheck', { p_line: lid }); const l = byId.get(lid); l.checked_at = null; l.qty_checked = null; l.check_note = null; draw(); })));
+    $$('.gh-un', box).forEach((b) => b.addEventListener('click', () => busy(b, async () => { const lid = lidOf(b); await rpc('app_nh_uncheck', { p_line: lid }); const l = byId.get(lid); l.checked_at = null; l.qty_checked = null; l.check_note = null; draw(); })));
     $$('.gh-fix', box).forEach((b) => b.addEventListener('click', () => {
-      const l = byId.get(Number(b.closest('[data-l]').dataset.l));
-      const dl = dialog(html`<form class="stack" style="gap:10px;width:min(420px, calc(100vw - 56px))"><h2 style="margin:0">Sai số lượng</h2>
-        <div><b>${l.name}</b> · phiếu ${q3(l.qty_invoice)} · NV đếm ${q3(l.qty_received)} ${l.unit || ''}</div>
+      const l = byId.get(lidOf(b));
+      const dl = dialog(html`<form class="stack" style="gap:10px;width:min(420px, calc(100vw - 56px))"><h2 style="margin:0">Sửa số lượng</h2>
+        <div><b>${l.name}</b> · ${isEx(l) ? 'ngoài phiếu' : `phiếu ${q3(l.qty_invoice)}`} · NV đếm ${q3(l.qty_received)} ${l.unit || ''}</div>
         <label class="field"><span>Số đúng (quản lý đếm)</span><input class="input" name="q" inputmode="decimal" autocomplete="off"></label>
         <label class="field"><span>Ghi chú (bắt buộc)</span><input class="input" name="nt" autocomplete="off" placeholder="vd: đếm lại thấy 5 bao"></label><div class="gh-err"></div>
         <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu số đúng</button></div></form>`);
@@ -349,6 +460,19 @@ async function reconPage(id, editable) {
         if (qv === null || qv < 0) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Nhập số đúng.</div>`); return; }
         try { const res = await rpc('app_nh_check', { p_line: l.id, p_qty: qv, p_note: f.nt.value }); setL(l.id, res); l.check_note = f.nt.value.trim() || null; dl.close(); draw(); }
         catch (er) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${er.message}</div>`); } });
+    }));
+    $('#gh-done')?.addEventListener('click', (ev) => busy(ev.target, async () => {
+      const r = await rpc('app_gh_recon_done', { p_id: d.id });
+      const G = await rpc('app_gh_inbox', { p_branch: null }).catch(() => ({ rows: [] }));
+      const nx = (G.rows || []).filter((x) => x.state !== 'dang_chuyen' && x.id !== d.id).sort((a, b) => String(a.received_at || '').localeCompare(String(b.received_at || '')))[0];
+      flash(`Đã xác nhận đối soát xong ${d.doc_no || ''}${r.bu || r.hd_bs ? ` — ${r.bu ? r.bu + ' món chờ giao bù' : ''}${r.bu && r.hd_bs ? ', ' : ''}${r.hd_bs ? r.hd_bs + ' món chờ hoá đơn bổ sung' : ''}` : ''}.${nx ? ' Sang lần giao tiếp theo.' : ''}`);
+      location.hash = nx ? qs(DS, { ds: nx.id }) : DS;
+    }));
+    $('#gh-reopen')?.addEventListener('click', (ev) => busy(ev.target, async () => {
+      if (!confirm('Mở lại đối soát lần giao này? Các món lệch đang chờ ở Kiểm soát sẽ gỡ ra cho tới khi xác nhận xong lại.')) return;
+      await rpc('app_gh_recon_reopen', { p_id: d.id }); d.recon_at = null; d.recon_by = null; editable = can('doi_soat');
+      try { history.replaceState(null, '', qs(DS, { ds: d.id })); } catch (_) { /* bỏ qua */ }
+      showSaved('Đã mở lại đối soát'); draw();
     }));
   }
 }
@@ -382,5 +506,28 @@ export const GH_CSS = html`<style>
   .gh-pc { display: flex; flex-direction: column; gap: 6px; }
   .gh-dl { display: flex; gap: 6px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); } .gh-dl .grow { min-width: 0; flex: 1 1 auto; } .gh-act { display: flex; gap: 4px; flex: 0 0 auto; align-items: center; } .gh-dl .st-meta { display: block; } .gh-dl .btn { width: auto; }
   .gh-dl.done { opacity: .75; }
+  .gh-steps { display: flex; gap: 5px; } .gh-steps span { flex: 1; text-align: center; font-size: 12px; font-weight: 800; padding: 7px 4px; border-radius: 9px; background: var(--card); border: 1px solid var(--line); color: var(--ink-2); }
+  .gh-steps span.on { background: var(--primary); color: #fff; border-color: var(--primary); } .gh-steps span.ok { background: var(--ok-bg); color: var(--ok-ink); border-color: #b7d8ab; }
+  .gh-cam2 { background: #3a2f22; } .gh-more { display: block; text-align: center; font-size: 13px; color: var(--ok-ink); background: var(--ok-bg); border-radius: 10px; padding: 9px; cursor: pointer; }
+  .gh-inv { display: block; position: relative; } .gh-inv span { position: absolute; right: 6px; bottom: 6px; background: rgba(0,0,0,.6); color: #fff; font-size: 11px; border-radius: 5px; padding: 1px 6px; }
+  .gh-cmp { display: flex; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px solid var(--line); font-size: 14px; } .gh-cmp .grow { min-width: 0; overflow-wrap: anywhere; } .gh-cmp b { white-space: nowrap; }
+  .gh-warnbox { background: #fff7e6; border: 2px solid #e9b44c; border-radius: 12px; padding: 10px 12px; font-size: 14px; } .gh-okbox { background: var(--ok-bg); border: 2px solid #b7d8ab; border-radius: 12px; padding: 10px 12px; color: var(--ok-ink); }
+  .gh-big { white-space: normal; } .gh-extra { border: 2px dashed var(--primary); border-radius: 12px; padding: 10px; display: flex; flex-direction: column; gap: 6px; }
+  .ql-card { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; } .ql-card .grow { min-width: 0; flex: 1 1 260px; } .ql-t { font-size: 15px; } .ql-p { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 4px; }
+  .ql-th { display: flex; gap: 4px; } .ql-th img { width: 52px; height: 40px; object-fit: cover; border-radius: 6px; background: var(--line-soft); }
+  .ql-r { display: flex; gap: 8px; align-items: center; margin-left: auto; font-size: 12.5px; } .ql-r .btn { width: auto; } .ql-r .neg { color: #b91c1c; font-weight: 700; } .ql-done { opacity: .9; }
+  .ds-top { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 14px; align-items: start; } .ds-doc { display: flex; flex-direction: column; gap: 6px; } .ds-doc .btn { width: auto; }
+  .ds-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; } .ds-h { margin: 6px 0 0; font-size: 14px; text-transform: uppercase; letter-spacing: .03em; }
+  .ds-lech { display: flex; gap: 10px; align-items: center; border: 2px solid #e9b44c; background: #fffaf0; border-radius: 12px; padding: 9px 10px; } .ds-lech.ex { border-color: #e3a3a3; background: #fff6f5; } .ds-lech.done { opacity: .75; }
+  .ds-lech .grow { min-width: 0; flex: 1 1 auto; } .ds-thumb { width: 92px; height: 68px; flex: 0 0 auto; border-radius: 8px; overflow: hidden; background: var(--line-soft); display: flex; align-items: center; justify-content: center; font-size: 11px; color: var(--muted); }
+  .ds-thumb img { width: 100%; height: 100%; object-fit: cover; } .ds-cmp { display: grid; grid-template-columns: repeat(3, auto); justify-content: start; gap: 0 16px; font-size: 12px; color: var(--ink-2); margin: 3px 0; } .ds-cmp b { font-size: 14px; color: var(--ink); }
+  .ds-w { color: #b45309 !important; } .ds-i { color: #2c5578 !important; } .ds-x { color: #b91c1c !important; } .ds-ok { color: var(--ok-ink) !important; }
+  .ds-nt { background: #fff; border-left: 3px solid #e9b44c; padding: 3px 8px; font-size: 12.5px; border-radius: 4px; margin-top: 3px; }
+  .ds-act { display: flex; flex-direction: column; gap: 5px; flex: 0 0 auto; align-items: stretch; } .ds-act .btn { width: auto; }
+  .ds-split { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 12px; align-items: start; } .ds-split .gh-prev { max-height: 200px; }
+  .ds-sum { background: #1f2622; color: #eef3ef; border-radius: 14px; padding: 12px 14px; display: flex; flex-direction: column; gap: 6px; } .st-meta2 { font-size: 13px; color: #c9d4cc; }
+  .ds-sum .btn { align-self: flex-start; width: auto; } .ds-sum .btn[disabled] { background: #777 !important; border-color: #777 !important; opacity: .7; }
+  .ds-lock { background: #fde2e2; color: #7f1d1d; border-radius: 9px; padding: 7px 10px; font-size: 13px; }
+  @media (max-width: 700px) { .ds-top, .ds-split { grid-template-columns: minmax(0, 1fr); } .ds-lech { flex-wrap: wrap; } .ds-act { flex-direction: row; } .ql-r { margin-left: 0; } }
   .gh-nr { display: grid; grid-template-columns: minmax(0, 1fr) 70px 70px; gap: 6px; } .gh-nrs { display: flex; flex-direction: column; gap: 6px; }
 </style>`;

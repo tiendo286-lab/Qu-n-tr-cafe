@@ -8,6 +8,7 @@ import { catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { dmy, fmt } from '../tien.js';
 import { $$, dialog, flash, html, showSaved, str } from '../ui.js';
+import { uploadFiles } from './ke_toan_hoa_don.js';
 
 export const perm = ['ke_toan', 'doi_soat'];
 const LS_BR = 'ckBranch';
@@ -26,13 +27,14 @@ export async function render({ params }) {
   const br = has(params.cn) ? Number(params.cn) : has(lsGet()) ? lsGet() : brs[0]?.id; if (br) lsSet(br);
   const BR = brs.find((b) => b.id === br) || {};
   const [All, C] = await Promise.all([rpc('app_gh_control', { p_branch: null, p_month: month }), rpc('app_gh_control', { p_branch: br, p_month: month })]);
-  const nOpen = (id) => (All.open || []).filter((f) => f.branch_id === id).length;
+  const nOpen = (id) => (All.open || []).filter((f) => f.branch_id === id).length + (All.need_bu || []).filter((x) => x.branch_id === id).length;
+  const nb = C.need_bu || [];
   const bu = (C.open || []).filter((f) => f.kind === 'bu'); const bs = (C.open || []).filter((f) => f.kind === 'hd_bs');
   const done = C.done || []; const M = C.money; const kt = !!C.kt;
   const q = (o) => '#/hang-hoa/kiem-soat?' + Object.entries({ cn: br, thang: month, ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
   const shiftMonth = (k) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7); };
   const from = (f) => html`<span class="st-meta">${f.doc_no ? `phiếu ${f.doc_no}` : 'lần giao'}${f.work_date ? ` · ${dmy(f.work_date).slice(0, 5)}` : ''}${f.days > 0 ? html` · <b class="${f.days >= 7 ? 'ks-old' : ''}">chờ ${f.days} ngày</b>` : ''}</span>`;
-  const item = (f, btn) => html`<div class="ks-row" data-f="${f.id}"><div class="grow"><b>${f.name}</b> · ${f.kind === 'bu' ? 'thiếu' : 'thừa'} <b>${q3(f.qty)} ${f.unit || ''}</b>${f.amount != null ? html` · <span class="st-meta">${money(f.amount)}</span>` : ''}<br>${from(f)}${f.note ? html`<span class="st-meta"> · ${f.note}</span>` : ''}</div>
+  const item = (f, btn) => html`<div class="ks-row" data-f="${f.id}"><div class="grow"><b>${f.name}</b>${f.extra ? html` <span class="pill off">ngoài phiếu</span>` : ''} · ${f.kind === 'bu' ? 'thiếu' : f.extra ? 'nhận' : 'thừa'} <b>${q3(f.qty)} ${f.unit || ''}</b>${f.extra ? html` · <b class="ks-old">chưa có giá</b>` : f.amount != null ? html` · <span class="st-meta">tạm tính ${money(f.amount)}</span>` : ''}<br>${from(f)}${f.note ? html`<span class="st-meta"> · ${f.note}</span>` : ''}</div>
       ${kt ? html`<span class="ks-act">${btn}<button type="button" class="btn sm secondary ks-cancel">Huỷ…</button></span>` : ''}</div>`;
   const doneRow = (f) => html`<div class="ks-row ks-done" data-f="${f.id}"><div class="grow"><span class="pill ${f.status === 'huy' ? 'mute' : 'ok'}">${f.status === 'huy' ? 'Đã huỷ' : f.kind === 'bu' ? 'Đã giao bù' : 'Đã có HĐ bổ sung'}</span>
       <b>${f.name}</b> · ${q3(f.qty)} ${f.unit || ''}<br><span class="st-meta">${f.status === 'huy' ? `Lý do: ${f.note || ''}` : f.kind === 'bu' ? `giao bù trong phiếu ${f.resolved_doc || '?'}${f.resolved_amount != null ? ` · không tính ${money(f.resolved_amount)}` : ''}` : `HĐ ${f.resolved_ref || ''}${f.resolved_amount != null ? ` · ${money(f.resolved_amount)}` : ''}`}${f.status !== 'huy' && f.note ? ` · ${f.note}` : ''} · ${f.resolved_by || ''} ${f.resolved_at ? dmy(String(f.resolved_at).slice(0, 10)).slice(0, 5) : ''}</span></div>
@@ -48,6 +50,10 @@ export async function render({ params }) {
             <span>+ Hoá đơn bổ sung (hàng thừa)</span><b>${M.hd_bs ? '+' + money(M.hd_bs) : '0đ'}</b>
             <span class="ks-tot">Phải trả kho tổng</span><b class="ks-tot">${money(M.payable)}</b></div>
           ${bu.length || bs.length ? html`<div class="st-meta">Còn ${bu.length + bs.length} món chưa xử lý — số trên có thể còn thay đổi.</div>` : ''}</section>` : ''}
+      ${nb.length ? html`<section class="card ks-sec ks-nb"><div class="ks-h"><b>📄 Thiếu hoá đơn giao — cần tải hoá đơn bù</b><span class="pill off">${nb.length}</span></div>
+        <div class="st-meta">Nhân viên nhận hàng mà tài xế không mang hoá đơn giao. Kế toán tải hoá đơn bù (ảnh / PDF) thì quản lý mới xác nhận đối soát xong.</div>
+        ${nb.map((x) => html`<div class="ks-row" data-i="${x.id}"><div class="grow"><b>${x.doc_no || 'Chưa có phiếu xuất'}</b> · nhận ${x.received_at ? dmy(String(x.received_at).slice(0, 10)).slice(0, 5) : ''}${x.received_by ? ` · ${x.received_by}` : ''}<br><span class="st-meta">NV ghi: ${x.deliv_note || '—'}</span></div>
+          ${kt ? html`<span class="ks-act"><label class="btn sm">Tải hoá đơn bù ›<input type="file" class="ks-bufile" accept="image/*,application/pdf" hidden></label></span>` : ''}</div>`)}</section>` : ''}
       <section class="card ks-sec"><div class="ks-h"><b>⏳ Chờ giao bù</b><span class="pill ${bu.length ? 'warn' : 'mute'}">${bu.length}</span></div>
         <div class="st-meta">Món nhận thiếu. Khi kho giao bù, bấm "Đã giao bù" và chọn dòng hàng đó trong phiếu xuất sau (dòng đó sẽ không tính tiền).</div>
         ${bu.length ? bu.map((f) => item(f, html`<button type="button" class="btn sm ks-bu">Đã giao bù ›</button>`)) : html`<div class="st-meta ks-empty">Không có món nào chờ giao bù.</div>`}</section>
@@ -81,7 +87,7 @@ export async function render({ params }) {
         const dl = dialog(html`<form class="stack" style="gap:8px;width:min(420px, calc(100vw - 40px))"><h2 style="margin:0">Hoá đơn bổ sung · ${f.name}</h2>
           <div class="st-meta">Thừa ${q3(f.qty)} ${f.unit || ''} ở ${f.doc_no ? 'phiếu ' + f.doc_no : 'lần giao'}${f.amount != null ? ` · tạm tính ${money(f.amount)}` : ''}.</div>
           <label class="field"><span>Số hoá đơn bổ sung</span><input class="input" name="ref" autocomplete="off"></label>
-          <label class="field"><span>Số tiền (đ)</span><input class="input" name="amt" inputmode="numeric" autocomplete="off" value="${f.amount != null ? fmt(f.amount) : ''}"></label>
+          <label class="field"><span>Số tiền (đ)${f.extra ? ' — món ngoài phiếu, chưa có giá' : ''}</span><input class="input" name="amt" inputmode="numeric" autocomplete="off" value="${f.amount != null && !f.extra ? fmt(f.amount) : ''}"></label>
           <input class="input sm" name="nt" placeholder="Ghi chú (không bắt buộc)"><div class="ks-err"></div>
           <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
         const fm = dl.querySelector('form'); dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
@@ -100,6 +106,12 @@ export async function render({ params }) {
         const fm = dl.querySelector('form'); dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
         fm.addEventListener('submit', async (e) => { e.preventDefault(); if (!fm.rs.value.trim()) { err(dl, 'Ghi lý do.'); return; }
           try { await rpc('app_gh_fu_cancel', { p_id: f.id, p_reason: fm.rs.value }); dl.close(); rerender(); } catch (er) { err(dl, er.message); } });
+      }));
+      $$('.ks-bufile').forEach((inp) => inp.addEventListener('change', async () => {
+        const file = inp.files[0]; inp.value = ''; if (!file) return; const iid = Number(inp.closest('[data-i]').dataset.i);
+        showSaved('Đang tải hoá đơn bù…');
+        try { await uploadFiles('hd' + iid, [file], (path, ff) => rpc('app_gh_bu_file', { p_id: iid, p_path: path, p_name: ff.name })); flash('Đã tải hoá đơn bù — quản lý xác nhận đối soát xong được.'); rerender(); }
+        catch (e) { showSaved(e.message, true); }
       }));
       $$('.ks-undo').forEach((b) => b.addEventListener('click', async () => {
         if (!confirm('Hoàn tác — đưa món này về danh sách chờ xử lý?')) return;

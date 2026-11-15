@@ -48,7 +48,7 @@ export default async ({ sleep, out }) => {
     $$('.gh-sel .gh-c').forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); });
     const q2 = $$('.gh-sel')[2].querySelector('.gh-q'); q2.value = '2'; q2.dispatchEvent(new Event('input', { bubbles: true }));
     const nt = $$('.gh-note').find((n) => !n.hidden); if (nt) { nt.querySelector('input').value = 'thiếu 1 chai'; }
-    $('#gh-ps').click(); await sleep(2500); await wait('#gh-send', 80);
+    $('#gh-ps').click(); await sleep(2500); await wait('#gh-dshot', 300); setFiles($('#gh-dshot'), [img]); await sleep(3000); await wait('#gh-send', 300); 
     $('#gh-send').click(); await sleep(3000);
     const S1 = (await NH()).rows.find((x) => x.id === inv.id);
     return `${head} → sau gửi: ${S1.state} · lệch ${S1.n_mismatch} · ${S1.photos.length} ảnh`;
@@ -62,7 +62,7 @@ export default async ({ sleep, out }) => {
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/hang-hoa/nhan?cn=1'; await wait('.gh-nohd', 1500); await sleep(300);
     $('.gh-nohd').click(); await wait('#gh-shot', 300); await sleep(500);   // bước 104b: chụp trước → ghi tên + số lượng
     setFiles($('#gh-shot'), [img]); await wait('.gh-pickc', 80); await sleep(300);
-    const row = $('.gh-nr'); row.querySelector('.gh-nn').value = 'Đá viên'; row.querySelector('.gh-nq').value = '3'; $('#gh-ps').click(); await sleep(3000); await wait('#gh-send', 80);
+    const row = $('.gh-nr'); row.querySelector('.gh-nn').value = 'Đá viên'; row.querySelector('.gh-nq').value = '3'; $('#gh-ps').click(); await sleep(3000); await wait('#gh-dshot', 300); setFiles($('#gh-dshot'), [img]); await sleep(3000); await wait('#gh-send', 300); 
     const btn = txt('#gh-send'); $('#gh-send').click(); await sleep(2500);
     const rows = (await NH()).rows;
     const R5 = await rpc('app_ca_get', { p_id: id });
@@ -79,13 +79,14 @@ export default async ({ sleep, out }) => {
   });
   await step('Quản lý đối soát từng ảnh', async () => {
     const inv = (await NH()).rows.find((x) => x.kind !== 'khong_hd');
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/hang-hoa/doi-soat?ds=' + inv.id; await wait('.gh-pc', 1500); await sleep(800);
-    const before = txt('#gh-ds .gh-prog');
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/hang-hoa/doi-soat?ds=' + inv.id; await wait('.ds-top', 1500); await sleep(800);
+    const before = txt('#gh-ds .gh-steps');
     const fix = $$('.gh-dl').find((x) => x.querySelector('.gh-fix')); fix.querySelector('.gh-fix').click(); await wait('dialog[open] form', 50); await sleep(200);
     const f = $$('dialog[open] form').pop(); f.q.value = '9'; f.nt.value = 'đếm lại thiếu 1'; f.requestSubmit(); await sleep(1500);
     for (let k = 0; k < 6 && $('.gh-all, .gh-one'); k++) { $('.gh-all, .gh-one').click(); await sleep(1500); }
+    $('#gh-done')?.click(); await sleep(3000);   // bước 106: quản lý bấm Xác nhận xong
     const S = await NH();
-    return `${before} → ${txt('#gh-ds .gh-prog')} → máy chủ: còn ${S.rows.filter((x) => x.kind !== 'khong_hd').map((x) => x.n_unchecked).join('/')} món chưa đối soát · kết quả: ${txt('#gh-ds .alert.ok').slice(0, 80)}`;
+    return `${before} → máy chủ: còn ${S.rows.filter((x) => x.kind !== 'khong_hd').map((x) => x.n_unchecked).join('/')} món chưa đối soát · kết quả: ${location.hash}`;
   });
   await step('Kế toán ghép hóa đơn vào phiếu không hóa đơn', async () => {
     const L = await rpc('app_nh_list', { p_month: day.slice(0, 7), p_branch: null }); const w = L.rows.find((x) => x.state === 'cho_hoa_don');

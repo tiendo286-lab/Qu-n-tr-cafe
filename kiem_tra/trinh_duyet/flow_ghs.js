@@ -1,4 +1,4 @@
-// Chụp ảnh màn hình trang Giao hàng (bước 103): &dung=nhan0 | chon | nhan1 | nhan2 | ql | ds. role=chu (confirm=1). Không dùng dữ liệu thật.
+// Chụp ảnh màn hình trang Giao hàng (bước 103): &dung=nhan0 | chon | nhan1 | nhan2 | xn | ql | ds. role=chu (confirm=1). Không dùng dữ liệu thật.
 export default async ({ sleep, out }) => {
   const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
   const wait = async (sel, n = 1500) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); };
@@ -24,10 +24,12 @@ export default async ({ sleep, out }) => {
   setFiles($('#gh-shot'), [await img()]); await wait('.gh-pickc'); await sleep(500); tick(0); tick(1); $('#gh-ps').click(); await sleep(2500);
   $$('.gh-none')[0].click(); await wait('dialog[open] form'); const f = $$('dialog[open] form').pop(); f.nt.value = 'không có trong thùng'; f.requestSubmit(); await sleep(800);
   if (D === 'nhan2') { window.scrollTo(0, 0); return hold(); }
+  setFiles($('#gh-dshot'), [await img()]); await sleep(3000); await wait('#gh-send');
+  if (D === 'xn') { $('#gh-step3').scrollIntoView(); return hold(); }
   $('#gh-send').click(); await sleep(3000);
   location.hash = '#/hang-hoa/doi-soat?cn=1'; await wait('.gh-tabs'); await sleep(1500);
   if (D === 'ql') { window.scrollTo(0, 0); return hold(); }
-  location.hash = '#/hang-hoa/doi-soat?ds=' + id; await wait('.gh-pc'); await sleep(2000);
+  location.hash = '#/hang-hoa/doi-soat?ds=' + id; await wait('.ds-top'); await sleep(2000);
   if (D === 'ds') { window.scrollTo(0, 0); return hold(); }
   out.push({ route: 'chụp giao hàng', title: 'xong', len: 0, errs: [...window.__ERR] });
 };

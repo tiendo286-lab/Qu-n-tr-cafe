@@ -30,7 +30,9 @@ export function makeNh(T, me) {
       lines: L.map((l) => ({ ...l, price: m ? l.price : null, amount: m ? l.amount : null, qty: qty(l), checked_by: name(l.checked_by), photos: tags(l.id) })),
       photos: photosOf(i.id).map((p) => ({ id: p.id, path: p.path, by: name(p.created_by), at: p.created_at, lines: T.delivery_photo_lines.filter((x) => x.photo_id === p.id).map((x) => x.line_id) })),
       n_lines: L.length, n_mismatch: nMis, n_unphoto: nUnph, n_unchecked: nUnchk, missing: miss, complete: i.state === 'da_nhan' && !nUnph && !nUnchk,
-      files: T.delivery_invoice_files.filter((f) => f.invoice_id === i.id) };
+      files: T.delivery_invoice_files.filter((f) => f.invoice_id === i.id),
+      has_doc: !!(i.deliv_path || i.bu_path), n_extra: i.doc_no ? L.filter((l) => l.qty_invoice == null && (qty(l) || 0) > 0).length : 0,
+      n_fu_done: T.delivery_followups.filter((f) => f.invoice_id === i.id && f.status !== 'cho').length };
   };
   const staffCan = (i, r) => {
     if (i.branch_id !== r.branch_id) throw new Error('Hàng này của cơ sở khác.');
@@ -43,19 +45,21 @@ export function makeNh(T, me) {
   const followups = (inv) => {
     const i = T.delivery_invoices.find((x) => x.id === inv);
     if (!i.recon_at) { T.delivery_followups = T.delivery_followups.filter((f) => !(f.invoice_id === inv && f.status === 'cho')); return; }
-    if (i.kind === 'khong_hd' && !i.doc_no) return;
-    lines(inv).filter((l) => l.qty_invoice != null && !l.bu_followup_id).forEach((l) => {
+    if (!i.doc_no) return;
+    lines(inv).filter((l) => !l.bu_followup_id).forEach((l) => {
       const q = l.qty_checked ?? l.qty_received ?? 0;
-      if (eq(q, l.qty_invoice) || T.delivery_followups.some((f) => f.line_id === l.id && f.status !== 'huy')) return;
+      if (T.delivery_followups.some((f) => f.line_id === l.id && f.status !== 'huy')) return;
+      if (l.qty_invoice == null) { if (q > 0) T.delivery_followups.push({ id: nid('delivery_followups'), branch_id: i.branch_id, invoice_id: i.id, line_id: l.id, kind: 'hd_bs', name: l.name, unit: l.unit, qty: q, price: null, amount: null, status: 'cho', created_at: now() }); return; }
+      if (eq(q, l.qty_invoice)) return;
       const qty = Math.abs(l.qty_invoice - q);
       T.delivery_followups.push({ id: nid('delivery_followups'), branch_id: i.branch_id, invoice_id: i.id, line_id: l.id, kind: q < l.qty_invoice ? 'bu' : 'hd_bs', name: l.name, unit: l.unit, qty, price: l.price, amount: Math.round(qty * (l.price || 0)), status: 'cho', created_at: now() });
     });
   };
   const afterCheck = (inv) => {
     const i = T.delivery_invoices.find((x) => x.id === inv);
-    if (lines(inv).some((l) => !l.checked_at)) { i.recon_at = null; i.recon_by = null; T.shift_report_checks = (T.shift_report_checks || []).filter((c) => !(c.report_id === i.received_report_id && c.item === 'nhap_hang')); followups(inv); return; }
-    if (!i.recon_at) { i.recon_at = now(); i.recon_by = me.account_id; }
-    followups(inv);
+    // bước 106: không tự xong — quản lý bấm Xác nhận xong (app_gh_recon_done)
+    if (i.recon_at && lines(inv).some((l) => !l.checked_at)) { i.recon_at = null; i.recon_by = null; T.shift_report_checks = (T.shift_report_checks || []).filter((c) => !(c.report_id === i.received_report_id && c.item === 'nhap_hang')); followups(inv); }
+    return;
     const rid = i.received_report_id;
     if (rid && !T.delivery_invoices.filter((d) => d.received_report_id === rid).some((d) => lines(d.id).some((l) => !l.checked_at))) {
       T.shift_report_checks = T.shift_report_checks || [];
@@ -71,7 +75,8 @@ export function makeNh(T, me) {
   const days = (a) => Math.round((Date.parse(today()) - Date.parse(String(a).slice(0, 10))) / 864e5);
   const fuJson = (f) => { const m = money(); const inv = T.delivery_invoices.find((d) => d.id === f.invoice_id) || {};
     return { ...f, price: m ? f.price : null, amount: m ? f.amount : null, resolved_amount: m ? f.resolved_amount : null, resolved_by: name(f.resolved_by),
-      resolved_doc: T.delivery_invoices.find((d) => d.id === f.resolved_invoice_id)?.doc_no || null, doc_no: inv.doc_no || null, work_date: inv.work_date || null, days: days(f.created_at) }; };
+      resolved_doc: T.delivery_invoices.find((d) => d.id === f.resolved_invoice_id)?.doc_no || null, doc_no: inv.doc_no || null, work_date: inv.work_date || null, days: days(f.created_at),
+      extra: T.delivery_lines.find((l) => l.id === f.line_id)?.qty_invoice == null }; };
   const monthTotal = (br, mo) => {
     const inv = T.delivery_invoices.filter((i) => (!br || i.branch_id === br) && i.doc_no && String(i.work_date).startsWith(mo));
     const bu = T.delivery_lines.filter((l) => l.bu_followup_id && inv.some((i) => i.id === l.invoice_id)).reduce((t, l) => t + (l.amount || 0), 0);
@@ -142,10 +147,11 @@ export function makeNh(T, me) {
     app_nh_photo_del({ p_photo }) { const p = T.delivery_receipt_photos.find((x) => x.id === p_photo); T.delivery_receipt_photos = T.delivery_receipt_photos.filter((x) => x !== p); T.delivery_photo_lines = T.delivery_photo_lines.filter((x) => x.photo_id !== p_photo); return p?.path || null; },
     app_nh_check({ p_line, p_qty, p_note }) {
       if (!can('doi_soat')) throw new Error('Bạn không có quyền.'); const l = T.delivery_lines.find((x) => x.id === p_line);
+      if (T.delivery_invoices.find((x) => x.id === l.invoice_id)?.recon_at) throw new Error('Đã xác nhận đối soát xong — bấm "Mở lại đối soát" trước khi sửa.');
       const q = p_qty ?? l.qty_received ?? 0; if (!eq(q, l.qty_received ?? 0) && !(p_note || '').trim()) throw new Error('Số khác với nhân viên báo — ghi chú lý do.');
       Object.assign(l, { qty_checked: q, check_note: p_note || null, checked_by: me.account_id, checked_at: now() }); afterCheck(l.invoice_id); return { qty: q, changed: !eq(q, l.qty_received ?? 0) };
     },
-    app_nh_uncheck({ p_line }) { const l = T.delivery_lines.find((x) => x.id === p_line); Object.assign(l, { qty_checked: null, check_note: null, checked_by: null, checked_at: null }); afterCheck(l.invoice_id); },
+    app_nh_uncheck({ p_line }) { const l = T.delivery_lines.find((x) => x.id === p_line); if (T.delivery_invoices.find((x) => x.id === l.invoice_id)?.recon_at) throw new Error('Đã xác nhận đối soát xong — bấm "Mở lại đối soát" trước khi sửa.'); Object.assign(l, { qty_checked: null, check_note: null, checked_by: null, checked_at: null }); afterCheck(l.invoice_id); },
     app_nh_tick: () => 0,
     // ---------------------------------------------------------------- bước 104: Hàng hoá (không gắn phiếu ca)
     app_gh_inbox({ p_branch }) {
@@ -158,10 +164,52 @@ export function makeNh(T, me) {
       if (!can('chot_ca')) throw new Error('Bạn không có quyền.');
       const i = T.delivery_invoices.find((x) => x.id === p_id); ghCan(i);
       if (i.state === 'cho_hoa_don') throw new Error('Phiếu nhận không hoá đơn: dùng nút Lưu phiếu nhận.');
+      if (!i.deliv_path && !i.deliv_note) throw new Error('Chụp hoá đơn giao (hoặc bấm "Tài xế không mang hoá đơn giao") trước khi gửi.');
       if (lines(p_id).some((l) => !p_lines.some((y) => y.id === l.id && y.qty !== null && y.qty !== undefined))) throw new Error('Nhập số thực nhận cho tất cả các món.');
       p_lines.forEach((y) => { const l = T.delivery_lines.find((x) => x.id === y.id); if (l) l.qty_received = y.qty; });
       Object.assign(i, { state: 'da_nhan', received_by: me.account_id, received_at: now(), received_date: today(), received_report_id: null, receive_note: p_note || null });
-      return { mismatch: lines(p_id).filter((l) => !eq(l.qty_invoice, l.qty_received)).length };
+      return { mismatch: lines(p_id).filter((l) => !eq(l.qty_invoice, l.qty_received) && !(l.qty_invoice == null && !l.qty_received)).length };
+    },
+    app_gh_extra_add({ p_id, p_lines }) {
+      if (!can('chot_ca')) throw new Error('Bạn không có quyền.');
+      const i = T.delivery_invoices.find((x) => x.id === p_id); ghCan(i);
+      if (i.state === 'cho_hoa_don') throw new Error('Phiếu nhận chưa có phiếu xuất: ghi món như thường.');
+      if (!(p_lines || []).length) throw new Error('Ghi ít nhất 1 món.');
+      let k = Math.max(0, ...lines(p_id).map((l) => l.sort || 0));
+      return p_lines.map((x) => { if (!(x.name || '').trim() || !(x.qty > 0)) throw new Error('Món ngoài phiếu cần tên và số lượng.'); k += 1; return addLine(p_id, x, k, { qty_received: x.qty }); });
+    },
+    app_gh_extra_del({ p_line }) {
+      const l = T.delivery_lines.find((x) => x.id === p_line); if (!l) return; const i = T.delivery_invoices.find((x) => x.id === l.invoice_id); ghCan(i);
+      if (i.state === 'cho_hoa_don' || l.qty_invoice != null) throw new Error('Chỉ xoá được món ngoài phiếu.');
+      T.delivery_photo_lines = T.delivery_photo_lines.filter((x) => x.line_id !== p_line); T.delivery_lines = T.delivery_lines.filter((x) => x !== l);
+    },
+    app_gh_deliv({ p_id, p_path, p_note }) {
+      const i = T.delivery_invoices.find((x) => x.id === p_id); ghCan(i); const old = i.deliv_path || null;
+      if (p_path) { if (!new RegExp('^gh' + p_id + '/[^/]+$').test(p_path)) throw new Error('Đường dẫn ảnh không hợp lệ.'); Object.assign(i, { deliv_path: p_path, deliv_note: null }); }
+      else { if (!(p_note || '').trim()) throw new Error('Ghi chú vì sao không có hoá đơn giao.'); Object.assign(i, { deliv_path: null, deliv_note: p_note.trim() }); }
+      Object.assign(i, { deliv_by: me.account_id, deliv_at: now() });
+      return old !== p_path ? old : null;
+    },
+    app_gh_bu_file({ p_id, p_path, p_name }) {
+      if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
+      const i = T.delivery_invoices.find((x) => x.id === p_id); if (!new RegExp('^hd' + p_id + '/').test(p_path || '')) throw new Error('Đường dẫn tệp không hợp lệ.');
+      const old = i.bu_path || null; Object.assign(i, { bu_path: p_path, bu_name: p_name, bu_by: me.account_id, bu_at: now() }); return old;
+    },
+    app_gh_recon_done({ p_id }) {
+      if (!can('doi_soat')) throw new Error('Bạn không có quyền.');
+      const i = T.delivery_invoices.find((x) => x.id === p_id);
+      if (i.state === 'dang_chuyen') throw new Error('Nhân viên chưa báo nhận hàng này.'); if (i.recon_at) throw new Error('Lần giao này đã xác nhận đối soát xong.');
+      const n = lines(p_id).filter((l) => !l.checked_at).length; if (n) throw new Error(`Còn ${n} món chưa đối soát.`);
+      if (!i.deliv_path && !i.bu_path) throw new Error('Chưa có hoá đơn giao — chờ kế toán tải hoá đơn bù rồi mới xác nhận xong.');
+      Object.assign(i, { recon_at: now(), recon_by: me.account_id }); followups(p_id);
+      const F = T.delivery_followups.filter((f) => f.invoice_id === p_id && f.status === 'cho');
+      return { bu: F.filter((f) => f.kind === 'bu').length, hd_bs: F.filter((f) => f.kind === 'hd_bs').length };
+    },
+    app_gh_recon_reopen({ p_id }) {
+      if (!can('doi_soat')) throw new Error('Bạn không có quyền.');
+      const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i || !i.recon_at) throw new Error('Lần giao này chưa xác nhận đối soát xong.');
+      if (T.delivery_followups.some((f) => f.invoice_id === p_id && f.status !== 'cho')) throw new Error('Kế toán đã xử lý món lệch của lần giao này — kế toán Hoàn tác ở tab Kiểm soát trước rồi mới mở lại.');
+      Object.assign(i, { recon_at: null, recon_by: null }); T.delivery_followups = T.delivery_followups.filter((f) => !(f.invoice_id === p_id && f.status === 'cho'));
     },
     app_gh_receipt_save({ p_id, p_branch, p_lines, p_note }) {
       if (!can('chot_ca')) throw new Error('Bạn không có quyền.');
@@ -185,7 +233,9 @@ export function makeNh(T, me) {
     app_gh_control({ p_branch, p_month }) {
       if (!can('ke_toan') && !can('doi_soat')) throw new Error('Bạn không có quyền.');
       const F = T.delivery_followups.filter((f) => !p_branch || f.branch_id === p_branch);
-      return { open: F.filter((f) => f.status === 'cho').map(fuJson), done: F.filter((f) => f.status !== 'cho' && String(f.resolved_at || f.created_at).startsWith(p_month)).map(fuJson),
+      const nb = T.delivery_invoices.filter((i) => (!p_branch || i.branch_id === p_branch) && !i.recon_at && i.state !== 'dang_chuyen' && !i.deliv_path && !i.bu_path)
+        .map((i) => ({ id: i.id, branch_id: i.branch_id, doc_no: i.doc_no || null, kind: i.kind, work_date: i.work_date, received_at: i.received_at, received_by: name(i.received_by), deliv_note: i.deliv_note || null }));
+      return { need_bu: nb, open: F.filter((f) => f.status === 'cho').map(fuJson), done: F.filter((f) => f.status !== 'cho' && String(f.resolved_at || f.created_at).startsWith(p_month)).map(fuJson),
         money: money() ? monthTotal(p_branch, p_month) : null, kt: can('ke_toan'), today: today() };
     },
     app_gh_bu_lines({ p_followup }) {
