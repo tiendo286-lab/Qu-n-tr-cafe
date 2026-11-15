@@ -25,11 +25,12 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait('#ds-money-ok'); await sleep(1500);
-    r.push(`trang tiền: khung hiện ${vis()} · tiêu đề: ${txt('.ds-pane[data-ds="3"] .ds-hd')} · khung: ${$$('.ds-pane[data-ds="3"] .ds-k').map((x) => txt(x)).join(' | ')}`);
-    r.push(`tóm tắt: ${txt('.ds-msum')} · thanh: ${txt('.ds-mbar').slice(0, 160)} · lệch: ${$$('.lx-box').map((b) => b.dataset.item + ' ' + b.dataset.gap).join(', ')} · ${W()}`);
+    r.push(`trang tiền: khung hiện ${vis()} · kết luận: ${txt('.ds-v')} · bảng: ${$$('table.mt tr').map((x) => txt(x)).join(' / ')}`);
+    r.push(`kiểm tra: ${$$('.ds-chk > summary').map((x) => txt(x)).join(' | ')} · thu chi: ${$$('#ds-tc .dt-r').length} khoản, ô nhóm ${$$('#ds-tc select.dt-cat').length} · nút phụ: ${$$('.ds-more > summary').map((x) => txt(x)).join(' | ')} · thanh: ${txt('.ds-mbar').slice(0, 160)} · lệch: ${$$('.lx-box').map((b) => b.dataset.item + ' ' + b.dataset.gap).join(', ')} · ${W()}`);
     r.push(`bước: ${$$('.ds-st').filter((b) => !b.hidden).map((b) => txt(b)).join(' / ')} · thẻ phần: ${txt('#ds-parts')}`);
+    if (new URLSearchParams(location.search).get('pre')) { window.scrollTo(0, 0); await new Promise(() => {}); }   // chụp ảnh trước khi duyệt
     // khách chuyển khoản rút tiền mặt
-    const n0 = $$('#moves .mv-row').length; $('#add-rut').click(); await sleep(300);
+    const n0 = $$('#moves .mv-row').length; $('#add-rut2').click(); await sleep(300); r.push(`bảng sửa mở: ${$('#ds-mv-ed')?.open}`);
     const rows = $$('#moves .mv-row').slice(n0).map((x) => `${x.querySelector('.mv-kind').value} ${x.querySelector('.mv-sign').value}${x.querySelector('.mv-amt').value} ${x.querySelector('.mv-note').value}`);
     r.push(`thêm rút tiền mặt: ${rows.join(' · ')}`);
     // xoá 2 dòng thử (không lưu)
@@ -37,9 +38,9 @@ export default async ({ sleep, out }) => {
     // chọn Quán chịu cho tiền mặt lệch rồi bấm duyệt 1 lần
     const tm = $('.lx-box[data-item="tien_mat"]');
     if (tm) { const q = tm.querySelector('input[value="qc"]'); q.checked = true; q.dispatchEvent(new Event('change', { bubbles: true })); }
-    $('#ds-money-ok').click(); await sleep(3500); await wait('.ds-msum'); await sleep(1500);
+    $('#ds-money-ok').click(); await sleep(3500); await wait('.ds-v'); await sleep(1500);
     const A = await rpc('app_ca_get', { p_id: id });
-    r.push(`sau duyệt: ${txt('.alert.ok, .flash, #flash').slice(0, 120)} · tóm tắt: ${txt('.ds-msum')} · đối soát: ${A.recon_status} · mục xong: ${Object.keys(A.checks || {}).concat(Object.keys(A.results || {})).join(',')} · khung hiện ${vis()} · ${W()}`);
+    r.push(`sau duyệt: ${txt('.alert.ok, .flash, #flash').slice(0, 120)} · kết luận: ${txt('.ds-v')} · đối soát: ${A.recon_status} · mục xong: ${Object.keys(A.checks || {}).concat(Object.keys(A.results || {})).join(',')} · khung hiện ${vis()} · ${W()}`);
     if (new URLSearchParams(location.search).get('dung')) {
       if (new URLSearchParams(location.search).get('b1')) { location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=1'; await wait('#ds-lights .den-list'); await sleep(2000); }
       window.scrollTo(0, 0); await new Promise(() => {});

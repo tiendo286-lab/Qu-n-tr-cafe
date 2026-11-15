@@ -458,7 +458,7 @@ export async function render({ params }) {
     ${thucCmp()}</section>` : '';
   const rcWhy = isDs && ed && !DIR ? html`<label class="pc-f"><span>Lý do sửa <b>(bắt buộc khi sửa số)</b></span><input class="input rc-why" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label><div class="alert error rc-need" style="margin:0" hidden>Ghi lý do sửa ở ô trên — chưa có lý do thì web chưa lưu số vừa sửa.</div>` : '';
   // bước 93: bước Thu chi — thêm / sửa khoản thu chi ngay tại đây (bắt buộc ghi lý do)
-  const mvEdDs = isDs && edT ? html`<details class="ca-more ds-edit" id="ds-mv-ed"><summary>Sửa / thêm khoản thu chi <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${movesEd}</div></details>` : '';
+  const mvEdDs = isDs && edT ? html`<details class="ca-more ds-edit" id="ds-mv-ed"><summary>✎ Sửa số tiền / nội dung thu chi <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${movesEd}</div></details>` : '';
   const caBoxSec = isDs ? html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Tiền của ca <span class="st-meta">— máy chủ tính, phiếu chi chuyển khoản</span></h2></div><div id="ca-box" class="stack" style="gap:8px"></div></section>` : '';
   const M86 = (R0 && R0.money) || {};
   // bước 88: tiền mặt thực nhận — Thu theo ca (quản lý đếm & thu ngay, lệch theo số quản lý đếm) / Thu cuối ngày (bắt buộc tiền kết ca = tiền mở ca sau)
@@ -516,10 +516,51 @@ export async function render({ params }) {
   const secCK = isDs ? html`<section class="card stack pc-sec ca-sec" style="gap:10px"><div class="pc-sec-head"><h2>Chuyển khoản</h2><div class="rc-chips">${chip('chuyen_khoan')}</div></div>
     ${thucCmp('ck')}${lxBox('chuyen_khoan')}
     <details class="ca-more ds-edit"><summary>Phiếu chi / rút bằng chuyển khoản, số dư ngân hàng</summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${caBoxSec}${secDiff}</div></details></section>` : '';
+  // bước 111: 1 bảng chung Tiền mặt | Chuyển khoản (số máy chủ tính; dòng = 0 ẩn) + 1 dòng kết luận
+  function moneyTable() {
+    const M = M86; const DS = debtSums(R);
+    const mvs = (k) => (R.moves || []).filter((m) => m.kind === k && !m.auto).reduce((t, m) => t + Number(m.amount || 0), 0);
+    const sal = (R.staff || []).filter((x) => x.worked && Number(x.cash_paid) > 0).reduce((t, x) => t + Number(x.cash_paid), 0);
+    const op = Number(R.opening_cash ?? R.ipos_opening ?? 0);
+    const cc = R0.cash_mode === 'ca' && R0.ql_counted !== null && R0.ql_counted !== undefined ? Number(R0.ql_counted) : Number(R.cash_counted);
+    const tmGap = M.tm_left, ckGap = M.ck_left;
+    const T = { dau: op, fabi: Number(R.pos_cash || 0), tra: DS.colTM, no: -DS.loanOut, tc: mvs('tien_mat'), luong: -sal };
+    const C = { fabi: Number(R.pos_transfer || 0), tra: DS.colCK, no: -DS.ckOut, tc: mvs('chuyen_khoan'), luong: 0 };
+    const tmMust = tmGap === null || tmGap === undefined ? null : cc - Number(tmGap);
+    const ckReal = M.bank_ok ? Number(M.bank_received) : (R.reported_transfer ?? null);
+    const ckMust = ckGap === null || ckGap === undefined || ckReal === null ? null : Number(ckReal) - Number(ckGap);
+    T.khac = tmMust === null ? 0 : tmMust - (T.dau + T.fabi + T.tra + T.no + T.tc + T.luong);
+    C.khac = ckMust === null ? 0 : ckMust - (C.fabi + C.tra + C.no + C.tc);
+    const sgn = (n) => (Number(n) === 0 ? '0' : (n > 0 ? '+' : '') + fmt(n));
+    const row = (l, a, b, plain) => ((Number(a || 0) === 0 && Number(b || 0) === 0) ? '' : html`<tr><td>${l}</td><td>${a === null || a === undefined ? '' : plain ? fmt(a) : sgn(a)}</td><td>${b === null || b === undefined ? '' : plain ? fmt(b) : sgn(b)}</td></tr>`);
+    const gapCell = (g, wait) => (wait ? html`<span class="mt-w">chờ kế toán</span>` : g === null || g === undefined ? '—' : Number(g) === 0 ? html`<span class="mt-ok">✓</span>` : html`<span class="mt-bad">${sgn(g)} ✗</span>`);
+    return html`<table class="mt"><tr><th></th><th>Tiền mặt</th><th>Chuyển khoản</th></tr>
+      ${row('Số dư đầu ca', T.dau, null, true)}${row('+ Doanh thu theo Fabi', T.fabi, C.fabi)}${row('+ Khách trả nợ cũ', T.tra, C.tra)}
+      ${row('− Khách mượn / nợ chuyển khoản', T.no, C.no)}${row('± Thu chi', T.tc, C.tc)}${row('− Lương trả tiền mặt', T.luong, null)}${row('± Khác (phiếu chi CK, nộp quỹ…)', T.khac, C.khac)}
+      <tr class="mt-must"><td>= Phải có / phải nhận</td><td>${tmMust === null ? '—' : fmt(tmMust)}</td><td>${ckMust === null ? '—' : fmt(ckMust)}</td></tr>
+      <tr class="mt-real"><td>Thực tế <span class="st-meta">(${R0.cash_mode === 'ca' && R0.ql_counted != null ? 'QL' : 'NV'} đếm · ${M.bank_ok ? 'ngân hàng' : 'NV báo'})</span></td><td>${fmt(cc)}</td><td>${ckReal === null ? '—' : fmt(ckReal)}</td></tr>
+      <tr class="mt-gap"><td>Lệch</td><td>${gapCell(tmGap, false)}</td><td>${gapCell(ckGap, !M.bank_ok && KT && KT.need)}</td></tr></table>
+      ${M.bank_ok ? '' : html`<div class="st-meta">Chuyển khoản tạm theo số nhân viên báo — kế toán chưa nhập sao kê.</div>`}`;
+  }
+  const verdict = (() => {
+    if (!isDs) return '';
+    if (R0.recon_status === 'hoan_thanh') return html`<div class="ds-v ok">✓ Đã hoàn thành đối soát<small>${R0.recon_by_name || ''} · ${dt(R0.recon_at)}</small></div>`;
+    const lx = ['tien_mat', 'chuyen_khoan'].filter((it) => !itDone(it) && gapOf(it) !== null && gapOf(it) !== undefined && Number(gapOf(it)) !== 0);
+    const fx = ['tien_mat', 'chuyen_khoan'].filter((it) => (R.results || {})[it] && (R.results || {})[it].result !== 'khop');
+    const allMoney = ['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone);
+    if (allMoney) return html`<div class="ds-v ok">✓ Phần tiền đã duyệt xong<small>${fx.length ? 'Lệch: ' + fx.map((it) => resText((R.results || {})[it])).join(' · ') + ' · ' : ''}${R0.recon_status === 'hoan_thanh' ? '' : 'Còn phần việc (bước 1–3) thì duyệt nốt để hoàn thành đối soát'}</small></div>`;
+    if (KT && KT.need && !KT.ready) return html`<div class="ds-v wait">⏳ Chờ kế toán<small>${(KT.missing || []).join(', ')}</small></div>`;
+    if (lx.length) return html`<div class="ds-v bad">${lx.map((it) => `${it === 'tien_mat' ? 'Tiền mặt' : 'Chuyển khoản'} ${Number(gapOf(it)) < 0 ? 'thiếu' : 'thừa'} ${fmt(Math.abs(Number(gapOf(it))))}đ`).join(' · ')}<small>Chọn cách xử lý bên dưới rồi bấm Duyệt</small></div>`;
+    if (fx.length) return html`<div class="ds-v fx">Đã xử lý lệch: ${fx.map((it) => resText((R.results || {})[it])).join(' · ')}<small>Bấm Duyệt để xong phần tiền</small></div>`;
+    return html`<div class="ds-v ok">✓ Tiền mặt và chuyển khoản khớp<small>${['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone) ? 'Phần tiền đã duyệt xong' : 'Kiểm tra 3 mục dưới rồi bấm Duyệt'}</small></div>`;
+  })();
+  const chkLine = (ok, title, right, inner) => html`<details class="ds-chk ${ok ? '' : 'bad'}" ${ok ? '' : 'open'}><summary><span class="ds-ic ${ok ? 'ok' : 'bad'}">${ok ? '✓' : '!'}</span><span>${title}</span><span class="ds-r">${right} ›</span></summary><div class="ds-in">${inner}</div></details>`;
+  const fabiOkV = twoDone('thoi_gian', 'doanh_thu') || !!(FB && !(FB.diff || []).length && !(FB.fixed || []).length);
+  const debtList = (R.debts || []);
   const canMoney = isDs && !!R.can_recon && R0.recon_status !== 'hoan_thanh';
   const ktWait = isDs && KT && KT.need && !KT.ready;
   const lxLeft = isDs ? ['tien_mat', 'chuyen_khoan'].filter((it) => !itDone(it) && gapOf(it) !== null && gapOf(it) !== undefined && Number(gapOf(it)) !== 0) : [];
-  const moneyBar = canMoney ? html`<section class="card ds-mbar"><div class="grow" style="font-size:14px">${ktWait ? html`⏳ <b>Chờ kế toán</b>: ${(KT.missing || []).join(', ')} — đủ file mới duyệt được tiền mặt / chuyển khoản.`
+  const moneyBar = canMoney && !['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone) ? html`<section class="card ds-mbar"><div class="grow" style="font-size:14px">${ktWait ? html`⏳ <b>Chờ kế toán</b>: ${(KT.missing || []).join(', ')} — đủ file mới duyệt được tiền mặt / chuyển khoản.`
       : lxLeft.length ? html`<b style="color:var(--off-line,#dc2626)">Có lệch ${lxLeft.map((it) => (it === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản')).join(', ')}</b>: chọn cách xử lý trong khung (Quán chịu / Chia người làm ca). Bấm duyệt sẽ lưu luôn cách đã chọn; để "Đối soát lại sau" thì ca thành Hoàn thành 1 phần.`
       : html`<b style="color:var(--ok-ink,#24502a)">Sẵn sàng</b> · bấm 1 lần để duyệt cả phần tiền và hoàn thành đối soát ca.`}</div>
       <button type="button" class="btn ok" id="ds-money-ok">✓ Duyệt phần tiền &amp; hoàn thành</button></section>` : '';
@@ -641,13 +682,21 @@ export async function render({ params }) {
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secStaff}</div></details></div>
       <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${whoPart('tien')}${moneySum}
-        <div class="ds-k">1 · Phiếu Fabi</div>${fabiCmp}<details class="ca-more ds-edit"><summary>Sửa số liệu phiếu Fabi <span class="st-meta">(giờ, số tiền, ảnh)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secTime}${secMoney}</div></details>
-        <div class="ds-k">2 · Khách nợ</div>${debtCmp}<details class="ca-more ds-edit"><summary>Chi tiết công nợ <span class="st-meta">(khách trả nợ cũ, ghi nhận nợ khi đối soát)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secDebt}</div></details>
-        <div class="ds-k">3 · Thu chi</div>${secTc}${mvEdDs}
-        <div class="ds-m2"><div class="stack" style="gap:8px"><div class="ds-k">4 · Tiền mặt</div>${secTM}</div><div class="stack" style="gap:8px"><div class="ds-k">5 · Chuyển khoản</div>${secCK}</div></div>
-        <div class="st-meta">"Đối soát lại sau": ca thành <b>Hoàn thành 1 phần</b> (màu vàng ở bảng tuần) — mở lại lúc nào cũng được. Ca có bước Nghỉ & làm thay (x2) chỉ hoàn thành khi Chủ đã duyệt.</div>
-        ${moneyBar}${dsSum}${dsFoot}</div>
+      <div class="ds-pane stack" data-ds="3">${dsHd(3)}${verdict}
+        <section class="card pc-sec" style="padding:12px">${moneyTable()}</section>
+        ${chkLine(fabiOkV, fabiOkV ? 'Phiếu Fabi khớp file' : 'Phiếu Fabi — cần kiểm tra', 'doanh thu ' + fmt(R.total_revenue), html`${fabiCmp}`)}
+        ${chkLine(itDone('cong_no') || !debtList.length, debtList.length ? `Khách nợ · ${debtList.length} khoản` : 'Khách nợ · không có', fmt(debtList.reduce((t, d) => t + Number(d.amount || 0), 0)), html`${debtCmp}`)}
+        <section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Thu chi của ca</h2><div class="rc-chips">${chip('thu_chi')}</div></div>
+          <div class="st-meta">Chọn <b>nhóm</b> ngay ở từng khoản (khoản quản lý rút / khách chuyển khoản rút tiền mặt chọn "Không tính"; lương chọn Lương và gán nhân viên nếu muốn).</div>
+          <div id="ds-tc"><div class="st-meta">Đang tải…</div></div>
+          ${edT ? html`<div class="toolbar" style="gap:6px"><button type="button" class="btn sm secondary" data-addmv="tien_mat">+ Thêm thu chi</button><button type="button" class="btn sm secondary" id="add-rut2">+ Khách chuyển khoản rút tiền mặt</button></div>` : ''}
+          ${mvEdDs}</section>
+        ${lxBox('tien_mat')}${lxBox('chuyen_khoan')}
+        ${moneyBar}
+        <div class="ds-more-row">
+          <details class="ds-more"><summary>✎ Sửa số</summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secTime}${secMoney}${secDebt}${cashMode()}</div></details>
+          <details class="ds-more"><summary>Phiếu chi / rút chuyển khoản</summary><div class="stack" style="gap:10px;margin-top:8px">${caBoxSec}${secDiff}</div></details>
+          <details class="ds-more"><summary>Thêm ›</summary><div class="stack" style="gap:10px;margin-top:8px">${dsFoot}</div></details></div></div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button><div class="ds-end" id="ds-end" hidden><button type="button" class="btn ok" id="ds-done">✓ Hoàn thành</button><button type="button" class="btn" id="ds-nextca">Ca tiếp theo ›</button></div></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
@@ -1370,6 +1419,7 @@ function mount(R, ed, C0, ctx = {}) {
   };
   $('#add-move')?.addEventListener('click', () => add('#moves', moveRow({ kind: 'tien_mat', amount: null, note: '' }, true), '.mv-amt'));
   // bước 110: khách chuyển khoản để rút tiền mặt → 2 dòng ghép đôi (tiền mặt −X, chuyển khoản +X)
+  $('#add-rut2')?.addEventListener('click', () => { const dd = $('#ds-mv-ed'); if (dd) dd.open = true; $('#add-rut')?.click(); });
   $('#add-rut')?.addEventListener('click', () => {
     const v = parseMoney(prompt('Số tiền khách chuyển khoản để rút tiền mặt (đồng):') || '');
     if (!v) return;
@@ -1669,6 +1719,23 @@ const STYLE = html`<style>
   .wz-foot #wz-pos { flex: 0 0 auto; }
   .wz-foot:has(#ds-end:not([hidden])) { flex-wrap: wrap; }
   .ds-end { display: flex; gap: 8px; flex: 1 1 100%; }   /* bước 92 */
+  .ds-v { border-radius: 16px; padding: 12px 14px; font-size: 17px; font-weight: 700; }   /* bước 111 */
+  .ds-v small { display: block; font-size: 13px; font-weight: 500; margin-top: 2px; }
+  .ds-v.ok { background: var(--ok-bg); color: var(--ok-ink); } .ds-v.bad { background: var(--off-bg); color: var(--off-ink); } .ds-v.wait { background: var(--warn-bg); color: var(--warn-ink); } .ds-v.fx { background: #efe5ee; color: #6b3d63; }
+  table.mt { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+  table.mt th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: right; padding: 6px 4px; border-bottom: 2px solid var(--line); } table.mt th:first-child { text-align: left; }
+  table.mt td { padding: 7px 4px; border-bottom: 1px solid var(--line-soft); text-align: right; white-space: nowrap; } table.mt td:first-child { text-align: left; white-space: normal; }
+  table.mt .mt-must td { font-weight: 700; border-top: 2px solid var(--line); background: var(--subtle, #f7f2ea); } table.mt .mt-real td { font-weight: 600; } table.mt .mt-gap td { font-weight: 700; font-size: 15px; border-bottom: 0; }
+  .mt-ok { color: var(--ok-ink); } .mt-bad { color: var(--off-line, #dc2626); } .mt-w { color: var(--warn-ink); font-size: 12px; }
+  .ds-chk { border: 1px solid var(--line); border-radius: 12px; background: var(--card); } .ds-chk.bad { border-color: #f3b4ad; background: #fffaf9; }
+  .ds-chk > summary { display: flex; gap: 10px; align-items: center; padding: 11px 12px; cursor: pointer; list-style: none; font-size: 14px; } .ds-chk > summary::-webkit-details-marker { display: none; }
+  .ds-chk .ds-r { margin-left: auto; color: var(--muted); font-size: 12px; white-space: nowrap; } .ds-chk .ds-in { padding: 0 8px 8px; }
+  .ds-ic { width: 22px; height: 22px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-size: 13px; font-weight: 700; flex-shrink: 0; }
+  .ds-ic.ok { background: var(--ok-bg); color: var(--ok-ink); } .ds-ic.bad { background: var(--off-bg); color: var(--off-ink); }
+  .ds-more-row { display: flex; flex-direction: column; gap: 6px; } .ds-more > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--ink-2, #4a3a2e); padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); list-style: none; }
+  .ds-more > summary::-webkit-details-marker { display: none; }
+  .lx-box { border: 2px solid #f3b4ad !important; background: #fff; } .lx-box .radio-pill { border: 1px solid var(--line-strong); border-radius: 12px; padding: 10px 12px; font-weight: 600; }
+  .lx-box .radio-pill:has(input:checked) { border: 2px solid var(--primary); background: var(--caramel-soft, #f6ead9); }
   .ds-msum { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }   /* bước 110 */
   .ds-mc { border: 1px solid var(--line); background: var(--card); border-radius: 12px; padding: 8px 10px; font-size: 13px; font-weight: 600; }
   .ds-mc b { display: block; font-size: 12px; font-weight: 500; color: var(--muted); }
