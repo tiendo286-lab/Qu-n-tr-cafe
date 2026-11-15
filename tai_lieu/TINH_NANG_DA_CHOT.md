@@ -636,6 +636,12 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - **Phần Công việc của phiên khác (bước 108):** **tắt quy tắc tự giao "Đối soát ca" và đóng 44 việc** đang giao khi bắt đầu đợt 1.
 - **Làm 3 đợt** (mỗi đợt vẽ mẫu duyệt trước): ① bảng phân công + việc 1–14 + trang Quá hạn & phạt · ② quản lý chỉ thấy cơ sở mình (cả máy chủ) · ③ việc 16–20, 23 + thay đổi nghiệp vụ (kiểm đếm lệch → Lệch tiền ca, Lệch kiểm quỹ, khách nợ ưu tiên, nhắc order, giải trình 3 ngày, quyền lệch tiền cho QL cơ sở).
 
+## 5r31. Đối soát ca — phần tiền gộp 1 trang (bước 110, chốt + làm 15/11/2026)
+- Anh chọn "cách A": **phần việc** (Ai làm ca, Nghỉ & ca bổ sung x2, Bàn giao) vẫn đi **từng bước**; **phần tiền** gộp **1 trang** (bước 4): 1 Phiếu Fabi · 2 Khách nợ · 3 Thu chi · **4 Tiền mặt** · **5 Chuyển khoản** (tách riêng, mỗi khung tự tính lệch) + ô tóm tắt 5 mục.
+- 1 nút **"Duyệt phần tiền & hoàn thành"**: duyệt mọi mục khớp + lưu luôn cách xử lý lệch đã chọn trong khung (Quán chịu / Chia người làm ca); "Đối soát lại sau" → Hoàn thành 1 phần. Chờ kế toán thì báo rõ thiếu file gì. Thay quy định 14/11 "không duyệt nhanh" cho riêng phần tiền.
+- Thu chi: nút **"+ Khách chuyển khoản rút tiền mặt"** ghi 2 dòng ghép đôi (tiền mặt −X, chuyển khoản +X), chọn nhóm "Không tính" — không vào chi phí. Chi / rút bằng chuyển khoản dùng phiếu chi chuyển khoản sẵn có (trong khung Chuyển khoản).
+- Còn để ngỏ: thêm nút "Khách CK rút tiền mặt" ở màn hình chốt ca của nhân viên (hiện nhân viên ghi 2 dòng thu chi).
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.
