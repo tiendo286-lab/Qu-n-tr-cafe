@@ -28,6 +28,19 @@ export default async ({ sleep, out }) => {
     r.push(`trang tiền: khung hiện ${vis()} · kết luận: ${txt('.ds-v')} · bảng: ${$$('table.mt tr').map((x) => txt(x)).join(' / ')}`);
     r.push(`kiểm tra: ${$$('.ds-chk > summary').map((x) => txt(x)).join(' | ')} · thu chi: ${$$('#ds-tc .dt-r').length} khoản, ô nhóm ${$$('#ds-tc select.dt-cat').length} · nút phụ: ${$$('.ds-more > summary').map((x) => txt(x)).join(' | ')} · thanh: ${txt('.ds-mbar').slice(0, 160)} · lệch: ${$$('.lx-box').map((b) => b.dataset.item + ' ' + b.dataset.gap).join(', ')} · ${W()}`);
     r.push(`bước: ${$$('.ds-st').filter((b) => !b.hidden).map((b) => txt(b)).join(' / ')} · thẻ phần: ${txt('#ds-parts')}`);
+    await sleep(1500);
+    r.push(`danh sách gộp: thu chi ${$$('#moves .uv-row').length} · nợ ${$$('#debts .uv-row').length} · ô nhóm ${$$('#moves .uv-cats').length} · ô loại nợ ${$$('.uv-dkind').length} · nút: ${$$('.uv .toolbar button').map((b) => b.textContent.trim()).join(' | ')}`);
+    {   // đổi loại dòng thu chi đầu tiên sang Thu · chuyển khoản, ghi lý do ở cuối → tự lưu
+      const why = $$('.rc-why').pop(); why.value = 'Thử sửa loại khoản'; why.dispatchEvent(new Event('input', { bubbles: true }));
+      const t = $('#moves .uv-type'); t.value = 'thu_ck'; t.dispatchEvent(new Event('change', { bubbles: true })); await sleep(4000);
+      const G = await rpc('app_ca_recon', { p_id: id }).catch(() => null);
+      r.push(`sau đổi loại: ${JSON.stringify((G?.data?.moves || G?.moves || []).map((m) => m.kind + ' ' + m.amount)).slice(0, 160)}`);
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait('#ds-money-ok'); await sleep(2500);
+      r.push(`tải lại: dòng đầu ${$('#moves .uv-type')?.value} · bảng: ${$$('table.mt tr').map((x) => txt(x)).join(' / ').slice(0, 220)}`);
+      { const w2 = $$('.rc-why').pop(); w2.value = 'Trả lại như cũ'; w2.dispatchEvent(new Event('input', { bubbles: true })); }
+      const t2 = $('#moves .uv-type'); t2.value = 'chi_tm'; t2.dispatchEvent(new Event('change', { bubbles: true })); await sleep(4000);
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait('#ds-money-ok'); await sleep(2500);
+    }
     if (new URLSearchParams(location.search).get('pre')) { window.scrollTo(0, 0); await new Promise(() => {}); }   // chụp ảnh trước khi duyệt
     // khách chuyển khoản rút tiền mặt
     const n0 = $$('#moves .mv-row').length; $('#add-rut2').click(); await sleep(300); r.push(`bảng sửa mở: ${$('#ds-mv-ed')?.open}`);

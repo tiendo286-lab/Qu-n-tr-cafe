@@ -54,21 +54,21 @@ export default async ({ sleep, out }) => {
       r.push(`nút thêm: ${$$('[data-addmv]').map((x) => x.innerText).join(' / ')}`);
       $('[data-addmv="chuyen_khoan"]').click(); await sleep(600);
       const row = $('#moves').lastElementChild; const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
-      r.push(`dòng mới: loại ${row.querySelector('.mv-kind').value} · khung mở ${$('#ds-mv-ed').open}`);
+      r.push(`dòng mới: loại ${row.querySelector('.mv-kind').value} · danh sách gộp ${!!$('#moves .uv-row')}`);
       setv(row.querySelector('.mv-amt'), '50.000'); setv(row.querySelector('.mv-note'), 'Thu tiền thanh lý'); await sleep(2500);
       r.push(`chưa lý do: ${$$('.rc-need').some((x) => !x.hidden) ? 'nhắc ghi lý do' : 'KHÔNG nhắc'}`);
-      setv($('#ds-mv-ed .rc-why'), 'Nhân viên quên ghi'); await sleep(3000);
+      setv($$('.rc-why').pop(), 'Nhân viên quên ghi'); await sleep(3000);
       const n1 = await mvN(); r.push(`thu chi máy chủ: ${n0} → ${n1} · danh sách CK hiện ${$$('#ds-tc-ck .dt-r').length} dòng`);
       // bước 96: Xoá khoản thu chi + Khách trả nợ trong ca ở bước Thu chi
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6'; await wait('#ds-tc .dt-del'); await sleep(1500);
       const nB = await mvN();
-      const del = $$('#ds-tc-tm .dt-r').find((x) => x.innerText.includes('Mua đá'))?.querySelector('.dt-del');
+      const del = $$('#ds-tc-tm .dt-r').find((x) => x.textContent.includes('Mua đá'))?.querySelector('.dt-del');
       r.push(`96 nút Xoá: ${$$('#ds-tc .dt-del').length} · dòng Mua đá có nút ${!!del}`);
       del.click(); await wait('dialog[open] form [name=why]'); let f9 = $$('dialog[open] form').pop();
       f9.requestSubmit(); await sleep(500); r.push(`xoá không lý do: ${txt('#mvd-err')}`);
       f9.why.value = 'Nhân viên ghi trùng'; f9.requestSubmit(); await sleep(3500);
       r.push(`sau xoá: thu chi máy chủ ${nB} → ${await mvN()} · hộp đóng ${!$('dialog[open]')} · còn Mua đá trong phiếu ${$$('#moves .mv-row').some((x) => x.querySelector('.mv-note').value === 'Mua đá')}`);
-      r.push(`mục 3 nút: ${!!$('#ds-tc [data-qlpick]')} · ${$$('#ds-tc h3').map((x) => x.innerText).join(' / ')}`);
+      r.push(`mục 3 nút: ${!!$('#ds-tc [data-qlpick]')} · ${$$('#ds-tc h3').map((x) => x.textContent).join(' / ')}`);
       $('#ds-tc [data-qlpick]').click(); await wait('dialog[open] [data-pk]'); await sleep(300);
       r.push(`hộp chọn khách: ${$$('dialog[open] [data-pk][data-k="tien_mat"]').length} khách · ${txt('dialog[open] h2')}`);
       $(`dialog[open] [data-pk="${did}"][data-k="chuyen_khoan"]`).click(); await wait('dialog[open] form [name=amt]'); await sleep(300);
