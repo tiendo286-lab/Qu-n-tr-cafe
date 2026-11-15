@@ -544,6 +544,13 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Bước 101 (cùng ngày) — điện thoại (≤ 700px), anh chọn cách A:** dải 7 ngày bấm chọn (✓ đủ / còn N ca / chưa), 3 ca của ngày xếp dọc, ô gõ to, cuối trang Cả ngày + Cả tuần. Mở trang chọn sẵn hôm nay (tuần khác: ngày đầu còn thiếu). Máy tính giữ bảng cả tuần.
 - **Không thay đổi số đã kê khai:** số dư đầu chỉ tự điền cho ca chưa nhập gì; ca đã có số giữ nguyên, chỉ nhắc "khác cuối ca trước"; tự lưu đúng phiếu ca vừa sửa.
 
+## 5r25. Hoá đơn giao hàng theo 1 cơ sở, xem Tuần | Tháng — CHỐT và ĐÃ LÀM 15/11/2026 (bước 102, chỉ giao diện)
+- Thẻ chọn cơ sở (nhớ chung với Chuyển khoản thực nhận); nút **Tuần | Tháng** (anh chốt giữ cả hai).
+- **Tuần:** máy tính = 7 cột ngày, mỗi ngày các lần giao (số phiếu, tiền, trạng thái, hồ sơ, Xem / Ghép / ×); điện thoại (≤ 700px) = dải 7 ngày (số lần giao · ✓ / đang / !) + thẻ từng lần giao.
+- **Tháng:** danh sách mọi lần giao trong tháng của cơ sở, lọc trạng thái.
+- Đầu trang luôn có 3 ô: tuần / tháng này, còn thiếu hồ sơ, **phải trả kho tổng cả tháng** của cơ sở. Danh sách "Hồ sơ nhận hàng còn thiếu" của cơ sở ở cuối trang.
+- Tab File ca Fabi: anh đã duyệt mẫu (1 cơ sở, bỏ Danh sách) nhưng **chưa làm** — chờ anh bảo.
+
 ## 6. Đã bỏ hẳn
 
 Đánh giá · Voucher · Họp · nhập dữ liệu từ bản offline · nhập câu trả lời Google Form · nhập Excel nhân viên · tải file mẫu · Khôi phục bản order trước.

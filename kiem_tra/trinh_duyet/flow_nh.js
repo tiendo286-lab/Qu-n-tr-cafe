@@ -22,11 +22,15 @@ export default async ({ sleep, out }) => {
   const img = new File([await new Promise((ok) => cv.toBlob(ok, 'image/png'))], 'hang.png', { type: 'image/png' });
 
   await step('Kế toán tải Excel', async () => {
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ke-toan/hoa-don'; await wait('#nh-file', 300); await sleep(300);
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ke-toan/hoa-don?xem=thang&cn=1'; await wait('#nh-file', 1500); await sleep(300);   // bước 102: xem Tháng
     setFiles($('#nh-file'), [xfile]); await wait('dialog[open] form', 50); await sleep(300);
     const d = dlg(); const info = `${txt('h2', d)} · cơ sở chọn sẵn: ${$('[name=br]', d).selectedOptions[0]?.text} · ${txt('div > strong', d)}`;
     $('button[type=submit]', d).click(); await sleep(1500); await wait('.nh-list', 50);
-    return `${info} → danh sách: ${txt('.nh-list tbody tr td:nth-child(4)')} · ô tổng: ${txt('.nh-k.tot b')}`;
+    const res = `${info} → danh sách: ${txt('.nh-list tbody tr td:nth-child(3)')} · ô tổng: ${txt('.nhw-k.tot b')}`;
+    // bước 102: xem Tuần của 1 cơ sở — thẻ lần giao ở cột ngày (máy tính) hoặc dải ngày (điện thoại)
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ke-toan/hoa-don?cn=1'; await wait('.nhw-bar', 1500); await sleep(800);
+    const lay = $('.nhw-grid') ? 'cột ngày' : $('.nhw-days') ? 'dải ngày' : 'KHÔNG RÕ';
+    return `${res} || Tuần: ${lay} · cơ sở ${txt('.branch-tabs a.on')} · cách xem ${txt('.nhw-view a.on')} · ${txt('.nhw-nav strong')} · dải: ${$$('.nhw-d').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · thẻ: ${$$('.nhw-day:not([hidden]) .nhw-c, .nhw-grid .nhw-c').map((x) => x.innerText.replace(/\s+/g, ' ').slice(0, 60)).join(' / ')} · ô: ${$$('.nhw-k').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')}`;
   });
   await step('Tải trùng số đơn', async () => { setFiles($('#nh-file'), [xfile]); await wait('dialog[open] form', 50); await sleep(300); $('button[type=submit]', dlg()).click(); await sleep(500); const e = txt('.nh-err', dlg()); dlg().close(); return e; });
   let id;
@@ -81,7 +85,7 @@ export default async ({ sleep, out }) => {
   await step('Kế toán ghép hóa đơn vào phiếu không hóa đơn', async () => {
     const L = await rpc('app_nh_list', { p_month: day.slice(0, 7), p_branch: null }); const w = L.rows.find((x) => x.state === 'cho_hoa_don');
     await rpc('app_nh_create', { p: { branch_id: 1, doc_no: 'XNBTEST002', ship_at: day + ' 16:00', total: 30000, merge_id: w.id, lines: [{ code: 'T009', name: 'Đá viên', unit: 'Bao', qty: 3, price: 10000, amount: 30000 }] } });
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/hoa-don'; await wait('.nh-list', 200); await sleep(400);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/hoa-don?xem=thang&cn=1'; await wait('.nh-list', 200); await sleep(400);
     $$('.nh-view')[0].click(); await wait('dialog[open] .nh-t', 30); const v = txt('dialog[open] .nh-head'); dlg().close();
     return `${$$('.nh-list tbody tr').length} dòng · xem: ${v.slice(0, 120)}`;
   });
