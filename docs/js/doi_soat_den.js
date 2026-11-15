@@ -76,18 +76,24 @@ export async function mountLights(box, R0, R) {
       : html`<span class="pill ok">Fabi ✓ khớp phiếu</span>`;
   const extra = fabi ? [(fabi.tra_no || []).length ? `khách trả nợ ${fabi.tra_no.map((t) => t.method + ' ' + fmt(t.amount)).join(', ')}` : '', (fabi.sua || []).length ? `⚠️ ${fabi.sua.length} hóa đơn sửa / xóa trên Fabi: ${fabi.sua.map((s) => fmt(s.amount)).join(', ')}` : ''].filter(Boolean) : [];
   const DIR = LK?.is_chu ? getDirect(R0.id) : null;
+  // bước 110b: rút gọn — mục đã đối soát gộp 1 dòng (bấm mở), chỉ hiện đầy đủ mục còn phải làm (đỏ → chờ kế toán → xanh)
+  const isDone = (x) => lk.has(x.item) || x.done;
+  const doneRows = J.filter(isDone);
+  const rk = (x) => (!x.ok && !x.wait ? 0 : x.wait ? 1 : 2);
+  const openRows = J.filter((x) => !isDone(x)).sort((p1, p2) => rk(p1) - rk(p2));
+  const rowOf = (x) => html`<div class="den-row ${lk.has(x.item) ? 'done auto' : x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${lk.has(x.item) ? '🔒 ' : ''}${LBL[x.item]}</strong>
+        <span class="st-meta">${lk.has(x.item) ? '✓ web tự đối soát — đã khoá' : x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
+        ${lk.has(x.item) || x.done ? (!lk.has(x.item) || LK?.can_unlock ? html`<button type="button" class="btn sm secondary den-edit" data-item="${x.item}">Sửa</button>` : '')
+          : !x.done && !x.ok && !x.wait && !locked ? html`<span class="den-acts">${x.manual ? html`<button type="button" class="btn sm den-man" data-item="${x.item}">Đã xem — duyệt</button>` : ''}${x.item === 'chuyen_khoan' && Number((R0.money || {}).ck_left) < 0 ? html`<button type="button" class="btn sm den-pc">Tạo phiếu chi</button>` : ''}<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button></span>` : ''}</div>`;
   box.innerHTML = str(html`${DIR ? html`<div class="alert warn den-dir"><div><strong>Chủ đang sửa thẳng: ${DIR.items.map((i) => LBL[i]).join(', ')}</strong> — phiếu giữ nguyên đối soát, không phải duyệt lại; mỗi thay đổi ghi nhật ký. Lý do: ${DIR.why}</div>
       <div class="toolbar" style="gap:8px;margin-top:6px"><button type="button" class="btn sm secondary" data-ds-go="${STEP[DIR.items[0]]}">Tới chỗ sửa</button><button type="button" class="btn sm" id="den-dir-done">Xong, khoá lại</button></div></div>` : ''}
     <div class="pc-sec-head"><h2>Đèn đối soát</h2><div>${fb}</div></div>
     ${kt && kt.need && !kt.ready && waitN ? html`<div class="alert info"><strong>Phần tiền chờ kế toán</strong> — còn thiếu: ${(kt.missing || []).join(', ')}. Nhân sự, Bàn giao, Nhập hàng đối soát được ngay.</div>`
-      : kt && kt.need && kt.ready ? html`<div class="st-meta">✓ Kế toán đã đủ file Fabi và chuyển khoản ngân hàng — phần tiền tính theo số chính thức.</div>` : ''}
+      : kt && kt.need && kt.ready ? html`<div class="st-meta">✓ Kế toán đủ file — tiền tính theo số chính thức.</div>` : ''}
     ${extra.length ? html`<div class="alert warn">${extra.join(' · ')}</div>` : ''}
-    ${lk.size ? html`<div class="st-meta">🔒 ${lk.size} mục web đã <strong>tự đối soát</strong> (khớp file Fabi và ngân hàng) — đã khoá.${LK.can_unlock ? ' Chủ bấm "Sửa" ở mục đó nếu thật sự cần sửa.' : ' Chỉ Chủ sửa được.'}</div>` : ''}
-    <div class="den-list">${J.map((x) => html`<div class="den-row ${lk.has(x.item) ? 'done auto' : x.done ? 'done' : x.wait ? 'w' : x.ok ? 'g' : 'r'}"><i class="den-dot"></i><div class="den-t"><strong>${lk.has(x.item) ? '🔒 ' : ''}${LBL[x.item]}</strong>
-        <span class="st-meta">${lk.has(x.item) ? '✓ web tự đối soát — đã khoá' : x.done ? '✓ đã đối soát' : x.wait ? 'chờ kế toán' : x.ok ? 'xanh — chờ duyệt' : x.why}</span></div>
-        ${lk.has(x.item) || x.done ? (!lk.has(x.item) || LK?.can_unlock ? html`<button type="button" class="btn sm secondary den-edit" data-item="${x.item}">Sửa</button>` : '')
-          : !x.done && !x.ok && !x.wait && !locked ? html`<span class="den-acts">${x.manual ? html`<button type="button" class="btn sm den-man" data-item="${x.item}">Đã xem — duyệt</button>` : ''}${x.item === 'chuyen_khoan' && Number((R0.money || {}).ck_left) < 0 ? html`<button type="button" class="btn sm den-pc">Tạo phiếu chi</button>` : ''}<button type="button" class="btn sm secondary" data-ds-go="${STEP[x.item]}">Xử lý</button></span>` : ''}</div>`)}</div>
-    ${locked ? '' : html`<div class="toolbar" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn" id="den-ok" ${green.length ? '' : 'disabled'}>Duyệt các mục xanh${green.length ? ` (${green.length})` : ''}</button>
+    <div class="den-list">${openRows.map(rowOf)}</div>
+    ${doneRows.length ? html`<details class="den-done"><summary><i class="den-dot"></i><b>${doneRows.length} mục đã đối soát</b>${lk.size ? html`<span class="st-meta"> · 🔒 ${lk.size} web tự đối soát</span>` : ''}<span class="st-meta den-more">xem / sửa ›</span></summary><div class="den-list" style="margin-top:6px">${doneRows.map(rowOf)}</div></details>` : ''}
+    ${locked || !(green.length || red.length || waitN) ? '' : html`<div class="toolbar" style="gap:8px;flex-wrap:wrap">${green.length ? html`<button type="button" class="btn" id="den-ok">Duyệt các mục xanh (${green.length})</button>` : ''}
       <span class="st-meta">${red.length ? `Còn ${red.length} mục đỏ cần xử lý — bấm "Xử lý" để tới đúng chỗ.` : waitN ? `${waitN} mục tiền chờ kế toán.` : green.length ? 'Không còn mục đỏ. Duyệt xong là hoàn thành đối soát.' : ''}</span></div>`}`);
   $('#den-ok', box)?.addEventListener('click', async (ev) => {
     ev.target.disabled = true;
@@ -148,6 +154,11 @@ export async function mountLights(box, R0, R) {
 
 export const DEN_CSS = html`<style>
   .den-list { display: flex; flex-direction: column; gap: 6px; }
+  .den-done { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--subtle, #f7f2ea); }
+  .den-done > summary { display: flex; gap: 10px; align-items: center; cursor: pointer; list-style: none; font-size: 14px; }
+  .den-done > summary::-webkit-details-marker { display: none; }
+  .den-done > summary .den-dot { background: var(--ok-line); } .den-done .den-more { margin-left: auto; white-space: nowrap; }
+  @media (max-width: 760px) { .den-row { padding: 6px 8px; gap: 8px; } .den-row .st-meta { font-size: 12px; } .den-row .btn.sm { padding: 5px 10px; } }
   .den-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; }
   .den-row.done > :not(.den-edit) { opacity: .5; }
   .den-acts { display: flex; flex-wrap: wrap; gap: 6px; justify-content: flex-end; }

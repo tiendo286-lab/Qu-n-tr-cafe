@@ -40,7 +40,10 @@ export default async ({ sleep, out }) => {
     $('#ds-money-ok').click(); await sleep(3500); await wait('.ds-msum'); await sleep(1500);
     const A = await rpc('app_ca_get', { p_id: id });
     r.push(`sau duyệt: ${txt('.alert.ok, .flash, #flash').slice(0, 120)} · tóm tắt: ${txt('.ds-msum')} · đối soát: ${A.recon_status} · mục xong: ${Object.keys(A.checks || {}).concat(Object.keys(A.results || {})).join(',')} · khung hiện ${vis()} · ${W()}`);
-    if (new URLSearchParams(location.search).get('dung')) { window.scrollTo(0, 0); await new Promise(() => {}); }
+    if (new URLSearchParams(location.search).get('dung')) {
+      if (new URLSearchParams(location.search).get('b1')) { location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=1'; await wait('#ds-lights .den-list'); await sleep(2000); }
+      window.scrollTo(0, 0); await new Promise(() => {});
+    }
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'đối soát 110', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };
