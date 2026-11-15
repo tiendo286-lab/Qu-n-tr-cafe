@@ -541,6 +541,7 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - Kế toán chỉ gõ **số dư lúc đóng ca**; số dư đầu tự = cuối ca trước; hàng **Thực nhận** = cuối − đầu + chuyển ra ± tiền về chậm. **Tự lưu** khi rời ô.
 - Anh chốt: bảng này **không báo khớp / lệch** (việc so để Đối soát). Nút ⋯ từng ô: số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm. Bỏ khung cảnh báo vàng cố định.
 - **Bước 100 (cùng ngày):** chỉ còn **bảng tuần của 1 cơ sở** (chọn cơ sở + tuần; cột = 7 ngày + Cả tuần; hàng = ca → tài khoản → Thực nhận ca; dòng Thực nhận cả ngày), bỏ cách xem theo ngày và bảng tuần nhiều cơ sở cũ.
+- **Bước 101 (cùng ngày) — điện thoại (≤ 700px), anh chọn cách A:** dải 7 ngày bấm chọn (✓ đủ / còn N ca / chưa), 3 ca của ngày xếp dọc, ô gõ to, cuối trang Cả ngày + Cả tuần. Mở trang chọn sẵn hôm nay (tuần khác: ngày đầu còn thiếu). Máy tính giữ bảng cả tuần.
 - **Không thay đổi số đã kê khai:** số dư đầu chỉ tự điền cho ca chưa nhập gì; ca đã có số giữ nguyên, chỉ nhắc "khác cuối ca trước"; tự lưu đúng phiếu ca vừa sửa.
 
 ## 6. Đã bỏ hẳn

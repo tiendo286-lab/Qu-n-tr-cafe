@@ -64,17 +64,44 @@ export async function render({ params }) {
     return html`<td class="ckw-c" data-k="${st.report}|${st.acc}"><div class="ckw-in">${money('ckw-close', st.closing, st.lock)}<button type="button" class="ckw-more" aria-label="Số dư đầu, chuyển ra, ghi chú, tiền về chậm" title="Số dư đầu, chuyển ra, ghi chú, tiền về chậm">⋯</button></div><div class="ckw-o"></div></td>`; })}<td></td></tr>`;
   const sumRow = (sh) => html`<tr class="ckw-tn"><th class="ckw-l">Thực nhận ca ${sh}</th>${days.map((d, i) => { const x = get(i, sh); return html`<td class="ckw-t" data-r="${x && x.row ? x.row.report_id : ''}" data-sh="${sh}" data-i="${i}">—</td>`; })}<td class="ckw-t ckw-wk" data-sh="${sh}">—</td></tr>`;
 
+  // bước 101 (anh chốt cách A): ĐIỆN THOẠI (≤ 700px) — dải 7 ngày bấm chọn, 3 ca của ngày xếp dọc, ô gõ to; máy tính giữ bảng cả tuần
+  const mob = !!(window.matchMedia && window.matchMedia('(max-width: 700px)').matches);
+  const dayState = (i) => {
+    const R = shifts.map((sh) => get(i, sh)).filter((x) => x && x.row && (x.row.accounts || []).length).map((x) => tot(x.row.report_id));
+    if (!R.length) return 'none';
+    const full = R.filter((t) => t.got === t.n).length;
+    return full === R.length ? 'ok' : R.every((t) => !t.got) ? 'empty' : 'miss:' + (R.length - full);
+  };
+  const ti = days.indexOf(today);
+  const pick = ti >= 0 ? ti : Math.max(0, days.findIndex((d, i) => { const st = dayState(i); return st === 'empty' || st.startsWith('miss'); }));
+  const stripLbl = (st) => (st === 'ok' ? '✓' : st === 'none' ? '—' : st === 'empty' ? 'chưa' : `còn ${st.split(':')[1]} ca`);
+  const dname = (d) => DOW[new Date(d + 'T00:00:00Z').getUTCDay()];
+  const mobCard = (sh, i) => {
+    const x = get(i, sh); const r = x && x.row; const f = r && fbBy.get(r.report_id);
+    if (!r) return html`<div class="ckm-card ckm-none"><div class="ckm-h"><b>Ca ${sh}</b><span>chưa có phiếu ca</span></div></div>`;
+    const accs = ACC.filter((a) => S.has(`${r.report_id}|${a.account_id}`));
+    return html`<div class="ckm-card"><div class="ckm-h"><b>Ca ${sh}</b><span>${f && f.close_at ? html`đóng <b>${hm(f.close_at)}</b> (Fabi)` : r.rev_end ? `đóng ${hm(r.rev_end)} (phiếu)` : 'chưa có giờ đóng ca'}${r.locked ? ' · 🔒 đã đối soát' : ''}</span></div>
+      ${accs.length ? accs.map((a) => { const st = S.get(`${r.report_id}|${a.account_id}`);
+        return html`<div class="ckw-c ckm-acc" data-k="${st.report}|${st.acc}"><div class="ckm-n"><b>${a.bank} …${String(a.account_no).slice(-4)}</b><div class="ckw-o"></div></div>${money('ckw-close ckm-box', st.closing, st.lock)}<button type="button" class="ckw-more" aria-label="Số dư đầu, chuyển ra, ghi chú, tiền về chậm">⋯</button></div>`; })
+        : html`<div class="st-meta">Ca này chưa có tài khoản.</div>`}
+      <div class="ckm-tn"><span>Thực nhận</span><span class="ckw-t" data-r="${r.report_id}" data-sh="${sh}" data-i="${i}">—</span></div></div>`;
+  };
+  const mobBody = html`<div class="ckm-days" role="tablist" aria-label="Chọn ngày">${days.map((d, i) => html`<button type="button" class="ckm-d ${i === pick ? 'on' : ''} ${d === today ? 'today' : ''}" data-di="${i}" role="tab" aria-selected="${i === pick ? 'true' : 'false'}">${dname(d)}<b>${d.slice(8, 10)}</b><i data-ds="${i}"></i></button>`)}</div>
+    ${days.map((d, i) => html`<div class="ckm-day" data-dp="${i}" ${i === pick ? '' : 'hidden'}>${shifts.map((sh) => mobCard(sh, i))}
+      <div class="ckm-tot"><div>Cả ngày ${dname(d)} ${dmy(d).slice(0, 5)}<small>Cả tuần: <span class="ckw-t" data-day="wk">—</span></small></div><span class="ckw-t ckm-big" data-day="${i}">—</span></div></div>`)}`;
+
   return {
     title: `Chuyển khoản thực nhận ${BR.code}`,
     html: html`<style>${CKW_CSS}</style>
-      <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1><div class="sub">Chọn cơ sở · gõ <b>số dư của từng tài khoản lúc đóng ca trên Fabi</b> · web tự tính <b>Thực nhận</b> từng ca, từng ngày, cả tuần và <b>tự lưu</b>. Số dư đầu ca tự điền bằng số dư lúc đóng ca trước (chỉ với ca chưa nhập). Bấm <b>⋯</b> để sửa số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm.</div></div>
+      <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1>${mob ? html`<div class="sub">Gõ <b>số dư lúc đóng ca trên Fabi</b> · tự tính Thực nhận, tự lưu · ⋯ để sửa số dư đầu, chuyển ra, ghi chú, tiền về chậm.` : html`<div class="sub">Chọn cơ sở · gõ <b>số dư của từng tài khoản lúc đóng ca trên Fabi</b> · web tự tính <b>Thực nhận</b> từng ca, từng ngày, cả tuần và <b>tự lưu</b>. Số dư đầu ca tự điền bằng số dư lúc đóng ca trước (chỉ với ca chưa nhập). Bấm <b>⋯</b> để sửa số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm.`}</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <section class="card ckw-bar">
         <nav class="branch-tabs" aria-label="Cơ sở">${branches.map((b) => html`<a class="${b.id === cn ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav>
-        <div class="ckw-nav"><a class="btn sm secondary" href="${q({ ngay: addDays(mon, -7) })}">‹ Tuần trước</a><strong>${dmy(days[0]).slice(0, 5)} – ${dmy(days[6])}</strong>
-          <a class="btn sm secondary" href="${q({ ngay: addDays(mon, 7) })}">Tuần sau ›</a>${mon !== mondayOf(today) ? html`<a class="btn sm secondary" href="${q({ ngay: today })}">Tuần này</a>` : ''}</div></section>
+        ${mob ? html`<div class="ckw-nav ckm-nav"><a class="btn sm secondary" href="${q({ ngay: addDays(mon, -7) })}" aria-label="Tuần trước">‹</a><strong>Tuần ${dmy(days[0]).slice(0, 5)} – ${dmy(days[6]).slice(0, 5)}</strong>${mon !== mondayOf(today) ? html`<a class="btn sm secondary" href="${q({ ngay: today })}">Tuần này</a>` : ''}<a class="btn sm secondary" href="${q({ ngay: addDays(mon, 7) })}" aria-label="Tuần sau">›</a></div>`
+        : html`<div class="ckw-nav"><a class="btn sm secondary" href="${q({ ngay: addDays(mon, -7) })}">‹ Tuần trước</a><strong>${dmy(days[0]).slice(0, 5)} – ${dmy(days[6])}</strong>
+          <a class="btn sm secondary" href="${q({ ngay: addDays(mon, 7) })}">Tuần sau ›</a>${mon !== mondayOf(today) ? html`<a class="btn sm secondary" href="${q({ ngay: today })}">Tuần này</a>` : ''}</div>`}</section>
       <section class="card stack" style="gap:8px"><h2 style="margin:0">${BR.code} – ${BR.name}</h2>
-        ${ACC.length ? html`<div class="ckw-wrap"><table class="ckw"><thead><tr><th class="ckw-l">${BR.code} · Tài khoản</th>${headDays}</tr></thead>
+        ${ACC.length && mob ? mobBody : ACC.length ? html`<div class="ckw-wrap"><table class="ckw"><thead><tr><th class="ckw-l">${BR.code} · Tài khoản</th>${headDays}</tr></thead>
           <tbody>${shifts.map((sh) => html`${caRow(sh)}${ACC.map((a) => accRow(sh, a))}${sumRow(sh)}`)}
             <tr class="ckw-all"><th class="ckw-l">Thực nhận cả ngày</th>${days.map((d, i) => html`<td class="ckw-t" data-day="${i}">—</td>`)}<td class="ckw-t" data-day="wk">—</td></tr></tbody></table></div>
           <div class="st-meta">⋯ trong ô: số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm (chấm cam = có dùng). Bảng không báo khớp / lệch — quản lý so ở Đối soát ca.</div>`
@@ -82,6 +109,10 @@ export async function render({ params }) {
     mount() {
       bindMoneyInputs($('#root') || document.body);
       paint();
+      $$('.ckm-d').forEach((b) => b.addEventListener('click', () => {   // bước 101: chọn ngày trên điện thoại
+        $$('.ckm-d').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-selected', x === b ? 'true' : 'false'); });
+        $$('.ckm-day').forEach((pn) => { pn.hidden = pn.dataset.dp !== b.dataset.di; });
+      }));
       $$('.ckw-c').forEach((td) => {
         const st = S.get(td.dataset.k); const inp = td.querySelector('.ckw-close'); const r = ROW.get(st.report);
         inp.setAttribute('aria-label', `Số dư ${st.a.bank} ${st.a.account_no} lúc đóng ca ${r.shift} ${dmy(r.work_date)}`);
@@ -117,6 +148,7 @@ export async function render({ params }) {
     });
     $$('.ckw-wk[data-sh]').forEach((td) => { const x = shT[td.dataset.sh]; td.innerHTML = x && x.any ? str(html`<b>${fmt(x.v)}</b>`) : '<span class="st-meta">—</span>'; });
     $$('.ckw-t[data-day]').forEach((td) => { const x = td.dataset.day === 'wk' ? wk : dayT[Number(td.dataset.day)]; td.innerHTML = x.any ? str(html`<b>${fmt(x.v)}</b>`) : '—'; });
+    $$('[data-ds]').forEach((el) => { const st = dayState(Number(el.dataset.ds)); el.textContent = stripLbl(st); el.className = st === 'ok' ? 'ok' : st === 'none' ? '' : 'no'; });
   }
   // tự lưu đúng phiếu ca vừa sửa (lần lượt, không chồng nhau)
   function save(rid) {
@@ -192,6 +224,24 @@ const CKW_CSS = `
   .ckw-all .ckw-l, .ckw-all td { background: #2f3e33; color: #fff; font-weight: 800; } .ckw-all td b { color: #fff; }
   .ckw-tag { display: inline-block; background: #fde9b8; color: #7a4a12; border-radius: 6px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
   details.ckw-late > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--primary); }
+  .ckm-nav { width: 100%; justify-content: space-between; flex-wrap: nowrap; } .ckm-nav strong { flex: 1; text-align: center; font-size: 15px; } .ckm-nav .btn { width: auto; min-width: 40px; }
+  .ckm-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 4px; }
+  .ckm-d { border: 1.5px solid var(--line); background: var(--card); border-radius: 10px; padding: 5px 0 4px; font-size: 11px; line-height: 1.25; color: var(--ink-2); cursor: pointer; }
+  .ckm-d b { display: block; font-size: 15px; color: var(--ink); } .ckm-d i { display: block; font-style: normal; font-size: 10px; font-weight: 700; min-height: 12px; }
+  .ckm-d i.ok { color: var(--ok-ink); } .ckm-d i.no { color: #b45309; } .ckm-d.today b { text-decoration: underline; }
+  .ckm-d.on { border-color: var(--primary); background: #fde9b8; }
+  .ckm-day { display: flex; flex-direction: column; gap: 10px; } .ckm-day[hidden] { display: none; }
+  .ckm-card { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--card); }
+  .ckm-none { opacity: .7; }
+  .ckm-h { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; } .ckm-h > b { font-size: 15px; text-transform: uppercase; } .ckm-h span { font-size: 12px; color: var(--ink-2); text-align: right; }
+  .ckm-acc { display: grid; grid-template-columns: minmax(0, 1fr) 150px 30px; gap: 6px; align-items: center; padding: 8px 0; border-top: 1px solid var(--line); margin-top: 6px; }
+  .ckm-n b { display: block; font-size: 14px; } .ckm-n .ckw-o { text-align: left; }
+  .ckm-box { font-size: 17px !important; padding: 10px !important; text-align: right; min-height: 44px; }
+  .ckm-acc .ckw-more { font-size: 22px; padding: 6px 4px; }
+  .ckm-tn { display: flex; justify-content: space-between; align-items: baseline; border-top: 2px solid var(--ink); margin-top: 4px; padding-top: 8px; font-weight: 800; font-size: 15px; }
+  .ckm-tn .ckw-t b { font-size: 16px; }
+  .ckm-tot { display: flex; justify-content: space-between; align-items: center; gap: 8px; background: #2f3e33; color: #fff; border-radius: 14px; padding: 12px; font-weight: 800; }
+  .ckm-tot small { display: block; font-weight: 500; font-size: 12px; opacity: .85; } .ckm-tot b { color: #fff; } .ckm-big b { font-size: 18px; }
   .ckw-lf { display: grid; grid-template-columns: repeat(auto-fit, minmax(130px, 1fr)); gap: 6px; }
 `;
 

@@ -20,11 +20,15 @@ export default async ({ sleep, out }) => {
     await rpc('app_kt_bank_save_accounts', { p_report: id1, p_rows: [{ account_id: acc, opening: 4000000, closing: 5000000, transfers_out: 0, note: null }] });
     // ca 3 đã kê khai sẵn số đầu 9.000.000 (khác) — web không được đổi
     await rpc('app_kt_bank_save_accounts', { p_report: id3, p_rows: [{ account_id: acc, opening: 9000000, closing: 9500000, transfers_out: 0, note: null }] });
-    const go = async () => { location.hash = '#/__tam'; await sleep(200); location.hash = `#/ke-toan/chuyen-khoan?cn=${br}&ngay=${day}`; await wait('table.ckw'); await sleep(1000); };
+    const go = async () => { location.hash = '#/__tam'; await sleep(200); location.hash = `#/ke-toan/chuyen-khoan?cn=${br}&ngay=${day}`; await wait('.ckw-c, table.ckw'); await sleep(1000); };
     await go();
     const c = (id) => $(`.ckw-c[data-k="${id}|${acc}"]`);
-    r.push(`trang: cơ sở ${txt('.branch-tabs a.on')} · tuần ${txt('.ckw-nav strong')} · cột ${$$('thead th').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · còn chữ khớp/lệch ${/khớp|lệch|so với/i.test(txt('table.ckw'))} · nút Theo ngày ${!!$('.ck-view')}`);
+    r.push(`trang: cơ sở ${txt('.branch-tabs a.on')} · tuần ${txt('.ckw-nav strong')} · cột ${$$('thead th').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · còn chữ khớp/lệch ${/khớp|lệch|so với/i.test(txt('.ckw-c, table.ckw'))} · nút Theo ngày ${!!$('.ck-view')}`);
     r.push(`hàng: ${$$('table.ckw tbody th').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')}`);
+    // bước 101: điện thoại — dải 7 ngày, 3 ca của ngày đang chọn xếp dọc
+    r.push(`bố cục ${$('table.ckw') ? 'BẢNG TUẦN' : 'CHỌN NGÀY'} · dải ngày: ${$$('.ckm-d').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · đang chọn ${txt('.ckm-d.on')} · thẻ ca: ${$$('.ckm-day:not([hidden]) .ckm-h').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')}`);
+    if ($('.ckm-d')) { const other = $$('.ckm-d').find((x) => !x.classList.contains('on')); other.click(); await sleep(300);
+      r.push(`bấm ${other.innerText.replace(/\s+/g, ' ')} → hiện ${$$('.ckm-day:not([hidden])').length} ngày · ${txt('.ckm-day:not([hidden]) .ckm-tot')}`); $$('.ckm-d').find((x) => x.classList.contains('today')).click(); await sleep(300); }
     r.push(`ca 1: ${txt('.ckw-o', c(id1))} · ca 2: ${txt('.ckw-o', c(id2))} · ca 3: ${txt('.ckw-o', c(id3))}`);
     setv($('.ckw-close', c(id2)), '7.000.000'); await sleep(1500);
     let b2 = await rpc('app_kt_bank_get', { p_report: id2 });
@@ -33,7 +37,7 @@ export default async ({ sleep, out }) => {
     setv($('.ckw-close', c(id1)), '6.200.000'); await sleep(1500);
     b2 = await rpc('app_kt_bank_get', { p_report: id2 }); const b3 = await rpc('app_kt_bank_get', { p_report: id3 });
     r.push(`sửa ca 1 = 6.200.000 → ca 2 máy chủ vẫn ${b2.accounts[0].opening} · ô ca 2: ${txt('.ckw-o', c(id2))} · ca 3 máy chủ vẫn ${b3.accounts[0].opening} · ô ca 3: ${txt('.ckw-o', c(id3))}`);
-    r.push(`tổng: ${$$('.ckw-tn').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')} · cả ngày: ${txt('.ckw-all')}`);
+    r.push(`tổng: ${$$('.ckw-tn, .ckm-day:not([hidden]) .ckm-tn').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')} · cả ngày: ${txt('.ckw-all') || txt('.ckm-day:not([hidden]) .ckm-tot')}`);
     $('.ckw-more', c(id2)).click(); await wait('dialog[open] form .m-out'); await sleep(300);
     const f = $$('dialog[open] form').pop();
     r.push(`hộp ⋯: ${txt('h2', f)} · ô ${$$('.field > span:first-child', f).map((x) => x.innerText).join(' / ')}`);

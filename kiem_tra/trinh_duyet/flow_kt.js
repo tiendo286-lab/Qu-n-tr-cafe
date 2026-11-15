@@ -40,7 +40,7 @@ export default async ({ sleep, out }) => {
     return out;
   });
   await step('Nhập số dư theo từng tài khoản (bảng theo ngày, bước 99)', async () => {
-    await go('#/ke-toan/chuyen-khoan?ngay=' + day, 'table.ckw'); await sleep(800);
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ckw-c, table.ckw'); await sleep(800);
     const cells = $$(`.ckw-c[data-k^="${rid}|"]`); if (!cells.length) return 'KHÔNG CÓ Ô CỦA PHIẾU ' + rid + ' · ' + txt('#root').slice(0, 200);
     const sub = async (cell, open, close, outv) => {
       cell.querySelector('.ckw-more').click(); await wait('dialog[open] form .m-open'); await sleep(200);
@@ -57,7 +57,7 @@ export default async ({ sleep, out }) => {
   await step('Ca sau: số dư đầu = cuối ca trước (từng TK)', async () => {
     const ov = await rpc('app_ca_overview', { p_date: day });
     const r2 = await rpc('app_ca_open', { p_branch: ov[0].branch_id, p_date: day, p_shift: ov[1].shift });
-    await go('#/ke-toan/chuyen-khoan?ngay=' + day, 'table.ckw'); await sleep(800);
+    await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ckw-c, table.ckw'); await sleep(800);
     const c2 = $$(`.ckw-c[data-k^="${r2}|"]`);
     return c2.length ? c2.map((c) => c.querySelector('.ckw-o').innerText.trim()).join(' , ') : 'KHÔNG THẤY CA 2';
   });
@@ -67,7 +67,7 @@ export default async ({ sleep, out }) => {
     al.querySelector('.ck-toggle').click(); await sleep(1200); await wait('.ck-al');
     const head = txt('.card h2:last-of-type');
     await go('#/ke-toan/chuyen-khoan?ngay=' + day, '.ckw-bar');   // bước 99: bảng theo ngày
-    await wait('table.ckw'); await sleep(600);
+    await wait('.ckw-c, table.ckw'); await sleep(600);
     const ov = await rpc('app_ca_overview', { p_date: day }); const r2 = ov.find((x) => x.branch_id === ov[0].branch_id && x.shift === ov[1].shift)?.report_id;
     return `nút xóa TK đã dùng: ${hasDel} · ${head} · ca 2 còn ${$$(`.ckw-c[data-k^="${r2}|"]`).length} TK · ca 1 còn ${$$(`.ckw-c[data-k^="${rid}|"]`).length} TK`;
   });
