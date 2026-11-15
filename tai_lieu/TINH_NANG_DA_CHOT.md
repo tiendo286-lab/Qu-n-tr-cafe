@@ -67,6 +67,18 @@ Thanh dưới trên điện thoại của nhân viên có 6 nút: **Order ca · 
 
 ---
 
+### 3b. Trung tâm Công việc — chốt và triển khai 15/11/2026 (bước 108, máy chủ 94)
+
+Thay giao diện mục 3 bằng **Theo dõi công việc · Phân công & tự động · Việc của tôi**; giữ đường dẫn cũ. Tông nâu, xanh rêu, nền kem; điện thoại dùng thẻ và biểu mẫu một cột.
+
+- **+ Thêm việc:** việc một lần; chọn nhóm, cơ sở, tài khoản chính, dự phòng, người theo dõi, hạn ngày/giờ, mức độ. Giao được cho tài khoản Kế toán riêng, người được thêm quyền Kế toán và Chủ; không cần gắn hồ sơ nhân viên. Giao việc không cấp thêm quyền nguồn.
+- **+ Quy tắc tự giao:** nguồn đối soát ca, đầu vào kế toán, đối soát hàng, thiếu ảnh/hóa đơn giao, giao bù/hóa đơn bổ sung, đọc và đôn đốc đọc tài liệu, cam kết, đào tạo; hoặc lịch ngày/tuần/tháng. Chọn tài khoản, quản lý được giao cơ sở, hoặc người thực hiện trên hồ sơ. Nếu nhiều quản lý cùng phụ trách thì dùng dự phòng hợp lệ hoặc Chờ phân công.
+- **Xem trước trước khi bật:** xem số việc mới, hồ sơ đã có việc, người nhận hoặc lý do chưa giao. Mặc định không tự bật quy tắc và không giao dồn tồn cũ khi cài đặt. Muốn gồm tồn cũ phải chọn rõ. Đổi quy tắc giữ nguyên việc đã tạo; Chuyển người là thao tác riêng có danh sách xem trước và lý do.
+- **Trạng thái:** Chờ phân công · Chờ nhận · Đang làm · Chờ đầu vào · Chờ xác nhận · Hoàn thành · Đã hủy. Việc thủ công có thể chọn người xác nhận khác người làm; để trống thì báo xong là hoàn thành như trước.
+- **Việc nguồn:** mở đúng hồ sơ, tự xong khi nghiệp vụ thật xong; nguồn mở lại thì việc mở lại, giữ lịch sử. Ca thiếu dữ liệu kế toán ghi rõ đang chờ. Cam kết chỉ xong ở Đã ký và nộp. Đào tạo theo kết quả phiếu và hạn chương trình 8 ngày. Tài liệu tính đúng nhân viên/phiên bản; quy trình cũng có nút xác nhận đọc. Người đôn đốc xem tiến độ từng nhân viên.
+- **Vận hành:** một khóa công việc cho mỗi nghĩa vụ/lượt lịch, chống trùng tại CSDL. Không cắt bỏ hồ sơ tồn theo số ngày nhìn lại. Người khóa/ngừng làm/mất quyền chuyển dự phòng hợp lệ hoặc chờ phân công; nhắc gộp mỗi ngày và báo người theo dõi khi quá hạn. Hủy/khôi phục có lý do, không xóa lịch sử.
+- **Quyền:** người có quyền Giao việc quản trị trung tâm và quy tắc. Người nhận chỉ xem phần của mình; người theo dõi/xác nhận cần quyền Giao việc. Không tự tạo vai trò “admin” hoặc nâng quyền người được giao.
+
 ## 4. Nhân viên & tài khoản
 
 | Chức năng | Đã chốt |

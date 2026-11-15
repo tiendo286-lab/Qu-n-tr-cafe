@@ -65,13 +65,13 @@ export async function render({ params, me }) {
     const state = !published ? 'draft' : d.has_draft ? 'changed' : 'published';
     return html`<details class="card stack doc-card qt-doc-card" data-search="${articleSearch(d)}" data-state="${state}" ${focus ? (focus === d.id ? 'open' : '') : (i === 0 ? 'open' : '')} id="doc-${d.id}">
       <summary class="doc-sum"><span class="qt-number">${String(i + 1).padStart(2, '0')}</span><span class="doc-title">${published ? d.published_title : d.title}</span>
-        ${kind === 'noi_quy' && me.employee_id && published ? (read ? html`<span class="pill ok">Đã đọc</span>` : html`<span class="pill off">Chưa đọc</span>`) : ''}
+        ${me.employee_id && published ? (read ? html`<span class="pill ok">Đã đọc</span>` : html`<span class="pill off">Chưa đọc</span>`) : ''}
         ${editor && !published ? html`<span class="pill mute">Chưa đăng</span>` : ''}
         ${editor && published && d.has_draft ? html`<span class="pill warn">Có sửa đổi chưa đăng</span>` : ''}</summary>
       ${published ? html`<div class="st-meta">Đăng ${dt(d.published_at)} · phiên bản ${d.published_version}${d.published_by ? ' · ' + d.published_by : ''}</div>
         <div class="doc">${raw(sanitize(d.published_html))}</div>` : html`<div class="st-meta">Bài này chưa đăng nên nhân viên chưa thấy. Bấm Sửa để soạn và đăng.</div>`}
-      ${kind === 'noi_quy' && me.employee_id && published ? (read ? html`<div class="alert ok qt-read-confirmed">Bạn đã xác nhận đọc lúc ${dt(d.read_at)}.</div>`
-        : html`<div class="qt-read-action"><button type="button" class="btn read-btn" data-id="${d.id}">Tôi đã đọc và hiểu nội quy này</button></div>`) : ''}
+      ${me.employee_id && published ? (read ? html`<div class="alert ok qt-read-confirmed">Bạn đã xác nhận đọc lúc ${dt(d.read_at)}.</div>`
+        : html`<div class="qt-read-action"><button type="button" class="btn read-btn" data-id="${d.id}">Tôi đã đọc và hiểu ${isProcedure ? 'quy trình' : 'nội quy'} này</button></div>`) : ''}
       ${editor ? html`<div class="toolbar qt-doc-actions"><a class="btn sm secondary" href="#/tai-lieu/soan?id=${d.id}">Sửa bài</a>
         <button type="button" class="btn sm secondary mv" data-id="${d.id}" data-dir="-1" aria-label="Đưa bài lên" ${i === 0 ? 'disabled' : ''}>↑</button>
         <button type="button" class="btn sm secondary mv" data-id="${d.id}" data-dir="1" aria-label="Đưa bài xuống" ${i === shown.length - 1 ? 'disabled' : ''}>↓</button>

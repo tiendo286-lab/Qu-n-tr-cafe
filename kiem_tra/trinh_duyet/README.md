@@ -1,5 +1,8 @@
 # Chạy thử giao diện trên Chrome (không đụng dữ liệu thật)
 
+- Trung tâm Công việc (bước 108): sau `chuan_bi.sh`, mở `index.html?role=chu&cv=1&confirm=1#/quan-ly/giao-viec` và `test/phone.html?role=chu&cv=1&confirm=1#/quan-ly/giao-viec` (390px). Dữ liệu thử có ca chờ kế toán, việc chưa giao, việc chờ xác nhận, tài khoản Kế toán riêng. Thử tạo/giao việc, lọc, cài quy tắc → bật → xem trước → lưu, mở đúng việc cần xác nhận từ Việc của tôi, hủy/khôi phục/chuyển người. `role=kt|ql|nv#/viec` để xem người nhận. Không dùng `flow_viec` cũ để kết luận giao diện mới.
+- Kiểm tra nghiệp vụ máy chủ: `kiem_tra/cong_viec_94.sql` chạy cùng migration 94 trong khối `DO` có `RAISE EXCEPTION 'REPORT>> ...'` để tự hoàn tác; không chạy lưu bộ dữ liệu thử. `kiem_tra/kiem_cong_viec_ui.mjs` kiểm tra module/biểu mẫu trong DOM bộ nhớ (nhận `parseHTML` từ linkedom), không thay cho kiểm tra hình ảnh trên Chrome.
+
 - `chuan_bi.sh <thư mục tạm>`: chép `docs/` sang thư mục tạm, thay `js/sb.js` bằng `sb_gia.js` (Supabase giả lập trong bộ nhớ, đọc dữ liệu từ `du_lieu/app.sqlite3`), gắn bộ bấm thử tự động.
 - Mở bằng Chrome headless: `--dump-dom "http://127.0.0.1:8765/index.html?auto=1&routes=<các #/đường-dẫn, mã hóa URL>"`; kết quả nằm trong `<pre id="ketqua">`.
 - Tham số: `role=nv` (đăng nhập là nhân viên), `open=1` (order đang mở), `confirm=1` (tự đồng ý hộp xác nhận), `login=0` (chưa đăng nhập), `script=fuzz&fz=...` (bấm từng nút), `script=flow` / `flow2` / `login` (các luồng chính), `script=wide&wr=...` qua `test/phone.html` (kiểm tra tràn ngang ở khung 390px).

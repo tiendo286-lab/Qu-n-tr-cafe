@@ -96,5 +96,38 @@ export function makeViec(T, me) {
         items: open.map((t) => ({ id: t.id, content: t.content, due_date: t.due_date, status: t.status, kind: t.kind, group: t.due_date && t.due_date < today ? 'overdue' : t.due_date === today ? 'today' : 'open' })) };
     },
   };
+  // Trung tâm Công việc: dữ liệu dựng cho giao diện; nghiệp vụ được kiểm tra ở cong_viec_94.sql.
+  PEOPLE.push({ id: 1, name: 'Chủ kiểm thử', role: 'chu', can_manage: true }, { id: 7, name: 'Kế toán kiểm thử', role: 'ke_toan', accounting: true });
+  PEOPLE.find((p) => p.id === 6).can_manage = true;
+  const cvSources = [
+    { key: 'recon:77', kind: 'recon', ref: 77, branch_id: 1, title: 'Đối soát ca Sáng · Cơ sở A', detail: 'Phiếu ca đã gửi; đang thiếu dữ liệu ngân hàng.', blocked: 'Chờ kế toán nhập số ngân hàng', link: '/quan-ly/doi-soat/ca?id=77', at: today, done: false },
+    { key: 'accounting:77', kind: 'accounting', ref: 77, branch_id: 1, title: 'Bổ sung số ngân hàng ca Sáng', detail: 'Thiếu số dư cuối ca của tài khoản ngân hàng.', link: '/ke-toan/chuyen-khoan', at: today, done: false },
+    { key: 'doc_followup:1:v2', kind: 'doc_followup', ref: 1, version: 2, title: 'Đôn đốc đọc sổ tay nhân viên', detail: '8/12 nhân viên đã đọc đúng phiên bản.', link: '/noi-quy?id=1', at: today, done: false },
+    { key: 'training:2', kind: 'training', ref: 2, branch_id: 2, subject_id: 5, title: 'Đào tạo nhân viên mới · Cơ sở B', detail: '52/68 tiêu chí đạt', link: '/dao-tao/phieu?id=2', at: today, done: false },
+  ];
+  const cvRules = [{ id: 1, config: { title: 'Đối soát ca theo cơ sở', kind: 'recon', assign_mode: 'branch_manager', branch_id: '', priority: 'binh_thuong', due_days: 1, due_time: '17:00', effective_date: today, include_backlog: false, enabled: false }, enabled: false, events: [] }];
+  if (new URLSearchParams(location.search).get('cv') === '1') {
+    T.tasks.push({ id: 21, content: cvSources[0].title, status: 'da_giao', assignee_id: 5, cv_kind: 'recon', cv_key: cvSources[0].key, source_state: cvSources[0], branch_id: 1, due_date: today, due_time: '17:00', priority: 'gap', created_by: 1, updated_at: now(), link: cvSources[0].link },
+      { id: 22, content: 'Kiểm tra tồn kho cuối tuần', status: 'chua_phan_cong', priority: 'binh_thuong', due_date: add(today, 1), branch_id: 2, created_by: 1, updated_at: now() },
+      { id: 23, content: 'Rà soát hồ sơ nhân viên mới', status: 'cho_duyet', assignee_id: 7, reviewer_id: 1, report: 'Đã kiểm tra đủ hồ sơ, chờ xác nhận.', priority: 'binh_thuong', created_by: 1, due_date: today, updated_at: now() });
+  }
+  Object.assign(F, {
+    app_cv_board: () => ({ tasks: T.tasks.map((t) => ({ ...json(t), reviewer_name: name(t.reviewer_id) })), sources: cvSources.filter((s) => !T.tasks.some((t) => t.cv_key === s.key)), people: PEOPLE, branches: [{ id: 1, code: 'CS A', name: 'Cơ sở thử A' }, { id: 2, code: 'CS B', name: 'Cơ sở thử B' }], rules: cvRules, handover: F.app_viec_pending().handover, now: now() }),
+    app_cv_mine: () => T.tasks.filter((t) => t.assignee_id === me.account_id || t.reviewer_id === me.account_id || t.watcher_id === me.account_id).map((t) => ({ ...json(t), watching: t.assignee_id !== me.account_id, can_review: t.reviewer_id === me.account_id })),
+    app_cv_task_save({ p_id, p }) {
+      const s = cvSources.find((s) => s.key === p.source_key);
+      const id = p_id || F.app_viec_add({ p_meeting: null, p: { ...p, content: s?.title || p.content } });
+      const t = task(id); F.app_viec_update({ p_task: id, p });
+      Object.assign(t, { branch_id: Number(p.branch_id) || null, due_time: p.due_time || null, backup_id: Number(p.backup_id) || null, watcher_id: Number(p.watcher_id) || null, reviewer_id: Number(p.reviewer_id) || null, updated_at: now() });
+      if (s) Object.assign(t, { cv_kind: s.kind, cv_key: s.key, source_state: s, link: s.link }); return id;
+    },
+    app_cv_preview({ p }) { return { rows: cvSources.filter((s) => s.kind === p.kind).map((s) => ({ ...s, assignee_id: Number(p.assignee_id) || s.subject_id, assignee_name: name(Number(p.assignee_id) || s.subject_id), existing: T.tasks.some((t) => t.cv_key === s.key) })), token: JSON.stringify(p) }; },
+    app_cv_rule_save({ p_id, p, p_preview }) { if (p.enabled && p_preview !== JSON.stringify(p)) throw new Error('Hãy xem trước lại.'); let r = cvRules.find((r) => r.id === p_id); if (!r) { r = { id: cvRules.length + 1, events: [] }; cvRules.push(r); } Object.assign(r, { config: p, enabled: p.enabled }); r.events.push({ at: now(), action: p.enabled ? 'luu_bat' : 'luu_tat' }); return r.id; },
+    app_cv_progress: () => [{ employee: 'NV thử A', read: true, read_at: now() }, { employee: 'NV thử B', read: false }],
+    app_cv_restore({ p_task }) { task(p_task).cancelled_at = null; ev(p_task, 'khoi_phuc'); },
+    app_cv_transfer({ p_tasks, p_to, p_reason }) { for (const x of p_tasks) { Object.assign(task(x.id), { assignee_id: p_to, status: 'da_giao' }); ev(x.id, 'giao', p_reason); } return p_tasks.length; },
+    app_cv_cancel({ p_task, p_reason }) { if (!p_reason.trim()) throw new Error('Ghi lý do.'); task(p_task).cancelled_at = now(); ev(p_task, 'huy', p_reason); },
+    app_cv_review({ p_task, p_accept, p_note }) { const t = task(p_task); if (t.reviewer_id !== me.account_id || t.status !== 'cho_duyet') throw new Error('Không được xác nhận.'); if (!p_accept && !p_note.trim()) throw new Error('Ghi lý do.'); t.status = p_accept ? 'hoan_thanh' : 'dang_xu_ly'; t.done_at = p_accept ? now() : null; ev(t.id, p_accept ? 'duyet' : 'lam_lai', p_note); },
+  });
   return F;
 }

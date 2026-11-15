@@ -120,7 +120,7 @@ function parseHash() {
   return { path: path || '/', params: Object.fromEntries(new URLSearchParams(qs || '')) };
 }
 
-const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p))) && !(href === '/viec' && state.me?.role === 'chu'); // Chủ là người giao việc
+const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p)));
 const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
 const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka, '/hang-hoa/nhan': state.ghNhan, '/hang-hoa/doi-soat': state.ghDs });
@@ -315,7 +315,7 @@ export async function render() {
   }
   if (seq !== renderSeq) return; // người dùng đã chuyển trang khác
   document.title = `${page.title || 'Quản trị cafe'} · Quản trị cafe`;
-  const tabsBar = state.me && isManager() && !state.me.must_change ? hubTabs(path, params) : '';
+  const tabsBar = state.me && isManager() && !state.me.must_change && !page.hideHubTabs ? hubTabs(path, params) : '';
   root().innerHTML = str(layout(path, html`${tabsBar}${page.html}`, takeFlash()));
   const nav = document.querySelector('details.navd');
   if (nav && window.matchMedia('(max-width: 900px)').matches) nav.open = false;
@@ -333,7 +333,7 @@ export async function render() {
 // Nhắc việc mỗi khi mở app (một lần mỗi phiên): quá hạn → hôm nay → còn lại
 function remindOnce(path) {
   const r = state.remind;
-  if (!r || !['ql_tong', 'ql', 'nv'].includes(state.me?.role) || path === '/viec' || path === '/doi-mat-khau') return;
+  if (!r || !can('nhan_viec') || path === '/viec' || path === '/doi-mat-khau') return;
   try { if (sessionStorage.getItem('nhac_viec')) return; sessionStorage.setItem('nhac_viec', '1'); } catch (_) { return; }
   if (!r.items.length) return;
   const g = (k) => r.items.filter((t) => t.group === k);
