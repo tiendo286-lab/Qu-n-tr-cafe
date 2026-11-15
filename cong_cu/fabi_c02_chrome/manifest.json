@@ -1,0 +1,12 @@
+{
+  "manifest_version": 3,
+  "name": "Milano — Đồng bộ C02",
+  "version": "0.2.0",
+  "description": "Lấy Excel C02 chi tiết từng ca trên Fabi và nhập bằng phiên Milano đang đăng nhập.",
+  "minimum_chrome_version": "120",
+  "permissions": ["alarms", "storage", "scripting"],
+  "host_permissions": ["https://fabi.ipos.vn/*", "https://tiendo286-lab.github.io/Qu-n-tr-cafe/*"],
+  "externally_connectable": { "matches": ["https://tiendo286-lab.github.io/Qu-n-tr-cafe/*"] },
+  "background": { "service_worker": "worker.js", "type": "module" },
+  "action": { "default_popup": "popup.html", "default_title": "Đồng bộ C02 Milano" }
+}

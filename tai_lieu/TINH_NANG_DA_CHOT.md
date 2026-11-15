@@ -549,7 +549,9 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 - **Tuần:** máy tính = 7 cột ngày, mỗi ngày các lần giao (số phiếu, tiền, trạng thái, hồ sơ, Xem / Ghép / ×); điện thoại (≤ 700px) = dải 7 ngày (số lần giao · ✓ / đang / !) + thẻ từng lần giao.
 - **Tháng:** danh sách mọi lần giao trong tháng của cơ sở, lọc trạng thái.
 - Đầu trang luôn có 3 ô: tuần / tháng này, còn thiếu hồ sơ, **phải trả kho tổng cả tháng** của cơ sở. Danh sách "Hồ sơ nhận hàng còn thiếu" của cơ sở ở cuối trang.
-- Tab File ca Fabi: anh đã duyệt mẫu (1 cơ sở, bỏ Danh sách) nhưng **chưa làm** — chờ anh bảo.
+- **File ca Fabi — bước 105 (15/11/2026):** một cơ sở, bảng tuần máy tính; điện thoại chọn trong 7 ngày và xem thẻ từng ca. Bỏ Danh sách cũ, giữ đường dẫn cũ mở đúng ngày. Ba ô kiểm soát: file đã có, phiếu thiếu file, ca khác phiếu/chưa có phiếu cần quản lý xem. Ca chưa có cả file lẫn phiếu ghi rõ chưa có dữ liệu.
+- Đầu tab có **Kiểm tra tải · Đồng bộ lên web · Dừng và tắt lịch**, lịch **08:15**, tiến độ và ngày đồng bộ thành công. Nút điều khiển tiện ích Chrome trên cùng máy, luôn lấy **hôm qua · cả 4 cơ sở**, độc lập cơ sở đang xem. Tiện ích kiểm tra quyền Kế toán của trang gửi và chỉ trả trạng thái rút gọn, không truyền token/file/tiền qua cầu điều khiển. iPhone xem dữ liệu và nhập Excel thủ công, chưa điều khiển máy khác từ xa.
+- Giữ **Chọn Excel thủ công**. Chi tiết tiền/mã ca thu gọn; bảng làm mới khi lượt đồng bộ mới hoàn tất.
 
 ## 5r26. Giao hàng kho tổng — trang riêng nhận hàng + đối soát — CHỐT 15/11/2026, ĐỢT 1 ĐÃ LÀM (bước 103, chỉ giao diện)
 - Phạm vi (anh chốt): đặt hàng làm ở web riêng; web này chỉ **nhân viên nhận hàng + chụp ảnh → quản lý đối soát → kế toán kho kiểm soát → tính tiền cuối tháng**.

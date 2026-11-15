@@ -1,0 +1,215 @@
+import { FABI, MILANO, STORES, previousDay, vnClock, detailIdentity, queueRows } from './core.mjs';
+import { fabiPage } from './fabi_page.js';
+import { milanoPage } from './milano_page.js';
+import { installWebBridge } from './web_bridge.mjs';
+
+let busy = false, starting = false, clockBusy = false, stopVersion = 0;
+const read = async () => (await chrome.storage.local.get('state')).state || { enabled: false, run: null, done: {} };
+async function save(s, expectedStopVersion) {
+  const old = (await chrome.storage.local.get('state')).state;
+  if (expectedStopVersion != null && expectedStopVersion !== stopVersion) return false;
+  if (s.run && old?.run?.started === s.run.started && old.run.stopRequested) {
+    s.enabled = false; s.run.stopRequested = true; s.run.status = 'stopped';
+    s.run.message = 'Đã dừng sau thao tác ca hiện tại; lịch tự động đã tắt.';
+  }
+  await chrome.storage.local.set({ state: s });
+  await chrome.action.setBadgeText({ text: s.run?.status === 'running' ? '…' : s.run?.status === 'error' ? '!' : '' });
+  return true;
+}
+async function alarmSetup() {
+  if (!await chrome.alarms.get('c02-clock')) await chrome.alarms.create('c02-clock', { periodInMinutes: 15 });
+}
+async function execute(tabId, func, args) {
+  // Fabi trì hoãn tải dữ liệu của tab nền. Đưa tab cần xử lý ra trước rồi mới chờ nội dung.
+  await chrome.tabs.update(tabId, { active: true });
+  const tab = await chrome.tabs.get(tabId);
+  const expected = func === fabiPage ? 'https://fabi.ipos.vn/' : MILANO;
+  if (!tab.url?.startsWith(expected)) throw Error('Tab tự động bị chuyển trang hoặc cần đăng nhập lại.');
+  const r = await chrome.scripting.executeScript({ target: { tabId }, world: 'MAIN', func, args });
+  // Bấm mã ca làm Fabi tải trang mới, nên ngữ cảnh cũ có thể bị hủy trước khi trả kết quả.
+  if (func === fabiPage && args[0] === 'open' && r[0]?.result == null) {
+    const end = Date.now() + 25000;
+    while (Date.now() < end) {
+      const next = await chrome.tabs.get(tabId);
+      if (next.status === 'complete' && next.url?.startsWith(FABI + '-detail?')) return { url: next.url };
+      await new Promise((resolve) => setTimeout(resolve, 250));
+    }
+  }
+  if (r.length !== 1 || r[0].result == null) throw Error('Trang chưa trả kết quả kiểm tra.');
+  if (r[0].result.pageError) throw Error(r[0].result.pageError);
+  return r[0].result;
+}
+async function navigate(tabId, url) {
+  await chrome.tabs.update(tabId, { url, active: true });
+  const end = Date.now() + 25000;
+  while (Date.now() < end) {
+    if ((await chrome.tabs.get(tabId)).status === 'complete') return;
+    await new Promise((r) => setTimeout(r, 250));
+  }
+  throw Error('Trang tải quá lâu; sẽ thử lại.');
+}
+async function start(mode, { automatic = false } = {}) {
+  if (starting) { if (automatic) return false; throw Error('Một lượt đang khởi tạo.'); }
+  starting = true;
+  const version = stopVersion;
+  try {
+  const s = await read();
+  if (s.run?.status === 'running') { if (automatic) return false; throw Error('Một lượt đang chạy.'); }
+  const day = previousDay();
+  const now = vnClock();
+  if (automatic) {
+    if (!s.enabled || now.minutes < 495 || s.lastSuccess === day || s.lastAuto === now.day) return false;
+    s.lastAuto = now.day;
+  }
+  const batch = (await chrome.storage.session.get('batch')).batch || {};
+  const reuse = mode === 'upload' && s.run?.mode === 'preview' && s.run.status === 'success' && s.run.day === day &&
+    s.run.staged?.length === s.run.queue.length && s.run.staged.every((x) => batch[x.id]);
+  if (reuse) {
+    s.run = { ...s.run, mode, phase: 'preflight', index: 0, results: [], status: 'running', attempts: 0,
+      stopRequested: false, started: Date.now(), message: 'Kiểm tra lại bộ file đã tải trước khi đồng bộ…' };
+    return await save(s, version);
+  }
+  await chrome.storage.session.set({ batch: {}, pending: null });
+  const app = await chrome.tabs.create({ url: MILANO + '#/ke-toan/fabi', active: false });
+  const fabi = await chrome.tabs.create({ url: FABI, active: false });
+  s.run = { day, mode, app: app.id, fabi: fabi.id, status: 'running', phase: 'list', page: 1, pages: [], queue: [], index: 0,
+    results: [], staged: [], failures: [], attempts: 0, started: Date.now(), message: 'Đang lấy danh sách ca hôm qua…' };
+  return await save(s, version);
+  } finally { starting = false; }
+}
+async function step(s) {
+  const r = s.run;
+  // Giữ ngày cố định suốt lượt, dừng khi sang ngày khác để không lấy nhầm Hôm qua.
+  if (r.day !== previousDay()) throw Error('Đã sang ngày mới. Chạy lại để lấy đúng ngày hôm qua.');
+  if (r.phase === 'list') {
+    await navigate(r.fabi, FABI);
+    const p = await execute(r.fabi, fabiPage, ['list', { day: r.day, page: r.page }]);
+    r.pages = r.pages.filter((x) => x.page !== p.page).concat(p);
+    if (p.pages > 50) throw Error('Số trang C02 bất thường; cần kiểm tra bộ lọc ngày.');
+    if (r.page < p.pages) { r.page++; return; }
+    r.queue = queueRows(r.pages, r.day); r.pages = []; r.phase = 'detail';
+    r.message = `Tìm thấy ${r.queue.length} ca. Đang tải từng ca…`;
+  } else if (r.phase === 'detail') {
+    if (r.index >= r.queue.length) { r.phase = 'preflight'; return; }
+    const q = r.queue[r.index];
+    r.message = `${r.mode === 'preview' ? 'Kiểm tra' : 'Đồng bộ'} ca ${r.index + 1}/${r.queue.length} ${q.short}…`;
+    await navigate(r.fabi, FABI);
+    await execute(r.fabi, fabiPage, ['list', { day: r.day, page: q.page }]);
+    const opened = await execute(r.fabi, fabiPage, ['open', q]);
+    const identity = detailIdentity(opened.url);
+    if (!identity.id.endsWith(q.short.slice(1))) throw Error('Mã ca chi tiết khác mã đã chọn.');
+    const file = await execute(r.fabi, fabiPage, ['export', q]);
+    // File chỉ nằm trong RAM của phiên Chrome, không ghi vào cấu hình tiện ích.
+    await chrome.storage.session.set({ pending: { ...file, id: identity.id, store: identity.store, day: r.day, open: q.open, close: q.close } });
+    r.phase = 'prepare';
+  } else if (r.phase === 'prepare') {
+    const { pending } = await chrome.storage.session.get('pending');
+    if (!pending) { r.phase = 'detail'; return; }
+    const result = await execute(r.app, milanoPage, ['preview', pending]);
+    if (r.staged.some((x) => x.id === result.id)) throw Error('Hai dòng danh sách trỏ cùng mã ca; cần kiểm tra lại.');
+    const batch = (await chrome.storage.session.get('batch')).batch || {};
+    batch[result.id] = pending;
+    await chrome.storage.session.set({ batch });
+    r.staged.push({ id: result.id, hash: result.hash, store: result.store });
+    r.results.push({ id: result.id, status: 'preview', store: result.store });
+    r.index++; r.phase = 'detail'; r.attempts = 0;
+    // Lưu checkpoint trước khi xóa file RAM: worker khởi động lại vẫn tiếp tục được.
+    await save(s);
+    await chrome.storage.session.remove('pending');
+  } else if (r.phase === 'preflight') {
+    const stores = new Set(r.staged.map((x) => x.store));
+    const batch = (await chrome.storage.session.get('batch')).batch || {};
+    if (r.staged.length !== r.queue.length || new Set(r.staged.map((x) => x.id)).size !== r.queue.length ||
+        STORES.some((name) => !stores.has(name)) || r.staged.some((x) => !STORES.includes(x.store) || !batch[x.id])) {
+      throw Error('Chưa có bộ file đã kiểm tra đủ ca và cả 4 cơ sở; chưa nhập dữ liệu.');
+    }
+    if (r.mode === 'preview') r.phase = 'finish';
+    else { r.phase = 'commit'; r.index = 0; r.results = []; }
+  } else if (r.phase === 'commit') {
+    if (r.index >= r.staged.length) { r.phase = 'finish'; return; }
+    const item = r.staged[r.index];
+    const batch = (await chrome.storage.session.get('batch')).batch || {};
+    if (!batch[item.id]) throw Error('Bộ file tạm không còn trong Chrome; cần chạy Kiểm tra tải lại.');
+    const key = `${r.day}:${item.id}`;
+    const result = await execute(r.app, milanoPage, ['upload', { ...batch[item.id], expectedHash: item.hash, previousHash: s.done[key]?.hash }]);
+    s.done[key] = { hash: item.hash, store: result.store, at: Date.now() };
+    r.results.push({ id: result.id, status: result.status, store: result.store });
+    r.index++;
+    r.message = `Đã xác minh nhập ${r.index}/${r.staged.length} ca…`;
+  } else if (r.phase === 'finish') {
+    if (r.failures.length || r.results.length !== r.queue.length) throw Error('Còn ca chưa xử lý; chưa đánh dấu ngày hoàn tất.');
+    const stores = new Set(r.results.map((x) => x.store));
+    if (STORES.some((name) => !stores.has(name))) throw Error('Chưa xác nhận đủ báo cáo của cả 4 cơ sở. Xem lại phạm vi C02.');
+    r.status = 'success'; r.finished = Date.now();
+    r.message = `${r.mode === 'preview' ? 'Đã tải và kiểm tra' : 'Đã đồng bộ'} đủ ${r.results.length}/${r.queue.length} ca ngày ${r.day}.${r.mode === 'preview' ? ' Chưa nhập lên Milano.' : ''}`;
+    if (r.mode !== 'preview') s.lastSuccess = r.day;
+    // Nhật ký không giữ dữ liệu tiền, thông tin khách hoặc thông tin đăng nhập.
+    for (const [key, value] of Object.entries(s.done)) if (value.at < Date.now() - 45 * 86400000) delete s.done[key];
+  }
+}
+async function drive() {
+  if (busy) return; busy = true;
+  const started = Date.now();
+  try {
+    while (Date.now() - started < 150000) {
+      const s = await read(); if (s.run?.status !== 'running') break;
+      // Khi đang chờ báo thức thì không có ca đang xử lý: Dừng phải chặn ca kế tiếp.
+      if (s.run.stopRequested) { await save(s); break; }
+      try { await step(s); s.run.attempts = 0; await save(s); }
+      catch (e) {
+        const fresh = await read();
+        // Không tiếp tục ghi checkpoint khi người dùng đã bấm dừng.
+        if (fresh.run?.status !== 'running') break;
+        s.run.attempts++;
+        s.run.message = `Chưa hoàn tất: ${e.message}`;
+        if (s.run.attempts >= 3) s.run.status = 'error';
+        await save(s); break;
+      }
+    }
+  } finally {
+    busy = false;
+    if ((await read()).run?.status === 'running') await chrome.alarms.create('c02-step', { delayInMinutes: 0.5 });
+  }
+}
+async function clock() {
+  if (clockBusy) return;
+  clockBusy = true;
+  try {
+  const s = await read();
+  if (s.run?.status === 'running') return drive();
+  // Chỉ tự chạy sau 08:15 giờ Việt Nam; tối đa một lượt mới trong ngày.
+  if (s.enabled && vnClock().minutes >= 495 && s.lastSuccess !== previousDay() && s.lastAuto !== vnClock().day) {
+    if (await start('upload', { automatic: true })) await drive();
+  }
+  } finally { clockBusy = false; }
+}
+chrome.alarms.onAlarm.addListener((a) => { (a.name === 'c02-step' ? drive() : clock()).catch(console.error); });
+chrome.runtime.onInstalled.addListener(() => alarmSetup().catch(console.error));
+chrome.runtime.onStartup.addListener(() => alarmSetup().then(clock).catch(console.error));
+async function control(m) {
+    if (m.type === 'state') return read();
+    if (m.type === 'stop') stopVersion++;
+    const s = await read();
+    if (m.type === 'enable') {
+      if (m.value && !(s.run?.status === 'success' && s.run.mode === 'upload')) throw Error('Cần đồng bộ thật thành công một lượt trước khi bật lịch.');
+      s.enabled = !!m.value; await save(s); await alarmSetup();
+    } else if (m.type === 'stop') {
+      if (s.run?.status === 'running') s.run.stopRequested = true;
+      s.enabled = false; await save(s);
+    } else {
+      if (m.type === 'upload' && !(s.run?.mode === 'preview' && s.run.status === 'success' && s.run.day === previousDay())) throw Error('Cần kiểm tra đủ ca thành công trước khi đồng bộ thật.');
+      await start(m.type); drive().catch(console.error);
+    }
+    return read();
+}
+chrome.runtime.onMessage.addListener((m, sender, reply) => {
+  if (sender.id !== chrome.runtime.id || sender.tab || !['state', 'preview', 'upload', 'enable', 'stop'].includes(m.type)) return;
+  control(m).then((state) => reply({ state }), (e) => reply({ error: e.message }));
+  return true;
+});
+installWebBridge({ chrome, read, control, authorize: async (sender) => {
+  const target = sender.documentId ? { tabId: sender.tab.id, documentIds: [sender.documentId] } : { tabId: sender.tab.id, frameIds: [0] };
+  const result = await chrome.scripting.executeScript({ target, world: 'MAIN', func: milanoPage, args: ['authorize', {}] });
+  return result.length === 1 && result[0].result?.allowed === true;
+} });
+alarmSetup().catch(console.error);

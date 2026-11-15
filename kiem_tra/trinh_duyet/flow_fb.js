@@ -40,7 +40,7 @@ export default async ({ sleep, out }) => {
     const dt = new DataTransfer();
     dt.items.add(mk('Milano Coffee - Lê Hồng Phong', 'TESTMA1', 3020000)); dt.items.add(mk('Cửa hàng lạ', 'TESTMA2', 3000000)); dt.items.add(new File(['abc'], 'linh_tinh.xlsx'));
     const inp = $('#fb-file'); inp.files = dt.files; inp.dispatchEvent(new Event('change'));
-    for (let i = 0; i < 5000 && !$('tbody tr'); i++) await sleep(50);   // đọc file là việc thật, trình duyệt thử tua nhanh thời gian nên phải chờ nhiều vòng
+    for (let i = 0; i < 5000 && !$('#root')?.textContent.includes('TESTMA1'); i++) await sleep(50);
     await sleep(800);
     r.push(`Sau tải: ${txt('.alert')} | ${txt('#fb-msg')}`);
     r.push(`Bảng: ${$$('tbody tr').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' || ')} · ${W()}`);
@@ -54,9 +54,9 @@ export default async ({ sleep, out }) => {
     r.push(`Sau Lưu: ${txt('#fb-menu h2')} · cột Số cốc: ${[...document.querySelectorAll('tbody td[data-label="Số cốc"]')].map((x) => x.innerText).join(' / ')} · phiếu số cốc ${(await rpc('app_ca_get', { p_id: id })).cups}`);
     // bảng tuần
     r.push(`Nút xem: ${txt('.ck-view')}`);
-    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/fabi?xem=tuan&ngay=' + day; await wait('.ck-w-legend'); await sleep(800);
-    r.push(`Bảng tuần: ${txt('.toolbar strong')} · ${$$('table.ck-w').length} bảng (${$$('.ck-w-h h2').map((h) => h.innerText).join(', ')}) · ${txt('.alert')} · ${txt('.ck-w-h .st-meta')}`);
-    r.push(`Ô có số: ${$$('table.ck-w td.ck-w-c').map((x) => x.innerText.replace(/\s+/g, ' ')).filter((t) => t && t !== '—').slice(0, 3).join(' | ')} · ${W()}`);
+    location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/fabi?ngay=' + day; await wait('.fb-week'); await sleep(800);
+    r.push(`Bảng tuần 1 cơ sở: ${txt('.fb-week-nav')} · ${$$('table.fb-table').length} bảng · ${txt('.fb-stats')} · ${txt('#fb-sync-state')}`);
+    r.push(`Ô có số: ${$$('.fb-cell.ready,.fb-cell.review').map((x) => x.innerText.replace(/\s+/g, ' ')).slice(0, 3).join(' | ')} · ${W()}`);
   } catch (e) { r.push('LỖI ' + e.stack); }
   out.push({ route: 'file ca Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };
