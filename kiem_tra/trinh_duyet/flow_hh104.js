@@ -47,10 +47,26 @@ export default async ({ sleep, out }) => {
     $('#gh-send').click(); await sleep(3000); await wait('.gh-wrap .card');
     let G = await rpc('app_gh_inbox', { p_branch: 1 }); let D = G.rows.find((x) => x.id === id);
     r.push(`sau gửi: ${D.state} · phiếu ca ${D.received_report_id ?? 'không gắn'} · ${D.lines.map((l) => l.name.split(' ')[0] + '=' + l.qty_received).join(' ')} · ${D.photos.length} ảnh · về ${location.hash}`);
-    // nhận không hoá đơn
-    await go('#/hang-hoa/nhan?cn=1', '.gh-nohd'); $('.gh-nohd').click(); await wait('dialog[open] form'); await sleep(300);
-    f = $$('dialog[open] form').pop(); const nr = $$('.gh-nr', f)[0]; nr.querySelector('.gh-nn').value = 'Ống hút thử'; nr.querySelector('.gh-nu').value = 'Gói'; nr.querySelector('.gh-nq').value = '2'; f.requestSubmit();
-    await wait('#gh-recv .gh-prog'); await sleep(800); r.push(`không HĐ: ${txt('#gh-recv h1')} · ${txt('.gh-prog')}`);
+    // nhận không hoá đơn (bước 104b): chụp trước → ghi tên + số lượng món trong ảnh → lặp → Xong
+    await go('#/hang-hoa/nhan?cn=1', '.gh-nohd'); $('.gh-nohd').click(); await wait('#gh-recv .gh-prog'); await sleep(800);
+    r.push(`không HĐ mở: ${txt('#gh-recv h1')} · ${txt('#gh-recv .sub')} · ${txt('.gh-prog')} · nút chụp ${!!$('#gh-shot')} · nút Xong ${!!$('#gh-send')}`);
+    const fill = (row, n, u, q) => { row.querySelector('.gh-nn').value = n; row.querySelector('.gh-nu').value = u; setv(row.querySelector('.gh-nq'), q); };
+    setFiles($('#gh-shot'), [await img()]); await wait('.gh-pickc'); await sleep(300);
+    $('#gh-ps').click(); await sleep(300); r.push(`ảnh trống: ${txt('.gh-err')}`);
+    fill($$('.gh-nr')[0], 'Ống hút thử', '', ''); $('#gh-ps').click(); await sleep(300); r.push(`thiếu SL: ${txt('.gh-err')}`);
+    fill($$('.gh-nr')[0], 'Ống hút thử', 'Gói', '2'); $('#gh-ps').click(); await sleep(3000); await wait('.gh-th');
+    r.push(`ảnh 1: ${txt('.gh-prog')} · link ${location.hash} · ${$$('.gh-li').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')}`);
+    setFiles($('#gh-shot'), [await img()]); await wait('.gh-pickc'); await sleep(300);
+    $('#gh-nadd').click(); await sleep(200); fill($$('.gh-nr')[0], 'Đá viên thử', 'Bao', '3'); fill($$('.gh-nr')[1], 'Ly giấy thử', 'Cây', '1,5');
+    r.push(`nút lưu: ${txt('#gh-ps')}`); $('#gh-ps').click(); await sleep(3000);
+    r.push(`ảnh 2: ${txt('.gh-prog')} · ${$$('.gh-li').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')} · ${W()}`);
+    $$('.gh-th')[1].click(); await wait('dialog[open] #gh-pdel'); await sleep(300); $('dialog[open] #gh-pdel').click(); await sleep(2500);
+    r.push(`xoá ảnh 2: ${txt('.gh-prog')} · ${$$('.gh-li').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' / ')}`);
+    $$('.gh-th')[0].click(); await wait('dialog[open] #gh-pdel'); await sleep(300); $('dialog[open] #gh-pdel').click(); await sleep(800);
+    r.push(`xoá ảnh cuối: ${txt('dialog[open] .gh-err')}`); document.querySelectorAll('dialog[open]').forEach((x) => x.close()); await sleep(300);
+    setv($('#gh-anote'), 'tài xế giao, chưa có phiếu'); $('#gh-send').click(); await sleep(3000);
+    G = await rpc('app_gh_inbox', { p_branch: 1 }); const K = G.rows.find((x) => x.kind === 'khong_hd');
+    r.push(`không HĐ máy chủ: ${K.state} · ${K.lines.map((l) => l.name + '=' + l.qty_received + ' ' + (l.unit || '')).join(', ')} · ${K.photos.length} ảnh · ghi chú ${K.receive_note} · về ${location.hash}`);
     // đối soát
     await go('#/hang-hoa/doi-soat?cn=1', '.gh-tabs');
     r.push(`trang Đối soát: ${$$('.gh-tabs a').map((a) => a.innerText.replace(/\s+/g, ' ')).join(' | ')} · ${W()}`);

@@ -43,7 +43,7 @@ async function branchesFor(params, G, can) {
 
 // ================================================================= TRANG
 export async function render({ params, can }) {
-  if (params.nhan) return receivePage(Number(params.nhan));
+  if (params.nhan) return receivePage(params.nhan === 'moi' ? 'moi' : Number(params.nhan), params, can);
   if (params.ds || params.xem) return reconPage(Number(params.ds || params.xem), !!params.ds && can('doi_soat'));
   return routePath() === '/hang-hoa/doi-soat' ? listPage(params, can) : nhanList(params, can);
 }
@@ -63,43 +63,21 @@ async function nhanList(params, can) {
             <div class="st-meta">${d.doc_no ? `Phiếu ${d.doc_no}` : 'Nhận hàng không hoá đơn'} · ${d.n_lines} món${d.ship_at ? ` · kho xuất ${String(d.ship_at).slice(11, 16)} ${dmy(d.ship_at.slice(0, 10)).slice(0, 5)}` : ''}${d.received_by ? ` · ${d.received_by}` : ''}</div>
             ${G.can_recv ? html`<a class="btn gh-big ${d.state === 'dang_chuyen' ? '' : 'secondary'}" href="${qs(NHAN, { nhan: d.id })}">${d.state === 'dang_chuyen' ? 'NHẬN HÀNG ›' : 'XEM / SỬA ›'}</a>` : ''}</div>`)
         : html`<div class="card st-meta">Không có hàng kho tổng nào đang chuyển tới ${BR.code || ''}.</div>`}
-      ${G.can_recv && br ? html`<div class="toolbar"><button type="button" class="btn secondary gh-nohd">+ Nhận hàng KHÔNG có hoá đơn · ${BR.code}</button></div>` : ''}
+      ${G.can_recv && br ? html`<div class="toolbar"><a class="btn secondary gh-nohd" href="${qs(NHAN, { nhan: 'moi', cn: br })}">+ Nhận hàng KHÔNG có hoá đơn · ${BR.code}</a></div>` : ''}
       ${can('doi_soat') && nDs ? html`<a class="card gh-link" href="${qs(DS, { cn: br })}">✔ ${nDs} lần giao của ${BR.code} chờ đối soát ›</a>` : ''}</div>`,
-    mount() { $('.gh-nohd')?.addEventListener('click', () => noHdDialog(BR, G.catalog || [])); },
   };
 }
 
-// ---------------------------------------------------------------- nhận hàng KHÔNG có hoá đơn: ghi tên + số lượng → chụp ảnh như thường
-function noHdDialog(BR, cat) {
-  const row = () => html`<div class="gh-nr"><input class="input sm gh-nn" list="gh-cat" placeholder="Tên món" aria-label="Tên món"><input class="input sm gh-nu" placeholder="ĐVT" aria-label="Đơn vị"><input class="input sm gh-nq" inputmode="decimal" placeholder="SL" aria-label="Số lượng"></div>`;
-  const dl = dialog(html`<form class="stack" style="gap:8px;width:min(480px, calc(100vw - 40px))"><h2 style="margin:0">Nhận hàng KHÔNG có hoá đơn · ${BR.code}</h2>
-    <div class="st-meta">Hàng tới mà kế toán chưa gửi phiếu xuất: ghi từng món (gõ vài chữ để chọn tên món từng nhận) + số lượng, lưu rồi chụp ảnh như thường. Kế toán sẽ ghép hoá đơn sau.</div>
-    <datalist id="gh-cat">${cat.map((c) => html`<option value="${c.name}">${c.unit || ''}</option>`)}</datalist>
-    <div class="gh-nrs">${row()}${row()}</div><button type="button" class="btn sm secondary" id="gh-nadd" style="align-self:flex-start">+ Thêm món</button>
-    <input class="input sm" name="note" placeholder="Ghi chú (vd: tài xế giao, chưa có phiếu)"><div class="gh-err"></div>
-    <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu → chụp ảnh</button></div></form>`);
-  const f = dl.querySelector('form');
-  dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
-  dl.querySelector('#gh-nadd').addEventListener('click', () => dl.querySelector('.gh-nrs').insertAdjacentHTML('beforeend', str(row())));
-  f.addEventListener('change', (e) => { if (e.target.classList.contains('gh-nn')) { const hit = cat.find((c) => c.name.toLowerCase() === e.target.value.trim().toLowerCase()); const u = e.target.closest('.gh-nr').querySelector('.gh-nu'); if (hit && !u.value) u.value = hit.unit || ''; } });
-  f.addEventListener('submit', async (e) => {
-    e.preventDefault();
-    const lines = $$('.gh-nr', dl).map((r) => { const nm = r.querySelector('.gh-nn').value.trim(); const hit = cat.find((c) => c.name.toLowerCase() === nm.toLowerCase());
-      return { code: hit ? hit.code : null, name: nm, unit: r.querySelector('.gh-nu').value.trim(), qty: numOf(r.querySelector('.gh-nq').value) }; }).filter((l) => l.name || l.qty !== null);
-    const err = (m) => { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${m}</div>`); };
-    if (!lines.length) { err('Ghi ít nhất 1 món.'); return; }
-    if (lines.some((l) => !l.name || !(l.qty > 0))) { err('Mỗi món cần tên và số lượng lớn hơn 0.'); return; }
-    try {
-      const nid = await rpc('app_gh_receipt_save', { p_id: null, p_branch: BR.id, p_lines: lines, p_note: f.note.value });
-      dl.close(); flash('Đã lưu phiếu nhận không hoá đơn — giờ chụp ảnh và chọn món.'); location.hash = qs(NHAN, { nhan: nid });
-    } catch (er) { err(er.message); }
-  });
-}
-
 // ---------------------------------------------------------------- nhân viên: nhận 1 lần giao (chụp → chọn món → lặp → gửi)
-async function receivePage(id) {
+// Không hoá đơn (bước 104b, anh Tiến 15/11): cũng chụp trước → ghi tên + số lượng các món trong ảnh → lặp → lưu (id = 'moi': phiếu tạo khi lưu ảnh đầu).
+async function receivePage(id, params = {}, can = () => false) {
   const G = await rpc('app_gh_inbox', { p_branch: null });
-  const d = (G.rows || []).find((y) => y.id === id);
+  let d = null;
+  if (id === 'moi') {
+    const { BR } = await branchesFor({ cn: params.cn }, G, can);
+    if (BR.id) d = { id: null, state: 'cho_hoa_don', kind: 'khong_hd', branch_id: BR.id, branch_code: BR.code, lines: [], photos: [], staff_edit: true, receive_note: null };
+  } else d = (G.rows || []).find((y) => y.id === id);
+  const cat = G.catalog || [];
   const back = d ? qs(NHAN, { cn: d.branch_id }) : NHAN;
   const why = !d ? 'Không tìm thấy lần giao này (quản lý đã đối soát xong, hoặc kế toán đã xoá phiếu).'
     : !G.can_recv ? 'Tài khoản của bạn không có quyền nhận hàng.'
@@ -108,12 +86,14 @@ async function receivePage(id) {
   const dr = draftGet(id);
   const Q = {}; const N = {};   // số thực nhận / ghi chú từng món
   d.lines.forEach((l) => { Q[l.id] = dr.q && dr.q[l.id] !== undefined ? dr.q[l.id] : d.state !== 'dang_chuyen' && l.qty_received !== null && l.qty_received !== undefined ? Number(l.qty_received) : null; N[l.id] = (dr.n && dr.n[l.id]) || ''; });
-  const save = () => draftSet(id, { q: Q, n: N });
+  const save = () => draftSet(d.id || id, { q: Q, n: N });
+  const nh = noHd(d);
   const covered = () => { const s = new Set(); d.photos.forEach((p) => (p.lines || []).forEach((x) => s.add(x))); return s; };
   const done = (l) => Q[l.id] !== null && Q[l.id] !== undefined && (Q[l.id] === 0 || covered().has(l.id));
   const base = (l) => Number((noHd(d) ? l.qty_received : l.qty_invoice) ?? 0);   // số để so: phiếu xuất / số đã ghi (không hoá đơn)
   const lab = noHd(d) ? 'đã ghi' : 'phiếu';
-  const lech = (l) => Q[l.id] !== null && Q[l.id] !== undefined && Number(Q[l.id]) !== base(l);
+  const lech = (l) => !nh && Q[l.id] !== null && Q[l.id] !== undefined && Number(Q[l.id]) !== base(l);   // không hoá đơn: số do nhân viên ghi, không có "lệch"
+  const payload = () => d.lines.map((l) => ({ id: l.id, code: l.code, name: l.name, unit: l.unit, qty: Q[l.id] ?? l.qty_received }));
 
   return {
     title: 'Nhận hàng',
@@ -125,18 +105,23 @@ async function receivePage(id) {
     const L = d.lines; const nDone = L.filter(done).length; const left = L.filter((l) => !done(l));
     const box = $('#gh-recv'); if (!box) return;
     box.innerHTML = str(html`<div class="page-head"><div><a href="${back}" class="st-meta">‹ Nhận hàng</a><h1>Nhận hàng · ${d.doc_no || 'không hoá đơn'}</h1>
-        <div class="sub">${d.branch_code} · ${dmy(G.today || vnToday())}${d.state !== 'dang_chuyen' ? ' · đã báo nhận, sửa được tới hết hôm nay' : ''}</div></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
-      <div class="gh-prog"><b>Đã nhận ${nDone} / ${L.length} món</b><span class="pill ${L.some(lech) ? 'warn' : 'mute'}">${d.photos.length} ảnh${L.some(lech) ? ` · ${L.filter(lech).length} lệch` : ''}</span></div>
+        <div class="sub">${d.branch_code} · ${dmy(G.today || vnToday())}${!d.id ? ' · chụp nhóm hàng đầu tiên rồi ghi tên + số lượng' : d.state !== 'dang_chuyen' ? ' · đã báo nhận, sửa được tới hết hôm nay' : ''}</div></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
+      <div class="gh-prog"><b>${nh ? `Đã ghi ${L.length} món` : `Đã nhận ${nDone} / ${L.length} món`}</b><span class="pill ${L.some(lech) ? 'warn' : 'mute'}">${d.photos.length} ảnh${L.some(lech) ? ` · ${L.filter(lech).length} lệch` : ''}</span></div>
       <div class="gh-bar"><i style="width:${L.length ? Math.round((nDone / L.length) * 100) : 0}%"></i></div>
-      ${left.length ? html`<label class="gh-cam"><input type="file" accept="image/*" capture="environment" id="gh-shot" hidden><span class="gh-shot"></span><b>📷 ${d.photos.length ? `Chụp nhóm tiếp — còn ${left.length} món` : 'CHỤP 1 NHÓM HÀNG'}</b>
-          <span class="st-meta">Bày 1 nhóm hàng ra → chụp → chọn các món có trong ảnh</span></label>`
+      ${nh || left.length ? html`<label class="gh-cam"><input type="file" accept="image/*" capture="environment" id="gh-shot" hidden><span class="gh-shot"></span><b>📷 ${!d.photos.length ? 'CHỤP 1 NHÓM HÀNG' : nh ? 'Chụp nhóm tiếp' : `Chụp nhóm tiếp — còn ${left.length} món`}</b>
+          <span class="st-meta">${nh ? 'Bày 1 nhóm hàng ra → chụp → ghi tên + số lượng các món trong ảnh' : 'Bày 1 nhóm hàng ra → chụp → chọn các món có trong ảnh'}</span></label>`
         : html`<div class="alert ok" style="margin:0"><b>✓ Đã nhận đủ ${L.length} / ${L.length} món · ${d.photos.length} ảnh</b></div>`}
       <div id="gh-pick"></div>
       ${d.photos.length ? html`<section class="card stack" style="gap:6px"><b>Đã chụp</b><div class="gh-thumbs">${d.photos.map((p, i) => html`<button type="button" class="gh-th ${(p.lines || []).some((x) => { const l = L.find((y) => y.id === x); return l && lech(l); }) ? 'warn' : ''}" data-ph="${p.id}"><img data-path="${p.path}" alt="Ảnh ${i + 1}"><span>ảnh ${i + 1} · ${(p.lines || []).length} món</span></button>`)}</div></section>` : ''}
-      ${left.length ? html`<section class="card stack" style="gap:2px"><b>Chưa nhận (${left.length})</b>${left.map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}${Q[l.id] !== null && Q[l.id] !== undefined && Q[l.id] > 0 ? ' · đã đếm, chưa có ảnh' : ''}</span></div>
+      ${nh && L.length - left.length ? html`<section class="card stack" style="gap:2px"><b>Đã ghi (${L.length - left.length} món)</b>${L.filter((l) => !left.includes(l)).map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b></div><b>${q3(Q[l.id])} ${l.unit || ''}</b></div>`)}</section>` : ''}
+      ${left.length ? html`<section class="card stack" style="gap:2px"><b>${nh ? 'Đã ghi, chưa có ảnh' : 'Chưa nhận'} (${left.length})</b>${left.map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}${Q[l.id] !== null && Q[l.id] !== undefined && Q[l.id] > 0 ? ' · đã đếm, chưa có ảnh' : ''}</span></div>
           ${noHd(d) ? '' : html`<button type="button" class="btn sm secondary gh-none" data-l="${l.id}">Không nhận được</button>`}</div>`)}</section>` : ''}
       ${L.some(lech) ? html`<section class="card stack" style="gap:2px"><b>Món lệch phiếu</b>${L.filter(lech).map((l) => html`<div class="gh-li"><div class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} · nhận <b>${q3(Q[l.id])}</b> ${l.unit || ''} · ${Number(Q[l.id]) < base(l) ? 'thiếu' : 'thừa'} ${q3(Math.abs(Number(Q[l.id]) - base(l)))}${N[l.id] ? ' · ' + N[l.id] : ''}</span></div></div>`)}</section>` : ''}
-      ${!left.length ? html`<section class="card stack" style="gap:8px"><div class="gh-kv"><span>Khớp phiếu</span><b>${L.filter((l) => !lech(l)).length}</b><span>Lệch</span><b>${L.filter(lech).length}</b><span>Ảnh</span><b>${d.photos.length}</b></div>
+      ${nh && L.length && !left.length ? html`<section class="card stack" style="gap:8px"><div class="gh-kv"><span>Món đã ghi</span><b>${L.length}</b><span>Ảnh</span><b>${d.photos.length}</b></div>
+          <input class="input sm" id="gh-anote" value="${d.receive_note || ''}" placeholder="Ghi chú (vd: tài xế giao, chưa có phiếu)" aria-label="Ghi chú">
+          <div class="st-meta">Hết hàng thì bấm Xong. Kế toán sẽ ghép phiếu xuất sau.</div>
+          <button type="button" class="btn gh-big gh-ok" id="gh-send">XONG — LƯU PHIẾU NHẬN (CHỜ HOÁ ĐƠN)</button></section>` : ''}
+      ${!nh && !left.length ? html`<section class="card stack" style="gap:8px"><div class="gh-kv"><span>Khớp phiếu</span><b>${L.filter((l) => !lech(l)).length}</b><span>Lệch</span><b>${L.filter(lech).length}</b><span>Ảnh</span><b>${d.photos.length}</b></div>
           <button type="button" class="btn gh-big gh-ok" id="gh-send">${noHd(d) ? 'LƯU PHIẾU NHẬN (CHỜ HOÁ ĐƠN)' : d.state === 'dang_chuyen' ? 'GỬI BÁO NHẬN' : 'GỬI LẠI BÁO NHẬN'}</button></section>` : ''}`);
     signLinks(box);
     $('#gh-shot')?.addEventListener('change', (e) => { const f = e.target.files[0]; e.target.value = ''; if (f) pick(f); });
@@ -151,7 +136,11 @@ async function receivePage(id) {
     const url = URL.createObjectURL(file);
     const box = $('#gh-pick');
     box.innerHTML = str(html`<section class="card stack gh-pickc" style="gap:8px"><img class="gh-prev" src="${url}" alt="Ảnh vừa chụp">
-      <b>Món có trong ảnh này?</b><span class="st-meta">Tick món → số tự điền bằng số phiếu. Đếm khác thì sửa số và ghi chú.</span>
+      ${nh ? html`<b>Món có trong ảnh này</b><span class="st-meta">Gõ vài chữ để chọn tên món từng nhận, ghi số lượng. Ảnh có nhiều món thì bấm "+ Thêm món".</span>
+        <datalist id="gh-cat">${cat.map((c) => html`<option value="${c.name}">${c.unit || ''}</option>`)}</datalist>
+        <div class="gh-nrs">${nrow()}</div><button type="button" class="btn sm secondary" id="gh-nadd" style="align-self:flex-start">+ Thêm món</button>
+        ${L.length ? html`<b>Hoặc tick món đã ghi trước (chưa có ảnh)</b>` : ''}`
+      : html`<b>Món có trong ảnh này?</b><span class="st-meta">Tick món → số tự điền bằng số phiếu. Đếm khác thì sửa số và ghi chú.</span>`}
       <div>${L.map((l) => html`<div class="gh-sel" data-l="${l.id}"><label class="gh-chk"><input type="checkbox" class="gh-c"><span><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}</span></span></label>
           <input class="input sm gh-q" inputmode="decimal" autocomplete="off" disabled aria-label="Số thực nhận ${l.name}"></div><div class="gh-note" data-n="${l.id}" hidden><input class="input sm" placeholder="Ghi chú (bắt buộc): vd thiếu 1 bao…" aria-label="Ghi chú ${l.name}"></div>`)}</div>
       <div class="gh-err"></div>
@@ -162,11 +151,16 @@ async function receivePage(id) {
       $$('.gh-sel', box).forEach((row) => {
         const l = d.lines.find((x) => x.id === Number(row.dataset.l)); const c = row.querySelector('.gh-c'); const qi = row.querySelector('.gh-q'); const nb = box.querySelector(`.gh-note[data-n="${l.id}"]`);
         qi.disabled = !c.checked; if (c.checked && qi.value === '') qi.value = q3(base(l)); if (!c.checked) qi.value = '';
-        const diff = c.checked && numOf(qi.value) !== null && numOf(qi.value) !== base(l);
+        const diff = !nh && c.checked && numOf(qi.value) !== null && numOf(qi.value) !== base(l);
         qi.classList.toggle('gh-w', diff); nb.hidden = !diff; if (c.checked) n++;
       });
+      n += freeRows().length;
       $('#gh-ps').textContent = n ? `✓ Lưu ảnh · ${n} món` : '✓ Lưu ảnh';
     };
+    const freeRows = () => (nh ? $$('.gh-nr', box).map((r) => { const nm = r.querySelector('.gh-nn').value.trim(); const hit = cat.find((c) => c.name.toLowerCase() === nm.toLowerCase());
+      return { code: hit ? hit.code : null, name: nm, unit: r.querySelector('.gh-nu').value.trim(), qty: numOf(r.querySelector('.gh-nq').value) }; }).filter((l) => l.name || l.qty !== null) : []);
+    $('#gh-nadd')?.addEventListener('click', () => { box.querySelector('.gh-nrs').insertAdjacentHTML('beforeend', str(nrow())); });
+    box.addEventListener('change', (e) => { if (e.target.classList.contains('gh-nn')) { const hit = cat.find((c) => c.name.toLowerCase() === e.target.value.trim().toLowerCase()); const u = e.target.closest('.gh-nr').querySelector('.gh-nu'); if (hit && !u.value) u.value = hit.unit || ''; } });
     box.addEventListener('change', upd); box.addEventListener('input', upd);
     $('#gh-pc').addEventListener('click', () => { box.innerHTML = ''; URL.revokeObjectURL(url); });
     $('#gh-ps').addEventListener('click', async (ev) => {
@@ -175,18 +169,32 @@ async function receivePage(id) {
         return { l, qv, nt };
       });
       const err = (m) => { box.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${m}</div>`); };
-      if (!picked.length) { err('Tick ít nhất 1 món có trong ảnh.'); return; }
+      const free = freeRows();
+      if (!picked.length && !free.length) { err(nh ? 'Ghi ít nhất 1 món có trong ảnh (tên + số lượng).' : 'Tick ít nhất 1 món có trong ảnh.'); return; }
+      if (free.some((l) => !l.name || !(l.qty > 0))) { err('Mỗi món cần tên và số lượng lớn hơn 0.'); return; }
       const bad = picked.find((x) => x.qv === null || x.qv < 0); if (bad) { err(`Nhập số thực nhận cho ${bad.l.name}.`); return; }
       const zero = picked.find((x) => x.qv === 0); if (zero) { err(`${zero.l.name}: số 0 thì không chọn trong ảnh — bấm "Không nhận được".`); return; }
-      const noN = picked.find((x) => x.qv !== base(x.l) && !x.nt); if (noN) { err(`Ghi chú cho ${noN.l.name} (số khác phiếu).`); return; }
+      const noN = picked.find((x) => !nh && x.qv !== base(x.l) && !x.nt); if (noN) { err(`Ghi chú cho ${noN.l.name} (số khác phiếu).`); return; }
       ev.target.disabled = true; ev.target.textContent = 'Đang tải ảnh…';
       try {
+        let newIds = [];
+        if (free.length) {   // không hoá đơn: lưu món mới trước (tạo phiếu ở ảnh đầu) để có mã món gắn vào ảnh
+          const before = new Set(d.lines.map((l) => l.id)); const pl = payload();
+          picked.forEach((x) => { const y = pl.find((z) => z.id === x.l.id); if (y) y.qty = x.qv; });
+          const nid = await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: [...pl, ...free], p_note: d.receive_note || null });
+          const fresh = ((await rpc('app_gh_inbox', { p_branch: d.branch_id })).rows || []).find((x) => x.id === nid);
+          if (!fresh) throw new Error('Đã lưu món nhưng không tải lại được phiếu — tải lại trang.');
+          if (!d.id) { d.id = nid; try { history.replaceState(null, '', qs(NHAN, { nhan: nid })); } catch (_) { /* bỏ qua */ } }
+          d.lines = fresh.lines; newIds = fresh.lines.filter((l) => !before.has(l.id)).map((l) => l.id);
+          fresh.lines.forEach((l) => { if (newIds.includes(l.id)) { Q[l.id] = Number(l.qty_received); N[l.id] = ''; } });
+        }
+        const ids = [...picked.map((x) => x.l.id), ...newIds];
         await uploadFiles(`gh${d.id}`, [file], async (path) => {
-          const pid = await rpc('app_gh_photo_add', { p_id: d.id, p_path: path, p_lines: picked.map((x) => x.l.id) });
-          d.photos.push({ id: pid, path, lines: picked.map((x) => x.l.id) });
+          const pid = await rpc('app_gh_photo_add', { p_id: d.id, p_path: path, p_lines: ids });
+          d.photos.push({ id: pid, path, lines: ids });
         });
         picked.forEach((x) => { Q[x.l.id] = x.qv; N[x.l.id] = x.nt; }); save();
-        URL.revokeObjectURL(url); showSaved(`Đã lưu ảnh ${d.photos.length} · ${picked.length} món`); draw();
+        URL.revokeObjectURL(url); showSaved(`Đã lưu ảnh ${d.photos.length} · ${ids.length} món`); draw();
       } catch (e) { ev.target.disabled = false; ev.target.textContent = '✓ Lưu ảnh'; err(e.message); }
     });
     upd();
@@ -206,7 +214,7 @@ async function receivePage(id) {
     const L = d.lines.filter((l) => (p.lines || []).includes(l.id));
     const dl = dialog(html`<form class="stack" style="gap:8px;width:min(460px, calc(100vw - 40px))"><img class="gh-prev" data-path="${p.path}" alt="Ảnh đã chụp">
       <b>Các món trong ảnh</b>${L.map((l) => html`<div class="gh-sel" data-l="${l.id}"><span class="grow"><b>${l.name}</b><span class="st-meta">${lab} ${q3(base(l))} ${l.unit || ''}</span></span><input class="input sm gh-q" inputmode="decimal" value="${q3(Q[l.id])}" aria-label="Số thực nhận ${l.name}"></div>
-        <div class="gh-note" data-n="${l.id}"><input class="input sm" value="${N[l.id] || ''}" placeholder="Ghi chú khi số khác phiếu"></div>`)}
+        <div class="gh-note" data-n="${l.id}" ${nh ? 'hidden' : ''}><input class="input sm" value="${N[l.id] || ''}" placeholder="Ghi chú khi số khác phiếu"></div>`)}
       <div class="gh-err"></div>
       <div class="toolbar" style="justify-content:space-between"><button type="button" class="btn sm secondary danger" id="gh-pdel">Xoá ảnh</button><span><button type="button" class="btn sm secondary" data-x>Đóng</button> <button class="btn sm" type="submit">Lưu</button></span></div></form>`);
     signLinks(dl);
@@ -214,25 +222,32 @@ async function receivePage(id) {
     f.addEventListener('submit', (e) => { e.preventDefault();
       for (const l of L) { const qv = numOf(f.querySelector(`.gh-sel[data-l="${l.id}"] .gh-q`).value); const nt = f.querySelector(`.gh-note[data-n="${l.id}"] input`).value.trim();
         if (qv === null || qv <= 0) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${l.name}: nhập số lớn hơn 0 (không có hàng thì xoá ảnh, chọn "Không nhận được").</div>`); return; }
-        if (qv !== base(l) && !nt) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Ghi chú cho ${l.name} (số khác phiếu).</div>`); return; }
+        if (!nh && qv !== base(l) && !nt) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Ghi chú cho ${l.name} (số khác phiếu).</div>`); return; }
         Q[l.id] = qv; N[l.id] = nt; }
       save(); dl.close(); draw(); });
     dl.querySelector('#gh-pdel').addEventListener('click', async () => {
-      if (!confirm('Xoá ảnh này? Các món trong ảnh quay lại "chưa nhận".')) return;
-      try { const path = await rpc('app_gh_photo_del', { p_photo: p.id }); if (path) await sb.storage.from(BUCKET).remove([path]); d.photos = d.photos.filter((x) => x.id !== p.id); dl.close(); draw(); }
+      const rest = d.lines.filter((l) => !(p.lines || []).includes(l.id));
+      if (nh && !rest.length) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">Phiếu cần ít nhất 1 món — chụp nhóm khác trước rồi mới xoá ảnh này.</div>`); return; }
+      if (!confirm(nh ? 'Xoá ảnh này và các món ghi trong ảnh?' : 'Xoá ảnh này? Các món trong ảnh quay lại "chưa nhận".')) return;
+      try {
+        const path = await rpc('app_gh_photo_del', { p_photo: p.id }); if (path) await sb.storage.from(BUCKET).remove([path]); d.photos = d.photos.filter((x) => x.id !== p.id);
+        if (nh) { d.lines = rest; await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: payload(), p_note: d.receive_note || null }); }
+        dl.close(); draw();
+      }
       catch (e) { dl.querySelector('.gh-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
     });
   }
+  function nrow() { return html`<div class="gh-nr"><input class="input sm gh-nn" list="gh-cat" placeholder="Tên món" aria-label="Tên món"><input class="input sm gh-nu" placeholder="ĐVT" aria-label="Đơn vị"><input class="input sm gh-nq" inputmode="decimal" placeholder="SL" aria-label="Số lượng"></div>`; }
   async function send(ev) {
     const L = d.lines;
     if (L.some((l) => !done(l))) { showSaved('Còn món chưa nhận.', true); return; }
     const notes = L.filter((l) => lech(l) || (Q[l.id] === 0 && N[l.id])).map((l) => `${l.name}: phiếu ${q3(l.qty_invoice)}, nhận ${q3(Q[l.id])}${N[l.id] ? ' — ' + N[l.id] : ''}`);
     ev.target.disabled = true;
     try {
-      const r = noHd(d)
-        ? (await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: L.map((l) => ({ id: l.id, code: l.code, name: l.name, unit: l.unit, qty: Q[l.id] })), p_note: [d.receive_note, ...notes].filter(Boolean).join('; ') }), { mismatch: 0, nohd: true })
+      const r = nh
+        ? (await rpc('app_gh_receipt_save', { p_id: d.id, p_branch: d.branch_id, p_lines: payload(), p_note: ($('#gh-anote')?.value ?? d.receive_note ?? '').trim() || null }), { mismatch: 0, nohd: true })
         : await rpc('app_gh_receive', { p_id: d.id, p_lines: L.map((l) => ({ id: l.id, qty: Q[l.id] })), p_note: notes.join('; ') });
-      draftDel(id);
+      draftDel(d.id || id);
       flash(r.nohd ? 'Đã lưu phiếu nhận hàng không hoá đơn — chờ kế toán ghép hoá đơn.' : r.mismatch ? `Đã gửi báo nhận — ${r.mismatch} món lệch phiếu, đã báo quản lý.` : 'Đã gửi báo nhận — nhận đủ.', r.mismatch ? 'warn' : 'ok');
       location.hash = back;
     } catch (e) { ev.target.disabled = false; showSaved(e.message, true); }

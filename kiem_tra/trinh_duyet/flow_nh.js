@@ -60,11 +60,9 @@ export default async ({ sleep, out }) => {
   });
   await step('Nhận hàng KHÔNG có hóa đơn', async () => {
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/hang-hoa/nhan?cn=1'; await wait('.gh-nohd', 1500); await sleep(300);
-    $('.gh-nohd').click(); await wait('dialog[open] .gh-nn', 80); await sleep(300);
-    const row = $('dialog[open] .gh-nr'); row.querySelector('.gh-nn').value = 'Đá viên'; row.querySelector('.gh-nq').value = '3';
-    $$('dialog[open] form').pop().requestSubmit(); await sleep(2500); await wait('#gh-shot', 300); await sleep(300);
+    $('.gh-nohd').click(); await wait('#gh-shot', 300); await sleep(500);   // bước 104b: chụp trước → ghi tên + số lượng
     setFiles($('#gh-shot'), [img]); await wait('.gh-pickc', 80); await sleep(300);
-    $$('.gh-sel .gh-c').forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }); $('#gh-ps').click(); await sleep(2500); await wait('#gh-send', 80);
+    const row = $('.gh-nr'); row.querySelector('.gh-nn').value = 'Đá viên'; row.querySelector('.gh-nq').value = '3'; $('#gh-ps').click(); await sleep(3000); await wait('#gh-send', 80);
     const btn = txt('#gh-send'); $('#gh-send').click(); await sleep(2500);
     const rows = (await NH()).rows;
     const R5 = await rpc('app_ca_get', { p_id: id });
