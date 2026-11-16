@@ -15,7 +15,7 @@ export default async ({ sleep, out }) => {
     const R = await rpc('app_ca_get', { p_id: id }); const e = (await rpc('app_ca_employees'))[0];
     const staff = (R.staff || []).length ? R.staff.map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:35' })) : [{ employee_id: e.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:35' }];
     await rpc('app_ca_save', { p_id: id, p: { rev_start: day + ' 06:45', rev_end: day + ' 12:35', ipos_opening: 1000000, total_revenue: 5420000, pos_cash: 3220000, pos_transfer: 2100000, pos_debt: 100000, pos_diff: 0,
-      cash_counted: 4220000, reported_transfer: 2100000, cups: 10, moves: [{ kind: 'tien_mat', amount: 30000, note: 'bán bã cà phê' }], goods: [], handover: [], debts: [{ table_name: 'Bàn 5', amount: 100000, kind: 'bill' }], staff } });
+      cash_counted: 4220000, reported_transfer: 2100000, cups: 10, moves: [{ kind: 'tien_mat', amount: 30000, note: 'bán bã cà phê' }, { kind: 'tien_mat', amount: -200000, note: 'chị Hoa mượn' }], goods: [], handover: [], debts: [{ table_name: 'Bàn 5', amount: 100000, kind: 'bill' }], staff } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/t.jpg', p_kind: 'ipos' });
     location.hash = '#/ca/phieu?id=' + id; await wait('#cm-next'); await sleep(300);
     $('[data-shift-step="3"]').click(); await wait('#cm-check'); await sleep(300);
@@ -33,7 +33,7 @@ export default async ({ sleep, out }) => {
     check(row0().querySelector('[data-mkind]').value === 'chi_tm' && row0().querySelector('[data-tg="dir"][data-v="chi"]').classList.contains('on'), 'Chốt ca: bấm Chi 1 lần là đổi');
     row0().querySelector('[data-tg="pay"][data-v="ck"]').click(); await sleep(300);
     check(row0().querySelector('[data-mkind]').value === 'chi_ck', 'Chốt ca: bấm CK 1 lần là đổi');
-    check(/− Chi\s*0\s*-30\.000/.test($('#cm-money-table').textContent.replace(/\s+/g, ' ')), 'Chốt ca: bảng tiền tính lại (Chi CK −30.000)');
+    check(/− Chi\s*-200\.000\s*-30\.000/.test($('#cm-money-table').textContent.replace(/\s+/g, ' ')), 'Chốt ca: bảng tiền tính lại (Chi CK −30.000)');
     check(/Còn thiếu/.test($('#cm-verdict').textContent), 'Chốt ca: chưa đủ thì dòng trên cùng báo Còn thiếu');
     $$('[data-mcat]').forEach((x) => { const o = [...x.options].find((y) => y.value && y.value !== 'x') || [...x.options].find((y) => y.value); if (o) { x.value = o.value; x.dispatchEvent(new Event('change', { bubbles: true })); } }); await sleep(200);
     $('#cm-check').click(); await sleep(400);
@@ -42,6 +42,15 @@ export default async ({ sleep, out }) => {
     check($('[data-dk="0"][data-v="ck"]').classList.contains('on'), 'Chốt ca: Báo nợ chọn CK 1 lần');
     check(!$('.cm-dkk'), 'Chốt ca: bỏ khối giải thích Báo nợ dài');
     check(!!$('#cm-add-debt') && $$('#cm-add-debt').length === 1, 'Chốt ca: luôn có đúng 1 nút + Báo nợ');
+    // bước 116: Đổi thành Báo nợ / Khách CK rút tiền mặt ngay trên dòng Thu / Chi
+    { const nDebt = $$('.cm-debt').length; const hoa = $$('.sc-row').find((x) => x.querySelector('[data-k="note"]')?.value === 'chị Hoa mượn');
+      check(!!hoa.querySelector('[data-tono]') && !!hoa.querySelector('[data-exchange]'), 'Chốt ca: dòng Thu / Chi có nút Đổi thành Báo nợ · Khách CK rút tiền mặt');
+      hoa.querySelector('[data-tono]').click(); await sleep(300);
+      const nd = $$('.cm-debt').pop();
+      check($$('.cm-debt').length === nDebt + 1 && nd.querySelector('[data-k="table_name"]').value === 'chị Hoa mượn' && nd.querySelector('[data-k="amount"]').value === '200.000' && nd.querySelector('[data-v="muon"]').classList.contains('on'), 'Chốt ca: Chi TM 200.000 → Báo nợ TM 200.000 (tên khách giữ nguyên)');
+      check(!$$('[data-k="note"]').some((x) => x.value === 'chị Hoa mượn'), 'Chốt ca: khoản Chi đó không còn trong danh sách Thu / Chi');
+      const nEx = $$('.sc-exchange').length; $$('[data-exchange]')[0].click(); await sleep(300);
+      check($$('.sc-exchange').length === nEx + 1, 'Chốt ca: bấm Khách CK rút tiền mặt → thành 1 phiếu đổi tiền'); }
     check(!/bước Thu chi/.test($('#cm-root').textContent), 'Chốt ca: không còn chữ "bước Thu chi" cũ');
     { const W = document.documentElement.clientWidth; const wide = $$('#cm-root *').filter((x) => x.getBoundingClientRect().right > W + 1).map((x) => x.tagName + '.' + x.className + '[' + Math.round(x.getBoundingClientRect().right) + ']').slice(0, 6); check(document.documentElement.scrollWidth <= W + 1, 'Chốt ca: không tràn ngang ' + W + 'px ' + wide.join(' ')); }
     // đối soát: phiếu nhân viên đã gửi
@@ -58,6 +67,15 @@ export default async ({ sleep, out }) => {
     check(!pane.textContent.includes('CHƯA ĐỐI SOÁT'), 'Đối soát: không còn nhãn "CHƯA ĐỐI SOÁT" ở trang tiền');
     check($$('#rev_start').length === 1 && $$('#cash_counted').length === 1 && $$('#reported_transfer').length === 1, 'Đối soát: không trùng ô nhập');
     check(!$('.pc-ban .seg') && !!$('.pc-ban a'), 'Đối soát: bỏ 2 thẻ gốc / đối soát, còn 1 liên kết xem phiếu gốc');
+    // bước 116: đối soát — Chi đã lưu → Báo nợ (vào Công nợ, không tính chi phí); Thu / Chi → Khách CK rút tiền mặt
+    { for (let i = 0; i < 60 && !$$('#moves .mv-row').some((x) => x._tc); i++) await sleep(100);
+      const hoa = $$('#moves .mv-row').find((x) => x.querySelector('.mv-note')?.value === 'chị Hoa mượn');
+      check(!!hoa && !!hoa._tc && !!hoa.querySelector('.uv-2no') && !!hoa.querySelector('.uv-2rut'), 'Đối soát: dòng Thu / Chi có nút Đổi thành Báo nợ · Khách CK rút tiền mặt');
+      hoa.querySelector('.uv-2no').click(); await wait('dialog[open] form [name=grp]'); await sleep(300);
+      const f = $('dialog[open] form'); f.querySelector('[value="khach"]').checked = true; f.name.value = 'Chị Hoa'; f.requestSubmit(); await sleep(2500);
+      await wait('#moves .mv-row'); for (let i = 0; i < 60 && !$$('#moves .pill.warn').length; i++) await sleep(100);
+      const hoa2 = $$('#moves .mv-row').find((x) => x.querySelector('.mv-note')?.value === 'chị Hoa mượn');
+      check(/Báo nợ: Chị Hoa/.test(hoa2.textContent) && !hoa2.querySelector('.uv-2no') && !!hoa2.querySelector('.uv-undebt'), 'Đối soát: Chi → Báo nợ xong hiện "→ Báo nợ: Chị Hoa", có nút Bỏ'); }
     const mrow = $$('#moves .mv-row').find((x) => x.querySelector('.uv-type'));
     const was = mrow.querySelector('.uv-type').value; const to = was.startsWith('thu') ? 'chi' : 'thu';
     mrow.querySelector(`[data-tg="dir"][data-v="${to}"]`).click(); await sleep(200);
@@ -75,6 +93,7 @@ export default async ({ sleep, out }) => {
     check(/lý do/i.test(fm.querySelector('.den-err').textContent), 'Đối soát: Sửa phần tiền bắt ghi lý do');
     fm.why.value = 'Nhân viên ghi nhầm khoản'; fm.querySelector('[data-reopen]').click(); await sleep(1500); await wait('#moves .mv-row'); await sleep(800);
     check(!amt().disabled && !$('#ds-money-edit') && !!$('#ds-money-ok'), 'Đối soát: mở lại xong sửa được, có nút Duyệt phần tiền');
+    { const nEx = $$('#moves .sc-exchange').length; const b = $('#moves .uv-2rut'); b.click(); await sleep(300); check($$('#moves .sc-exchange').length === nEx + 1, 'Đối soát: bấm Đổi thành Khách CK rút tiền mặt → thành 1 phiếu đổi tiền'); }
   } catch (err) { fail = err.message; r.push('FAIL: ' + err.message); }
   out.push({ route: 'tg113', title: r.join(' | '), errs: [...(window.__ERR || []), ...(fail ? [fail] : [])] });
 };

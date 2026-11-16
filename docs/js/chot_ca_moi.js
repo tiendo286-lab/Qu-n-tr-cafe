@@ -1,12 +1,12 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender, can } from './app.js';
-import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.16.8';
+import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.16.9';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.16.8';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.16.9';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -295,7 +295,7 @@ export async function renderNew(R0, P, SH) {
       <input class="input money" data-mv="${i}" data-k="amount" inputmode="numeric" aria-label="Số tiền khoản ${i + 1}" value="${m.amount ? fmt(Math.abs(m.amount)) : ''}" placeholder="Số tiền">
       <button type="button" class="btn secondary danger" data-mx="${i}" aria-label="Xóa khoản ${i + 1}">×</button>
       <input class="input sc-full" data-mv="${i}" data-k="note" value="${m.note || ''}" aria-label="Nội dung khoản ${i + 1}" placeholder="${exchange ? 'Tên khách / ghi chú đổi tiền' : 'Thu / chi việc gì'}">
-      ${exchange ? html`<small class="sc-full">Tiền mặt −${fmt(Math.abs(m.amount || 0))} · chuyển khoản +${fmt(Math.abs(m.amount || 0))} · không tính thu chi của quán.</small>` : html`<label class="sc-full st-meta"><input type="checkbox" data-exchange="${i}"> Đây là khách chuyển khoản rút tiền mặt</label>`}
+      ${exchange ? html`<small class="sc-full">Tiền mặt −${fmt(Math.abs(m.amount || 0))} · chuyển khoản +${fmt(Math.abs(m.amount || 0))} · không tính thu chi của quán.</small>` : html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary" data-tono="${i}">Báo nợ</button><button type="button" class="btn sm secondary" data-exchange="${i}">Khách CK rút tiền mặt</button></div>`}
       ${managerClose && !exchange ? html`<label class="sc-full">Nhóm <select class="input" data-mcat="${i}" aria-label="Nhóm khoản ${i + 1}"><option value="">— Chọn nhóm —</option>${cats().filter((c) => c.active && c.kind === (positive ? 'thu' : 'chi')).map((c) => html`<option value="${c.id}" ${String(m.category) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}<option value="x" ${m.category === 'x' ? 'selected' : ''}>Không tính</option></select></label>` : ''}
     </div>`;
   }
@@ -580,7 +580,12 @@ export async function renderNew(R0, P, SH) {
         // Thu / chi / đổi tiền dùng chung một danh sách.
         $$('[data-new-move]', root).forEach((b) => b.addEventListener('click', () => { V.moves.push({kind:'tien_mat',amount:null,note:'',sign:Number(b.dataset.newMove)}); draw(); }));
         $('#cm-exchange')?.addEventListener('click', () => { V.moves.push({kind:'doi_tien',amount:null,note:'',exchange_key:newExchangeKey()}); draw(); });
-        $$('[data-exchange]', root).forEach((x) => x.addEventListener('change', () => { const m = V.moves[x.dataset.exchange]; m.kind = 'doi_tien'; m.amount = Math.abs(m.amount || 0); m.exchange_key = newExchangeKey(); delete m.category; draw(); }));
+        $$('[data-tono]', root).forEach((x) => x.addEventListener('click', () => {   // bước 116: khoản Thu / Chi → Báo nợ (TM → khách mượn tiền mặt, CK → nợ chuyển khoản)
+          const i = Number(x.dataset.tono); const m = V.moves[i];
+          V.moves.splice(i, 1); V.debts.push({ table_name: (m.note || '').trim(), amount: m.amount ? Math.abs(Number(m.amount)) : null, note: '', kind: m.kind === 'chuyen_khoan' ? 'ck' : 'muon' });
+          if (!V.moves.length) V.noMoves = false; draw(); showSaved('Đã đổi thành Báo nợ — kiểm tra tên khách và TM / CK.');
+        }));
+        $$('[data-exchange]', root).forEach((x) => x.addEventListener('click', () => { const m = V.moves[x.dataset.exchange]; m.kind = 'doi_tien'; m.amount = Math.abs(m.amount || 0); m.exchange_key = newExchangeKey(); delete m.category; draw(); }));
         $$('[data-mkind]', root).forEach((x) => x.addEventListener('change', () => { const m = V.moves[x.dataset.mkind]; m.kind = x.value.endsWith('ck') ? 'chuyen_khoan' : 'tien_mat'; m.sign = x.value.startsWith('thu') ? 1 : -1; m.amount = m.amount == null ? null : Math.abs(m.amount) * m.sign; delete m.category; draw(); }));
         root.onchange = (e) => { const x = e.target.closest('[data-gap-action]'); if (x) { const c = money(); V.gaps[x.dataset.gapAction] = {action:x.value, expected:x.dataset.gapAction === 'tien_mat' ? c.tmLeft : c.ckLeft}; draw(); } };
         $$('[data-mcat]', root).forEach((x) => x.addEventListener('change', () => { V.moves[x.dataset.mcat].category = x.value; soft(); }));

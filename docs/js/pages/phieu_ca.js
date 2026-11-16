@@ -1,20 +1,20 @@
 // Phiếu chốt ca: nhân viên chốt ca (tự động lưu) → Hoàn thành → quản lý đối soát trên BẢN ĐỐI SOÁT riêng (phiếu gốc giữ nguyên)
 import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
-import { DT_CSS, tcList } from '../doi_soat_tc.js';
+import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.8';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.9';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.8';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.8';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.9';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.9';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.8';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.9';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -128,7 +128,7 @@ function moveRow(m, ed, ds) {
       <input class="input money mv-amt" inputmode="numeric" placeholder="Số tiền" aria-label="Số tiền" value="${fmt(Math.abs(Number(m.amount) || 0) || '')}" ${ed ? '' : 'disabled'}>
       ${xBtn('Xóa dòng')}
       <input class="input mv-note sc-full" placeholder="Thu / chi việc gì" aria-label="Nội dung" value="${m.note || ''}" ${ed ? '' : 'disabled'}>
-      <span class="uv-cat sc-full"></span>${ed ? html`<label class="sc-full st-meta"><input type="checkbox" class="uv-exchange"> Đây là khách chuyển khoản rút tiền mặt</label>` : ''}</div>`;
+      <span class="uv-cat sc-full"></span>${ed ? html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary uv-2no">Báo nợ</button><button type="button" class="btn sm secondary uv-2rut">Khách CK rút tiền mặt</button></div>` : ''}</div>`;
   }
   return html`<div class="pc-line mv-row">
     <select class="input sm mv-kind" aria-label="Loại" ${ed ? '' : 'disabled'}>${opt('tien_mat', 'Tiền mặt', m.kind)}${opt('chuyen_khoan', 'Chuyển khoản', m.kind)}</select>
@@ -1249,7 +1249,10 @@ function mount(R, ed, C0, ctx = {}) {
         const note = row.querySelector('.mv-note').value.trim();
         const r = all.find((x) => !used.has(x) && !x.auto && x.pay === pay && (x.kind === 'chi' ? -Number(x.amount) : Number(x.amount)) === amt && String(x.note || '').trim() === note);
         if (!r) { box2.innerHTML = '<span class="st-meta">lưu xong mới chọn nhóm</span>'; return; }
-        used.add(r);
+        used.add(r); row._tc = r;
+        if (r.debt) { box2.innerHTML = str(html`<span class="pill warn">→ Báo nợ: ${r.debt.name}</span> <span class="st-meta">không tính chi phí · nợ vào tab Công nợ</span>${!r.locked && !r.debt.closed ? html` <button type="button" class="btn sm secondary uv-undebt">Bỏ</button>` : ''}`); row.querySelector('.sc-conv')?.remove();
+          box2.querySelector('.uv-undebt')?.addEventListener('click', async (ev3) => { if (!confirm(`Bỏ báo nợ cho khoản "${r.note || ''}"? Khoản nợ bị xoá, khoản chi quay lại chờ chọn nhóm.`)) return; ev3.target.disabled = true; try { await rpc('app_tc_move_undebt', { p_report: r.report_id, p_mkey: r.mkey }); showSaved('Đã bỏ báo nợ'); rerender(); } catch (e) { ev3.target.disabled = false; showSaved(e.message, true); } });
+          return; }
         const cats = (D.categories || []).filter((c) => c.kind === r.kind && c.active);
         const v = r.excluded ? 'x' : r.category_id || '';
         box2.innerHTML = str(html`<select class="input sm uv-cats ${v === '' ? 'need' : ''}" aria-label="Nhóm" ${r.locked ? 'disabled' : ''}>${v === '' ? html`<option value="">— chọn nhóm —</option>` : ''}${cats.map((c) => html`<option value="${c.id}" ${String(v) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}<option value="x" ${v === 'x' ? 'selected' : ''}>Không tính (không phải chi phí)</option></select>`);
@@ -1583,8 +1586,15 @@ function mount(R, ed, C0, ctx = {}) {
   const rutAdd = () => add('#moves', moveRow({kind:'doi_tien', amount:null, note:'', exchange_key:newExchangeKey()}, true, ctx.isDs), '.mv-amt');
   $('#add-rut2')?.addEventListener('click', rutAdd);
   $('#add-rut')?.addEventListener('click', rutAdd);
-  form.addEventListener('change', (ev) => {
-    if (!ev.target.matches('.uv-exchange')) return;
+  form.addEventListener('click', (ev) => {   // bước 116: Đổi thành Báo nợ — khoản Chi đã lưu → nợ (tab Công nợ), không tính chi phí
+    const b = ev.target.closest('.uv-2no'); if (!b) return;
+    const row = b.closest('.mv-row'); const r = row._tc;
+    if (row.querySelector('.mv-sign').value !== '-') { showSaved('Chỉ khoản Chi mới đổi thành nợ (vd: đưa khách mượn tiền). Khoản Thu ghi nhầm thì bấm Chi trước hoặc xoá.', true); return; }
+    if (!r) { showSaved('Khoản này chưa lưu — ghi lý do sửa ở cuối trang, đợi lưu xong rồi bấm lại.', true); return; }
+    toDebtDlg({ ...r, branch_id: R.branch_id }, () => rerender());
+  });
+  form.addEventListener('click', (ev) => {
+    if (!ev.target.closest('.uv-2rut')) return;
     const row = ev.target.closest('.mv-row');
     const m = {kind:'doi_tien',amount:parseMoney(row.querySelector('.mv-amt').value),note:row.querySelector('.mv-note').value,exchange_key:newExchangeKey()};
     row.outerHTML = str(moveRow(m,true,true)); bindMoneyInputs(form); changed();
