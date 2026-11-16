@@ -3,18 +3,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.5';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.6';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.5';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.5';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.6';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.6';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.5';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.6';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -448,9 +448,10 @@ export async function render({ params }) {
   const fbRows = isDs ? [['Số dư đầu', R.ipos_opening, FB?.dau], ['Doanh thu (NET)', R.total_revenue, FB?.net], ['Chuyển khoản', R.pos_transfer, FB?.ck], ['Tiền mặt', R.pos_cash, FB?.tm], ['Nợ', R.pos_debt, FB?.no], ['Tổng tiền', R.cash_counted, FB?.tong], ['Tiền chênh lệch', R.pos_diff, FB?.chenh]]
     .map(([l, a, b]) => [l, a === null || a === undefined ? null : Number(a), b === null || b === undefined ? null : Number(b), FB && b !== null && b !== undefined && a !== null && a !== undefined ? Number(a) === Number(b) : null]) : [];
   const fbBad = fbRows.filter((x) => x[3] === false).length;
-  const dsTime = isDs ? html`<section class="sc-block"><h2>Thời gian doanh thu</h2><div class="sc-period"><label>Bắt đầu doanh thu<input class="input" type="datetime-local" id="rev_start" value="${toLocalInput(R.rev_start)}" ${edT ? '' : 'disabled'}></label><label>Kết thúc doanh thu<input class="input" type="datetime-local" id="rev_end" value="${toLocalInput(R.rev_end)}" ${edT ? '' : 'disabled'}></label></div>
-    <span class="st-meta">Theo giờ trên phiếu POS, không phải giờ làm của nhân viên. Qua nửa đêm chọn ngày hôm sau.${FB && (FB.open_at || FB.close_at) ? html` <b>File Fabi kế toán tải: ${hm5(FB.open_at)} → ${hm5(FB.close_at)}</b> ${hm5(FB.close_at) === hm5(R.rev_end) ? '✓' : '✗ khác giờ kết thúc'}` : ''}</span></section>` : '';
-  const dsFabi = isDs ? html`<section class="sc-block"><h2>Phiếu Fabi</h2><div class="photos">${iposPhotos.map((p) => phFig(p, 'Ảnh phiếu Fabi', false))}</div>${iposPhotos.length ? '' : html`<span class="st-meta">Chưa có ảnh phiếu.</span>`}
+  const dsTimeIn = isDs ? html`<h3 style="margin:4px 0 0;font-size:15px">Thời gian doanh thu</h3><div class="sc-period"><label>Bắt đầu doanh thu<input class="input" type="datetime-local" id="rev_start" value="${toLocalInput(R.rev_start)}" ${edT ? '' : 'disabled'}></label><label>Kết thúc doanh thu<input class="input" type="datetime-local" id="rev_end" value="${toLocalInput(R.rev_end)}" ${edT ? '' : 'disabled'}></label></div>
+    <span class="st-meta">Theo giờ trên phiếu POS, không phải giờ làm của nhân viên. Qua nửa đêm chọn ngày hôm sau.${FB && (FB.open_at || FB.close_at) ? html` <b>File Fabi kế toán tải: ${hm5(FB.open_at)} → ${hm5(FB.close_at)}</b> ${hm5(FB.close_at) === hm5(R.rev_end) ? '✓' : '✗ khác giờ kết thúc'}` : ''}</span>` : '';
+  const fbSum = !FB ? html`<span class="ds-ic">·</span><span>Phiếu Fabi <small class="st-meta">chưa có file kế toán</small></span>` : fbBad ? html`<span class="ds-ic bad">!</span><span>Phiếu Fabi khác file <b>${fbBad}</b> dòng</span>` : html`<span class="ds-ic ok">✓</span><span>Phiếu Fabi khớp file</span>`;
+  const dsFabi = isDs ? html`<details class="sc-block ds-fabi" ${fbBad ? 'open' : ''}><summary>${fbSum}<span class="ds-r">NET ${fmt(R.total_revenue)} ›</span></summary>${dsTimeIn}<h3 style="margin:4px 0 0;font-size:15px">Số trên phiếu</h3><div class="photos">${iposPhotos.map((p) => phFig(p, 'Ảnh phiếu Fabi', false))}</div>${iposPhotos.length ? '' : html`<span class="st-meta">Chưa có ảnh phiếu.</span>`}
     ${shiftFabiFields([
       ...[['opening_cash', 'Số dư đầu'], ['total_revenue', 'Doanh thu (NET)'], ['pos_transfer', 'Chuyển khoản'], ['pos_cash', 'Tiền mặt']].map(([k, l]) => [l, money(k, R[k], !edT)]),
       ['Nợ trên phiếu', html`<input class="input" value="${fmt(R.pos_debt || 0)}" disabled>`],
@@ -460,7 +461,7 @@ export async function render({ params }) {
     ])}
     <input type="hidden" id="ipos_opening" value="${R.ipos_opening ?? ''}"><input type="hidden" id="opening_note" value="${R.opening_note || ''}"><div id="sum-check"></div>
     ${FB ? html`<div class="alert ${fbBad ? 'warn' : 'ok'}" style="margin:0">${fbBad ? html`✗ Khác file Fabi kế toán tải <b>${fbBad}</b> dòng — xem bảng dưới, sửa số nhân viên ghi nếu sai.` : '✓ Doanh thu, tiền mặt, chuyển khoản khớp file Fabi kế toán tải.'}</div>
-      <details ${fbBad ? 'open' : ''}><summary>So với file Fabi kế toán tải</summary>${g4(fbRows)}</details>` : html`<span class="st-meta">Chưa có file Fabi — kế toán tải ở Kế toán › File ca Fabi. Vẫn đối soát được theo phiếu.</span>`}</section>` : '';
+      <div><div class="st-meta" style="margin-bottom:4px">So với file Fabi kế toán tải</div>${g4(fbRows)}</div>` : html`<span class="st-meta">Chưa có file Fabi — kế toán tải ở Kế toán › File ca Fabi. Vẫn đối soát được theo phiếu.</span>`}</details>` : '';
   // Khách nợ trong ca: HĐ / TM / CK — quản lý đổi được loại
   const canKind = isDs && !!R.can_recon && R0.recon_status !== 'hoan_thanh';
   const debtCmp = (() => {
@@ -622,7 +623,8 @@ export async function render({ params }) {
         <input class="input money" value="${fmt(d.amount)}" disabled aria-label="Số tiền nợ">${!d.closed ? html`<button type="button" class="btn secondary danger rd-del" data-id="${d.id}" aria-label="Xoá khoản báo nợ">×</button>` : html`<span></span>`}
         <span class="sc-full st-meta">${d.name}${d.phone ? ' · ' + d.phone : ''} · quản lý ghi khi đối soát (NV bấm nhầm ${d.item === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}) · ${d.closed ? `khách đã trả (${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'}) — đã bù ca này` : 'chờ khách trả'}</span></div>`;
     const anyDebt = (R.debts || []).length || (R.recon_debts || []).length;
-    return html`<section class="sc-block uv"><h2>Các khoản tiền của ca</h2>
+    const nItems2 = paid.length + collapseMoves((R.moves || []).filter((m) => !m.auto)).length + (R.debts || []).length + (R.recon_debts || []).length;
+    return html`<section class="sc-block uv"><h2>Các khoản tiền của ca${nItems2 ? html` · ${nItems2} khoản` : ''}</h2>
       <span class="st-meta">Sửa thẳng trên dòng, bảng tiền tự tính lại sau khi lưu. Quản lý chọn nhóm cho từng khoản Thu / Chi. Lý do sửa ghi 1 lần ở cuối trang.</span>
       ${paid.map(paidRow)}
       <div id="moves" class="stack" style="gap:8px">${collapseMoves((R.moves || []).filter((m) => !m.auto)).map((m) => moveRow(m, edT, true))}</div>
@@ -637,9 +639,9 @@ export async function render({ params }) {
   const canMoney = isDs && !!R.can_recon && R0.recon_status !== 'hoan_thanh';
   const ktWait = isDs && KT && KT.need && !KT.ready;
   const lxLeft = isDs ? ['tien_mat', 'chuyen_khoan'].filter((it) => !itDone(it) && gapOf(it) !== null && gapOf(it) !== undefined && Number(gapOf(it)) !== 0) : [];
-  const moneyBar = canMoney && !['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone) ? html`<section class="card ds-mbar"><div class="grow" style="font-size:14px">${ktWait ? html`⏳ <b>Chờ kế toán</b>: ${(KT.missing || []).join(', ')} — đủ file mới duyệt được tiền mặt / chuyển khoản.`
-      : lxLeft.length ? html`<b style="color:var(--off-line,#dc2626)">Có lệch ${lxLeft.map((it) => (it === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản')).join(', ')}</b>: chọn cách xử lý trong khung (Quán chịu / Chia người làm ca). Bấm duyệt sẽ lưu luôn cách đã chọn; để "Đối soát lại sau" thì ca thành Hoàn thành 1 phần.`
-      : html`<b style="color:var(--ok-ink,#24502a)">Sẵn sàng</b> · bấm 1 lần để duyệt cả phần tiền và hoàn thành đối soát ca.`}</div>
+  const moneyBar = canMoney && !['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone) ? html`<section class="card ds-mbar"><div class="grow" style="font-size:13px">${ktWait ? html`⏳ <b>Chờ kế toán</b>: ${(KT.missing || []).join(', ')}`
+      : lxLeft.length ? html`<b style="color:var(--off-line,#dc2626)">Có lệch ${lxLeft.map((it) => (it === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản')).join(', ')}</b> — chọn cách xử lý ở khung Xử lý lệch.`
+      : html`<b style="color:var(--ok-ink,#24502a)">Sẵn sàng</b> · bấm 1 lần là xong phần tiền.`}</div>
       <button type="button" class="btn ok" id="ds-money-ok">✓ Duyệt phần tiền &amp; hoàn thành</button></section>` : '';
   // E. Nhân viên
   const secStaff = sec('Ai làm ca', ['nhan_su'], html`
@@ -712,6 +714,7 @@ export async function render({ params }) {
   const head = html`<div class="page-head pc-head"><div>
       <h1>${isDs ? 'Đối soát ca' : 'Chốt ca'} ${R.shift} · ${R.branch_code}</h1>
       <div class="sub">${dayName(R.work_date)} ${dmy(R.work_date)} · ${R.branch_name}</div>
+      ${isDs ? html`<div class="st-meta">Nhân viên gửi ${R.completed_at ? dt(R.completed_at) : '—'}${R.completed_by_name ? ' · ' + R.completed_by_name : ''} · Fabi ${FB ? (fbBad ? '✗' : '✓') : 'chưa có file'} · ngân hàng ${M86.bank_ok ? '✓' : 'chưa đủ'}</div>` : ''}
       <div class="toolbar" style="gap:6px;margin-top:6px">
         <span class="pill ${STAFF_LABEL[R.status][1]}">Nhân viên: ${STAFF_LABEL[R.status][0]}</span>
         ${done ? html`<span class="pill ${R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH ĐỐI SOÁT' : R0.recon_status === 'mo_lai' ? `ĐANG ĐỐI SOÁT LẠI ${nChecks}/${nItems}` : `Đối soát ${nChecks}/${nItems}`}</span>` : ''}
@@ -764,9 +767,9 @@ export async function render({ params }) {
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secStaff}</div></details></div>
       <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. ${R0.self_reconciled ? 'Ca do quản lý tự chốt đã hoàn thành; việc này tiếp tục theo dõi riêng trong Công việc.' : 'Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.'}</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="3">${verdict}${moneyLock}${dsTime}${dsFabi}
+      <div class="ds-pane stack" data-ds="3"><div id="ds-need"></div>${verdict}${moneyLock}
         <section class="sc-block" id="ds-money-table" aria-live="polite">${moneyTable()}</section>
-        ${uvCard}
+        ${dsFabi}${uvCard}
         <section class="sc-block"><h2>Tiền thực tế</h2><label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span>${money('reported_transfer', R.reported_transfer, !edT)}</label><span class="st-meta">Tiền mặt đếm được là ô Tổng tiền trên phiếu Fabi ở trên. Chuyển khoản dùng số ngân hàng khi kế toán nhập đủ; số hotline giữ để đối chiếu.</span>${cashMode()}</section>
         ${['tien_mat', 'chuyen_khoan'].some((it) => (R.results || {})[it] || (!lkItem(it) && gapOf(it) !== null && gapOf(it) !== undefined && Number(gapOf(it)) !== 0)) ? html`<section class="sc-block"><h2>Xử lý lệch</h2>${lxBox('tien_mat')}${lxBox('chuyen_khoan')}</section>` : ''}
         ${edT || edSharedT ? rcWhy : ''}${moneyBar}
@@ -1258,6 +1261,9 @@ function mount(R, ed, C0, ctx = {}) {
           catch (e) { ev2.target.disabled = false; showSaved(e.message, true); }
         });
       });
+      { const need = $$('#moves .uv-cats.need').length; const nb = $('#ds-need'); const vd = $('.ds-pane[data-ds="3"] > .ds-v');
+        if (nb) nb.innerHTML = need ? str(html`<div class="ds-v need">Còn ${need} khoản chưa phân loại<small>Đặt nhóm cho từng khoản Thu / Chi ở danh sách dưới</small></div>`) : '';
+        if (vd) vd.hidden = !!need; }
       tcList($('#ds-tc-tm'), rows.filter((x) => x.pay !== 'chuyen_khoan' && x.auto !== 'doi_tien'), opt);
       tcList($('#ds-tc-ck'), rows.filter((x) => x.pay === 'chuyen_khoan' && x.auto !== 'doi_tien'), opt);
     }).catch((e) => { const box = $('#ds-tc'); if (box) box.textContent = 'Không tải được thu chi: ' + e.message; });
@@ -1886,7 +1892,11 @@ const STYLE = html`<style>
   @media (max-width: 760px) { .uv-row .mv-note, .uv-row .db-table { flex: 1 1 100%; } .paid-row .paid-kind { flex-basis: calc(100% - 130px); } .paid-row .grow { flex-basis: 100%; } .paid-row .btn { flex: 1 1 44%; min-height: 44px; } }
   .ds-v { border-radius: 16px; padding: 12px 14px; font-size: 17px; font-weight: 700; }   /* bước 111 */
   .ds-v small { display: block; font-size: 13px; font-weight: 500; margin-top: 2px; }
-  .ds-v.ok { background: var(--ok-bg); color: var(--ok-ink); } .ds-v.bad { background: var(--off-bg); color: var(--off-ink); } .ds-v.wait { background: var(--warn-bg); color: var(--warn-ink); } .ds-v.fx { background: #efe5ee; color: #6b3d63; }
+  .ds-v.ok { background: var(--ok-bg); color: var(--ok-ink); } .ds-v.bad { background: var(--off-bg); color: var(--off-ink); } .ds-v.wait { background: var(--warn-bg); color: var(--warn-ink); } .ds-v.fx { background: #efe5ee; color: #6b3d63; } .ds-v.need { background: #efe5ee; color: #5b2a52; } .ds-v[hidden] { display: none; }
+  .ds-v small { display: block; font-size: 13px; font-weight: 500; margin-top: 2px; opacity: .85; }
+  .ds-fabi > summary { text-transform: none; letter-spacing: normal; display: flex; gap: 10px; align-items: center; cursor: pointer; list-style: none; font-weight: 600; font-size: 15px; } .ds-fabi > summary::-webkit-details-marker { display: none; }
+  .ds-fabi > summary .ds-r { margin-left: auto; color: var(--muted); font-size: 12px; font-weight: 500; white-space: nowrap; } .ds-fabi:not([open]) { padding-block: 12px; }
+  .ds-fabi .ds-ic { width: 24px; height: 24px; border-radius: 50%; display: grid; place-content: center; font-size: 13px; flex: none; background: var(--subtle, #eee); } .ds-fabi .ds-ic.ok { background: var(--ok-bg); color: var(--ok-ink); } .ds-fabi .ds-ic.bad { background: var(--off-bg); color: var(--off-ink); }
   table.mt { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
   table.mt th { font-size: 12px; color: var(--muted); font-weight: 600; text-align: right; padding: 6px 4px; border-bottom: 2px solid var(--line); } table.mt th:first-child { text-align: left; }
   table.mt td { padding: 7px 4px; border-bottom: 1px solid var(--line-soft); text-align: right; white-space: nowrap; } table.mt td:first-child { text-align: left; white-space: normal; }
@@ -1908,7 +1918,7 @@ const STYLE = html`<style>
   .ds-mc.wait { background: var(--warn-bg); color: var(--warn-ink); border-color: #f6d58a; } .ds-mc.fx { background: #efe5ee; color: #6b3d63; border-color: #d9c3d6; }
   .ds-k { font-weight: 700; font-size: 15px; color: var(--ink); margin-top: 6px; }
   .ds-m2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; align-items: start; }
-  .ds-mbar { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; border: 2px solid var(--ok-line, #4f8a3c); }
+  .ds-mbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; border: 2px solid var(--ok-line, #4f8a3c); position: sticky; bottom: 8px; z-index: 6; padding: 10px 12px; box-shadow: 0 -6px 20px rgba(60,40,20,.12); }
   .ds-mbar .btn.ok { background: var(--ok-ink); border-color: var(--ok-ink); color: #fff; }
   @media (max-width: 760px) { .ds-msum { grid-template-columns: repeat(2, 1fr); } .ds-m2 { grid-template-columns: 1fr; } .ds-mbar .btn { width: 100%; } }
   .ds-end .btn.ok { background: var(--ok-ink); border-color: var(--ok-ink); color: #fff; }

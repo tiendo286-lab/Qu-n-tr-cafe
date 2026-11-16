@@ -21,6 +21,7 @@ export default async ({ sleep, out }) => {
     $('[data-shift-step="3"]').click(); await wait('#cm-check'); await sleep(300);
     const row0 = () => $$('.sc-row').find((x) => x.querySelector('[data-mkind]'));
     check(row0().querySelector('[data-tg="dir"][data-v="thu"]').classList.contains('on'), 'Chốt ca: dòng thu hiện nút Thu đang chọn');
+    { const t = (q) => row0().querySelector(q).getBoundingClientRect().top; check(Math.abs(t('.sc-kt') - t('[data-k="amount"]')) < 14 && Math.abs(t('[data-k="amount"]') - t('[data-mx]')) < 14, 'Chốt ca: Thu/Chi · TM/CK · số tiền · ✕ trên 1 dòng'); }
     check(!$$('#cm-root select[data-mkind]').some((x) => !x.hidden), 'Chốt ca: không còn ô chọn thả xuống Thu/Chi');
     row0().querySelector('[data-tg="dir"][data-v="chi"]').click(); await sleep(300);
     check(row0().querySelector('[data-mkind]').value === 'chi_tm' && row0().querySelector('[data-tg="dir"][data-v="chi"]').classList.contains('on'), 'Chốt ca: bấm Chi 1 lần là đổi');
@@ -37,8 +38,12 @@ export default async ({ sleep, out }) => {
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait('#moves .mv-row'); await sleep(800);
     const pane = $('.ds-pane[data-ds="3"]');
-    const order = [...pane.querySelectorAll('h2')].map((h) => h.textContent.trim());
-    check(order.join('|').startsWith('Thời gian doanh thu|Phiếu Fabi'), 'Đối soát: thứ tự giống chốt ca — ' + order.join(' › '));
+    const kids = [...pane.children]; const pos = (q) => kids.findIndex((x) => x.matches(q));
+    check(pos('#ds-money-table') >= 0 && pos('#ds-money-table') < pos('.ds-fabi') && pos('.ds-fabi') < pos('.uv'), 'Đối soát: bảng tiền lên đầu → Phiếu Fabi (gọn 1 dòng) → Các khoản');
+    check(!$('.ds-fabi').open || !!$('.ds-fabi .ds-ic.bad'), 'Đối soát: Phiếu Fabi khớp thì thu gọn');
+    { const row = $$('#moves .mv-row').find((x) => x.querySelector('.uv-type')); const t = (q) => row.querySelector(q).getBoundingClientRect().top;
+      check(Math.abs(t('.sc-kt') - t('.mv-amt')) < 14 && Math.abs(t('.mv-amt') - t('.pc-del')) < 14, 'Đối soát: Thu/Chi · TM/CK · số tiền · ✕ trên 1 dòng'); }
+    check(getComputedStyle($('.ds-mbar') || document.body).position === 'sticky' || !$('.ds-mbar'), 'Đối soát: thanh Duyệt dính đáy màn hình');
     check(!pane.textContent.includes('CHƯA ĐỐI SOÁT'), 'Đối soát: không còn nhãn "CHƯA ĐỐI SOÁT" ở trang tiền');
     check($$('#rev_start').length === 1 && $$('#cash_counted').length === 1 && $$('#reported_transfer').length === 1, 'Đối soát: không trùng ô nhập');
     check(!$('.pc-ban .seg') && !!$('.pc-ban a'), 'Đối soát: bỏ 2 thẻ gốc / đối soát, còn 1 liên kết xem phiếu gốc');
