@@ -10,12 +10,14 @@ export default async ({ sleep, out }) => {
     const { rpc } = await import('../js/sb.js');
     const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
     const ov = await rpc('app_ca_overview', { p_date: day }); const o = ov.find((x) => x.branch_code === 'LLB') || ov[0];
+    await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: o.branch_id, grp: 'khach', name: 'Anh Minh', amount: 120000, note: 'Nợ hôm qua', kind: 'bill', date: day } });
+    await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: o.branch_id, grp: 'khach', name: 'Chị Lan', amount: 100000, note: 'Nợ hôm qua', kind: 'bill', date: day } });
     const id = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
     const R = await rpc('app_ca_get', { p_id: id }); const e = (await rpc('app_ca_employees'))[0];
     const staff = (R.staff || []).length ? R.staff.map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:35' })) : [{ employee_id: e.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:35' }];
     await rpc('app_ca_save', { p_id: id, p: { rev_start: day + ' 06:45', rev_end: day + ' 12:35', ipos_opening: 1000000, total_revenue: 5420000, pos_cash: 3220000, pos_transfer: 2100000, pos_debt: 100000, pos_diff: 0,
-      cash_counted: 4220000, reported_transfer: 2100000, cups: 10, moves: [{ kind: 'tien_mat', amount: 30000, note: 'bán bã cà phê' }, { kind: 'tien_mat', amount: -200000, note: 'chị Hoa mượn' }], goods: [], handover: [], debts: [{ table_name: 'Bàn 5', amount: 100000, kind: 'bill' }], staff } });
+      cash_counted: 4220000, reported_transfer: 2100000, cups: 10, moves: [{ kind: 'tien_mat', amount: 30000, note: 'bán bã cà phê' }, { kind: 'tien_mat', amount: -200000, note: 'chị Hoa mượn' }, { kind: 'tien_mat', amount: 120000, note: 'anh Minh trả tiền' }, { kind: 'chuyen_khoan', amount: 60000, note: 'chị Lan chuyển' }], goods: [], handover: [], debts: [{ table_name: 'Bàn 5', amount: 100000, kind: 'bill' }], staff } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/t.jpg', p_kind: 'ipos' });
     location.hash = '#/ca/phieu?id=' + id; await wait('#cm-next'); await sleep(300);
     $('[data-shift-step="3"]').click(); await wait('#cm-check'); await sleep(300);
@@ -42,6 +44,15 @@ export default async ({ sleep, out }) => {
     check($('[data-dk="0"][data-v="ck"]').classList.contains('on'), 'Chốt ca: Báo nợ chọn CK 1 lần');
     check(!$('.cm-dkk'), 'Chốt ca: bỏ khối giải thích Báo nợ dài');
     check(!!$('#cm-add-debt') && $$('#cm-add-debt').length === 1, 'Chốt ca: luôn có đúng 1 nút + Báo nợ');
+    $('[data-dk="0"][data-v="bill"]').click(); await sleep(200);   // trả Bàn 5 về HĐ (khớp Nợ trên phiếu Fabi) trước khi lưu
+    { const minh = $$('.sc-row').find((x) => x.querySelector('[data-k="note"]')?.value === 'anh Minh trả tiền');
+      minh.querySelector('[data-tothu]').click(); await wait('dialog[open] #cp-list [data-paid]'); await sleep(200);
+      const rowD = [...$$('dialog[open] #cp-list .cm-person')].find((x) => /Anh Minh/.test(x.textContent));
+      check(!!rowD && rowD.querySelector('[data-paidamt]').value === '120.000', 'Chốt ca: Đổi thành Thu nợ → danh sách khách đang nợ, số tiền điền sẵn 120.000');
+      const sel = rowD.querySelector('[data-paid]'); sel.value = 'tien_mat'; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let i = 0; i < 80 && !$('.cm-paid'); i++) await sleep(100); await sleep(300);
+      if (!$('#cm-verdict')) { $('[data-shift-step="3"]')?.click(); await wait('#cm-verdict'); }
+      check(!!$$('.cm-paid').find((x) => /Anh Minh/.test(x.textContent)) && !$$('[data-k="note"]').some((x) => x.value === 'anh Minh trả tiền'), 'Chốt ca: khoản Thu "anh Minh trả tiền" thành dòng Thu nợ Anh Minh (đứng đầu danh sách)'); }
     // bước 116: Đổi thành Báo nợ / Khách CK rút tiền mặt ngay trên dòng Thu / Chi
     { const nDebt = $$('.cm-debt').length; const hoa = $$('.sc-row').find((x) => x.querySelector('[data-k="note"]')?.value === 'chị Hoa mượn');
       check(!!hoa.querySelector('[data-tono]') && !!hoa.querySelector('[data-exchange]'), 'Chốt ca: dòng Thu / Chi có nút Đổi thành Báo nợ · Khách CK rút tiền mặt');
@@ -67,15 +78,27 @@ export default async ({ sleep, out }) => {
     check(!pane.textContent.includes('CHƯA ĐỐI SOÁT'), 'Đối soát: không còn nhãn "CHƯA ĐỐI SOÁT" ở trang tiền');
     check($$('#rev_start').length === 1 && $$('#cash_counted').length === 1 && $$('#reported_transfer').length === 1, 'Đối soát: không trùng ô nhập');
     check(!$('.pc-ban .seg') && !!$('.pc-ban a'), 'Đối soát: bỏ 2 thẻ gốc / đối soát, còn 1 liên kết xem phiếu gốc');
-    // bước 116: đối soát — Chi đã lưu → Báo nợ (vào Công nợ, không tính chi phí); Thu / Chi → Khách CK rút tiền mặt
-    { for (let i = 0; i < 60 && !$$('#moves .mv-row').some((x) => x._tc); i++) await sleep(100);
+    // bước 116: đối soát — Đổi thành Báo nợ / Thu nợ giống nhân viên (thành dòng mới, sửa được, có "nhân viên ghi")
+    { const why = () => $$('.rc-why').forEach((x) => { x.value = 'Nhân viên ghi nhầm loại khoản'; x.dispatchEvent(new Event('input', { bubbles: true })); });
       const hoa = $$('#moves .mv-row').find((x) => x.querySelector('.mv-note')?.value === 'chị Hoa mượn');
-      check(!!hoa && !!hoa._tc && !!hoa.querySelector('.uv-2no') && !!hoa.querySelector('.uv-2rut'), 'Đối soát: dòng Thu / Chi có nút Đổi thành Báo nợ · Khách CK rút tiền mặt');
-      hoa.querySelector('.uv-2no').click(); await wait('dialog[open] form [name=grp]'); await sleep(300);
-      const f = $('dialog[open] form'); f.querySelector('[value="khach"]').checked = true; f.name.value = 'Chị Hoa'; f.requestSubmit(); await sleep(2500);
-      await wait('#moves .mv-row'); for (let i = 0; i < 60 && !$$('#moves .pill.warn').length; i++) await sleep(100);
-      const hoa2 = $$('#moves .mv-row').find((x) => x.querySelector('.mv-note')?.value === 'chị Hoa mượn');
-      check(/Báo nợ: Chị Hoa/.test(hoa2.textContent) && !hoa2.querySelector('.uv-2no') && !!hoa2.querySelector('.uv-undebt'), 'Đối soát: Chi → Báo nợ xong hiện "→ Báo nợ: Chị Hoa", có nút Bỏ'); }
+      check(!!hoa.querySelector('.uv-2thu') && !!hoa.querySelector('.uv-2no') && !!hoa.querySelector('.uv-2rut'), 'Đối soát: Đổi thành Thu nợ · Báo nợ · Khách CK rút tiền mặt');
+      hoa.querySelector('.uv-2no').click(); await sleep(200);
+      check(!!$('.rc-need:not([hidden])'), 'Đối soát: chưa ghi lý do thì nhắc ghi lý do, chưa đổi');
+      why(); hoa.querySelector('.uv-2no').click(); for (let i = 0; i < 80 && !$$('#debts .uv-debt').some((x) => x.querySelector('.db-table').value === 'chị Hoa mượn'); i++) await sleep(100); await sleep(500);
+      const dh = () => $$('#debts .uv-debt').find((x) => x.querySelector('.db-table').value === 'chị Hoa mượn');
+      check(!!dh() && dh().querySelector('.db-amt').value === '200.000' && dh().querySelector('[data-v="muon"]').classList.contains('on') && /nhân viên ghi: Chi TM 200\.000/.test(dh().textContent) && !$$('#moves .mv-note').some((x) => x.value === 'chị Hoa mượn'), 'Đối soát: Chi TM 200.000 → dòng Báo nợ TM 200.000, có "nhân viên ghi: Chi TM 200.000"');
+      check($$('.rc-why')[0].value === 'Nhân viên ghi nhầm loại khoản', 'Đối soát: lý do sửa giữ nguyên sau khi lưu');
+      const am = dh().querySelector('.db-amt'); am.value = '150.000'; am.dispatchEvent(new Event('change', { bubbles: true }));
+      for (let i = 0; i < 80 && dh()?.querySelector('.db-amt').value !== '150.000'; i++) await sleep(100); await sleep(600);
+      check(dh().querySelector('.db-amt').value === '150.000', 'Đối soát: sửa số tiền Báo nợ 200.000 → 150.000 lưu được');
+      const lan = $$('#moves .mv-row').find((x) => x.querySelector('.mv-note')?.value === 'chị Lan chuyển');
+      lan.querySelector('.uv-2thu').click(); await wait('dialog[open] [data-pk]'); await sleep(200);
+      const pkb = [...$$('dialog[open] .fb-row')].find((x) => /Chị Lan/.test(x.textContent)).querySelector('[data-k="chuyen_khoan"]'); pkb.click();
+      for (let i = 0; i < 80 && !$$('.paid-row').some((x) => /Chị Lan/.test(x.textContent)); i++) await sleep(100); await sleep(500);
+      const pr = $$('.paid-row').find((x) => /Chị Lan/.test(x.textContent));
+      check(!!pr && pr.querySelector('.paid-amount').value === '60.000' && pr.querySelector('[data-v="chuyen_khoan"]').classList.contains('on') && /nhân viên ghi: Thu CK 60\.000/.test(pr.textContent) && !$$('#moves .mv-note').some((x) => x.value === 'chị Lan chuyển'), 'Đối soát: Thu CK 60.000 → Thu nợ Chị Lan CK 60.000 (còn nợ 40.000), có "nhân viên ghi"');
+      const del = dh().querySelector('.uv-ddel'); del.click(); for (let i = 0; i < 80 && dh(); i++) await sleep(100); await sleep(400);
+      check(!dh(), 'Đối soát: ✕ xoá được Báo nợ (có lý do)'); }
     const mrow = $$('#moves .mv-row').find((x) => x.querySelector('.uv-type'));
     const was = mrow.querySelector('.uv-type').value; const to = was.startsWith('thu') ? 'chi' : 'thu';
     mrow.querySelector(`[data-tg="dir"][data-v="${to}"]`).click(); await sleep(200);

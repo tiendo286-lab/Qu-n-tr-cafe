@@ -289,6 +289,33 @@ export function makeCa(T, me) {
       if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: Math.max(...T.shift_debts.map((x) => x.id)) + 1, amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
       Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, collect_kind: p_kind, close_note: 'Quản lý ghi khi đối soát: ' + p_reason.trim() });
     },
+    // bước 116 (migration 99): quản lý thêm / sửa / xoá Báo nợ khi đối soát
+    app_ca_recon_debt_set({ p_report, p_debt, p_kind, p_name, p_amount, p_note, p_reason, p_from }) {
+      const r = rep(p_report); if (r.status !== 'hoan_thanh') throw new Error('Phiếu chưa hoàn thành nên chưa đối soát được.');
+      if (r.recon_status === 'hoan_thanh') throw new Error('Ca đã hoàn thành đối soát — bấm "Sửa phần tiền" để mở lại rồi sửa.');
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa ở cuối trang trước.');
+      if (!['bill', 'muon', 'ck'].includes(p_kind)) throw new Error('Chọn TM / CK / HĐ cho khoản nợ.');
+      if (!String(p_name || '').trim()) throw new Error('Ghi tên khách / bàn cho khoản nợ.');
+      if (!(Number(p_amount) > 0)) throw new Error('Số tiền nợ phải lớn hơn 0.');
+      if (!p_debt) {
+        const id = Math.max(0, ...T.shift_debts.map((x) => x.id)) + 1;
+        T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: p_name.trim(), amount: Number(p_amount), note: p_note || null, kind: p_kind, created_by: me.account_id, created_at: now() });
+        RLOG.push({ report_id: r.id, action: 'bao_no_them', field: null, before: p_from || null, after: { id, kind: p_kind, table_name: p_name.trim(), amount: Number(p_amount) }, reason: p_reason, by: name(me.account_id), at: now() });
+        return id;
+      }
+      const d = T.shift_debts.find((x) => x.id === p_debt && x.report_id === r.id); if (!d) throw new Error('Không tìm thấy khoản nợ của ca này.'); if (d.closed_at) throw new Error('Khoản nợ đã thu — không sửa được.');
+      const before = { kind: d.kind || 'bill', table_name: d.table_name, amount: d.amount };
+      Object.assign(d, { table_name: p_name.trim(), amount: Number(p_amount), kind: p_kind, note: p_note || null });
+      RLOG.push({ report_id: r.id, action: 'bao_no_sua', field: null, before, after: { id: d.id, kind: p_kind, table_name: d.table_name, amount: d.amount }, reason: p_reason, by: name(me.account_id), at: now() });
+      return d.id;
+    },
+    app_ca_recon_debt_remove({ p_report, p_debt, p_reason }) {
+      const r = rep(p_report); if (r.recon_status === 'hoan_thanh') throw new Error('Ca đã hoàn thành đối soát — bấm "Sửa phần tiền" để mở lại rồi sửa.');
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa ở cuối trang trước.');
+      const d = T.shift_debts.find((x) => x.id === p_debt && x.report_id === r.id); if (!d) throw new Error('Không tìm thấy khoản nợ của ca này.'); if (d.closed_at) throw new Error('Khoản nợ đã thu — không xoá được.');
+      T.shift_debts = T.shift_debts.filter((x) => x.id !== d.id);
+      RLOG.push({ report_id: r.id, action: 'bao_no_xoa', field: null, before: { id: d.id, kind: d.kind || 'bill', table_name: d.table_name, amount: d.amount }, after: null, reason: p_reason, by: name(me.account_id), at: now() });
+    },
     app_ca_recon_debt_uncollect({ p_report, p_debt, p_reason }) {
       if (p_reason !== undefined && !String(p_reason || '').trim()) throw new Error('Ghi lý do sửa hoặc xoá khoản khách trả.');
       const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_report_id !== p_report) throw new Error('Khoản khách trả không thuộc ca này.');

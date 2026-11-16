@@ -669,6 +669,14 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - **113c (16/11, anh chọn theo mẫu thử cũ)**: trang tiền đối soát: dòng "Còn N khoản chưa phân loại" trên cùng → **Bảng tiền lên đầu** → Phiếu Fabi gọn 1 dòng "✓ khớp file · NET … ›" (bấm mở; gồm thời gian doanh thu) → Các khoản · N khoản → Tiền thực tế → Xử lý lệch → thanh Duyệt dính đáy. Dưới tên ca: Nhân viên gửi lúc · Fabi ✓ · ngân hàng ✓. Mỗi khoản 1 hàng [Thu|Chi][TM|CK] số tiền ✕ (cả chốt ca).
 - **114 (16/11)**: bước Tiền của **chốt ca** xếp giống đối soát: dòng kết quả trên cùng (chưa đủ → "Còn thiếu: …"; Kiểm tra xong → khớp / thiếu / thừa) → Bảng tiền → Phiếu Fabi (chưa nhập thì mở sẵn; nhập đủ, đúng thì gọn 1 dòng "✓ Phiếu Fabi đã nhập · NET …", bấm mở lại; gồm thời gian doanh thu) → Các khoản · N khoản → Tiền thực tế → (quản lý tự chốt: xử lý lệch) → thanh Quay lại · Kiểm tra · Gửi ở đáy.
 - **115–116 (16/11)**: đối soát chỉ còn 1 hàng nút ở đáy (‹ Quay lại · Duyệt phần tiền & hoàn thành; duyệt xong: Quay lại · Về danh sách · Ca tiếp theo). Dưới mỗi khoản Thu / Chi (cả 2 màn) có **Đổi thành: [Báo nợ] [Khách CK rút tiền mặt]**. Chốt ca: Báo nợ = bỏ khoản Thu / Chi, thêm 1 dòng Báo nợ cùng số tiền (TM → khách mượn TM, CK → nợ CK), tên khách lấy từ nội dung. Đối soát: chỉ khoản **Chi** đã lưu mới đổi thành nợ (hộp chọn nhóm nợ, tên, SĐT) — vào tab Công nợ, không tính chi phí, tiền của ca không đổi; dòng hiện "→ Báo nợ: tên" và nút Bỏ.
+- **116b (chốt 16/11, máy chủ `99_bao_no_doi_soat.sql`)** — Các khoản tiền của ca, chốt ca và đối soát **giống hệt**:
+  - Thu / Chi: nhân viên và quản lý đều sửa được tới khi gửi phiếu / duyệt xong (duyệt xong thì khoá, bấm "Sửa phần tiền").
+  - Dưới mỗi khoản Thu **hoặc** Chi: **Đổi thành [Thu nợ] [Báo nợ] [Khách CK rút tiền mặt]**.
+    · Thu nợ: chọn khách đang nợ (số tiền điền sẵn), chọn trả TM / CK; khoản đó thành dòng Thu nợ; trả ít hơn nợ thì phần còn lại vẫn là nợ; khoản lớn hơn nợ thì phần dư giữ ở khoản cũ.
+    · Báo nợ: thành dòng Báo nợ cùng số tiền (TM→TM, CK→CK), tên khách = nội dung; sửa được số tiền, tên, SĐT; tiền phải có tính lại ngay.
+    · Khách CK rút tiền mặt: thành 1 phiếu riêng.
+  - Đối soát: Báo nợ (kể cả của nhân viên) sửa / xoá được, nút + Báo nợ thêm dòng giống nhân viên; dòng đã đổi có "✎ quản lý đổi · nhân viên ghi: …"; lý do sửa ghi 1 lần ở cuối (giữ lại sau khi lưu). Máy chủ: `app_ca_recon_debt_set` / `app_ca_recon_debt_remove` (bắt lý do, ghi lịch sử bao_no_them / sua / xoa, ca đã hoàn thành đối soát hoặc tháng đã chốt thì chặn, khoản đã thu không sửa / xoá).
+  - "Thành nợ" kho tổng / nợ khác vẫn ở mục Ít dùng cuối trang đối soát. Hộp "Ghi nhận nợ (NV bấm nhầm thanh toán)" cũ không còn nút mở; các khoản đã ghi trước đây vẫn hiện.
 
 ## 6. Đã bỏ hẳn
 

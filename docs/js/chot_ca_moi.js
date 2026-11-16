@@ -1,12 +1,12 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender, can } from './app.js';
-import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.16.9';
+import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.16.10';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.16.9';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.16.10';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -295,7 +295,7 @@ export async function renderNew(R0, P, SH) {
       <input class="input money" data-mv="${i}" data-k="amount" inputmode="numeric" aria-label="Số tiền khoản ${i + 1}" value="${m.amount ? fmt(Math.abs(m.amount)) : ''}" placeholder="Số tiền">
       <button type="button" class="btn secondary danger" data-mx="${i}" aria-label="Xóa khoản ${i + 1}">×</button>
       <input class="input sc-full" data-mv="${i}" data-k="note" value="${m.note || ''}" aria-label="Nội dung khoản ${i + 1}" placeholder="${exchange ? 'Tên khách / ghi chú đổi tiền' : 'Thu / chi việc gì'}">
-      ${exchange ? html`<small class="sc-full">Tiền mặt −${fmt(Math.abs(m.amount || 0))} · chuyển khoản +${fmt(Math.abs(m.amount || 0))} · không tính thu chi của quán.</small>` : html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary" data-tono="${i}">Báo nợ</button><button type="button" class="btn sm secondary" data-exchange="${i}">Khách CK rút tiền mặt</button></div>`}
+      ${exchange ? html`<small class="sc-full">Tiền mặt −${fmt(Math.abs(m.amount || 0))} · chuyển khoản +${fmt(Math.abs(m.amount || 0))} · không tính thu chi của quán.</small>` : html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary" data-tothu="${i}">Thu nợ</button><button type="button" class="btn sm secondary" data-tono="${i}">Báo nợ</button><button type="button" class="btn sm secondary" data-exchange="${i}">Khách CK rút tiền mặt</button></div>`}
       ${managerClose && !exchange ? html`<label class="sc-full">Nhóm <select class="input" data-mcat="${i}" aria-label="Nhóm khoản ${i + 1}"><option value="">— Chọn nhóm —</option>${cats().filter((c) => c.active && c.kind === (positive ? 'thu' : 'chi')).map((c) => html`<option value="${c.id}" ${String(m.category) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}<option value="x" ${m.category === 'x' ? 'selected' : ''}>Không tính</option></select></label>` : ''}
     </div>`;
   }
@@ -589,14 +589,25 @@ export async function renderNew(R0, P, SH) {
         $$('[data-mkind]', root).forEach((x) => x.addEventListener('change', () => { const m = V.moves[x.dataset.mkind]; m.kind = x.value.endsWith('ck') ? 'chuyen_khoan' : 'tien_mat'; m.sign = x.value.startsWith('thu') ? 1 : -1; m.amount = m.amount == null ? null : Math.abs(m.amount) * m.sign; delete m.category; draw(); }));
         root.onchange = (e) => { const x = e.target.closest('[data-gap-action]'); if (x) { const c = money(); V.gaps[x.dataset.gapAction] = {action:x.value, expected:x.dataset.gapAction === 'tien_mat' ? c.tmLeft : c.ckLeft}; draw(); } };
         $$('[data-mcat]', root).forEach((x) => x.addEventListener('change', () => { V.moves[x.dataset.mcat].category = x.value; soft(); }));
-        $('#cm-pick-debt')?.addEventListener('click', () => {
+        // bước 116: danh sách khách đang nợ — dùng cho "+ Thu nợ" và "Đổi thành Thu nợ" (conv = vị trí khoản Thu / Chi đang đổi)
+        const pickDebt = (conv = null) => {
+          const m0 = conv === null ? null : V.moves[conv]; const amt0 = m0 ? Math.abs(Number(m0.amount) || 0) : 0;
           const list = oldAll().filter((d) => !d.family && !d.closed_at);
-          const d = dialog(html`<div class="stack" style="gap:12px"><h2>Khách nào trả nợ?</h2><input class="input" id="cp-find" placeholder="Tìm tên khách / bàn" aria-label="Tìm khách nợ"><div id="cp-list" class="stack"></div><button class="btn secondary" id="cp-close">Đóng</button></div>`);
+          const d = dialog(html`<div class="stack" style="gap:12px"><h2>${m0 ? 'Đổi thành Thu nợ — khách nào trả?' : 'Khách nào trả nợ?'}</h2>${m0 ? html`<div class="st-meta">Khoản đang đổi: <b>${Number(m0.amount) > 0 || m0.sign === 1 ? 'Thu' : 'Chi'} ${m0.kind === 'chuyen_khoan' ? 'CK' : 'TM'} ${fmt(amt0)}</b> "${m0.note || ''}". Chọn khách, chọn trả TM / CK.</div>` : ''}<input class="input" id="cp-find" placeholder="Tìm tên khách / bàn" aria-label="Tìm khách nợ"><div id="cp-list" class="stack"></div><button class="btn secondary" id="cp-close">Đóng</button></div>`);
           const paint = () => { const q = d.querySelector('#cp-find').value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').toLowerCase(); const rows = list.filter((x) => (x.table_name || '').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').toLowerCase().includes(q));
             d.querySelector('#cp-list').innerHTML = str(html`${rows.length ? rows.map(debtPayRow) : html`<p>Không có khoản nợ phù hợp.</p>`}`);
-            d.querySelectorAll('[data-paid]').forEach((sel) => sel.addEventListener('change', async () => { if (!sel.value) return; sel.disabled = true; try { await save(); const debt = list.find((x) => String(x.id) === sel.dataset.paid); const amt = parseMoney(d.querySelector(`[data-paidamt="${sel.dataset.paid}"]`).value); await rpc('app_ca_debt_collect_part', {p_debt:debt.id,p_report:R.id,p_kind:sel.value,p_amount:amt,p_note:null}); d.close(); rerender(); } catch(e) { sel.disabled = false; showSaved(e.message,true); } })); bindMoneyInputs(d); };
+            if (m0) d.querySelectorAll('[data-paidamt]').forEach((x) => { const debt = list.find((y) => String(y.id) === x.dataset.paidamt); x.value = fmt(Math.min(amt0, Number(debt.amount))); });
+            d.querySelectorAll('[data-paid]').forEach((sel) => sel.addEventListener('change', async () => {
+              if (!sel.value) return; sel.disabled = true; const keep = m0 ? V.moves.slice() : null;
+              try {
+                const debt = list.find((x) => String(x.id) === sel.dataset.paid); const amt = parseMoney(d.querySelector(`[data-paidamt="${sel.dataset.paid}"]`).value);
+                if (m0) { const rest = amt0 - amt; if (rest > 0) m0.amount = (Number(m0.amount) < 0 ? -1 : 1) * rest; else V.moves.splice(conv, 1); }
+                await save(); await rpc('app_ca_debt_collect_part', {p_debt:debt.id,p_report:R.id,p_kind:sel.value,p_amount:amt,p_note:null}); d.close(); rerender();
+              } catch(e) { if (keep) { V.moves = keep; await save().catch(() => {}); } sel.disabled = false; showSaved(e.message,true); } })); bindMoneyInputs(d); };
           d.querySelector('#cp-find').addEventListener('input',paint); d.querySelector('#cp-close').onclick = () => d.close(); paint();
-        });
+        };
+        $('#cm-pick-debt')?.addEventListener('click', () => pickDebt());
+        $$('[data-tothu]', root).forEach((x) => x.addEventListener('click', () => { const m = V.moves[Number(x.dataset.tothu)]; if (!Number(m.amount)) { showSaved('Ghi số tiền trước rồi mới đổi.', true); return; } pickDebt(Number(x.dataset.tothu)); }));
         // bước 5
         $('#cm-add-move')?.addEventListener('click', () => { V.moves.push({ kind: 'tien_mat', amount: null, note: '', sign: -1 }); V.noMoves = false; draw(); });
         $('#cm-add-ckmove')?.addEventListener('click', () => { V.moves.push({ kind: 'chuyen_khoan', amount: null, note: '', sign: -1 }); V.noMoves = false; draw(); });
