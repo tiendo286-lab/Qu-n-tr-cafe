@@ -15,7 +15,7 @@ export const ITEM_FIELDS = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['t
 export const ALL_FIELDS = [...new Set(Object.values(ITEM_FIELDS).flat())];
 const DKEY = 'dsDirect';
 export function getDirect(id) { try { const d = JSON.parse(sessionStorage.getItem(DKEY) || 'null'); return d && d.id === id ? d : null; } catch (_) { return null; } }
-function setDirect(d) { try { sessionStorage.setItem(DKEY, JSON.stringify(d)); } catch (_) { /* bỏ qua */ } }
+export function setDirect(d) { try { sessionStorage.setItem(DKEY, JSON.stringify(d)); } catch (_) { /* bỏ qua */ } }
 export function clearDirect() { try { sessionStorage.removeItem(DKEY); } catch (_) { /* bỏ qua */ } }
 const LBL = { nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', thoi_gian: 'Thời gian doanh thu', doanh_thu: 'Doanh thu & số cốc', tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ', nhap_hang: 'Nhập hàng' };
 const KT_ITEMS = ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];

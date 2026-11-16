@@ -49,6 +49,16 @@ export default async ({ sleep, out }) => {
     const acts = $$('.uv .sc-actions button').map((b) => b.textContent.trim());
     check(acts.join('|') === '+ Thu nợ|+ Thu|+ Chi|+ Báo nợ|+ Khách CK rút tiền mặt', 'Đối soát: nút giống chốt ca — ' + acts.join(' · '));
     check(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, 'Đối soát: không tràn ngang');
+    // bước 113b: phần tiền đã duyệt → ô khoá, có nút "Sửa phần tiền" ngay trang tiền → mở lại là sửa được
+    for (const it of ['thu_chi', 'tien_mat', 'chuyen_khoan']) await rpc('app_ca_result_set', { p_id: id, p_item: it, p_result: 'khop', p_amount: null, p_reason: 'Thử khoá', p_people: [] });
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait('#moves .mv-row'); await sleep(800);
+    const amt = () => $('#moves .mv-row .mv-amt');
+    check(amt().disabled && !!$('#ds-money-edit'), 'Đối soát: phần tiền đã duyệt → ô khoá, có nút Sửa phần tiền');
+    $('#ds-money-edit').click(); await wait('dialog form [name=why]'); await sleep(200);
+    const fm = $('dialog form'); fm.querySelector('[data-reopen]').click(); await sleep(300);
+    check(/lý do/i.test(fm.querySelector('.den-err').textContent), 'Đối soát: Sửa phần tiền bắt ghi lý do');
+    fm.why.value = 'Nhân viên ghi nhầm khoản'; fm.querySelector('[data-reopen]').click(); await sleep(1500); await wait('#moves .mv-row'); await sleep(800);
+    check(!amt().disabled && !$('#ds-money-edit') && !!$('#ds-money-ok'), 'Đối soát: mở lại xong sửa được, có nút Duyệt phần tiền');
   } catch (err) { fail = err.message; r.push('FAIL: ' + err.message); }
   out.push({ route: 'tg113', title: r.join(' | '), errs: [...(window.__ERR || []), ...(fail ? [fail] : [])] });
 };

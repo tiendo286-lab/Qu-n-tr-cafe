@@ -3,18 +3,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.4';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.5';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.4';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, getDirect, mountLights } from '../doi_soat_den.js?v=2026.11.16.4';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.5';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.5';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.4';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.5';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -444,12 +444,12 @@ export async function render({ params }) {
       ${has ? html`<div class="alert ${bad ? 'warn' : 'ok'}" style="margin:0">${bad ? html`⚠️ Lệch file Fabi <b>${bad}</b> dòng — sửa ở mục "Sửa số liệu phiếu Fabi" bên dưới` : html`✅ Khớp file Fabi <b>${okN}/${rows.length}</b> dòng.`}</div>` : ''}</section>`;
   })();
   // bước 113: trang đối soát dùng đúng khung của chốt ca (không nhãn "chưa đối soát"); quản lý thấy thêm dòng so với file Fabi
-  const hhmm = (t) => (t ? String(t).replace('T', ' ').slice(11, 16) : '—');
+  const hm5 = (t) => (t ? String(t).replace('T', ' ').slice(11, 16) : '—');
   const fbRows = isDs ? [['Số dư đầu', R.ipos_opening, FB?.dau], ['Doanh thu (NET)', R.total_revenue, FB?.net], ['Chuyển khoản', R.pos_transfer, FB?.ck], ['Tiền mặt', R.pos_cash, FB?.tm], ['Nợ', R.pos_debt, FB?.no], ['Tổng tiền', R.cash_counted, FB?.tong], ['Tiền chênh lệch', R.pos_diff, FB?.chenh]]
     .map(([l, a, b]) => [l, a === null || a === undefined ? null : Number(a), b === null || b === undefined ? null : Number(b), FB && b !== null && b !== undefined && a !== null && a !== undefined ? Number(a) === Number(b) : null]) : [];
   const fbBad = fbRows.filter((x) => x[3] === false).length;
   const dsTime = isDs ? html`<section class="sc-block"><h2>Thời gian doanh thu</h2><div class="sc-period"><label>Bắt đầu doanh thu<input class="input" type="datetime-local" id="rev_start" value="${toLocalInput(R.rev_start)}" ${edT ? '' : 'disabled'}></label><label>Kết thúc doanh thu<input class="input" type="datetime-local" id="rev_end" value="${toLocalInput(R.rev_end)}" ${edT ? '' : 'disabled'}></label></div>
-    <span class="st-meta">Theo giờ trên phiếu POS, không phải giờ làm của nhân viên. Qua nửa đêm chọn ngày hôm sau.${FB && (FB.open_at || FB.close_at) ? html` <b>File Fabi kế toán tải: ${hhmm(FB.open_at)} → ${hhmm(FB.close_at)}</b> ${hhmm(FB.close_at) === hhmm(R.rev_end) ? '✓' : '✗ khác giờ kết thúc'}` : ''}</span></section>` : '';
+    <span class="st-meta">Theo giờ trên phiếu POS, không phải giờ làm của nhân viên. Qua nửa đêm chọn ngày hôm sau.${FB && (FB.open_at || FB.close_at) ? html` <b>File Fabi kế toán tải: ${hm5(FB.open_at)} → ${hm5(FB.close_at)}</b> ${hm5(FB.close_at) === hm5(R.rev_end) ? '✓' : '✗ khác giờ kết thúc'}` : ''}</span></section>` : '';
   const dsFabi = isDs ? html`<section class="sc-block"><h2>Phiếu Fabi</h2><div class="photos">${iposPhotos.map((p) => phFig(p, 'Ảnh phiếu Fabi', false))}</div>${iposPhotos.length ? '' : html`<span class="st-meta">Chưa có ảnh phiếu.</span>`}
     ${shiftFabiFields([
       ...[['opening_cash', 'Số dư đầu'], ['total_revenue', 'Doanh thu (NET)'], ['pos_transfer', 'Chuyển khoản'], ['pos_cash', 'Tiền mặt']].map(([k, l]) => [l, money(k, R[k], !edT)]),
@@ -752,6 +752,11 @@ export async function render({ params }) {
         : html`<span class="pill ok">✓ Xong</span>`}</div>`))}
       <div id="ds-cv-sum"></div>
       <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
+  // bước 113b: phần tiền đã đối soát (hoặc quản lý tự chốt) → các ô khoá; nút "Sửa phần tiền" ngay tại trang tiền (trước đây phải tìm nút Sửa trong Đèn đối soát)
+  const MONEY_ALL = ['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'];
+  const moneyOpen = isDs && !!R.can_recon ? MONEY_ALL.filter((it) => (doneItem(it) || lkItem(it)) && (!lkItem(it) || LK?.can_unlock)) : [];
+  const moneyLock = !isDs ? '' : DIR ? html`<div class="alert warn ds-mlock"><span class="grow">✎ <b>Chủ đang sửa thẳng phần tiền</b> — sửa xong bấm Xong để khoá lại. Phiếu giữ nguyên đối soát, mỗi thay đổi ghi nhật ký.</span><button type="button" class="btn sm" id="ds-dir-done">Xong, khoá lại</button></div>`
+    : moneyOpen.length ? html`<div class="alert info ds-mlock"><span class="grow">🔒 <b>Phần tiền đã đối soát</b> nên các ô đang khoá để tránh sửa nhầm. Cần sửa thu chi, số Fabi, khách nợ… thì bấm:</span><button type="button" class="btn sm" id="ds-money-edit" data-items="${moneyOpen.join(',')}">✎ Sửa phần tiền</button></div>` : '';
   const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
   const dsX2 = isDs && (R.staff || []).some((s2) => !s2.worked || (s2.source && s2.source !== 'lich'));   // bước 87: có người nghỉ / làm hộ / ca bổ sung
   const dsBody = isDs ? html`${DEN_CSS}<div id="ds-parts" class="dsp" data-left="${JSON.stringify(DS_ITEMS.map((_, i) => dsLeft(i).length))}" data-x2="${dsX2 ? 1 : 0}"></div><section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" hidden aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
@@ -759,7 +764,7 @@ export async function render({ params }) {
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secStaff}</div></details></div>
       <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. ${R0.self_reconciled ? 'Ca do quản lý tự chốt đã hoàn thành; việc này tiếp tục theo dõi riêng trong Công việc.' : 'Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.'}</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="3">${verdict}${dsTime}${dsFabi}
+      <div class="ds-pane stack" data-ds="3">${verdict}${moneyLock}${dsTime}${dsFabi}
         <section class="sc-block" id="ds-money-table" aria-live="polite">${moneyTable()}</section>
         ${uvCard}
         <section class="sc-block"><h2>Tiền thực tế</h2><label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span>${money('reported_transfer', R.reported_transfer, !edT)}</label><span class="st-meta">Tiền mặt đếm được là ô Tổng tiền trên phiếu Fabi ở trên. Chuyển khoản dùng số ngân hàng khi kế toán nhập đủ; số hotline giữ để đối chiếu.</span>${cashMode()}</section>
@@ -1536,6 +1541,28 @@ function mount(R, ed, C0, ctx = {}) {
   $('#add-move')?.addEventListener('click', () => add('#moves', moveRow({ kind: 'tien_mat', amount: null, note: '', sign: -1 }, true, ctx.isDs), '.mv-amt'));
   $$('[data-addsg]').forEach((b) => b.addEventListener('click', () => add('#moves', moveRow({ kind: 'tien_mat', amount: null, note: '', sign: Number(b.dataset.addsg) }, true, ctx.isDs), '.mv-amt')));
   bindKindSeg(form);
+  $('#ds-dir-done')?.addEventListener('click', () => { clearDirect(); showSaved('Đã xong sửa thẳng — khoá lại.'); rerender(); });
+  $('#ds-money-edit')?.addEventListener('click', (ev0) => {
+    const items = ev0.currentTarget.dataset.items.split(',').filter(Boolean); const isChu = !!LK?.is_chu;
+    const dl = dialog(html`<form class="stack" style="gap:12px;width:min(480px, calc(100vw - 56px))"><h2 style="margin:0">Sửa phần tiền</h2>
+      <label class="field"><span>Lý do sửa <b>(bắt buộc)</b></span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm khoản chi"></label>
+      <div class="st-meta">${isChu ? html`<b>Sửa thẳng</b>: sửa ngay, ca giữ nguyên đã đối soát, không phải duyệt lại.<br>` : ''}<b>Mở lại phần tiền</b>: phần tiền về chưa đối soát, sửa xong bấm <b>Duyệt phần tiền &amp; hoàn thành</b> ở cuối trang.</div>
+      <div class="den-err"></div>
+      <div class="toolbar" style="justify-content:flex-end;gap:8px;flex-wrap:wrap"><button type="button" class="btn sm secondary" data-x>Huỷ</button>
+        <button type="button" class="btn sm ${isChu ? 'secondary' : ''}" data-reopen>Mở lại phần tiền</button>${isChu ? html`<button type="submit" class="btn sm">Sửa thẳng</button>` : ''}</div></form>`);
+    const f = dl.querySelector('form'); const err = (m) => { dl.querySelector('.den-err').innerHTML = str(html`<div class="alert error">${m}</div>`); };
+    dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
+    dl.querySelector('[data-reopen]').addEventListener('click', async (e2) => {
+      const why = f.why.value.trim(); if (!why) { err('Ghi lý do sửa.'); f.why.focus(); return; }
+      e2.target.disabled = true;
+      try { for (const it of items) await rpc('app_ca_item_reopen', { p_id: R.id, p_item: it, p_reason: why }); dl.close(); flash('Đã mở lại phần tiền — sửa xong bấm Duyệt ở cuối trang.'); rerender(); }
+      catch (e) { e2.target.disabled = false; err(e.message); }
+    });
+    f.addEventListener('submit', (e2) => {
+      e2.preventDefault(); const why = f.why.value.trim(); if (!why) { err('Ghi lý do sửa.'); f.why.focus(); return; }
+      setDirect({ id: R.id, items: items.filter((it) => ITEM_FIELDS[it]), why }); dl.close(); showSaved('Đang sửa thẳng phần tiền — sửa xong bấm "Xong, khoá lại".'); rerender();
+    });
+  });
   // bước 112: ô Loại của dòng thu chi gộp → cập nhật loại tiền / dấu; đổi loại nợ ngay trên dòng
   form.addEventListener('change', async (ev) => {
     const t = ev.target;
@@ -1901,6 +1928,7 @@ const STYLE = html`<style>
   .fb-kv { grid-template-columns: minmax(0, 1fr) auto; } .fb-kv > div:nth-child(even) { text-align: right; font-variant-numeric: tabular-nums; } .fb-kv > .fb-p { color: var(--ok-ink); } .fb-kv > .fb-m { color: #b91c1c; } .fb-kv > .fb-t { border-top: 2px solid currentColor; padding-top: 4px; font-weight: 800; }
   .fb-blk { display: flex; flex-direction: column; gap: 6px; } .ds-edit > summary { color: var(--primary); }
   .cm88-seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; } .cm88-seg button { border: 0; background: var(--card); font: inherit; font-weight: 700; padding: 6px 12px; cursor: pointer; } .cm88-seg button.on { background: var(--forest); color: #fff; }
+  .ds-mlock { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0; } .ds-mlock .grow { flex: 1 1 240px; }
   .ds-hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 800; letter-spacing: .03em; padding: 10px 14px; border-radius: 12px; background: var(--caramel-soft, #f6ead9); }
   .pc.ds:not(.wz) .ds-pane + .ds-pane { margin-top: 10px; }
   .ds-who { padding: 0 4px; }
