@@ -53,7 +53,8 @@ export default async ({ sleep, out }) => {
     check(!$('.ds-fabi').open || !!$('.ds-fabi .ds-ic.bad'), 'Đối soát: Phiếu Fabi khớp thì thu gọn');
     { const row = $$('#moves .mv-row').find((x) => x.querySelector('.uv-type')); const t = (q) => row.querySelector(q).getBoundingClientRect().top;
       check(Math.abs(t('.sc-kt') - t('.mv-amt')) < 14 && Math.abs(t('.mv-amt') - t('.pc-del')) < 14, 'Đối soát: Thu/Chi · TM/CK · số tiền · ✕ trên 1 dòng'); }
-    check(getComputedStyle($('.ds-mbar') || document.body).position === 'sticky' || !$('.ds-mbar'), 'Đối soát: thanh Duyệt dính đáy màn hình');
+    { const ok = $('#ds-money-ok'); const foot = $('.wz-foot'); const t = (x) => x.getBoundingClientRect().top;
+      check(!!ok && !ok.hidden && foot.contains(ok) && Math.abs(t(ok) - t($('#ds-prev'))) < 14 && getComputedStyle(foot).position === 'sticky' && !$('.ds-mbar'), 'Đối soát: Quay lại · Duyệt phần tiền cùng 1 hàng ở đáy màn hình (giống chốt ca)'); }
     check(!pane.textContent.includes('CHƯA ĐỐI SOÁT'), 'Đối soát: không còn nhãn "CHƯA ĐỐI SOÁT" ở trang tiền');
     check($$('#rev_start').length === 1 && $$('#cash_counted').length === 1 && $$('#reported_transfer').length === 1, 'Đối soát: không trùng ô nhập');
     check(!$('.pc-ban .seg') && !!$('.pc-ban a'), 'Đối soát: bỏ 2 thẻ gốc / đối soát, còn 1 liên kết xem phiếu gốc');

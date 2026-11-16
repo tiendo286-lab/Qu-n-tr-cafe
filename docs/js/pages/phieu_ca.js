@@ -3,18 +3,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.7';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.16.8';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.7';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.7';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.16.8';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.16.8';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.7';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.16.8';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -639,10 +639,8 @@ export async function render({ params }) {
   const canMoney = isDs && !!R.can_recon && R0.recon_status !== 'hoan_thanh';
   const ktWait = isDs && KT && KT.need && !KT.ready;
   const lxLeft = isDs ? ['tien_mat', 'chuyen_khoan'].filter((it) => !itDone(it) && gapOf(it) !== null && gapOf(it) !== undefined && Number(gapOf(it)) !== 0) : [];
-  const moneyBar = canMoney && !['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone) ? html`<section class="card ds-mbar"><div class="grow" style="font-size:13px">${ktWait ? html`⏳ <b>Chờ kế toán</b>: ${(KT.missing || []).join(', ')}`
-      : lxLeft.length ? html`<b style="color:var(--off-line,#dc2626)">Có lệch ${lxLeft.map((it) => (it === 'tien_mat' ? 'tiền mặt' : 'chuyển khoản')).join(', ')}</b> — chọn cách xử lý ở khung Xử lý lệch.`
-      : html`<b style="color:var(--ok-ink,#24502a)">Sẵn sàng</b> · bấm 1 lần là xong phần tiền.`}</div>
-      <button type="button" class="btn ok" id="ds-money-ok">✓ Duyệt phần tiền &amp; hoàn thành</button></section>` : '';
+  // bước 115: nút Duyệt nằm chung 1 hàng nút ở đáy màn hình (giống chốt ca: ‹ Quay lại · Kiểm tra · Gửi)
+  const moneyBtn = canMoney && !['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].every(itDone) ? html`<button type="button" class="btn ok" id="ds-money-ok" hidden>✓ Duyệt phần tiền &amp; hoàn thành</button>` : '';
   // E. Nhân viên
   const secStaff = sec('Ai làm ca', ['nhan_su'], html`
     <div class="st-meta">Danh sách theo lịch đã xếp. Ghi nhận ở đây không sửa lịch đã xếp.</div>
@@ -772,11 +770,11 @@ export async function render({ params }) {
         ${dsFabi}${uvCard}
         <section class="sc-block"><h2>Tiền thực tế</h2><label class="pc-f"><span>Tổng chuyển khoản đã nhận trên hotline</span>${money('reported_transfer', R.reported_transfer, !edT)}</label><span class="st-meta">Tiền mặt đếm được là ô Tổng tiền trên phiếu Fabi ở trên. Chuyển khoản dùng số ngân hàng khi kế toán nhập đủ; số hotline giữ để đối chiếu.</span>${cashMode()}</section>
         ${['tien_mat', 'chuyen_khoan'].some((it) => (R.results || {})[it] || (!lkItem(it) && gapOf(it) !== null && gapOf(it) !== undefined && Number(gapOf(it)) !== 0)) ? html`<section class="sc-block"><h2>Xử lý lệch</h2>${lxBox('tien_mat')}${lxBox('chuyen_khoan')}</section>` : ''}
-        ${edT || edSharedT ? rcWhy : ''}${moneyBar}
+        ${edT || edSharedT ? rcWhy : ''}
         <div class="ds-more-row">
           <details class="ds-more"><summary>Phiếu chi / rút chuyển khoản</summary><div class="stack" style="gap:10px;margin-top:8px">${caBoxSec}${secDiff}</div></details>
           <details class="ds-more"><summary>Lịch sử sửa · mở lại phiếu</summary><div class="stack" style="gap:10px;margin-top:8px">${dsFoot}</div></details></div></div>
-      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button><div class="ds-end" id="ds-end" hidden><button type="button" class="btn ok" id="ds-done">Về danh sách</button><button type="button" class="btn" id="ds-nextca">Ca tiếp theo ›</button></div></section>` : ''}` : '';
+      ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button>${moneyBtn}<div class="ds-end" id="ds-end" hidden><button type="button" class="btn ok" id="ds-done">Về danh sách</button><button type="button" class="btn" id="ds-nextca">Ca tiếp theo ›</button></div></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
   const wizard = !isDs && ed && (!isManager() || window.matchMedia('(max-width: 760px)').matches);
@@ -1054,7 +1052,7 @@ function mount(R, ed, C0, ctx = {}) {
       $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
       $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === DS_LAST; const sk = $('.ds-pane[data-skip]') ? 1 : 0; $('#ds-pos').textContent = `Bước ${st + 1 - (sk && st > DS_X2 ? 1 : 0)}/${DS_LAST + 1 - sk}`;
       $('#ds-next').textContent = canApprove ? 'Duyệt & tiếp ›' : 'Tiếp ›';
-      $('#ds-end').hidden = st !== DS_LAST;   // bước 92: bước cuối — Hoàn thành / Ca tiếp theo
+      { const mo = $('#ds-money-ok'); if (mo) mo.hidden = st !== DS_LAST; $('#ds-end').hidden = st !== DS_LAST || !!mo; $('#ds-pos').hidden = st === DS_LAST; }   // bước 92 / 115: bước Tiền — còn phải duyệt thì nút Duyệt, duyệt xong thì Về danh sách / Ca tiếp theo — cùng 1 hàng
       paintParts(st);
       { const lg = $('#ds-lights'); if (lg) lg.hidden = st !== 0; }   // bước 110: trang tiền 1 trang đã có tóm tắt riêng   // bước 91: đèn tổng chỉ hiện ở bước đầu và bước cuối — các bước giữa gọn như phiếu chốt ca
       window.scrollTo({ top: 0 });
@@ -1881,8 +1879,11 @@ const STYLE = html`<style>
   .wz-foot { position: sticky; bottom: 8px; display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px; box-shadow: 0 4px 16px rgba(0,0,0,.12); z-index: 4; }
   .wz-foot .btn { min-height: 44px; white-space: nowrap; padding: 0 14px; flex: 1 1 0; min-width: 0; font-size: 15px; }
   .wz-foot #wz-pos { flex: 0 0 auto; }
-  .wz-foot:has(#ds-end:not([hidden])) { flex-wrap: wrap; }
-  .ds-end { display: flex; gap: 8px; flex: 1 1 100%; }   /* bước 92 */
+  .ds-end { display: flex; gap: 8px; flex: 2 1 0; min-width: 0; }   /* bước 92 / 115: cùng 1 hàng với Quay lại */
+  .wz-foot #ds-money-ok { flex: 2 1 0; background: var(--ok-ink); border-color: var(--ok-ink); color: #fff; white-space: normal; line-height: 1.25; }
+  .wz-foot:has(#ds-money-ok:not([hidden])) #ds-prev, .wz-foot:has(#ds-end:not([hidden])) #ds-prev { flex: 0 0 auto; }
+  .wz-foot:has(#ds-end:not([hidden])) .btn, .wz-foot #ds-money-ok { white-space: normal; line-height: 1.2; padding: 4px 10px; } .ds-end .btn { min-width: 0; }
+  @media (max-width: 480px) { .wz-foot { padding: 8px; gap: 6px; } .wz-foot .btn { font-size: 13px; padding: 4px 8px; } }
   .uv-h { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-top: 4px; }   /* bước 112 */
   .uv-row { gap: 6px; flex-wrap: wrap; align-items: center; border: 1px solid var(--line); border-radius: 10px; padding: 6px 8px; background: var(--card); }
   .uv-row .uv-type, .uv-row .uv-dkind { width: auto; font-weight: 600; } .uv-row .mv-amt, .uv-row .db-amt { width: 110px; text-align: right; }
