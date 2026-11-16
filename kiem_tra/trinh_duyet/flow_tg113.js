@@ -20,6 +20,12 @@ export default async ({ sleep, out }) => {
     location.hash = '#/ca/phieu?id=' + id; await wait('#cm-next'); await sleep(300);
     $('[data-shift-step="3"]').click(); await wait('#cm-check'); await sleep(300);
     const row0 = () => $$('.sc-row').find((x) => x.querySelector('[data-mkind]'));
+    // bước 114: chốt ca xếp giống đối soát
+    { const body = $('#cm-body'); const kids = [...body.querySelectorAll(':scope > *')]; const pos = (q) => kids.findIndex((x) => x.matches(q));
+      check(pos('#cm-verdict') === 0 && pos('#cm-verdict') < pos('#cm-money-table') && pos('#cm-money-table') < pos('#cm-fabi'), 'Chốt ca: kết quả trên cùng → bảng tiền → Phiếu Fabi (giống đối soát)');
+      check(!$('#cm-fabi').open && /đã nhập/.test($('#cm-fabi-sum').textContent), 'Chốt ca: Phiếu Fabi nhập đủ thì thu gọn 1 dòng');
+      $('#cm-fabi-sum').click(); await sleep(200); check($('#cm-fabi').open && !!$('#cm-close'), 'Chốt ca: bấm vào Phiếu Fabi là mở ra sửa được');
+      $('#cm-fabi-sum').click(); await sleep(200); }
     check(row0().querySelector('[data-tg="dir"][data-v="thu"]').classList.contains('on'), 'Chốt ca: dòng thu hiện nút Thu đang chọn');
     { const t = (q) => row0().querySelector(q).getBoundingClientRect().top; check(Math.abs(t('.sc-kt') - t('[data-k="amount"]')) < 14 && Math.abs(t('[data-k="amount"]') - t('[data-mx]')) < 14, 'Chốt ca: Thu/Chi · TM/CK · số tiền · ✕ trên 1 dòng'); }
     check(!$$('#cm-root select[data-mkind]').some((x) => !x.hidden), 'Chốt ca: không còn ô chọn thả xuống Thu/Chi');
@@ -28,6 +34,10 @@ export default async ({ sleep, out }) => {
     row0().querySelector('[data-tg="pay"][data-v="ck"]').click(); await sleep(300);
     check(row0().querySelector('[data-mkind]').value === 'chi_ck', 'Chốt ca: bấm CK 1 lần là đổi');
     check(/− Chi\s*0\s*-30\.000/.test($('#cm-money-table').textContent.replace(/\s+/g, ' ')), 'Chốt ca: bảng tiền tính lại (Chi CK −30.000)');
+    check(/Còn thiếu/.test($('#cm-verdict').textContent), 'Chốt ca: chưa đủ thì dòng trên cùng báo Còn thiếu');
+    $$('[data-mcat]').forEach((x) => { const o = [...x.options].find((y) => y.value && y.value !== 'x') || [...x.options].find((y) => y.value); if (o) { x.value = o.value; x.dispatchEvent(new Event('change', { bubbles: true })); } }); await sleep(200);
+    $('#cm-check').click(); await sleep(400);
+    check(/khớp|thiếu|thừa/i.test($('#cm-verdict').textContent) && !$('#cm-next').disabled, 'Chốt ca: bấm Kiểm tra → kết quả hiện ở dòng trên cùng: ' + $('#cm-verdict .sc-v').childNodes[0].textContent.trim());
     const dk = $('[data-dk="0"][data-v="ck"]'); dk.click(); await sleep(300);
     check($('[data-dk="0"][data-v="ck"]').classList.contains('on'), 'Chốt ca: Báo nợ chọn CK 1 lần');
     check(!$('.cm-dkk'), 'Chốt ca: bỏ khối giải thích Báo nợ dài');

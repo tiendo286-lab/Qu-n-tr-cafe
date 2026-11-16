@@ -667,6 +667,7 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Bước 1–3 của đối soát (Ai làm ca, Nghỉ & làm thay, Bàn giao) giữ cách so sánh hiện có — chưa đổi lần này.
 - **113b (16/11)**: phần tiền đã đối soát / quản lý tự chốt thì ô khoá — có nút **✎ Sửa phần tiền** ngay trang tiền (lý do → Mở lại phần tiền; Chủ chọn được Sửa thẳng).
 - **113c (16/11, anh chọn theo mẫu thử cũ)**: trang tiền đối soát: dòng "Còn N khoản chưa phân loại" trên cùng → **Bảng tiền lên đầu** → Phiếu Fabi gọn 1 dòng "✓ khớp file · NET … ›" (bấm mở; gồm thời gian doanh thu) → Các khoản · N khoản → Tiền thực tế → Xử lý lệch → thanh Duyệt dính đáy. Dưới tên ca: Nhân viên gửi lúc · Fabi ✓ · ngân hàng ✓. Mỗi khoản 1 hàng [Thu|Chi][TM|CK] số tiền ✕ (cả chốt ca).
+- **114 (16/11)**: bước Tiền của **chốt ca** xếp giống đối soát: dòng kết quả trên cùng (chưa đủ → "Còn thiếu: …"; Kiểm tra xong → khớp / thiếu / thừa) → Bảng tiền → Phiếu Fabi (chưa nhập thì mở sẵn; nhập đủ, đúng thì gọn 1 dòng "✓ Phiếu Fabi đã nhập · NET …", bấm mở lại; gồm thời gian doanh thu) → Các khoản · N khoản → Tiền thực tế → (quản lý tự chốt: xử lý lệch) → thanh Quay lại · Kiểm tra · Gửi ở đáy.
 
 ## 6. Đã bỏ hẳn
 
