@@ -654,7 +654,17 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - **Quản lý tự chốt được hoàn thành đối soát ngay**, kể cả khi kế toán chưa có file Fabi/ngân hàng. Nghỉ/làm thay vẫn là việc riêng để quản lý tổng phân loại và Chủ duyệt sau; không chặn ca tự chốt. Quy định này thay điều kiện chờ kế toán/x2 cũ cho riêng quản lý tự chốt. Nhân viên gửi vẫn chờ quản lý đối soát.
 - Quản lý chọn nhóm cho từng khoản Thu / Chi. Lệch tiền có lựa chọn **Để sau / Quán chịu (theo quyền hiện có) / Chia đều người có làm ca**. Để sau không tự trừ lương, số lệch vẫn theo dõi ở Lệch tiền ca. Chia đều báo rõ sẽ trừ lương trước khi gửi. Máy chủ lấy số thực tế và chặn gửi nếu số lệch khác số đã xem.
 - Giữ số hotline để đối chiếu; khi đủ dữ liệu ngân hàng, đối soát dùng số ngân hàng. Bản đối soát giữ lịch sử, lý do sửa; phiếu nhân viên và ảnh cũ giữ nguyên; tháng đã chốt không sửa được.
-- Tệp triển khai: `98_chot_ca_doi_soat_chung.sql`. Trạng thái hiện tại: **đã viết và kiểm thử tự hoàn tác; chưa áp dụng máy chủ, chưa phát hành web**.
+- Tệp triển khai: `98_chot_ca_doi_soat_chung.sql`. Trạng thái: **đã áp dụng máy chủ và phát hành web 16/11/2026** (bản 2026.11.16.3).
+
+## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
+
+- Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
+- Bỏ 2 thẻ "Phiếu nhân viên (gốc) / Đối soát ca này"; còn 1 liên kết nhỏ "Xem phiếu gốc nhân viên gửi".
+- Các khoản tiền của ca (cả 2 trang): **Thu nợ đứng đầu** → Thu / Chi → Khách CK rút tiền mặt → Báo nợ. Nút cùng thứ tự: + Thu nợ · + Thu · + Chi · + Báo nợ · + Khách CK rút tiền mặt. Ở đối soát, + Thu nợ mở danh sách khách đang nợ; + Báo nợ = quản lý ghi nhận nợ (NV bấm nhầm thanh toán).
+- Đổi Thu ↔ Chi, TM ↔ CK, loại nợ TM / CK / HĐ, khách trả TM / CK: **nút bấm 1 lần** thay ô chọn thả xuống.
+- Báo nợ gọn 1 dòng (bỏ 3 đoạn giải thích dài); luôn có nút + Báo nợ. Hotline chỉ còn 1 dòng kết quả (phép tính đã có ở bảng tiền), bỏ chữ "bước Thu chi" và nút "Về bước…" của kiểu 10 bước cũ. Bấm Kiểm tra xong không vẽ lại bảng tiền lần 2.
+- Phần ít dùng của đối soát gom cuối trang: phiếu chi / rút chuyển khoản · lịch sử sửa, mở lại phiếu · gán lương cho nhân viên.
+- Bước 1–3 của đối soát (Ai làm ca, Nghỉ & làm thay, Bàn giao) giữ cách so sánh hiện có — chưa đổi lần này.
 
 ## 6. Đã bỏ hẳn
 

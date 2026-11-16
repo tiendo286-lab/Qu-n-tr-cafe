@@ -6,7 +6,7 @@ export default async ({sleep,out}) => {
  const set=(el,val)=>{el.value=val;el.dispatchEvent(new Event('input',{bubbles:true}));};
  const results=[]; let failure=null;
  try {
-  await wait('#root h1, #root h2'); $$('dialog[open]').forEach(d=>d.close());
+  await wait('#root h1, #root h2, #root .card, #root nav'); $$('dialog[open]').forEach(d=>d.close());
   const {rpc}=await import('../js/sb.js');
   const day=new Date(Date.now()+7*3600e3).toISOString().slice(0,10);
   const ov=await rpc('app_ca_overview',{p_date:day}); const o=ov.find(x=>x.branch_code==='LLB')||ov[0];

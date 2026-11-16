@@ -27,17 +27,19 @@ export default async ({ sleep, out }) => {
       // bước 94: Phiếu Fabi — hiện khách còn nợ, quản lý ghi "đã trả trong ca này"
       const d0 = new Date(Date.now() - 17 * 3600e3).toISOString().slice(0, 10);
       const did = await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: o.branch_id, name: 'Anh Bình', amount: 300000, kind: 'muon', date: d0 } });
-      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait(`[data-qlno="${did}"]`); await sleep(1200);
-      if (new URLSearchParams(location.search).get('dung')) { $('.fb-row')?.closest('section')?.scrollIntoView(); await new Promise(() => {}); }   // chụp ảnh
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/doi-soat/ca?id=' + id + '&buoc=4'; await wait('[data-qlpick]'); await sleep(1200);
+      // bước 113: khách trả nợ ghi bằng nút + Thu nợ (danh sách khách đang nợ) ở mục Các khoản tiền của ca
+      $('[data-qlpick]').click(); await wait(`[data-pk="${did}"]`); await sleep(300);
+      if (new URLSearchParams(location.search).get('dung')) { await new Promise(() => {}); }   // chụp ảnh
       const col = async () => (await rpc('app_ca_get', { p_id: id })).money?.col_tm;
-      r.push(`khách còn nợ: ${$$('[data-qlno][data-k="tien_mat"]').length} khoản · col_tm ${await col()}`);
-      $(`[data-qlno="${did}"][data-k="tien_mat"]`).click(); await wait('dialog form [name=amt]'); await sleep(300);
+      r.push(`khách còn nợ: ${$$('[data-pk][data-k="tien_mat"]').length} khoản · col_tm ${await col()}`);
+      $(`[data-pk="${did}"][data-k="tien_mat"]`).click(); await wait('dialog form [name=amt]'); await sleep(300);
       const f = $('dialog form'); f.amt.value = '100.000'; f.requestSubmit(); await sleep(800);
       r.push(`không lý do: ${txt('#qn-err')}`);
-      f.why.value = 'Khách trả nhưng nhân viên không biết'; f.requestSubmit(); await sleep(2500); await wait('[data-qlno-undo]'); await sleep(800);
+      f.why.value = 'Khách trả nhưng nhân viên không biết'; f.requestSubmit(); await sleep(2500); await wait('.paid-row [data-paid-delete]'); await sleep(800);
       const L = (await rpc('app_ca_get', { p_id: id })).open_debts.filter((x) => x.table_name === 'Anh Bình');
-      r.push(`sau ghi: col_tm ${await col()} · Anh Bình ${L.map((x) => (x.closed_at ? 'đã trả ' : 'còn ') + x.amount).join(', ')} · nút Bỏ ${$$('[data-qlno-undo]').length}`);
-      $('[data-qlno-undo]').click(); await sleep(2500); await wait(`[data-qlno="${did}"]`);
+      r.push(`sau ghi: col_tm ${await col()} · Anh Bình ${L.map((x) => (x.closed_at ? 'đã trả ' : 'còn ') + x.amount).join(', ')} · dòng Thu nợ ${$$('.paid-row').length} · nút Xoá ${$$('[data-paid-delete]').length}`);
+      $$('.rc-why').forEach((x) => { x.value = 'Thử bỏ khoản khách trả'; }); $('.paid-row [data-paid-delete]').click(); await sleep(2500); await wait('[data-qlpick]'); await sleep(600);
       const L2 = (await rpc('app_ca_get', { p_id: id })).open_debts.filter((x) => x.table_name === 'Anh Bình');
       r.push(`sau bỏ: col_tm ${await col()} · Anh Bình ${L2.map((x) => (x.closed_at ? 'đã trả ' : 'còn ') + x.amount).join(', ')}`);
 
