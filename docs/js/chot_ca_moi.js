@@ -1,12 +1,12 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender, can } from './app.js';
-import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.16.10';
+import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.16.11';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.16.10';
+import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.16.11';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -16,7 +16,7 @@ const LABEL = ['Nhận chốt ca', 'Ai làm ca', 'Phiếu Fabi', 'Khách nợ tr
 // Bước 77 (anh Tiến chốt 13/11): phiếu chia 2 phần — ① PHẦN VIỆC (Ai làm ca · Số cốc · Bàn giao & nhận hàng) làm trước,
 // ② PHẦN TIỀN (Fabi · Khách nợ · Thu chi · Chuyển khoản · Kết quả tiền · Kiểm tra) mở khi xong phần việc. Nhận hàng không chặn phần tiền.
 const ORDER_ALL = [0, 1, 6, 8, 2, 3, 5, 4, 9];   // bước 84: gộp Kết quả tiền (7) vào bước cuối (9)   // cơ sở dùng Fabi bỏ bước Số cốc (mã 6) — số cốc lấy theo file Fabi (bước 49)
-const VIEC = [1, 10, 8]; const TIEN = [11];
+const VIEC = [1, 8]; const TIEN = [11, 12];
 const hm = (x) => (x ? String(x).slice(0, 5) : '');
 const sum = (a, f) => (a || []).reduce((s, x) => s + (Number(f(x)) || 0), 0);
 const num = (v) => (v === null || v === undefined || v === '' ? null : Number(v));
@@ -33,8 +33,8 @@ export async function renderNew(R0, P, SH) {
   const R = R0;
   let fabiBranch = true; try { fabiBranch = !!(await rpc('app_ca_kt_state', { p_id: R0.id }))?.need; } catch (_) { /* chưa có bước 44 */ }
   const managerClose = can('doi_soat');
-  const ORDER = [0, 1, 10, 8, 11];
-  LABEL[10] = 'Nghỉ & làm thay'; LABEL[11] = 'Tiền';
+  const ORDER = [0, 1, 8, 11, 12];
+  LABEL[11] = 'Tiền'; LABEL[12] = 'Kiểm tra';
   const categories = managerClose ? (await rpc('app_fin_types')) : [];
   const STEPS = ORDER.map((k) => LABEL[k]);
   const firstTien = ORDER.findIndex((k) => TIEN.includes(k)); const lastViec = firstTien - 1;
@@ -66,7 +66,6 @@ export async function renderNew(R0, P, SH) {
   // bước 77: phần việc xong (đã bấm "Xong phần việc", hoặc phiếu đã có số tiền) thì mới mở phần tiền
   V.viecDone = !!mem.viecDone || V.f.ipos_opening !== null || photos.length > 0;
   if (tienMine && !waiting && mem.code != null && ORDER.includes(Number(mem.code))) V.step = ORDER.indexOf(Number(mem.code));
-  if (ORDER[V.step] === 10 && !V.staff.some((x) => !x.worked || x.source !== 'lich')) V.step = 3;
   const HP = { tab: '', q: '' }; let HELP = null;   // bước 48: chọn người làm hộ — mục đang mở, chữ lọc, danh sách nhân viên
   const billSum = () => sum(V.debts.filter(isBill), (d) => d.amount);
   const prevCash = hand && hand.prev_cash !== null && hand.prev_cash !== undefined ? Number(hand.prev_cash) : null;
@@ -221,7 +220,7 @@ export async function renderNew(R0, P, SH) {
         <div class="cm-seg cm-hp-tabs" role="group" aria-label="Chọn nhóm nhân viên"><button type="button" data-hp="in" aria-pressed="${HP.tab === 'in'}">Nhân viên trong quán</button><button type="button" data-hp="old" aria-pressed="${HP.tab === 'old'}">Nhân viên cũ</button></div>
         ${HP.tab ? html`<input class="input sm" id="cm-helper" placeholder="Lọc theo tên hoặc mã (không cần dấu)" aria-label="Lọc người làm hộ" value="${HP.q}" autocomplete="off">
           <div id="cm-help-list" class="cm-hlist"><span class="st-meta">Đang tải danh sách…</span></div>` : ''}</div>
-      <div class="st-meta">Có người nghỉ hoặc làm hộ thì quản lý tổng phân loại lý do khi đối soát.</div>`,
+      ${hasCover() ? html`<div class="alert info" style="margin:0"><b>Có nghỉ / làm thay trong ca.</b> Nội dung đã được ghi ngay trong bước Nhân viên; quản lý tổng tiếp tục phân loại sau.</div>` : html`<div class="st-meta">Không có người nghỉ hoặc làm thay trong ca.</div>`}`,
     2: () => {
       const ch = fabiChecks();
       return html`<div class="st-meta">Chụp phiếu chốt ca Fabi trước, rồi gõ <strong>lần lượt từ trên xuống</strong> đúng như trên phiếu.</div>
@@ -339,6 +338,19 @@ export async function renderNew(R0, P, SH) {
     </section>
     <section class="sc-block"><h2>Tiền thực tế</h2>${B[4]()}<span class="st-meta">Tiền mặt đếm được là ô Tổng tiền trên phiếu Fabi.</span><label>Ghi chú cho quản lý (không bắt buộc)<textarea class="input" id="cm-diff-note" rows="2">${V.diff_note}</textarea></label></section>
     <div id="cm-gap-choices">${gapChoices()}</div>`;
+  B[12] = () => {
+    const worked = V.staff.filter((s) => s.worked);
+    const handovers = V.handover.filter((h) => (h.content || '').trim());
+    return html`<div id="cm-verdict">${verdictBox()}</div>
+      <section class="sc-block"><h2>Kiểm tra trước khi gửi</h2>
+        <div class="cm-review-row"><span>Nhân viên trong ca</span><b>${worked.length} người</b></div>
+        <div class="cm-review-row"><span>Bàn giao ca</span><b>${handovers.length ? `${handovers.length} nội dung` : 'Không có'}</b></div>
+        <div class="cm-review-row"><span>Phiếu Fabi</span><b>${fabiDone() ? 'Đã nhập đủ' : 'Chưa đủ'}</b></div>
+        <div class="cm-review-row"><span>Các khoản tiền</span><b>${(R.open_debts || []).filter((d) => d.closed_report_id === R.id).length + V.moves.length + V.debts.length} khoản</b></div>
+      </section>
+      <section class="sc-block">${commonMoney()}</section>
+      <div class="alert info" style="margin:0">Sau khi gửi, chính phiếu này chuyển sang <b>Chờ quản lý đối soát</b>. Số nhân viên đã gửi được giữ nguyên.</div>`;
+  };
   // bước 104: nhận hàng đã tách hẳn sang menu Hàng hoá — chỉ còn nút cho phiếu cũ có người đã nhận phần "nhận hàng"
   function nhanHang() {
     const p = PT.nhan_hang || {};
@@ -399,17 +411,18 @@ export async function renderNew(R0, P, SH) {
     const odOpen = (R.open_debts || []).filter((d) => !d.closed_at && !d.family);   // bước 75 / 85: khách nợ (không nhắc công nợ gia đình)
     const nhac = odOpen.length ? html`<div class="alert warn pc-nhac"><strong>Khách đang nợ: ${odOpen.length} khoản · ${fmt(sum(odOpen, (d) => d.amount))}đ</strong>
         <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ trong ca" (② Phần tiền · ${LABEL[2]}).</div></div>` : '';
-    const sc = ORDER[s] === 1 ? 0 : ORDER[s] === 10 ? 1 : ORDER[s] === 8 ? 2 : 3;
-    return html`${s ? shiftSteps(sc, hasCover()) : ''}${s === 0 ? nhac : ''}
+    const sc = ORDER[s] === 1 ? 0 : ORDER[s] === 8 ? 1 : ORDER[s] === 11 ? 2 : 3;
+    const stepNav = html`<nav class="sc-steps cm-four-steps" aria-label="Các bước chốt ca">${['Nhân viên','Bàn giao','Tiền','Kiểm tra'].map((label,i) => html`<button type="button" data-shift-step="${i}" class="${i === sc ? 'on' : ''}" aria-current="${i === sc ? 'step' : 'false'}"><b>${i + 1}</b><span>${label}</span></button>`)}</nav>`;
+    return html`${s ? stepNav : ''}${s === 0 ? nhac : ''}
       <div class="card stack cm-card" id="cm-body">${s === 1 || ORDER[s] === 8 ? html`<section class="sc-block"><h2>${STEPS[s]}</h2>${B[ORDER[s]]()}</section>` : B[ORDER[s]]()}${s === 0 && tienOther ? nhanHang() : ''}</div>
       <div id="cm-err" role="alert">${err ? html`<div class="alert error">${err}</div>` : ''}</div>
-      ${s > 0 ? html`<div class="cm-nav"><button type="button" class="btn secondary" id="cm-back" ${s === 1 ? 'hidden' : ''}>‹ Quay lại</button>${s === STEPS.length - 1 ? html`<button type="button" class="btn secondary" id="cm-check">Kiểm tra</button>` : ''}<button type="button" class="btn" id="cm-next" ${s === STEPS.length - 1 && !V.checked ? 'disabled' : ''}>${s === STEPS.length - 1 ? managerClose ? 'Gửi & hoàn thành' : 'Gửi phiếu' : 'Tiếp ›'}</button></div>` : ''}`;
+      ${s > 0 ? html`<div class="cm-nav"><button type="button" class="btn secondary" id="cm-back" ${s === 1 ? 'hidden' : ''}>‹ Quay lại</button><button type="button" class="btn" id="cm-next">${s === STEPS.length - 1 ? managerClose ? 'Gửi & hoàn thành' : 'Gửi phiếu' : ORDER[s] === 11 ? 'Kiểm tra & tiếp ›' : 'Lưu & tiếp tục ›'}</button></div>` : ''}`;
   }
 
   return {
     title: `Chốt ca ${R.shift}`,
-    html: html`${CM_CSS}${SHIFT_CSS}<div class="ph-wrap sc-wrap"><div class="page-head"><div><a href="#/ca?ngay=${R.work_date}" style="font-size:14px;font-weight:600">‹ Danh sách ca</a>
-        <h1 style="margin-top:6px">Chốt ca ${R.shift} · ${R.branch_code || ''}</h1></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
+    html: html`${CM_CSS}${SHIFT_CSS}<div class="ph-wrap sc-wrap"><div class="page-head cm-mobile-head"><div><a href="#/ca?ngay=${R.work_date}">‹ Danh sách ca</a><span class="cm-head-label">Phiếu chốt ca</span>
+        <h1>Ca ${R.shift} · ${R.branch_code || ''}</h1><small>${dmy(R.work_date)} · ${managerClose ? 'Quản lý chốt và đối soát trên cùng phiếu' : 'Đang chốt · tự động lưu'}</small></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="cm-col" id="cm-root">${shell()}</div></div>`,
     mount() {
       const root = $('#cm-root'); bindKindSeg(root);
@@ -474,7 +487,7 @@ export async function renderNew(R0, P, SH) {
           if (e) { V.tried = true; $('#cm-err').innerHTML = str(html`<div class="alert error">${e}</div>`); $('#cm-err').scrollIntoView({ block: 'nearest' }); return; }
           V.tried = false;
           if (V.step === lastViec) V.viecDone = true;   // bước 77: xong phần việc → mở phần tiền
-          if (V.step < STEPS.length - 1) { const previousStep = V.step; V.step++; if (ORDER[V.step] === 10 && !hasCover()) V.step++; try { await save(); } catch (er) { V.step = previousStep; throw er; } draw(true); showSaved(V.step === firstTien ? 'Đã xong phần việc — làm tiếp phần tiền' : 'Đã lưu'); return; }
+          if (V.step < STEPS.length - 1) { const previousStep = V.step; if (ORDER[V.step] === 11) V.checked = true; V.step++; try { await save(); } catch (er) { V.step = previousStep; throw er; } draw(true, V.checked); showSaved(V.step === firstTien ? 'Đã xong phần việc — làm tiếp phần tiền' : 'Đã lưu'); return; }
           await save();
           if (!V.checked) throw new Error('Bấm Kiểm tra lại trước khi gửi phiếu.');
           const r = await rpc('app_ca_submit_unified', { p_id: R.id, p_gaps: V.gaps, p_categories: V.moves.filter((m) => m.kind !== 'doi_tien').map((m) => ({kind:m.kind,amount:m.amount,note:(m.note || '').trim(),category:m.category || null})) });
@@ -656,6 +669,15 @@ const CM_CSS = html`<style>
   .cm-pn { font-weight: 800; font-size: 14px; } .cm-ps { font-size: 12px; color: var(--ink-2); }
   .cm-steps i.done { background: var(--ok-line); } .cm-steps i.cur { background: var(--primary); }
   .cm-nav { display: flex; gap: 8px; } .cm-nav .btn { flex: 1; min-height: 46px; }
+  .cm-mobile-head { background: var(--forest); color: #fff; border-radius: 18px; padding: 16px 18px; margin-bottom: 12px; align-items: flex-start; }
+  .cm-mobile-head a { color: inherit; font-size: 13px; font-weight: 600; opacity: .9; }
+  .cm-mobile-head .cm-head-label { display: block; margin-top: 12px; font-size: 11px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; opacity: .78; }
+  .cm-mobile-head h1 { color: inherit; margin: 3px 0 0; font-size: 22px; }
+  .cm-mobile-head small { display: block; margin-top: 5px; font-size: 12px; opacity: .82; }
+  .cm-four-steps { grid-template-columns: repeat(4,minmax(0,1fr)); }
+  .cm-review-row { display: flex; justify-content: space-between; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+  .cm-review-row:last-child { border-bottom: 0; }
+  .cm-review-row b { text-align: right; }
   .cm-fabi { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 170px); gap: 8px 10px; align-items: center; }
   .cm-lab { font-size: 14px; font-weight: 600; } .cm-lab small { display: block; font-weight: 400; color: var(--muted); font-size: 12px; }
   .cm-fabi .input.money { text-align: right; font-weight: 700; font-variant-numeric: tabular-nums; }
@@ -696,5 +718,5 @@ const CM_CSS = html`<style>
   .cm-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .cm-thumb .ph-del { position: absolute; top: 3px; right: 3px; width: 24px; height: 24px; border-radius: 50%; border: none; background: rgba(0,0,0,.6); color: #fff; font-size: 15px; line-height: 1; cursor: pointer; padding: 0; }
   .cm-phact { display: flex; flex-direction: column; gap: 6px; align-items: flex-start; min-width: 0; }
-  @media (max-width: 420px) { .cm-fabi { grid-template-columns: minmax(0, 1fr) minmax(0, 140px); } .cm-line { grid-template-columns: minmax(0, 1fr) 105px auto; } .cm-line2 { grid-template-columns: minmax(0, 1fr) 110px; } }
+  @media (max-width: 420px) { .ph-wrap.sc-wrap { padding-inline: 0; } .cm-mobile-head { border-radius: 0 0 20px 20px; margin-inline: -12px; margin-top: -12px; } .cm-fabi { grid-template-columns: minmax(0, 1fr) minmax(0, 140px); } .cm-line { grid-template-columns: minmax(0, 1fr) 105px auto; } .cm-line2 { grid-template-columns: minmax(0, 1fr) 110px; } }
 </style>`;

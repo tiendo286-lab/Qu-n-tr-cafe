@@ -1,5 +1,5 @@
 // Bước 62 / 100: Chuyển khoản thực nhận — BẢNG TUẦN 1 CƠ SỞ (cột = ngày, hàng = ca → tài khoản → Thực nhận); chỉ gõ số dư lúc đóng ca;
-// số đầu ca sau chỉ tự điền khi ca sau CHƯA kê khai; KHÔNG đổi số đã kê khai; tự lưu đúng ca vừa sửa; nút ⋯. role=chu (confirm=1, điện thoại)
+// (bước 117: số đầu ca sau LUÔN = số cuối ca trước, kể cả ca đã kê khai — xem flow_ck117); tự lưu đúng ca vừa sửa; nút ⋯. role=chu (confirm=1, điện thoại)
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const txt = (s, r) => ($(s, r)?.innerText || '').replace(/\s+/g, ' ').trim();
@@ -18,7 +18,7 @@ export default async ({ sleep, out }) => {
     const id3 = await rpc('app_ca_open', { p_branch: br, p_date: day, p_shift: sh[2] });
     const acc = await rpc('app_kt_account_save', { p_id: null, p_branch: br, p_bank: 'VCB', p_no: '1234567890', p_holder: 'Chủ', p_label: null, p_active: true });
     await rpc('app_kt_bank_save_accounts', { p_report: id1, p_rows: [{ account_id: acc, opening: 4000000, closing: 5000000, transfers_out: 0, note: null }] });
-    // ca 3 đã kê khai sẵn số đầu 9.000.000 (khác) — web không được đổi
+    // ca 3 gửi số đầu 9.000.000 (khác) — từ bước 117 máy chủ đặt lại = số cuối ca trước
     await rpc('app_kt_bank_save_accounts', { p_report: id3, p_rows: [{ account_id: acc, opening: 9000000, closing: 9500000, transfers_out: 0, note: null }] });
     const go = async () => { location.hash = '#/__tam'; await sleep(200); location.hash = `#/ke-toan/chuyen-khoan?cn=${br}&ngay=${day}`; await wait('.ckw-c, table.ckw'); await sleep(1000); };
     await go();
@@ -33,7 +33,7 @@ export default async ({ sleep, out }) => {
     setv($('.ckw-close', c(id2)), '7.000.000'); await sleep(1500);
     let b2 = await rpc('app_kt_bank_get', { p_report: id2 });
     r.push(`gõ ca 2 = 7.000.000 → lưu ca 2: ${b2.accounts[0].opening}→${b2.accounts[0].closing} · thực nhận ca 2: ${txt(`.ckw-t[data-r="${id2}"]`)} · ${txt('#saved-indicator')}`);
-    // sửa ca 1 → ca 2 đã kê khai: KHÔNG đổi số đầu, chỉ nhắc
+    // sửa ca 1 → số đầu ca 2 tự đổi theo (bước 117)
     setv($('.ckw-close', c(id1)), '6.200.000'); await sleep(1500);
     b2 = await rpc('app_kt_bank_get', { p_report: id2 }); const b3 = await rpc('app_kt_bank_get', { p_report: id3 });
     r.push(`sửa ca 1 = 6.200.000 → ca 2 máy chủ vẫn ${b2.accounts[0].opening} · ô ca 2: ${txt('.ckw-o', c(id2))} · ca 3 máy chủ vẫn ${b3.accounts[0].opening} · ô ca 3: ${txt('.ckw-o', c(id3))}`);

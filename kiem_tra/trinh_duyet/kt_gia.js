@@ -12,6 +12,14 @@ export function makeKt(T, me) {
   const order = ['Sáng', 'Chiều', 'Tối'];
   const ACC = []; const BAL = {}; // BAL[reportId][accId]
   const rec = (x) => (x && x.opening != null && x.closing != null ? x.closing - x.opening + (x.transfers_out || 0) : null);
+  // bước 117: số cuối gần nhất trước ca r của tài khoản k
+  const prevOf = (r, kid) => T.shift_reports.filter((p) => p.branch_id === r.branch_id && BAL[p.id]?.[kid]?.closing != null && (p.work_date < r.work_date || (p.work_date === r.work_date && order.indexOf(p.shift) < order.indexOf(r.shift))))
+    .sort((a, c) => (a.work_date + order.indexOf(a.shift)).localeCompare(c.work_date + order.indexOf(c.shift))).pop() || null;
+  const nextSync = (r, kid) => {   // số đầu ca sau (chưa tự nhập, chưa hoàn thành đối soát) = số cuối ca trước
+    const nx = T.shift_reports.filter((p) => p.branch_id === r.branch_id && BAL[p.id]?.[kid] && !BAL[p.id][kid].opening_manual && (p.work_date > r.work_date || (p.work_date === r.work_date && order.indexOf(p.shift) > order.indexOf(r.shift))))
+      .sort((a, c) => (a.work_date + order.indexOf(a.shift)).localeCompare(c.work_date + order.indexOf(c.shift)))[0];
+    if (!nx || nx.recon_status === 'hoan_thanh') return; const pv = prevOf(nx, kid); if (pv) BAL[nx.id][kid].opening = BAL[pv.id][kid].closing;
+  };
   const bankJson = (r) => {
     const mine = BAL[r.id] || {};
     const accs = ACC.filter((k) => k.branch_id === r.branch_id && (k.active || mine[k.id])).map((k) => {
@@ -19,7 +27,7 @@ export function makeKt(T, me) {
       const prev = T.shift_reports.filter((p) => p.branch_id === r.branch_id && BAL[p.id]?.[k.id]?.closing != null && (p.work_date < r.work_date || (p.work_date === r.work_date && order.indexOf(p.shift) < order.indexOf(r.shift))))
         .sort((a, c) => (a.work_date + order.indexOf(a.shift)).localeCompare(c.work_date + order.indexOf(c.shift))).pop();
       return { account_id: k.id, bank: k.bank, account_no: k.account_no, holder: k.holder, label: k.label, active: k.active,
-        opening: x.opening ?? null, closing: x.closing ?? null, transfers_out: x.transfers_out ?? 0, note: x.note || null, received: rec(x),
+        opening: x.opening ?? null, closing: x.closing ?? null, transfers_out: x.transfers_out ?? 0, note: x.note || null, received: rec(x), opening_manual: !!x.opening_manual,
         prev: prev ? { closing: BAL[prev.id][k.id].closing, work_date: prev.work_date, shift: prev.shift } : null };
     });
     const got = accs.filter((a) => a.received != null);
@@ -88,7 +96,7 @@ export function makeKt(T, me) {
     app_kt_bank_save_accounts({ p_report, p_rows }) {
       const r = rep(p_report); if (r.recon_status === 'hoan_thanh') throw new Error('Quản lý đã HOÀN THÀNH ĐỐI SOÁT ca này nên số liệu kế toán đã khóa.');
       const m = (BAL[p_report] ||= {});
-      p_rows.forEach((x) => { if (!m[x.account_id] && x.opening == null && x.closing == null && !x.transfers_out && !x.note) return; m[x.account_id] = { opening: x.opening, closing: x.closing, transfers_out: x.transfers_out || 0, note: x.note || null, updated_by: me.account_id, updated_at: now() }; });
+      p_rows.forEach((x) => { if (!m[x.account_id] && x.closing == null && !x.transfers_out && !x.note && !x.opening_manual) return; const pv = prevOf(r, x.account_id); const op = !x.opening_manual && pv ? BAL[pv.id][x.account_id].closing : x.opening; const ch = m[x.account_id]?.closing !== x.closing || !m[x.account_id]; m[x.account_id] = { opening_manual: !!x.opening_manual, opening: op, closing: x.closing, transfers_out: x.transfers_out || 0, note: x.note || null, updated_by: me.account_id, updated_at: now() };  if (ch) nextSync(r, x.account_id); });
     },
   };
 }

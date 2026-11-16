@@ -44,8 +44,9 @@ export async function render({ params }) {
     ROW.set(r.report_id, { ...r, shift: sh, work_date: d }); ORDER.push(r.report_id);
     (r.accounts || []).forEach((a) => {
       if (!accMap.has(a.account_id)) accMap.set(a.account_id, a);
-      const prevC = a.prev ? a.prev.closing : null; const saved = a.opening !== null || a.closing !== null;
-      S.set(`${r.report_id}|${a.account_id}`, { report: r.report_id, acc: a.account_id, a, saved, opening: a.opening ?? (!saved && prevC !== null ? prevC : null), closing: a.closing,
+      // bước 117: số dư đầu = số dư cuối ca trước (tự lấy); chỉ khi kế toán tích "khác số cuối ca trước" mới giữ số tự nhập
+      const prevC = a.prev ? a.prev.closing : null; const saved = a.opening !== null || a.closing !== null; const manual = !!a.opening_manual;
+      S.set(`${r.report_id}|${a.account_id}`, { report: r.report_id, acc: a.account_id, a, saved, manual, opening: manual ? a.opening : (prevC ?? a.opening), closing: a.closing,
         out: Number(a.transfers_out || 0), note: a.note || '', prevC, prev: a.prev, late: Number(a.late_in || 0) - Number(a.late_out || 0), lock: !!r.locked });
     });
   }));
@@ -127,14 +128,14 @@ export async function render({ params }) {
   function fillNext(st) {
     const nx = ORDER[ORDER.indexOf(st.report) + 1]; const ns = nx && S.get(`${nx}|${st.acc}`);
     if (!ns) return;
-    ns.prevC = st.closing;   // ca đã kê khai: chỉ để nhắc "khác cuối ca trước", không đổi số
-    if (!ns.saved) ns.opening = st.closing;
+    ns.prevC = st.closing;
+    if (!ns.manual) ns.opening = st.closing;   // bước 117: số đầu ca sau luôn theo số cuối ca này (trừ khi đã tích tự nhập)
   }
   function paint() {
     $$('.ckw-c').forEach((td) => {
       const st = S.get(td.dataset.k);
-      const mm = st.saved && st.opening !== null && st.prevC !== null && Number(st.opening) !== Number(st.prevC);
-      td.querySelector('.ckw-o').innerHTML = str(html`${st.opening === null ? html`<span class="ckw-warn">chưa có số dư đầu — bấm ⋯</span>` : html`đầu ${fmt(st.opening)}`}${st.out ? html` · ra ${fmt(st.out)}` : ''}${st.late ? html` · chậm ${signed(st.late)}` : ''}${mm ? html`<span class="ckw-warn">khác cuối ca trước (${fmt(st.prevC)})</span>` : ''}`);
+      const mm = st.manual && st.opening !== null && st.prevC !== null && Number(st.opening) !== Number(st.prevC);
+      td.querySelector('.ckw-o').innerHTML = str(html`${st.opening === null ? html`<span class="ckw-warn">chưa có số dư đầu — bấm ⋯</span>` : mm ? html`<span class="ckw-warn">đầu ${fmt(st.opening)} ≠ cuối ca trước ${fmt(st.prevC)}</span>` : html`đầu ${fmt(st.opening)}`}${st.out ? html` · ra ${fmt(st.out)}` : ''}${st.late ? html` · chậm ${signed(st.late)}` : ''}${mm ? html`<span class="ckw-warn">khác cuối ca trước (${fmt(st.prevC)})</span>` : ''}`);
       td.querySelector('.ckw-more').classList.toggle('dot', !!(st.out || st.note || st.late || mm));
     });
     const dayT = days.map(() => ({ v: 0, any: false })); const wk = { v: 0, any: false }; const shT = {};
@@ -155,7 +156,7 @@ export async function render({ params }) {
     const r = ROW.get(rid); if (!r || r.locked) return Promise.resolve();
     r._q = (r._q || Promise.resolve()).then(async () => {
       const L = [...S.values()].filter((x) => x.report === rid);
-      const items = L.map((x) => ({ account_id: x.acc, opening: x.opening, closing: x.closing, transfers_out: x.out || 0, note: x.note }));
+      const items = L.map((x) => ({ account_id: x.acc, opening: x.manual ? x.opening : (x.prevC ?? x.opening), opening_manual: !!x.manual, closing: x.closing, transfers_out: x.out || 0, note: x.note }));
       try { await rpc('app_kt_bank_save_accounts', { p_report: rid, p_rows: items }); L.forEach((x) => { if (x.opening !== null || x.closing !== null) x.saved = true; }); showSaved(`Đã lưu ca ${r.shift} ${dmy(r.work_date).slice(0, 5)} · ${hhmm()}`); }
       catch (e) { showSaved(`Ca ${r.shift} ${dmy(r.work_date).slice(0, 5)}: ${e.message}`, true); }
     });
@@ -165,8 +166,9 @@ export async function render({ params }) {
   function more(st) {
     const r = ROW.get(st.report); const a = st.a; const late = r.late || []; const lock = st.lock;
     const d = dialog(html`<form class="stack" style="gap:12px;width:min(460px, calc(100vw - 56px))"><h2 style="margin:0">${a.bank} ${a.account_no} · ca ${r.shift} ${dmy(r.work_date)}</h2>
-      <label class="field"><span>Số dư đầu ca</span>${money('m-open', st.opening, lock)}
-        <span class="st-meta">${st.prev ? `Số dư lúc đóng ca trước (${st.prev.shift} ${dmy(st.prev.work_date)}): ${vnd(st.prev.closing)}` : 'Chưa có ca trước — nhập số dư ban đầu.'}</span></label>
+      <label class="field"><span>Số dư đầu ca</span>${money('m-open', st.opening, lock || (st.prevC !== null && !st.manual))}
+        <span class="st-meta">${st.prevC !== null ? html`Tự lấy = số dư cuối ca trước${st.prev ? ` (${st.prev.shift} ${dmy(st.prev.work_date)})` : ''}: <b>${vnd(st.prevC)}</b>` : 'Chưa có ca trước — nhập số dư ban đầu.'}</span></label>
+      ${st.prevC !== null ? html`<label class="pc-line" style="gap:8px;align-items:flex-start"><input type="checkbox" class="m-man" ${st.manual ? 'checked' : ''} ${lock ? 'disabled' : ''}> <span>Số dư đầu <b>khác</b> số dư cuối ca trước (tự nhập) <span class="st-meta">— hiếm khi cần; web sẽ báo đỏ để kiểm tra</span></span></label>` : ''}
       <label class="field"><span>Tiền chuyển ra trong ca</span>${money('m-out', st.out, lock)}<span class="st-meta">Không có thì để 0.</span></label>
       <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${st.note}" ${lock ? 'disabled' : ''} placeholder="Không bắt buộc" autocomplete="off"></label>
       <details class="ckw-late" ${late.length ? 'open' : ''}><summary>Tiền về chậm (${late.length})</summary><div class="stack" style="gap:6px;margin-top:6px">
@@ -178,11 +180,13 @@ export async function render({ params }) {
             <button type="button" class="btn sm secondary m-ladd">+ Ghi tiền về chậm</button></div>`}</div></details>
       <div class="m-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Đóng</button>${lock ? '' : html`<button class="btn sm" type="submit">Lưu</button>`}</div></form>`);
+    d.querySelector('.m-man')?.addEventListener('change', (ev) => { const o = d.querySelector('.m-open'); o.disabled = !ev.target.checked; if (!ev.target.checked) o.value = fmt(st.prevC); else o.focus(); });
     bindMoneyInputs(d); const f = d.querySelector('form'); const err = (e) => { d.querySelector('.m-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); };
     d.querySelector('[data-x]').addEventListener('click', () => d.close());
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      st.opening = parseMoney(f.querySelector('.m-open').value); st.out = parseMoney(f.querySelector('.m-out').value) || 0; st.note = f.note.value.trim();
+      const man = !!f.querySelector('.m-man')?.checked; st.manual = man;
+      st.opening = st.prevC !== null && !man ? st.prevC : parseMoney(f.querySelector('.m-open').value); st.out = parseMoney(f.querySelector('.m-out').value) || 0; st.note = f.note.value.trim();
       paint(); await save(st.report); d.close();
     });
     d.querySelector('.m-ladd')?.addEventListener('click', async (ev) => {
