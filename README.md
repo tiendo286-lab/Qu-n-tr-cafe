@@ -18,6 +18,8 @@ Web đang chạy tại: https://tiendo286-lab.github.io/Qu-n-tr-cafe/
 
 Quy tắc phát triển nằm trong [CLAUDE.md](CLAUDE.md). Tính năng đã chốt nằm trong [tai_lieu/TINH_NANG_DA_CHOT.md](tai_lieu/TINH_NANG_DA_CHOT.md).
 
+Codex đọc hướng dẫn tại [AGENTS.md](AGENTS.md). Cách bắt đầu và giao việc bằng tiếng Việt: [Hướng dẫn Codex](tai_lieu/HUONG_DAN_CODEX.md).
+
 ## Kiểm tra giao diện
 
 Các bài Chrome dùng bản sao `docs/` và Supabase giả lập trong bộ nhớ. Cách dựng và danh sách luồng nằm trong [kiem_tra/trinh_duyet/README.md](kiem_tra/trinh_duyet/README.md). Sau khi đổi giao diện, cần kiểm tra cả khung điện thoại 390px.

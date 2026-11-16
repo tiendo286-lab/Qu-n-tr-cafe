@@ -26,12 +26,14 @@ export default async ({ sleep, out }) => {
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id; await wait('.cm-col'); await sleep(800);
     $$('dialog[open]').forEach((d) => d.close());
     r.push(`nhắc đầu phiếu: ${txt('.pc-nhac')}`);
+    if (halt('nhan')) await new Promise(() => {});
     $('#cm-claim').click(); await wait('.cm-person, #cm-helper'); await sleep(900);
     $$('dialog[open]').forEach((d) => d.close());
     if (!$$('.cm-person').length) { $('[data-hp="in"]')?.click(); for (let i = 0; i < 100 && !$('[data-add-emp]'); i++) await sleep(50); $('[data-add-emp]')?.click(); await sleep(300); }
     $$('[data-t]').forEach((i) => { if (!i.value) setv(i, i.dataset.k === 'time_in' ? '06:45' : '12:45'); });
     r.push(`Ai làm ca: ô lương tiền mặt ${$$('[data-cash]').length} · nhãn trả lương TM ${$$('.cm-person .pill.info').length}`);
-    await next(); await next();   // Ai làm ca → Bàn giao → Phiếu Fabi
+    if (halt('ai')) await new Promise(() => {});
+    await next(); if (halt('bg')) await new Promise(() => {}); await next();   // Ai làm ca → Bàn giao → Phiếu Fabi
     r.push(`phần tiền: ${$$('.cm-part')[1]?.innerText.replace(/\s+/g, ' ')} · ${txt('#cm-root h2')}`);
     const cv = document.createElement('canvas'); cv.width = 40; cv.height = 60; cv.getContext('2d').fillRect(0, 0, 40, 60);
     const blob = await new Promise((ok) => cv.toBlob(ok, 'image/jpeg'));
@@ -46,7 +48,7 @@ export default async ({ sleep, out }) => {
     const vnDay = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
     $('[data-sign="-1"]')?.click(); await sleep(300); num('pos_diff', vnDay >= '2026-11-15' ? '100000' : '220000'); await sleep(400);
     r.push(`Fabi: ${txt('#cm-checks')}`);
-    if (halt('fabi')) return;
+    if (halt('fabi')) await new Promise(() => {});
     await next();
     r.push(`bước 2: ${txt('#cm-root h2')} · ${txt('.cm-dkk').slice(0, 60)}…`);
     await next(); r.push(`Tiếp khi chưa ghi nợ: ${txt('#cm-err')}`);
@@ -57,24 +59,24 @@ export default async ({ sleep, out }) => {
       $(`[data-dk="${i}"][data-v="${k}"]`).click(); await sleep(300);
     }
     r.push(`ô kiểm nợ: ${txt('#cm-debt-sum')} · ${W()}`);
-    if (halt('no')) return;
+    if (halt('no')) await new Promise(() => {});
     await next();
     r.push(`bước 3: ${txt('#cm-root h2')} · ${$$('#cm-body h3').map((h) => h.innerText).join(' / ')} · nút ${$$('#cm-add-move, #cm-add-ckmove').length}`);
     $('#cm-add-move').click(); await sleep(250); setv($('[data-mv="0"][data-k="note"]'), 'Mua đá'); setv($('[data-mv="0"][data-k="amount"]'), '150000');
     $('#cm-add-move').click(); await sleep(250); setv($('[data-mv="1"][data-k="note"]'), 'Bán bìa carton'); setv($('[data-mv="1"][data-k="amount"]'), '50000'); $('[data-mt="1"][data-v="1"]').click(); await sleep(250);
     $('#cm-add-move').click(); await sleep(250); setv($('[data-mv="2"][data-k="note"]'), 'Chi lương Quang hỗ trợ'); setv($('[data-mv="2"][data-k="amount"]'), '200000');
     r.push(`thu chi: ${$$('#cm-body .cm-person').length} dòng · ${W()}`);
-    if (halt('tc')) return;
+    if (halt('tc')) await new Promise(() => {});
     await next();
     r.push(`bước 4: ${txt('#cm-root h2')}`);
     typ($('#cm-hot'), '2550000'); await sleep(400);
     r.push(`hotline: ${txt('#cm-ck-box')}`);
-    if (halt('hl')) return;
+    if (halt('hl')) await new Promise(() => {});
     await next();
     r.push(`bước 5: ${txt('#cm-root h2')} · phần tiền ${$$('.cm-part')[1]?.innerText.replace(/\s+/g, ' ')} · nút ${txt('#cm-next')}`);
     r.push(`tiền mặt: ${$$('.cm-rc')[0]?.innerText.replace(/\s+/g, ' ').slice(0, 420)}`);
     r.push(`chuyển khoản: ${$$('.cm-rc')[1]?.innerText.replace(/\s+/g, ' ').slice(0, 330)} · ${W()}`);
-    if (halt('kq')) return;
+    if (halt('kq')) await new Promise(() => {});
     await next(); await sleep(1500);
     const R2 = await rpc('app_ca_get', { p_id: id });
     r.push(`GỬI (không ghi lý do) → ${R2.status} · nợ ${R2.debts.map((d) => `${d.table_name}:${d.kind}`).join(',')} · thu chi ${R2.moves.map((m) => m.amount).join(',')} · ${txt('#cm-err') || 'không lỗi'}`);

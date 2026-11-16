@@ -30,7 +30,7 @@ export function judge(R0, R, fabi, kt) {
   const h = R0.cash_hand;
   const out = [];
   const wait = !!(kt && kt.need && !kt.ready);   // phần tiền chờ kế toán
-  const add = (item, ok, why, manual) => { const w = wait && KT_ITEMS.includes(item); out.push({ item, ok: ok && !w, wait: w, why: ok || w ? '' : why, manual: !!manual && !ok && !w, done: !!checks[item] || !!res[item] }); };
+  const add = (item, ok, why, manual) => { const w = wait && KT_ITEMS.includes(item); out.push({ item, ok: ok && !w, wait: w, why: ok || w ? '' : why, manual: !!manual && !ok && !w, done: !!checks[item] && (!MONEY.includes(item) || !!res[item]) }); };
   const nsIssue = staff.filter((s) => !s.worked || s.source !== 'lich');
   add('nhan_su', !nsIssue.length, `Có người nghỉ / làm hộ (${nsIssue.map((s) => s.name || s.code).join(', ')}) — quản lý tổng phân loại, Chủ duyệt`);
   add('ban_giao', true, '');

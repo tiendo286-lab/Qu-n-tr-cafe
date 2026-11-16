@@ -46,7 +46,7 @@ export async function mountCover(box, R, ctx = {}) {
   const valid = C.state === 'cho_duyet' || C.state === 'da_duyet';
   const rowOf = (absentId) => (valid ? C.rows.find((r) => r.absent_id === absentId) : null);
   const extraOf = (hid) => (valid ? C.rows.find((r) => r.absent_id === null && r.helper_id === hid) : null);
-  const canEdit = C.can_classify && C.recon_status !== 'hoan_thanh' && C.open;
+  const canEdit = C.can_classify && (C.recon_status !== 'hoan_thanh' || C.self_reconciled) && C.open;
 
   const readOnly = () => html`${C.rows.map((r) => html`<div class="cv-row ${C.state === 'da_duyet' ? 'ok' : ''}">
       <div>${r.absent ? html`<strong>${r.absent}</strong> nghỉ · ${r.reason_label}` : html`<strong>${r.helper}</strong> làm thêm · ${r.reason_label}`}</div>
@@ -79,7 +79,7 @@ export async function mountCover(box, R, ctx = {}) {
   const draw = () => {
     box.innerHTML = str(html`<div class="pc-sec-head"><h2>Nghỉ & làm thay <span class="pill ${st[1]}">${st[0]}</span></h2></div>
       <div class="st-meta">Quản lý tổng chọn lý do nghỉ và đãi ngộ người làm thay (x2 hay không). Nhờ quản lý tìm người thì người nghỉ luôn bị trừ đúng số giờ người thay làm.
-        Chủ duyệt thì phiếu mới hoàn thành đối soát, người nghỉ và người làm thay được báo và được khiếu nại.
+        ${C.self_reconciled ? 'Ca do quản lý tự chốt đã hoàn thành; việc nghỉ / làm thay vẫn theo dõi riêng trong Công việc.' : 'Chủ duyệt thì phiếu mới hoàn thành đối soát.'} Người nghỉ và người làm thay được báo và được khiếu nại.
         Sửa danh sách ở mục "Nhân viên thực tế làm trong ca" trước rồi mới phân loại.</div>
       ${C.set_at ? html`<div class="st-meta">Phân loại: ${C.set_by || ''} ${dt(C.set_at)}${C.ok_at ? html` · <strong>Chủ duyệt: ${C.ok_by || ''} ${dt(C.ok_at)}</strong>${C.ok_note ? ' · ' + C.ok_note : ''}` : ''}</div>` : ''}
       ${canEdit ? editor() : valid ? readOnly() : html`<div class="alert warn">Chờ Quản lý tổng phân loại ${absents.length} người nghỉ, ${helpers.length} người hỗ trợ.</div>`}`);

@@ -63,7 +63,7 @@ export function makeCa(T, me) {
   const FIELDS = ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status', 'goods_note', 'moves', 'staff', 'goods'];
   const snap = (id) => { const r = T.shift_reports.find((x) => x.id === id); return {
     ...Object.fromEntries(FIELDS.slice(0, 11).map((k) => [k, r[k] ?? null])),
-    moves: T.shift_report_moves.filter((m) => m.report_id === id).map((m) => ({ kind: m.kind, amount: m.amount, note: m.note || '' })),
+    moves: T.shift_report_moves.filter((m) => m.report_id === id).map((m) => ({ kind: m.kind, amount: m.amount, note: m.note || '', ...(m.exchange_key ? {exchange_key:m.exchange_key} : {}) })),
     staff: T.shift_report_staff.filter((x) => x.report_id === id).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role || null, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null, cash_paid: x.cash_paid || null })),
     goods: T.shift_report_goods.filter((g) => g.report_id === id).map((g) => ({ item: g.item, qty: g.qty || '' })) }; };
   const F = {
@@ -218,6 +218,18 @@ export function makeCa(T, me) {
       if (!left.length) F.app_ca_complete({ p_id });
       return { completed: !left.length, left: left.map((k) => PLBL[k]) };
     },
+    app_ca_submit_unified({ p_id }) {
+      F.app_ca_part_done({p_id,p_part:'tien',p_on:true});
+      const result = F.app_ca_part_done({p_id,p_part:'nhan_su',p_on:true});
+      const self = !!me.perms.doi_soat;
+      if (result.completed && self) {
+        const r = rep(p_id); const m = money(p_id);
+        for (const it of ITEMS) if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({report_id:p_id,item:it,checked_by:me.account_id,checked_at:now()});
+        for (const it of MONEY) { const gap = it === 'tien_mat' ? m.tm_left : it === 'chuyen_khoan' ? m.ck_left : 0; RES[p_id+'|'+it] = {result:gap<0?'thieu':gap>0?'thua':'khop',amount:Math.abs(gap),by:name(me.account_id),at:now()}; }
+        Object.assign(r,{self_reconciled:true,recon_status:'hoan_thanh',recon_by:me.account_id,recon_at:now()});
+      }
+      return {...result,self_reconciled:self};
+    },
     app_ca_handover_done({ p_item, p_report, p_done }) { needEdit(p_report); const h = T.handover_items.find((x) => x.id === p_item); Object.assign(h, p_done ? { done_at: now(), done_by: me.account_id, done_report_id: p_report } : { done_at: null, done_by: null, done_report_id: null }); },
     app_ca_loans_open() {
       return T.shift_debts.filter((d) => d.kind === 'muon' && !d.closed_at).map((d) => { const o = rep(d.report_id); const b = T.branches.find((x) => x.id === d.branch_id) || {};
@@ -277,10 +289,16 @@ export function makeCa(T, me) {
       if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: Math.max(...T.shift_debts.map((x) => x.id)) + 1, amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
       Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, collect_kind: p_kind, close_note: 'Quản lý ghi khi đối soát: ' + p_reason.trim() });
     },
-    app_ca_recon_debt_uncollect({ p_report, p_debt }) {
-      const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_report_id !== p_report) throw new Error('Chỉ bỏ được khoản quản lý ghi.');
+    app_ca_recon_debt_uncollect({ p_report, p_debt, p_reason }) {
+      if (p_reason !== undefined && !String(p_reason || '').trim()) throw new Error('Ghi lý do sửa hoặc xoá khoản khách trả.');
+      const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_report_id !== p_report) throw new Error('Khoản khách trả không thuộc ca này.');
       const k = T.shift_debts.findIndex((x) => x.split_from === d.id && !x.closed_at); if (k >= 0) { d.amount += T.shift_debts[k].amount; T.shift_debts.splice(k, 1); }
       Object.assign(d, { closed_at: null, closed_by: null, closed_report_id: null, collect_kind: null, close_note: null });
+    },
+    app_ca_recon_debt_update({ p_report, p_debt, p_kind, p_amount, p_reason }) {
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa khoản khách trả.');
+      this.app_ca_recon_debt_uncollect({ p_report, p_debt, p_reason });
+      this.app_ca_recon_debt_collect({ p_report, p_debt, p_kind, p_amount, p_reason });
     },
     app_ca_debts_paid({ p_id }) {
       return T.shift_debts.filter((d) => d.report_id === p_id && d.closed_at && d.kind !== 'muon').map((d) => { const c = rep(d.closed_report_id); return { id: d.id, report_id: c.id, shift: c.shift, work_date: c.work_date, status: c.status, kind: d.collect_kind, amount: d.amount }; });
@@ -380,7 +398,7 @@ export function makeCa(T, me) {
         if (!(k in p)) continue;
         let v = p[k];
         if (k === 'staff') v = (v || []).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null, cash_paid: x.cash_paid || null }));
-        if (k === 'moves') v = (v || []).map((x) => ({ kind: x.kind, amount: x.amount, note: x.note || '' }));
+        if (k === 'moves') v = (v || []).map((x) => ({ kind: x.kind, amount: x.amount, note: x.note || '', ...(x.exchange_key ? {exchange_key:x.exchange_key} : {}) }));
         if (k === 'goods') v = (v || []).filter((x) => x.item).map((x) => ({ item: x.item, qty: x.qty || '' }));
         if (JSON.stringify(old[k] ?? null) !== JSON.stringify(v ?? null)) { RLOG.push({ report_id: p_id, action: 'sua', field: k, before: old[k] ?? null, after: v ?? null, reason: p_reason || null, by: name(me.account_id), at: now() }); old[k] = v; }
       }

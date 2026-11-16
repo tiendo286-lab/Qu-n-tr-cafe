@@ -642,7 +642,19 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Thu chi: nút **"+ Khách chuyển khoản rút tiền mặt"** ghi 2 dòng ghép đôi (tiền mặt −X, chuyển khoản +X), chọn nhóm "Không tính" — không vào chi phí. Chi / rút bằng chuyển khoản dùng phiếu chi chuyển khoản sẵn có (trong khung Chuyển khoản).
 - **Bước 111 (làm lại theo phiếu thử 15/11, dữ liệu 03/11):** trang tiền còn 4 phần — ① **1 dòng kết luận** có màu (khớp / lệch ở đâu / chờ kế toán / đã duyệt) · ② **1 bảng chung 2 cột Tiền mặt | Chuyển khoản** (Số dư đầu ca, + Doanh thu theo Fabi, + Khách trả nợ cũ, − Khách mượn / nợ CK, ± Thu chi, − Lương trả TM, ± Khác → = Phải có / phải nhận → Thực tế → Lệch; dòng = 0 ẩn) · ③ Phiếu Fabi, Khách nợ mỗi mục 1 dòng (sai thì tự mở); **Thu chi luôn mở, chọn nhóm ngay từng khoản** (anh yêu cầu không ẩn), sửa số tiền / nội dung ngay bên dưới · ④ xử lý lệch (Quán chịu / Chia người làm ca / Để sau) + nút duyệt. Sửa số, phiếu chi / rút CK, lịch sử gom thành 3 nút nhỏ.
 - **Bước 112 (chốt + làm 15/11):** khung Khách nợ và Thu chi gộp thành **1 danh sách "Các khoản tiền của ca"**, sửa thẳng trên dòng: thu / chi (ô Loại: Chi · Thu × tiền mặt / chuyển khoản, số tiền, nội dung, **ô Nhóm ngay trên dòng**), khách nợ hoá đơn / khách mượn tiền mặt / nợ chuyển khoản (đổi loại, số tiền, tên), khách trả nợ cũ (bỏ khoản quản lý ghi, + Khách trả nợ cũ), + Khách CK rút tiền mặt, + Ghi nhận nợ (NV bấm nhầm thanh toán). **Lý do sửa ghi 1 lần ở cuối trang** (chưa có lý do thì chưa lưu). Chỉ sửa bản đối soát, phiếu nhân viên giữ nguyên. **Tháng đã chốt: khoá, không sửa** (anh đồng ý) — muốn sửa thì mở lại chốt tháng. Gán lương cho nhân viên / chuyển khoản chi thành nợ để ở nút nhỏ.
-- Còn để ngỏ: thêm nút "Khách CK rút tiền mặt" ở màn hình chốt ca của nhân viên (hiện nhân viên ghi 2 dòng thu chi).
+- Nút "Khách CK rút tiền mặt" của nhân viên đã được chốt trong phương án chung bên dưới.
+
+
+## 5r32. Chốt ca và đối soát dùng chung bố cục — CHỐT 16/11/2026
+
+- Thứ tự chung: **Ai làm ca → Nghỉ & làm thay (chỉ khi phát sinh) → Bàn giao → Tiền**. Máy tính và điện thoại dùng cùng thứ tự, bảng tiền và cách nhập Phiếu Fabi.
+- Tiền gồm thời gian doanh thu có ngày/giờ (qua nửa đêm chọn ngày hôm sau), Phiếu Fabi, bảng **Tiền mặt | Chuyển khoản**, danh sách Thu nợ / Thu / Chi / Báo nợ / Đổi tiền và chuyển khoản hotline. Ca sáng bắt đầu 06:45; các ca tiếp nối theo kết thúc ca trước.
+- **Khách CK rút tiền mặt là một phiếu**: một số tiền và một nội dung; thêm bằng nút riêng hoặc tích trên khoản Thu / Chi. Tự giảm tiền mặt và tăng chuyển khoản bằng nhau; không tính thu nhập/chi phí của quán. Sửa/xoá cả phiếu, máy chủ chặn chỉ sửa một vế. Không tự suy đoán ghép các khoản cũ chỉ vì giống số tiền/nội dung.
+- **Kiểm tra** trước khi gửi; sửa dữ liệu hoặc cách xử lý lệch phải kiểm tra lại. Thu nợ chọn khách còn nợ tại cơ sở, tìm không dấu và thu một phần bằng chức năng công nợ hiện có.
+- **Quản lý tự chốt được hoàn thành đối soát ngay**, kể cả khi kế toán chưa có file Fabi/ngân hàng. Nghỉ/làm thay vẫn là việc riêng để quản lý tổng phân loại và Chủ duyệt sau; không chặn ca tự chốt. Quy định này thay điều kiện chờ kế toán/x2 cũ cho riêng quản lý tự chốt. Nhân viên gửi vẫn chờ quản lý đối soát.
+- Quản lý chọn nhóm cho từng khoản Thu / Chi. Lệch tiền có lựa chọn **Để sau / Quán chịu (theo quyền hiện có) / Chia đều người có làm ca**. Để sau không tự trừ lương, số lệch vẫn theo dõi ở Lệch tiền ca. Chia đều báo rõ sẽ trừ lương trước khi gửi. Máy chủ lấy số thực tế và chặn gửi nếu số lệch khác số đã xem.
+- Giữ số hotline để đối chiếu; khi đủ dữ liệu ngân hàng, đối soát dùng số ngân hàng. Bản đối soát giữ lịch sử, lý do sửa; phiếu nhân viên và ảnh cũ giữ nguyên; tháng đã chốt không sửa được.
+- Tệp triển khai: `98_chot_ca_doi_soat_chung.sql`. Trạng thái hiện tại: **đã viết và kiểm thử tự hoàn tác; chưa áp dụng máy chủ, chưa phát hành web**.
 
 ## 6. Đã bỏ hẳn
 
