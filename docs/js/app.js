@@ -5,13 +5,13 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.16.11';
+const ASSET_VERSION = '2026.11.16.12';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
   ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', ['doi_soat', 'ke_toan']]], null, 'Vận hành'],   // bước 62: trang chủ theo vai trò
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Đối soát', '/quan-ly/doi-soat', 'doi_soat'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
   // bước 104: Hàng hoá kho tổng tách hẳn khỏi chốt ca — nhận hàng · đối soát · phiếu xuất (kế toán tải) · kiểm soát (giao bù, hoá đơn bổ sung, tiền tháng)
   ['Hàng hoá', [['Nhận hàng', '/hang-hoa/nhan', ['chot_ca', 'doi_soat', 'ke_toan']], ['Đối soát', '/hang-hoa/doi-soat', 'doi_soat'], ['Phiếu xuất', '/hang-hoa/phieu-xuat', ['ke_toan', 'doi_soat']],
     ['Kiểm soát', '/hang-hoa/kiem-soat', ['ke_toan', 'doi_soat']]], 'cn', 'Vận hành'],
@@ -100,7 +100,11 @@ export function can(p) {
   if (p === 'chot_thang') return ['chu', 'ql_tong', 'ql'].includes(state.me?.role);
   return !!state.me?.perms?.[p];
 }
-export function isManager() { return ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(state.me?.role); }
+// bước 118: nhân viên được cấp thêm quyền Kế toán — có nút đổi qua lại màn nhân viên / màn kế toán (nhớ trên máy này)
+export function ktSwitchable() { return !!state.me && !['chu', 'ql_tong', 'ql', 'ke_toan'].includes(state.me.role) && !!state.me.perms?.ke_toan; }
+export function ktMode() { try { return localStorage.getItem('ktMode') === '1'; } catch (_) { return false; } }
+function setKtMode(on) { try { localStorage.setItem('ktMode', on ? '1' : '0'); } catch (_) { /* bỏ qua */ } }
+export function isManager() { return ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(state.me?.role) || (ktSwitchable() && ktMode()); }
 
 export async function loadMe() {
   const { data } = await sb.auth.getSession();
@@ -186,6 +190,7 @@ function layout(path, body, flashMsg) {
           ${me.must_change ? '' : menuHtml(path)}
         </div>
         <div class="bottom">
+          ${ktSwitchable() ? html`<button type="button" class="kt-back" data-ktmode="0">↩ Về màn nhân viên</button>` : ''}
           <a href="#/doi-mat-khau">Đổi mật khẩu</a>
           <button type="button" data-logout>Đăng xuất</button>
         </div></details>
@@ -199,7 +204,7 @@ function layout(path, body, flashMsg) {
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"></path></svg>
         ${state.unread ? html`<span class="bell-n">${state.unread}</span>` : ''}</a></div>
       ${weekStrip(path)}</header>
-    <div class="content">${alert}${state.ghNhan && can('chot_ca') && !path.startsWith('/hang-hoa') ? html`<a class="gh-banner" href="#/hang-hoa/nhan">🚚 Có ${state.ghNhan} lần hàng kho tổng đang tới — <b>NHẬN HÀNG ›</b></a>` : ''}${body}
+    <div class="content">${alert}${ktSwitchable() ? html`<button type="button" class="kt-switch" data-ktmode="1">📊 Sang màn Kế toán <b>›</b><small>File ca Fabi · Chuyển khoản thực nhận · Phiếu xuất…</small></button>` : ''}${state.ghNhan && can('chot_ca') && !path.startsWith('/hang-hoa') ? html`<a class="gh-banner" href="#/hang-hoa/nhan">🚚 Có ${state.ghNhan} lần hàng kho tổng đang tới — <b>NHẬN HÀNG ›</b></a>` : ''}${body}
       <div class="m-foot"><a href="#/cua-toi/khoan-am">Khoản âm${state.ka ? html` <span class="badge">${state.ka}</span>` : ''}</a><a href="#/cua-toi/dao-tao">Phiếu đào tạo</a><a href="#/cua-toi/cong">Công của tôi</a><a href="#/cua-toi/danh-gia">Điểm đánh giá</a>${can('chot_ca') ? html`<a href="#/hang-hoa/nhan">Nhận hàng${state.ghNhan ? html` <span class="badge">${state.ghNhan}</span>` : ''}</a>` : ''}${can('ke_toan') ? html`<a href="#/hang-hoa/phieu-xuat">Kế toán</a>` : ''}<a href="#/quy-trinh">Quy trình</a><a href="#/doi-mat-khau">Đổi mật khẩu</a><button type="button" data-logout>Đăng xuất</button></div>
     </div>
     <nav class="tabbar pillbar" aria-label="Menu nhân viên">
@@ -327,6 +332,7 @@ export async function render() {
   const nav = document.querySelector('details.navd');
   if (nav && window.matchMedia('(max-width: 900px)').matches) nav.open = false;
   document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
+  document.querySelectorAll('[data-ktmode]').forEach((b) => b.addEventListener('click', () => { const on = b.dataset.ktmode === '1'; setKtMode(on); go(on ? '/hom-nay' : '/order'); }));
   if (page.mount) {
     try { const c = await page.mount(root()); if (typeof c === 'function') cleanup = c; } catch (e) { console.error(e); alert(viError(e)); }
   }

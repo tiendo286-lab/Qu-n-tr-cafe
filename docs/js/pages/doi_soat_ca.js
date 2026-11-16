@@ -1,5 +1,5 @@
-// Đối soát ca (trang riêng, từng bước): Tiền → Nhân sự & bàn giao → Nhận hàng → Hoàn thành.
-// Dùng chung giao diện với phiếu chốt ca (bản đối soát), phiếu nhân viên giữ nguyên ở #/ca/phieu.
+// Đường dẫn cũ được giữ để thông báo và dấu trang không hỏng.
+// Nội dung quản lý nay là bước Kiểm tra ngay trên chính Phiếu chốt ca.
 import { render as phieu } from './phieu_ca.js';
 
 export const perm = 'doi_soat';

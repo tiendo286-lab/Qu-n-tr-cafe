@@ -326,7 +326,6 @@ export async function renderNew(R0, P, SH) {
     return e ? html`<div class="sc-v wait">Còn thiếu: ${e}<small>Ghi đủ rồi bấm Kiểm tra ở cuối trang.</small></div>` : html`<div class="sc-v ok">Đã ghi đủ các mục<small>Bấm Kiểm tra ở cuối trang rồi gửi phiếu.</small></div>`;
   }
   B[11] = () => html`<div id="cm-verdict">${verdictBox()}</div>
-    <section class="sc-block" id="cm-money-table">${commonMoney()}</section>
     <details class="sc-block sc-fabi" id="cm-fabi" ${(V.fabiOpen ?? !fabiDone()) ? 'open' : ''}><summary id="cm-fabi-sum">${fabiSum()}</summary>
       <h3 class="sc-h3">Thời gian doanh thu</h3><div class="sc-period"><label>Bắt đầu doanh thu<input class="input" type="datetime-local" id="cm-open" value="${V.open}" ${R.forced_start || first ? 'readonly' : ''}></label><label>Kết thúc doanh thu<input class="input" type="datetime-local" id="cm-close" value="${V.close}"></label></div><span class="st-meta">${first ? 'Ca sáng bắt đầu 06:45. ' : R.forced_start ? 'Bắt đầu theo kết thúc ca trước. ' : ''}Theo giờ trên phiếu POS, không phải giờ làm của nhân viên. Qua nửa đêm chọn ngày hôm sau.</span>
       <h3 class="sc-h3">Số trên phiếu</h3>${B[2]()}${fabiBranch ? '' : B[6]()}</details>
@@ -337,7 +336,8 @@ export async function renderNew(R0, P, SH) {
       <div class="sc-actions"><button type="button" class="btn secondary" id="cm-pick-debt">+ Thu nợ</button><button type="button" class="btn secondary" data-new-move="1">+ Thu</button><button type="button" class="btn secondary" data-new-move="-1">+ Chi</button><button type="button" class="btn secondary" id="cm-add-debt">+ Báo nợ</button><button type="button" class="btn secondary" id="cm-exchange">+ Khách CK rút tiền mặt</button></div>
     </section>
     <section class="sc-block"><h2>Tiền thực tế</h2>${B[4]()}<span class="st-meta">Tiền mặt đếm được là ô Tổng tiền trên phiếu Fabi.</span><label>Ghi chú cho quản lý (không bắt buộc)<textarea class="input" id="cm-diff-note" rows="2">${V.diff_note}</textarea></label></section>
-    <div id="cm-gap-choices">${gapChoices()}</div>`;
+    <div id="cm-gap-choices">${gapChoices()}</div>
+    <section class="sc-block" id="cm-money-table">${commonMoney()}</section>`;
   B[12] = () => {
     const worked = V.staff.filter((s) => s.worked);
     const handovers = V.handover.filter((h) => (h.content || '').trim());
@@ -348,8 +348,8 @@ export async function renderNew(R0, P, SH) {
         <div class="cm-review-row"><span>Phiếu Fabi</span><b>${fabiDone() ? 'Đã nhập đủ' : 'Chưa đủ'}</b></div>
         <div class="cm-review-row"><span>Các khoản tiền</span><b>${(R.open_debts || []).filter((d) => d.closed_report_id === R.id).length + V.moves.length + V.debts.length} khoản</b></div>
       </section>
-      <section class="sc-block">${commonMoney()}</section>
-      <div class="alert info" style="margin:0">Sau khi gửi, chính phiếu này chuyển sang <b>Chờ quản lý đối soát</b>. Số nhân viên đã gửi được giữ nguyên.</div>`;
+      <div class="alert info" style="margin:0">Sau khi gửi, chính phiếu này chuyển sang <b>Chờ quản lý đối soát</b>. Số nhân viên đã gửi được giữ nguyên.</div>
+      <section class="sc-block">${commonMoney()}</section>`;
   };
   // bước 104: nhận hàng đã tách hẳn sang menu Hàng hoá — chỉ còn nút cho phiếu cũ có người đã nhận phần "nhận hàng"
   function nhanHang() {
@@ -429,7 +429,7 @@ export async function renderNew(R0, P, SH) {
       root.addEventListener('click', (e) => { if (e.target.closest('#cm-fabi-sum')) { const d = $('#cm-fabi'); if (d) V.fabiOpen = !d.open; } });   // nhớ khi nhân viên tự bấm mở / gọn Phiếu Fabi
       const draw = (top, checked = false) => { V.checked = checked; const y = window.scrollY; root.innerHTML = str(shell()); bind(); if (top) window.scrollTo(0, 0); else window.scrollTo(0, y); };
       const soft = () => {
-        V.checked = false; const next = $('#cm-next'); if (next && ORDER[V.step] === 11) next.disabled = true;
+        V.checked = false;
         const mt = $('#cm-money-table'); if (mt) mt.innerHTML = str(commonMoney());
         const vb = $('#cm-verdict'); if (vb) vb.innerHTML = str(verdictBox()); const fs = $('#cm-fabi-sum'); if (fs) fs.innerHTML = str(fabiSum());
         const c = money(); for (const [item,gap] of [['tien_mat',c.tmLeft],['chuyen_khoan',c.ckLeft]]) { if (V.gaps[item]?.expected !== gap) delete V.gaps[item]; }

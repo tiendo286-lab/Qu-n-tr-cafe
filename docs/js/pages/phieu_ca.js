@@ -1,4 +1,5 @@
-// Phiếu chốt ca: nhân viên chốt ca (tự động lưu) → Hoàn thành → quản lý đối soát trên BẢN ĐỐI SOÁT riêng (phiếu gốc giữ nguyên)
+// Một Phiếu chốt ca xuyên suốt: nhân viên ghi → bàn giao → tiền → quản lý kiểm tra.
+// Số nhân viên gửi được giữ nguyên; Fabi, ngân hàng và kết quả quản lý gắn vào cùng phiếu.
 import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
@@ -197,7 +198,7 @@ export async function render({ params }) {
   if (wantDs && !canRc) {
     return { title: 'Đối soát ca', html: html`<div class="card stack" style="gap:10px;max-width:640px"><h1 style="margin:0">Đối soát ca ${R0.shift}</h1>
       <div>${done ? 'Bạn không có quyền đối soát phiếu này.' : `Nhân viên chưa hoàn thành phiếu chốt ca ${R0.shift} nên chưa đối soát được.`}</div>
-      <div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/quan-ly/doi-soat">‹ Về trang Đối soát</a></div></div>` };
+      <div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/ca">‹ Danh sách ca</a></div></div>` };
   }
   // Bước 41: phiếu đang chốt → màn hình chốt ca mới theo phiếu Fabi (?cu=1 để xem phiếu kiểu cũ)
   if (!wantDs && R0.status === 'dang_chot' && R0.can_edit && String(params.cu || '') !== '1') {
@@ -719,23 +720,27 @@ export async function render({ params }) {
 
   const nChecks = Object.keys(R.checks || {}).length; const nItems = (R.check_items || []).length;
   const head = html`<div class="page-head pc-head"><div>
-      <h1>${isDs ? 'Đối soát ca' : 'Chốt ca'} ${R.shift} · ${R.branch_code}</h1>
+      <span class="cm-head-label">PHIẾU CHỐT CA</span>
+      <h1>Ca ${R.shift} · ${R.branch_code}</h1>
       <div class="sub">${dayName(R.work_date)} ${dmy(R.work_date)} · ${R.branch_name}</div>
       ${isDs ? html`<div class="st-meta">Nhân viên gửi ${R.completed_at ? dt(R.completed_at) : '—'}${R.completed_by_name ? ' · ' + R.completed_by_name : ''} · Fabi ${FB ? (fbBad ? '✗' : '✓') : 'chưa có file'} · ngân hàng ${M86.bank_ok ? '✓' : 'chưa đủ'}</div>` : ''}
       <div class="toolbar" style="gap:6px;margin-top:6px">
         <span class="pill ${STAFF_LABEL[R.status][1]}">Nhân viên: ${STAFF_LABEL[R.status][0]}</span>
-        ${done ? html`<span class="pill ${R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH ĐỐI SOÁT' : R0.recon_status === 'mo_lai' ? `ĐANG ĐỐI SOÁT LẠI ${nChecks}/${nItems}` : `Đối soát ${nChecks}/${nItems}`}</span>` : ''}
+        ${done ? html`<span class="pill ${R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH PHIẾU' : R0.recon_status === 'mo_lai' ? `ĐANG KIỂM TRA LẠI ${nChecks}/${nItems}` : `CHỜ QUẢN LÝ KIỂM TRA ${nChecks}/${nItems}`}</span>` : ''}
       </div>
-      ${canRc ? html`<div class="pc-ban">${isDs ? html`<a class="st-meta" href="#/ca/phieu?id=${R0.id}">Xem phiếu gốc nhân viên gửi ›</a>` : html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${R0.id}">Đối soát ca này ›</a>`}</div>` : ''}</div>
-    <div class="toolbar"><a class="btn sm secondary" href="#${isDs || (isManager() && done) ? '/quan-ly/doi-soat' : '/ca'}?ngay=${R.work_date}">${isDs ? '‹ Về trang Đối soát' : '‹ Danh sách ca'}</a>
+      ${canRc && !isDs ? html`<div class="pc-ban"><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>` : ''}</div>
+    <div class="toolbar"><a class="btn sm secondary" href="#/ca?ngay=${R.work_date}">‹ Danh sách ca</a>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div></div>`;
+
+  const unifiedSteps = html`<nav class="sc-steps pc-unified-steps" aria-label="Các bước Phiếu chốt ca">
+    ${['Nhân viên', 'Bàn giao', 'Tiền', 'Kiểm tra'].map((label, i) => html`<span class="${i < 3 || isDs ? 'done' : ''} ${i === 3 && isDs ? 'on' : ''}"><b>${i + 1}</b><small>${label}</small></span>`)}</nav>`;
 
   const logRow = (l) => html`<div class="rc-log"><span class="st-meta">${dt(l.at)} · ${l.by || ''}</span> <strong>${LOG_ACTION[l.action] || l.action}</strong>${['ket_qua', 'bo_ket_qua', 'mo_lai_muc', 'mo_khoa'].includes(l.action) ? html` ${CHECK_LABEL[l.field] || l.field}${l.after ? html`: <strong>${showVal(l.field, l.after)}</strong>` : ''}` : l.field ? html` ${FIELD_LABEL[l.field] || l.field}: ${showVal(l.field, l.before)} → <strong>${showVal(l.field, l.after)}</strong>` : ''}${l.reason ? html` <span class="st-meta">· Lý do: ${l.reason}</span>` : ''}</div>`;
   const dsFoot = isDs ? html`<section class="card stack" style="gap:10px">
-      <h2 style="margin:0">Bản đối soát</h2>
-      ${R0.recon_status === 'hoan_thanh' ? html`<div class="alert ok">HOÀN THÀNH ĐỐI SOÁT: ${R0.recon_by_name || ''} · ${dt(R0.recon_at)}. Số liệu trên đây là số chính thức của ca.</div>`
+      <h2 style="margin:0">Quản lý kiểm tra</h2>
+      ${R0.recon_status === 'hoan_thanh' ? html`<div class="alert ok">HOÀN THÀNH PHIẾU: ${R0.recon_by_name || ''} · ${dt(R0.recon_at)}. Số liệu trên đây là số chính thức của ca.</div>`
         : R0.recon_status === 'mo_lai' ? html`<div class="alert warn"><strong>ĐANG SỬA</strong>: ${(R.check_items || []).filter((it) => !(R.checks || {})[it]).map((it) => CHECK_LABEL[it]).join(', ')} — duyệt lại ${(R.check_items || []).filter((it) => !(R.checks || {})[it]).length > 1 ? 'các mục này' : 'mục này'} là phiếu tự hoàn thành đối soát.</div>`
-        : html`<div class="st-meta">Sửa trực tiếp trên bản này (phiếu nhân viên giữ nguyên). Mục đã đối soát nhạt đi và khoá; muốn sửa bấm “Sửa” ở mục đó (Đèn đối soát). Đủ ${nItems} hạng mục thì phiếu tự HOÀN THÀNH ĐỐI SOÁT.</div>`}
+        : html`<div class="st-meta">Quản lý kiểm tra ngay trên phiếu này; số nhân viên đã gửi vẫn được giữ nguyên. Mục đã kiểm tra sẽ khoá để tránh sửa nhầm. Đủ ${nItems} hạng mục thì phiếu tự HOÀN THÀNH.</div>`}
       ${ed ? html`<label class="pc-f"><span>Lý do sửa (bắt buộc khi sửa số)</span><input class="input" id="rc-reason" placeholder="vd: nhân viên nhập nhầm số POS" autocomplete="off"></label>` : ''}
       <div class="toolbar" style="gap:8px">
         ${LK?.is_chu && (LK.done || []).length ? html`<button type="button" class="btn sm secondary" id="rc-reopen">Mở lại cả phiếu</button>` : ''}
@@ -747,7 +752,7 @@ export async function render({ params }) {
     ? partPanel
     : html`<section class="card stack" style="gap:8px">
         ${done && R.recon_status === 'hoan_thanh' ? html`<div class="alert ok">Hoàn thành đối soát: ${R.recon_by_name} · ${dt(R.recon_at)}</div>` : ''}
-        ${canRc ? html`<div class="pc-line"><span class="st-meta grow">Đây là phiếu nhân viên (bản gốc, chỉ xem). Đối soát và sửa số liệu ở trang Đối soát ca.</span><a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${R0.id}">Đối soát ca này ›</a></div>` : ''}
+        ${canRc ? html`<div class="pc-line"><span class="st-meta grow">Số nhân viên đã gửi được giữ nguyên. Quản lý mở bước Kiểm tra trên chính phiếu này.</span><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>` : ''}
         ${R.can_reopen ? html`<div><button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button></div>` : ''}</section>`;
 
   // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước
@@ -761,7 +766,7 @@ export async function render({ params }) {
         ? html`<span class="st-meta">Còn: ${dsLeft(i).map((it) => CHECK_LABEL[it]).join(', ')}</span><button type="button" class="btn sm secondary" data-ds-go="${i}">Làm bước ${i + 1}</button>`
         : html`<span class="pill ok">✓ Xong</span>`}</div>`))}
       <div id="ds-cv-sum"></div>
-      <div class="st-meta">Đủ ${nItems} hạng mục thì phiếu tự thành HOÀN THÀNH ĐỐI SOÁT.</div></section>` : '';
+      <div class="st-meta">Đủ ${nItems} hạng mục thì Phiếu chốt ca tự chuyển thành HOÀN THÀNH.</div></section>` : '';
   // bước 113b: phần tiền đã đối soát (hoặc quản lý tự chốt) → các ô khoá; nút "Sửa phần tiền" ngay tại trang tiền (trước đây phải tìm nút Sửa trong Đèn đối soát)
   const MONEY_ALL = ['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'];
   const moneyOpen = isDs && !!R.can_recon ? MONEY_ALL.filter((it) => (doneItem(it) || lkItem(it)) && (!lkItem(it) || LK?.can_unlock)) : [];
@@ -769,7 +774,7 @@ export async function render({ params }) {
     : moneyOpen.length ? html`<div class="alert info ds-mlock"><span class="grow">🔒 <b>Phần tiền đã đối soát</b> nên các ô đang khoá để tránh sửa nhầm. Cần sửa thu chi, số Fabi, khách nợ… thì bấm:</span><button type="button" class="btn sm" id="ds-money-edit" data-items="${moneyOpen.join(',')}">✎ Sửa phần tiền</button></div>` : '';
   const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
   const dsX2 = isDs && (R.staff || []).some((s2) => !s2.worked || (s2.source && s2.source !== 'lich'));   // bước 87: có người nghỉ / làm hộ / ca bổ sung
-  const dsBody = isDs ? html`${DEN_CSS}<div id="ds-parts" class="dsp" data-left="${JSON.stringify(DS_ITEMS.map((_, i) => dsLeft(i).length))}" data-x2="${dsX2 ? 1 : 0}"></div><section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang xét các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" hidden aria-label="Các bước đối soát">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
+  const dsBody = isDs ? html`${DEN_CSS}${unifiedSteps}<div id="ds-parts" class="dsp" data-left="${JSON.stringify(DS_ITEMS.map((_, i) => dsLeft(i).length))}" data-x2="${dsX2 ? 1 : 0}"></div><section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang kiểm tra các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" hidden aria-label="Các mục kiểm tra">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       ${!dsPhone ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', dsLeft(0).length + dsLeft(1).length], ['tien', '② Phần tiền', dsLeft(2).length], ['xong', '③ Hoàn thành', -1]].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" data-left="${n}">${l}${n > 0 ? html`<span class="ds-ptn">còn ${n}</span>` : n === 0 ? html`<span class="ds-pto">✓</span>` : ''}</button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secStaff}</div></details></div>
       <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. ${R0.self_reconciled ? 'Ca do quản lý tự chốt đã hoàn thành; việc này tiếp tục theo dõi riêng trong Công việc.' : 'Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.'}</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
@@ -1125,7 +1130,7 @@ function mount(R, ed, C0, ctx = {}) {
           const lb = `ca ${nx.shift} ${dmy(day)}`;
           if (!nx.report_id) { showSaved(`${lb[0].toUpperCase() + lb.slice(1)} chưa có phiếu chốt ca.`, true); b.disabled = false; return; }
           if (nx.status !== 'hoan_thanh') { showSaved(`${lb[0].toUpperCase() + lb.slice(1)}: nhân viên chưa gửi phiếu — chưa đối soát được.`, true); b.disabled = false; return; }
-          location.hash = `#/quan-ly/doi-soat/ca?id=${nx.report_id}`;
+          location.hash = `#/ca/phieu?id=${nx.report_id}&__ds=1`;
         } catch (e) { showSaved(e.message, true); b.disabled = false; }
       });
       $('#ds-next').addEventListener('click', async () => {
@@ -1286,20 +1291,19 @@ function mount(R, ed, C0, ctx = {}) {
   if ($$('.db-paid').length) {
     rpc('app_ca_debts_paid', { p_id: R.id }).then((L) => (L || []).forEach((x) => {
       const el = $(`.db-paid[data-debt="${x.id}"]`); if (!el) return;
-      const href = isDs && x.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${x.report_id}` : `#/ca/phieu?id=${x.report_id}`;
+      const href = isDs && x.status === 'hoan_thanh' ? `#/ca/phieu?id=${x.report_id}&__ds=1` : `#/ca/phieu?id=${x.report_id}`;
       el.innerHTML = str(html`<a href="${href}" style="color:inherit">Đã thu ở ca ${x.shift} ${dmy(x.work_date)} · ${x.kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} ›</a>`);
     })).catch(() => {});
   }
   if (isDs && $('#bank-box')) {
     rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {
-      const got = b.received; const ck = R.pos_transfer; const rt = R.reported_transfer;
-      $('#bank-box').innerHTML = str(html`<div class="diff-card"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN THỰC NHẬN (KẾ TOÁN NHẬP)</div>
-        ${got === null || got === undefined ? html`<div class="st-meta">Kế toán chưa nhập số dư cho ca này.</div>`
-          : html`<div class="kv">${(b.accounts || []).map((a) => html`<div>${a.bank} ${a.account_no}${a.label ? ' · ' + a.label : ''}</div><div>${a.received === null || a.received === undefined ? 'chưa nhập' : html`${vnd(a.opening)} → ${vnd(a.closing)}${a.transfers_out ? ` · chuyển ra ${vnd(a.transfers_out)}` : ''} = <strong>${vnd(a.received)}</strong>`}${a.note ? html`<br><span class="st-meta">${a.note}</span>` : ''}</div>`)}
-            <div><strong>Tiền nhận trong ca</strong></div><div><strong>${vnd(got)}</strong>${b.entered < b.account_count ? html` <span class="pill warn">còn ${b.account_count - b.entered} tài khoản chưa nhập</span>` : ''}</div>
-            <div>So với CK theo POS</div><div>${ck === null || ck === undefined ? '—' : signed(got - ck)}</div>
-            <div>So với CK nhân viên báo</div><div>${rt === null || rt === undefined ? '—' : signed(got - rt)}</div></div>
-            <div class="st-meta">Nhập bởi ${b.updated_by || ''} · ${dt(b.updated_at)}${b.locked ? ' · đã khóa theo đối soát' : ''}</div>`}</div>`);
+      const got = b.received; const must = R.money?.ck_expected ?? R.pos_transfer; const complete = got !== null && got !== undefined && b.entered >= b.account_count;
+      const gap = complete && must !== null && must !== undefined ? Number(got) - Number(must) : null;
+      $('#bank-box').innerHTML = str(html`<div class="diff-card"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN NGÂN HÀNG</div>
+        ${!complete ? html`<div class="alert warn" style="margin:8px 0 0">Kế toán chưa nhập đủ số dư ngân hàng cho ca này.</div>`
+          : html`<div class="kv bank-total"><div>Phải nhận</div><div><strong>${vnd(must)}</strong></div><div>Thực nhận</div><div><strong>${vnd(got)}</strong></div><div>Kết quả</div><div><span class="pill ${gap === 0 ? 'ok' : 'off'}">${gap === 0 ? 'KHỚP ✓' : `LỆCH ${signed(gap)}`}</span></div></div>
+            <details style="margin-top:8px"><summary>Xem giao dịch VCB + BIDV ›</summary><div class="kv" style="margin-top:8px">${(b.accounts || []).map((a) => html`<div>${a.bank}${a.label ? ' · ' + a.label : ''}</div><div>${a.received === null || a.received === undefined ? 'chưa nhập' : html`${vnd(a.opening)} → ${vnd(a.closing)}${a.transfers_out ? ` · chuyển ra ${vnd(a.transfers_out)}` : ''} = <strong>${vnd(a.received)}</strong>`}${a.note ? html`<br><span class="st-meta">${a.note}</span>` : ''}</div>`)}</div></details>
+            <div class="st-meta">Nhập bởi ${b.updated_by || ''} · ${dt(b.updated_at)}${b.locked ? ' · đã khóa theo phiếu' : ''}</div>`}</div>`);
     }).catch(() => {});
   }
 

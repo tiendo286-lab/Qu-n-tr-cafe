@@ -16,29 +16,26 @@ export default async ({sleep,out}) => {
   await rpc('app_ca_save',{p_id:id,p:{rev_start:day+' 06:45',rev_end:day+' 12:35',ipos_opening:1000000,total_revenue:1000000,pos_cash:700000,pos_transfer:300000,pos_debt:0,pos_diff:0,cash_counted:1700000,reported_transfer:300000,cups:40,moves:[],debts:[],goods:[],handover:[],staff:[{employee_id:e.id,source:'lich',worked:true,time_in:'06:45',time_out:'12:35'}]}});
   await rpc('app_ca_photo_add',{p_id:id,p_path:'r'+id+'/ipos/test.jpg',p_kind:'ipos'});
   location.hash='#/ca/phieu?id='+id;await wait('#cm-next');await sleep(300);
-  check($$('.sc-steps button').length===3,'3 bước khi không phát sinh nghỉ/làm thay');
-  $('[data-shift-step="3"]').click();await wait('#cm-check');
+  check($$('.sc-steps button').length===4,'4 bước Nhân viên · Bàn giao · Tiền · Kiểm tra');
+  $('[data-shift-step="2"]').click();await wait('#cm-open');
   check($('#cm-open').value===day+'T06:45','Thời gian doanh thu hiện ngày và giờ');
-  check($('#cm-next').disabled,'Chặn gửi trước khi Kiểm tra');
   $('#cm-exchange').click();await sleep(100);
   set($('[data-mv="0"][data-k="amount"]'),'500000');set($('[data-mv="0"][data-k="note"]'),'Khách mẫu đổi tiền');
   set($('.cm-num[data-f="cash_counted"]'),'1200000');$('[data-sign="-1"]').click();await sleep(100);set($('.cm-num[data-f="pos_diff"]'),'500000');set($('#cm-hot'),'800000');
-  $('#cm-check').click();await sleep(100);
-  check(!$('#cm-next').disabled,'Đổi tiền cân bằng: Kiểm tra cho phép gửi');
   check($$('.sc-exchange').length===1,'Một phiếu đổi tiền duy nhất');
-  set($('#cm-hot'),'799000');check($('#cm-next').disabled,'Sửa sau Kiểm tra bắt kiểm lại');set($('#cm-hot'),'800000');
-  set($('#cm-close'),day+'T05:00');$('#cm-check').click();await sleep(100);check($('#cm-err').textContent.includes('sau bắt đầu'),'Chặn kết thúc trước bắt đầu');
-  set($('#cm-close'),day+'T12:35');$('#cm-check').click();await sleep(100);
+  set($('#cm-close'),day+'T05:00');$('#cm-next').click();await sleep(100);check($('#cm-err').textContent.includes('sau bắt đầu'),'Chặn kết thúc trước bắt đầu');
+  set($('#cm-close'),day+'T12:35');
   check(document.documentElement.scrollWidth<=document.documentElement.clientWidth+1,'Không tràn ngang '+document.documentElement.clientWidth+'px');
   if(new URLSearchParams(location.search).get('role')==='chu') {
    set($('#cm-hot'),'799000');
    const choice=$('[data-gap-action="chuyen_khoan"]'); check(!!choice,'Hiện cách xử lý khi có lệch');
    choice.value='chia'; choice.dispatchEvent(new Event('change',{bubbles:true}));
-   check($('#cm-next').disabled,'Đổi cách xử lý cần Kiểm tra lại');
-   set($('#cm-hot'),'800000');check(!$('[data-gap-action="chuyen_khoan"]'),'Bỏ lựa chọn cũ khi tiền đã khớp');$('#cm-check').click();
+   set($('#cm-hot'),'800000');check(!$('[data-gap-action="chuyen_khoan"]'),'Bỏ lựa chọn cũ khi tiền đã khớp');
   }
   const halt=new URLSearchParams(location.search).get('dung');
   if(halt==='tien'){out.push({route:'unified98',title:results.join(' | '),errs:[]});document.body.insertAdjacentHTML('beforeend','<pre id="ketqua">'+results.join('\n')+'</pre>');return;}
+  $('#cm-next').click();await wait('.cm-review-row');check($('[data-shift-step="3"]').classList.contains('on'),'Bước Kiểm tra tách riêng trước khi gửi');
+  check(document.body.textContent.includes('Số nhân viên đã gửi được giữ nguyên'),'Nhắc giữ nguyên số nhân viên đã gửi');
   $('#cm-next').click();await wait('.pc-head');await sleep(400);
   const saved=await rpc('app_ca_get',{p_id:id});
   check(saved.status==='hoan_thanh','Gửi thành công');check($$('#moves .sc-exchange').length===1,'Phiếu gốc hiển thị một khoản đổi tiền');check(saved.moves.filter(m=>m.exchange_key).length===2,'Máy chủ giả lưu đủ hai bút toán');

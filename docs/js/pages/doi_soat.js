@@ -46,7 +46,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
   const shifts = []; mine.flat().forEach((r) => { if (!shifts.includes(r.shift)) shifts.push(r.shift); });
   const get = (i, sh) => mine[i].find((r) => r.shift === sh) || null;
   const dname = (d, i) => html`<b>${['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'][i]}</b><span>${dmy(d).slice(0, 5)}</span>`;
-  const href = (s) => (!s.report_id ? null : s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`);
+  const href = (s) => (!s.report_id ? null : s.status === 'hoan_thanh' ? `#/ca/phieu?id=${s.report_id}&__ds=1` : `#/ca/phieu?id=${s.report_id}`);
   const stCell = (s, d) => {
     if (!s) return html`<td class="dw-na">—</td>`;
     const st = stOf(s, d); const [lb, cls] = WST[st];
