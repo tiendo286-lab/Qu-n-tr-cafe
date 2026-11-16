@@ -3,6 +3,10 @@ import { addDays, focusWeek, notifyTick, unreadCount, vnToday, weekStart } from 
 import { rpc, sb, viError } from './sb.js';
 import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
+// Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
+// thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
+const ASSET_VERSION = '2026.11.16.2';
+
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
@@ -306,7 +310,7 @@ export async function render() {
   const mod = PAGES[path];
   try {
     if (mod) {
-      const m = await import(`./pages/${mod}.js`);
+      const m = await import(`./pages/${mod}.js?v=${ASSET_VERSION}`);
       if (m.perm && ![].concat(m.perm).some((p) => can(p))) page = { title: 'Không có quyền', html: html`<div class="card">Bạn không có quyền vào trang này.</div>` };
       else page = await m.render({ params, me: state.me, can });
     } else {
