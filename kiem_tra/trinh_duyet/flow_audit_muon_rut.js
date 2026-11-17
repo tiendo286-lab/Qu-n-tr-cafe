@@ -22,10 +22,13 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/a.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await sleep(2000);
-    const why = document.querySelector('.rc-why') || $('#rc-reason'); if (!why) throw new Error('Không có ô lý do sửa');
-    why.value = 'nhân viên ghi nhầm'; why.dispatchEvent(new Event('input', { bubbles: true }));
+    // bước 121: Mở để sửa → bấm đổi → Lưu (lý do trong hộp)
+    $('#ds-money-open')?.click(); await sleep(1500); await wait('.ds-pane');
     const b = $('[data-muon-rut]'); if (!b) throw new Error('Không có nút Đổi thành Khách CK rút tiền mặt');
-    b.click(); await sleep(3000); await wait('.ds-pane'); await sleep(1500);
+    b.click(); await sleep(400);
+    $('#ds-money-save')?.click(); await sleep(400);
+    const why = $('dialog[open] [name=why]'); if (!why) throw new Error('Không có hộp lý do khi Lưu');
+    why.value = 'nhân viên ghi nhầm'; $('dialog[open] form').requestSubmit(); await sleep(3000); await wait('.ds-pane'); await sleep(1500);
     const RC = await rpc('app_ca_recon', { p_id: id }); const pair = (RC.data.moves || []).filter((m) => m.exchange_key);
     const debts = ((await rpc('app_ca_get', { p_id: id })).debts || []).filter((d) => d.kind === 'muon');
     seen = `đổi tiền: ${pair.map((m) => m.kind + ' ' + m.amount).join(', ')} · khách mượn còn ${debts.length} · dòng rút TM trên trang ${$$('#moves .sc-exchange').length}`;

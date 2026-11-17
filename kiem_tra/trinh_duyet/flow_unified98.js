@@ -49,14 +49,16 @@ export default async ({sleep,out}) => {
    const debtId=await rpc('app_cn_debt_save',{p_id:null,p:{branch_id:o.branch_id,grp:'khach',name:'Khách thử sửa',amount:50000,note:'Khoản thử',kind:'bill',date:day}});
    await rpc('app_ca_recon_debt_collect',{p_report:id,p_debt:debtId,p_kind:'tien_mat',p_amount:50000,p_reason:'Kiểm thử khách trả'});
    location.hash='#/__tam';await sleep(200);location.hash='#/quan-ly/doi-soat/ca?id='+id+'&buoc=4';await wait('#moves .sc-exchange .mv-amt');await sleep(400);
-   const why=$$('.rc-why').pop();check(!!why,'Có lý do sửa bản đối soát');set(why,'Điều chỉnh phiếu đổi tiền thử');
-   set($('#moves .sc-exchange .mv-amt'),'400000');await sleep(1800);
+   // bước 121: phần tiền mặc định Chỉ xem — bấm Mở để sửa, sửa xong bấm Lưu (lý do hỏi trong hộp)
+   $('#ds-money-open')?.click();await sleep(1500);await wait('#moves .sc-exchange .mv-amt');
+   set($('#moves .sc-exchange .mv-amt'),'400000');await sleep(300);
+   const paid=(await rpc('app_ca_get',{p_id:id})).open_debts.find(x=>x.id===debtId);
+   check(!!$(`[data-paid-delete="${paid.id}"]`)&&!$(`[data-paid-row="${paid.id}"] .paid-amount`)?.disabled,'Khách trả nợ cũ sửa ngay trên dòng và có nút Xoá');
+   check(document.documentElement.scrollWidth<=document.documentElement.clientWidth+1,'Khách trả nợ cũ không tràn ngang điện thoại');
+   $('#ds-money-save')?.click();await sleep(400);const why=$('dialog[open] [name=why]');check(!!why,'Có lý do sửa bản đối soát');if(why)why.value='Điều chỉnh phiếu đổi tiền thử';$('dialog[open] form')?.requestSubmit();await sleep(1800);
    const changed=await rpc('app_ca_recon',{p_id:id}); const pair=(changed.data?.moves||changed.moves||[]).filter(x=>x.exchange_key);
    check(pair.length===2&&pair.some(x=>x.amount===-400000)&&pair.some(x=>x.amount===400000),'Sửa một ô đổi tiền lưu cả hai vế');
    check((await rpc('app_ca_get',{p_id:id})).moves.some(x=>x.exchange_key&&x.amount===-500000),'Bản đối soát giữ nguyên phiếu gốc');
-   const paid=(await rpc('app_ca_get',{p_id:id})).open_debts.find(x=>x.id===debtId);
-   check(!!$(`[data-paid-save="${paid.id}"]`)&&!!$(`[data-paid-delete="${paid.id}"]`),'Khách trả nợ cũ sửa ngay trên dòng và có nút Xoá');
-   check(document.documentElement.scrollWidth<=document.documentElement.clientWidth+1,'Khách trả nợ cũ không tràn ngang điện thoại');
    await rpc('app_ca_recon_debt_update',{p_report:id,p_debt:paid.id,p_kind:'chuyen_khoan',p_amount:paid.amount,p_reason:'Kiểm thử sửa khách trả'});
    check((await rpc('app_ca_get',{p_id:id})).open_debts.find(x=>x.id===paid.id)?.collect_kind==='chuyen_khoan','Sửa được cách khách trả nợ');
    await rpc('app_ca_recon_debt_uncollect',{p_report:id,p_debt:paid.id,p_reason:'Kiểm thử xoá khách trả'});

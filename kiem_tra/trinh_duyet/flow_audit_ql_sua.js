@@ -39,11 +39,8 @@ export default async ({ sleep, out }) => {
       out.push({ route: 'audit_ql_sua (locked)', title: still.length ? '' : 'không còn nút thêm', errs: fail ? [fail] : [] });
       return;
     }
-    if (mode === 'direct') {
-      const me = $('#ds-money-edit'); if (!me) throw new Error('Không thấy nút ✎ Sửa phần tiền');
-      me.click(); await sleep(800); const f = $('dialog[open] form'); if (!f) throw new Error('Không mở hộp Sửa phần tiền');
-      f.why.value = 'kiểm tra'; f.requestSubmit(); await sleep(2500); await wait('.ds-pane'); await sleep(1500);
-    }
+    // bước 121: phần tiền mặc định Chỉ xem — bấm "✎ Mở để sửa" (cả khi đã duyệt: Lưu sẽ mở lại mục đã duyệt)
+    { const mo = $('#ds-money-open'); if (!mo) throw new Error('Không thấy nút ✎ Mở để sửa'); mo.click(); await sleep(1500); await wait('.ds-pane'); await sleep(800); }
     // mỗi ô cần sửa được: [tên hiển thị, cách tìm]
     const byLabel = (re) => $$('input, select, textarea').filter((el) => re.test((el.closest('label, .pc-f')?.innerText || el.getAttribute('aria-label') || el.placeholder || '').replace(/\s+/g, ' ')));
     const need = [

@@ -22,11 +22,13 @@ export default async ({ sleep, out }) => {
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     const open = async () => { location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1'; await wait('.ds-pane'); await sleep(2000); };
     await open();
-    const why = document.querySelector('.rc-why') || $('#rc-reason'); if (!why) throw new Error('Không có ô lý do sửa');
-    why.value = 'nhân viên ghi nhầm'; why.dispatchEvent(new Event('input', { bubbles: true }));
-    const setv = (sel, v) => { const el = $(sel); if (!el) throw new Error('Không có ô ' + sel); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
+    // bước 121: Mở để sửa → sửa → Lưu (lý do trong hộp)
+    $('#ds-money-open')?.click(); await sleep(1500); await wait('.ds-pane');
+    const setv = (sel, v) => { const el = $(sel); if (!el) throw new Error('Không có ô ' + sel); if (el.disabled) throw new Error('Ô ' + sel + ' bị khoá'); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
     setv('#pos_debt', '50.000'); setv('#pos_diff', '−3.000');
-    await sleep(3500);
+    $('#ds-money-save')?.click(); await sleep(400);
+    const why = $('dialog[open] [name=why]'); if (!why) throw new Error('Không có hộp lý do khi Lưu');
+    why.value = 'nhân viên ghi nhầm'; $('dialog[open] form').requestSubmit(); await sleep(3000);
     const RC = await rpc('app_ca_recon', { p_id: id });
     seen = `pos_debt=${RC.data.pos_debt} pos_diff=${RC.data.pos_diff}`;
     if (RC.data.pos_debt !== 50000 || RC.data.pos_diff !== -3000) fail = 'Không lưu đúng: ' + seen;

@@ -290,6 +290,40 @@ export function makeCa(T, me) {
       const h2 = hand(r.id); if (h2.state === 'lech') window.__LOG.push(['notify', 'Bàn giao két bị lệch', h2.gap]);
       return h2;
     },
+    // bước 121: lưu cả gói phần tiền (1 lý do, lỗi thì hoàn tác hết — giống app_ca_recon_apply)
+    app_ca_recon_apply({ p_id, p_changes, p_reason }) {
+      const c = p_changes || {};
+      const has = (c.fields && Object.keys(c.fields).length) || ['debts', 'paid', 'to_exchange', 'photos'].some((k) => (c[k] || []).length);
+      if (!has) return { changed: false };
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa trước khi lưu.');
+      const sT = JSON.stringify(T); const sR = JSON.stringify(RECON); const sRes = JSON.stringify(RES); const nLog = RLOG.length;
+      try {
+        const M = ['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan']; const r = rep(p_id);
+        T.shift_report_checks = T.shift_report_checks.filter((x) => !(x.report_id === p_id && M.includes(x.item)));
+        M.forEach((it) => { delete RES[p_id + '|' + it]; });
+        if (r.recon_status === 'hoan_thanh') r.recon_status = 'mo_lai';
+        if (c.fields && Object.keys(c.fields).length) this.app_ca_recon_save({ p_id, p: c.fields, p_reason });
+        for (const x of c.debts || []) {
+          if (x.op === 'set') this.app_ca_recon_debt_set({ p_report: p_id, p_debt: x.id, p_kind: x.kind, p_name: x.name, p_amount: x.amount, p_note: x.note, p_reason });
+          else if (x.op === 'remove') this.app_ca_recon_debt_remove({ p_report: p_id, p_debt: x.id, p_reason });
+          else throw new Error('Thao tác khách nợ không hợp lệ.');
+        }
+        for (const x of c.paid || []) {
+          if (x.op === 'collect') this.app_ca_recon_debt_collect({ p_report: p_id, p_debt: x.debt, p_kind: x.kind, p_amount: x.amount, p_reason });
+          else if (x.op === 'update') this.app_ca_recon_debt_update({ p_report: p_id, p_debt: x.debt, p_kind: x.kind, p_amount: x.amount, p_reason });
+          else if (x.op === 'uncollect') this.app_ca_recon_debt_uncollect({ p_report: p_id, p_debt: x.debt, p_reason });
+          else throw new Error('Thao tác khách trả nợ không hợp lệ.');
+        }
+        for (const d of c.to_exchange || []) this.app_ca_recon_debt_to_exchange({ p_report: p_id, p_debt: d, p_reason });
+        for (const x of c.photos || []) { if (x.op === 'add') this.app_ca_recon_photo_add({ p_id, p_path: x.path, p_reason }); else this.app_ca_recon_photo_del({ p_photo: x.id, p_reason }); }
+        return { changed: true };
+      } catch (e) {
+        const oT = JSON.parse(sT); Object.keys(T).forEach((k) => { delete T[k]; }); Object.assign(T, oT);
+        const oR = JSON.parse(sR); Object.keys(RECON).forEach((k) => { delete RECON[k]; }); Object.assign(RECON, oR);
+        const oS = JSON.parse(sRes); Object.keys(RES).forEach((k) => { delete RES[k]; }); Object.assign(RES, oS);
+        RLOG.length = nLog; throw e;
+      }
+    },
     // bước 119: Khách mượn → Khách CK rút tiền mặt
     app_ca_recon_debt_to_exchange({ p_report, p_debt, p_reason }) {
       if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa ở cuối trang trước.');

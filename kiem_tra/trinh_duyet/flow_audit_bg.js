@@ -32,9 +32,13 @@ export default async ({ sleep, out }) => {
     const hs = (after.handover || []).map((h) => h.content); seen = 'bàn giao: ' + hs.join(' / ');
     if (!hs.includes('Máy xay kêu to — đã báo thợ')) fail = 'Không lưu nội dung bàn giao mới';
     await open(4);
-    const why2 = document.querySelector('.rc-why') || $('#rc-reason'); why2.value = 'ảnh mờ'; why2.dispatchEvent(new Event('input', { bubbles: true }));
+    // bước 121: ảnh phiếu Fabi sửa khi Đang sửa phần tiền → Lưu (lý do trong hộp)
+    $('#ds-money-open')?.click(); await sleep(1500); await wait('.ds-pane');
     const del = $('.ph-del-ds'); if (!del) throw new Error('Không có nút xoá ảnh Fabi');
-    del.click(); await sleep(2500);
+    del.click(); await sleep(300);
+    $('#ds-money-save')?.click(); await sleep(400);
+    const why2 = $('dialog[open] [name=why]'); if (!why2) throw new Error('Không có hộp lý do khi Lưu');
+    why2.value = 'ảnh mờ'; $('dialog[open] form').requestSubmit(); await sleep(2500);
     const n = ((await rpc('app_ca_get', { p_id: id })).photos || []).filter((p) => p.kind === 'ipos').length; seen += ' · ảnh Fabi còn ' + n;
     if (n !== 1) fail = fail || 'Xoá ảnh không đúng (còn ' + n + ')';
   } catch (er) { fail = er.message; }
