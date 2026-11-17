@@ -1,7 +1,7 @@
 // Bước 109 — Việc của tôi: việc tự tạo theo Bảng phân công + Giao việc riêng, chia theo từng hạng mục; khách nợ ưu tiên đầu trang.
 import { rpc } from '../sb.js';
 import { $, html, str } from '../ui.js';
-import { GROUP, JOBS, ORDER, STYLE, bindActions, fd, gvCard, gvDue, jobName, learnJobs, money, ms, dur, pcCard, pcDue, rstate, toast, tone } from '../cv_chung.js?v=2026.11.17.10';
+import { GROUP, JOBS, ORDER, STYLE, bindActions, fd, gvCard, gvDue, jobName, learnJobs, money, ms, dur, pcCard, pcDue, rstate, toast, tone } from '../cv_chung.js?v=2026.11.17.11';
 
 export const perm = 'nhan_viec';
 let CAT = '';
@@ -14,7 +14,7 @@ export async function render({ me }) {
     const now = D.now, my = D.me;
     learnJobs(D.tasks);
     const cards = [];   // [job, html, due, late]
-    (D.tasks || []).forEach((t) => { const due = pcDue(t); cards.push([t.job, pcCard(t, { ctx: 'my', me: my, now, mgr }), due, tone(due, now) === 'late', tone(due, now) === 'soon']); });
+    (D.tasks || []).forEach((t) => { const due = pcDue(t); cards.push([t.job, pcCard(t, { ctx: 'my', me: my, now, mgr, chu: me.role === 'chu' }), due, tone(due, now) === 'late', tone(due, now) === 'soon']); });
     (D.gv || []).forEach((k) => { const due = gvDue(k); cards.push([24, gvCard(k, { ctx: 'my', me: my, now, mgr }), due, tone(due, now) === 'late', tone(due, now) === 'soon']); });
     const watch = D.watch || [], debts = D.debts || [];
     const late = cards.filter((c) => c[3]).length, soon = cards.filter((c) => c[4]).length;
@@ -41,7 +41,7 @@ export async function render({ me }) {
         <div class="pc-list">${watch.sort((x, y) => (ms(gvDue(x)) || 9e15) - (ms(gvDue(y)) || 9e15)).map((k) => gvCard(k, { ctx: 'all', me: D.me, now, mgr }))}</div>` : ''}
       ${!cards.length && !debts.length && !watch.length ? html`<div class="card" style="text-align:center;padding:28px;margin-top:14px">🎉 Không có việc nào đang chờ.</div>` : ''}
       <details style="margin-top:18px"><summary class="pc-sec" style="cursor:pointer">Đã xong 7 ngày qua <span class="pc-cnt">${(D.done || []).length}</span></summary>
-        <div class="card" style="padding:4px">${(D.done || []).map((x) => html`<div class="pc-done">${x.drop ? html`<span class="pill mute">Không cần xử lý</span>` : html`<span class="pill ok">✓ Xong</span>`}<b>${jobName(x.job)}</b>${x.code ? html`<span class="pc-br">${x.code}</span>` : ''}<span>${x.title}</span><span class="pc-sub">· ${fd(x.done_at)}</span>${x.late ? html`<span class="pill off">có trễ hạn</span>` : ''}</div>`)}${(D.done || []).length ? '' : html`<div class="pc-sub" style="padding:12px">Chưa có</div>`}</div></details>`;
+        <div class="card" style="padding:4px">${(D.done || []).map((x) => html`<div class="pc-done">${x.drop ? html`<span class="pill mute">${x.note || 'Không cần xử lý'}</span>` : html`<span class="pill ok">✓ Xong</span>`}<b>${jobName(x.job)}</b>${x.code ? html`<span class="pc-br">${x.code}</span>` : ''}<span>${x.title}</span><span class="pc-sub">· ${fd(x.done_at)}</span>${x.late ? html`<span class="pill off">có trễ hạn</span>` : ''}</div>`)}${(D.done || []).length ? '' : html`<div class="pc-sub" style="padding:12px">Chưa có</div>`}</div></details>`;
   };
   return {
     title: 'Việc của tôi',

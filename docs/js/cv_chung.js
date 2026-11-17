@@ -59,7 +59,7 @@ const warnLine = (fine, due, now, who) => {
 };
 
 // ---- thẻ việc tự thêm (bước 123) + bước làm lại sau kiểm tra ----
-function cuCard(t, { ctx, me, now, mgr }) {
+function cuCard(t, { ctx, me, now, mgr, chu }) {
   const s = curStep(t), open = !!s && !s.done_at, isCk = open && !!s.check, due = open ? s.due_at : null;
   const accs = s?.accounts || [], mine = accs.includes(me);
   const work = (t.steps || []).filter((x) => !x.check && x.done_at).slice(-1)[0];
@@ -68,8 +68,8 @@ function cuCard(t, { ctx, me, now, mgr }) {
   const who = !accs.length ? html`<div class="pc-who"><b class="red">Chưa có người ${isCk ? 'kiểm tra' : 'làm'}</b>${mgr ? ' — bấm "Giao người" hoặc sửa Bảng phân công' : ''}</div>` : '';
   const acts = [];
   const B = (a, l, c = '') => html`<button class="btn sm ${c}" data-a="${a}" data-id="${t.id}">${l}</button>`;
-  if (open && !isCk && (mine || mgr)) acts.push(B('pc-done', 'Báo xong ✓', 'solid'));
-  if (isCk && (mine || mgr)) { acts.push(B('pc-ok', 'Đạt ✓', 'solid')); acts.push(B('pc-redo', 'Làm lại', 'danger')); }
+  if (open && !isCk && (mine || chu)) acts.push(B('pc-done', 'Báo xong ✓', 'solid'));   // máy chủ chỉ cho người được giao hoặc Chủ
+  if (isCk && (mine || chu)) { acts.push(B('pc-ok', 'Đạt ✓', 'solid')); acts.push(B('pc-redo', 'Làm lại', 'danger')); }
   if (isCk && work?.photos?.length) acts.push(B('pc-photos', `Xem ảnh (${work.photos.length})`, 'secondary'));
   if (mgr && open) acts.push(B('pc-reassign', accs.length ? 'Đổi người' : 'Giao người', 'secondary'));
   return html`<article class="pc-task ${t.extra && !isCk ? 'none' : tone(due, now, !accs.length)}">
@@ -85,8 +85,8 @@ function cuCard(t, { ctx, me, now, mgr }) {
 }
 
 // ---- thẻ việc tự động ----
-export function pcCard(t, { ctx, me, now, mgr }) {
-  if (t.custom || curStep(t)?.redo) return cuCard(t, { ctx, me, now, mgr });
+export function pcCard(t, { ctx, me, now, mgr, chu }) {
+  if (t.custom || curStep(t)?.redo) return cuCard(t, { ctx, me, now, mgr, chu });
   const s = curStep(t), due = pcDue(t), merged = MERGED.includes(t.job);
   const accs = s?.accounts || [], names = (s?.names || []).map(shortName);
   const co = (s?.names || []).filter((_, i) => accs[i] !== me).map(shortName);
@@ -104,7 +104,7 @@ export function pcCard(t, { ctx, me, now, mgr }) {
     <div class="pc-title">${merged ? (t.code ? 'Cơ sở ' + t.code : 'Các cơ sở') : t.title}</div>
     <div class="pc-sub">${line}</div>${steps}${items}
     ${who ? html`<div class="pc-who">${who}</div>` : ''}${warnLine(t.fine, due, now)}
-    <div class="pc-act">${manual ? (mine || mgr ? html`<button class="btn sm" data-a="pc-step" data-id="${t.id}">Xong bước "${s.name}" ✓</button>` : '') : !merged && t.link ? html`<a class="btn sm" href="#${t.link}">${mine ? 'Làm ngay →' : 'Mở hồ sơ →'}</a>` : merged && t.link ? html`<a class="btn sm secondary" href="#${t.link}">Mở trang →</a>` : ''}
+    <div class="pc-act">${manual ? (mine || chu ? html`<button class="btn sm" data-a="pc-step" data-id="${t.id}">Xong bước "${s.name}" ✓</button>` : '') : !merged && t.link ? html`<a class="btn sm" href="#${t.link}">${mine ? 'Làm ngay →' : 'Mở hồ sơ →'}</a>` : merged && t.link ? html`<a class="btn sm secondary" href="#${t.link}">Mở trang →</a>` : ''}
       ${mgr ? html`<button class="btn sm secondary" data-a="pc-reassign" data-id="${t.id}">${accs.length ? 'Đổi người' : 'Giao người'}</button>` : ''}</div>
   </article>`;
 }

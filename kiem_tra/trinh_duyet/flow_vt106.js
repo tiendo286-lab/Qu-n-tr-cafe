@@ -18,7 +18,7 @@ export default async ({ sleep, out }) => {
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
     $('#rm-close')?.click(); await sleep(200);   // hộp nhắc việc lúc mở app
-    if (q.get('phan') !== 'the') {
+    if (!['the', 'tatca'].includes(q.get('phan'))) {
       await go('#/cong-viec/phan-cong', '#pc-body');
       const body = $('#pc-body');
       if (q.get('pcview')) {
@@ -56,7 +56,7 @@ export default async ({ sleep, out }) => {
       check(!dlg() && !$$('[data-cjob]').some((e) => /Lau kính/.test(txt(e))), 'Xoá việc → dòng biến mất');
     }
     // ---- Thẻ việc: Việc của tôi ----
-    if (q.get('phan') !== 'bang') {
+    if (!['bang', 'tatca'].includes(q.get('phan'))) {
       const photo = async (inp) => {
         const c = document.createElement('canvas'); c.width = 40; c.height = 30; c.getContext('2d').fillRect(0, 0, 20, 20);
         const b = await new Promise((ok) => c.toBlob(ok, 'image/jpeg'));
@@ -91,6 +91,16 @@ export default async ({ sleep, out }) => {
         check(!!amt && amt.value === '30.000', 'Quá hạn & phạt: mức gợi ý theo cơ sở 30.000 (' + (amt?.value || 'không thấy') + ')');
       }
       check(noScroll(), 'Việc của tôi / Quá hạn không tràn ngang');
+    }
+    // ---- bước 126: Tất cả công việc — nút Báo xong chỉ cho người làm / Chủ; mục Đã xong ghi rõ việc bị xoá ----
+    if (q.get('phan') === 'tatca') {
+      const role = q.get('role');
+      await go('#/viec', '#pc-body');
+      check(/Việc đã bị xoá/.test($('#pc-body').textContent), 'Mục Đã xong: việc bị xoá ghi "Việc đã bị xoá" (không phải ✓ Xong)');
+      await go('#/quan-ly/giao-viec', '#pc-body');
+      const ll = $$('.pc-task').find((c) => vis(c) && /Vệ sinh máy pha · LL/.test(txt(c)));
+      if (role === 'chu') check(!!ll?.querySelector('[data-a=pc-done]'), 'Chủ: thấy nút Báo xong ở việc của người khác');
+      else check(!!ll && !ll.querySelector('[data-a=pc-done]') && !!ll.querySelector('[data-a=pc-reassign]'), 'Quản lý tổng: không có nút Báo xong ở việc không giao cho mình, vẫn có Đổi người');
     }
   } catch (er) { if (er.message !== '__xong') fails.push(er.message); }
   out.push({ route: 'vt106', title: seen.join(' · ').slice(0, 900), errs: fails });

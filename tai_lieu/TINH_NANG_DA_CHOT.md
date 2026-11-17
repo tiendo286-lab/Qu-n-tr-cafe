@@ -663,6 +663,13 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Người làm bấm **Báo xong ✓** (ghi chú + ảnh); có kiểm tra → người kiểm tra xem ảnh, **Đạt** hoặc **Làm lại** (lý do + hạn mới). Quá hạn ở bước nào thì người giữ bước đó vào Quá hạn & phạt, mức phạt theo cơ sở. Xoá việc: lần đang mở bị huỷ, lịch sử + phạt giữ.
 - **Lần 2 — ĐÃ LÀM (bước 124, máy chủ `107_viec_co_san_tung_co_so.sql`, web 2026.11.17.9):** bấm tên 10 việc có sẵn (1, 3, 4, 7, 8, 10–14) mở hộp chung: hướng dẫn, **Có kiểm tra** (thay nút "+ Thêm bước"), mỗi cơ sở Bật · Người làm · [Người kiểm tra · Hạn kiểm tra] · Hạn làm · Mức phạt. **Kiểm quỹ** có Chu kỳ · Ngày làm · Quá hạn cho phép như việc tự thêm (đổi ngày giữa kỳ không đóng việc kỳ cũ). Việc có sẵn không đổi tên / không xoá / không có Bắt buộc ảnh. Hoá đơn bù, Giao bù: 1 dòng "Mọi cơ sở", không có kiểm tra. Phân chia nhân viên phát sinh và Giao việc riêng giữ hộp cũ. Cơ sở tắt chỉ chặn tạo việc mới. Lên bản đã chép hạn / phạt đang dùng sang từng cơ sở nên việc đang mở không đổi.
 
+## 5r35. Công việc — sửa nhỏ sau bản kiểm tra 17/11 — ĐÃ LÀM (bước 126, máy chủ `110_cong_viec_sua_nho.sql`, web 2026.11.17.11)
+- Tên việc / thông báo Lệch tiền ghi "Tiền mặt" / "Chuyển khoản" thay mã máy (`tien_mat`).
+- Giao việc riêng: người kiểm tra khác người giao → **người giao được báo** khi việc báo xong và khi Đạt; **đổi người làm → người làm cũ được báo** "Việc đã chuyển cho người khác".
+- Việc tự thêm bị xoá / việc Làm bổ sung quá **7 ngày** chưa ai làm (tự bỏ, không phạt): mục "Đã xong 7 ngày" ghi rõ, không hiện "✓ Xong".
+- Nút Báo xong / Đạt / Làm lại / Xong bước chỉ hiện cho người được giao và Chủ (Quản lý tổng vẫn có Đổi người).
+- Còn chờ anh chọn: nhắc phiếu chốt ca (quá dày) và báo khi sắp / đã quá hạn + số đếm "Quá hạn & phạt".
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.

@@ -1,7 +1,7 @@
 // Bước 109 — Tất cả công việc (Chủ / Quản lý tổng): việc tự tạo + Giao việc riêng của mọi người, chưa có người, theo dõi từng người, 5 bước việc riêng.
 import { rpc } from '../sb.js';
 import { $, html, str } from '../ui.js';
-import { JOBS, RST, jobName, learnJobs, ROLE, STYLE, bindActions, curStep, dur, fd, gvCard, gvDue, money, ms, pcCard, pcDue, rstate, shortName, toast, tone } from '../cv_chung.js?v=2026.11.17.10';
+import { JOBS, RST, jobName, learnJobs, ROLE, STYLE, bindActions, curStep, dur, fd, gvCard, gvDue, money, ms, pcCard, pcDue, rstate, shortName, toast, tone } from '../cv_chung.js?v=2026.11.17.11';
 
 export const perm = 'hop_giao_viec';
 const F = { br: '', st: 'open', rs: '' };
@@ -23,7 +23,7 @@ export async function render({ me }) {
     const people = (D.people || []).map((p) => ({ p, o: rows.filter((r) => r.accs.includes(p.id)).length, l: rows.filter((r) => r.accs.includes(p.id) && r.tone === 'late').length, l7: (D.late7 || {})[p.id] || 0 }))
       .filter((r) => r.o || r.l7);
     const rc = (i) => i === 4 ? gvAll.filter((k) => rstate(k) === 4).length : gvOpen.filter((k) => rstate(k) === i).length;
-    const card = (r) => (r.kind === 'pc' ? pcCard(r.x, { ctx: 'all', me: my, now, mgr }) : gvCard(r.x, { ctx: 'all', me: my, now, mgr }));
+    const card = (r) => (r.kind === 'pc' ? pcCard(r.x, { ctx: 'all', me: my, now, mgr, chu: me.role === 'chu' }) : gvCard(r.x, { ctx: 'all', me: my, now, mgr }));
     const chip = (k, v, l) => html`<button class="pc-chip ${F[k] === v ? 'on' : ''}" data-f="${k}" data-v="${v}">${l}</button>`;
     let list;
     if (F.rs !== '') {

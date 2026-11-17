@@ -74,7 +74,9 @@ export function makePc(T, me) {
   const ck = cu(3, 'Vệ sinh máy pha · HS · ' + today, [Object.assign(step(0, 'Làm', [8], at(-8), at(30), at(-1)), { note: 'Đã lau, máy chạy bình thường', photos: ['pc1/a.jpg', 'pc1/b.jpg'], done_by: nm(8) }),
     Object.assign(step(1, 'Kiểm tra', [ME], at(-1), at(23)), { check: true })]);
   TASKS.push(ck);
-  const DONE = [{ title: 'Đối soát Ca Chiều LHP 13/11/2026', code: 'LHP', job: 1, done_at: at(-26), by: nm(5), late: false }];
+  TASKS.push(cu(4, 'Vệ sinh máy pha · LL · ' + today, [step(0, 'Làm', [8], at(-3), at(40))]));   // việc của người khác (bước 126)
+  const DONE = [{ title: 'Đối soát Ca Chiều LHP 13/11/2026', code: 'LHP', job: 1, done_at: at(-26), by: nm(5), late: false },
+    { kind: 'pc', title: 'Lau kính · LHP · 15/11', code: 'LHP', job: 100, done_at: at(-20), late: false, drop: true, note: 'Việc đã bị xoá' }];
   let gseq = 500;
   const EV = {};
   const gv = (o) => { const k = { id: gseq++, content: '', branch_id: null, status: 'chua_phan_cong', priority: 'binh_thuong', src: 'Bàn giao ca', handover: true, giver_id: null, giver: null, assignee_id: null, assignee: null, reviewer_id: null, reviewer: null,

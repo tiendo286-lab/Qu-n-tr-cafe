@@ -78,6 +78,8 @@ const ME = role === 'chu'
     ? { account_id: 7, employee_id: null, role: 'ke_toan', must_change: false, code: 'ketoan', name: 'Kế toán thử', perms: { ke_toan: true, nhan_viec: true } }
   : role === 'nvkt'
     ? { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true, ke_toan: true } }
+  : role === 'qlt'
+    ? { account_id: 6, employee_id: 6, role: 'ql_tong', must_change: false, code: 'NV01', name: 'QL tổng thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, hop_giao_viec: true, phan_cong: true, doi_soat: true } }
   : role === 'ql'
     ? { account_id: 5, employee_id: 5, role: 'ql', must_change: false, code: '5', name: 'Quản lý thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, dao_tao: true, doi_soat: true } }
     : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true } };
