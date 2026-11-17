@@ -49,7 +49,9 @@ begin
       and (b1 ->> 'col_ck')::bigint = (b0 ->> 'col_ck')::bigint - 500000
       and (b1 ->> 'ck_left')::bigint = (b0 ->> 'ck_left')::bigint + 500000
       and not exists (select 1 from public.shift_debts where id = did)
-      and npair = 2 and nlog_a >= 1 and nlog_b >= 1;
+      and npair = 2 and nlog_a >= 1 and nlog_b >= 1
+      -- bước 120 (cần máy chủ 102): ghi chú "đổi từ Khách mượn"
+      and exists (select 1 from jsonb_array_elements(public.app__ca_move_notes(ca)) e where e ->> 'type' = 'doi' and e -> 'before' ->> 'kind' = 'muon' and (e -> 'before' ->> 'amount')::bigint = 500000);
   exception when others then m0 := sqlerrm;
   end;
   raise exception 'REPORT>> %', json_build_object('ket_qua', case when main_ok and e1 and e2 then 'PASS' else 'FAIL' end,
