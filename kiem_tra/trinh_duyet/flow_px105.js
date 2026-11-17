@@ -1,4 +1,4 @@
-// Bước 105 + 108: chỉ Chủ thấy và dùng nút Xóa phiếu xuất — cả phiếu chưa nhận lẫn phiếu ĐÃ NHẬN.
+// Bước 105 + 108: chỉ Chủ thấy và dùng nút Xóa phiếu xuất — cả phiếu chưa nhận, phiếu ĐÃ NHẬN và phiếu nhận KHÔNG HOÁ ĐƠN.
 export default async ({sleep,out})=>{
  const $=(s,r=document)=>r.querySelector(s); const $$=(s,r=document)=>[...r.querySelectorAll(s)]; const res=[];
  const wait=async(s)=>{for(let i=0;i<240&&!$(s);i++)await sleep(100);if(!$(s))throw new Error('Không thấy '+s);};
@@ -8,7 +8,9 @@ export default async ({sleep,out})=>{
   const mk=(d)=>rpc('app_nh_create',{p:{branch_id:1,doc_no:d,ship_at:day+' 08:00',total:10000,lines:[{code:'T105',name:'Món thử',unit:'Cái',qty:1,price:10000,amount:10000}]}});
   const id=await mk(doc); const id2=await mk(doc2);
   await sb.from('delivery_invoices').update({state:'da_nhan',received_at:day+' 09:00',received_date:day}).eq('id',id2);   // giả lập: nhân viên đã nhận xong
+  await sb.from('delivery_invoices').insert({branch_id:1,kind:'khong_hd',state:'cho_hoa_don',doc_no:null,work_date:day,received_at:day+' 10:00',received_date:day,receive_note:'KHD-TEST'});   // phiếu nhận không hoá đơn
   location.hash='#/hang-hoa/phieu-xuat';await wait('.px-row');await sleep(500);
+  const nrows=()=>$$('.px-need .px-nrow'); const n0=nrows().length; if(!n0)throw new Error('Không thấy khung Cần ghép phiếu xuất');
   const find=(d)=>$$('.px-row').find(x=>x.textContent.includes(d));
   const row=find(doc), row2=find(doc2); if(!row||!row2)throw new Error('Không thấy phiếu thử '+doc+' / '+doc2);
   if(role==='chu'){
@@ -23,8 +25,13 @@ export default async ({sleep,out})=>{
    if(ask.includes('ĐÃ CÓ NHÂN VIÊN'))throw new Error('Phiếu chưa nhận lại hiện cảnh báo đã nhận');
    if(find(doc))throw new Error('Chủ bấm Xóa nhưng phiếu vẫn còn');
    res.push('Chủ xóa được phiếu chưa nhận');
+   const nr=nrows()[n0-1]; if(!$('.px-del',nr))throw new Error('Chủ không thấy nút Xóa ở phiếu nhận không hoá đơn');
+   $('.px-del',nr).click();await sleep(800);
+   if(!ask.includes('KHÔNG HOÁ ĐƠN')||!ask.includes('ĐÃ CÓ NHÂN VIÊN'))throw new Error('Phiếu không hoá đơn: câu hỏi sai — '+ask);
+   if(nrows().length!==n0-1)throw new Error('Chủ bấm Xóa phiếu không hoá đơn nhưng vẫn còn');
+   res.push('Chủ xóa được phiếu nhận KHÔNG HOÁ ĐƠN');
   }else{
-   if($('.px-del',row)||$('.px-del',row2))throw new Error('Kế toán vẫn thấy nút Xóa phiếu xuất');
+   if($('.px-del',row)||$('.px-del',row2)||nrows().some(x=>$('.px-del',x)))throw new Error('Kế toán vẫn thấy nút Xóa phiếu xuất');
    let denied=false;try{await rpc('app_nh_delete',{p_id:id2});}catch(e){denied=String(e.message).includes('Chỉ Chủ');}
    if(!denied)throw new Error('Kế toán gọi API xóa không bị chặn');
    res.push('Kế toán không thấy nút và gọi API bị chặn');
