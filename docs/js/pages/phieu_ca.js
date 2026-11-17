@@ -214,6 +214,14 @@ export async function render({ params }) {
   const R0 = await rpc('app_ca_get', { p_id: id });
   const done = R0.status === 'hoan_thanh';
   const canRc = !!R0.can_recon && done;
+  const KT_GATE = canRc ? await rpc('app_ca_kt_state', { p_id: id }).catch(() => null) : null;
+  const ktBlocked = canRc && (!KT_GATE || (KT_GATE.need && !KT_GATE.ready));
+  const ktMissing = KT_GATE?.missing || [];
+  const ktWaitBox = html`<div class="alert warn stack" data-kt-wait style="gap:8px">
+    <strong>CHỜ KẾ TOÁN</strong>
+    <span>${KT_GATE ? html`Chưa thể kiểm tra ca này vì còn thiếu: <b>${ktMissing.join(', ') || 'dữ liệu kế toán'}</b>.` : 'Chưa kiểm tra được tình trạng file Fabi và số liệu ngân hàng. Hãy tải lại trang.'}</span>
+    <span class="toolbar" style="gap:6px"><a class="btn sm secondary" href="#/ke-toan/fabi">Mở File ca Fabi</a><a class="btn sm secondary" href="#/ke-toan/chuyen-khoan">Mở Chuyển khoản thực nhận</a></span>
+  </div>`;
   // Bước 35: bản đối soát chỉ mở ở trang riêng #/quan-ly/doi-soat/ca (từng bước); #/ca/phieu luôn là phiếu nhân viên (chỉ xem khi đã hoàn thành)
   const wantDs = String(params.__ds || '') === '1';
   if (wantDs && !canRc) {
@@ -221,13 +229,23 @@ export async function render({ params }) {
       <div>${done ? 'Bạn không có quyền đối soát phiếu này.' : `Nhân viên chưa hoàn thành phiếu chốt ca ${R0.shift} nên chưa đối soát được.`}</div>
       <div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/ca">‹ Danh sách ca</a></div></div>` };
   }
+  if (wantDs && ktBlocked) {
+    return { title: 'Phiếu chốt ca · Chờ kế toán', html: html`<div class="card stack" style="gap:12px;max-width:680px"><h1 style="margin:0">Ca ${R0.shift} · ${R0.branch_code}</h1>
+      ${ktWaitBox}<div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/ca">‹ Danh sách ca</a></div></div>` };
+  }
   // Bước 41: phiếu đang chốt → màn hình chốt ca mới theo phiếu Fabi (?cu=1 để xem phiếu kiểu cũ)
   if (!wantDs && R0.status === 'dang_chot' && R0.can_edit && String(params.cu || '') !== '1') {
     const [P41, cat41] = await Promise.all([rpc('app_ca_parts', { p_id: id }), catalog().catch(() => null)]);
     const SH41 = cat41 ? cat41.branchShifts(R0.branch_id).find((x) => x.name === R0.shift) || null : null;
     return renderNew(R0, P41, SH41);
   }
-  const RC = canRc && wantDs ? await rpc('app_ca_recon', { p_id: id }).catch(() => null) : null;
+  let reconError = null;
+  const RC = canRc && wantDs ? await rpc('app_ca_recon', { p_id: id }).catch((error) => { reconError = error; return null; }) : null;
+  if (wantDs && reconError) {
+    return { title: 'Không mở được bước Kiểm tra', html: html`<div class="card stack" data-recon-error style="gap:12px;max-width:680px"><h1 style="margin:0">Không mở được bước Kiểm tra</h1>
+      <div class="alert error">Kết nối máy chủ bị gián đoạn hoặc tình trạng dữ liệu vừa thay đổi. Chưa có thao tác kiểm tra nào được thực hiện.</div>
+      <div class="toolbar"><a class="btn sm" href="#/ca/phieu?id=${id}">Về phiếu và thử lại</a><a class="btn sm secondary" href="#/ca">‹ Danh sách ca</a></div></div>` };
+  }
   const isDs = !!RC;
   const R = isDs ? mergeRecon(R0, RC) : R0;
   const cat = await catalog().catch(() => null);
@@ -241,7 +259,7 @@ export async function render({ params }) {
   const P = !isDs && R0.status === 'dang_chot' ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;
   const PD = isDs ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;   // ai làm từng phần (trang đối soát)
   const lkItem = (it) => !!LK && (LK.items || []).includes(it);
-  const KT = isDs ? await rpc('app_ca_kt_state', { p_id: id }).catch(() => null) : null;
+  const KT = KT_GATE;
   const FB = isDs ? await rpc('app_fabi_for_report', { p_id: id }).catch(() => null) : null;   // bước 89: bảng NV ghi · file Fabi   // bước 57: phần tiền chờ kế toán?
   const PT = P ? Object.fromEntries((P.parts || []).map((p) => [p.part, p])) : {};
   const edFor = (k) => (P ? ed && !!PT[k]?.mine && !PT[k]?.done_at : ed && isDs);
@@ -755,9 +773,9 @@ export async function render({ params }) {
       <div class="toolbar" style="gap:6px;margin-top:6px">
         <span class="pill ${STAFF_LABEL[R.status][1]}">Nhân viên: ${STAFF_LABEL[R.status][0]}</span>
         ${!isDs && moveChanged(R).length ? html`<span class="pill warn">Quản lý đã sửa ${moveChanged(R).length} khoản thu chi</span>` : ''}
-        ${done ? html`<span class="pill ${R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH PHIẾU' : R0.recon_status === 'mo_lai' ? `ĐANG KIỂM TRA LẠI ${nChecks}/${nItems}` : `CHỜ QUẢN LÝ KIỂM TRA ${nChecks}/${nItems}`}</span>` : ''}
+        ${done ? html`<span class="pill ${ktBlocked ? 'warn' : R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${ktBlocked ? 'CHỜ KẾ TOÁN' : R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH PHIẾU' : R0.recon_status === 'mo_lai' ? `ĐANG KIỂM TRA LẠI ${nChecks}/${nItems}` : `CHỜ QUẢN LÝ KIỂM TRA ${nChecks}/${nItems}`}</span>` : ''}
       </div>
-      ${canRc && !isDs ? html`<div class="pc-ban"><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>` : ''}</div>
+      ${canRc && !isDs ? (ktBlocked ? html`<div class="pc-ban">${ktWaitBox}</div>` : html`<div class="pc-ban"><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>`) : ''}</div>
     <div class="toolbar"><a class="btn sm secondary" href="#/ca?ngay=${R.work_date}">‹ Danh sách ca</a>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div></div>`;
 
@@ -781,7 +799,7 @@ export async function render({ params }) {
     ? partPanel
     : html`<section class="card stack" style="gap:8px">
         ${done && R.recon_status === 'hoan_thanh' ? html`<div class="alert ok">Hoàn thành đối soát: ${R.recon_by_name} · ${dt(R.recon_at)}</div>` : ''}
-        ${canRc ? html`<div class="pc-line"><span class="st-meta grow">Số nhân viên đã gửi được giữ nguyên. Quản lý mở bước Kiểm tra trên chính phiếu này.</span><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>` : ''}
+        ${canRc ? (ktBlocked ? ktWaitBox : html`<div class="pc-line"><span class="st-meta grow">Số nhân viên đã gửi được giữ nguyên. Quản lý mở bước Kiểm tra trên chính phiếu này.</span><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>`) : ''}
         ${R.can_reopen ? html`<div><button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button></div>` : ''}</section>`;
 
   // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước

@@ -209,7 +209,8 @@ export function makeCa(T, me) {
       const AUTO = { tien: ['thoi_gian', 'doanh_thu', 'tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'], nhan_su: ['nhan_su', 'ban_giao'], nhan_hang: ['nhap_hang'] };
       const items = [];   // bước 44: bỏ tự đối soát khi quản lý tự gửi (AUTO giữ để tham khảo)
       void AUTO;
-      if (!(T.delivery_invoices || []).some((d) => d.received_report_id === p_id)) items.push('nhap_hang');
+      const kt = T.__ktState ? T.__ktState(p_id) : null;
+      if ((!kt || kt.ready) && !(T.delivery_invoices || []).some((d) => d.received_report_id === p_id)) items.push('nhap_hang');
       for (const it of new Set(items)) if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({ report_id: p_id, item: it, checked_by: me.account_id, checked_at: now() });
     },
     // Bước 32: phần việc của phiếu
@@ -240,7 +241,8 @@ export function makeCa(T, me) {
     app_ca_submit_unified({ p_id }) {
       F.app_ca_part_done({p_id,p_part:'tien',p_on:true});
       const result = F.app_ca_part_done({p_id,p_part:'nhan_su',p_on:true});
-      const self = !!me.perms.doi_soat;
+      const kt = T.__ktState ? T.__ktState(p_id) : null;
+      const self = !!me.perms.doi_soat && (!kt || kt.ready);
       if (result.completed && self) {
         const r = rep(p_id); const m = money(p_id);
         for (const it of ITEMS) if (!T.shift_report_checks.some((c) => c.report_id === p_id && c.item === it)) T.shift_report_checks.push({report_id:p_id,item:it,checked_by:me.account_id,checked_at:now()});
@@ -295,6 +297,8 @@ export function makeCa(T, me) {
       const c = p_changes || {};
       const has = (c.fields && Object.keys(c.fields).length) || ['debts', 'paid', 'to_exchange', 'photos'].some((k) => (c[k] || []).length);
       if (!has) return { changed: false };
+      const kt = T.__ktState ? T.__ktState(p_id) : null;
+      if (kt?.need && !kt.ready) throw new Error('Phiếu chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa trước khi lưu.');
       const sT = JSON.stringify(T); const sR = JSON.stringify(RECON); const sRes = JSON.stringify(RES); const nLog = RLOG.length;
       try {
@@ -429,7 +433,7 @@ export function makeCa(T, me) {
       if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
       if (MONEY.includes(p_item)) throw new Error('Hạng mục tiền: chọn kết quả KHỚP / THIẾU / THỪA.');
       const kt = T.__ktState ? T.__ktState(p_id) : null;   // bước 44: phần tiền chờ kế toán
-      if (kt && !kt.ready && KT_ITEMS.includes(p_item) && p_on) throw new Error('Phần tiền chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
+      if (kt?.need && !kt.ready && p_on) throw new Error('Phiếu chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
       if (p_on) T.shift_report_checks.push({ report_id: p_id, item: p_item, checked_by: me.account_id, checked_at: now() });
       const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
@@ -438,7 +442,7 @@ export function makeCa(T, me) {
     app_ca_result_set({ p_id, p_item, p_result, p_amount, p_reason, p_people }) {
       const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
       const kt = T.__ktState ? T.__ktState(p_id) : null;   // bước 44: phần tiền chờ kế toán
-      if (kt && !kt.ready && KT_ITEMS.includes(p_item)) throw new Error('Phần tiền chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
+      if (kt?.need && !kt.ready) throw new Error('Phiếu chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       const amt = p_result === 'khop' ? 0 : p_amount || 0;
       if (p_result !== 'khop' && amt <= 0) throw new Error('Nhập số tiền (lớn hơn 0).');
       if (p_result !== 'khop' && !(p_reason || '').trim()) throw new Error('Ghi lý do.');
@@ -484,6 +488,8 @@ export function makeCa(T, me) {
       SF.forEach((k) => { if (k.report_id === p_id && (k.status === 'chua_xu_ly' || k.auto_tru)) { k.status = 'huy'; k.auto_tru = false; } }); MONEY.forEach((it) => delete RES[p_id + '|' + it]); RLOG.push({ report_id: p_id, action: 'lam_lai', by: name(me.account_id), at: now() }); },
     app_ca_recon({ p_id }) {
       const r = rep(p_id); if (r.status !== 'hoan_thanh') throw new Error('Nhân viên chưa hoàn thành phiếu này.');
+      const kt = T.__ktState ? T.__ktState(p_id) : null;
+      if (kt?.need && !kt.ready) throw new Error('Phiếu chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       if (!RECON[p_id]) RECON[p_id] = snap(p_id);
       const ids = new Set([...RECON[p_id].staff, ...snap(p_id).staff].map((x) => x.employee_id));
       const employees = Object.fromEntries([...ids].map((id) => { const e = T.employees.find((x) => x.id === id) || {}; return [String(id), { code: e.code, name: e.name, rank: e.rank, pay_cash: !!e.pay_cash }]; }));

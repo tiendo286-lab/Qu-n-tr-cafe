@@ -9,7 +9,7 @@ export default async ({sleep,out}) => {
   await wait('#root h1, #root h2, #root .card, #root nav'); $$('dialog[open]').forEach(d=>d.close());
   const {rpc}=await import('../js/sb.js');
   const day=new Date(Date.now()+7*3600e3).toISOString().slice(0,10);
-  const ov=await rpc('app_ca_overview',{p_date:day}); const o=ov.find(x=>x.branch_code==='LLB')||ov[0];
+  const ov=await rpc('app_ca_overview',{p_date:day}); const o=ov.find(x=>x.branch_code==='LHP')||ov[0];
   const id=await rpc('app_ca_open',{p_branch:o.branch_id,p_date:day,p_shift:o.shift});
   for(const k of ['tien','nhan_su']) await rpc('app_ca_part_claim',{p_id:id,p_part:k,p_force:false});
   const e=(await rpc('app_ca_employees'))[0];
@@ -40,7 +40,15 @@ export default async ({sleep,out}) => {
   const saved=await rpc('app_ca_get',{p_id:id});
   check(saved.status==='hoan_thanh','Gửi thành công');check($$('#moves .sc-exchange').length===1,'Phiếu gốc hiển thị một khoản đổi tiền');check(saved.moves.filter(m=>m.exchange_key).length===2,'Máy chủ giả lưu đủ hai bút toán');
   if(new URLSearchParams(location.search).get('role')==='chu') {
-   check(saved.recon_status==='hoan_thanh','Quản lý tự chốt hoàn thành đối soát');
+   check(saved.recon_status!=='hoan_thanh','Quản lý vẫn chốt ca được nhưng không tự kiểm tra khi thiếu nguồn kế toán');
+   check(Object.keys(saved.checks||{}).length===0,'Phiếu chờ kế toán chưa có tiến độ Kiểm tra');
+   check(document.body.textContent.includes('CHỜ KẾ TOÁN'),'Phiếu đã gửi hiện trạng thái CHỜ KẾ TOÁN');
+   check(!document.querySelector('a[href*="__ds=1"]'),'Thiếu nguồn kế toán thì không có nút mở Kiểm tra');
+   location.hash='#/ca/phieu?id='+id+'&__ds=1';await wait('[data-kt-wait]');
+   check(document.body.textContent.includes('file chốt ca Fabi')&&document.body.textContent.includes('ngân hàng'),'Mở thẳng Kiểm tra vẫn bị chặn và ghi đủ nguồn còn thiếu');
+   const bankId=await rpc('app_kt_account_save',{p_id:null,p_branch:o.branch_id,p_bank:'VCB',p_no:'12345678',p_holder:'MILANO TEST',p_label:'Tài khoản thử',p_active:true});
+   await rpc('app_kt_bank_save_accounts',{p_report:id,p_rows:[{account_id:bankId,opening:0,closing:800000,transfers_out:0,note:'Dữ liệu giả',opening_manual:true}]});
+   await rpc('app_fabi_upload',{p_rows:[{ma_ca:'WAIT-'+id,store:'Milano Coffee - Lê Hồng Phong',open:day.split('-').reverse().join('/')+' 06:45',close:day.split('-').reverse().join('/')+' 12:35',dau:1000000,cuoi:1200000,net:1000000,hd:20,tong:1200000,pay:[{name:'Tiền mặt',amount:700000},{name:'Chuyển khoản',amount:300000}],items:[],groups:[]}]});
    location.hash='#/quan-ly/doi-soat/ca?id='+id+'&buoc=4';await wait('#ds-parts .sc-steps');await sleep(500);
    check($$('#moves .sc-exchange').length===1,'Đối soát tải lại một phiếu đổi tiền');check($('#ds-parts .sc-steps').getBoundingClientRect().width >= $('#ds-parts').getBoundingClientRect().width-2,'Thanh bước dùng đủ chiều rộng');
    check(document.documentElement.scrollWidth<=document.documentElement.clientWidth+1,'Đối soát không tràn ngang');

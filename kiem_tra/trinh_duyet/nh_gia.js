@@ -110,8 +110,8 @@ export function makeNh(T, me) {
       Object.assign(tg, meta, { kind: 'hoa_don', state: 'da_nhan', matched_at: now(), matched_by: me.account_id });
       return tg.id;
     },
-    app_nh_delete({ p_id }) { const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i) return []; if (i.state !== 'dang_chuyen') throw new Error('Hàng đã được báo nhận, không xoá phiếu xuất được.');
-      if (started(p_id)) throw new Error('Nhân viên đang nhận hàng theo phiếu này — không xoá được.'); T.delivery_invoices = T.delivery_invoices.filter((x) => x !== i); return []; },
+    app_nh_delete({ p_id }) { if (me.role !== 'chu') throw new Error('Chỉ Chủ được xóa phiếu xuất.'); const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i) return []; if (i.state !== 'dang_chuyen') throw new Error('Hàng đã được báo nhận, không xóa phiếu xuất được.');
+      if (started(p_id)) throw new Error('Nhân viên đang nhận hàng theo phiếu này — không xóa được.'); T.delivery_invoices = T.delivery_invoices.filter((x) => x !== i); return []; },
     app_nh_replace({ p_id, p }) {
       if (!can('ke_toan')) throw new Error('Bạn không có quyền.');
       const i = T.delivery_invoices.find((x) => x.id === p_id); if (!i) throw new Error('Không tìm thấy phiếu xuất.');
