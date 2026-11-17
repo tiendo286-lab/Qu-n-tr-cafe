@@ -1,7 +1,8 @@
 // Bước 109 — Bảng phân công: mỗi việc × mỗi cơ sở ai làm, hạn bao lâu, mấy bước, mức phạt. Chỉ tài khoản Chủ sửa; Quản lý tổng xem.
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, str } from '../ui.js';
-import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, money, shortName, toast } from '../cv_chung.js';
+import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js';
+import { hTxt, openJobDialog, schedTxt } from '../pc_hop_viec.js';
 
 export const perm = 'phan_cong';
 const FROM = {
@@ -16,6 +17,7 @@ const HOW = { 1: 'Mỗi phiếu ca 1 việc', 2: 'Mỗi phiếu 1 việc', 3: 'M
 export async function render() {
   let D = await rpc('app_pc_board');
   const draw = () => {
+    learnJobs(D.jobs);
     const ed = D.can_edit, P = D.people || [], nameOf = (id) => shortName(P.find((p) => p.id === id)?.name) || `#${id}`;
     const J = (j) => D.jobs.find((x) => x.job === j);
     const asg = (j, b) => (D.assign.find((x) => x.job === (J(j)?.same_as_1 ? 1 : j) && x.branch_id === b)?.accounts) || [];
@@ -36,6 +38,19 @@ export async function render() {
     const rowsFor = (g) => ORDER.filter((j) => GROUP[j] === g && J(j)).map((j) => { const job = J(j); return html`<tr class="${job.enabled ? '' : 'off'}">
       <td><div class="pb-jn ${ed ? 'ed' : ''}" ${ed ? html`data-job="${j}"` : ''}>${j}. ${JOBS[j]}${job.enabled ? '' : ' (đang tắt)'}</div><div class="pc-sub">${HOW[j]}</div></td>
       <td><div style="font-size:13px"><b>${stepTxt(j)}</b></div><div class="pc-sub">${FROM[j]}</div></td>${mid(j)}<td>${job.fine ? money(job.fine) : html`<span class="pc-sub">—</span>`}</td></tr>`; });
+    // bước 123: việc tự thêm
+    const CU = (D.jobs || []).filter((x) => x.custom);
+    const S = (j, b) => (D.sched || []).find((x) => x.job === j && x.branch_id === b);
+    const cuTags = (job) => html`<div class="pv-tags">${job.need_photo ? html`<span class="pv-tg">📷 Bắt buộc ảnh</span>` : ''}${job.need_check ? html`<span class="pv-tg rv">✓ Có kiểm tra</span>` : ''}${job.enabled ? '' : html`<span class="pv-tg off">Đang tạm tắt</span>`}</div>`;
+    const cuCell = (job, b) => { const s = S(job.job, b.id); const ids = (D.assign.find((x) => x.job === job.job && x.branch_id === b.id)?.accounts) || [];
+      if (!s || !s.enabled) return html`<span class="pc-sub"><i>Tắt</i></span>`;
+      return html`${chips(ids)}${job.need_check ? (s.checkers || []).map((id) => html`<span class="pb-ch rv">KT: ${nameOf(id)} · ${hTxt(s.check_h)}</span>`) : ''}<span class="pv-sch">${schedTxt(s)}</span>`; };
+    const cuRows = CU.map((job) => html`<tr data-cjob="${job.job}" class="${job.enabled ? '' : 'off'}">
+      <td><div class="pb-jn ${ed ? 'ed' : ''}" ${ed ? html`data-job="${job.job}"` : ''}>${job.name}</div>${cuTags(job)}</td>
+      <td><div style="font-size:13px"><b>Làm${job.need_check ? ' → Kiểm tra' : ''}</b></div><div class="pc-sub">Theo lịch từng cơ sở${job.guide ? ' · ' + job.guide.slice(0, 60) : ''}</div></td>
+      ${D.branches.map((b) => html`<td class="pb-cell ${ed ? 'ed' : ''}" ${ed ? html`data-job="${job.job}"` : ''}>${cuCell(job, b)}</td>`)}<td><span class="pc-sub">theo cơ sở</span></td></tr>`);
+    const cuCards = CU.map((job) => html`<div class="pb-mc ${job.enabled ? '' : 'off'}" data-cjob="${job.job}"><div class="pb-jn ${ed ? 'ed' : ''}" ${ed ? html`data-job="${job.job}"` : ''}>${job.name} ${ed ? html`<span style="color:var(--primary);font-size:12px">✎ sửa</span>` : ''}</div>${cuTags(job)}
+      ${D.branches.map((b) => html`<div class="pb-mr"><b>${b.code}</b><span style="text-align:right">${cuCell(job, b)}</span></div>`)}</div>`);
     const mcards = ORDER.filter((j) => J(j)).map((j) => { const job = J(j);
       const rows = GROUP[j] === 'kt' ? html`<div class="pb-mr"><b>Kế toán</b><span>${D.kt ? html`<span class="pb-ch kt">${nameOf(D.kt)}</span>` : html`<span class="pb-ch none">Chưa chọn</span>`}</span></div>`
         : j === 2 ? job.steps.map((s, i) => html`<div class="pb-mr"><b>${i + 1}. ${s.n}</b><span><span class="pb-ch">${whoTxt(s.who)}</span></span></div>`)
@@ -49,8 +64,11 @@ export async function render() {
           <select class="input" id="pb-kt" ${ed ? '' : 'disabled'}><option value="">— Chưa chọn —</option>${P.filter((p) => p.role !== 'chu').map((p) => html`<option value="${p.id}" ${p.id === D.kt ? 'selected' : ''}>${shortName(p.name)} · ${ROLE[p.role] || p.role}</option>`)}</select></div>
         <div class="card"><h3 style="margin:0">Phạt khi quá hạn</h3><div style="font-size:14px">Mặc định <b>50.000đ / lần</b> · từng việc sửa riêng (bấm tên việc).</div><div class="pc-sub">Web <b>không tự trừ</b>: việc quá hạn lên trang <a href="#/cong-viec/qua-han">Quá hạn & phạt</a>, Chủ xác nhận hoặc bỏ qua. Lý do: "Bị phạt do không hoàn thành công việc đúng hạn".</div></div></div>
       <div class="pb-mx"><table><thead><tr><th style="width:220px">Việc ${ed ? html`<span style="font-weight:400">(bấm tên để sửa)</span>` : ''}</th><th style="width:210px">Hạn · các bước</th>${D.branches.map((b) => html`<th>${b.code}</th>`)}<th style="width:80px">Phạt</th></tr></thead>
-        <tbody>${Object.keys(GROUPS).map((g) => html`<tr class="pb-gh"><td colspan="${D.branches.length + 3}">${GROUPS[g]}</td></tr>${rowsFor(g)}`)}</tbody></table></div>
-      <div class="pb-mcs">${mcards}</div>
+        <tbody>${Object.keys(GROUPS).map((g) => html`<tr class="pb-gh"><td colspan="${D.branches.length + 3}">${GROUPS[g]}</td></tr>${rowsFor(g)}`)}
+          <tr class="pb-gh tu"><td colspan="${D.branches.length + 3}">Việc tự thêm (lịch từng cơ sở)</td></tr>${cuRows}
+          ${CU.length ? '' : html`<tr><td colspan="${D.branches.length + 3}" class="pc-sub">Chưa có việc tự thêm.</td></tr>`}</tbody></table></div>
+      <div class="pb-mcs">${mcards}<div class="pc-sec pc-cat">Việc tự thêm</div>${cuCards}${CU.length ? '' : html`<div class="pc-sub">Chưa có việc tự thêm.</div>`}</div>
+      <div class="pv-addbar">${ed ? html`<button type="button" class="btn" id="pv-add">+ Thêm việc</button>` : ''}<span class="pc-sub">Việc lặp lại anh tự đặt: vệ sinh máy, kiểm kho, lau kính… Mỗi cơ sở chọn người làm, ngày làm, hạn, mức phạt riêng.</span></div>
       <div class="pb-set"><div class="card"><h3 style="margin:0">Không tạo việc (để biết)</h3><div class="pc-sub" style="line-height:1.7">5 · Phiếu chi chuyển khoản — làm luôn trong Đối soát ca.<br>6 · Kiểm đếm tiền mặt cuối ngày — không hạn; lệch chuyển sang Lệch tiền ca (đợt 3).<br>9 · Khách nợ — luôn hiện đầu "Việc của tôi" cho người đối soát ca, tới khi khách trả.<br>15, 21, 22 · Bỏ / giữ như hiện nay.</div></div>
         <div class="card"><h3 style="margin:0">Đợt sau</h3><div class="pc-sub" style="line-height:1.7"><b>Đợt 2:</b> quản lý chỉ thấy cơ sở mình được phân công (máy chủ chặn), Quản lý tổng thấy hết.<br><b>Đợt 3:</b> 16 Xếp lịch tuần · 17 Bảng công · 18 Đào tạo · 19 Nội quy · 20 Cam kết · 23 Hỗ trợ nhân viên.</div></div></div>`;
   };
@@ -64,7 +82,10 @@ export async function render() {
       .pb-jn{font-weight:700;font-size:14px}.pb-jn.ed{cursor:pointer;text-decoration:underline dotted var(--primary);text-underline-offset:3px}
       .pb-cell.ed,.pb-mr.ed{cursor:pointer}.pb-cell.ed:hover,.pb-mr.ed:hover{background:var(--caramel-soft,#f6ead9)}tr.off td,.pb-mc.off{opacity:.5}
       .pb-ch{display:inline-block;background:#e6ecdc;color:#3f5a36;border-radius:6px;padding:2px 7px;margin:0 3px 3px 0;font-weight:600;font-size:12px}.pb-ch.kt{background:#efe5ee;color:#6b3d63}.pb-ch.boss{background:var(--caramel-soft,#f6ead9);color:var(--primary)}.pb-ch.none{background:var(--off-bg);color:var(--off-ink)}
-      .pb-l{display:block;font-size:11px;color:var(--muted)}.pb-mcs{display:none}.pb-mc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
+      .pb-l{display:block;font-size:11px;color:var(--muted)}
+      .pb-gh.tu td{background:#5b4a1e}.pb-ch.rv{background:var(--plum-bg,#efe5ee);color:var(--plum-ink,#6b3d63)}.pv-sch{display:block;font-size:12px;color:var(--ink-2);margin-top:2px}
+      .pv-tags{display:flex;gap:4px;flex-wrap:wrap;margin-top:4px}.pv-tg{font-size:11px;font-weight:600;border-radius:6px;padding:1px 6px;background:#e3eaf1;color:#2d4a66}.pv-tg.rv{background:var(--plum-bg,#efe5ee);color:var(--plum-ink,#6b3d63)}.pv-tg.off{background:var(--off-bg);color:var(--off-ink)}
+      .pv-addbar{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin:0 0 12px}.pb-mcs{display:none}.pb-mc{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;margin-bottom:10px}
       .pb-mr{display:flex;justify-content:space-between;gap:8px;padding:6px 0;border-top:1px solid var(--line-soft);font-size:13px;align-items:center}
       .pb-step{display:grid;grid-template-columns:24px 1fr 1fr 84px 32px;gap:6px;align-items:center}.pb-x{border:0;background:var(--off-bg);color:var(--off-ink);border-radius:8px;height:34px;cursor:pointer}
       @media (max-width:860px){.pb-set{grid-template-columns:1fr}.pb-mx{display:none}.pb-mcs{display:block}.pb-step{grid-template-columns:22px 1fr 76px 30px}.pb-step .w{grid-column:2/4}}
@@ -82,7 +103,10 @@ export async function render() {
         $('[data-ok]', d).onclick = (ev) => run(d, ev.target, async () => { const n = await rpc('app_pc_kt_set', { p_account: v, p_apply: $('#pb-ap', d).checked }); D.kt = v; await reload(`Đã đổi người làm Kế toán${n ? ' · chuyển ' + n + ' việc đang mở' : ''}`); });
       });
       body.addEventListener('click', (e) => {
+        if (e.target.closest('#pv-add')) { openJobDialog({ D, job: null, done: reload }); return; }
         const c = e.target.closest('[data-cell]'), jn = e.target.closest('[data-job]');
+        const cj = jn && D.jobs.find((x) => x.job === +jn.dataset.job && x.custom);
+        if (cj) { openJobDialog({ D, job: cj, done: reload }); return; }
         if (c) {
           const j = +c.dataset.cell, b = +c.dataset.b, job = D.jobs.find((x) => x.job === j), bc = D.branches.find((x) => x.id === b).code;
           const cur = (D.assign.find((x) => x.job === (job.same_as_1 ? 1 : j) && x.branch_id === b)?.accounts) || [];

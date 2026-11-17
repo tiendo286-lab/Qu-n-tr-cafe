@@ -21,8 +21,19 @@ export function makePc(T, me) {
     { job: 13, enabled: true, fine: 50000, same_as_1: false, steps: [{ n: 'Hoá đơn bù / ghép phiếu xuất', who: 'kt', d: 2 }] },
     { job: 14, enabled: true, fine: 50000, same_as_1: false, steps: [{ n: 'Theo dõi giao bù / hoá đơn bổ sung', who: 'kt', d: 2 }] },
     { job: 24, enabled: true, fine: 50000, same_as_1: true, steps: [{ n: 'Phân loại / giao', who: 'branch', d: 1 }, { n: 'Nhận & làm', who: 'doer', d: null }, { n: 'Kiểm tra', who: 'checker', d: 1 }] },
+    // bước 123: việc tự thêm
+    { job: 100, enabled: true, fine: 0, same_as_1: false, custom: true, name: 'Vệ sinh máy pha', guide: 'Tháo tay pha, ngâm 15 phút, lau group head, chụp ảnh sau khi lau.', need_photo: true, need_check: true,
+      steps: [{ n: 'Làm', who: 'branch', d: null }, { n: 'Kiểm tra', who: 'check', d: null }] },
   ];
-  const ASG = [{ job: 1, branch_id: 1, accounts: [6, ME === 1 ? 1 : 5] }, { job: 1, branch_id: 2, accounts: [5] }, { job: 1, branch_id: 3, accounts: [8, 5] }, { job: 1, branch_id: 4, accounts: [8] }, { job: 1, branch_id: 29, accounts: [] }];
+  const SCHED = [
+    { job: 100, branch_id: 1, enabled: true, cycle: 'ngay', day: null, grace_h: 4, fine: 20000, checkers: [6], check_h: 4, from_date: '2026-11-17' },
+    { job: 100, branch_id: 2, enabled: true, cycle: 'tuan', day: 2, grace_h: 24, fine: 50000, checkers: [6], check_h: 24, from_date: '2026-11-17' },
+    { job: 100, branch_id: 3, enabled: true, cycle: 'tuan', day: 3, grace_h: 24, fine: 50000, checkers: [6], check_h: 24, from_date: '2026-11-17' },
+    { job: 100, branch_id: 4, enabled: true, cycle: 'thang', day: 5, grace_h: 72, fine: 0, checkers: [1], check_h: 48, from_date: '2026-11-17' },
+    { job: 100, branch_id: 29, enabled: false, cycle: 'tuan', day: 1, grace_h: 24, fine: 50000, checkers: [], check_h: 24, from_date: '2026-11-17' },
+  ];
+  const ASG = [{ job: 1, branch_id: 1, accounts: [6, ME === 1 ? 1 : 5] }, { job: 1, branch_id: 2, accounts: [5] }, { job: 1, branch_id: 3, accounts: [8, 5] }, { job: 1, branch_id: 4, accounts: [8] }, { job: 1, branch_id: 29, accounts: [] },
+    { job: 100, branch_id: 1, accounts: [3] }, { job: 100, branch_id: 2, accounts: [5] }, { job: 100, branch_id: 3, accounts: [8] }, { job: 100, branch_id: 4, accounts: [3] }, { job: 100, branch_id: 29, accounts: [] }];
   let KT = 7;
   const J = (j) => JOBS.find((x) => x.job === j);
   const who = (j, w, b) => {
@@ -73,6 +84,7 @@ export function makePc(T, me) {
   ];
   PEN[2].others = [nm(5)];
   const isChu = me.role === 'chu';
+  const pcView = !!new URLSearchParams(location.search).get('pcview');   // bài thử: xem như Quản lý tổng
   const mine = (t) => !t.done_at && t.steps.some((s) => !s.done_at && s.accounts.includes(ME));
   const findG = (id) => GV.find((k) => k.id === id);
   const err = (m) => { throw new Error(m); };
@@ -88,7 +100,35 @@ export function makePc(T, me) {
       return { now: now(), me: ME, can_edit: true, tasks: TASKS.filter((t) => !t.done_at), gv: GV, done: DONE, people: P, branches: B, jobs: JOBS, late7: { 5: 2, 7: 1 },
         debts: [{ id: 1, branch_id: 1, code: 'LHP', kind: 'bill', name: 'Khách Minh', note: null, amount: 120000, at: at(-100) }] };
     },
-    app_pc_board() { return { can_edit: isChu, jobs: JOBS, assign: ASG, branches: B, people: P, kt: KT, start: '2026-11-16', old_rule_on: false }; },
+    app_pc_board() { return { can_edit: isChu && !pcView, jobs: JOBS.filter((j) => !j.deleted_at), assign: ASG, sched: SCHED, branches: B, people: P, kt: KT, start: '2026-11-16', old_rule_on: false }; },
+    app_pc_custom_save({ p_job, p }) {
+      if (!isChu || pcView) err('Chỉ tài khoản Chủ sửa được Bảng phân công.');
+      if (!String(p.name || '').trim()) err('Ghi tên việc.');
+      for (const r of p.rows) {
+        const code = bc(r.branch_id);
+        if (!['ngay', 'tuan', 'thang'].includes(r.cycle)) err('Chọn chu kỳ cho ' + code + '.');
+        if (p.need_check && r.enabled) {
+          if (!(r.checkers || []).length) err('Chọn người kiểm tra cho ' + code + '.');
+          if (r.checkers.some((x) => (r.accounts || []).includes(x))) err('Người kiểm tra phải khác người làm.');
+        }
+      }
+      let j = p_job ? J(p_job) : null;
+      if (!j) { j = { job: Math.max(100, ...JOBS.map((x) => x.job + 1)), same_as_1: false, custom: true, fine: 0 }; JOBS.push(j); }
+      Object.assign(j, { name: p.name.trim(), guide: p.guide || null, need_photo: !!p.need_photo, need_check: !!p.need_check, enabled: p.enabled !== false,
+        steps: [{ n: 'Làm', who: 'branch', d: null }, ...(p.need_check ? [{ n: 'Kiểm tra', who: 'check', d: null }] : [])] });
+      for (const r of p.rows) {
+        let s = SCHED.find((x) => x.job === j.job && x.branch_id === r.branch_id); if (!s) SCHED.push(s = { job: j.job, branch_id: r.branch_id, from_date: now().slice(0, 10) });
+        Object.assign(s, { enabled: r.enabled, cycle: r.cycle, day: r.cycle === 'ngay' ? null : r.day, grace_h: r.grace_h, fine: r.fine, checkers: r.checkers || [], check_h: r.check_h });
+        let a = ASG.find((x) => x.job === j.job && x.branch_id === r.branch_id); if (!a) ASG.push(a = { job: j.job, branch_id: r.branch_id, accounts: [] });
+        a.accounts = r.accounts || [];
+      }
+      return j.job;
+    },
+    app_pc_custom_delete({ p_job }) {
+      if (!isChu || pcView) err('Chỉ tài khoản Chủ sửa được Bảng phân công.');
+      const j = J(p_job); if (!j?.custom) err('Chỉ xoá được việc tự thêm.');
+      j.deleted_at = now(); let n = 0; TASKS.forEach((t) => { if (t.job === p_job && !t.done_at) { t.done_at = now(); n++; } }); return n;
+    },
     app_pc_job_save({ p_job, p }) {
       if (!isChu) err('Chỉ tài khoản Chủ sửa được Bảng phân công.');
       const j = J(p_job);

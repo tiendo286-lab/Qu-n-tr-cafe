@@ -7,6 +7,9 @@ export const JOBS = {
   1: 'Đối soát ca', 2: 'Phân chia nhân viên phát sinh', 3: 'File ca Fabi', 4: 'Chuyển khoản thực nhận', 7: 'Lệch tiền ca', 8: 'Xem giải trình khoản trừ',
   10: 'Kiểm quỹ hằng tuần', 11: 'Nhận hàng quá ngày giao', 12: 'Đối soát hàng', 13: 'Hoá đơn bù & ghép phiếu xuất', 14: 'Giao bù & hoá đơn bổ sung', 24: 'Giao việc riêng',
 };
+// Bước 123: việc tự thêm (số ≥ 100) lấy tên từ máy chủ
+export const learnJobs = (list) => (list || []).forEach((x) => { const nm = x?.job_name || x?.name; if (x?.job >= 100 && nm) JOBS[x.job] = nm; });
+export const jobName = (j) => JOBS[j] || (j >= 100 ? 'Việc tự thêm' : '');
 export const ORDER = [1, 2, 7, 8, 10, 11, 12, 3, 4, 13, 14, 24];
 export const GROUP = { 1: 'tien', 2: 'tien', 7: 'tien', 8: 'tien', 10: 'tien', 11: 'hang', 12: 'hang', 3: 'kt', 4: 'kt', 13: 'kt', 14: 'kt', 24: 'rieng' };
 export const GROUPS = { tien: 'Đối soát tiền & ca (theo cơ sở)', hang: 'Hàng hoá (theo cơ sở)', kt: 'Kế toán (1 người, chung các cơ sở)', rieng: 'Giao việc riêng (bàn giao ca + mọi việc giao tay)' };
