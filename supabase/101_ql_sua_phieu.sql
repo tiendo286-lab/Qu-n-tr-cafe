@@ -49,4 +49,68 @@ begin
     'ck_expected', pt + ck_mv + col_ck - ck_new);   -- bước 119: chuyển khoản PHẢI NHẬN (ô Chuyển khoản ngân hàng ở bước Kiểm tra)
 end $function$;
 
+-- ================================================================ 2. app_ca_recon_save — bản kiểm tra (quản lý sửa)
+-- Bước 119: giữ cash_paid trong danh sách nhân viên.
+CREATE OR REPLACE FUNCTION public.app_ca_recon_save(p_id bigint, p jsonb, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts; r public.shift_reports; old jsonb; new jsonb := '{}'::jsonb; k text; v jsonb; reason text := nullif(trim(coalesce(p_reason, '')), '');
+        lk text[]; dir text[] := string_to_array(nullif(current_setting('app.ca_direct', true), ''), ',');
+begin
+  a := public.app__need('doi_soat');
+  select * into r from public.shift_reports where id = p_id for update;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa hoàn thành nên chưa đối soát được.'; end if;
+  if dir is null and r.recon_status = 'hoan_thanh' then raise exception 'Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.'; end if;
+  -- bước 67: Chủ sửa thẳng → chỉ các trường của mục đang sửa được đổi, mọi trường khác giữ nguyên
+  lk := case when dir is not null then coalesce((select array_agg(x) from unnest(public.app__recon_fields()) x where not (x = any(dir))), '{}')
+             else public.app__ca_locked_fields(p_id) end;   -- bước 51
+  insert into public.shift_report_recon(report_id, data, updated_by) values (p_id, public.app__recon_snapshot(p_id), a.id)
+  on conflict (report_id) do nothing;
+  select data into old from public.shift_report_recon where report_id = p_id for update;
+  -- dựng lại dữ liệu sạch theo đúng các trường cho phép
+  foreach k in array public.app__recon_fields() loop
+    if k = any(lk) then new := new || jsonb_build_object(k, old -> k); continue; end if;
+    v := case when p ? k then p -> k else old -> k end;
+    if k in ('total_revenue','pos_cash','pos_transfer','reported_transfer','cash_counted','opening_cash','cups') then
+      if v is not null and jsonb_typeof(v) <> 'null' then
+        if jsonb_typeof(v) <> 'number' or (v::text)::numeric <> trunc((v::text)::numeric) then raise exception 'Số liệu % phải là số nguyên.', k; end if;
+        if k <> 'opening_cash' and (v::text)::numeric < 0 then raise exception 'Số liệu % không được âm.', k; end if;
+      end if;
+    elsif k = 'goods_status' then
+      if v is not null and jsonb_typeof(v) <> 'null' and (v #>> '{}') not in ('khong', 'du', 'thieu') then raise exception 'Trạng thái nhập hàng không hợp lệ.'; end if;
+    elsif k = 'moves' then
+      v := coalesce((select jsonb_agg(jsonb_build_object('kind', x ->> 'kind', 'amount', (x ->> 'amount')::bigint, 'note', coalesce(x ->> 'note', ''), 'exchange_key', nullif(x->>'exchange_key','')::uuid))
+                       from jsonb_array_elements(coalesce(v, '[]')) x where x ->> 'kind' in ('tien_mat', 'chuyen_khoan') and (x ->> 'amount') is not null), '[]');
+    elsif k = 'staff' then
+      -- bước 119: giữ lương trả tiền mặt (cash_paid) — trước đây bị bỏ mất khi quản lý lưu bất kỳ ô nào
+      if exists (select 1 from jsonb_array_elements(coalesce(v, '[]')) x where coalesce(nullif(x ->> 'cash_paid', '')::bigint, 0) < 0) then
+        raise exception 'Số tiền lương đã trả không được âm.';
+      end if;
+      v := coalesce((select jsonb_agg(jsonb_build_object('employee_id', (x ->> 'employee_id')::bigint, 'source', coalesce(x ->> 'source', 'ho_tro'),
+                        'role', x ->> 'role', 'worked', coalesce((x ->> 'worked')::boolean, true), 'time_in', nullif(x ->> 'time_in', ''),
+                        'time_out', nullif(x ->> 'time_out', ''), 'absent_reason', nullif(x ->> 'absent_reason', ''), 'note', nullif(x ->> 'note', ''),
+                        'cash_paid', nullif(nullif(x ->> 'cash_paid', '')::bigint, 0)))
+                       from jsonb_array_elements(coalesce(v, '[]')) x
+                      where exists (select 1 from public.employees e where e.id = (x ->> 'employee_id')::bigint)), '[]');
+    elsif k = 'goods' then
+      v := coalesce((select jsonb_agg(jsonb_build_object('item', trim(x ->> 'item'), 'qty', coalesce(x ->> 'qty', '')))
+                       from jsonb_array_elements(coalesce(v, '[]')) x where trim(coalesce(x ->> 'item', '')) <> ''), '[]');
+    end if;
+    new := new || jsonb_build_object(k, v);
+    if (old -> k) is distinct from v then
+      insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+      values (p_id, 'sua', k, old -> k, v, reason, a.id);
+    end if;
+  end loop;
+  perform public.app__ca_validate_exchanges(new->'moves');
+  if new is distinct from old and reason is null then raise exception 'Ghi lý do sửa bản đối soát.'; end if;
+  if new is distinct from old then
+    update public.shift_report_recon set data = new, updated_by = a.id, updated_at = public.vn_now_text() where report_id = p_id;
+    perform public.app__ca_exchange_cats(p_id, a.id);
+  end if;
+end $function$;
+
 insert into public.app_migrations(file) values ('101_ql_sua_phieu.sql') on conflict (file) do nothing;
