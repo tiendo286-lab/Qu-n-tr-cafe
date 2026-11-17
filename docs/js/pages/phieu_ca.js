@@ -213,7 +213,7 @@ export async function render({ params }) {
   const SH = cat ? cat.branchShifts(R.branch_id).find((x) => x.name === R.shift) || null : null;
   // bước 51: mục web tự đối soát (khớp file Fabi + ngân hàng) → nhạt đi, khoá
   const LK = isDs ? await rpc('app_ca_auto_locks', { p_id: id }).catch(() => null) : null;
-  const DIR = isDs && LK?.is_chu ? getDirect(id) : null;   // bước 67: Chủ sửa thẳng mục đã đối soát
+  const DIR = isDs && (LK?.can_direct || LK?.is_chu) ? getDirect(id) : null;   // bước 67: Chủ sửa thẳng mục đã đối soát · bước 119: quản lý cũng được
   const ed = isDs ? !!RC.editable || !!DIR : !!R.can_edit;
   // Bước 32: phiếu chia 3 phần việc — chỉ người nhận phần (chưa bấm Xong) được sửa phần đó
   const P = !isDs && R0.status === 'dang_chot' ? await rpc('app_ca_parts', { p_id: id }).catch(() => null) : null;
@@ -613,9 +613,11 @@ export async function render({ params }) {
     const fno = FB ? Number(FB.no || 0) : Number(R.pos_debt || 0);
     const billS = (R.debts || []).filter((d) => !d.kind || d.kind === 'bill').reduce((t, d) => t + Number(d.amount || 0), 0);
     const paid = (R.open_debts || []).filter((d) => d.closed_report_id === R.id);
-    const canQ = !!R.can_recon && R0.recon_status !== 'hoan_thanh';
-    const canK = canQ;
-    const debtEd = canK && !['cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].some(doneItem);
+    // bước 119: nút / ô khách nợ, thu nợ theo đúng trạng thái khoá — mục Công nợ đang Sửa thẳng thì mở
+    const dirHas = (it) => !!DIR && (DIR.items || []).includes(it);
+    // khách trả nợ cũ cộng vào tiền mặt / chuyển khoản → mở khi 1 trong 2 mục đó còn sửa được (máy chủ kiểm theo đúng loại tiền khách trả)
+    const canQ = !!R.can_recon && (['cong_no', 'tien_mat', 'chuyen_khoan'].some(dirHas) || (R0.recon_status !== 'hoan_thanh' && !(doneItem('tien_mat') && doneItem('chuyen_khoan'))));
+    const debtEd = !!R.can_recon && (dirHas('cong_no') || (R0.recon_status !== 'hoan_thanh' && !['cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan'].some(doneItem)));
     // bước 116: "quản lý sửa · nhân viên ghi …" lấy từ lịch sử đối soát
     const KL = { muon: 'Báo nợ TM', ck: 'Báo nợ CK', bill: 'Báo nợ HĐ' }; const edInfo = {};
     ((RC && RC.log) || []).slice().sort((x, y) => String(x.at || '').localeCompare(String(y.at || ''))).forEach((l) => {
@@ -886,11 +888,14 @@ function mount(R, ed, C0, ctx = {}) {
   // bước 51: trường thuộc mục web đã tự đối soát → không sửa được (máy chủ cũng giữ nguyên số cũ)
   // bước 67: Chủ sửa thẳng → chỉ mở trường của mục đang sửa, khoá mọi trường khác
   const dirF = DIR ? DIR.items.flatMap((i) => ITEM_FIELDS[i] || []) : null;
-  const LKF = dirF ? ALL_FIELDS.filter((f) => !dirF.includes(f)) : (LK?.fields || []);
+  // bước 119: Sửa thẳng chỉ khoá trường của mục ĐÃ duyệt mà không đang sửa (mục chưa duyệt vẫn mở như trước khi bấm Sửa thẳng)
+  const doneF = Object.keys(R.checks || {}).filter((it) => !MONEY_ITEMS.includes(it) || (R.results || {})[it]).flatMap((it) => ITEM_FIELDS[it] || []);
+  const LKF = dirF ? [...new Set([...(LK?.fields || []), ...doneF])].filter((f) => !dirF.includes(f)) : (LK?.fields || []);
   if (isDs && LKF.length) {
     const lock = (el) => { if (!el) return; el.disabled = true; el.closest('.pc-f')?.classList.add('pc-lk'); };
     LKF.forEach((f) => {
-      if (f === 'moves') { $$('#moves input, #moves select, #moves button').forEach(lock); $('#add-move')?.remove(); $$('[data-addsg]').forEach((x) => x.remove()); }
+      if (f === 'moves') { $$('#moves input, #moves select, #moves button').forEach(lock); $('#add-move')?.remove(); $$('[data-addsg]').forEach((x) => x.remove()); $('#add-rut2')?.remove(); $('#add-rut')?.remove(); }
+      else if (f === 'debts') { $$('#debts input, #debts select, #debts button').forEach(lock); $$('[data-newdebt]').forEach((x) => x.remove()); }
       else if (f === 'staff') { $$('#staff input, #staff select, #staff button').forEach(lock); $('#helper')?.closest('.pc-line')?.remove(); }
       else if (f === 'goods') { $$('#goods input, #goods button').forEach(lock); $('#add-good')?.remove(); }
       else lock($('#' + f));
@@ -1571,7 +1576,7 @@ function mount(R, ed, C0, ctx = {}) {
   bindKindSeg(form);
   $('#ds-dir-done')?.addEventListener('click', () => { clearDirect(); showSaved('Đã xong sửa thẳng — khoá lại.'); rerender(); });
   $('#ds-money-edit')?.addEventListener('click', (ev0) => {
-    const items = ev0.currentTarget.dataset.items.split(',').filter(Boolean); const isChu = !!LK?.is_chu;
+    const items = ev0.currentTarget.dataset.items.split(',').filter(Boolean); const isChu = !!(LK?.can_direct || LK?.is_chu);   // bước 119: quản lý cũng Sửa thẳng được
     const dl = dialog(html`<form class="stack" style="gap:12px;width:min(480px, calc(100vw - 56px))"><h2 style="margin:0">Sửa phần tiền</h2>
       <label class="field"><span>Lý do sửa <b>(bắt buộc)</b></span><input class="input" name="why" autocomplete="off" placeholder="vd: nhân viên ghi nhầm khoản chi"></label>
       <div class="st-meta">${isChu ? html`<b>Sửa thẳng</b>: sửa ngay, ca giữ nguyên đã đối soát, không phải duyệt lại.<br>` : ''}<b>Mở lại phần tiền</b>: phần tiền về chưa đối soát, sửa xong bấm <b>Duyệt phần tiền &amp; hoàn thành</b> ở cuối trang.</div>

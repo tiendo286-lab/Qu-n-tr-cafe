@@ -61,11 +61,12 @@ declare a public.accounts; r public.shift_reports; old jsonb; new jsonb := '{}':
         lk text[]; dir text[] := string_to_array(nullif(current_setting('app.ca_direct', true), ''), ',');
 begin
   a := public.app__need('doi_soat');
+  perform public.app__ca_gap_mark(p_id);   -- bước 119
   select * into r from public.shift_reports where id = p_id for update;
   if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa hoàn thành nên chưa đối soát được.'; end if;
   if dir is null and r.recon_status = 'hoan_thanh' then raise exception 'Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.'; end if;
   -- bước 67: Chủ sửa thẳng → chỉ các trường của mục đang sửa được đổi, mọi trường khác giữ nguyên
-  lk := case when dir is not null then coalesce((select array_agg(x) from unnest(public.app__recon_fields()) x where not (x = any(dir))), '{}')
+  lk := case when dir is not null then coalesce((select array_agg(x) from unnest(public.app__ca_locked_fields(p_id)) x where not (x = any(dir))), '{}')   -- bước 119: mục chưa duyệt vẫn mở
              else public.app__ca_locked_fields(p_id) end;   -- bước 51
   insert into public.shift_report_recon(report_id, data, updated_by) values (p_id, public.app__recon_snapshot(p_id), a.id)
   on conflict (report_id) do nothing;
@@ -112,6 +113,7 @@ begin
     update public.shift_report_recon set data = new, updated_by = a.id, updated_at = public.vn_now_text() where report_id = p_id;
     perform public.app__ca_exchange_cats(p_id, a.id);
   end if;
+  perform public.app__ca_direct_guard(p_id);   -- bước 119: không để kết quả tiền đã duyệt thành sai
 end $function$;
 
 -- ================================================================ 3. Ô Nợ, Tiền chênh lệch, Số dư đầu phiếu Fabi: quản lý sửa được, file Fabi tự sửa
@@ -152,6 +154,7 @@ AS $function$
   select case p_item
     when 'thoi_gian' then array['rev_start', 'rev_end']
     when 'doanh_thu' then array['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff']
+    when 'cong_no' then array['debts']   -- bước 119: để Sửa thẳng nhận mục Công nợ (khách nợ sửa qua các hàm khách nợ)
     when 'tien_mat' then array['cash_counted', 'opening_cash', 'pos_cash', 'moves']
     when 'chuyen_khoan' then array['reported_transfer', 'pos_transfer', 'moves']
     when 'thu_chi' then array['moves']
@@ -245,6 +248,259 @@ begin
   end if;
   update public.fabi_shifts set report_id = r.id, diff = v_diff, fixed = fabi_shifts.fixed || v_fixed where ma_ca = p_ma;
   return jsonb_build_object('status', st, 'report_id', r.id, 'diff', v_diff, 'fixed', v_fixed);
+end $function$;
+
+-- ================================================================ 4–5. Sửa thẳng: Chủ và quản lý; sửa được khách nợ; không khoá nhầm ô của mục chưa duyệt
+-- Lần sửa làm đổi số lệch tiền mặt / chuyển khoản ĐÃ duyệt → từ chối (app__ca_gap_mark ghi mốc đầu, app__ca_direct_guard so lúc cuối).
+create or replace function public.app__ca_gap_mark(p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+declare m jsonb;
+begin
+  if coalesce(current_setting('app.gap0_' || p_id, true), '') <> '' then return; end if;   -- lời gọi lồng nhau: giữ mốc đầu tiên
+  m := public.app__ca_money(p_id);
+  perform set_config('app.gap0_' || p_id, jsonb_build_object('tien_mat', m -> 'tm_left', 'chuyen_khoan', m -> 'ck_left')::text, true);
+end $$;
+
+-- Mục tiền mặt / chuyển khoản ĐÃ có kết quả mà lần sửa này làm đổi số lệch → từ chối (phải Mở lại phần tiền rồi duyệt lại).
+create or replace function public.app__ca_direct_guard(p_id bigint) returns void
+language plpgsql security definer set search_path = public as $$
+declare g0 jsonb; m jsonb; it text; was bigint; cur bigint;
+begin
+  g0 := nullif(current_setting('app.gap0_' || p_id, true), '')::jsonb;
+  if g0 is null then return; end if;
+  m := public.app__ca_money(p_id);
+  foreach it in array array['tien_mat', 'chuyen_khoan'] loop
+    if not exists (select 1 from public.shift_report_results where report_id = p_id and item = it) then continue; end if;
+    was := (g0 ->> it)::bigint; cur := (m ->> case it when 'tien_mat' then 'tm_left' else 'ck_left' end)::bigint;
+    if cur is distinct from was then
+      raise exception 'Số lệch % đã đổi (% → %). Bấm "Sửa phần tiền" → "Mở lại phần tiền" rồi duyệt lại.',
+        case it when 'tien_mat' then 'tiền mặt' else 'chuyển khoản' end, public.app__vnd(was), public.app__vnd(cur);
+    end if;
+  end loop;
+end $$;
+
+revoke all on function public.app__ca_gap_mark(bigint), public.app__ca_direct_guard(bigint) from public, anon, authenticated;
+
+CREATE OR REPLACE FUNCTION public.app_ca_recon_direct(p_id bigint, p jsonb, p_reason text, p_items text[])
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts; r public.shift_reports; why text := nullif(trim(coalesce(p_reason, '')), ''); flds text[];
+begin
+  a := public.app__need('doi_soat');
+  -- bước 119: quản lý (có quyền đối soát) cũng Sửa thẳng được; mục web tự đối soát vẫn chỉ Chủ
+  if why is null then raise exception 'Ghi lý do sửa.'; end if;
+  select * into r from public.shift_reports where id = p_id;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu ca chưa hoàn thành.'; end if;
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT nên không sửa được.'; end if;
+  if coalesce(a.system_role, '') <> 'chu' and exists (select 1 from public.shift_report_checks c where c.report_id = p_id and c.auto = 1 and c.item = any(p_items)) then
+    raise exception 'Mục này web đã tự đối soát (khớp file Fabi và ngân hàng) — chỉ Chủ mở khoá được.';
+  end if;
+  if p_items is null or cardinality(p_items) = 0 or exists (select 1 from unnest(p_items) x where not (x = any(public.app__ca_check_items()))) then raise exception 'Hạng mục không hợp lệ.'; end if;
+  select coalesce(array_agg(distinct x), '{}') into flds from unnest(p_items) it, unnest(public.app__ca_item_fields(it)) x;
+  if cardinality(flds) = 0 then raise exception 'Mục này không có số liệu để sửa thẳng — bấm "Sửa" để mở lại mục.'; end if;
+  perform set_config('app.ca_direct', array_to_string(flds, ','), true);
+  begin
+    perform public.app_ca_recon_save(p_id, p, 'Chủ sửa thẳng: ' || why);
+  exception when others then perform set_config('app.ca_direct', '', true); raise;
+  end;
+  perform set_config('app.ca_direct', '', true);
+  perform public.app_log('doi_soat_sua_thang', 'report=' || p_id || ' ' || array_to_string(p_items, ','));
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.app_ca_auto_locks(p_id bigint)
+ RETURNS jsonb
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts;
+begin
+  a := public.app__need('doi_soat');
+  return jsonb_build_object('items', to_jsonb(public.app__ca_locked_items(p_id)), 'fields', to_jsonb(public.app__ca_locked_fields(p_id)),
+    'done', coalesce((select jsonb_agg(item) from public.shift_report_checks where report_id = p_id), '[]'),
+    'can_unlock', a.system_role = 'chu', 'is_chu', a.system_role = 'chu', 'can_direct', true);   -- bước 119: mọi người có quyền đối soát được Sửa thẳng
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.app_ca_recon_debt_set(p_report bigint, p_debt bigint, p_kind text, p_name text, p_amount bigint, p_note text, p_reason text, p_from text DEFAULT NULL::text)
+ RETURNS bigint
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts; r public.shift_reports; d public.shift_debts; nid bigint;
+        why text := nullif(trim(coalesce(p_reason, '')), ''); nm text := trim(coalesce(p_name, '')); nt text := nullif(trim(coalesce(p_note, '')), '');
+begin
+  a := public.app__need('doi_soat');
+  perform public.app__ca_gap_mark(p_report);
+  select * into r from public.shift_reports where id = p_report for update;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa hoàn thành nên chưa đối soát được.'; end if;
+  -- bước 119: ca đã hoàn thành vẫn sửa được (Sửa thẳng); app__ca_direct_guard chặn nếu làm đổi số lệch đã duyệt
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT — không sửa được.'; end if;
+  if why is null then raise exception 'Ghi lý do sửa ở cuối trang trước.'; end if;
+  if coalesce(p_kind, '') not in ('bill', 'muon', 'ck') then raise exception 'Chọn TM / CK / HĐ cho khoản nợ.'; end if;
+  if nm = '' then raise exception 'Ghi tên khách / bàn cho khoản nợ.'; end if;
+  if coalesce(p_amount, 0) <= 0 then raise exception 'Số tiền nợ phải lớn hơn 0.'; end if;
+  if p_debt is null then
+    insert into public.shift_debts(branch_id, report_id, table_name, amount, note, created_by, kind)
+    values (r.branch_id, r.id, nm, p_amount, nt, a.id, p_kind) returning id into nid;
+    insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+    values (r.id, 'bao_no_them', null, case when nullif(trim(coalesce(p_from, '')), '') is null then null else to_jsonb(trim(p_from)) end,
+            jsonb_build_object('id', nid, 'kind', p_kind, 'table_name', nm, 'amount', p_amount), why, a.id);
+  else
+    select * into d from public.shift_debts where id = p_debt and report_id = r.id for update;
+    if d.id is null then raise exception 'Không tìm thấy khoản nợ của ca này.'; end if;
+    if d.closed_at is not null then raise exception 'Khoản nợ đã thu — không sửa được.'; end if;
+    nid := d.id;
+    if (d.table_name, d.amount, coalesce(d.kind, 'bill'), coalesce(d.note, '')) is distinct from (nm, p_amount, p_kind, coalesce(nt, '')) then
+      update public.shift_debts set table_name = nm, amount = p_amount, kind = p_kind, note = nt where id = d.id;
+      insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+      values (r.id, 'bao_no_sua', null, jsonb_build_object('kind', coalesce(d.kind, 'bill'), 'table_name', d.table_name, 'amount', d.amount),
+              jsonb_build_object('id', nid, 'kind', p_kind, 'table_name', nm, 'amount', p_amount), why, a.id);
+    end if;
+  end if;
+  perform public.app_log('doi_soat_bao_no', 'report=' || r.id || ' debt=' || nid);
+  perform public.app__ca_direct_guard(p_report);
+  return nid;
+  perform public.app__ca_direct_guard(p_report);
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.app_ca_recon_debt_remove(p_report bigint, p_debt bigint, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts; r public.shift_reports; d public.shift_debts; why text := nullif(trim(coalesce(p_reason, '')), '');
+begin
+  a := public.app__need('doi_soat');
+  perform public.app__ca_gap_mark(p_report);
+  select * into r from public.shift_reports where id = p_report for update;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa hoàn thành nên chưa đối soát được.'; end if;
+  -- bước 119: ca đã hoàn thành vẫn sửa được (Sửa thẳng); app__ca_direct_guard chặn nếu làm đổi số lệch đã duyệt
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT — không sửa được.'; end if;
+  if why is null then raise exception 'Ghi lý do sửa ở cuối trang trước.'; end if;
+  select * into d from public.shift_debts where id = p_debt and report_id = r.id for update;
+  if d.id is null then raise exception 'Không tìm thấy khoản nợ của ca này.'; end if;
+  if d.closed_at is not null then raise exception 'Khoản nợ đã thu — không xoá được.'; end if;
+  delete from public.shift_debts where id = d.id;
+  insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+  values (r.id, 'bao_no_xoa', null, jsonb_build_object('id', d.id, 'kind', coalesce(d.kind, 'bill'), 'table_name', d.table_name, 'amount', d.amount), null, why, a.id);
+  perform public.app_log('doi_soat_bao_no_xoa', 'report=' || r.id || ' debt=' || d.id);
+  perform public.app__ca_direct_guard(p_report);
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.app_ca_recon_debt_collect(p_report bigint, p_debt bigint, p_kind text, p_amount bigint, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts; r public.shift_reports; d public.shift_debts; o public.shift_reports; v_item text;
+begin
+  perform public.app__need('doi_soat');
+  perform public.app__ca_gap_mark(p_report);
+  a := public.app_account();
+  select * into r from public.shift_reports where id = p_report;
+  if r.id is null then raise exception 'Không tìm thấy phiếu ca.'; end if;
+  if r.status <> 'hoan_thanh' then raise exception 'Nhân viên chưa gửi phiếu này.'; end if;
+  -- bước 119: ca đã hoàn thành vẫn sửa được (Sửa thẳng); app__ca_direct_guard chặn nếu làm đổi số lệch đã duyệt
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT.'; end if;
+  if coalesce(trim(p_reason), '') = '' then raise exception 'Ghi lý do (vd: khách trả nhưng nhân viên không biết).'; end if;
+  if coalesce(p_kind, '') not in ('tien_mat', 'chuyen_khoan') then raise exception 'Chọn khách trả bằng tiền mặt hay chuyển khoản.'; end if;
+  v_item := p_kind;
+  if exists (select 1 from public.shift_report_results x where x.report_id = p_report and x.item = v_item)
+     or exists (select 1 from public.shift_report_checks x where x.report_id = p_report and x.item = v_item) then
+    raise exception 'Mục % đã đối soát — bấm Sửa ở mục đó để mở lại trước.', case when v_item = 'tien_mat' then 'Tiền mặt' else 'Chuyển khoản' end;
+  end if;
+  select * into d from public.shift_debts where id = p_debt for update;
+  if d.id is null or d.closed_at is not null then raise exception 'Khoản nợ này đã được thu hoặc không còn.'; end if;
+  if d.branch_id <> r.branch_id then raise exception 'Khoản nợ không thuộc cơ sở của ca này.'; end if;
+  if coalesce(d.report_id, 0) = p_report then raise exception 'Đây là nợ phát sinh trong chính ca này.'; end if;
+  if d.report_id is not null then
+    select * into o from public.shift_reports where id = d.report_id;
+    if (o.work_date, array_position(public.app__shifts(), o.shift)) >= (r.work_date, array_position(public.app__shifts(), r.shift)) then
+      raise exception 'Khoản nợ ghi ở ca sau ca này.';
+    end if;
+  end if;
+  if p_amount is null or p_amount <= 0 then raise exception 'Nhập số tiền khách trả lớn hơn 0.'; end if;
+  if p_amount > d.amount then raise exception 'Khách trả nhiều hơn số nợ (%).', public.app__vnd(d.amount); end if;
+  if p_amount < d.amount then   -- trả một phần: phần còn lại thành khoản nợ riêng
+    insert into public.shift_debts(branch_id, report_id, table_name, amount, note, phone, created_by, created_at, kind, split_from, gap_report, gap_item, family, from_loan, fund_out)
+    values (d.branch_id, d.report_id, d.table_name, d.amount - p_amount, d.note, d.phone, d.created_by, d.created_at, d.kind, d.id, d.gap_report, d.gap_item, d.family, d.from_loan, d.fund_out);
+    update public.shift_debts set amount = p_amount where id = d.id;
+  end if;
+  update public.shift_debts set closed_at = public.vn_now_text(), closed_by = a.id, closed_report_id = p_report, collect_kind = p_kind,
+         close_note = 'Quản lý ghi khi đối soát: ' || trim(p_reason)
+   where id = p_debt;
+  perform public.app_log('doi_soat_thu_no', 'report=' || p_report || ' debt=' || p_debt || ' ' || p_kind || ' ' || p_amount || ' · ' || trim(p_reason));
+  perform public.app__ca_direct_guard(p_report);
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.app_ca_recon_debt_uncollect(p_report bigint, p_debt bigint)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare r public.shift_reports; d public.shift_debts; rest public.shift_debts;
+begin
+  perform public.app__need('doi_soat');
+  perform public.app__ca_gap_mark(p_report);
+  select * into r from public.shift_reports where id = p_report;
+  if r.id is null then raise exception 'Không tìm thấy phiếu ca.'; end if;
+  -- bước 119: ca đã hoàn thành vẫn sửa được (Sửa thẳng); app__ca_direct_guard chặn nếu làm đổi số lệch đã duyệt
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT.'; end if;
+  select * into d from public.shift_debts where id = p_debt for update;
+  if d.id is null or d.closed_report_id is distinct from p_report or coalesce(d.close_note, '') not like 'Quản lý ghi khi đối soát:%' then
+    raise exception 'Chỉ bỏ được khoản quản lý ghi khi đối soát ca này.';
+  end if;
+  if exists (select 1 from public.shift_report_results x where x.report_id = p_report and x.item = d.collect_kind)
+     or exists (select 1 from public.shift_report_checks x where x.report_id = p_report and x.item = d.collect_kind) then
+    raise exception 'Mục % đã đối soát — bấm Sửa ở mục đó để mở lại trước.', case when d.collect_kind = 'tien_mat' then 'Tiền mặt' else 'Chuyển khoản' end;
+  end if;
+  -- trả một phần trước đó: gộp lại phần còn nợ (chưa ai thu)
+  select * into rest from public.shift_debts where split_from = d.id and closed_at is null order by id limit 1;
+  if rest.id is not null then
+    update public.shift_debts set amount = d.amount + rest.amount where id = d.id;
+    delete from public.shift_debts where id = rest.id;
+  end if;
+  update public.shift_debts set closed_at = null, closed_by = null, closed_report_id = null, collect_kind = null, close_note = null where id = p_debt;
+  perform public.app_log('doi_soat_bo_thu_no', 'report=' || p_report || ' debt=' || p_debt);
+  perform public.app__ca_direct_guard(p_report);
+end $function$;
+
+CREATE OR REPLACE FUNCTION public.app_ca_recon_debt_uncollect(p_report bigint, p_debt bigint, p_reason text)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare r public.shift_reports; d public.shift_debts; rest public.shift_debts; why text:=trim(coalesce(p_reason,''));
+begin
+  perform public.app__need('doi_soat');
+  perform public.app__ca_gap_mark(p_report);
+  select * into r from public.shift_reports where id=p_report;
+  if r.id is null then raise exception 'Không tìm thấy phiếu ca.'; end if;
+  -- bước 119: ca đã hoàn thành vẫn sửa được (Sửa thẳng); app__ca_direct_guard chặn nếu làm đổi số lệch đã duyệt
+  if public.app__fin_locked(r.branch_id,r.work_date) then raise exception 'Tháng này đã CHỐT.'; end if;
+  if why='' then raise exception 'Ghi lý do sửa hoặc xoá khoản khách trả.'; end if;
+  select * into d from public.shift_debts where id=p_debt for update;
+  if d.id is null or d.closed_report_id is distinct from p_report then raise exception 'Khoản khách trả không thuộc ca này.'; end if;
+  if exists(select 1 from public.shift_report_results x where x.report_id=p_report and x.item=d.collect_kind)
+     or exists(select 1 from public.shift_report_checks x where x.report_id=p_report and x.item=d.collect_kind) then
+    raise exception 'Mục % đã đối soát — bấm Sửa ở mục đó để mở lại trước.',case when d.collect_kind='tien_mat' then 'Tiền mặt' else 'Chuyển khoản' end;
+  end if;
+  select * into rest from public.shift_debts where split_from=d.id and closed_at is null order by id limit 1;
+  if rest.id is not null then
+    update public.shift_debts set amount=d.amount+rest.amount where id=d.id;
+    delete from public.shift_debts where id=rest.id;
+  end if;
+  update public.shift_debts set closed_at=null,closed_by=null,closed_report_id=null,collect_kind=null,close_note=null where id=p_debt;
+  perform public.app_log('doi_soat_bo_thu_no','report='||p_report||' debt='||p_debt||' · '||why);
+  perform public.app__ca_direct_guard(p_report);
 end $function$;
 
 insert into public.app_migrations(file) values ('101_ql_sua_phieu.sql') on conflict (file) do nothing;

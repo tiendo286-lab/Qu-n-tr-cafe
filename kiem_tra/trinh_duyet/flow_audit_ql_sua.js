@@ -25,11 +25,21 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     try { sessionStorage.removeItem('ds_step:' + id); } catch (_) { /* bỏ qua */ }
-    const open = async () => { location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1'; await wait('.ds-pane'); await sleep(2000); };
+    const open = async () => { location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await sleep(2000); };
     await open();
-    if (mode === 'direct') {
+    if (mode === 'direct' || mode === 'locked') {
       const ok = $('#ds-money-ok'); if (!ok) throw new Error('Không thấy nút Duyệt phần tiền');
       ok.click(); await sleep(2500); await open();
+    }
+    const ADD = [['+ Thu', '[data-addsg]'], ['+ Chi', '#add-move'], ['+ Báo nợ', '[data-newdebt]'], ['+ Thu nợ', '[data-qlpick]'], ['+ Khách CK rút tiền mặt', '#add-rut2']];
+    const shownBtn = (sel) => [...document.querySelectorAll(sel)].some((b) => b.offsetParent !== null && !b.disabled);
+    if (mode === 'locked') {   // đã duyệt phần tiền, chưa bấm Sửa: không còn nút thêm nào hiện
+      const still = ADD.filter(([, sel]) => shownBtn(sel)).map(([n]) => n);
+      if (still.length) fail = 'Phần tiền đã duyệt mà vẫn hiện nút: ' + still.join(', ');
+      out.push({ route: 'audit_ql_sua (locked)', title: still.length ? '' : 'không còn nút thêm', errs: fail ? [fail] : [] });
+      return;
+    }
+    if (mode === 'direct') {
       const me = $('#ds-money-edit'); if (!me) throw new Error('Không thấy nút ✎ Sửa phần tiền');
       me.click(); await sleep(800); const f = $('dialog[open] form'); if (!f) throw new Error('Không mở hộp Sửa phần tiền');
       f.why.value = 'kiểm tra'; f.requestSubmit(); await sleep(2500); await wait('.ds-pane'); await sleep(1500);
@@ -42,8 +52,8 @@ export default async ({ sleep, out }) => {
       ['Doanh thu (NET)', () => [$('#total_revenue')]],
       ['Tiền mặt (Fabi)', () => [$('#pos_cash')]],
       ['Chuyển khoản (Fabi)', () => [$('#pos_transfer')]],
-      ['Nợ trên phiếu Fabi', () => byLabel(/Nợ trên phiếu/)],
-      ['Tiền chênh lệch trên phiếu Fabi', () => byLabel(/chênh lệch trên phiếu/i)],
+      ['Nợ trên phiếu Fabi', () => [$('#pos_debt')]],
+      ['Tiền chênh lệch trên phiếu Fabi', () => [$('#pos_diff')]],
       ['Tổng tiền thực đếm', () => [$('#cash_counted')]],
       ['CK nhận trên hotline', () => [$('#reported_transfer')]],
       ['Số cốc', () => [$('#cups')]],
@@ -58,6 +68,8 @@ export default async ({ sleep, out }) => {
       if (els.some((el) => el.disabled || el.readOnly)) locked.push(name);
       else notes.push('✓ ' + name);
     }
+    const missing = ADD.filter(([, sel]) => !shownBtn(sel)).map(([n]) => n);
+    if (missing.length) locked.push('thiếu nút ' + missing.join(', '));
     if (locked.length) fail = 'Quản lý KHÔNG sửa được: ' + locked.join(', ');
   } catch (er) { fail = er.message; }
   out.push({ route: 'audit_ql_sua (' + mode + ')', title: notes.join(' · '), errs: fail ? [fail] : [] });

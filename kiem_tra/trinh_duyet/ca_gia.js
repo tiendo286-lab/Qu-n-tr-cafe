@@ -292,7 +292,7 @@ export function makeCa(T, me) {
     // bước 116 (migration 99): quản lý thêm / sửa / xoá Báo nợ khi đối soát
     app_ca_recon_debt_set({ p_report, p_debt, p_kind, p_name, p_amount, p_note, p_reason, p_from }) {
       const r = rep(p_report); if (r.status !== 'hoan_thanh') throw new Error('Phiếu chưa hoàn thành nên chưa đối soát được.');
-      if (r.recon_status === 'hoan_thanh') throw new Error('Ca đã hoàn thành đối soát — bấm "Sửa phần tiền" để mở lại rồi sửa.');
+      // bước 119: ca đã hoàn thành vẫn sửa được khách nợ (Sửa thẳng)
       if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa ở cuối trang trước.');
       if (!['bill', 'muon', 'ck'].includes(p_kind)) throw new Error('Chọn TM / CK / HĐ cho khoản nợ.');
       if (!String(p_name || '').trim()) throw new Error('Ghi tên khách / bàn cho khoản nợ.');
@@ -310,7 +310,7 @@ export function makeCa(T, me) {
       return d.id;
     },
     app_ca_recon_debt_remove({ p_report, p_debt, p_reason }) {
-      const r = rep(p_report); if (r.recon_status === 'hoan_thanh') throw new Error('Ca đã hoàn thành đối soát — bấm "Sửa phần tiền" để mở lại rồi sửa.');
+      const r = rep(p_report);   // bước 119: ca đã hoàn thành vẫn xoá được (Sửa thẳng)
       if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa ở cuối trang trước.');
       const d = T.shift_debts.find((x) => x.id === p_debt && x.report_id === r.id); if (!d) throw new Error('Không tìm thấy khoản nợ của ca này.'); if (d.closed_at) throw new Error('Khoản nợ đã thu — không xoá được.');
       T.shift_debts = T.shift_debts.filter((x) => x.id !== d.id);
@@ -411,8 +411,9 @@ export function makeCa(T, me) {
     },
     // bước 67: Chủ sửa thẳng — chỉ trường của mục đang sửa
     app_ca_recon_direct({ p_id, p, p_reason, p_items }) {
-      if (me.role !== 'chu') throw new Error('Chỉ Chủ sửa thẳng được.'); if (!(p_reason || '').trim()) throw new Error('Ghi lý do sửa.');
-      const F = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
+      if (!(p_reason || '').trim()) throw new Error('Ghi lý do sửa.');   // bước 119: quản lý cũng Sửa thẳng được
+      if (me.role !== 'chu' && (T.__autoLock?.[p_id] || []).some((i) => p_items.includes(i))) throw new Error('Mục này web đã tự đối soát — chỉ Chủ mở khoá được.');
+      const F = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], cong_no: ['debts'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
       const ok = new Set(p_items.flatMap((i) => F[i] || [])); const q = Object.fromEntries(Object.entries(p).filter(([k]) => ok.has(k)));
       const r = rep(p_id); const st = r.recon_status; r.recon_status = 'x';
       try { this.app_ca_recon_save({ p_id, p: q, p_reason: 'Chủ sửa thẳng: ' + p_reason }); } finally { r.recon_status = st; }
