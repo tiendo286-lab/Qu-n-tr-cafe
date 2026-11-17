@@ -670,6 +670,11 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Nút Báo xong / Đạt / Làm lại / Xong bước chỉ hiện cho người được giao và Chủ (Quản lý tổng vẫn có Đổi người).
 - **Bước 127 — nhắc việc gọn (anh chốt 17/11, máy chủ `111_nhac_viec_gon.sql`, web 2026.11.17.12):** **bỏ nhắc nhân viên** về phiếu chốt ca; phiếu chưa xong **2 giờ sau hết ca** → báo **1 lần** cho người đối soát của cơ sở (không báo 22–7 giờ). Mọi việc (Bảng phân công + Giao việc riêng): báo người đang giữ việc **trước hạn 1 giờ** và **lúc vừa trễ** (trong 2 giờ sau hạn), mỗi mốc 1 lần. Tab / menu **Quá hạn & phạt** có số đếm phạt chờ xác nhận (Chủ, QL tổng).
 
+## 5r36. Quản lý sửa phiếu web đã tự đối soát — CHỐT 17/11/2026, ĐÃ LÀM (bước 129, máy chủ `113_ql_sua_phieu_tu_doi_soat.sql`, web 2026.11.17.13)
+- Trước: phiếu có mục web tự đối soát (khớp file Fabi + ngân hàng) thì chỉ Chủ Lưu được ở bước Tiền — quản lý bấm Mở để sửa, gõ xong Lưu bị từ chối.
+- Nay (anh chọn): **Chủ, Quản lý tổng và quản lý đối soát của cơ sở đó** (ô Đối soát ca trong Bảng phân công) đều Lưu / Sửa thẳng được; lý do bắt buộc, lịch sử như cũ; **Chủ nhận thông báo** "Quản lý sửa phiếu web đã tự đối soát" (ai, ca nào, lý do). Quản lý cơ sở khác vẫn bị chặn. Nút "Mở khoá" ở Đèn đối soát vẫn chỉ Chủ.
+- Ghi chú: kho tổng / người nhà vay tiền của ca → **Báo nợ CK / TM** đúng tên rồi đánh dấu Gia đình ở Công nợ (không có mục Cho vay riêng — bỏ từ bước 85).
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
