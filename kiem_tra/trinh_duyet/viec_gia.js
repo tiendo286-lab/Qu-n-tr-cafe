@@ -92,7 +92,7 @@ export function makeViec(T, me) {
     app_viec_reminder() {
       const open = T.tasks.filter((t) => t.assignee_id === me.account_id && ['da_giao', 'dang_xu_ly'].includes(t.status));
       return { overdue: open.filter((t) => t.due_date && t.due_date < today).length, today: open.filter((t) => t.due_date === today).length, open: open.length,
-        new: open.filter((t) => t.status === 'da_giao').length, waiting: 0, to_review: me.role === 'chu' ? F.app_viec_pending().handover.length + F.app_viec_pending().tasks.length : 0,
+        new: open.filter((t) => t.status === 'da_giao').length, waiting: 0, pen_wait: me.role === 'chu' ? 3 : 0, to_review: me.role === 'chu' ? F.app_viec_pending().handover.length + F.app_viec_pending().tasks.length : 0,
         items: open.map((t) => ({ id: t.id, content: t.content, due_date: t.due_date, status: t.status, kind: t.kind, group: t.due_date && t.due_date < today ? 'overdue' : t.due_date === today ? 'today' : 'open' })) };
     },
   };

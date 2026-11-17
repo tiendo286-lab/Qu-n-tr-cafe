@@ -668,7 +668,7 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Giao việc riêng: người kiểm tra khác người giao → **người giao được báo** khi việc báo xong và khi Đạt; **đổi người làm → người làm cũ được báo** "Việc đã chuyển cho người khác".
 - Việc tự thêm bị xoá / việc Làm bổ sung quá **7 ngày** chưa ai làm (tự bỏ, không phạt): mục "Đã xong 7 ngày" ghi rõ, không hiện "✓ Xong".
 - Nút Báo xong / Đạt / Làm lại / Xong bước chỉ hiện cho người được giao và Chủ (Quản lý tổng vẫn có Đổi người).
-- Còn chờ anh chọn: nhắc phiếu chốt ca (quá dày) và báo khi sắp / đã quá hạn + số đếm "Quá hạn & phạt".
+- **Bước 127 — nhắc việc gọn (anh chốt 17/11, máy chủ `111_nhac_viec_gon.sql`, web 2026.11.17.12):** **bỏ nhắc nhân viên** về phiếu chốt ca; phiếu chưa xong **2 giờ sau hết ca** → báo **1 lần** cho người đối soát của cơ sở (không báo 22–7 giờ). Mọi việc (Bảng phân công + Giao việc riêng): báo người đang giữ việc **trước hạn 1 giờ** và **lúc vừa trễ** (trong 2 giờ sau hạn), mỗi mốc 1 lần. Tab / menu **Quá hạn & phạt** có số đếm phạt chờ xác nhận (Chủ, QL tổng).
 
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 

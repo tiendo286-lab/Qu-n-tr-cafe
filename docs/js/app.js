@@ -5,7 +5,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.17.11';
+const ASSET_VERSION = '2026.11.17.12';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
@@ -120,7 +120,7 @@ export async function loadMe() {
 
 export async function logout() {
   await sb.auth.signOut();
-  state.me = null; state.remind = null; state.tasks = 0; state.review = 0; state.support = 0; badgeAt = 0;
+  state.me = null; state.remind = null; state.tasks = 0; state.review = 0; state.pen = 0; state.support = 0; badgeAt = 0;
   try { sessionStorage.removeItem('nhac_viec'); } catch (_) { /* bỏ qua */ }
   go('/dang-nhap');
 }
@@ -134,7 +134,7 @@ function parseHash() {
 const allowedTab = (perm, href) => (!perm || [].concat(perm).some((p) => can(p)));
 const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
-const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka, '/hang-hoa/nhan': state.ghNhan, '/hang-hoa/doi-soat': state.ghDs });
+const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/cong-viec/qua-han': state.pen, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka, '/hang-hoa/nhan': state.ghNhan, '/hang-hoa/doi-soat': state.ghDs });
 
 // Trang mở đầu cho quản lý khi Tổng quan đang tạm ẩn: tab đầu tiên mình có quyền
 function homePath() {
@@ -284,7 +284,7 @@ async function refreshBadges() {
   }
   if (state.me.employee_id) jobs.push(rpc('app_ka_mine').then((K) => { state.ka = K.filter((k) => (k.status === 'chua_xu_ly' || k.auto_tru) && !k.seen_at).length; }));
   if (can('nhan_viec') || can('hop_giao_viec')) {
-    jobs.push(rpc('app_viec_reminder').then((r) => { state.remind = r; state.tasks = r.open; state.review = r.to_review; }));
+    jobs.push(rpc('app_viec_reminder').then((r) => { state.remind = r; state.tasks = r.open; state.review = r.to_review; state.pen = r.pen_wait || 0; }));
   }
   if (can('xep_lich') && !warnBusy) {
     warnBusy = true;

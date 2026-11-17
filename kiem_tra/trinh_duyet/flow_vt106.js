@@ -99,6 +99,8 @@ export default async ({ sleep, out }) => {
       check(/Việc đã bị xoá/.test($('#pc-body').textContent), 'Mục Đã xong: việc bị xoá ghi "Việc đã bị xoá" (không phải ✓ Xong)');
       await go('#/quan-ly/giao-viec', '#pc-body');
       const ll = $$('.pc-task').find((c) => vis(c) && /Vệ sinh máy pha · LL/.test(txt(c)));
+      const qhTab = $$('.hub-tabs a').find((a) => /Quá hạn/i.test(txt(a)));
+      if (role === 'chu') check(/\b3\b/.test(txt(qhTab?.querySelector('.badge'))), 'Tab "Quá hạn & phạt" có số đếm 3 (phạt chờ xác nhận) — ' + txt(qhTab));
       if (role === 'chu') check(!!ll?.querySelector('[data-a=pc-done]'), 'Chủ: thấy nút Báo xong ở việc của người khác');
       else check(!!ll && !ll.querySelector('[data-a=pc-done]') && !!ll.querySelector('[data-a=pc-reassign]'), 'Quản lý tổng: không có nút Báo xong ở việc không giao cho mình, vẫn có Đổi người');
     }
