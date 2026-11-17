@@ -4,18 +4,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.17.3';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.17.4';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.17.3';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.17.3';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.17.4';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.17.4';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.17.3';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg } from '../ca_chung.js?v=2026.11.17.4';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -662,7 +662,7 @@ export async function render({ params }) {
     const anyDebt = (R.debts || []).length || (R.recon_debts || []).length;
     const nItems2 = paid.length + collapseMoves((R.moves || []).filter((m) => !m.auto)).length + (R.debts || []).length + (R.recon_debts || []).length;
     return html`<section class="sc-block uv"><h2>Các khoản tiền của ca${nItems2 ? html` · ${nItems2} khoản` : ''}${moveChanged(R).length ? html` <span class="pill warn" style="font-size:11px">${moveChanged(R).length} khoản thu chi đã sửa</span>` : ''}</h2>
-      <span class="st-meta">Sửa thẳng trên dòng, bảng tiền tự tính lại sau khi lưu. Quản lý chọn nhóm cho từng khoản Thu / Chi. Lý do sửa ghi 1 lần ở cuối trang.</span>
+      <span class="st-meta">${mEdit ? 'Sửa trên dòng, bảng tiền tự tính lại ngay. Xong bấm 💾 Lưu ở dưới — lý do hỏi 1 lần khi Lưu.' : 'Muốn sửa bấm ✎ Mở để sửa ở dưới. Quản lý chọn nhóm cho từng khoản Thu / Chi.'}</span>
       ${paid.map(paidRow)}
       <div id="moves" class="stack" style="gap:8px">${(() => { const pool = moveChanged(R).filter((n) => n.type !== 'xoa'); return collapseMoves((R.moves || []).filter((m) => !m.auto)).map((m) => { const n = moveNoteFor(m, pool); return html`${moveRow(m, edT, true)}${n ? moveNoteLine(n, false) : ''}`; }); })()}</div>
       ${moveChanged(R).filter((n) => n.type === 'xoa').map((n) => moveNoteRow(n, false))}
@@ -903,7 +903,7 @@ function collect() {
       cash_paid: r.querySelector('.st-cash') ? (parseMoney(r.querySelector('.st-cash').value) || null) : null })),
     handover: $$('.ho-row').map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, content: r.querySelector('.ho-text').value })),
     goods: $$('.gd-row').map((r) => ({ item: r.querySelector('.gd-item').value.trim(), qty: r.querySelector('.gd-qty').value.trim() })),
-    debts: $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id).map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, table_name: r.querySelector('.db-table').value, amount: parseMoney(r.querySelector('.db-amt').value), note: r.querySelector('.db-note').value.trim() })),
+    debts: $$('.db-row').filter((r) => !r.dataset.del && !r.dataset.rut && (!r.querySelector('.db-table').disabled || r.dataset.id)).map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, table_name: r.querySelector('.db-table').value, amount: parseMoney(r.querySelector('.db-amt').value), note: r.querySelector('.db-note').value.trim() })),
   };
 }
 
@@ -1019,8 +1019,9 @@ function mount(R, ed, C0, ctx = {}) {
       ${paid.length ? html`<div class="st-meta ca-paid">Khách trả nợ trong ca: ${paid.map((d) => `bàn ${d.table_name} ${fmt(d.amount)} (${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'})`).join(', ')} — đã tính vào tiền mặt / chuyển khoản ở trên.</div>` : ''}`;
   };
   const recalc = () => {
-    const v = ed ? collect() : R;
-    const c = calc(v, debtSums(R, ed ? v.debts : null));
+    const live = ed || !!ctx.mEdit;   // bước 121: Đang sửa → bảng tiền tính ngay trên trình duyệt
+    const v = live ? collect() : R;
+    const c = calc(v, debtSums(R, live ? v.debts : null));
     const sc = $('#sum-check');
     if (sc) {
       sc.innerHTML = str(c.sumGap === null ? html`<span class="pill mute">Nhập đủ Mục 1, 2, 3</span>`
@@ -1048,7 +1049,7 @@ function mount(R, ed, C0, ctx = {}) {
         <div>Kết quả</div><div>${result(left)}</div></div></div>`;
     const db = $('#diff-box');
     if (db) db.innerHTML = str(html`${box('TIỀN MẶT', c.tmDiff, c.tmMoves - (c.loanOut || 0), c.colTM, c.tmLeft === null ? null : c.tmLeft + hg, '(Mục 5 − đầu ca − Mục 2)', hg, c.sal, c.loanOut || 0)}${box('CHUYỂN KHOẢN', c.ckDiff, c.ckMoves, c.colCK, c.ckLeft, '(Mục 4 − Mục 3)')}`);
-    const moneyBox = $('#ds-money-table'); if (moneyBox) moneyBox.innerHTML = str(srvFresh ? html`${ctx.paintMoney(v)}${gapsChanged() ? html`<div class="alert info">Đã lưu số tiền mới. <button type="button" class="btn sm secondary" data-refresh-gap>Cập nhật phần xử lý lệch</button></div>` : ''}` : html`<p role="status">Đang tính lại bảng tiền sau khi lưu…</p>`);
+    const moneyBox = $('#ds-money-table'); if (moneyBox) moneyBox.innerHTML = str(srvFresh || ctx.mEdit ? html`${ctx.paintMoney(v)}${gapsChanged() ? html`<div class="alert info">Đã lưu số tiền mới. <button type="button" class="btn sm secondary" data-refresh-gap>Cập nhật phần xử lý lệch</button></div>` : ''}` : html`<p role="status">Đang tính lại bảng tiền sau khi lưu…</p>`);
     const cab = $('#ca-box'); if (cab) cab.innerHTML = str(caRows(c, v));
     const sc2 = $('#staff-count');
     if (sc2) sc2.textContent = new Set($$('.st-row').filter((r) => r.querySelector('.st-worked').value === '1').map((r) => r.dataset.emp)).size;
@@ -1883,10 +1884,13 @@ function mount(R, ed, C0, ctx = {}) {
           ch.fields = now;
           diff.filter((k) => !['moves', 'staff', 'goods'].includes(k)).forEach((k) => lines.push(`${LBL[k] || k}: ${showV(k, base[k])} → ${showV(k, now[k])}`));
           if (diff.includes('moves')) {
-            const a = (base.moves || []).map(mvLine); const b = (now.moves || []).map(mvLine);
-            const left = [...a]; const add = [];
-            b.forEach((x) => { const i = left.indexOf(x); if (i >= 0) left.splice(i, 1); else add.push(x); });
-            left.forEach((x) => lines.push('Xoá thu chi: ' + x)); add.forEach((x) => lines.push('Thêm / sửa thu chi: ' + x));
+            const key = (m) => `${m.kind}|${Number(m.amount) < 0 ? '-' : '+'}|${m.note || ''}`;
+            const left = [...(base.moves || [])]; const add = [];
+            (now.moves || []).forEach((m) => { const i = left.findIndex((o) => mvLine(o) === mvLine(m)); if (i >= 0) left.splice(i, 1); else add.push(m); });
+            add.forEach((m) => { const i = left.findIndex((o) => key(o) === key(m));
+              if (i >= 0) { const o = left.splice(i, 1)[0]; lines.push(`Sửa thu chi: ${m.note || ''} · ${fmt(Math.abs(Number(o.amount) || 0))} → ${fmt(Math.abs(Number(m.amount) || 0))}`); }
+              else lines.push('Thêm thu chi: ' + mvLine(m)); });
+            left.forEach((o) => lines.push('Xoá thu chi: ' + mvLine(o)));
           }
           if (diff.includes('staff')) lines.push('Sửa người làm trong ca');
         }

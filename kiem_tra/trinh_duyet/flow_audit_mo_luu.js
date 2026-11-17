@@ -46,8 +46,10 @@ export default async ({ sleep, out }) => {
     await sleep(2500);
     check((await srvMoves()) === ['Mua chanh:-20000', 'Mua giấy:-30000', 'Mua đá:-150000'].sort().join('|'), 'Đang sửa: chưa lưu gì lên máy chủ');
     check(/[1-9] thay đổi/i.test($('#ds-money-save')?.innerText || ''), 'Nút Lưu đếm số thay đổi: ' + ($('#ds-money-save')?.innerText || '').trim());
+    check(!/Đang tính lại/.test($('#ds-money-table')?.innerText || '') && /\d\.\d{3}/.test($('#ds-money-table')?.innerText || ''), 'Đang sửa: bảng tiền tính lại ngay khi gõ');
     // 3) Lưu → hộp lý do
     $('#ds-money-save')?.click(); await sleep(500);
+    check(/Sửa thu chi: Mua đá · 150\.000 → 100\.000/.test($('dialog[open]')?.innerText || ''), 'Lưu: sửa 1 dòng hiện là "Sửa thu chi … 150.000 → 100.000"');
     const dlg = $('dialog[open]'); check(!!dlg && dlg.querySelectorAll('li').length >= 4, 'Lưu: hộp liệt kê thay đổi (' + (dlg ? dlg.querySelectorAll('li').length : 0) + ' dòng)');
     if (dlg) {
       dlg.querySelector('form').requestSubmit(); await sleep(400);

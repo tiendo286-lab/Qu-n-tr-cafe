@@ -1,12 +1,12 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender, can } from './app.js';
-import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.17.3';
+import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.17.4';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.17.3';
+import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.17.4';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
