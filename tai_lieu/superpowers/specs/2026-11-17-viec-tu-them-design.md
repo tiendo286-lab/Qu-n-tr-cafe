@@ -4,7 +4,8 @@
 Anh Tiến muốn **tự thêm việc** vào Bảng phân công (vd vệ sinh máy pha, kiểm kho, lau kính) và cài **riêng từng cơ sở**: người làm, chu kỳ, ngày làm, thời gian quá hạn cho phép, mức phạt. Đến ngày thì web tự tạo việc, quá hạn thì lên trang Quá hạn & phạt như các việc đang có. Có cài đặt **bắt buộc chụp ảnh khi báo xong** để kiểm tra.
 
 ## Mục tiêu
-- Chủ bấm **+ Thêm việc** ở Bảng phân công, ghi tên + hướng dẫn, tick "Bắt buộc chụp ảnh khi báo xong", điền bảng từng cơ sở.
+- Chủ bấm **+ Thêm việc** ở Bảng phân công, ghi tên + hướng dẫn, tick "Bắt buộc chụp ảnh khi báo xong", tick **"Có kiểm tra"** (anh chốt 17/11: tuỳ việc), điền bảng từng cơ sở.
+- Tick "Có kiểm tra" → việc có thêm **giai đoạn 2: Kiểm tra**; bảng từng cơ sở hiện thêm cột **Người kiểm tra**.
 - Mỗi cơ sở: **Bật/tắt · Người làm · Chu kỳ (Hằng ngày / Hằng tuần / Hằng tháng) · Ngày làm (Thứ 2…CN, hoặc ngày 1…31) · Quá hạn cho phép · Mức phạt**.
 - Việc tự thêm **sửa được mọi ô, tạm tắt, xoá** được.
 - Người làm thấy việc ở **Việc của tôi**, nhận thông báo "Việc mới", bấm **Báo xong ✓** (ghi chú + ảnh; ảnh bắt buộc nếu bật).
@@ -13,7 +14,6 @@ Anh Tiến muốn **tự thêm việc** vào Bảng phân công (vd vệ sinh m�
 
 ## Không làm (lần này)
 - Không đổi 12 việc tự động đang có (Đối soát ca, Lệch tiền…): vẫn 1 mức phạt chung, hạn như cũ. (Ý "chia cơ sở cho việc đang có" để sau nếu anh cần.)
-- Không có bước **người kiểm tra bấm Đạt / Làm lại** — *em quyết, anh đổi được*: lần này chỉ cần ảnh, Chủ / QL tổng xem ảnh. Cần thì thêm sau.
 - Không sửa chuyện nhắc phiếu chốt ca quá dày / báo quá hạn (mục riêng của bản kiểm tra Công việc).
 
 ## Không được để xảy ra
@@ -37,7 +37,8 @@ Các cách đã cân nhắc:
 - Hằng tháng: chọn ngày 1…31; tháng không có ngày đó (vd 31/2) thì làm **ngày cuối tháng** *(em quyết)*.
 
 **Tạo việc:**
-- Chỉ tạo cho ngày làm **từ ngày lưu cài đặt cơ sở đó trở đi**, không tạo ngược.
+- Từ ngày lưu cài đặt cơ sở đó trở đi: tạo đúng lịch, quá hạn thì phạt.
+- **Làm bổ sung (anh chốt 17/11):** vẫn hiện việc cho lần làm **gần nhất trước ngày cài đặt** để quản lý làm bổ sung (vd cài Thứ Tư, lịch Thứ Hai → hiện việc Thứ Hai tuần này) — *số lần hiện bổ sung: em quyết 1 lần gần nhất*. Việc bổ sung ghi rõ "Làm bổ sung", **không bao giờ phạt**.
 - Lỡ máy chủ không chạy vài lần thì bù tối đa **7 ngày gần nhất** *(em quyết)*.
 - Mỗi (việc, cơ sở, ngày làm) đúng 1 việc — khoá chống trùng trong CSDL.
 - Lưu cài đặt đúng vào ngày làm thì **tạo luôn việc của hôm nay** *(em quyết)*.
@@ -50,7 +51,14 @@ Các cách đã cân nhắc:
 - Người được giao (hoặc Chủ) bấm Báo xong: ghi chú (không bắt buộc) + ảnh.
 - Bật "Bắt buộc chụp ảnh" → máy chủ chặn nếu không có ít nhất 1 ảnh.
 - Ảnh lưu kho ảnh sẵn có (`phieu-ca`, thư mục riêng cho việc này).
-- Báo xong → việc đóng; trễ hạn rồi mới báo thì phạt chờ đã ghi vẫn giữ để Chủ quyết (giống hiện nay).
+- Báo xong → việc đóng (hoặc sang Kiểm tra nếu có); trễ hạn rồi mới báo thì phạt chờ đã ghi vẫn giữ để Chủ quyết (giống hiện nay).
+
+**Giai đoạn 2 — Kiểm tra (chỉ khi tick "Có kiểm tra"):**
+- Người làm Báo xong → việc chuyển sang **Chờ kiểm tra**, người kiểm tra của cơ sở nhận thông báo "Việc chờ bạn kiểm tra".
+- Người kiểm tra xem ghi chú + ảnh, bấm **Đạt ✓** (việc đóng) hoặc **Làm lại** (bắt buộc lý do + chọn hạn mới: 4 giờ, 12 giờ, 1, 2, 3 ngày; mặc định 1 ngày) → về lại người làm, người làm được báo.
+- Hạn kiểm tra **1 ngày** từ lúc báo xong *(em quyết, giống Giao việc riêng)*; quá hạn thì **người kiểm tra** vào Quá hạn & phạt cùng mức phạt cơ sở (đúng quy định "ai đang giữ việc ở bước nào thì bị tính bước đó").
+- Người kiểm tra phải khác người làm; nhiều người kiểm tra = ai kiểm tra trước cũng được. Cơ sở chưa chọn người kiểm tra thì Chủ kiểm tra.
+- Bỏ tick "Có kiểm tra" chỉ áp dụng cho lần tạo sau.
 
 **Sửa / tắt / xoá:**
 - Đổi cài đặt chỉ áp dụng cho lần tạo sau; việc đang mở giữ hạn và người cũ (giống quy định hiện nay). Đổi người làm có tick "chuyển luôn việc đang mở" như ô bảng hiện nay.
@@ -66,8 +74,8 @@ Các cách đã cân nhắc:
 - Mẫu giao diện vẽ cho anh duyệt trước khi làm.
 
 ## Gợi ý cho người làm (không bắt buộc)
-- `pc_jobs` thêm cột: `name`, `guide`, `need_photo`, `custom`, `deleted_at`; số việc tự thêm bắt đầu từ 100. Bước của việc tự thêm: 1 bước "Làm", người = `branch` (dùng `pc_assign` có sẵn cho người làm từng cơ sở).
-- Bảng mới lịch từng cơ sở: (job, branch_id, enabled, cycle, day, grace_hours, fine, from_date…). Mặc định không cấp quyền anon/authenticated.
+- `pc_jobs` thêm cột: `name`, `guide`, `need_photo`, `custom`, `deleted_at`; số việc tự thêm bắt đầu từ 100. Bước của việc tự thêm: bước "Làm" (người = `branch`) + bước "Kiểm tra" nếu bật (dùng `pc_assign` có sẵn cho người làm từng cơ sở).
+- Bảng mới lịch từng cơ sở: (job, branch_id, enabled, cycle, day, grace_hours, fine, checkers bigint[], from_date…). Việc bổ sung đánh dấu để phần phạt bỏ qua. Mặc định không cấp quyền anon/authenticated.
 - `pc_steps` thêm ghi chú + ảnh khi báo xong; `app_pc_step_done` nhận thêm ghi chú/ảnh và kiểm ảnh bắt buộc.
 - Phạt: điều kiện `j.fine > 0` và số tiền gợi ý cần lấy theo cơ sở cho việc tự thêm.
 - Chỗ giao diện đang tra tên bằng `JOBS[t.job]` cần dùng tên từ máy chủ cho việc ≥ 100.
