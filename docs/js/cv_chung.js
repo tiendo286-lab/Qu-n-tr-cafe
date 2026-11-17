@@ -58,8 +58,35 @@ const warnLine = (fine, due, now, who) => {
     : html`<div class="pc-warn">⚠ Quá hạn sẽ bị phạt ${money(fine)} / lần</div>`;
 };
 
+// ---- thẻ việc tự thêm (bước 123) + bước làm lại sau kiểm tra ----
+function cuCard(t, { ctx, me, now, mgr }) {
+  const s = curStep(t), open = !!s && !s.done_at, isCk = open && !!s.check, due = open ? s.due_at : null;
+  const accs = s?.accounts || [], mine = accs.includes(me);
+  const work = (t.steps || []).filter((x) => !x.check && x.done_at).slice(-1)[0];
+  const lastCk = (t.steps || []).filter((x) => x.check && x.done_at).slice(-1)[0];
+  const steps = t.n_steps > 1 ? html`<div class="pc-steps">${(t.steps || []).map((x) => html`<span class="pc-st ${x.done_at ? 'ok' : 'on'}">${x.check ? 'Kiểm tra' : x.redo ? 'Làm lại' : 'Làm'} · ${(x.names || []).map(shortName).join(', ') || 'chưa có người'}${x.done_at ? ' ✓' : ''}</span>`)}${!isCk && !(t.steps || []).some((x) => x.check) ? html`<span class="pc-st">Kiểm tra</span>` : ''}</div>` : '';
+  const who = !accs.length ? html`<div class="pc-who"><b class="red">Chưa có người ${isCk ? 'kiểm tra' : 'làm'}</b>${mgr ? ' — bấm "Giao người" hoặc sửa Bảng phân công' : ''}</div>` : '';
+  const acts = [];
+  const B = (a, l, c = '') => html`<button class="btn sm ${c}" data-a="${a}" data-id="${t.id}">${l}</button>`;
+  if (open && !isCk && (mine || mgr)) acts.push(B('pc-done', 'Báo xong ✓', 'solid'));
+  if (isCk && (mine || mgr)) { acts.push(B('pc-ok', 'Đạt ✓', 'solid')); acts.push(B('pc-redo', 'Làm lại', 'danger')); }
+  if (isCk && work?.photos?.length) acts.push(B('pc-photos', `Xem ảnh (${work.photos.length})`, 'secondary'));
+  if (mgr && open) acts.push(B('pc-reassign', accs.length ? 'Đổi người' : 'Giao người', 'secondary'));
+  return html`<article class="pc-task ${t.extra && !isCk ? 'none' : tone(due, now, !accs.length)}">
+    <div class="pc-top">${ctx === 'my' ? '' : html`<span class="pc-jb">${jobName(t.job)}</span>`}${t.code ? html`<span class="pc-br">${t.code}</span>` : ''}${isCk ? html`<span class="pill pc-rs3">Chờ kiểm tra</span>` : ''}${t.extra && !isCk ? html`<span class="pc-due none">Làm bổ sung</span>` : dueBadge(due, now)}</div>
+    <div class="pc-title">${t.title}</div>
+    <div class="pc-sub">${isCk ? 'Kiểm tra' : s?.redo ? 'Làm lại' : 'Làm'} · ${due ? 'hạn ' + fdw(due) : 'không đặt hạn'}</div>
+    ${t.guide && !isCk ? html`<div class="pc-last">📋 ${t.guide}</div>` : ''}${steps}${who}
+    ${!isCk && t.need_photo ? html`<div class="pc-sub" style="color:var(--plum-ink,#6b3d63);font-weight:600">📷 Bắt buộc chụp ảnh khi báo xong</div>` : ''}
+    ${s?.redo && lastCk?.note && open ? html`<div class="pc-warn">↩ Làm lại: ${lastCk.note}</div>` : ''}
+    ${isCk && work ? html`<div class="pc-last">🕒 ${fd(work.done_at)} · <b>${shortName(work.done_by) || 'Người làm'}</b>: ${work.note || 'không ghi chú'}${work.photos?.length ? ` · 📷 ${work.photos.length} ảnh` : ''}</div>` : ''}
+    ${t.extra && !isCk ? html`<div class="pc-info" style="padding:6px 10px;font-size:12px">Lần trước ngày cài đặt — làm bù khi tiện, <b>không phạt</b>.</div>` : warnLine(t.fine, due, now)}
+    <div class="pc-act">${acts}</div></article>`;
+}
+
 // ---- thẻ việc tự động ----
 export function pcCard(t, { ctx, me, now, mgr }) {
+  if (t.custom || curStep(t)?.redo) return cuCard(t, { ctx, me, now, mgr });
   const s = curStep(t), due = pcDue(t), merged = MERGED.includes(t.job);
   const accs = s?.accounts || [], names = (s?.names || []).map(shortName);
   const co = (s?.names || []).filter((_, i) => accs[i] !== me).map(shortName);
@@ -73,7 +100,7 @@ export function pcCard(t, { ctx, me, now, mgr }) {
   const manual = s && !s.done_at && s.step >= t.auto;
   const mine = accs.includes(me);
   return html`<article class="pc-task ${tone(due, now, !accs.length)}">
-    <div class="pc-top">${ctx === 'my' ? '' : html`<span class="pc-jb">${JOBS[t.job]}</span>`}${t.code ? html`<span class="pc-br">${t.code}</span>` : ''}${dueBadge(due, now)}</div>
+    <div class="pc-top">${ctx === 'my' ? '' : html`<span class="pc-jb">${jobName(t.job)}</span>`}${t.code ? html`<span class="pc-br">${t.code}</span>` : ''}${dueBadge(due, now)}</div>
     <div class="pc-title">${merged ? (t.code ? 'Cơ sở ' + t.code : 'Các cơ sở') : t.title}</div>
     <div class="pc-sub">${line}</div>${steps}${items}
     ${who ? html`<div class="pc-who">${who}</div>` : ''}${warnLine(t.fine, due, now)}
@@ -132,9 +159,9 @@ const priSel = (id) => html`<select class="input" id="${id}">${Object.entries(PR
 const photoIn = (id) => html`<label class="pc-photo">📷 Chụp / chọn ảnh <input type="file" accept="image/*" id="${id}"></label>`;
 const giaoFields = (people, me) => html`<div class="pc-grid2">${fld('Người làm', html`<select class="input" id="g-who">${pplOpts(people, '', '— chọn người làm —')}</select>`)}${fld('Người kiểm tra', html`<select class="input" id="g-rv">${pplOpts(people, me, '— chọn người kiểm tra —')}</select>`)}${fld('Hạn làm', dueSel('g-due'))}${fld('Mức độ', priSel('g-pri'))}</div>`;
 
-async function upload(taskId, file) {
+async function upload(taskId, file, prefix = 'cv') {
   const blob = await compressImage(file);
-  const path = `cv${taskId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+  const path = `${prefix}${taskId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
   const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
   if (error) throw new Error(error.message);
   return path;
@@ -217,9 +244,46 @@ export async function gvDetail(id) {
   }
 }
 
+// ---- bước 123: báo xong kèm ảnh, làm lại, xem ảnh ----
+const REDO_H = [[4, '4 giờ'], [12, '12 giờ'], [24, '1 ngày'], [48, '2 ngày'], [72, '3 ngày']];
+export function pcReportDone(t, { done }) {
+  const d = modal(html`<h2>Báo xong</h2><div class="sub">${t.title}</div>
+    ${fld('Ghi chú (không bắt buộc)', html`<textarea class="input" id="pc-nt" rows="2" placeholder="vd: đã ngâm và lau, máy chạy bình thường"></textarea>`)}
+    <label class="pc-photo">📷 Chụp / chọn ảnh${t.need_photo ? html` <b class="red">(bắt buộc)</b>` : ''} <input type="file" accept="image/*" multiple id="pc-ph"></label>
+    <div class="sub" id="pc-phn">${t.need_check ? 'Sau khi báo xong, người kiểm tra xem ảnh rồi bấm Đạt hoặc Làm lại.' : 'Báo xong là việc đóng.'}</div>${acts('Báo xong')}`);
+  $('#pc-ph', d).addEventListener('change', (e) => { const n = e.target.files.length; $('#pc-phn', d).textContent = n ? `Đã chọn ${n} ảnh` : ''; });
+  $('[data-ok]', d).addEventListener('click', (e) => run(d, e.target, async () => {
+    const files = [...$('#pc-ph', d).files];
+    if (t.need_photo && !files.length) throw new Error('Cần ít nhất 1 ảnh mới báo xong được.');
+    const paths = [];
+    for (const f of files) paths.push(await upload(t.id, f, 'pc'));
+    await rpc('app_pc_report_done', { p_task: t.id, p_note: $('#pc-nt', d).value, p_photos: paths });
+    done(t.need_check ? 'Đã báo xong — chờ kiểm tra' : 'Đã báo xong');
+  }));
+}
+export function pcRedo(t, { done }) {
+  const d = modal(html`<h2>Làm lại</h2><div class="sub">${t.title}</div>${fld('Lý do (bắt buộc)', html`<input class="input" id="pc-rw" placeholder="vd: group head còn bám cặn">`)}
+    ${fld('Hạn làm lại', html`<select class="input" id="pc-rh">${REDO_H.map(([v, l]) => html`<option value="${v}" ${v === 24 ? 'selected' : ''}>${l}</option>`)}</select>`)}${acts('Trả về làm lại', 'danger')}`);
+  $('[data-ok]', d).addEventListener('click', (e) => run(d, e.target, async () => {
+    if (!$('#pc-rw', d).value.trim()) throw new Error('Ghi lý do làm lại.');
+    await rpc('app_pc_check', { p_task: t.id, p_ok: false, p_note: $('#pc-rw', d).value, p_hours: +$('#pc-rh', d).value }); done('Đã trả về làm lại');
+  }));
+}
+export async function pcPhotos(t) {
+  const w = (t.steps || []).filter((x) => !x.check && x.done_at).slice(-1)[0] || {};
+  const d = modal(html`<h2>Ảnh báo xong</h2><div class="sub">${t.title} · ${shortName(w.done_by) || ''} ${fd(w.done_at)}${w.note ? ' · ' + w.note : ''}</div>
+    <div class="pc-thumbs">${(w.photos || []).map((p) => html`<a target="_blank" rel="noopener"><img class="pc-img" alt="Ảnh" data-photo="${p}"></a>`)}</div>
+    <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn secondary" data-close>Đóng</button></div>`, true);
+  const els = $$('img[data-photo]', d);
+  if (els.length) {
+    const { data } = await sb.storage.from(BUCKET).createSignedUrls(els.map((x) => x.dataset.photo), 3600);
+    (data || []).forEach((u, i) => { if (u.signedUrl) { els[i].src = u.signedUrl; els[i].closest('a').href = u.signedUrl; } });
+  }
+}
+
 export function pcReassign(t, { people, done }) {
   const s = curStep(t);
-  const d = modal(html`<h2>${s?.accounts?.length ? 'Đổi người' : 'Giao người'}: ${JOBS[t.job]}${t.code ? ' · ' + t.code : ''}</h2><div class="sub">${t.title} · bước "${s?.name}". Chỉ đổi cho việc này — muốn đổi cho việc sau thì sửa Bảng phân công. Chọn 2 người = ai làm trước cũng được.</div>
+  const d = modal(html`<h2>${s?.accounts?.length ? 'Đổi người' : 'Giao người'}: ${jobName(t.job)}${t.code ? ' · ' + t.code : ''}</h2><div class="sub">${t.title} · bước "${s?.name}". Chỉ đổi cho việc này — muốn đổi cho việc sau thì sửa Bảng phân công. Chọn 2 người = ai làm trước cũng được.</div>
     <div class="pc-grid2">${(people || []).map((p) => html`<label class="pc-ck"><input type="checkbox" value="${p.id}" ${(s?.accounts || []).includes(p.id) ? 'checked' : ''}> ${shortName(p.name)} <span class="sub">${ROLE[p.role] || ''}</span></label>`)}</div>${acts('Lưu')}`, true);
   $('[data-ok]', d).addEventListener('click', (e) => run(d, e.target, async () => {
     await rpc('app_pc_reassign', { p_task: t.id, p_accounts: $$('.pc-grid2 input:checked', d).map((i) => +i.value) }); done('Đã giao — người làm đã được báo');
@@ -247,6 +311,10 @@ export function bindActions(root, ctx) {
     else if (a === 'gv-detail') gvDetail(id).catch((e) => alert(e.message || e));
     else if (a === 'gv-reassign') gvReassign(k, opt);
     else if (a === 'pc-reassign') pcReassign(t, opt);
+    else if (a === 'pc-done') pcReportDone(t, opt);
+    else if (a === 'pc-ok') quick(() => rpc('app_pc_check', { p_task: id, p_ok: true, p_note: null, p_hours: null }), 'Đã Đạt — việc đã hoàn thành');
+    else if (a === 'pc-redo') pcRedo(t, opt);
+    else if (a === 'pc-photos') pcPhotos(t).catch((e) => alert(e.message || e));
     else if (a === 'pc-step') { if (confirm('Xác nhận xong bước này?')) quick(() => rpc('app_pc_step_done', { p_task: id }), 'Đã xong bước'); }
   });
 }
@@ -265,6 +333,7 @@ export const STYLE = raw(`<style>
 .pc-sec{font-size:13px;font-weight:700;color:var(--ink-2);margin:18px 0 8px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;text-transform:uppercase;letter-spacing:.4px}
 .pc-cat{border-bottom:2px solid var(--line);padding-bottom:6px;text-transform:none;font-size:16px;color:var(--ink);letter-spacing:0}
 .pc-cat small{font-weight:400;color:var(--muted);font-size:12px}
+.pc-ic.tu{background:#5b4a1e!important}.pc-thumbs{display:flex;gap:8px;flex-wrap:wrap}.pc-thumbs .pc-img{max-width:160px;max-height:160px;border-radius:10px}
 .pc-ic{width:10px;height:10px;border-radius:3px;background:var(--primary);display:inline-block}.pc-ic.hang{background:#3f5a36}.pc-ic.kt{background:#6b3d63}.pc-ic.rieng{background:#6f8fae}.pc-ic.debt{background:#f59e0b}
 .pc-cnt{background:var(--line-strong);color:var(--ink);border-radius:999px;font-size:11px;padding:1px 7px;font-weight:700}.pc-cnt.red{background:var(--off-line);color:#fff}
 .pc-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:12px}

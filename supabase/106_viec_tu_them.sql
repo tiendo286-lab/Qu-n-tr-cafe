@@ -202,7 +202,7 @@ AS $function$
     'steps', coalesce((select jsonb_agg(jsonb_build_object('id', s.id, 'step', s.step, 'name', s.name, 'accounts', to_jsonb(s.accounts),
                'names', (select coalesce(jsonb_agg(public.app__acc_name(x)), '[]') from unnest(s.accounts) x),
                'start_at', s.start_at, 'due_at', s.due_at, 'done_at', s.done_at, 'done_by', public.app__acc_name(s.done_by),
-               'note', s.note, 'photos', to_jsonb(s.photos), 'redo', s.redo) order by s.id)
+               'note', s.note, 'photos', to_jsonb(s.photos), 'redo', s.redo, 'check', coalesce(j.steps->s.step->>'who', '') = 'check' and not s.redo) order by s.id)
              from public.pc_steps s where s.task_id = t.id), '[]'),
     'items', case when t.job in (11, 12, 13, 14) then coalesce((select jsonb_agg(jsonb_build_object('id', i.id, 'title', i.title, 'link', i.link, 'start_at', i.start_at,
                'due_at', i.due_at, 'done_at', i.done_at) order by i.due_at nulls last, i.id)

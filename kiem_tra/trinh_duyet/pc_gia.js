@@ -62,6 +62,15 @@ export function makePc(T, me) {
   // bước thêm tay (đã qua bước tự động)
   const manual = task(1, 1, 'Đối soát Ca Sáng LHP 14/11/2026', '/quan-ly/doi-soat/ca?id=5', [step(0, 'Đối soát', who(1, 'branch', 1), at(-30), at(-6), at(-8)), step(1, 'Kiểm tra lại', [ME], at(-8), at(16))]);
   manual.n_steps = 2; TASKS.push(manual);
+  // bước 123: việc tự thêm — hôm nay (cần ảnh), làm bổ sung, chờ kiểm tra
+  const SC = (b) => SCHED.find((x) => x.job === 100 && x.branch_id === b);
+  const cu = (b, title, steps, extra) => Object.assign(task(100, b, title, null, steps), { auto: 0, custom: true, job_name: 'Vệ sinh máy pha', guide: J(100).guide, need_photo: true, need_check: true, extra: !!extra, fine: SC(b).fine });
+  const today = now().slice(8, 10) + '/' + now().slice(5, 7);
+  TASKS.push(cu(1, 'Vệ sinh máy pha · LHP · ' + today, [step(0, 'Làm', [ME], at(-6), at(10))]));
+  TASKS.push(cu(2, 'Vệ sinh máy pha · ĐK · 11/11', [step(0, 'Làm', [ME], at(-2), null)], true));
+  const ck = cu(3, 'Vệ sinh máy pha · HS · ' + today, [Object.assign(step(0, 'Làm', [8], at(-8), at(30), at(-1)), { note: 'Đã lau, máy chạy bình thường', photos: ['pc1/a.jpg', 'pc1/b.jpg'], done_by: nm(8) }),
+    Object.assign(step(1, 'Kiểm tra', [ME], at(-1), at(23)), { check: true })]);
+  TASKS.push(ck);
   const DONE = [{ title: 'Đối soát Ca Chiều LHP 13/11/2026', code: 'LHP', job: 1, done_at: at(-26), by: nm(5), late: false }];
   let gseq = 500;
   const EV = {};
@@ -80,6 +89,7 @@ export function makePc(T, me) {
     { id: 1, job: 1, code: 'ĐK', account_id: 5, name: nm(5), role: 'ql', title: 'Đối soát Ca Sáng ĐK 14/11/2026', step: 'Đối soát', due_at: at(-4), status: 'cho', amount: null, reason: null, fine: 50000, end_at: null, others: [] },
     { id: 2, job: 4, code: 'LL', account_id: 7, name: nm(7), role: 'nv', title: 'Chuyển khoản thực nhận · ngày 13/11', step: 'Tải sao kê chuyển khoản', due_at: at(-10), status: 'cho', amount: null, reason: null, fine: 50000, end_at: null, others: [] },
     { id: 3, job: 10, code: 'HS', account_id: 8, name: nm(8), role: 'ql', title: 'Kiểm quỹ tuần 09/11 – 15/11', step: 'Kiểm quỹ', due_at: at(-50), status: 'phat', amount: 50000, reason: 'Bị phạt do không hoàn thành công việc đúng hạn', decided_at: at(-30), fine: 50000, end_at: at(-48), others: [5] },
+    { id: 5, job: 100, code: 'HS', account_id: 8, name: nm(8), role: 'ql', title: 'Vệ sinh máy pha · HS · 12/11', step: 'Làm', due_at: at(-30), status: 'cho', amount: null, reason: null, fine: 30000, end_at: null, others: [] },
     { id: 4, job: 10, code: 'HS', account_id: 5, name: nm(5), role: 'ql', title: 'Kiểm quỹ tuần 09/11 – 15/11', step: 'Kiểm quỹ', due_at: at(-50), status: 'bo', amount: null, reason: 'Nghỉ phép tuần này', decided_at: at(-30), fine: 50000, end_at: at(-48), others: [nm(8)] },
   ];
   PEN[2].others = [nm(5)];
@@ -152,6 +162,23 @@ export function makePc(T, me) {
     app_pc_kt_set({ p_account, p_apply }) { KT = p_account; P.forEach((p) => { p.kt = p.id === p_account; }); let n = 0; if (p_apply) TASKS.forEach((t) => { const s = t.steps.find((x) => !x.done_at); if (s && J(t.job).steps[s.step]?.who === 'kt') { s.accounts = KT ? [KT] : []; s.names = s.accounts.map(nm); n++; } }); return n; },
     app_pc_reassign({ p_task, p_accounts }) { const t = TASKS.find((x) => x.id === p_task); const s = t.steps.find((x) => !x.done_at); s.accounts = p_accounts; s.names = p_accounts.map(nm); },
     app_pc_step_done({ p_task }) { const t = TASKS.find((x) => x.id === p_task); const s = t.steps.find((x) => !x.done_at); if (s.step < t.auto) err('Bước này tự xong khi làm xong hồ sơ.'); s.done_at = now(); t.done_at = now(); DONE.unshift({ title: t.title, code: t.code, job: t.job, done_at: now(), by: nm(ME), late: false }); },
+    app_pc_report_done({ p_task, p_note, p_photos }) {
+      const t = TASKS.find((x) => x.id === p_task); const s = t.steps.find((x) => !x.done_at);
+      if (!(t.custom && !s.check) && !s.redo) err('Việc này tự xong khi làm xong hồ sơ.');
+      if (t.need_photo && !(p_photos || []).length) err('Cần ít nhất 1 ảnh mới báo xong được.');
+      Object.assign(s, { note: p_note || null, photos: p_photos || [], done_at: now(), done_by: nm(ME) });
+      if (t.need_check) { const sc = SC(t.branch_id); const c = Object.assign(step(1, 'Kiểm tra', sc.checkers, now(), at(sc.check_h)), { check: true }); t.steps.push(c); }
+      else { t.done_at = now(); DONE.unshift({ title: t.title, code: t.code, job: t.job, done_at: now(), by: nm(ME), late: false }); }
+    },
+    app_pc_check({ p_task, p_ok, p_note, p_hours }) {
+      const t = TASKS.find((x) => x.id === p_task); const s = t.steps.find((x) => !x.done_at);
+      if (!s?.check) err('Việc này chưa tới bước kiểm tra.');
+      if (p_ok) { s.done_at = now(); t.done_at = now(); DONE.unshift({ title: t.title, code: t.code, job: t.job, done_at: now(), by: nm(ME), late: false }); return; }
+      if (!String(p_note || '').trim()) err('Ghi lý do làm lại.');
+      if (![4, 12, 24, 48, 72].includes(+p_hours)) err('Chọn hạn làm lại.');
+      Object.assign(s, { done_at: now(), note: p_note.trim() }); const w = t.steps.filter((x) => !x.check).slice(-1)[0];
+      t.steps.push(Object.assign(step(0, w.name, w.accounts, now(), at(+p_hours)), { redo: true }));
+    },
     app_pc_penalties() { return { can_edit: isChu, now: now(), default_fine: 50000, rows: PEN }; },
     app_pc_penalty_set({ p_id, p_status, p_amount, p_reason }) {
       if (!isChu) err('Chỉ tài khoản Chủ xác nhận phạt.');

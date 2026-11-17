@@ -1,7 +1,7 @@
 // Bước 109 — Tất cả công việc (Chủ / Quản lý tổng): việc tự tạo + Giao việc riêng của mọi người, chưa có người, theo dõi từng người, 5 bước việc riêng.
 import { rpc } from '../sb.js';
 import { $, html, str } from '../ui.js';
-import { JOBS, RST, ROLE, STYLE, bindActions, curStep, dur, fd, gvCard, gvDue, money, ms, pcCard, pcDue, rstate, shortName, toast, tone } from '../cv_chung.js';
+import { JOBS, RST, jobName, learnJobs, ROLE, STYLE, bindActions, curStep, dur, fd, gvCard, gvDue, money, ms, pcCard, pcDue, rstate, shortName, toast, tone } from '../cv_chung.js';
 
 export const perm = 'hop_giao_viec';
 const F = { br: '', st: 'open', rs: '' };
@@ -11,6 +11,7 @@ export async function render({ me }) {
   let D = await rpc('app_pc_all');
   const mgr = ['chu', 'ql_tong'].includes(me.role);
   const draw = () => {
+    learnJobs(D.tasks);
     const now = D.now, my = D.me;
     const br = (x) => !F.br || (F.br === 'chung' ? !x.branch_id : String(x.branch_id) === F.br);
     const pcs = (D.tasks || []).filter(br), gvAll = (D.gv || []).filter(br);
@@ -30,7 +31,7 @@ export async function render({ me }) {
       list = html`<div class="pc-chips"><button class="pc-chip on" data-f="rs" data-v="">Đang lọc: Giao việc riêng · ${RST[i]} ✕</button></div>
         ${L.length ? html`<div class="pc-list">${L.map((k) => gvCard(k, { ctx: 'all', me: my, now, mgr }))}</div>` : html`<div class="card pc-sub" style="padding:16px">Không có</div>`}`;
     } else if (F.st === 'done') {
-      list = html`<div class="card" style="padding:4px">${(D.done || []).filter(br).map((x) => html`<div class="pc-done"><span class="pill ok">✓ Xong</span><b>${JOBS[x.job]}</b>${x.code ? html`<span class="pc-br">${x.code}</span>` : ''}<span>${x.title}</span><span class="pc-sub">· ${fd(x.done_at)}${x.by ? ' · ' + shortName(x.by) : ''}</span>${x.late ? html`<span class="pill off">có trễ hạn</span>` : ''}</div>`)}
+      list = html`<div class="card" style="padding:4px">${(D.done || []).filter(br).map((x) => html`<div class="pc-done"><span class="pill ok">✓ Xong</span><b>${jobName(x.job)}</b>${x.code ? html`<span class="pc-br">${x.code}</span>` : ''}<span>${x.title}</span><span class="pc-sub">· ${fd(x.done_at)}${x.by ? ' · ' + shortName(x.by) : ''}</span>${x.late ? html`<span class="pill off">có trễ hạn</span>` : ''}</div>`)}
         ${gvAll.filter((k) => rstate(k) === 4 || rstate(k) < 0).map((k) => html`<div class="pc-done">${rstate(k) < 0 ? html`<span class="pill mute">Không cần xử lý</span>` : html`<span class="pill ok">✓ Đạt</span>`}<b>Giao việc riêng</b>${k.code ? html`<span class="pc-br">${k.code}</span>` : ''}<span>${k.content}</span><span class="pc-sub">· ${fd(k.approved_at || k.cancelled_at)}</span></div>`)}</div>`;
     } else {
       const R = rows.filter((r) => F.st !== 'late' || r.tone === 'late');
@@ -44,7 +45,7 @@ export async function render({ me }) {
     return html`
       <div class="pc-stats"><div class="pc-stat"><span>Đang mở</span><strong>${rows.length}</strong></div><div class="pc-stat late"><span>Quá hạn</span><strong>${lateN}</strong></div>
         <div class="pc-stat soon"><span>Chưa có người</span><strong>${free.length}</strong></div><div class="pc-stat"><span>Xong 7 ngày</span><strong>${(D.done || []).length + gvAll.filter((k) => rstate(k) === 4).length}</strong></div></div>
-      ${free.length ? html`<div class="alert warn"><b>${free.length} việc chưa có người làm</b> (ô trong Bảng phân công đang trống): ${free.map((r) => (r.kind === 'pc' ? JOBS[r.x.job] : 'Giao việc riêng') + (r.x.code ? ' ' + r.x.code : '')).join(' · ')}. Bấm "Giao người" trên từng việc${D.can_edit ? html`, hoặc điền ô ở <a href="#/cong-viec/phan-cong">Bảng phân công</a>` : ''}.</div>` : ''}
+      ${free.length ? html`<div class="alert warn"><b>${free.length} việc chưa có người làm</b> (ô trong Bảng phân công đang trống): ${free.map((r) => (r.kind === 'pc' ? jobName(r.x.job) : 'Giao việc riêng') + (r.x.code ? ' ' + r.x.code : '')).join(' · ')}. Bấm "Giao người" trên từng việc${D.can_edit ? html`, hoặc điền ô ở <a href="#/cong-viec/phan-cong">Bảng phân công</a>` : ''}.</div>` : ''}
       ${people.length ? html`<div class="card" style="padding:6px 8px;margin:12px 0;overflow-x:auto"><table class="pc-tbl"><thead><tr><th>Người</th><th class="n">Đang mở</th><th class="n">Đang quá hạn</th><th class="n">Lần trễ 7 ngày</th></tr></thead>
         <tbody>${people.map((r) => html`<tr><td><b>${shortName(r.p.name)}</b> <span class="pc-sub">${ROLE[r.p.role] || ''}${r.p.kt ? ' + Kế toán' : ''}</span></td><td class="n">${r.o}</td><td class="n ${r.l ? 'red' : ''}"><b>${r.l}</b></td><td class="n">${r.l7}</td></tr>`)}</tbody></table></div>` : ''}
       <div class="pc-sec">Giao việc riêng — tiến độ</div>

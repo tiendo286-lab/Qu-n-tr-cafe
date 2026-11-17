@@ -2,7 +2,7 @@
 import { rpc } from '../sb.js';
 import { vnToday } from '../data.js';
 import { $, dialog, html, str } from '../ui.js';
-import { JOBS, ROLE, STYLE, dur, fd, money, ms, shortName, toast } from '../cv_chung.js';
+import { JOBS, ROLE, jobName, STYLE, dur, fd, money, ms, shortName, toast } from '../cv_chung.js';
 
 export const perm = 'phan_cong';
 let TAB = 'cho';
@@ -22,7 +22,7 @@ export async function render({ params }) {
       else if (x.status === 'phat') act = html`<span class="pill off">Đã phạt ${money(x.amount)} · ${fd(x.decided_at)}</span>${ed ? html`<button class="btn sm secondary" data-undo="${x.id}">Huỷ</button>` : ''}`;
       else act = html`<span class="pill mute">Bỏ qua: ${x.reason}</span>${ed ? html`<button class="btn sm secondary" data-undo="${x.id}">Huỷ</button>` : ''}`;
       return html`<div class="qh-row"><div><b>${shortName(x.name)}</b><div class="pc-sub">${ROLE[x.role] || ''}</div></div>
-        <div><span class="pc-jb">${JOBS[x.job] || ''}</span>${x.code ? html` <span class="pc-br">${x.code}</span>` : ''}${x.step ? html` <span class="pc-sub">bước: ${x.step}</span>` : ''}<div style="margin-top:3px;font-size:14px">${x.title}</div>${(x.others || []).length ? html`<div class="pc-sub">Giao cùng ${x.others.map(shortName).join(', ')} — phạt người nào anh chọn</div>` : ''}</div>
+        <div><span class="pc-jb">${jobName(x.job)}</span>${x.code ? html` <span class="pc-br">${x.code}</span>` : ''}${x.step ? html` <span class="pc-sub">bước: ${x.step}</span>` : ''}<div style="margin-top:3px;font-size:14px">${x.title}</div>${(x.others || []).length ? html`<div class="pc-sub">Giao cùng ${x.others.map(shortName).join(', ')} — phạt người nào anh chọn</div>` : ''}</div>
         <div style="font-size:13px">Hạn ${fd(x.due_at)}<br><b class="red">Trễ ${dur(late)}</b> · ${open ? html`<span class="pill off">vẫn chưa làm</span>` : html`<span class="pill mute">đã làm, trễ</span>`}</div>
         <div class="qh-act">${act}</div></div>`;
     };
