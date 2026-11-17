@@ -397,6 +397,79 @@ begin
 end $function$
 ;
 
+-- ============ PHẦN 3: báo xong kèm ảnh, kiểm tra Đạt / Làm lại ============
+create or replace function public.app_pc_report_done(p_task bigint, p_note text, p_photos text[]) returns void
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts := public.app__need(null); t public.pc_tasks; j public.pc_jobs; s public.pc_steps; nw text := public.vn_now_text();
+        r public.pc_steps; x bigint; ci int; ph text[] := array_remove(coalesce(p_photos, '{}'), '');
+begin
+  select * into t from public.pc_tasks where id = p_task for update;
+  select * into s from public.pc_steps where task_id = p_task and done_at is null order by id desc limit 1;
+  if t.id is null or t.done_at is not null or s.id is null then raise exception 'Việc đã xong.'; end if;
+  select * into j from public.pc_jobs where job = t.job;
+  if not ((j.custom and s.step = 0) or s.redo) then raise exception 'Việc này tự xong khi làm xong hồ sơ.'; end if;
+  if not (a.id = any(s.accounts) or a.system_role = 'chu') then raise exception 'Bước này không giao cho bạn.'; end if;
+  if j.need_photo and cardinality(ph) = 0 then raise exception 'Cần ít nhất 1 ảnh mới báo xong được.'; end if;
+  update public.pc_steps set note = nullif(trim(coalesce(p_note, '')), ''), photos = ph, done_at = nw, done_by = a.id where id = s.id;
+  select (o - 1)::int into ci from jsonb_array_elements(j.steps) with ordinality e(v, o) where v->>'who' = 'check' limit 1;
+  if ci is not null then
+    r := public.app__pc_open_step(p_task, ci, nw);
+    foreach x in array r.accounts loop
+      perform public.app__notify(x, 'Việc chờ bạn kiểm tra', t.title || coalesce(' · hạn ' || to_char(r.due_at::timestamp, 'DD/MM HH24:MI'), ''), '/viec');
+    end loop;
+  else
+    update public.pc_tasks set done_at = nw, done_by = a.id, done_note = 'Đã báo xong' where id = p_task;
+  end if;
+end $$;
+
+create or replace function public.app_pc_check(p_task bigint, p_ok boolean, p_note text, p_hours numeric) returns void
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts := public.app__need(null); t public.pc_tasks; j public.pc_jobs; s public.pc_steps; w public.pc_steps; nw text := public.vn_now_text();
+        r public.pc_steps; x bigint;
+begin
+  select * into t from public.pc_tasks where id = p_task for update;
+  select * into s from public.pc_steps where task_id = p_task and done_at is null order by id desc limit 1;
+  if t.id is null or t.done_at is not null or s.id is null then raise exception 'Việc đã xong.'; end if;
+  select * into j from public.pc_jobs where job = t.job;
+  if coalesce(j.steps->s.step->>'who', '') <> 'check' or s.redo then raise exception 'Việc này chưa tới bước kiểm tra.'; end if;
+  if not (a.id = any(s.accounts) or a.system_role = 'chu') then raise exception 'Bước này không giao cho bạn.'; end if;
+  select * into w from public.pc_steps where task_id = p_task and id <> s.id and done_at is not null order by id desc limit 1;   -- lần làm vừa báo xong
+  if coalesce(p_ok, false) then
+    update public.pc_steps set done_at = nw, done_by = a.id, note = nullif(trim(coalesce(p_note, '')), '') where id = s.id;
+    update public.pc_tasks set done_at = nw, done_by = a.id, done_note = 'Đạt' where id = p_task;
+    if w.done_by is not null and w.done_by <> a.id then perform public.app__notify(w.done_by, 'Việc đã Đạt', t.title, '/viec'); end if;
+  else
+    if trim(coalesce(p_note, '')) = '' then raise exception 'Ghi lý do làm lại.'; end if;
+    if p_hours is null or p_hours not in (4, 12, 24, 48, 72) then raise exception 'Chọn hạn làm lại.'; end if;
+    update public.pc_steps set done_at = nw, done_by = a.id, note = trim(p_note) where id = s.id;
+    insert into public.pc_steps(task_id, step, name, accounts, start_at, due_at, redo)
+    values (p_task, coalesce(w.step, 0), coalesce(w.name, 'Làm'), coalesce(w.accounts, '{}'), nw, public.app__pc_add(nw, p_hours / 24.0), true)
+    returning * into r;
+    foreach x in array r.accounts loop
+      perform public.app__notify(x, 'Việc cần làm lại', t.title || ': ' || trim(p_note), '/viec');
+    end loop;
+  end if;
+end $$;
+
+CREATE OR REPLACE FUNCTION public.app_pc_step_done(p_task bigint)
+ RETURNS void
+ LANGUAGE plpgsql
+ SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare a public.accounts := public.app__need(null); s public.pc_steps; t public.pc_tasks;
+begin
+  select * into t from public.pc_tasks where id = p_task for update;
+  select * into s from public.pc_steps where task_id = p_task and done_at is null order by id desc limit 1;
+  if s.id is null or t.done_at is not null then raise exception 'Việc đã xong.'; end if;
+  if coalesce((select custom from public.pc_jobs where job = t.job), false) or s.redo then raise exception 'Bấm Báo xong ở thẻ việc.'; end if;
+  if (select steps->s.step->>'who' from public.pc_jobs where job = t.job) = 'check' then raise exception 'Bấm Đạt / Làm lại ở thẻ việc.'; end if;
+  if s.step < public.app__pc_auto(t.job) then raise exception 'Bước này tự xong khi làm xong hồ sơ — bấm "Làm ngay" để mở hồ sơ.'; end if;
+  if not (a.id = any(s.accounts) or a.system_role = 'chu') then raise exception 'Bước này không giao cho bạn.'; end if;
+  perform public.app__pc_advance(p_task, a.id, 'Xong bước ' || s.name);
+end $function$
+;
+
 -- ============ quyền gọi hàm (cuối tệp) ============
 do $$ declare f record; begin
   for f in select p.oid::regprocedure sig, p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace
