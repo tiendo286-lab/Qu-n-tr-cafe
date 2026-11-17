@@ -1,11 +1,11 @@
 // Lõi trang web: phiên đăng nhập, menu theo quyền, chuyển trang (dùng #/duong-dan vì GitHub Pages là trang tĩnh).
-import { addDays, focusWeek, notifyTick, unreadCount, vnToday, weekStart } from './data.js';
+import { addDays, focusWeek, unreadCount, vnToday, weekStart } from './data.js';
 import { rpc, sb, viError } from './sb.js';
 import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.17.9';
+const ASSET_VERSION = '2026.11.17.10';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
@@ -257,13 +257,17 @@ function notFound() {
 }
 
 // Số chưa đọc + số cảnh báo (tối đa 1 lần/phút)
+// Bước 125: hỏi máy chủ CÙNG LÚC thay vì lần lượt (mỗi lần hỏi ~0,3 giây → trước đây chuyển trang khựng ~2 giây mỗi phút).
+// Số cảnh báo xếp lịch tính nền (nhiều lần hỏi) — không bắt trang chờ, số mới hiện ở lần chuyển trang sau.
 let badgeAt = 0;
+let warnBusy = false;
 async function refreshBadges() {
   if (!state.me || state.me.must_change || Date.now() - badgeAt < 60000) return;
   badgeAt = Date.now();
-  await notifyTick();
-  try { state.unread = await unreadCount(state.me.account_id); } catch (_) { /* bỏ qua */ }
-  try { state.support = await rpc('app_ht_unread'); } catch (_) { /* bỏ qua */ }
+  const jobs = [
+    unreadCount(state.me.account_id).then((n) => { state.unread = n; }),
+    rpc('app_ht_unread').then((n) => { state.support = n; }),
+  ];
   // Nhắc hồ sơ nhận hàng kho tổng còn thiếu (máy chủ chỉ gửi 1 lần mỗi ngày)
   if ((can('ke_toan') || can('doi_soat')) && sessionStorage.getItem('nh_tick') !== vnToday()) {
     try { sessionStorage.setItem('nh_tick', vnToday()); } catch (_) { /* bỏ qua */ }
@@ -271,23 +275,25 @@ async function refreshBadges() {
   }
   // bước 104: số lần giao hàng kho tổng đang chờ nhận / chờ đối soát (nhân viên: chỉ cơ sở của mình)
   if (can('chot_ca') || can('doi_soat')) {
-    try {
-      const G = await rpc('app_gh_inbox', { p_branch: null }); const mine = new Set(G.my_branches || []);
+    jobs.push(rpc('app_gh_inbox', { p_branch: null }).then((G) => {
+      const mine = new Set(G.my_branches || []);
       const rows = (G.rows || []).filter((d) => isManager() || !mine.size || mine.has(d.branch_id));
       state.ghNhan = rows.filter((d) => d.state === 'dang_chuyen').length;
       state.ghDs = can('doi_soat') ? rows.filter((d) => d.state !== 'dang_chuyen').length : 0;
-    } catch (_) { /* bỏ qua */ }
+    }));
   }
-  if (state.me.employee_id) { try { state.ka = (await rpc('app_ka_mine')).filter((k) => (k.status === 'chua_xu_ly' || k.auto_tru) && !k.seen_at).length; } catch (_) { /* bỏ qua */ } }
+  if (state.me.employee_id) jobs.push(rpc('app_ka_mine').then((K) => { state.ka = K.filter((k) => (k.status === 'chua_xu_ly' || k.auto_tru) && !k.seen_at).length; }));
   if (can('nhan_viec') || can('hop_giao_viec')) {
-    try { state.remind = await rpc('app_viec_reminder'); state.tasks = state.remind.open; state.review = state.remind.to_review; } catch (_) { /* bỏ qua */ }
+    jobs.push(rpc('app_viec_reminder').then((r) => { state.remind = r; state.tasks = r.open; state.review = r.to_review; }));
   }
-  if (can('xep_lich')) {
-    try {
+  if (can('xep_lich') && !warnBusy) {
+    warnBusy = true;
+    (async () => {
       const w = await focusWeek();
       if (w) { const { computeWarnings, warnTotal } = await import('./warnings.js'); state.warn = warnTotal(await computeWarnings(w)); } else state.warn = 0;
-    } catch (_) { /* bỏ qua */ }
+    })().catch(() => { /* bỏ qua */ }).finally(() => { warnBusy = false; });
   }
+  await Promise.all(jobs.map((j) => j.catch(() => { /* bỏ qua */ })));
 }
 
 let cleanup = null;
