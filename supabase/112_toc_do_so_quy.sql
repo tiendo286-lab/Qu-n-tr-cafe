@@ -23,6 +23,7 @@ as $function$
          coalesce((select sum(amount) from r where typ = 'ck_ve' and d between p_d0 and p_d1), 0)::bigint
     from o
 $function$;
+revoke all on function public.app__fund_sum(bigint, text, text, text) from public, anon, authenticated;
 
 CREATE OR REPLACE FUNCTION public.app__fin_full(p_branch bigint, p_month text)
  RETURNS jsonb
@@ -198,6 +199,5 @@ begin
     'owner', coalesce((public.app_account()).system_role, '') = 'chu');
 end $function$;
 
-revoke all on function public.app__fund_sum(bigint, text, text, text) from public, anon, authenticated;
 
 insert into public.app_migrations(file) values ('112_toc_do_so_quy.sql') on conflict (file) do nothing;

@@ -1,7 +1,7 @@
 -- KIỂM TRA bước 128: Sổ quỹ / Chốt tháng sau khi tăng tốc phải GIỐNG HỆT bản cũ. Chạy trong begin … rollback.
 -- Cách chạy: thay dòng đánh dấu TEP_MAY_CHU bên dưới bằng nội dung tệp supabase/NNN_toc_do_so_quy.sql (không thay = tự so bản cũ với chính nó).
 -- Đạt: REPORT>> khác=0. Kèm thời gian cũ → mới (ms).
-begin;
+begin isolation level repeatable read;   -- cả bản cũ và mới cùng đọc 1 bản chụp dữ liệu (máy chủ thật đang có người ghi)
 select set_config('request.jwt.claim.sub', (select auth_user_id::text from public.accounts where system_role = 'chu' and auth_user_id is not null and coalesce(locked, 0) = 0 order by id limit 1), true);
 select set_config('request.jwt.claims', json_build_object('sub', current_setting('request.jwt.claim.sub'), 'role', 'authenticated')::text, true);
 create temp table _k on commit drop as
