@@ -8,7 +8,7 @@ declare rid bigint; r2 bigint; chu uuid; k uuid := gen_random_uuid(); n jsonb; m
         ok_back boolean; ok_none boolean; ok_get boolean; mv jsonb; mv2 jsonb; msg text;
 begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by a.id limit 1;
-  select r.id into rid from public.shift_reports r where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) order by r.work_date desc, r.id desc limit 1;
+  select r.id into rid from public.shift_reports r where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) and coalesce((public.app__ca_kt_state(r.id) ->> 'ready')::boolean, false) order by r.work_date desc, r.id desc limit 1;
   set local session_replication_role = replica;   -- dựng tình huống
   update public.shift_reports set recon_status = 'chua' where id = rid;
   delete from public.shift_report_results where report_id = rid;

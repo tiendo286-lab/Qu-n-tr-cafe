@@ -7,8 +7,8 @@ declare ca bigint; cb bigint; br bigint; chu uuid; did bigint; a0 jsonb; b0 json
         main_ok boolean := false; e1 boolean := false; e2 boolean := false; m0 text; m1 text; m2 text;
 begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by a.id limit 1;
-  select r.id, r.branch_id into ca, br from public.shift_reports r where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) order by r.work_date desc, r.id desc limit 1;
-  select r.id into cb from public.shift_reports r where r.status = 'hoan_thanh' and r.id <> ca and r.branch_id = br and not public.app__fin_locked(r.branch_id, r.work_date) order by r.work_date desc, r.id desc limit 1;
+  select r.id, r.branch_id into ca, br from public.shift_reports r where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) and coalesce((public.app__ca_kt_state(r.id) ->> 'ready')::boolean, false) order by r.work_date desc, r.id desc limit 1;
+  select r.id into cb from public.shift_reports r where r.status = 'hoan_thanh' and r.id <> ca and r.branch_id = br and not public.app__fin_locked(r.branch_id, r.work_date) and coalesce((public.app__ca_kt_state(r.id) ->> 'ready')::boolean, false) order by r.work_date desc, r.id desc limit 1;
   set local session_replication_role = replica;   -- dựng tình huống (tắt trigger khoá trong phần dựng)
   update public.shift_reports set recon_status = 'chua' where id in (ca, cb);
   delete from public.shift_report_results where report_id in (ca, cb);

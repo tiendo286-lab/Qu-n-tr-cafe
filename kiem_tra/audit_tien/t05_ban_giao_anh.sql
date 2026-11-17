@@ -8,7 +8,7 @@ declare rid bigint; ql uuid; h1 bigint; hk bigint; tk bigint; r jsonb; a_ok bool
         d_ok boolean := false; d2_ok boolean := false; pid bigint; m1 text; m2 text; m3 text; br bigint; n int;
 begin
   select a.auth_user_id into ql from public.accounts a where a.system_role in ('ql', 'ql_tong') and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by (a.system_role = 'ql') desc, a.id limit 1;
-  select r0.id, r0.branch_id into rid, br from public.shift_reports r0 where r0.status = 'hoan_thanh' and not public.app__fin_locked(r0.branch_id, r0.work_date)
+  select r0.id, r0.branch_id into rid, br from public.shift_reports r0 where r0.status = 'hoan_thanh' and not public.app__fin_locked(r0.branch_id, r0.work_date) and coalesce((public.app__ca_kt_state(r0.id) ->> 'ready')::boolean, false)
    order by r0.work_date desc, r0.id desc limit 1;
   -- dựng: 1 dòng bàn giao thường, 1 dòng đã giao thành việc (nếu có việc nào để gắn), đúng 1 ảnh Fabi
   delete from public.handover_items where report_id = rid and task_id is null;

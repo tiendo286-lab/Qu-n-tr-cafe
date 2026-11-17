@@ -12,13 +12,15 @@ begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by a.id limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub', chu, 'role', 'authenticated')::text, true);
   select * into r0 from public.shift_reports r
-   where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date)
+   where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) and coalesce((public.app__ca_kt_state(r.id) ->> 'ready')::boolean, false)
    order by r.work_date desc, r.id desc limit 1;
   rid := r0.id;
+  set local session_replication_role = replica;   -- dựng: tắt trigger khoá mục web tự đối soát trong phần dựng
   update public.shift_reports set recon_status = 'chua' where id = rid;
   delete from public.shift_report_results where report_id = rid;
   delete from public.shift_report_checks where report_id = rid;
   delete from public.shift_report_recon where report_id = rid;
+  set local session_replication_role = origin;
   -- a)
   perform public.app_ca_recon_save(rid, '{"pos_debt":50000,"pos_diff":-3000,"ipos_opening":1000000}'::jsonb, 'kiểm tra tự động');
   e := public.app__ca_eff(rid);
@@ -48,7 +50,7 @@ begin
   c_ok := c_ok and (e ->> 'pos_debt')::bigint is not distinct from r0.pos_debt and (e ->> 'ipos_opening')::bigint is not distinct from r0.ipos_opening;
   -- d) file Fabi
   select fs.* into f from public.fabi_shifts fs join public.shift_reports r on r.id = fs.report_id
-   where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) and fs.no is not null and fs.dau is not null and fs.tong is not null and fs.cuoi is not null
+   where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) and fs.no is not null and fs.dau is not null and fs.tong is not null and fs.cuoi is not null and coalesce((public.app__ca_kt_state(r.id) ->> 'ready')::boolean, false)
    order by r.work_date desc limit 1;
   if f.ma_ca is not null then
     fr := f.report_id;

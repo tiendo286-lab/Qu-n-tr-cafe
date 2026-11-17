@@ -1,15 +1,17 @@
 -- KIỂM TRA bước 121: app_ca_recon_apply — lưu cả gói thay đổi phần tiền trong 1 lần, cùng 1 lý do
 -- a) gói hợp lệ (sửa số + thu chi + thêm báo nợ) → lưu đủ, lịch sử cùng lý do, mục tiền đã duyệt bị mở lại
 -- b) gói có thao tác hỏng ở cuối → KHÔNG lưu gì  c) có thay đổi mà thiếu lý do → lỗi  d) gói rỗng → changed=false
--- e) quản lý (không phải Chủ) lưu khi có mục web tự đối soát → lỗi "chỉ Chủ". Chạy trong begin … rollback.
+-- e) quản lý không đối soát cơ sở này lưu khi có mục web tự đối soát → lỗi "chỉ Chủ, Quản lý tổng hoặc quản lý đối soát…" (bước 129). Chạy trong begin … rollback.
 begin;
 do $$
 declare rid bigint; chu uuid; ql uuid; cc0 bigint; r jsonb; a_ok boolean := false; b_ok boolean := false; c_ok boolean := false; d_ok boolean := false; e_ok boolean := false;
         m1 text; m2 text; m3 text; m4 text; m5 text; nlog int; mv jsonb;
 begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by a.id limit 1;
-  select a.auth_user_id into ql from public.accounts a where a.system_role in ('ql', 'ql_tong') and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by (a.system_role = 'ql') desc, a.id limit 1;
-  select r0.id into rid from public.shift_reports r0 where r0.status = 'hoan_thanh' and not public.app__fin_locked(r0.branch_id, r0.work_date) order by r0.work_date desc, r0.id desc limit 1;
+  select r0.id into rid from public.shift_reports r0 where r0.status = 'hoan_thanh' and not public.app__fin_locked(r0.branch_id, r0.work_date) and coalesce((public.app__ca_kt_state(r0.id) ->> 'ready')::boolean, false) order by r0.work_date desc, r0.id desc limit 1;
+  -- bước 129: quản lý KHÔNG được phân công đối soát cơ sở của phiếu (người được phân công giờ Lưu được)
+  select a.auth_user_id into ql from public.accounts a where a.system_role = 'ql' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0
+     and not a.id = any(public.app__pc_who(1, 'branch', (select branch_id from public.shift_reports where id = rid))) order by a.id limit 1;
   set local session_replication_role = replica;   -- dựng: tiền mặt + thu chi đã duyệt (không phải tự đối soát)
   update public.shift_reports set recon_status = 'chua' where id = rid;
   delete from public.shift_report_results where report_id = rid;

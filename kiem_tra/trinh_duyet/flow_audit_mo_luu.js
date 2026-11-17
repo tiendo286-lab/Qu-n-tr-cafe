@@ -10,6 +10,7 @@ export default async ({ sleep, out }) => {
   const check = (ok, m) => { (ok ? seen : fails).push(m); };
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(2500);
+    document.querySelector('#rm-close')?.click(); await sleep(200);   // hộp nhắc việc lúc mở app (vai Quản lý)
     const { rpc } = await import('../js/sb.js');
     const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
     const ov = await rpc('app_ca_overview', { p_date: day });

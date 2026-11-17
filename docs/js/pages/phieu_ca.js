@@ -275,7 +275,7 @@ export async function render({ params }) {
 
   const chip = (item) => {
     if (!done || !isDs) return '';   // phiếu nhân viên chỉ xem: không còn nút đối soát
-    if (lkItem(item)) return html`<span class="rc-chip on rc-auto" title="Web tự đối soát: khớp file Fabi và ngân hàng. Chỉ Chủ mở khoá được (Đèn đối soát).">🔒 ${CHECK_LABEL[item]}: WEB TỰ ĐỐI SOÁT</span>`;
+    if (lkItem(item)) return html`<span class="rc-chip on rc-auto" title="Web tự đối soát: khớp file Fabi và ngân hàng. Chủ, Quản lý tổng, quản lý đối soát cơ sở sửa được (✎ Mở để sửa → Lưu, có lý do).">🔒 ${CHECK_LABEL[item]}: WEB TỰ ĐỐI SOÁT</span>`;
     if (MONEY_ITEMS.includes(item)) {
       const x = (R.checks || {})[item] ? (R.results || {})[item] : null; const cls = x ? RES[x.result][1] : '';
       const t = x ? `${x.by || ''} · ${dt(x.at)}${x.reason ? ' · ' + x.reason : ''}` : 'Bấm để chọn KHỚP / THIẾU / THỪA';

@@ -7,7 +7,7 @@ declare rid bigint; chu uuid; m1 bigint; m2 bigint; cups0 int; luong bigint; luo
 begin
   -- dựng tình huống (sẽ hoàn tác): phiếu đã gửi gần nhất, 1 người làm ca được trả 200.000 lương tiền mặt
   select r.id, r.cups into rid, cups0 from public.shift_reports r
-   where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date)
+   where r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date) and coalesce((public.app__ca_kt_state(r.id) ->> 'ready')::boolean, false)
      and exists (select 1 from public.shift_report_staff s where s.report_id = r.id and s.worked = 1)
    order by r.work_date desc, r.id desc limit 1;
   update public.shift_report_staff set cash_paid = 200000
@@ -17,9 +17,11 @@ begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked,0) = 0 order by a.id limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub', chu, 'role', 'authenticated')::text, true);
   -- như phiếu vừa gửi, quản lý chưa duyệt mục nào (đường bình thường của bước Kiểm tra)
+  set local session_replication_role = replica;   -- dựng: tắt trigger khoá mục web tự đối soát trong phần dựng
   update public.shift_reports set recon_status = 'chua' where id = rid;
   delete from public.shift_report_results where report_id = rid;
   delete from public.shift_report_checks where report_id = rid;
+  set local session_replication_role = origin;
   m1 := (public.app__ca_money(rid) ->> 'tm_left')::bigint;
   perform public.app_ca_recon_save(rid, jsonb_build_object('cups', coalesce(cups0, 0) + 1), 'kiểm tra tự động');
   m2 := (public.app__ca_money(rid) ->> 'tm_left')::bigint;
