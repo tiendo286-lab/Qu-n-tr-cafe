@@ -325,9 +325,9 @@ export async function render({ params }) {
   const unifiedFabi = sec('Phiếu Fabi', ['doanh_thu'], html`<div class="photos">${iposPhotos.map((p) => phFig(p,'Ảnh phiếu Fabi',false))}</div>
     ${shiftFabiFields([
       ...[['opening_cash','Số dư đầu'],['total_revenue','Doanh thu (NET)'],['pos_transfer','Chuyển khoản'],['pos_cash','Tiền mặt']].map(([k,l]) => [l,money(k,R[k],!edT)]),
-      ['Nợ trên phiếu',html`<input class="input" value="${fmt(R.pos_debt || 0)}" disabled>`],
+      ['Nợ trên phiếu',money('pos_debt',R.pos_debt,!edT)],   // bước 119: quản lý sửa được
       ['Tổng tiền thực đếm',money('cash_counted',R.cash_counted,!edT),'Số tiền thực tế trong két'],
-      ['Tiền chênh lệch trên phiếu',html`<input class="input" value="${signed(R.pos_diff || 0)}" disabled>`],
+      ['Tiền chênh lệch trên phiếu',html`<input class="input" id="pos_diff" inputmode="text" autocomplete="off" placeholder="0 (âm gõ dấu −)" value="${R.pos_diff === null || R.pos_diff === undefined ? '' : (Number(R.pos_diff) < 0 ? '-' : '') + fmt(Math.abs(Number(R.pos_diff)))}" ${edT ? '' : 'disabled'}>`],
       ['Số cốc',html`<input class="input" id="cups" inputmode="numeric" value="${R.cups ?? ''}" ${edT ? '' : 'disabled'}>`],
     ])}
     <input type="hidden" id="ipos_opening" value="${R.ipos_opening ?? ''}"><input type="hidden" id="opening_note" value="${R.opening_note || ''}"><div id="sum-check"></div>
@@ -455,9 +455,9 @@ export async function render({ params }) {
   const dsFabi = isDs ? html`<details class="sc-block ds-fabi" ${fbBad ? 'open' : ''}><summary>${fbSum}<span class="ds-r">NET ${fmt(R.total_revenue)} ›</span></summary>${dsTimeIn}<h3 style="margin:4px 0 0;font-size:15px">Số trên phiếu</h3><div class="photos">${iposPhotos.map((p) => phFig(p, 'Ảnh phiếu Fabi', false))}</div>${iposPhotos.length ? '' : html`<span class="st-meta">Chưa có ảnh phiếu.</span>`}
     ${shiftFabiFields([
       ...[['opening_cash', 'Số dư đầu'], ['total_revenue', 'Doanh thu (NET)'], ['pos_transfer', 'Chuyển khoản'], ['pos_cash', 'Tiền mặt']].map(([k, l]) => [l, money(k, R[k], !edT)]),
-      ['Nợ trên phiếu', html`<input class="input" value="${fmt(R.pos_debt || 0)}" disabled>`],
+      ['Nợ trên phiếu', money('pos_debt', R.pos_debt, !edT)],   // bước 119: quản lý sửa được
       ['Tổng tiền thực đếm', money('cash_counted', R.cash_counted, !edT), 'Số tiền thực tế trong két'],
-      ['Tiền chênh lệch trên phiếu', html`<input class="input" value="${signed(R.pos_diff || 0)}" disabled>`],
+      ['Tiền chênh lệch trên phiếu', html`<input class="input" id="pos_diff" inputmode="text" autocomplete="off" placeholder="0 (âm gõ dấu −)" value="${R.pos_diff === null || R.pos_diff === undefined ? '' : (Number(R.pos_diff) < 0 ? '-' : '') + fmt(Math.abs(Number(R.pos_diff)))}" ${edT ? '' : 'disabled'}>`],
       ['Số cốc bán trong ca', html`<input class="input" id="cups" inputmode="numeric" value="${R.cups ?? ''}" ${edT ? '' : 'disabled'}>`],
     ])}
     <input type="hidden" id="ipos_opening" value="${R.ipos_opening ?? ''}"><input type="hidden" id="opening_note" value="${R.opening_note || ''}"><div id="sum-check"></div>
@@ -853,6 +853,8 @@ function missingList(v, c, R) {
 }
 
 // ---------------------------------------------------------------- tương tác
+// bước 119: số có dấu (Tiền chênh lệch): "-3.000" / "−3.000" → -3000; rỗng → null
+function parseSigned(x) { const t = String(x ?? '').trim(); const n = parseMoney(t); return n === null ? null : (/^[-−]/.test(t) ? -n : n); }
 function collect() {
   const v = (sel) => ($(sel)?.value ?? '');
   return {
@@ -860,6 +862,7 @@ function collect() {
     total_revenue: parseMoney(v('#total_revenue')), pos_cash: parseMoney(v('#pos_cash')), pos_transfer: parseMoney(v('#pos_transfer')),
     reported_transfer: parseMoney(v('#reported_transfer')), cash_counted: parseMoney(v('#cash_counted')), opening_cash: parseMoney(v('#opening_cash')),
     ipos_opening: parseMoney(v('#ipos_opening')),
+    ...($('#pos_debt') ? { pos_debt: parseMoney(v('#pos_debt')) } : {}), ...($('#pos_diff') ? { pos_diff: parseSigned(v('#pos_diff')) } : {}),   // bước 119
     cups: v('#cups').replace(/\D/g, '') === '' ? null : Number(v('#cups').replace(/\D/g, '')),
     opening_note: v('#opening_note').trim() || null,
     goods_status: $('input[name=goods]:checked')?.value || $('#goods-keep')?.value || null,
@@ -898,10 +901,12 @@ function mount(R, ed, C0, ctx = {}) {
   if (isDs) { mountLights($('#ds-lights'), R0, R); mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, cvCtx); }
   const form = $('#pc-form');
   bindMoneyInputs(form);
+  // bước 119: Số dư đầu phiếu Fabi (ipos_opening) đi theo ô Số dư đầu khi quản lý sửa
+  if (isDs) $('#opening_cash')?.addEventListener('input', () => { const h = $('#ipos_opening'); if (h) h.value = $('#opening_cash').value; });
   form.addEventListener('click', async (e) => { if (!e.target.closest('[data-refresh-gap]')) return; try { if (saveNow) await saveNow(); if ($$('.rc-need').some(x => !x.hidden)) return; rerender(); } catch (err) { showSaved(err.message,true); } });
   // Bản đối soát: ghi "Phiếu NV: …" ở ô khác phiếu nhân viên
   if (isDs) {
-    ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_note'].forEach((k) => {
+    ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_note', 'pos_debt', 'pos_diff'].forEach((k) => {
       const a = RC.original[k]; const b = RC.data[k];
       if ((a ?? null) === (b ?? null)) return;
       const el = $('#' + k); const box = el?.closest('.pc-f'); if (!box) return;

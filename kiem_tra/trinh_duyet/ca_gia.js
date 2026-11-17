@@ -60,9 +60,9 @@ export function makeCa(T, me) {
   const need = (id) => ['tien', 'nhan_su'].concat(partsOf(id).nhan_hang?.claimed_by || (T.delivery_invoices || []).some((d) => d.received_report_id === id) ? ['nhan_hang'] : []);
   const sumMoves = (rid, k) => T.shift_report_moves.filter((m) => m.report_id === rid && m.kind === k).reduce((a, m) => a + m.amount, 0);
 
-  const FIELDS = ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status', 'goods_note', 'moves', 'staff', 'goods'];
+  const FIELDS = ['rev_start', 'rev_end', 'total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'cups', 'goods_status', 'goods_note', 'ipos_opening', 'pos_debt', 'pos_diff', 'moves', 'staff', 'goods'];   // bước 119: + 3 ô Fabi
   const snap = (id) => { const r = T.shift_reports.find((x) => x.id === id); return {
-    ...Object.fromEntries(FIELDS.slice(0, 11).map((k) => [k, r[k] ?? null])),
+    ...Object.fromEntries(FIELDS.slice(0, 14).map((k) => [k, r[k] ?? null])),
     moves: T.shift_report_moves.filter((m) => m.report_id === id).map((m) => ({ kind: m.kind, amount: m.amount, note: m.note || '', ...(m.exchange_key ? {exchange_key:m.exchange_key} : {}) })),
     staff: T.shift_report_staff.filter((x) => x.report_id === id).map((x) => ({ employee_id: x.employee_id, source: x.source, role: x.role || null, worked: !!x.worked, time_in: x.time_in || null, time_out: x.time_out || null, absent_reason: x.absent_reason || null, note: x.note || null, cash_paid: x.cash_paid || null })),
     goods: T.shift_report_goods.filter((g) => g.report_id === id).map((g) => ({ item: g.item, qty: g.qty || '' })) }; };
@@ -412,7 +412,7 @@ export function makeCa(T, me) {
     // bước 67: Chủ sửa thẳng — chỉ trường của mục đang sửa
     app_ca_recon_direct({ p_id, p, p_reason, p_items }) {
       if (me.role !== 'chu') throw new Error('Chỉ Chủ sửa thẳng được.'); if (!(p_reason || '').trim()) throw new Error('Ghi lý do sửa.');
-      const F = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
+      const F = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
       const ok = new Set(p_items.flatMap((i) => F[i] || [])); const q = Object.fromEntries(Object.entries(p).filter(([k]) => ok.has(k)));
       const r = rep(p_id); const st = r.recon_status; r.recon_status = 'x';
       try { this.app_ca_recon_save({ p_id, p: q, p_reason: 'Chủ sửa thẳng: ' + p_reason }); } finally { r.recon_status = st; }

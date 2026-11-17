@@ -9,7 +9,7 @@ import { openBankOut } from './phieu_chi_ck.js';
 
 const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
 // bước 67: trường số liệu của từng mục (giống app__ca_item_fields trên máy chủ) + chế độ Chủ sửa thẳng (nhớ trong thẻ trình duyệt)
-export const ITEM_FIELDS = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash'],
+export const ITEM_FIELDS = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff'],
   tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'], chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'],
   nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
 export const ALL_FIELDS = [...new Set(Object.values(ITEM_FIELDS).flat())];

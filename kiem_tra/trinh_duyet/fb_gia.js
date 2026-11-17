@@ -36,7 +36,7 @@ export function makeFb(T, me) {
   };
   T.__ktState = ktState;
   // bước 51: mục web tự đối soát (khoá). Trình duyệt thử không tự xét như máy chủ — bài thử gọi app__test_auto_lock để giả lập.
-  const LKF = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'],
+  const LKF = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'],
     chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
   T.__autoLock = T.__autoLock || {};
   return {
