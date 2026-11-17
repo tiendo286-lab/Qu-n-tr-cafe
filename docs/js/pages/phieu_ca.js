@@ -149,6 +149,25 @@ function debtRow(d, ed) {
     ${ed && !d.closed_at ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa khoản nợ">×</button>` : ''}</div>`;
 }
 const DKIND = { bill: 'Khách nợ hoá đơn', muon: 'Khách mượn tiền mặt', ck: 'Nợ chuyển khoản' };
+// bước 120: ghi chú khi Chủ / quản lý sửa · thêm · xoá khoản Thu / Chi (máy chủ app__ca_move_notes → R.move_notes)
+const mvLabel = (n) => (n.kind === 'doi_tien' ? 'CK rút TM' : `${Number(n.amount) < 0 ? 'Chi' : 'Thu'} · ${n.kind === 'chuyen_khoan' ? 'CK' : 'TM'}`);
+function moveNoteText(n, staff) {
+  const who = n.by || 'Quản lý'; const when = n.at ? ' · ' + dt(n.at) : ''; const b = n.before || {};
+  const was = n.type === 'sua' ? (b.note === n.note && b.kind === n.kind ? fmt(Math.abs(Number(b.amount))) : Number(b.amount) === Number(n.amount) && b.kind === n.kind ? `"${b.note}"` : `${mvLabel(b)} ${fmt(Math.abs(Number(b.amount)))} ${b.note || ''}`.trim()) : '';
+  const head = n.type === 'sua' ? `✎ ${who} sửa${when} · ${staff ? 'Bạn ghi' : 'NV ghi'}: ${was}`
+    : n.type === 'doi' ? `✎ ${who} đổi từ "Khách mượn ${fmt(Number(b.amount))}"${when}`
+      : n.type === 'them' ? `＋ ${who} thêm${when}` : `✗ ${who} xoá${when}`;
+  return head + (n.reason ? ` · Lý do: ${n.reason}` : '');
+}
+const moveNoteLine = (n, staff) => html`<span class="sc-full mv-note mv-note-${n.type === 'doi' ? 'sua' : n.type}">${moveNoteText(n, staff)}</span>`;
+const moveNoteRow = (n, staff) => html`<div class="sc-row uv-row ${n.type === 'xoa' ? 'mv-del' : ''}"><span class="sc-kt"><b class="mv-tag">${mvLabel(n)}</b></span><span class="mv-txt">${n.note || ''}</span><b class="mv-amt-r">${fmt(Math.abs(Number(n.amount)))}</b>${n.type === 'giu' ? '' : moveNoteLine(n, staff)}</div>`;
+const moveChanged = (R) => (R.move_notes || []).filter((n) => n.type !== 'giu');
+// nối ghi chú vào đúng dòng đang hiện (so loại / số tiền / nội dung; cặp đổi tiền đã gộp)
+function moveNoteFor(m, pool) {
+  const amt = m.kind === 'doi_tien' ? Math.abs(Number(m.amount)) : Number(m.amount);
+  const i = pool.findIndex((n) => n.kind === m.kind && Number(n.amount) === amt && (n.note || '') === (m.note || ''));
+  return i < 0 ? null : pool.splice(i, 1)[0];
+}
 function debtRowDs(d, ed, canKind, info = '', rut = false) {   // bước 113 / 116: 1 dòng Báo nợ như chốt ca; quản lý sửa được (migration 99)
   const lock = !ed || !!d.closed_at; const k = d.kind || 'muon'; const kOn = canKind && !d.closed_at;
   return html`<div class="sc-row db-row uv-row uv-debt" data-id="${d.id || ''}">
@@ -340,7 +359,7 @@ export async function render({ params }) {
   // C. Chênh lệch, thu chi
   const movesEd = html`
     <div class="pc-sub">CHI TIẾT THU CHI <span class="st-meta">— giải trình từng khoản làm tiền lệch (số âm = chi/thiếu, số dương = thu/thừa)</span></div>
-    <div id="moves">${collapseMoves(R.moves || []).map((m) => moveRow(m, edT))}</div>
+    ${!isDs && R.status === 'hoan_thanh' && moveChanged(R).length ? html`<div class="stack mv-notes" style="gap:8px">${(R.move_notes || []).map((n) => moveNoteRow(n, true))}</div>` : html`<div id="moves">${collapseMoves(R.moves || []).map((m) => moveRow(m, edT))}</div>`}
     ${(R.debts || []).filter((d) => d.kind === 'muon').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Nợ TM – ${d.table_name}</strong> · ${vnd(-d.amount)} · tiền mặt
         <div class="st-meta">Tiền ra khỏi két, không tính chi phí; các ca sau thấy để đòi${d.note ? ' · ' + d.note : ''}${d.closed_at ? ` · đã trả ${dt(d.closed_at)}` : ''}</div></div></div>`)}
     ${(R.debts || []).filter((d) => d.kind === 'ck').map((d) => html`<div class="pc-line carried"><div class="grow"><strong>Nợ CK – ${d.table_name}</strong> · ${vnd(-d.amount)} · chuyển khoản
@@ -640,10 +659,11 @@ export async function render({ params }) {
         <span class="sc-full st-meta">${d.name}${d.phone ? ' · ' + d.phone : ''} · quản lý ghi khi đối soát (NV bấm nhầm ${d.item === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}) · ${d.closed ? `khách đã trả (${d.collect_kind === 'chuyen_khoan' ? 'CK' : 'TM'}) — đã bù ca này` : 'chờ khách trả'}</span></div>`;
     const anyDebt = (R.debts || []).length || (R.recon_debts || []).length;
     const nItems2 = paid.length + collapseMoves((R.moves || []).filter((m) => !m.auto)).length + (R.debts || []).length + (R.recon_debts || []).length;
-    return html`<section class="sc-block uv"><h2>Các khoản tiền của ca${nItems2 ? html` · ${nItems2} khoản` : ''}</h2>
+    return html`<section class="sc-block uv"><h2>Các khoản tiền của ca${nItems2 ? html` · ${nItems2} khoản` : ''}${moveChanged(R).length ? html` <span class="pill warn" style="font-size:11px">${moveChanged(R).length} khoản thu chi đã sửa</span>` : ''}</h2>
       <span class="st-meta">Sửa thẳng trên dòng, bảng tiền tự tính lại sau khi lưu. Quản lý chọn nhóm cho từng khoản Thu / Chi. Lý do sửa ghi 1 lần ở cuối trang.</span>
       ${paid.map(paidRow)}
-      <div id="moves" class="stack" style="gap:8px">${collapseMoves((R.moves || []).filter((m) => !m.auto)).map((m) => moveRow(m, edT, true))}</div>
+      <div id="moves" class="stack" style="gap:8px">${(() => { const pool = moveChanged(R).filter((n) => n.type !== 'xoa'); return collapseMoves((R.moves || []).filter((m) => !m.auto)).map((m) => { const n = moveNoteFor(m, pool); return html`${moveRow(m, edT, true)}${n ? moveNoteLine(n, false) : ''}`; }); })()}</div>
+      ${moveChanged(R).filter((n) => n.type === 'xoa').map((n) => moveNoteRow(n, false))}
       <div id="debts" class="stack" style="gap:8px">${(R.debts || []).map((d) => debtRowDs(d, debtEd, debtEd, edInfo[d.id] || '', !!R.can_recon))}</div>
       ${(R.recon_debts || []).map(rdRow)}
       ${anyDebt || fno ? html`<span class="st-meta">Nợ HĐ nhân viên ghi <b>${fmt(billS)}</b> / ${FB ? 'file Fabi' : 'phiếu Fabi'} <b>${fmt(fno)}</b> ${billS === fno ? html`<span class="pill ok">✓</span>` : html`<span class="pill off">✗ lệch</span>`}</span>` : ''}
@@ -732,6 +752,7 @@ export async function render({ params }) {
       ${isDs ? html`<div class="st-meta">Nhân viên gửi ${R.completed_at ? dt(R.completed_at) : '—'}${R.completed_by_name ? ' · ' + R.completed_by_name : ''} · Fabi ${FB ? (fbBad ? '✗' : '✓') : 'chưa có file'} · ngân hàng ${M86.bank_ok ? '✓' : 'chưa đủ'}</div>` : ''}
       <div class="toolbar" style="gap:6px;margin-top:6px">
         <span class="pill ${STAFF_LABEL[R.status][1]}">Nhân viên: ${STAFF_LABEL[R.status][0]}</span>
+        ${!isDs && moveChanged(R).length ? html`<span class="pill warn">Quản lý đã sửa ${moveChanged(R).length} khoản thu chi</span>` : ''}
         ${done ? html`<span class="pill ${R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH PHIẾU' : R0.recon_status === 'mo_lai' ? `ĐANG KIỂM TRA LẠI ${nChecks}/${nItems}` : `CHỜ QUẢN LÝ KIỂM TRA ${nChecks}/${nItems}`}</span>` : ''}
       </div>
       ${canRc && !isDs ? html`<div class="pc-ban"><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>` : ''}</div>
@@ -2067,6 +2088,10 @@ const STYLE = html`<style>
   .fb-blk { display: flex; flex-direction: column; gap: 6px; } .ds-edit > summary { color: var(--primary); }
   .cm88-seg { display: inline-flex; border: 1px solid var(--line-strong); border-radius: 10px; overflow: hidden; } .cm88-seg button { border: 0; background: var(--card); font: inherit; font-weight: 700; padding: 6px 12px; cursor: pointer; } .cm88-seg button.on { background: var(--forest); color: #fff; }
   .ds-ed { font-size: 12px; color: #5b2a52; background: #efe5ee; border-radius: 8px; padding: 4px 8px; }
+  .mv-note { font-size: 12px; line-height: 1.4; border-radius: 8px; padding: 4px 8px; color: #5b2a52; background: #efe5ee; overflow-wrap: anywhere; }
+  .mv-note-them { color: #24502a; background: #e6ecdc; } .mv-note-xoa { color: #7f1d1d; background: #fbe2df; }
+  .mv-del .mv-tag, .mv-del .mv-txt, .mv-del .mv-amt-r { opacity: .55; text-decoration: line-through; }
+  .mv-txt { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; } .mv-amt-r { white-space: nowrap; }
   .ds-mlock { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 0; } .ds-mlock .grow { flex: 1 1 240px; }
   .ds-hd { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; font-weight: 800; letter-spacing: .03em; padding: 10px 14px; border-radius: 12px; background: var(--caramel-soft, #f6ead9); }
   .pc.ds:not(.wz) .ds-pane + .ds-pane { margin-top: 10px; }

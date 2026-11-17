@@ -20,6 +20,24 @@ export function makeCa(T, me) {
   const RES = {}; const SF = []; let sfSeq = 1; T.__SF = SF;   // Thu chi (fin_gia) đọc phiếu trừ lương
   const LBL = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
   const eff = (id) => RECON[id] || snap(id);
+  // bước 120: ghi chú sửa thu chi (giống app__ca_move_notes)
+  const mvLines = (ms) => { const out = []; const seenK = new Set(); (ms || []).filter((m) => !m.auto).forEach((m) => {
+    if (!m.exchange_key) { out.push({ kind: m.kind, amount: Number(m.amount), note: m.note || '' }); return; }
+    if (seenK.has(m.exchange_key)) return; seenK.add(m.exchange_key); out.push({ kind: 'doi_tien', amount: Math.abs(Number(m.amount)), note: m.note || '' }); }); return out; };
+  const same = (a, b) => a.kind === b.kind && a.amount === b.amount && a.note === b.note;
+  const cnt = (ms, l) => mvLines(ms).filter((x) => same(x, l)).length;
+  const moveNotes = (id) => {
+    if (!RECON[id]) return [];
+    const o = mvLines(snap(id).moves); const c = mvLines(RECON[id].moves); const used = o.map(() => false); const t = c.map(() => null); const bf = c.map(() => null);
+    c.forEach((x, i) => { const j = o.findIndex((y, k) => !used[k] && same(x, y)); if (j >= 0) { used[j] = true; t[i] = 'giu'; } });
+    const rules = [(x, y) => x.kind === y.kind && x.note === y.note, (x, y) => x.kind === y.kind && x.amount === y.amount, (x, y) => x.note === y.note && x.amount === y.amount];
+    c.forEach((x, i) => { if (t[i]) return; for (const r of rules) { const j = o.findIndex((y, k) => !used[k] && r(x, y)); if (j >= 0) { used[j] = true; t[i] = 'sua'; bf[i] = o[j]; return; } } t[i] = 'them'; });
+    const logs = RLOG.filter((l) => l.report_id === id && l.field === 'moves');
+    const who = (l) => (l ? { by: l.by, at: l.at, reason: l.reason } : { by: null, at: null, reason: null });
+    const res = c.map((x, i) => ({ ...x, type: t[i], before: bf[i], ...(t[i] === 'giu' ? who(null) : who([...logs].reverse().find((l) => cnt(l.after, x) > cnt(l.before, x)))) }));
+    o.forEach((y, j) => { if (!used[j]) res.push({ ...y, type: 'xoa', before: null, ...who([...logs].reverse().find((l) => cnt(l.before, y) > cnt(l.after, y))) }); });
+    return res;
+  };
   const money = (id) => {
     const d = eff(id); const mv = (k) => (d.moves || []).filter((m) => m.kind === k).reduce((a, m) => a + m.amount, 0);
     const debtNew = T.shift_debts.filter((x) => x.report_id === id && (!x.kind || x.kind === 'bill')).reduce((a, x) => a + (x.amount || 0), 0);
@@ -120,6 +138,7 @@ export function makeCa(T, me) {
           sched: x.source === 'lich' ? ((T.sched_fx || []).find((f) => f.employee_id === x.employee_id) || null) : null })),
         recon_debts: (T.shift_debts || []).filter((d) => d.gap_report === r.id).map((d) => ({ id: d.id, name: d.table_name, phone: d.phone || null, amount: d.amount, item: d.gap_item, closed: !!d.closed_at, collect_kind: d.collect_kind || null, by: 'admin – Chủ' })),
         handover: T.handover_items.filter((h) => h.report_id === r.id).map((h) => ({ ...h, created_by_name: name(h.created_by) })),
+        move_notes: r.status === 'hoan_thanh' ? moveNotes(r.id) : null,   // bước 120
         carried: T.handover_items.filter((h) => h.branch_id === r.branch_id && h.report_id !== r.id && before(rep(h.report_id)) && (!h.done_at || h.done_report_id === r.id))
           .map((h) => ({ ...h, from_date: rep(h.report_id).work_date, from_shift: rep(h.report_id).shift, created_by_name: name(h.created_by), done_by_name: name(h.done_by) })),
         goods: T.shift_report_goods.filter((g) => g.report_id === r.id), photos: T.shift_report_photos.filter((p) => p.report_id === r.id && !(hideOwn && p.kind === 'ipos')),
