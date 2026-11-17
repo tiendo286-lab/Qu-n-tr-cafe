@@ -106,9 +106,9 @@ export async function render({ params, can }) {
         : html`<span class="pill ok">✓ Đối soát xong</span>${n ? html`<span class="pill warn">${n} lệch → Kiểm soát</span>` : ''}`; };
   const docPill = (d) => (d.deliv_path ? html`<span class="pill ok">📄 có</span>` : d.bu_path ? html`<span class="pill ok">📄 hoá đơn bù</span>`
     : d.state === 'dang_chuyen' ? html`<span class="st-meta">—</span>` : html`<span class="pill off">thiếu → chờ HĐ bù</span>`);
-  const acts = (d) => html`<span class="px-act"><button type="button" class="btn sm secondary px-view">Xem</button>${d.state === 'dang_chuyen' && started(d) && (kt || owner) ? html`<span class="st-meta">đang nhận — không tải lại / xóa</span>` : ''}
+  const acts = (d) => html`<span class="px-act"><button type="button" class="btn sm secondary px-view">Xem</button>${d.state === 'dang_chuyen' && started(d) && kt && !owner ? html`<span class="st-meta">đang nhận — không tải lại</span>` : ''}
     ${kt && d.state === 'dang_chuyen' && !started(d) ? html`<button type="button" class="btn sm secondary px-re">Tải lại</button>` : ''}
-    ${owner && d.state === 'dang_chuyen' && !started(d) ? html`<button type="button" class="btn sm secondary danger px-del">Xóa</button>` : ''}</span>`;
+    ${owner ? html`<button type="button" class="btn sm secondary danger px-del">Xóa</button>` : ''}</span>`;
   const row = (d) => html`<div class="px-row" data-id="${d.id}" data-doc="${normName(d.doc_no)}"><b class="px-br">${d.branch_code}</b><span class="px-doc">${d.doc_no}</span><span class="px-n">${d.n_lines} món</span>
       ${money ? html`<b class="px-tot">${d.total != null ? fmt(d.total) : '—'}</b>` : ''}<span class="px-st">${stPills(d)}</span><span class="px-hd">${docPill(d)}</span>${acts(d)}</div>`;
   return {
@@ -133,7 +133,8 @@ export async function render({ params, can }) {
         const none = $('.px-none'); if (none) none.hidden = any || !v; });
       $$('.px-view').forEach((b) => b.addEventListener('click', () => viewBox(byId(idOf(b)))));
       $$('.px-del').forEach((b) => b.addEventListener('click', async () => {
-        const d = byId(idOf(b)); if (!confirm(`Xóa phiếu xuất ${d.doc_no} của ${d.branch_code}?\n\nChỉ phiếu thử hoặc phiếu tải nhầm chưa có nhân viên nhận mới xóa được.`)) return;
+        const d = byId(idOf(b)); const got = d.state !== 'dang_chuyen' || started(d);
+        if (!confirm(`Xóa phiếu xuất ${d.doc_no} của ${d.branch_code}?\n\n${got ? 'Phiếu này ĐÃ CÓ NHÂN VIÊN NHẬN HÀNG. Xóa sẽ mất luôn số lượng đã nhận, ảnh nhận hàng, hoá đơn giao / hoá đơn bù và ghi chú thiếu hàng. Không khôi phục được.' : 'Phiếu chưa có nhân viên nhận. Xóa sẽ mất luôn file phiếu xuất đã tải lên.'}`)) return;
         try { const paths = await rpc('app_nh_delete', { p_id: d.id }); if (paths?.length) await sb.storage.from(BUCKET).remove(paths); flash(`Đã xóa phiếu ${d.doc_no}.`); rerender(); } catch (e) { showSaved(e.message, true); }
       }));
       const pickOne = (fn) => { const inp = document.createElement('input'); inp.type = 'file'; inp.accept = '.xlsx,.xls'; inp.addEventListener('change', () => inp.files[0] && fn(inp.files[0])); inp.click(); };
