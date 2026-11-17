@@ -271,6 +271,16 @@ export function makeCa(T, me) {
       const h2 = hand(r.id); if (h2.state === 'lech') window.__LOG.push(['notify', 'Bàn giao két bị lệch', h2.gap]);
       return h2;
     },
+    // bước 119: Khách mượn → Khách CK rút tiền mặt
+    app_ca_recon_debt_to_exchange({ p_report, p_debt, p_reason }) {
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa ở cuối trang trước.');
+      const d = T.shift_debts.find((x) => x.id === p_debt && x.report_id === p_report && x.kind === 'muon'); if (!d) throw new Error('Không tìm thấy khoản Khách mượn của ca này.');
+      if (!RECON[p_report]) RECON[p_report] = snap(p_report);
+      const k = 'k' + Date.now(); const note = 'Khách CK rút tiền mặt – ' + d.table_name;
+      RECON[p_report].moves = [...(RECON[p_report].moves || []), { kind: 'tien_mat', amount: -d.amount, note, exchange_key: k }, { kind: 'chuyen_khoan', amount: d.amount, note, exchange_key: k }];
+      T.shift_debts = T.shift_debts.filter((x) => x !== d);
+      RLOG.push({ report_id: p_report, action: 'sua', field: 'moves', reason: p_reason, by: name(me.account_id), at: now() });
+    },
     // bước 119: quản lý sửa Bàn giao + ảnh phiếu Fabi ở bước Kiểm tra
     app_ca_recon_handover_save({ p_id, p_items, p_reason }) {
       const r = rep(p_id); const keep = (p_items || []).filter((h) => h.id).map((h) => h.id);

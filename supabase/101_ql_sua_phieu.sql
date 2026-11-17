@@ -629,4 +629,68 @@ begin
   );
 end $function$;
 
+-- ================================================================ 7. Đổi "Khách mượn" (Nợ TM) thành "Khách CK rút tiền mặt"
+-- Nhân viên ghi nhầm khách CK rút tiền mặt thành Khách mượn (ca sau lại ghi khách trả CK) → bấm 1 lần: bỏ khoản trả ở ca sau,
+-- xoá khoản nợ, ghi cặp đổi tiền (TM −, CK +) vào bản kiểm tra ca này. Lịch sử ở cả 2 ca.
+create or replace function public.app_ca_recon_debt_to_exchange(p_report bigint, p_debt bigint, p_reason text) returns void
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts; r public.shift_reports; rb public.shift_reports; d public.shift_debts; rest public.shift_debts;
+        why text := nullif(trim(coalesce(p_reason, '')), ''); amt bigint; k uuid := gen_random_uuid(); old jsonb; mv jsonb; it text;
+begin
+  a := public.app__need('doi_soat');
+  if why is null then raise exception 'Ghi lý do sửa ở cuối trang trước.'; end if;
+  select * into r from public.shift_reports where id = p_report for update;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa gửi nên chưa sửa ở bước Kiểm tra được.'; end if;
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT — không sửa được.'; end if;
+  select * into d from public.shift_debts where id = p_debt and report_id = r.id and kind = 'muon' for update;
+  if d.id is null then raise exception 'Không tìm thấy khoản Khách mượn của ca này.'; end if;
+  -- ca này: mục liên quan đã duyệt (chưa ở chế độ Sửa thẳng) → mở lại trước
+  if coalesce(r.recon_status, '') <> 'hoan_thanh' then
+    select c.item into it from public.shift_report_checks c where c.report_id = r.id and c.item in ('thu_chi', 'tien_mat', 'chuyen_khoan', 'cong_no') order by c.item limit 1;
+    if it is not null then
+      raise exception 'Mục % của ca này đã duyệt — bấm "Sửa phần tiền" để mở lại (mục web tự đối soát: Chủ bấm Mở khoá) rồi đổi.', public.app__ca_item_label(it);
+    end if;
+  end if;
+  if exists (select 1 from public.shift_debts x where x.split_from = d.id and x.closed_at is not null) then
+    raise exception 'Khoản này đã trả nhiều lần ở các ca khác — sửa khoản trả ở từng ca trước.';
+  end if;
+  perform public.app__ca_gap_mark(r.id);
+  -- ca sau đã ghi khách trả → bỏ khoản trả đó
+  if d.closed_report_id is not null then
+    select * into rb from public.shift_reports where id = d.closed_report_id for update;
+    if public.app__fin_locked(rb.branch_id, rb.work_date) then raise exception 'Ca ghi khách trả (% %) thuộc tháng đã CHỐT.', rb.shift, rb.work_date; end if;
+    if exists (select 1 from public.shift_report_checks x where x.report_id = rb.id and x.item = d.collect_kind)
+       or exists (select 1 from public.shift_report_results x where x.report_id = rb.id and x.item = d.collect_kind) then
+      raise exception 'Ca % % đã duyệt mục % — mở lại mục đó ở ca đó trước.', rb.shift, to_char(rb.work_date::date, 'DD/MM'),
+        case when d.collect_kind = 'tien_mat' then 'Tiền mặt' else 'Chuyển khoản' end;
+    end if;
+    perform public.app__ca_gap_mark(rb.id);
+    insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+    values (rb.id, 'sua', 'debts', jsonb_build_object('id', d.id, 'kind', 'muon', 'table_name', d.table_name, 'amount', d.amount, 'collect_kind', d.collect_kind),
+            null, why || ' (đổi thành Khách CK rút tiền mặt ở ca ' || r.shift || ' ' || to_char(r.work_date::date, 'DD/MM') || ')', a.id);
+  end if;
+  select * into rest from public.shift_debts where split_from = d.id and closed_at is null order by id limit 1;
+  amt := d.amount + coalesce(rest.amount, 0);
+  if rest.id is not null then delete from public.shift_debts where id = rest.id; end if;
+  delete from public.shift_debts where id = d.id;
+  -- cặp đổi tiền vào bản kiểm tra ca này
+  insert into public.shift_report_recon(report_id, data, updated_by) values (r.id, public.app__recon_snapshot(r.id), a.id) on conflict (report_id) do nothing;
+  select data into old from public.shift_report_recon where report_id = r.id for update;
+  mv := coalesce(old -> 'moves', '[]') || jsonb_build_array(
+    jsonb_build_object('kind', 'tien_mat', 'amount', -amt, 'note', 'Khách CK rút tiền mặt – ' || d.table_name, 'exchange_key', k),
+    jsonb_build_object('kind', 'chuyen_khoan', 'amount', amt, 'note', 'Khách CK rút tiền mặt – ' || d.table_name, 'exchange_key', k));
+  perform public.app__ca_validate_exchanges(mv);
+  update public.shift_report_recon set data = jsonb_set(data, '{moves}', mv), updated_by = a.id, updated_at = public.vn_now_text() where report_id = r.id;
+  perform public.app__ca_exchange_cats(r.id, a.id);
+  insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+  values (r.id, 'bao_no_xoa', null, jsonb_build_object('id', d.id, 'kind', 'muon', 'table_name', d.table_name, 'amount', amt), null, why, a.id),
+         (r.id, 'sua', 'moves', old -> 'moves', mv, why, a.id);
+  perform public.app_log('doi_soat_muon_thanh_rut_tm', 'report=' || r.id || ' debt=' || d.id || ' ' || amt);
+  perform public.app__ca_direct_guard(r.id);
+  if rb.id is not null then perform public.app__ca_direct_guard(rb.id); end if;
+end $$;
+
+revoke all on function public.app_ca_recon_debt_to_exchange(bigint, bigint, text) from public, anon;
+grant execute on function public.app_ca_recon_debt_to_exchange(bigint, bigint, text) to authenticated;
+
 insert into public.app_migrations(file) values ('101_ql_sua_phieu.sql') on conflict (file) do nothing;
