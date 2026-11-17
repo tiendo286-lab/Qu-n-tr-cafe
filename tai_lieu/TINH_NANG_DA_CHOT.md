@@ -675,6 +675,11 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Nay (anh chọn): **Chủ, Quản lý tổng và quản lý đối soát của cơ sở đó** (ô Đối soát ca trong Bảng phân công) đều Lưu / Sửa thẳng được; lý do bắt buộc, lịch sử như cũ; **Chủ nhận thông báo** "Quản lý sửa phiếu web đã tự đối soát" (ai, ca nào, lý do). Quản lý cơ sở khác vẫn bị chặn. Nút "Mở khoá" ở Đèn đối soát vẫn chỉ Chủ.
 - Ghi chú: kho tổng / người nhà vay tiền của ca → **Báo nợ CK / TM** đúng tên rồi đánh dấu Gia đình ở Công nợ (không có mục Cho vay riêng — bỏ từ bước 85).
 
+## 5r37. Chỉ đủ file Fabi + số dư ngân hàng mới đối soát — ĐÃ LÀM 17/11/2026 (bước 131, máy chủ `115_tra_ve_cho_ke_toan.sql`, chỉ máy chủ)
+- Anh chốt: chỉ khi đủ file Fabi và số dư ngân hàng mới kiểm tra / đối soát được (giữ quy định bước 122).
+- 8 phiếu quản lý tự chốt **trước** bước 122 đã bị ghi "hoàn thành đối soát" khi kế toán chưa có số liệu → **trả về Chờ kế toán** (bỏ mục đã duyệt + kết quả, ghi lịch sử "tra_ve_cho_ke_toan"): ĐK Tối 12/11, Chiều + Tối 13/11, Sáng 16/11, Sáng 17/11; LHP Chiều + Tối 16/11; LL Tối 16/11. Không phiếu nào có khoản âm / xử lý lệch.
+- **Sửa lỗi** (từ tệp 104): kế toán nhập số dư ngân hàng cho phiếu đang Chờ kế toán bị chặn (dòng lịch sử "kế toán sửa" bị trigger khoá Kiểm tra chặn). Nay cho qua đúng dòng lịch sử kế toán; quản lý vẫn không kiểm tra được khi chưa đủ dữ liệu.
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
