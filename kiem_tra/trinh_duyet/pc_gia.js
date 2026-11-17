@@ -32,6 +32,9 @@ export function makePc(T, me) {
     { job: 100, branch_id: 4, enabled: true, cycle: 'thang', day: 5, grace_h: 72, fine: 0, checkers: [1], check_h: 48, from_date: '2026-11-17' },
     { job: 100, branch_id: 29, enabled: false, cycle: 'tuan', day: 1, grace_h: 24, fine: 50000, checkers: [], check_h: 24, from_date: '2026-11-17' },
   ];
+  // bước 124: lịch từng cơ sở cho việc có sẵn (chép hạn / phạt đang dùng)
+  [1, 3, 4, 7, 8, 10, 11, 12].forEach((j) => B.forEach((b) => SCHED.push({ job: j, branch_id: b.id, enabled: true, cycle: j === 10 ? 'tuan' : null, day: j === 10 ? 1 : null, grace_h: 72,
+    fine: JOBS.find((x) => x.job === j).fine, checkers: [], check_h: 24, due_h: JOBS.find((x) => x.job === j).steps[0].d == null ? null : JOBS.find((x) => x.job === j).steps[0].d * 24, from_date: '2026-11-16' })));
   const ASG = [{ job: 1, branch_id: 1, accounts: [6, ME === 1 ? 1 : 5] }, { job: 1, branch_id: 2, accounts: [5] }, { job: 1, branch_id: 3, accounts: [8, 5] }, { job: 1, branch_id: 4, accounts: [8] }, { job: 1, branch_id: 29, accounts: [] },
     { job: 100, branch_id: 1, accounts: [3] }, { job: 100, branch_id: 2, accounts: [5] }, { job: 100, branch_id: 3, accounts: [8] }, { job: 100, branch_id: 4, accounts: [3] }, { job: 100, branch_id: 29, accounts: [] }];
   let KT = 7;
@@ -142,9 +145,22 @@ export function makePc(T, me) {
     app_pc_job_save({ p_job, p }) {
       if (!isChu) err('Chỉ tài khoản Chủ sửa được Bảng phân công.');
       const j = J(p_job);
-      if (p_job === 24) { j.steps[0].d = p.d0; j.steps[2].d = p.d2; } else {
+      if (p_job === 24) { j.steps[0].d = p.d0; j.steps[2].d = p.d2; } else if (p_job === 2) {
         if ((p.steps || []).some((s) => !s.n)) err('Bước chưa có tên.');
         j.steps = p.steps;
+      } else {
+        if ((p.steps || []).length > 1) err('Việc này không thêm bước được — dùng Có kiểm tra.');
+        const chk = !!p.need_check && ![13, 14].includes(p_job);
+        for (const r of p.rows || []) {
+          let sc = SCHED.find((x) => x.job === p_job && x.branch_id === r.branch_id); if (!sc) SCHED.push(sc = { job: p_job, branch_id: r.branch_id });
+          Object.assign(sc, { enabled: r.enabled, due_h: r.due_h, fine: r.fine, checkers: chk ? r.checkers || [] : [], check_h: r.check_h, cycle: r.cycle, day: r.day, grace_h: r.grace_h });
+        }
+        if (chk) {
+          const bad = SCHED.find((x) => x.job === p_job && x.enabled && !(x.checkers || []).length); if (bad) err('Chọn người kiểm tra cho ' + bc(bad.branch_id) + '.');
+          if (SCHED.some((x) => x.job === p_job && x.enabled && x.checkers.some((c) => who(p_job, j.steps[0].who, x.branch_id).includes(c)))) err('Người kiểm tra phải khác người làm.');
+        }
+        if (p.due_d != null) j.steps[0].d = p.due_d || null;
+        j.steps = [j.steps[0], ...(chk ? [{ n: 'Kiểm tra', who: 'check', d: null }] : [])]; j.need_check = chk; j.guide = p.guide;
       }
       j.enabled = p.enabled; j.fine = p.fine;
     },

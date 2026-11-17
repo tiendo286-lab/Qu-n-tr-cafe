@@ -2,7 +2,7 @@
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, str } from '../ui.js';
 import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.17.8';
-import { hTxt, openJobDialog, schedTxt } from '../pc_hop_viec.js?v=2026.11.17.8';
+import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.17.8';
 
 export const perm = 'phan_cong';
 const FROM = {
@@ -13,6 +13,8 @@ const FROM = {
 const HOW = { 1: 'Mỗi phiếu ca 1 việc', 2: 'Mỗi phiếu 1 việc', 3: 'Mỗi ngày mỗi cơ sở 1 việc', 4: 'Mỗi ngày mỗi cơ sở 1 việc', 7: 'Mỗi khoản lệch 1 việc', 8: 'Mỗi giải trình 1 việc',
   10: 'Mỗi tuần mỗi cơ sở 1 việc', 11: 'Gộp: mỗi cơ sở 1 việc, liệt kê các phiếu', 12: 'Gộp: mỗi cơ sở 1 việc, liệt kê các lần giao', 13: 'Gộp chung 1 việc cho mọi cơ sở', 14: 'Gộp chung 1 việc cho mọi cơ sở',
   24: 'Mỗi nội dung 1 việc · người giao chọn người làm + người kiểm tra' };
+
+const WEB = [1, 3, 4, 7, 8, 10, 11, 12, 13, 14];   // bước 124: việc có sẵn dùng hộp chung
 
 export async function render() {
   let D = await rpc('app_pc_board');
@@ -27,7 +29,9 @@ export async function render() {
     const qlTong = P.filter((p) => p.role === 'ql_tong').map((p) => p.id);
     const cell = (j, b) => {
       const job = J(j), ids = asg(j, b.id), plus = job.steps[0].who === 'branch+ql_tong' ? qlTong.filter((x) => !ids.includes(x)) : [];
-      return html`<td class="pb-cell ${ed ? 'ed' : ''}" ${ed ? html`data-cell="${j}" data-b="${b.id}"` : ''}>${chips(ids)}${plus.map((x) => html`<span class="pb-ch">${nameOf(x)}</span>`)}${job.same_as_1 ? html`<span class="pb-l">= như Đối soát ca</span>` : ''}${j === 1 && ids.length > 1 ? html`<span class="pb-l">ai làm trước cũng được</span>` : ''}</td>`;
+      const sc = (D.sched || []).find((x) => x.job === j && x.branch_id === b.id);
+      if (sc && !sc.enabled) return html`<td class="pb-cell ${ed ? 'ed' : ''}" data-wjob="${j}" ${ed ? html`data-cell="${j}" data-b="${b.id}"` : ''}><span class="pc-sub"><i>Tắt ở cơ sở này</i></span></td>`;
+      return html`<td class="pb-cell ${ed ? 'ed' : ''}" data-wjob="${j}" ${ed ? html`data-cell="${j}" data-b="${b.id}"` : ''}>${chips(ids)}${sc ? html`<span class="pv-sch">${webTxt(j, sc)}</span>` : ''}${job.need_check && sc ? (sc.checkers || []).map((id) => html`<span class="pb-ch rv">KT: ${nameOf(id)}</span>`) : ''}${plus.map((x) => html`<span class="pb-ch">${nameOf(x)}</span>`)}${job.same_as_1 ? html`<span class="pb-l">= như Đối soát ca</span>` : ''}${j === 1 && ids.length > 1 ? html`<span class="pb-l">ai làm trước cũng được</span>` : ''}</td>`;
     };
     const mid = (j) => {
       const job = J(j);
@@ -37,7 +41,7 @@ export async function render() {
     };
     const rowsFor = (g) => ORDER.filter((j) => GROUP[j] === g && J(j)).map((j) => { const job = J(j); return html`<tr class="${job.enabled ? '' : 'off'}">
       <td><div class="pb-jn ${ed ? 'ed' : ''}" ${ed ? html`data-job="${j}"` : ''}>${j}. ${JOBS[j]}${job.enabled ? '' : ' (đang tắt)'}</div><div class="pc-sub">${HOW[j]}</div></td>
-      <td><div style="font-size:13px"><b>${stepTxt(j)}</b></div><div class="pc-sub">${FROM[j]}</div></td>${mid(j)}<td>${job.fine ? money(job.fine) : html`<span class="pc-sub">—</span>`}</td></tr>`; });
+      <td><div style="font-size:13px"><b>${stepTxt(j)}</b></div><div class="pc-sub">${FROM[j]}</div></td>${mid(j)}<td>${(D.sched || []).some((x) => x.job === j) ? html`<span class="pc-sub">theo cơ sở</span>` : job.fine ? money(job.fine) : html`<span class="pc-sub">—</span>`}</td></tr>`; });
     // bước 123: việc tự thêm
     const CU = (D.jobs || []).filter((x) => x.custom);
     const S = (j, b) => (D.sched || []).find((x) => x.job === j && x.branch_id === b);
@@ -54,7 +58,8 @@ export async function render() {
     const mcards = ORDER.filter((j) => J(j)).map((j) => { const job = J(j);
       const rows = GROUP[j] === 'kt' ? html`<div class="pb-mr"><b>Kế toán</b><span>${D.kt ? html`<span class="pb-ch kt">${nameOf(D.kt)}</span>` : html`<span class="pb-ch none">Chưa chọn</span>`}</span></div>`
         : j === 2 ? job.steps.map((s, i) => html`<div class="pb-mr"><b>${i + 1}. ${s.n}</b><span><span class="pb-ch">${whoTxt(s.who)}</span></span></div>`)
-          : D.branches.map((b) => html`<div class="pb-mr ${ed ? 'ed' : ''}" ${ed ? html`data-cell="${j}" data-b="${b.id}"` : ''}><b>${b.code}</b><span>${chips(asg(j, b.id))}</span></div>`);
+          : D.branches.map((b) => { const sc = (D.sched || []).find((x) => x.job === j && x.branch_id === b.id);
+            return html`<div class="pb-mr ${ed ? 'ed' : ''}" data-wjob="${j}" ${ed ? html`data-cell="${j}" data-b="${b.id}"` : ''}><b>${b.code}</b><span style="text-align:right">${sc && !sc.enabled ? html`<i class="pc-sub">Tắt</i>` : html`${chips(asg(j, b.id))}${sc ? html`<span class="pv-sch">${webTxt(j, sc)}</span>` : ''}`}</span></div>`; });
       return html`<div class="pb-mc ${job.enabled ? '' : 'off'}"><div class="pb-jn ${ed ? 'ed' : ''}" ${ed ? html`data-job="${j}"` : ''}>${j}. ${JOBS[j]} ${ed ? html`<span style="color:var(--primary);font-size:12px">✎ sửa</span>` : ''}</div>
         <div style="font-size:13px"><b>${stepTxt(j)}</b>${job.fine ? ' · phạt ' + money(job.fine) : ''}</div><div class="pc-sub">${FROM[j]}</div>${rows}${job.same_as_1 ? html`<div class="pc-sub">= như Đối soát ca</div>` : ''}</div>`; });
     return html`
@@ -107,6 +112,7 @@ export async function render() {
         const c = e.target.closest('[data-cell]'), jn = e.target.closest('[data-job]');
         const cj = jn && D.jobs.find((x) => x.job === +jn.dataset.job && x.custom);
         if (cj) { openJobDialog({ D, job: cj, done: reload }); return; }
+        if (jn && !c && WEB.includes(+jn.dataset.job)) { const wj = D.jobs.find((x) => x.job === +jn.dataset.job); openJobDialog({ D, job: wj, mode: 'web', info: { name: JOBS[wj.job], from: FROM[wj.job], how: HOW[wj.job] }, done: reload }); return; }
         if (c) {
           const j = +c.dataset.cell, b = +c.dataset.b, job = D.jobs.find((x) => x.job === j), bc = D.branches.find((x) => x.id === b).code;
           const cur = (D.assign.find((x) => x.job === (job.same_as_1 ? 1 : j) && x.branch_id === b)?.accounts) || [];

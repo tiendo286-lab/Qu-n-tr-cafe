@@ -52,7 +52,7 @@ export default async ({ sleep, out }) => {
     $('.pb-mx [data-cell="1"][data-b="29"]').click(); await wait('dialog[open] .pc-grid2', 30); $$('dialog[open] .pc-grid2 input').find((i) => i.value === '5').checked = true; $('[data-ok]', dlg()).click(); await sleep(900);
     r.push(`ô LLB: ${txt('#pc-toast')} · ô bây giờ: ${txt('.pb-mx [data-cell="1"][data-b="29"]')}`);
     $('.pb-mx [data-cell="7"][data-b="1"]').click(); await wait('dialog[open] .pc-grid2', 30); r.push(`ô Lệch LHP: ${txt('.pc-info', dlg())}`); dlg().close();
-    $('.pb-mx [data-job="1"]').click(); await wait('dialog[open] #pj-add', 30); $('#pj-add', dlg()).click(); await sleep(100);
+    $('.pb-mx [data-job="2"]').click(); await wait('dialog[open] #pj-add', 30); $('#pj-add', dlg()).click(); await sleep(100);
     r.push(`thêm bước: ${$$('dialog[open] [data-row]').length} bước`); $('[data-ok]', dlg()).click(); await sleep(900); r.push(`→ ${txt('#pc-toast')} · ${txt($$('.pb-mx tbody tr')[1]).slice(0, 90)}`);
     $('.pb-mx [data-job="24"]').click(); await wait('dialog[open] #pj-d0', 30); $('#pj-d2', dlg()).value = '2'; $('[data-ok]', dlg()).click(); await sleep(900); r.push(`việc 24: ${txt('#pc-toast')}`);
     const k = $('#pb-kt'); k.value = '3'; k.dispatchEvent(new Event('change', { bubbles: true })); await wait('dialog[open] #pb-ap', 30); $('[data-ok]', dlg()).click(); await sleep(900); r.push(`kế toán: ${txt('#pc-toast')}`);
