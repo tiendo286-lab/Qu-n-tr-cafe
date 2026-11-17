@@ -12,8 +12,18 @@ Anh Tiến muốn **tự thêm việc** vào Bảng phân công (vd vệ sinh m�
 - Quá hạn → **Quá hạn & phạt** với mức phạt **của cơ sở đó**; Chủ bấm Phạt / Bỏ qua (web không tự trừ — giữ quy định cũ).
 - Chủ / Quản lý tổng xem lại được ảnh và ghi chú của lần đã xong.
 
+## Việc có sẵn của web dùng chung hộp (anh chốt 17/11 "công việc web giống công việc thêm")
+Mẫu: https://claude.ai/artifact/XowQgnN7pt1WoSM4SLpSZb mục 2b. Đưa lên web **lần 2**, sau phần việc tự thêm (lần 1 không đụng việc có sẵn).
+- Hộp sửa của 9 việc có sẵn theo cơ sở (1 Đối soát ca, 7 Lệch tiền, 8 Giải trình, 10 Kiểm quỹ, 11 Nhận hàng quá ngày, 12 Đối soát hàng, 3 File Fabi, 4 Chuyển khoản, 13 Hoá đơn bù, 14 Giao bù) dùng cùng bố cục việc tự thêm: **Hướng dẫn** (mới), **Có kiểm tra** (thay nút "+ Thêm bước" — hiện không việc nào dùng bước thêm), bảng từng cơ sở **Bật · Người làm · [Người kiểm tra · Hạn kiểm tra] · Hạn làm · Mức phạt**.
+- **Hạn làm** tính từ lúc web tạo việc (giữ mốc như hiện nay: "từ lúc kế toán đủ file"…). Chu kỳ / ngày làm hiện "Theo sự việc".
+- **Kiểm quỹ (10):** y như việc tự thêm — chu kỳ + ngày làm + quá hạn cho phép từng cơ sở; tự xong khi có phiếu kiểm quỹ trong kỳ.
+- Khác việc tự thêm: tên khoá, **không xoá** (chỉ tạm tắt), **không có "Bắt buộc ảnh"** (việc tự xong khi xong hồ sơ). "Có kiểm tra": hồ sơ xong → mở bước Kiểm tra (Đạt / Làm lại như việc tự thêm; Làm lại mở lại bước làm với hạn mới, hồ sơ gốc không tự mở lại — *em quyết*).
+- Việc kế toán (3, 4, 13, 14): người làm = người làm Kế toán (ô khoá); 3, 4 hạn + phạt từng cơ sở; 13, 14 gộp chung → 1 dòng "Mọi cơ sở". Cơ sở tắt ở việc 3/4 thì không tạo việc cơ sở đó.
+- **Giữ cách riêng như hiện nay:** 2 Phân chia nhân viên phát sinh (2 bước cố định QL tổng → Chủ, mọi cơ sở) và 24 Giao việc riêng.
+- "= như Đối soát ca" (dùng chung người làm của việc 1) vẫn giữ.
+- Đổi cài đặt chỉ áp dụng việc tạo sau, như việc tự thêm.
+
 ## Không làm (lần này)
-- Không đổi 12 việc tự động đang có (Đối soát ca, Lệch tiền…): vẫn 1 mức phạt chung, hạn như cũ. (Ý "chia cơ sở cho việc đang có" để sau nếu anh cần.)
 - Không sửa chuyện nhắc phiếu chốt ca quá dày / báo quá hạn (mục riêng của bản kiểm tra Công việc).
 
 ## Không được để xảy ra
