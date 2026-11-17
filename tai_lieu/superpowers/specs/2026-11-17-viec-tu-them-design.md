@@ -5,7 +5,7 @@ Anh Tiến muốn **tự thêm việc** vào Bảng phân công (vd vệ sinh m�
 
 ## Mục tiêu
 - Chủ bấm **+ Thêm việc** ở Bảng phân công, ghi tên + hướng dẫn, tick "Bắt buộc chụp ảnh khi báo xong", tick **"Có kiểm tra"** (anh chốt 17/11: tuỳ việc), điền bảng từng cơ sở.
-- Tick "Có kiểm tra" → việc có thêm **giai đoạn 2: Kiểm tra**; bảng từng cơ sở hiện thêm cột **Người kiểm tra**.
+- Tick "Có kiểm tra" → việc có thêm **giai đoạn 2: Kiểm tra**; bảng từng cơ sở hiện thêm 2 cột **Người kiểm tra** và **Hạn kiểm tra** (bao lâu từ lúc người làm báo xong) — anh chốt 17/11.
 - Mỗi cơ sở: **Bật/tắt · Người làm · Chu kỳ (Hằng ngày / Hằng tuần / Hằng tháng) · Ngày làm (Thứ 2…CN, hoặc ngày 1…31) · Quá hạn cho phép · Mức phạt**.
 - Việc tự thêm **sửa được mọi ô, tạm tắt, xoá** được.
 - Người làm thấy việc ở **Việc của tôi**, nhận thông báo "Việc mới", bấm **Báo xong ✓** (ghi chú + ảnh; ảnh bắt buộc nếu bật).
@@ -56,8 +56,8 @@ Các cách đã cân nhắc:
 **Giai đoạn 2 — Kiểm tra (chỉ khi tick "Có kiểm tra"):**
 - Người làm Báo xong → việc chuyển sang **Chờ kiểm tra**, người kiểm tra của cơ sở nhận thông báo "Việc chờ bạn kiểm tra".
 - Người kiểm tra xem ghi chú + ảnh, bấm **Đạt ✓** (việc đóng) hoặc **Làm lại** (bắt buộc lý do + chọn hạn mới: 4 giờ, 12 giờ, 1, 2, 3 ngày; mặc định 1 ngày) → về lại người làm, người làm được báo.
-- Hạn kiểm tra **1 ngày** từ lúc báo xong *(em quyết, giống Giao việc riêng)*; quá hạn thì **người kiểm tra** vào Quá hạn & phạt cùng mức phạt cơ sở (đúng quy định "ai đang giữ việc ở bước nào thì bị tính bước đó").
-- Người kiểm tra phải khác người làm; nhiều người kiểm tra = ai kiểm tra trước cũng được. Cơ sở chưa chọn người kiểm tra thì Chủ kiểm tra.
+- **Hạn kiểm tra cài từng cơ sở** (anh chốt 17/11): tính từ lúc người làm báo xong; chọn 2 giờ, 4 giờ, 12 giờ, 1, 2, 3 ngày (mặc định 1 ngày); quá hạn thì **người kiểm tra** vào Quá hạn & phạt cùng mức phạt cơ sở (đúng quy định "ai đang giữ việc ở bước nào thì bị tính bước đó").
+- Người kiểm tra phải khác người làm; nhiều người kiểm tra = ai kiểm tra trước cũng được. **Bắt buộc chọn người kiểm tra** cho mọi cơ sở đang bật khi tick "Có kiểm tra" — chưa chọn thì không lưu được.
 - Bỏ tick "Có kiểm tra" chỉ áp dụng cho lần tạo sau.
 
 **Sửa / tắt / xoá:**
@@ -75,7 +75,7 @@ Các cách đã cân nhắc:
 
 ## Gợi ý cho người làm (không bắt buộc)
 - `pc_jobs` thêm cột: `name`, `guide`, `need_photo`, `custom`, `deleted_at`; số việc tự thêm bắt đầu từ 100. Bước của việc tự thêm: bước "Làm" (người = `branch`) + bước "Kiểm tra" nếu bật (dùng `pc_assign` có sẵn cho người làm từng cơ sở).
-- Bảng mới lịch từng cơ sở: (job, branch_id, enabled, cycle, day, grace_hours, fine, checkers bigint[], from_date…). Việc bổ sung đánh dấu để phần phạt bỏ qua. Mặc định không cấp quyền anon/authenticated.
+- Bảng mới lịch từng cơ sở: (job, branch_id, enabled, cycle, day, grace_hours, fine, checkers bigint[], check_hours, from_date…). Việc bổ sung đánh dấu để phần phạt bỏ qua. Mặc định không cấp quyền anon/authenticated.
 - `pc_steps` thêm ghi chú + ảnh khi báo xong; `app_pc_step_done` nhận thêm ghi chú/ảnh và kiểm ảnh bắt buộc.
 - Phạt: điều kiện `j.fine > 0` và số tiền gợi ý cần lấy theo cơ sở cho việc tự thêm.
 - Chỗ giao diện đang tra tên bằng `JOBS[t.job]` cần dùng tên từ máy chủ cho việc ≥ 100.
