@@ -1297,10 +1297,13 @@ function mount(R, ed, C0, ctx = {}) {
   }
   if (isDs && $('#bank-box')) {
     rpc('app_kt_bank_get', { p_report: R.id }).then((b) => {
-      const got = b.received; const must = R.money?.ck_expected ?? R.pos_transfer; const complete = got !== null && got !== undefined && b.entered >= b.account_count;
-      const gap = complete && must !== null && must !== undefined ? Number(got) - Number(must) : null;
+      // bước 119: Phải nhận = CK Fabi + Thu/Chi CK + Khách trả nợ CK − Nợ CK (máy chủ tính sẵn, cùng công thức với kết quả chính thức)
+      const got = b.received; const must = (R0?.money || R.money)?.ck_expected; const complete = got !== null && got !== undefined && b.entered >= b.account_count;
+      const known = must !== null && must !== undefined;
+      const gap = complete && known ? Number(got) - Number(must) : null;
       $('#bank-box').innerHTML = str(html`<div class="diff-card"><div class="pc-sub" style="margin:0">CHUYỂN KHOẢN NGÂN HÀNG</div>
         ${!complete ? html`<div class="alert warn" style="margin:8px 0 0">Kế toán chưa nhập đủ số dư ngân hàng cho ca này.</div>`
+          : !known ? html`<div class="alert warn" style="margin:8px 0 0">Chưa tính được số Phải nhận — tải lại trang.</div>`
           : html`<div class="kv bank-total"><div>Phải nhận</div><div><strong>${vnd(must)}</strong></div><div>Thực nhận</div><div><strong>${vnd(got)}</strong></div><div>Kết quả</div><div><span class="pill ${gap === 0 ? 'ok' : 'off'}">${gap === 0 ? 'KHỚP ✓' : `LỆCH ${signed(gap)}`}</span></div></div>
             <details style="margin-top:8px"><summary>Xem giao dịch VCB + BIDV ›</summary><div class="kv" style="margin-top:8px">${(b.accounts || []).map((a) => html`<div>${a.bank}${a.label ? ' · ' + a.label : ''}</div><div>${a.received === null || a.received === undefined ? 'chưa nhập' : html`${vnd(a.opening)} → ${vnd(a.closing)}${a.transfers_out ? ` · chuyển ra ${vnd(a.transfers_out)}` : ''} = <strong>${vnd(a.received)}</strong>`}${a.note ? html`<br><span class="st-meta">${a.note}</span>` : ''}</div>`)}</div></details>
             <div class="st-meta">Nhập bởi ${b.updated_by || ''} · ${dt(b.updated_at)}${b.locked ? ' · đã khóa theo phiếu' : ''}</div>`}</div>`);

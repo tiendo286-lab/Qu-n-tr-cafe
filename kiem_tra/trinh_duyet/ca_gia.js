@@ -32,7 +32,7 @@ export function makeCa(T, me) {
     const r = rep(id); const sh = shifts(); const ns = sh[sh.indexOf(r.shift) + 1];
     const nx = ns ? T.shift_reports.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === ns) : null;
     const nh = nx ? hand(nx.id) : null; const hg = nh ? nh.gap_eff : 0;
-    return { sum_gap: d.total_revenue - d.pos_cash - d.pos_transfer - debtNew, debt_new: debtNew, tm_left_self: tm, handover_gap: hg, tm_left: tm + hg, ck_left: ck, ck_left_nv: ck, bank_ok: false, ck_basis: 'nhan_vien',
+    return { sum_gap: d.total_revenue - d.pos_cash - d.pos_transfer - debtNew, debt_new: debtNew, tm_left_self: tm, handover_gap: hg, tm_left: tm + hg, ck_left: ck, ck_left_nv: ck, bank_ok: false, ck_basis: 'nhan_vien', ck_expected: d.pos_transfer + mv('chuyen_khoan') + col('chuyen_khoan') - ckOut,   // bước 119
       next_hand: nh && !['chua_dem', 'cho_ca_truoc'].includes(nh.state) ? { shift: ns, id: nx.id, ...nh } : null };
   };
   const TOL = 5000;
