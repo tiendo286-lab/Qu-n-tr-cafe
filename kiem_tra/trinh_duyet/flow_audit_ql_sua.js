@@ -60,6 +60,7 @@ export default async ({ sleep, out }) => {
       ['Thu / chi trong ca', () => $$('#moves input[data-k="amount"], #moves input.money, #moves input[aria-label*="Số tiền"]')],
       ['Khách nợ', () => byLabel(/Số tiền nợ/)],
       ['Bàn giao ca sau', () => byLabel(/Nội dung bàn giao/)],
+      ['Ảnh phiếu Fabi (thêm / xoá)', () => [$('.ph-input-ds'), $('.ph-del-ds')]],
     ];
     const locked = [];
     for (const [name, find] of need) {

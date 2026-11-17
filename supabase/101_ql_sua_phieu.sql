@@ -503,4 +503,130 @@ begin
   perform public.app__ca_direct_guard(p_report);
 end $function$;
 
+-- ================================================================ 6. Quản lý sửa Bàn giao ca sau và ảnh phiếu Fabi ở bước Kiểm tra
+-- Cùng quy tắc bàn giao với app__ca_save_core (dòng đã giao thành việc — task_id — không xoá / sửa). Bắt buộc lý do, ghi shift_recon_log.
+create or replace function public.app_ca_recon_handover_save(p_id bigint, p_items jsonb, p_reason text) returns jsonb
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts; r public.shift_reports; why text := nullif(trim(coalesce(p_reason, '')), ''); x jsonb; nid bigint;
+        keep bigint[]; before jsonb; after jsonb; ids bigint[] := '{}';
+begin
+  a := public.app__need('doi_soat');
+  select * into r from public.shift_reports where id = p_id for update;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa gửi nên chưa sửa ở bước Kiểm tra được.'; end if;
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT — không sửa được.'; end if;
+  if jsonb_typeof(coalesce(p_items, '[]')) <> 'array' then raise exception 'Danh sách bàn giao không hợp lệ.'; end if;
+  select coalesce(jsonb_agg(jsonb_build_object('id', h.id, 'content', h.content) order by h.id), '[]') into before
+    from public.handover_items h where h.report_id = r.id and h.task_id is null;
+  keep := array(select (h ->> 'id')::bigint from jsonb_array_elements(coalesce(p_items, '[]')) h where nullif(h ->> 'id', '') is not null);
+  -- chỉ đổi khi có khác; khác mà không lý do → từ chối
+  if exists (select 1 from public.handover_items h where h.report_id = r.id and h.task_id is null and not (h.id = any(keep)))
+     or exists (select 1 from jsonb_array_elements(coalesce(p_items, '[]')) h
+                 where trim(coalesce(h ->> 'content', '')) <> ''
+                   and (nullif(h ->> 'id', '') is null
+                        or not exists (select 1 from public.handover_items i where i.id = (h ->> 'id')::bigint and i.report_id = r.id and i.task_id is null and i.content = trim(h ->> 'content'))))
+  then
+    if why is null then raise exception 'Ghi lý do sửa bàn giao.'; end if;
+  else
+    return jsonb_build_object('ids', to_jsonb(keep));
+  end if;
+  delete from public.handover_items where report_id = r.id and task_id is null and not (id = any(keep));
+  for x in select * from jsonb_array_elements(coalesce(p_items, '[]')) loop
+    if trim(coalesce(x ->> 'content', '')) = '' then
+      if nullif(x ->> 'id', '') is not null then delete from public.handover_items where id = (x ->> 'id')::bigint and report_id = r.id and task_id is null; end if;
+      continue;
+    end if;
+    if nullif(x ->> 'id', '') is null then
+      insert into public.handover_items(branch_id, report_id, content, created_by) values (r.branch_id, r.id, trim(x ->> 'content'), a.id) returning id into nid;
+    else
+      nid := (x ->> 'id')::bigint;
+      update public.handover_items set content = trim(x ->> 'content') where id = nid and report_id = r.id and task_id is null;
+    end if;
+    ids := ids || nid;
+  end loop;
+  select coalesce(jsonb_agg(jsonb_build_object('id', h.id, 'content', h.content) order by h.id), '[]') into after
+    from public.handover_items h where h.report_id = r.id and h.task_id is null;
+  insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account) values (r.id, 'sua', 'handover', before, after, why, a.id);
+  perform public.app_log('doi_soat_sua_ban_giao', 'report=' || r.id);
+  return jsonb_build_object('ids', to_jsonb(ids));
+end $$;
+
+create or replace function public.app_ca_recon_photo_add(p_id bigint, p_path text, p_reason text) returns bigint
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts; r public.shift_reports; why text := nullif(trim(coalesce(p_reason, '')), ''); nid bigint;
+begin
+  a := public.app__need('doi_soat');
+  select * into r from public.shift_reports where id = p_id;
+  if r.id is null or r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa gửi nên chưa sửa ở bước Kiểm tra được.'; end if;
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT — không sửa được.'; end if;
+  if why is null then raise exception 'Ghi lý do thêm ảnh.'; end if;
+  if coalesce(p_path, '') !~ ('^r' || p_id || '/ipos/[^/]+$') then raise exception 'Đường dẫn ảnh không hợp lệ.'; end if;
+  insert into public.shift_report_photos(report_id, path, created_by, kind) values (p_id, p_path, a.id, 'ipos') returning id into nid;
+  insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account) values (p_id, 'sua', 'photo_ipos', null, to_jsonb(p_path), why, a.id);
+  return nid;
+end $$;
+
+-- Xoá khỏi phiếu (giữ tệp ảnh trong kho để còn đối chiếu). Phiếu luôn còn ít nhất 1 ảnh phiếu Fabi.
+create or replace function public.app_ca_recon_photo_del(p_photo bigint, p_reason text) returns void
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts; ph public.shift_report_photos; r public.shift_reports; why text := nullif(trim(coalesce(p_reason, '')), '');
+begin
+  a := public.app__need('doi_soat');
+  select * into ph from public.shift_report_photos where id = p_photo and kind = 'ipos';
+  if ph.id is null then raise exception 'Không tìm thấy ảnh phiếu Fabi.'; end if;
+  select * into r from public.shift_reports where id = ph.report_id for update;
+  if r.status <> 'hoan_thanh' then raise exception 'Phiếu chưa gửi nên chưa sửa ở bước Kiểm tra được.'; end if;
+  if public.app__fin_locked(r.branch_id, r.work_date) then raise exception 'Tháng này đã CHỐT — không sửa được.'; end if;
+  if why is null then raise exception 'Ghi lý do xoá ảnh.'; end if;
+  if (select count(*) from public.shift_report_photos where report_id = r.id and kind = 'ipos') <= 1 then
+    raise exception 'Phiếu phải còn ít nhất 1 ảnh phiếu Fabi — thêm ảnh đúng trước rồi mới xoá ảnh này.';
+  end if;
+  delete from public.shift_report_photos where id = ph.id;
+  insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account) values (r.id, 'sua', 'photo_ipos', to_jsonb(ph.path), null, why, a.id);
+end $$;
+
+revoke all on function public.app_ca_recon_handover_save(bigint, jsonb, text), public.app_ca_recon_photo_add(bigint, text, text), public.app_ca_recon_photo_del(bigint, text) from public, anon;
+grant execute on function public.app_ca_recon_handover_save(bigint, jsonb, text), public.app_ca_recon_photo_add(bigint, text, text), public.app_ca_recon_photo_del(bigint, text) to authenticated;
+
+CREATE OR REPLACE FUNCTION public.app__storage_ca_upload(p_name text)
+ RETURNS boolean
+ LANGUAGE plpgsql
+ STABLE SECURITY DEFINER
+ SET search_path TO 'public'
+AS $function$
+declare
+  m text[] := regexp_match(coalesce(p_name, ''), '^r([0-9]+)/(ipos|hang)/[^/]+$');
+  old_m text[];
+  rid bigint;
+  wanted_part text;
+  aid bigint := (public.app_account()).id;
+begin
+  if aid is null then return false; end if;
+  if m is not null then
+    rid := m[1]::bigint;
+    -- bước 119: quản lý (quyền đối soát) thêm ảnh phiếu Fabi cho phiếu đã gửi, tháng chưa chốt
+    if m[2] = 'ipos' and coalesce(public.app_can('doi_soat'), false)
+       and exists (select 1 from public.shift_reports r where r.id = rid and r.status = 'hoan_thanh' and not public.app__fin_locked(r.branch_id, r.work_date)) then
+      return true;
+    end if;
+    wanted_part := case when m[2] = 'ipos' then 'tien' else 'nhan_hang' end;
+    return exists (
+      select 1 from public.shift_reports r
+      join public.shift_report_parts pt on pt.report_id = r.id and pt.part = wanted_part
+      where r.id = rid and r.status = 'dang_chot'
+        and pt.claimed_by = aid and pt.done_at is null
+        and public.app__ca_part_can(r.id)
+    );
+  end if;
+  old_m := regexp_match(coalesce(p_name, ''), '^r([0-9]+)/[^/]+$');
+  if old_m is null then return false; end if;
+  rid := old_m[1]::bigint;
+  return exists (
+    select 1 from public.shift_reports r
+    join public.shift_report_parts pt on pt.report_id = r.id
+    where r.id = rid and r.status = 'dang_chot'
+      and pt.claimed_by = aid and pt.done_at is null
+      and public.app__ca_part_can(r.id)
+  );
+end $function$;
+
 insert into public.app_migrations(file) values ('101_ql_sua_phieu.sql') on conflict (file) do nothing;

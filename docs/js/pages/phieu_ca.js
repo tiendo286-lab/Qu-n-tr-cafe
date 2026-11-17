@@ -225,6 +225,9 @@ export async function render({ params }) {
   const edFor = (k) => (P ? ed && !!PT[k]?.mine && !PT[k]?.done_at : ed && isDs);
   const edT = edFor('tien'); const edN = edFor('nhan_su'); const edH = edFor('nhan_hang');
   const edSharedT = isDs ? false : edT; const edSharedN = isDs ? false : edN; // bàn giao, công nợ, ảnh dùng chung — chỉ sửa trên phiếu nhân viên
+  // bước 119: ở bước Kiểm tra quản lý sửa được Bàn giao (khi mục Bàn giao chưa duyệt) và ảnh phiếu Fabi (khi phần tiền đang mở)
+  const hoEd = isDs && !!R.can_recon && R0.recon_status !== 'hoan_thanh' && !(R.checks || {}).ban_giao;
+  const phEd = isDs && edT;
   const first = R.shift === R.first_shift;
   const C = calc(R, debtSums(R));
   const rcEdit = R.can_recon && R0.recon_status !== 'hoan_thanh';
@@ -452,7 +455,7 @@ export async function render({ params }) {
   const dsTimeIn = isDs ? html`<h3 style="margin:4px 0 0;font-size:15px">Thời gian doanh thu</h3><div class="sc-period"><label>Bắt đầu doanh thu<input class="input" type="datetime-local" id="rev_start" value="${toLocalInput(R.rev_start)}" ${edT ? '' : 'disabled'}></label><label>Kết thúc doanh thu<input class="input" type="datetime-local" id="rev_end" value="${toLocalInput(R.rev_end)}" ${edT ? '' : 'disabled'}></label></div>
     <span class="st-meta">Theo giờ trên phiếu POS, không phải giờ làm của nhân viên. Qua nửa đêm chọn ngày hôm sau.${FB && (FB.open_at || FB.close_at) ? html` <b>File Fabi kế toán tải: ${hm5(FB.open_at)} → ${hm5(FB.close_at)}</b> ${hm5(FB.close_at) === hm5(R.rev_end) ? '✓' : '✗ khác giờ kết thúc'}` : ''}</span>` : '';
   const fbSum = !FB ? html`<span class="ds-ic">·</span><span>Phiếu Fabi <small class="st-meta">chưa có file kế toán</small></span>` : fbBad ? html`<span class="ds-ic bad">!</span><span>Phiếu Fabi khác file <b>${fbBad}</b> dòng</span>` : html`<span class="ds-ic ok">✓</span><span>Phiếu Fabi khớp file</span>`;
-  const dsFabi = isDs ? html`<details class="sc-block ds-fabi" ${fbBad ? 'open' : ''}><summary>${fbSum}<span class="ds-r">NET ${fmt(R.total_revenue)} ›</span></summary>${dsTimeIn}<h3 style="margin:4px 0 0;font-size:15px">Số trên phiếu</h3><div class="photos">${iposPhotos.map((p) => phFig(p, 'Ảnh phiếu Fabi', false))}</div>${iposPhotos.length ? '' : html`<span class="st-meta">Chưa có ảnh phiếu.</span>`}
+  const dsFabi = isDs ? html`<details class="sc-block ds-fabi" ${fbBad ? 'open' : ''}><summary>${fbSum}<span class="ds-r">NET ${fmt(R.total_revenue)} ›</span></summary>${dsTimeIn}<h3 style="margin:4px 0 0;font-size:15px">Số trên phiếu</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a>${phEd ? html`<button type="button" class="ph-del ph-del-ds" data-id="${p.id}" aria-label="Xoá ảnh phiếu Fabi">×</button>` : ''}</figure>`)}</div>${phEd ? html`<label class="btn sm secondary" style="align-self:flex-start">📷 Thêm ảnh phiếu Fabi<input type="file" class="ph-input-ds" accept="image/*" multiple hidden></label><div class="st-meta ph-status-ds"></div>` : ''}${iposPhotos.length ? '' : html`<span class="st-meta">Chưa có ảnh phiếu.</span>`}
     ${shiftFabiFields([
       ...[['opening_cash', 'Số dư đầu'], ['total_revenue', 'Doanh thu (NET)'], ['pos_transfer', 'Chuyển khoản'], ['pos_cash', 'Tiền mặt']].map(([k, l]) => [l, money(k, R[k], !edT)]),
       ['Nợ trên phiếu', money('pos_debt', R.pos_debt, !edT)],   // bước 119: quản lý sửa được
@@ -673,8 +676,8 @@ export async function render({ params }) {
             : html`<button type="button" class="btn sm ho-done" data-id="${h.id}">Đã xong</button>`)
             : h.done_at ? html`<span class="pill ok">Đã xong</span>` : html`<span class="pill off">Chưa xong</span>`}</div>`)}` : ''}
     <div class="pc-sub">BÀN GIAO CỦA CA NÀY <span class="st-meta">— công việc, thiết bị, vệ sinh, an toàn, sự cố</span></div>
-    <div id="handover" class="stack" style="gap:8px">${(R.handover || []).map((h) => hoRow(h, edSharedN, isDs && !!R.can_recon && !!h.id && !h.task_id && !h.done_at))}</div>
-    ${edSharedN ? html`<div><button type="button" class="btn sm secondary" id="add-ho">+ THÊM CÔNG VIỆC</button></div>` : (R.handover || []).length ? '' : html`<div class="st-meta">Không có.</div>`}`);
+    <div id="handover" class="stack" style="gap:8px">${(R.handover || []).map((h) => hoRow(h, isDs ? hoEd : edSharedN, isDs && !!R.can_recon && !!h.id && !h.task_id && !h.done_at))}</div>
+    ${(isDs ? hoEd : edSharedN) ? html`<div><button type="button" class="btn sm secondary" id="add-ho">+ THÊM CÔNG VIỆC</button></div>` : (R.handover || []).length ? '' : html`<div class="st-meta">Không có.</div>`}`);
 
   // G. Nhập hàng từ kho tổng (bước 31): hóa đơn kế toán gửi → nhân viên kiểm từng món + ảnh; quản lý đối soát từng ảnh
   const legacyGoods = ['du', 'thieu'].includes(R.goods_status) || goodsPhotos.length > 0 || (R.goods || []).length > 0;
@@ -1519,6 +1522,7 @@ function mount(R, ed, C0, ctx = {}) {
   // ---------- tự động lưu
   let timer = null; let saving = null; let dirty = false;
   let staffKey = JSON.stringify(collect().staff);
+  let hoKey = JSON.stringify(collect().handover);   // bước 119
   saveNow = async () => {
     clearTimeout(timer);
     if (saving) { await saving; if (!dirty) return; }
@@ -1531,8 +1535,16 @@ function mount(R, ed, C0, ctx = {}) {
     const hoRows = $$('.ho-row'); const dbRows = $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id);
     const payload = collect();
     payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon' || d.kind === 'ck').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: d.kind })));
-    const call = isDs ? (DIR ? rpc('app_ca_recon_direct', { p_id: R.id, p: payload, p_reason: DIR.why, p_items: DIR.items })
+    const call0 = isDs ? (DIR ? rpc('app_ca_recon_direct', { p_id: R.id, p: payload, p_reason: DIR.why, p_items: DIR.items })
       : rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: rcWhyVal() || null })) : rpc('app_ca_save', { p_id: R.id, p: payload });
+    // bước 119: Bàn giao ở bước Kiểm tra lưu riêng (không nằm trong bản kiểm tra)
+    const hoNow = JSON.stringify(payload.handover);
+    const hoCall = isDs && hoNow !== hoKey && $$('.ho-row .ho-text').some((t) => !t.disabled)
+      ? rpc('app_ca_recon_handover_save', { p_id: R.id, p_items: payload.handover, p_reason: (DIR ? DIR.why : rcWhyVal()) || null }).then((res) => {
+        hoKey = hoNow; const rows = hoRows.filter((r) => r.querySelector('.ho-text').value.trim() && !r.querySelector('.ho-text').disabled);
+        (res?.ids || []).forEach((nid, i) => { if (nid && rows[i]) rows[i].dataset.id = nid; });
+      }) : null;
+    const call = hoCall ? Promise.all([call0, hoCall]).then(([r0]) => r0) : call0;
     saving = call.then((res) => {
       if (!isDs) {
         (res.handover_ids || []).forEach((nid, i) => { if (nid && hoRows[i]) hoRows[i].dataset.id = nid; });
@@ -1805,7 +1817,31 @@ function mount(R, ed, C0, ctx = {}) {
       flash(h && h.state === 'lech' ? 'Vẫn lệch — đã báo quản lý. Ghi lý do lệch tiền đầu ca.' : 'Đếm lại đã khớp két ca trước.'); rerender(); }
     catch (e) { showSaved(e.message, true); }
   });
-  $$('.ph-del').forEach((b) => b.addEventListener('click', async () => {
+  // bước 119: quản lý thêm / xoá ảnh phiếu Fabi ở bước Kiểm tra (bắt buộc lý do, có lịch sử) — needWhy() khai báo ở trên
+  $$('.ph-input-ds').forEach((inp) => inp.addEventListener('change', async (ev) => {
+    const files = [...ev.target.files]; if (!files.length) return;
+    const why = needWhy(); if (!why) { inp.value = ''; return; }
+    const st = $('.ph-status-ds');
+    try {
+      for (let i = 0; i < files.length; i++) {
+        if (st) st.textContent = `Đang tải ảnh ${i + 1}/${files.length}…`;
+        const blob = await compressImage(files[i]);
+        const path = `r${R.id}/ipos/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.jpg`;
+        const { error } = await sb.storage.from(BUCKET).upload(path, blob, { contentType: 'image/jpeg' });
+        if (error) throw new Error(error.message);
+        await rpc('app_ca_recon_photo_add', { p_id: R.id, p_path: path, p_reason: why });
+      }
+      rerender();
+    } catch (e) { if (st) st.textContent = ''; showSaved('Không tải được ảnh: ' + e.message, true); }
+  }));
+  $$('.ph-del-ds').forEach((b) => b.addEventListener('click', async (ev) => {
+    ev.stopImmediatePropagation();
+    const why = needWhy(); if (!why) return;
+    if (!confirm('Xoá ảnh phiếu Fabi này khỏi phiếu?')) return;
+    try { await rpc('app_ca_recon_photo_del', { p_photo: Number(b.dataset.id), p_reason: why }); rerender(); }
+    catch (e) { showSaved(e.message, true); }
+  }));
+  $$('.ph-del:not(.ph-del-ds)').forEach((b) => b.addEventListener('click', async () => {
     if (!confirm('Xóa ảnh này?')) return;
     try { await saveNow(); const path = await rpc('app_ca_photo_del', { p_photo: Number(b.dataset.id) }); if (path) await sb.storage.from(BUCKET).remove([path]); rerender(); }
     catch (e) { showSaved(e.message, true); }

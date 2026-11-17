@@ -271,6 +271,24 @@ export function makeCa(T, me) {
       const h2 = hand(r.id); if (h2.state === 'lech') window.__LOG.push(['notify', 'Bàn giao két bị lệch', h2.gap]);
       return h2;
     },
+    // bước 119: quản lý sửa Bàn giao + ảnh phiếu Fabi ở bước Kiểm tra
+    app_ca_recon_handover_save({ p_id, p_items, p_reason }) {
+      const r = rep(p_id); const keep = (p_items || []).filter((h) => h.id).map((h) => h.id);
+      const cur = T.handover_items.filter((h) => h.report_id === p_id && !h.task_id);
+      const changed = cur.some((h) => !keep.includes(h.id)) || (p_items || []).some((h) => (h.content || '').trim() && (!h.id || (cur.find((x) => x.id === h.id) || {}).content !== h.content.trim()));
+      if (!changed) return { ids: keep };
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa bàn giao.');
+      T.handover_items = T.handover_items.filter((h) => h.report_id !== p_id || h.task_id || keep.includes(h.id));
+      const ids = (p_items || []).filter((h) => (h.content || '').trim()).map((h) => { if (h.id) { T.handover_items.find((x) => x.id === h.id).content = h.content.trim(); return h.id; } const id = nid('handover_items'); T.handover_items.push({ id, branch_id: r.branch_id, report_id: p_id, content: h.content.trim(), created_by: me.account_id, created_at: now() }); return id; });
+      RLOG.push({ report_id: p_id, action: 'sua', field: 'handover', reason: p_reason, by: name(me.account_id), at: now() });
+      return { ids };
+    },
+    app_ca_recon_photo_add({ p_id, p_path, p_reason }) { if (!String(p_reason || '').trim()) throw new Error('Ghi lý do thêm ảnh.'); const id = nid('shift_report_photos'); T.shift_report_photos.push({ id, report_id: p_id, path: p_path, kind: 'ipos' }); return id; },
+    app_ca_recon_photo_del({ p_photo, p_reason }) {
+      const ph = T.shift_report_photos.find((x) => x.id === p_photo); if (!String(p_reason || '').trim()) throw new Error('Ghi lý do xoá ảnh.');
+      if (T.shift_report_photos.filter((x) => x.report_id === ph.report_id && x.kind === 'ipos').length <= 1) throw new Error('Phiếu phải còn ít nhất 1 ảnh phiếu Fabi — thêm ảnh đúng trước rồi mới xoá ảnh này.');
+      T.shift_report_photos = T.shift_report_photos.filter((x) => x !== ph);
+    },
     app_ca_photo_del({ p_photo }) { const ph = T.shift_report_photos.find((x) => x.id === p_photo); needEdit(ph.report_id); T.shift_report_photos = T.shift_report_photos.filter((x) => x !== ph); return ph.path; },
     // bước 56: sửa 1 mục đã đối soát → chỉ mục đó mở lại
     app_ca_item_reopen({ p_id, p_item, p_reason }) {
