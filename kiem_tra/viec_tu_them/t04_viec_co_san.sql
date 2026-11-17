@@ -3,10 +3,10 @@
 -- b) tắt Kiểm quỹ ở 1 cơ sở → không tạo việc mới cơ sở đó; việc đang mở của cơ sở tắt không bị đóng
 -- c) mức phạt theo cơ sở   d) Kiểm quỹ đổi sang Thứ (hôm nay) → tạo việc hôm nay, hạn 23:59 + quá hạn cho phép
 -- e) Có kiểm tra: hồ sơ xong → bước Kiểm tra; Làm lại → bước làm lại không bị tự đóng; báo xong → Kiểm tra; Đạt → đóng
--- f) không nhận bước thêm tay
+-- f) không nhận bước thêm tay   g) đổi ngày Kiểm quỹ giữa kỳ không tự đóng việc kỳ cũ
 begin;
 do $$
-declare chu uuid; uk1 uuid; k1 bigint; b1 bigint; b2 bigint; b3 bigint; b4 bigint; c1 text; nb int; n0 int; n1 int; d0 text; d1 text; dw int; today date; tb2 bigint; tb4 bigint; t3 bigint; r jsonb; st public.pc_steps; rows jsonb;
+declare chu uuid; uk1 uuid; k1 bigint; b5 bigint; t5 bigint; g_ok boolean := false; b1 bigint; b2 bigint; b3 bigint; b4 bigint; c1 text; nb int; n0 int; n1 int; d0 text; d1 text; dw int; today date; tb2 bigint; tb4 bigint; t3 bigint; r jsonb; st public.pc_steps; rows jsonb;
         a_ok boolean := false; b_ok boolean := false; c_ok boolean := false; d_ok boolean := false; e_ok boolean := false; f_ok boolean := false; m jsonb := '{}'::jsonb;
 begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by a.id limit 1;
@@ -87,12 +87,22 @@ begin
     perform public.app_pc_check(tb2, true, null, null);
     e_ok := e_ok and (select done_at is not null from public.pc_tasks where id = tb2);
   exception when others then m := m || jsonb_build_object('e', sqlerrm); end;
+  -- g) đổi ngày Kiểm quỹ giữa kỳ: việc kỳ cũ đang mở (chưa kiểm quỹ) KHÔNG bị tự đóng
+  begin
+    select id into b5 from public.branches where status = 'Đang hoạt động' order by sort_order offset 4 limit 1;
+    select id into t5 from public.pc_tasks where job = 10 and branch_id = b5 and done_at is null order by id limit 1;
+    perform public.app_pc_job_save(10, jsonb_build_object('enabled', true, 'fine', 50000, 'need_check', false,
+      'rows', jsonb_build_array(jsonb_build_object('branch_id', b5, 'enabled', true, 'due_h', null, 'fine', 50000, 'cycle', 'tuan', 'day', dw, 'grace_h', 72))));
+    perform public.app__pc_tick();
+    g_ok := t5 is not null and (select done_at is null from public.pc_tasks where id = t5);
+    if not g_ok then m := m || jsonb_build_object('g', json_build_object('t5', t5, 'note', (select done_note from public.pc_tasks where id = t5))); end if;
+  exception when others then m := m || jsonb_build_object('g', sqlerrm); end;
   -- f)
   begin
     perform public.app_pc_job_save(1, jsonb_build_object('enabled', true, 'fine', 50000, 'steps', '[{"n":"Đối soát","who":"branch","d":1},{"n":"Kiểm tra lại","who":"branch","d":1}]'::jsonb));
     m := m || '{"f":"không lỗi"}';
   exception when others then f_ok := sqlerrm = 'Việc này không thêm bước được — dùng Có kiểm tra.'; m := m || jsonb_build_object('f', sqlerrm); end;
-  raise exception 'REPORT>> %', json_build_object('ket_qua', case when a_ok and b_ok and c_ok and d_ok and e_ok and f_ok then 'PASS' else 'FAIL' end,
-    'a_giu_nguyen', a_ok, 'b_tat_co_so', b_ok, 'c_phat_co_so', c_ok, 'd_kiem_quy_lich', d_ok, 'e_kiem_tra', e_ok, 'f_khong_them_buoc', f_ok, 'loi', m);
+  raise exception 'REPORT>> %', json_build_object('ket_qua', case when a_ok and b_ok and c_ok and d_ok and e_ok and f_ok and g_ok then 'PASS' else 'FAIL' end,
+    'a_giu_nguyen', a_ok, 'b_tat_co_so', b_ok, 'c_phat_co_so', c_ok, 'd_kiem_quy_lich', d_ok, 'e_kiem_tra', e_ok, 'f_khong_them_buoc', f_ok, 'g_doi_ngay_khong_dong', g_ok, 'loi', m);
 end $$;
 rollback;

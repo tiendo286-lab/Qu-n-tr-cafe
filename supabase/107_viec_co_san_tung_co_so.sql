@@ -77,6 +77,12 @@ select 10, 'kq:' || b.id || ':' || to_char(w.d, 'YYYY-MM-DD'), b.id,
  where b.status = 'Đang hoạt động'
    and not exists(select 1 from public.fund_counts f where f.branch_id = b.id and f.count_date between to_char(w.d, 'YYYY-MM-DD') and to_char(w.e, 'YYYY-MM-DD'))
 union all
+-- 10 việc kiểm quỹ kỳ cũ còn mở (đổi lịch giữa kỳ): giữ tới khi có phiếu kiểm quỹ từ ngày làm của việc đó
+select 10, substr(t.key, 4), t.branch_id, t.title, t.link, null::text, 0
+  from public.pc_tasks t
+ where t.job = 10 and t.done_at is null and t.key ~ '^10:kq:\d+:\d{4}-\d{2}-\d{2}$'
+   and not exists(select 1 from public.fund_counts f where f.branch_id = t.branch_id and f.count_date >= split_part(t.key, ':', 4))
+union all
 -- 11 Phiếu xuất quá ngày giao mà chưa nhận
 select 11, 'nh:' || i.id, i.branch_id, coalesce(i.doc_no, 'Lần giao #' || i.id) || ' · giao ngày ' || to_char(i.work_date::date, 'DD/MM'),
        '/hang-hoa/nhan?cn=' || i.branch_id, to_char(i.work_date::date + 1, 'YYYY-MM-DD') || ' 00:00:00', 0
