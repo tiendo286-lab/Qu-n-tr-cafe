@@ -37,6 +37,7 @@ export default async ({ sleep, out }) => {
     check(mv && !mv.disabled, 'ô thu chi sửa được' + (mv ? '' : ' (không thấy ô)'));
     check(db && !db.disabled, 'ô báo nợ sửa được' + (db ? '' : ' (không thấy ô)'));
     check(tr && !tr.disabled, 'ô Doanh thu NET sửa được' + (tr ? '' : ' (không thấy ô)'));
+    if (new URLSearchParams(location.search).get('dung')) { window.scrollTo(0, 0); out.push({ route: 'ql_tu_ds', title: seen.join(' · '), errs: fails }); return; }   // &dung=1: dừng ở Đang sửa để chụp màn hình
     if (db && !db.disabled) {
       setv(db, '450.000'); await sleep(400);
       $('#ds-money-save')?.click(); await sleep(800);
