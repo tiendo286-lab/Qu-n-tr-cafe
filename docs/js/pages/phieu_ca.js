@@ -4,18 +4,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.18.12';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.18.13';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.18.12';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.18.12';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.18.13';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.18.13';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.18.12';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.18.13';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -140,6 +140,8 @@ function moveRow(m, ed, ds) {
     <input class="input sm mv-note grow" placeholder="Nội dung (vd: chi tiền đá)" aria-label="Nội dung" value="${m.note || ''}" ${ed ? '' : 'disabled'}>
     ${ed ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa dòng">×</button>` : ''}</div>`;
 }
+// giờ thu nợ: closed_at 'YYYY-MM-DD HH:MM:SS' (giờ VN) → 'HH:MM dd/mm'
+const paidAt = (t) => { if (!t) return ''; const [d, h] = String(t).split(/[ T]/); return `${h ? h.slice(0, 5) + ' ' : ''}${d.slice(8, 10)}/${d.slice(5, 7)}`; };
 const debtDays = (d) => { const n = Math.max(0, Math.round((Date.parse(new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)) - Date.parse(d)) / 864e5)); return n ? `${n} ngày` : 'hôm nay'; };
 function debtRow(d, ed) {
   const lock = !ed || !!d.closed_at;
@@ -147,7 +149,7 @@ function debtRow(d, ed) {
     <input class="input sm db-table" placeholder="Bàn" aria-label="Bàn" value="${d.table_name || ''}" style="width:90px" ${lock ? 'disabled' : ''}>
     <input class="input sm money db-amt" inputmode="numeric" placeholder="Số tiền" aria-label="Số tiền nợ" value="${fmt(d.amount)}" ${lock ? 'disabled' : ''}>
     <input class="input sm db-note grow" placeholder="Thông tin bàn giao (tên khách, SĐT, hẹn trả...)" aria-label="Ghi chú" value="${d.note || ''}" ${lock ? 'disabled' : ''}>
-    ${d.closed_at ? html`<span class="pill ok db-paid" data-debt="${d.id}">Đã thu</span>` : ''}
+    ${d.closed_at ? html`<span class="pill ok db-paid" data-debt="${d.id}" data-at="${paidAt(d.closed_at)}">Đã thu${paidAt(d.closed_at) ? ' ' + paidAt(d.closed_at) : ''}</span>` : ''}
     ${ed && !d.closed_at ? html`<button type="button" class="btn sm secondary danger pc-del" aria-label="Xóa khoản nợ">×</button>` : ''}</div>`;
 }
 const DKIND = { bill: 'Khách nợ hoá đơn', muon: 'Khách mượn tiền mặt', ck: 'Nợ chuyển khoản' };
@@ -176,7 +178,7 @@ function debtRowDs(d, ed, canKind, info = '', rut = false) {   // bước 113 / 
   return html`<div class="sc-row db-row uv-row uv-debt" data-id="${d.id || ''}" data-grp="${d.grp || 'khach'}" data-from="${d.from || ''}">
     <span class="sc-kt"><b>Báo nợ</b>${oneSeg([['muon', 'TM'], ['ck', 'CK'], ['bill', 'HĐ']], k, !kOn, 'Loại nợ')}<select class="uv-dkind" data-debt="${d.id || ''}" hidden aria-hidden="true" ${kOn ? '' : 'disabled'}>${Object.entries(DKIND).map(([v, l]) => opt(v, l, k))}</select></span>
     <input class="input money db-amt" inputmode="numeric" placeholder="Số tiền" aria-label="Số tiền nợ" value="${d.amount ? fmt(d.amount) : ''}" ${lock ? 'disabled' : ''}>
-    ${d.closed_at ? html`<span class="pill ok db-paid" data-debt="${d.id}">Đã thu</span>` : ed ? html`<button type="button" class="btn secondary danger ${d.id ? 'uv-ddel' : 'pc-del'}" aria-label="Xóa khoản nợ">×</button>` : html`<span></span>`}
+    ${d.closed_at ? html`<span class="pill ok db-paid" data-debt="${d.id}" data-at="${paidAt(d.closed_at)}">Đã thu${paidAt(d.closed_at) ? ' ' + paidAt(d.closed_at) : ''}</span>` : ed ? html`<button type="button" class="btn secondary danger ${d.id ? 'uv-ddel' : 'pc-del'}" aria-label="Xóa khoản nợ">×</button>` : html`<span></span>`}
     <div class="sc-full sc-two">${raw(debtWhoSel(d, DEBT_PEOPLE, lock ? 'disabled' : ''))}<input class="input db-table" placeholder="Bàn / tên khách" aria-label="Tên khách" value="${d.table_name || ''}" ${lock ? 'disabled' : ''} ${who ? 'hidden' : ''}><input class="input db-note" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" value="${d.note || ''}" ${lock ? 'disabled' : ''}></div>
     <span class="sc-full st-meta db-grp" ${who ? '' : 'hidden'}>Vào <b>${d.grp === 'kho' ? '② Nợ kho tổng' : '③ Nợ khác'}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ</span>
     ${d.from ? html`<span class="sc-full ds-ed">✎ đổi từ ${d.from}</span>` : ''}
@@ -1361,7 +1363,7 @@ function mount(R, ed, C0, ctx = {}) {
     rpc('app_ca_debts_paid', { p_id: R.id }).then((L) => (L || []).forEach((x) => {
       const el = $(`.db-paid[data-debt="${x.id}"]`); if (!el) return;
       const href = isDs && x.status === 'hoan_thanh' ? `#/ca/phieu?id=${x.report_id}&__ds=1` : `#/ca/phieu?id=${x.report_id}`;
-      el.innerHTML = str(html`<a href="${href}" style="color:inherit">Đã thu ở ca ${x.shift} ${dmy(x.work_date)} · ${x.kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} ›</a>`);
+      el.innerHTML = str(html`<a href="${href}" style="color:inherit">${el.dataset.at ? `Đã thu ${el.dataset.at} · ca ${x.shift}` : `Đã thu ở ca ${x.shift} ${dmy(x.work_date)}`} · ${x.kind === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} ›</a>`);
     })).catch(() => {});
   }
   if (isDs && $('#bank-box')) {
