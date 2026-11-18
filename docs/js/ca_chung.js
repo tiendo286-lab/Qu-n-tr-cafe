@@ -10,6 +10,18 @@ export function shiftFabiFields(fields) {
   return html`<div class="sc-fabi-grid">${fields.map(([label, control, help]) => html`<label class="pc-f"><span>${label}</span>${control}${help ? html`<small class="st-meta">${help}</small>` : ''}</label>`)}</div>`;
 }
 export function newExchangeKey() { return crypto.randomUUID(); }
+// bước 133: "Luân chuyển tiền mặt – CK" (trước: Khách CK rút tiền mặt) — 2 chiều: tm_ck (TM −, CK +) · ck_tm (TM +, CK −)
+export const EXCH_LABEL = 'Luân chuyển tiền mặt – CK';
+export const EXCH_DIRS = [['tm_ck', 'TM → CK'], ['ck_tm', 'CK → TM']];
+export const exchSigns = (dir) => (dir === 'ck_tm' ? { tm: 1, ck: -1 } : { tm: -1, ck: 1 });
+// bước 133: nhóm Công nợ khi chọn người nợ ở dòng Báo nợ
+export const DEBT_GRP = { khach: '① Nợ khách hàng', kho: '② Nợ kho tổng', khac: '③ Nợ khác' };
+export function debtWhoSel(d, people, attrs = '') {
+  const cur = d.grp && d.grp !== 'khach' ? d.table_name : '';
+  const opts = [['', 'Khách', 'khach'], ...(people || []).map((p) => [p.name, p.name, p.grp])];
+  if (cur && !opts.some((o) => o[0] === cur)) opts.push([cur, cur, d.grp]);
+  return `<select class="input debt-who" ${attrs} aria-label="Người nợ">${opts.map(([v, l, g]) => `<option value="${String(v).replace(/"/g, '&quot;')}" data-grp="${g}" ${v === cur ? 'selected' : ''}>Người nợ: ${String(l).replace(/</g, '&lt;')}${g === 'kho' ? ' (②)' : g === 'khac' ? ' (③)' : ''}</option>`).join('')}</select>`;
+}
 export function collapseMoves(moves = []) {
   const seen = new Set();
   return moves.flatMap((m) => {
@@ -17,15 +29,16 @@ export function collapseMoves(moves = []) {
     if (seen.has(m.exchange_key)) return [];
     const pair = moves.filter((x) => x.exchange_key === m.exchange_key);
     // Không gộp dữ liệu hỏng hoặc hai khoản chỉ tình cờ giống nhau.
-    if (pair.length !== 2 || !pair.some((x) => x.kind === 'tien_mat' && Number(x.amount) <= 0) || !pair.some((x) => x.kind === 'chuyen_khoan' && Number(x.amount) >= 0) || Number(pair[0].amount) + Number(pair[1].amount) !== 0 || pair[0].note !== pair[1].note) return [{ ...m }];
+    if (pair.length !== 2 || !pair.some((x) => x.kind === 'tien_mat') || !pair.some((x) => x.kind === 'chuyen_khoan') || Number(pair[0].amount) + Number(pair[1].amount) !== 0 || pair[0].note !== pair[1].note) return [{ ...m }];
     seen.add(m.exchange_key);
-    return [{ ...m, kind: 'doi_tien', amount: Math.abs(Number(m.amount)) }];
+    const tm = pair.find((x) => x.kind === 'tien_mat');
+    return [{ ...m, kind: 'doi_tien', amount: Math.abs(Number(m.amount)), dir: Number(tm.amount) > 0 ? 'ck_tm' : 'tm_ck' }];
   });
 }
 export function expandMoves(moves = []) {
   return moves.flatMap((m) => m.kind === 'doi_tien' ? [
-    { kind: 'tien_mat', amount: -Math.abs(Number(m.amount) || 0), note: m.note || '', exchange_key: m.exchange_key },
-    { kind: 'chuyen_khoan', amount: Math.abs(Number(m.amount) || 0), note: m.note || '', exchange_key: m.exchange_key },
+    { kind: 'tien_mat', amount: exchSigns(m.dir).tm * Math.abs(Number(m.amount) || 0), note: m.note || '', exchange_key: m.exchange_key },
+    { kind: 'chuyen_khoan', amount: exchSigns(m.dir).ck * Math.abs(Number(m.amount) || 0), note: m.note || '', exchange_key: m.exchange_key },
   ] : [{ kind: m.kind, amount: m.amount, note: m.note || '', ...(m.exchange_key ? { exchange_key: m.exchange_key } : {}) }]);
 }
 export function periodError(start, end) {

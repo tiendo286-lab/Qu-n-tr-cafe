@@ -23,7 +23,7 @@ export function makeCa(T, me) {
   // bước 120: ghi chú sửa thu chi (giống app__ca_move_notes)
   const mvLines = (ms) => { const out = []; const seenK = new Set(); (ms || []).filter((m) => !m.auto).forEach((m) => {
     if (!m.exchange_key) { out.push({ kind: m.kind, amount: Number(m.amount), note: m.note || '' }); return; }
-    if (seenK.has(m.exchange_key)) return; seenK.add(m.exchange_key); out.push({ kind: 'doi_tien', amount: Math.abs(Number(m.amount)), note: m.note || '' }); }); return out; };
+    if (seenK.has(m.exchange_key)) return; seenK.add(m.exchange_key); out.push({ kind: 'doi_tien', amount: Math.abs(Number(m.amount)), note: m.note || '' }); }); return out; };   // bước 133: 2 chiều — số tiền tuyệt đối
   const same = (a, b) => a.kind === b.kind && a.amount === b.amount && a.note === b.note;
   const cnt = (ms, l) => mvLines(ms).filter((x) => same(x, l)).length;
   const moveNotes = (id) => {
@@ -146,7 +146,7 @@ export function makeCa(T, me) {
         open_debts: T.shift_debts.filter((d) => d.branch_id === r.branch_id && d.report_id !== r.id && (d.report_id == null || before(rep(d.report_id))) && (!d.closed_at || d.closed_report_id === r.id))
           .map((d) => (d.report_id == null ? { ...d, by_ql: true, from_date: (d.created_at || '').slice(0, 10), from_shift: null, closed_by_name: name(d.closed_by) } : { ...d, from_date: rep(d.report_id).work_date, from_shift: rep(d.report_id).shift, closed_by_name: name(d.closed_by) })),
         checks: Object.fromEntries(T.shift_report_checks.filter((c) => c.report_id === r.id).map((c) => [c.item, { by: name(c.checked_by), at: c.checked_at }])),
-        check_items: ITEMS, forced_start: forced(r), can_edit: r.status === 'dang_chot', can_recon: !!me.perms.doi_soat && r.status === 'hoan_thanh', can_reopen: !!me.perms.mo_lai_phieu_ca && r.status === 'hoan_thanh' };
+        check_items: ITEMS, forced_start: forced(r), can_edit: r.status === 'dang_chot', can_recon: !!me.perms.doi_soat && r.status === 'hoan_thanh' && !(me.role !== 'chu' && new URLSearchParams(location.search).get('noassign')), recon_note: me.role !== 'chu' && new URLSearchParams(location.search).get('noassign') && r.status === 'hoan_thanh' ? 'Chỉ quản lý đối soát cơ sở này (Bảng phân công), Quản lý tổng hoặc Chủ kiểm tra / sửa được phiếu này.' : null, can_reopen: !!me.perms.mo_lai_phieu_ca && r.status === 'hoan_thanh' };
     },
     app_ca_save({ p_id, p }) {
       const r = needEdit(p_id); const f = forced(r);
@@ -162,7 +162,7 @@ export function makeCa(T, me) {
       const hIds = p.handover.map((h) => { if (!h.content.trim()) return null; if (h.id) { T.handover_items.find((x) => x.id === h.id).content = h.content.trim(); return h.id; } const id = nid('handover_items'); T.handover_items.push({ id, branch_id: r.branch_id, report_id: r.id, content: h.content.trim(), created_by: me.account_id, created_at: now() }); return id; });
       const keepD = p.debts.filter((d) => d.id).map((d) => d.id);
       T.shift_debts = T.shift_debts.filter((d) => d.report_id !== r.id || d.closed_at || keepD.includes(d.id));
-      const dIds = p.debts.map((d) => { if (!d.table_name.trim()) return null; if (d.id) { Object.assign(T.shift_debts.find((x) => x.id === d.id), { table_name: d.table_name, amount: d.amount || 0, note: d.note, ...(d.kind ? { kind: d.kind } : {}) }); return d.id; } const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: d.table_name, amount: d.amount || 0, note: d.note, kind: ['muon', 'ck'].includes(d.kind) ? d.kind : 'bill', created_by: me.account_id, created_at: now() }); return id; });
+      const dIds = p.debts.map((d) => { if (!d.table_name.trim()) return null; if (d.id) { Object.assign(T.shift_debts.find((x) => x.id === d.id), { table_name: d.table_name, amount: d.amount || 0, note: d.note, grp: d.grp || 'khach', ...(d.kind ? { kind: d.kind } : {}) }); return d.id; } const id = nid('shift_debts'); T.shift_debts.push({ id, branch_id: r.branch_id, report_id: r.id, table_name: d.table_name, amount: d.amount || 0, note: d.note, kind: ['muon', 'ck'].includes(d.kind) ? d.kind : 'bill', grp: ['khach', 'kho', 'khac'].includes(d.grp) ? d.grp : 'khach', created_by: me.account_id, created_at: now() }); return id; });
       return { at: now(), rev_start: r.rev_start, handover_ids: hIds, debt_ids: dIds };
     },
     app_ca_debt_kind({ p_debt, p_kind }) {   // bước 89
@@ -308,7 +308,7 @@ export function makeCa(T, me) {
         if (r.recon_status === 'hoan_thanh') r.recon_status = 'mo_lai';
         if (c.fields && Object.keys(c.fields).length) this.app_ca_recon_save({ p_id, p: c.fields, p_reason });
         for (const x of c.debts || []) {
-          if (x.op === 'set') this.app_ca_recon_debt_set({ p_report: p_id, p_debt: x.id, p_kind: x.kind, p_name: x.name, p_amount: x.amount, p_note: x.note, p_reason });
+          if (x.op === 'set') { const did = this.app_ca_recon_debt_set({ p_report: p_id, p_debt: x.id, p_kind: x.kind, p_name: x.name, p_amount: x.amount, p_note: x.note, p_reason, p_from: x.from }); if (['khach', 'kho', 'khac'].includes(x.grp)) T.shift_debts.find((d) => d.id === did).grp = x.grp; }
           else if (x.op === 'remove') this.app_ca_recon_debt_remove({ p_report: p_id, p_debt: x.id, p_reason });
           else throw new Error('Thao tác khách nợ không hợp lệ.');
         }
@@ -375,6 +375,13 @@ export function makeCa(T, me) {
       Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, collect_kind: p_kind, close_note: 'Quản lý ghi khi đối soát: ' + p_reason.trim() });
     },
     // bước 116 (migration 99): quản lý thêm / sửa / xoá Báo nợ khi đối soát
+    // bước 133: menu Người nợ = tên nhóm ② / ③ của cơ sở + Kho tổng
+    app_ca_debt_people({ p_branch }) {
+      const seen = new Map(); T.shift_debts.filter((d) => d.branch_id === p_branch && ['kho', 'khac'].includes(d.grp) && (d.table_name || '').trim()).forEach((d) => seen.set(d.table_name.trim().toLowerCase(), { name: d.table_name.trim(), grp: d.grp }));
+      seen.delete('kho tổng');
+      const rest = [...seen.values()]; if (!rest.length) rest.push({ name: 'Người nhà thử', grp: 'khac' });
+      return [...rest, { name: 'Kho tổng', grp: 'kho' }];
+    },
     app_ca_recon_debt_set({ p_report, p_debt, p_kind, p_name, p_amount, p_note, p_reason, p_from }) {
       const r = rep(p_report); if (r.status !== 'hoan_thanh') throw new Error('Phiếu chưa hoàn thành nên chưa đối soát được.');
       // bước 119: ca đã hoàn thành vẫn sửa được khách nợ (Sửa thẳng)

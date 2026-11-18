@@ -4,9 +4,9 @@ import { render as rerender, can } from './app.js';
 import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.18.1';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
-import { $, $$, dialog, flash, html, showSaved, str } from './ui.js';
+import { $, $$, dialog, flash, html, raw, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg } from './ca_chung.js?v=2026.11.18.1';
+import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from './ca_chung.js?v=2026.11.18.1';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -36,6 +36,7 @@ export async function renderNew(R0, P, SH) {
   const ORDER = [0, 1, 8, 11, 12];
   LABEL[11] = 'Tiền'; LABEL[12] = 'Kiểm tra';
   const categories = managerClose ? (await rpc('app_fin_types')) : [];
+  const debtPeople = await rpc('app_ca_debt_people', { p_branch: R0.branch_id }).catch(() => []);   // bước 133: menu Người nợ
   const STEPS = ORDER.map((k) => LABEL[k]);
   const firstTien = ORDER.findIndex((k) => TIEN.includes(k)); const lastViec = firstTien - 1;
   const partOf = (i) => (VIEC.includes(ORDER[i]) ? 'viec' : TIEN.includes(ORDER[i]) ? 'tien' : '');
@@ -107,7 +108,7 @@ export async function renderNew(R0, P, SH) {
       staff: V.staff.map((s) => ({ employee_id: s.employee_id, source: s.source, role: s.role || null, worked: !!s.worked, time_in: s.worked ? s.time_in || null : null,
         time_out: s.worked ? s.time_out || null : null, absent_reason: s.worked ? null : (s.absent_reason || '').trim() || null, note: s.note || null, cash_paid: s.pay_cash && s.worked ? parseMoney(s.cash_paid) : null })),
       handover: V.handover.filter((h) => !h.task_id).map((h) => ({ id: h.id || null, content: h.content || '' })),
-      debts: V.debts.map((d) => ({ id: d.id || null, table_name: d.table_name || '', amount: d.amount, note: d.note || '', kind: d.kind || 'bill' })),
+      debts: V.debts.map((d) => ({ id: d.id || null, table_name: d.table_name || '', amount: d.amount, note: d.note || '', kind: d.kind || 'bill', grp: d.grp || 'khach' })),
       goods: (R.goods || []).map((g) => ({ item: g.item, qty: g.qty })), goods_status: R.goods_status || null, goods_note: R.goods_note || null,
     };
   }
@@ -244,7 +245,8 @@ export async function renderNew(R0, P, SH) {
       return html`${V.debts.map((d, i) => html`<div class="sc-row cm-debt"><span class="sc-kt"><b>Báo nợ</b><span class="sc-seg" role="group" aria-label="Loại nợ">${[['muon', 'TM'], ['ck', 'CK'], ['bill', 'HĐ']].map(([k, l]) => html`<button type="button" data-dk="${i}" data-v="${k}" class="${(d.kind || '') === k ? 'on' : ''}" aria-pressed="${(d.kind || '') === k}" ${d.closed_at ? 'disabled' : ''}>${l}</button>`)}</span></span>
           <input class="input money" data-db="${i}" data-k="amount" inputmode="numeric" value="${d.amount ? fmt(d.amount) : ''}" placeholder="Số tiền" aria-label="Số tiền nợ" ${d.closed_at ? 'disabled' : ''}>
           ${d.closed_at ? html`<span class="pill ok">Đã thu</span>` : html`<button type="button" class="btn secondary danger" data-dbx="${i}" aria-label="Xóa khoản nợ">×</button>`}
-          <div class="sc-full sc-two"><input class="input" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Bàn / tên khách" aria-label="Bàn hoặc tên khách" ${d.closed_at ? 'disabled' : ''}><input class="input" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" ${d.closed_at ? 'disabled' : ''}></div></div>`)}
+          <div class="sc-full sc-two">${raw(debtWhoSel(d, debtPeople, `data-dwho="${i}" ${d.closed_at ? 'disabled' : ''}`))}${d.grp && d.grp !== 'khach' ? '' : html`<input class="input" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Bàn / tên khách" aria-label="Bàn hoặc tên khách" ${d.closed_at ? 'disabled' : ''}>`}<input class="input" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" ${d.closed_at ? 'disabled' : ''}></div>
+          ${d.grp && d.grp !== 'khach' ? html`<span class="sc-full st-meta">Vào <b>${d.grp === 'kho' ? '② Nợ kho tổng' : '③ Nợ khác'}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ</span>` : ''}</div>`)}
         ${V.debts.length ? html`<span class="st-meta"><b>TM / CK</b>: bàn đã bấm thanh toán tiền mặt / chuyển khoản trên Fabi mà khách chưa trả (hoặc khách mượn tiền mặt). <b>HĐ</b>: Fabi ghi nợ. Ca sau được nhắc thu.</span>` : ''}
         ${V.debts.length || pd ? html`<div class="alert ${billSum() === pd ? 'ok' : 'warn'}" id="cm-debt-sum" style="margin:0">${billSum() === pd ? '✅' : '⚠️'} Nợ HĐ đã ghi <b>${fmt(billSum())}</b> ${billSum() === pd ? '=' : '≠'} Nợ trên phiếu Fabi (${fmt(pd)})
           ${c.loanOut ? html`<br>Nợ TM <b>${fmt(c.loanOut)}</b> → trừ tiền két` : ''}${c.ckOut ? html`<br>Nợ CK <b>${fmt(c.ckOut)}</b> → trừ tiền hotline` : ''}</div>` : ''}`;
@@ -290,18 +292,18 @@ export async function renderNew(R0, P, SH) {
   function ledgerRow(m, i) {
     const exchange = m.kind === 'doi_tien'; const positive = Number(m.amount) > 0 || m.sign === 1;
     return html`<div class="sc-row ${exchange ? 'sc-exchange' : ''}">
-      ${exchange ? html`<strong>Khách CK rút tiền mặt</strong>` : html`<span class="sc-kt">${kindSeg(positive ? 'thu' : 'chi', m.kind === 'chuyen_khoan' ? 'ck' : 'tm')}<select data-mkind="${i}" hidden aria-hidden="true"><option value="chi_tm" ${!positive && m.kind === 'tien_mat' ? 'selected' : ''}>Chi · tiền mặt</option><option value="chi_ck" ${!positive && m.kind === 'chuyen_khoan' ? 'selected' : ''}>Chi · chuyển khoản</option><option value="thu_tm" ${positive && m.kind === 'tien_mat' ? 'selected' : ''}>Thu · tiền mặt</option><option value="thu_ck" ${positive && m.kind === 'chuyen_khoan' ? 'selected' : ''}>Thu · chuyển khoản</option></select></span>`}
+      ${exchange ? html`<span class="sc-kt"><strong>${EXCH_LABEL}</strong><span class="sc-seg" role="group" aria-label="Chiều luân chuyển">${EXCH_DIRS.map(([k, l]) => html`<button type="button" data-xdir="${i}" data-v="${k}" class="${(m.dir || 'tm_ck') === k ? 'on' : ''}" aria-pressed="${(m.dir || 'tm_ck') === k}">${l}</button>`)}</span></span>` : html`<span class="sc-kt">${kindSeg(positive ? 'thu' : 'chi', m.kind === 'chuyen_khoan' ? 'ck' : 'tm')}<select data-mkind="${i}" hidden aria-hidden="true"><option value="chi_tm" ${!positive && m.kind === 'tien_mat' ? 'selected' : ''}>Chi · tiền mặt</option><option value="chi_ck" ${!positive && m.kind === 'chuyen_khoan' ? 'selected' : ''}>Chi · chuyển khoản</option><option value="thu_tm" ${positive && m.kind === 'tien_mat' ? 'selected' : ''}>Thu · tiền mặt</option><option value="thu_ck" ${positive && m.kind === 'chuyen_khoan' ? 'selected' : ''}>Thu · chuyển khoản</option></select></span>`}
       <input class="input money" data-mv="${i}" data-k="amount" inputmode="numeric" aria-label="Số tiền khoản ${i + 1}" value="${m.amount ? fmt(Math.abs(m.amount)) : ''}" placeholder="Số tiền">
       <button type="button" class="btn secondary danger" data-mx="${i}" aria-label="Xóa khoản ${i + 1}">×</button>
-      <input class="input sc-full" data-mv="${i}" data-k="note" value="${m.note || ''}" aria-label="Nội dung khoản ${i + 1}" placeholder="${exchange ? 'Tên khách / ghi chú đổi tiền' : 'Thu / chi việc gì'}">
-      ${exchange ? html`<small class="sc-full">Tiền mặt −${fmt(Math.abs(m.amount || 0))} · chuyển khoản +${fmt(Math.abs(m.amount || 0))} · không tính thu chi của quán.</small>` : html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary" data-tothu="${i}">Thu nợ</button><button type="button" class="btn sm secondary" data-tono="${i}">Báo nợ</button><button type="button" class="btn sm secondary" data-exchange="${i}">Khách CK rút tiền mặt</button></div>`}
+      <input class="input sc-full" data-mv="${i}" data-k="note" value="${m.note || ''}" aria-label="Nội dung khoản ${i + 1}" placeholder="${exchange ? 'Nội dung luân chuyển (vd khách CK rút TM, rút tiền về két)' : 'Thu / chi việc gì'}">
+      ${exchange ? html`<small class="sc-full">Tiền mặt ${exchSigns(m.dir).tm < 0 ? '−' : '+'}${fmt(Math.abs(m.amount || 0))} · chuyển khoản ${exchSigns(m.dir).ck < 0 ? '−' : '+'}${fmt(Math.abs(m.amount || 0))} · không tính thu chi của quán.</small>` : html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary" data-tothu="${i}">Thu nợ</button><button type="button" class="btn sm secondary" data-tono="${i}">Báo nợ</button><button type="button" class="btn sm secondary" data-exchange="${i}">Luân chuyển TM – CK</button></div>`}
       ${managerClose && !exchange ? html`<label class="sc-full">Nhóm <select class="input" data-mcat="${i}" aria-label="Nhóm khoản ${i + 1}"><option value="">— Chọn nhóm —</option>${cats().filter((c) => c.active && c.kind === (positive ? 'thu' : 'chi')).map((c) => html`<option value="${c.id}" ${String(m.category) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}<option value="x" ${m.category === 'x' ? 'selected' : ''}>Không tính</option></select></label>` : ''}
     </div>`;
   }
   function commonMoney() {
-    const c = money(); const ex = sum(V.moves.filter((m) => m.kind === 'doi_tien'), (m) => Math.abs(Number(m.amount)));
+    const c = money(); const ex = sum(V.moves.filter((m) => m.kind === 'doi_tien'), (m) => exchSigns(m.dir).ck * Math.abs(Number(m.amount)));   // CK + (TM ngược dấu)
     const ordinary = (kind, positive) => sum(V.moves.filter((m) => m.kind === kind && (positive ? Number(m.amount) > 0 : Number(m.amount) < 0)), (m) => m.amount);
-    return shiftMoneyTable({ rows: [['Số dư đầu ca', first ? GOI_DAU : V.f.ipos_opening, null, true], ['+ Doanh thu Fabi', V.f.pos_cash, V.f.pos_transfer], ['+ Thu nợ', c.colTM, c.colCK], ['+ Thu', ordinary('tien_mat', true), ordinary('chuyen_khoan', true)], ['− Chi', ordinary('tien_mat', false), ordinary('chuyen_khoan', false)], ['− Báo nợ', -c.loanOut, -c.ckOut], ['± Khách CK rút tiền mặt', -ex, ex], ['− Lương tiền mặt', -c.sal, null]], expected: [c.tmLeft === null ? null : V.f.cash_counted - c.tmLeft, V.f.pos_transfer === null ? null : c.ckExp], actual: [V.f.cash_counted, V.reported_transfer], gap: [c.tmLeft, c.ckLeft] });
+    return shiftMoneyTable({ rows: [['Số dư đầu ca', first ? GOI_DAU : V.f.ipos_opening, null, true], ['+ Doanh thu Fabi', V.f.pos_cash, V.f.pos_transfer], ['+ Thu nợ', c.colTM, c.colCK], ['+ Thu', ordinary('tien_mat', true), ordinary('chuyen_khoan', true)], ['− Chi', ordinary('tien_mat', false), ordinary('chuyen_khoan', false)], ['− Báo nợ', -c.loanOut, -c.ckOut], ['± Luân chuyển TM – CK', -ex, ex], ['− Lương tiền mặt', -c.sal, null]], expected: [c.tmLeft === null ? null : V.f.cash_counted - c.tmLeft, V.f.pos_transfer === null ? null : c.ckExp], actual: [V.f.cash_counted, V.reported_transfer], gap: [c.tmLeft, c.ckLeft] });
   }
   function gapChoices() {
     if (!managerClose) return '';
@@ -333,7 +335,7 @@ export async function renderNew(R0, P, SH) {
       ${(R.open_debts || []).filter((d) => d.closed_report_id === R.id).map(paidRow)}
       ${V.moves.map(ledgerRow)}
       ${B[3]()}
-      <div class="sc-actions"><button type="button" class="btn secondary" id="cm-pick-debt">+ Thu nợ</button><button type="button" class="btn secondary" data-new-move="1">+ Thu</button><button type="button" class="btn secondary" data-new-move="-1">+ Chi</button><button type="button" class="btn secondary" id="cm-add-debt">+ Báo nợ</button><button type="button" class="btn secondary" id="cm-exchange">+ Khách CK rút tiền mặt</button></div>
+      <div class="sc-actions"><button type="button" class="btn secondary" id="cm-pick-debt">+ Thu nợ</button><button type="button" class="btn secondary" data-new-move="1">+ Thu</button><button type="button" class="btn secondary" data-new-move="-1">+ Chi</button><button type="button" class="btn secondary" id="cm-add-debt">+ Báo nợ</button><button type="button" class="btn secondary" id="cm-exchange">+ Luân chuyển TM – CK</button></div>
     </section>
     <section class="sc-block"><h2>Tiền thực tế</h2>${B[4]()}<span class="st-meta">Tiền mặt đếm được là ô Tổng tiền trên phiếu Fabi.</span><label>Ghi chú cho quản lý (không bắt buộc)<textarea class="input" id="cm-diff-note" rows="2">${V.diff_note}</textarea></label></section>
     <div id="cm-gap-choices">${gapChoices()}</div>
@@ -564,6 +566,12 @@ export async function renderNew(R0, P, SH) {
           soft();
         }));
         $$('[data-dbx]', root).forEach((b) => b.addEventListener('click', () => { V.debts.splice(Number(b.dataset.dbx), 1); draw(); }));
+        $$('[data-dwho]', root).forEach((sel) => sel.addEventListener('change', () => {   // bước 133: chọn người nợ → đúng nhóm Công nợ
+          const d = V.debts[Number(sel.dataset.dwho)]; const o = sel.selectedOptions[0];
+          if (!sel.value) { if (d.grp && d.grp !== 'khach') d.table_name = ''; d.grp = 'khach'; }
+          else { if (!d.note && d.table_name && (!d.grp || d.grp === 'khach')) d.note = d.table_name; d.table_name = sel.value; d.grp = o.dataset.grp || 'khac'; }
+          draw();
+        }));
         $$('[data-unpay]', root).forEach((b) => b.addEventListener('click', () => { const sel = $(`[data-paid="${b.dataset.unpay}"]`, root); if (sel) { sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); } }));
         $$('[data-paid]', root).forEach((s) => s.addEventListener('change', () => busy(async () => {
           await save();
@@ -592,13 +600,14 @@ export async function renderNew(R0, P, SH) {
         bindCkNote(); bindCkMv();
         // Thu / chi / đổi tiền dùng chung một danh sách.
         $$('[data-new-move]', root).forEach((b) => b.addEventListener('click', () => { V.moves.push({kind:'tien_mat',amount:null,note:'',sign:Number(b.dataset.newMove)}); draw(); }));
-        $('#cm-exchange')?.addEventListener('click', () => { V.moves.push({kind:'doi_tien',amount:null,note:'',exchange_key:newExchangeKey()}); draw(); });
+        $('#cm-exchange')?.addEventListener('click', () => { V.moves.push({kind:'doi_tien',amount:null,note:'',exchange_key:newExchangeKey(),dir:'tm_ck'}); draw(); });
+        $$('[data-xdir]', root).forEach((b) => b.addEventListener('click', () => { V.moves[Number(b.dataset.xdir)].dir = b.dataset.v; draw(); }));
         $$('[data-tono]', root).forEach((x) => x.addEventListener('click', () => {   // bước 116: khoản Thu / Chi → Báo nợ (TM → khách mượn tiền mặt, CK → nợ chuyển khoản)
           const i = Number(x.dataset.tono); const m = V.moves[i];
           V.moves.splice(i, 1); V.debts.push({ table_name: (m.note || '').trim(), amount: m.amount ? Math.abs(Number(m.amount)) : null, note: '', kind: m.kind === 'chuyen_khoan' ? 'ck' : 'muon' });
           if (!V.moves.length) V.noMoves = false; draw(); showSaved('Đã đổi thành Báo nợ — kiểm tra tên khách và TM / CK.');
         }));
-        $$('[data-exchange]', root).forEach((x) => x.addEventListener('click', () => { const m = V.moves[x.dataset.exchange]; m.kind = 'doi_tien'; m.amount = Math.abs(m.amount || 0); m.exchange_key = newExchangeKey(); delete m.category; draw(); }));
+        $$('[data-exchange]', root).forEach((x) => x.addEventListener('click', () => { const m = V.moves[x.dataset.exchange]; m.dir = (m.kind === 'tien_mat') === (Number(m.amount) > 0) ? 'ck_tm' : 'tm_ck'; m.kind = 'doi_tien'; m.amount = Math.abs(m.amount || 0); m.exchange_key = newExchangeKey(); delete m.category; draw(); }));
         $$('[data-mkind]', root).forEach((x) => x.addEventListener('change', () => { const m = V.moves[x.dataset.mkind]; m.kind = x.value.endsWith('ck') ? 'chuyen_khoan' : 'tien_mat'; m.sign = x.value.startsWith('thu') ? 1 : -1; m.amount = m.amount == null ? null : Math.abs(m.amount) * m.sign; delete m.category; draw(); }));
         root.onchange = (e) => { const x = e.target.closest('[data-gap-action]'); if (x) { const c = money(); V.gaps[x.dataset.gapAction] = {action:x.value, expected:x.dataset.gapAction === 'tien_mat' ? c.tmLeft : c.ckLeft}; draw(); } };
         $$('[data-mcat]', root).forEach((x) => x.addEventListener('change', () => { V.moves[x.dataset.mcat].category = x.value; soft(); }));
