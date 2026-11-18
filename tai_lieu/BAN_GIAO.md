@@ -1,13 +1,13 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 142 (Việc hôm nay chia nhóm Vận hành / Nhân sự / Khác). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 142 (Việc hôm nay chia nhóm Vận hành / Nhân sự / Khác) và sửa lỗi web 2026.11.18.12 (Quản lý sửa được ô của mục web tự đối soát). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.11** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Web: **2026.11.18.12** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
 - Máy chủ: đã chạy tới tệp **126** (`125_viec_hom_nay_sua.sql` sửa `app_today_more`; `126_sua_pc_tick_bi_danh.sql` sửa gấp `app__pc_tick`: bí danh bảng "sc" trùng biến record → Công việc lỗi mỗi khi có việc con hàng hoá mới, hỏng 15:18–15:36 ngày 18/11). **Bài học:** trong plpgsql không đặt bí danh bảng trùng tên biến.
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
 

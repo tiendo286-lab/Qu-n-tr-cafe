@@ -673,6 +673,7 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 ## 5r36. Quản lý sửa phiếu web đã tự đối soát — CHỐT 17/11/2026, ĐÃ LÀM (bước 129, máy chủ `113_ql_sua_phieu_tu_doi_soat.sql`, web 2026.11.17.13)
 - Trước: phiếu có mục web tự đối soát (khớp file Fabi + ngân hàng) thì chỉ Chủ Lưu được ở bước Tiền — quản lý bấm Mở để sửa, gõ xong Lưu bị từ chối.
 - Nay (anh chọn): **Chủ, Quản lý tổng và quản lý đối soát của cơ sở đó** (ô Đối soát ca trong Bảng phân công) đều Lưu / Sửa thẳng được; lý do bắt buộc, lịch sử như cũ; **Chủ nhận thông báo** "Quản lý sửa phiếu web đã tự đối soát" (ai, ca nào, lý do). Quản lý cơ sở khác vẫn bị chặn. Nút "Mở khoá" ở Đèn đối soát vẫn chỉ Chủ.
+- **Sửa lỗi 18/11 (web 2026.11.18.12):** bước 129 mới sửa máy chủ; giao diện vẫn khoá ô thu chi / báo nợ / số Fabi của mục web tự đối soát với người không phải Chủ dù đã bấm ✎ Mở để sửa (anh Tùng — Quản lý tổng — gặp ở phiếu LHP Sáng 9/11). Nay ai bấm được Mở để sửa thì sửa được mọi ô như Chủ. Khoản báo nợ **đã thu** vẫn không sửa được (quy định cũ, với cả Chủ).
 - Ghi chú: kho tổng / người nhà vay tiền của ca → **Báo nợ CK / TM** đúng tên rồi đánh dấu Gia đình ở Công nợ (không có mục Cho vay riêng — bỏ từ bước 85).
 
 ## 5r37. Chỉ đủ file Fabi + số dư ngân hàng mới đối soát — ĐÃ LÀM 17/11/2026 (bước 131, máy chủ `115_tra_ve_cho_ke_toan.sql`, chỉ máy chủ)
