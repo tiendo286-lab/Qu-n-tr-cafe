@@ -49,6 +49,13 @@ export default async ({ visit, sleep, out }) => {
     assert(!visible(1) && visible(2) && !visible(3), 'Lọc đã giới thiệu chưa đúng.');
     chooseFilter('new');
     assert(!visible(1) && !visible(2) && visible(3), 'Lọc chưa giới thiệu chưa đúng.');
+    // bước 140: lọc theo 3 mức thực hành
+    const levelLabels = ['lv_tb', 'lv_kha', 'lv_tot'].map((v) => root.querySelector(`#dt-item-filter option[value="${v}"]`)?.textContent);
+    assert(levelLabels.join('|') === 'Thực hành · Trung bình|Thực hành · Khá|Thực hành · Tốt', 'Thiếu bộ lọc 3 mức thực hành: ' + levelLabels.join('|'));
+    chooseFilter('lv_tot');
+    assert(visible(1) && !visible(2) && !visible(3), 'Lọc mức Tốt chưa đúng.');
+    chooseFilter('lv_kha');
+    assert(!visible(1) && !visible(2) && root.querySelector('#dt-item-filter-count').textContent === 'Không có hạng mục phù hợp', 'Lọc mức Khá chưa đúng.');
     chooseFilter('done');
     assert(visible(1) && !visible(2) && !visible(3), 'Lọc hoàn thành chưa đúng.');
     const initialItem = root.querySelector('.dt-item[data-no="1"]');
@@ -81,6 +88,8 @@ export default async ({ visit, sleep, out }) => {
       && root.querySelector('.dt-item[data-no="2"] .it-by').textContent, 'Chưa lưu thực hành cùng mức Khá.');
     chooseFilter('done');
     assert(visible(1) && visible(2) && !visible(3), 'Mục vừa chọn mức chưa chuyển vào Hoàn thành.');
+    chooseFilter('lv_kha');
+    assert(!visible(1) && visible(2) && !visible(3), 'Mục vừa chọn mức Khá chưa hiện trong lọc Khá.');
     chooseFilter('all');
 
     assert(!root.querySelector('#dt-status').textContent.includes('bổ sung'), 'Giao riêng đã chuyển nhầm sang đào tạo bổ sung.');

@@ -5,7 +5,7 @@ import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.8';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.9';
 import { STATUS as TASK_STATUS } from './viec.js';
 
 const ITEM_FILTERS = {
@@ -14,6 +14,10 @@ const ITEM_FILTERS = {
   introduced: 'Đã giới thiệu · chưa hoàn thành',
   phase2: 'Giai đoạn 2',
   done: 'Hoàn thành',
+  // bước 140: lọc theo mức thực hành hiện tại của hạng mục
+  lv_tb: 'Thực hành · Trung bình',
+  lv_kha: 'Thực hành · Khá',
+  lv_tot: 'Thực hành · Tốt',
 };
 const itemFiltersBySheet = new Map();
 
@@ -173,7 +177,8 @@ export async function render({ params }) {
           let matches = 0;
           $$('.dt-item', day).forEach((row) => {
             const stage = row.dataset.phaseTwo === '1' ? 'phase2' : row.classList.contains('done') ? 'done' : $('.it-intro', row).checked ? 'introduced' : 'new';
-            row.hidden = filter.value !== 'all' && filter.value !== stage;
+            const f = filter.value;
+            row.hidden = f.startsWith('lv_') ? $('.it-level', row).value !== f.slice(3) : f !== 'all' && f !== stage;
             if (!row.hidden) matches++;
           });
           day.hidden = filter.value !== 'all' && matches === 0;

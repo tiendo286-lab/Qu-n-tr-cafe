@@ -4,8 +4,8 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, ROLE_LABELS, html } from '../ui.js';
-import { gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.18.8';
-import { GROUP_LABEL, collectWork } from '../hom_nay_viec.js?v=2026.11.18.8';
+import { gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.18.9';
+import { GROUP_LABEL, collectWork } from '../hom_nay_viec.js?v=2026.11.18.9';
 import { KA_STATUS } from './phieu_ca.js';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });

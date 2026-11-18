@@ -2,7 +2,7 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, flash, html } from '../ui.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.8';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.9';
 
 const PROGRAMS = [['chay_ban', 'Chạy bàn'], ['pha_che', 'Pha chế']];
 
