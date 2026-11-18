@@ -80,7 +80,7 @@ export default async ({ sleep, out }) => {
   ok(txt(steps()[1]).includes('2.072.000'), '15. bước ② hiện tiền mặt quản lý thu (thu theo ca)');
   ok(steps()[2].querySelectorAll('.stc-c4').length === 2, '15. bước ③ có 2 ô Tiền mặt / Chuyển khoản');
   cell(182).click(); await sleep(400);
-  ok($$('.stc-dsp button').length >= 3 && $$('.stc-dsp button').every((b) => b.disabled), '16. nút Chốt / Sửa theo Fabi / ghi sai đều tắt (' + $$('.stc-dsp button').length + ' nút)');
+  ok(!!$('.stc-dsp [data-dsclose][disabled]') && !!$('.stc-dsp [data-dsfabi]:not([disabled])'), '16. còn ô đỏ: Chốt tiền ca tắt, Sửa theo Fabi bấm được (đợt 4)');
   cell(172).click(); await sleep(400);
   const ck = $('.stc-dsp .stc-c4[data-k="ck"]');
   ok(!!ck && txt(ck).includes('⏳') && !ck.classList.contains('red'), '17. ca chờ kế toán: ô Chuyển khoản ⏳, không đỏ');

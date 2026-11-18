@@ -76,9 +76,12 @@ export function caChecks(ca, link) {
   const f = ca.fabi || {}, nv = ca.nv || {}, has = !!f.has;
   const open = has ? Number(f.opening ?? 0) : Number(nv.opening ?? 0);
   const exp = link ? link.expOpen : open;
-  const cmp = (k, name, a, b, x, y) => ({ k, name, a, b, ...(x === y ? { st: 'ok', txt: '✓ Khớp' } : { st: 'red', txt: `🔴 Lệch ${signed(x - y)}` }) });
+  const cmp = (k, name, a, b, x, y) => ({ k, name, a, b, ...(x === y ? { st: 'ok', txt: '✓ Khớp' } : { st: 'red', txt: `🔴 Lệch ${signed(x - y)}`, fix: 'fabi' }) });
   const mo = { k: 'mo', name: 'Tiền mở ca', a: `NV ghi ${fmt(nv.opening ?? 0)} · Fabi ${has ? fmt(f.opening ?? 0) : 'chưa có'}`, b: `Phải là ${fmt(exp)}`,
-    ...(open === exp ? { st: 'ok', txt: '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca` }) };
+    // đợt 4: 2 tầng — NV ghi ↔ Fabi (Sửa theo Fabi), rồi Fabi ↔ phải là (ca nào ghi sai ca đó chịu)
+    ...(has && Number(nv.opening ?? 0) !== Number(f.opening ?? 0) ? { st: 'red', txt: `🔴 NV ghi khác Fabi ${signed(Number(nv.opening ?? 0) - Number(f.opening ?? 0))}`, fix: 'fabi' }
+      : ca.blame ? { st: 'ok', txt: `✓ ${ca.blame.who === 'nay' ? 'Ca này chịu' : 'Ca trước chịu'} ${signed(Number(ca.blame.diff))}`, blame: ca.blame }
+      : open === exp ? { st: 'ok', txt: '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca`, fix: 'blame' }) };
   const dt = has ? cmp('dt', 'Doanh thu', `NV báo ${fmt(nv.revenue ?? 0)}`, `Fabi ${fmt(f.revenue ?? 0)}`, Number(nv.revenue ?? 0), Number(f.revenue ?? 0))
     : { k: 'dt', name: 'Doanh thu', a: `NV báo ${fmt(nv.revenue ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' };
   const no = has ? cmp('no', 'Nợ', `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, `Fabi ${fmt(f.debt ?? 0)}`, Number(nv.debt ?? 0), Number(f.debt ?? 0))

@@ -26,6 +26,15 @@ export function makeStc(T, me) {
     return [{ id: `t:${id}:chi`, date: p.date, ca_id: null, book: 'chi', pm: o, col: 'lc', amount: Number(p.amount), title: t, meta: 'Luân chuyển quỹ', src: 'transfer', can_edit: true },
       { id: `t:${id}:thu`, date: p.date, ca_id: null, book: 'thu', pm: i, col: 'lc', amount: Number(p.amount), title: t, meta: 'Luân chuyển quỹ', src: 'transfer', can_edit: true }]; };
   const amountOk = (a) => { if (!(Number(a) > 0)) throw new Error('Nhập số tiền lớn hơn 0.'); };
+  const SH = ['Sáng', 'Chiều', 'Tối'];
+  const dsCa = (rid, open) => {
+    if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này đối soát tiền được.');
+    const c = st().cas.find((x) => x.id === Number(rid)); if (!c) throw new Error('Không tìm thấy ca.');
+    if (open && c.recon_money_done) throw new Error('Ca đã chốt tiền — bấm "Mở lại chốt" trước khi sửa.'); return c;
+  };
+  const expOpen = (c) => { const i = SH.indexOf(c.shift); if (i <= 0) return { exp: 1000000, prev: null };
+    const prev = st().cas.find((x) => x.date === c.date && x.shift === SH[i - 1]); if (!prev) return { exp: null, prev: null };
+    return { exp: prev.cash_mode === 'ca' ? 1000000 : Number(prev.real_tm ?? 0), prev }; };
   const gapAll = () => items().filter((x) => x.gap && !x.void);
   const gapIt = (rid, kind) => {
     if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Bạn không được xử lý lệch tiền của cơ sở này.');
@@ -224,6 +233,46 @@ export function makeStc(T, me) {
     app_ext_entry_delete({ p_id }) {
       if (T.ext_entries.some((e) => e.id === p_id)) base.app_ext_entry_delete({ p_id });
       const l = ex().items; const i = l.findIndex((x) => x.id === 'x:' + p_id); if (i >= 0) l.splice(i, 1);
+    },
+    // đợt 4: Đối soát tiền 3 bước (giống app_stc_ds_* trên máy chủ)
+    app_stc_ds_fabi({ p_report, p_field, p_name }) {
+      const c = dsCa(p_report, true); const f = c.fabi;
+      if (!f?.has) throw new Error('Chưa có file Fabi của ca này — chờ kế toán tải lên.');
+      if (p_field === 'mo') { c.nv.opening = f.opening; c.start_tm = f.opening; }
+      else if (p_field === 'dt') c.nv.revenue = f.revenue;
+      else if (p_field === 'no') { const diff = f.debt - c.nv.debt; c.nv.debt = f.debt;
+        if (diff > 0 && String(p_name || '').trim()) st().open_debts.push({ id: 'd:' + (++N), who: p_name.trim(), kind: 'bill', amount: diff, left: diff, date: c.date, from: `ca ${c.shift} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`, no_remind: false }); }
+      else throw new Error('Ô cần sửa không hợp lệ.');
+    },
+    app_stc_ds_blame({ p_report, p_who, p_reason }) {
+      const c = dsCa(p_report, true); const r = reason(p_reason); if (c.blame) throw new Error('Đã chọn ca chịu lệch mở ca — huỷ trước khi chọn lại.');
+      const { exp, prev } = expOpen(c); const diff = Number(c.fabi.opening) - exp; if (!diff) throw new Error('Tiền mở ca đã đúng — không cần chọn.');
+      if (p_who === 'truoc') { if (!prev) throw new Error('Ca đầu ngày không có ca trước — chọn "Ca này ghi sai".');
+        if (prev.cash_mode === 'ca') throw new Error('Ca trước thu theo ca (đã giao lại 1.000.000) — chọn "Ca này ghi sai".'); prev.real_tm = Number(prev.real_tm || 0) + diff; }
+      else c.start_tm = exp;
+      c.blame = { who: p_who, diff, reason: r, by: by() };
+    },
+    app_stc_ds_blame_undo({ p_report, p_reason }) {
+      const c = dsCa(p_report, true); reason(p_reason); if (!c.blame) throw new Error('Chưa chọn ca chịu lệch mở ca.');
+      if (c.blame.who === 'nay') c.start_tm = Number(c.start_tm) + c.blame.diff; else { const { prev } = expOpen(c); prev.real_tm -= c.blame.diff; }
+      c.blame = null;
+    },
+    app_stc_ds_cash({ p_report, p_mode, p_counted }) {
+      const c = dsCa(p_report, true); if (!['ca', 'ngay'].includes(p_mode)) throw new Error('Chọn thu theo ca hay theo ngày.');
+      c.cash_mode = p_mode; if (p_mode === 'ca') c.ql_counted = p_counted ?? null; else { c.ql_counted = null; if (p_counted != null) c.real_tm = p_counted; }
+    },
+    app_stc_ds_close({ p_report }) {
+      const c = dsCa(p_report, true);
+      if (c.kt_wait || c.bank_ck == null || !c.fabi?.has) throw new Error('Chờ kế toán (file Fabi / số ngân hàng) rồi mới chốt.');
+      const { exp } = expOpen(c); const f = c.fabi;
+      if (c.nv.opening !== f.opening || (!c.blame && exp != null && f.opening !== exp) || c.nv.revenue !== f.revenue || c.nv.debt !== f.debt) throw new Error('Còn ô đỏ ở bước ① (tiền mở ca / doanh thu / nợ) — sửa xong mới chốt.');
+      if (c.cash_mode === 'ca' && c.ql_counted == null) throw new Error('Nhập tiền mặt thực nhận ở bước ② trước.');
+      c.recon_money_done = true; items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:') && !x.void) x.can_edit = true; });
+      return { tm: 0, ck: 0 };
+    },
+    app_stc_ds_reopen({ p_report, p_reason }) {
+      const c = dsCa(p_report, false); reason(p_reason); c.recon_money_done = false;
+      items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
     },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;

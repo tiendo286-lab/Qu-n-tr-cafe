@@ -94,6 +94,8 @@ export async function render({ params }) {
           else addDialog(D, P.tab === 'thu' ? 'thu' : 'chi');
           return;
         }
+        const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen]');
+        if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
         const ds = ev.target.closest('[data-dsca]');
         if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); return; }
         const t = ev.target.closest('[data-day],[data-ca],.stc-all,.stc-none'); if (!t || !root.contains(t)) return;
@@ -611,6 +613,43 @@ function tongPage(D) {
       </aside></div>`;
 }
 let DS_SEL = null;   // ca đang mở ở tab Đối soát tiền
+// đợt 4: các nút của phiếu tiền (gọi app_stc_ds_* — máy chủ kiểm quyền và luật)
+function dsAct(D, b) {
+  const c = (D.cas || []).find((x) => String(x.id) === String(DS_SEL)); if (!c) return;
+  const title = `Ca ${c.shift} ${dm(c.date)}`;
+  const ask = (h, body, needReason, fn, msg) => {
+    const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${h} · ${title}</h2>${body}
+      <label class="field"><span>Lý do${needReason ? ' (bắt buộc)' : ' (không bắt buộc)'}</span><input class="input" name="reason"></label>
+      <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+    open(d, async () => { if (needReason && !val(d, 'reason')) throw new Error('Ghi lý do.'); await fn(d); after(msg); });
+  };
+  const run = async (fn, msg) => { try { await fn(); after(msg); } catch (e) { showSaved(e.message, true); } };
+  const f = c.fabi || {}, nv = c.nv || {};
+  if (b.dataset.dsfabi) {
+    const k = b.dataset.dsfabi; const L = { mo: ['Tiền mở ca', nv.opening, f.opening], dt: ['Doanh thu', nv.revenue, f.revenue], no: ['Nợ', nv.debt, f.debt] }[k];
+    const more = k === 'no' && Number(f.debt) > Number(nv.debt);
+    ask('Sửa theo Fabi', html`<div class="st-meta">${L[0]}: nhân viên ghi ${fmt(L[1] ?? 0)} → Fabi ${fmt(L[2] ?? 0)}. Web sửa số nhân viên ghi theo Fabi, lưu số cũ → mới và người sửa.</div>
+      ${more ? html`<label class="field"><span>Người nợ phần chênh ${fmt(Number(f.debt) - Number(nv.debt))} (để trống nếu không thêm báo nợ)</span><input class="input" name="name" list="stc-people"><datalist id="stc-people">${(D.people || []).map((p) => html`<option value="${p.name}"></option>`)}</datalist></label>` : ''}`,
+      false, (d) => rpc('app_stc_ds_fabi', { p_report: c.id, p_field: k, p_name: more ? val(d, 'name') || null : null, p_reason: val(d, 'reason') || null }), 'Đã sửa theo Fabi');
+  } else if (b.dataset.dsblame) {
+    const who = b.dataset.dsblame;
+    ask(who === 'nay' ? 'Ca này ghi sai tiền mở ca' : 'Ca trước ghi sai', html`<div class="st-meta">${who === 'nay' ? 'Tiền đầu ca của ca này tính bằng số phải là — phần lệch thành phiếu chênh lệch của ca này.'
+      : 'Tiền thực tế ca trước để lại tính bằng số mở ca của ca này — phần lệch thành phiếu chênh lệch của ca trước.'}</div>`, true,
+      (d) => rpc('app_stc_ds_blame', { p_report: c.id, p_who: who, p_reason: val(d, 'reason') }), 'Đã chọn ca chịu lệch mở ca');
+  } else if (b.dataset.dsunblame) {
+    ask('Huỷ chọn ca chịu lệch mở ca', html`<div class="st-meta">Tiền mở ca trở lại như trước khi chọn.</div>`, true, (d) => rpc('app_stc_ds_blame_undo', { p_report: c.id, p_reason: val(d, 'reason') }), 'Đã huỷ chọn');
+  } else if (b.dataset.dsmode) {
+    run(() => rpc('app_stc_ds_cash', { p_report: c.id, p_mode: b.dataset.dsmode, p_counted: b.dataset.dsmode === 'ca' ? c.ql_counted ?? null : null }), b.dataset.dsmode === 'ca' ? 'Thu theo ca' : 'Thu theo ngày');
+  } else if (b.dataset.dscash) {
+    const v = parseMoney(document.querySelector('.stc-dsp [name=ds_tm]')?.value || ''); if (v == null) { showSaved('Nhập tiền mặt thực nhận.', true); return; }
+    run(() => rpc('app_stc_ds_cash', { p_report: c.id, p_mode: c.cash_mode === 'ca' ? 'ca' : 'ngay', p_counted: v }), 'Đã lưu tiền mặt thực nhận');
+  } else if (b.dataset.dsclose) {
+    run(() => rpc('app_stc_ds_close', { p_report: c.id }), 'Đã chốt tiền ca');
+  } else if (b.dataset.dsreopen) {
+    ask('Mở lại chốt tiền ca', html`<div class="st-meta">Mở lại để sửa số Fabi / nhân viên ghi / tiền thực nhận. Khoản thu chi của ca sẽ khoá sửa tới khi chốt lại.</div>`, true,
+      (d) => rpc('app_stc_ds_reopen', { p_report: c.id, p_reason: val(d, 'reason') }), 'Đã mở lại chốt');
+  }
+}
 function dsInfo(D) {
   const dates = [...new Set((D.cas || []).map((c) => c.date))].sort();
   const chains = Object.fromEntries(dates.map((d) => [d, dayChain(D, d)]));
@@ -620,21 +659,33 @@ function dsInfo(D) {
 function dsPanel(D, a) {
   const { c, link, cs, st } = a; const m = link ? link.money : null;
   const box = (x) => html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name}</b><span class="st-meta">${x.a} · ${x.b}</span><span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${x.txt}</span>
-      ${x.st === 'red' && ['mo', 'dt', 'no'].includes(x.k) ? html`<span class="stc-tools">${off('Sửa theo Fabi')}${x.k === 'mo' ? html`${off('Ca trước ghi sai')}${off('Ca này ghi sai')}` : ''}</span>` : ''}</div>`;
+      ${c.recon_money_done || D.ext ? '' : x.fix === 'fabi' ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfabi="${x.k}">Sửa theo Fabi</button></span>`
+        : x.fix === 'blame' ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsblame="truoc">Ca trước ghi sai</button><button type="button" class="btn sm secondary" data-dsblame="nay">Ca này ghi sai</button></span>`
+        : x.blame ? html`<span class="stc-tools"><span class="st-meta">${x.blame.by || ''}${x.blame.reason ? ' · ' + x.blame.reason : ''}</span><button type="button" class="btn sm secondary" data-dsunblame="1">Huỷ chọn</button></span>` : ''}</div>`;
   const s1 = cs.filter((x) => ['mo', 'dt', 'no'].includes(x.k)), s3 = cs.filter((x) => ['tm', 'ck'].includes(x.k));
   const kt = c.kt_wait || c.bank_ck == null; const byCa = c.cash_mode === 'ca';
+  const last = !(D.cas || []).some((o) => o.date === c.date && ['Sáng', 'Chiều', 'Tối'].indexOf(o.shift) > ['Sáng', 'Chiều', 'Tối'].indexOf(c.shift));
+  const red1 = s1.some((x) => x.st === 'red'); const canClose = !red1 && !kt && c.fabi?.has && (!byCa || c.ql_counted != null);
+  const lockMsg = red1 ? 'còn ô đỏ ở bước ①' : kt || !c.fabi?.has ? 'chờ kế toán' : 'chưa nhập tiền mặt thực nhận';
+  const done = c.recon_money_done;
   const its = D.items.filter((x) => x.ca_id === c.id && x.col !== 'dt' && !x.void);
   const r = (lab, a1, b1) => html`<div class="stc-mr"><span>${lab}</span><b>${a1}</b><b>${b1}</b></div>`;
   return html`<div class="stc-dsp"><div class="stc-dsh"><b>Phiếu tiền · Ca ${c.shift} ${dm(c.date)}</b> <span class="st-meta">${c.staff || ''}</span> <span class="pill ${st.cls.replace('p-', '')}">${st.txt}</span></div>
     <div class="stc-stp"><div class="h"><b>①</b> So phiếu Fabi ↔ nhân viên ghi <span class="st-meta">· Fabi là chuẩn</span></div><div class="stc-c4s">${s1.map(box)}</div>
       ${c.fabi && !c.fabi.has ? html`<div class="st-meta">Chưa có file Fabi: ${(c.kt_missing || []).join(', ') || 'chờ kế toán tải'}.</div>` : ''}</div>
-    <div class="stc-stp"><div class="h"><b>②</b> Tiền thực nhận <span class="pill mute">${byCa ? 'Thu theo ca' : 'Thu theo ngày'}</span></div>
+    <div class="stc-stp"><div class="h"><b>②</b> Tiền thực nhận ${done ? html`<span class="pill mute">${byCa ? 'Thu theo ca' : 'Thu theo ngày'}</span>`
+      : html`<span class="stc-tools"><button type="button" class="btn sm ${byCa ? '' : 'secondary'}" data-dsmode="ca">Thu theo ca</button><button type="button" class="btn sm ${byCa ? 'secondary' : ''}" data-dsmode="ngay">Thu theo ngày</button></span>`}</div>
       <div class="stc-mt">${r('', 'Tiền mặt', 'Chuyển khoản')}
         ${r('Phải có / phải nhận', m ? fmt(m.tm.must) : '–', m ? fmt(m.ck.must) : '–')}
         ${r('Thực nhận', byCa ? (c.ql_counted != null ? fmt(c.ql_counted) + ' (quản lý thu)' : 'chưa nhập') : `NV đếm ${fmt(c.nv_counted ?? 0)}`, kt ? 'chờ kế toán' : fmt(c.bank_ck) + ' (kế toán)')}</div>
-      ${byCa ? '' : html`<div class="st-meta">Thu theo ngày: tiền mặt thực nhận nhập ở ca cuối ngày (đợt sau).</div>`}</div>
+      ${done ? '' : byCa || last ? html`<div class="stc-cash"><label class="field"><span>Tiền mặt thực nhận${byCa ? ' (quản lý đếm két ca này)' : ' (quản lý đếm két sau ca cuối ngày)'}</span>
+          <input class="input money" name="ds_tm" inputmode="numeric" value="${byCa && c.ql_counted != null ? fmt(c.ql_counted) : ''}"></label><button type="button" class="btn sm" data-dscash="1">Lưu</button></div>`
+        : html`<div class="st-meta">Thu theo ngày: ca này không nhập, két chuyển sang ca sau; tiền mặt thực nhận nhập ở ca cuối ngày.</div>`}
+      <div class="st-meta">Chuyển khoản luôn lấy số ngân hàng kế toán nhập.</div></div>
     <div class="stc-stp"><div class="h"><b>③</b> Kết quả & chốt</div><div class="stc-c4s">${s3.map(box)}</div>
-      <div class="stc-tools">${c.recon_money_done ? html`<span class="pill ok">🔒 Đã chốt (theo đối soát hiện nay)</span>` : off('Chốt tiền ca', 'btn sm')}<span class="st-meta">Chốt xong mới sửa được thu chi của ca.</span></div></div>
+      <div class="stc-tools">${done ? html`<span class="pill ok">🔒 Đã chốt</span><button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại chốt</button>`
+        : html`<button type="button" class="btn sm" data-dsclose="1" ${canClose ? '' : 'disabled'} title="${canClose ? '' : lockMsg}">Chốt tiền ca</button>${canClose ? '' : html`<span class="st-meta">🔒 ${lockMsg}</span>`}`}
+        <span class="st-meta">Lệch ở bước ③ không chặn chốt — thành phiếu chênh lệch, xử lý ở Sổ thu / Sổ chi. Chốt xong mới sửa được thu chi của ca.</span></div></div>
     <details class="stc-det"><summary>Bảng tiền chi tiết</summary>${m ? html`<div class="stc-mt">${r('', 'Tiền mặt', 'Chuyển khoản')}${r('Tiền đầu ca', fmt(m.tm.start), '–')}
       ${r('+ Doanh thu', fmt(m.tm.dt), fmt(m.ck.dt))}${r('+ Thu nợ / thu khác', fmt(m.tm.no + m.tm.khac), fmt(m.ck.no + m.ck.khac))}${r('± Luân chuyển', fmt(m.tm.lc), fmt(m.ck.lc))}
       ${r('− Chi / cho nợ', fmt(m.tm.chi + m.tm.cn), fmt(m.ck.chi + m.ck.cn))}${r('= Phải có', fmt(m.tm.must), fmt(m.ck.must))}${r('Thực tế', fmt(m.tm.real), kt ? '⏳' : fmt(m.ck.real))}</div>` : html`<div class="st-meta">Ca này không nằm trong chuỗi két (vd FULL TIME).</div>`}</details>
@@ -740,6 +791,7 @@ const STYLE = html`<style>
   .stc-gnum span { font-size: 12px; color: var(--muted); } .stc-gnum b { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
   .stc-gd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); } .stc-gd span { flex: 1 1 140px; min-width: 0; } .stc-gd b { font-variant-numeric: tabular-nums; }
   .stc-gacts { display: flex; flex-wrap: wrap; gap: 6px; } .stc-avail b { font-variant-numeric: tabular-nums; }
+  .stc-cash { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; } .stc-cash .field { flex: 1 1 200px; min-width: 0; }
   .stc-cmp { margin-top: 12px; border-left: 4px solid var(--info-line); }
   .stc-cmp h3 { margin: 0 0 6px; font-size: 15px; } .stc-cmp small { color: var(--muted); font-weight: 400; }
   .stc-cmpr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }
