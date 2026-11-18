@@ -684,6 +684,13 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Hàng hoá › Nhận hàng: mỗi ảnh chụp gắn **tối đa 4 món** (tính cả món trong phiếu, món ngoài phiếu, món ghi tay khi nhận không hoá đơn) để ảnh nào cũng nhìn rõ, đếm được.
 - Đủ 4 món: ô còn lại mờ / khoá, ẩn "+ Thêm món", dòng nhắc "Mỗi ảnh tối đa 4 món — chụp ảnh khác cho các món còn lại"; nút Lưu ghi "n/4 món". Máy chủ cũng chặn (`app_gh_photo_add`). Ảnh cũ nhiều hơn 4 món giữ nguyên.
 
+## 5r39. Báo nợ chọn người · Thu/Chi → Báo nợ · Luân chuyển TM–CK · quyền Kiểm tra — CHỐT 17/11, ĐÃ LÀM 18/11/2026 (bước 133, máy chủ `117_bao_no_chon_nguoi.sql`, web 2026.11.18.2)
+- Thiết kế: `tai_lieu/superpowers/specs/2026-11-17-bao-no-chon-nguoi-design.md`.
+- **Báo nợ có menu "Người nợ"** (phiếu chốt ca nhân viên + bước Kiểm tra): Khách (gõ tên → ① Nợ khách hàng, ca sau nhắc) · Kho tổng (② Nợ kho tổng) · người ở nhóm ③ của cơ sở (vd người nhà) → ③ Nợ khác; ②/③ ca sau không nhắc, quản lý thu ở tab Công nợ. Danh sách lấy từ tab Công nợ (`app_ca_debt_people`), người mới thêm ở tab Công nợ. Thay quy định bước 95 "nhân viên chỉ ghi nợ khách hàng" cho riêng việc ghi nợ.
+- **Thu / Chi → Báo nợ**: phiếu chốt ca như bước 116; bước Kiểm tra (Mở để sửa) đổi trên dòng, Lưu 1 lần, ghi "✎ đổi từ …", hộp Lưu ghi "Đổi Chi CK … → Báo nợ CK · Kho tổng (② Nợ kho tổng)".
+- **"Luân chuyển tiền mặt – CK"** thay "Khách CK rút tiền mặt", có 2 chiều **TM → CK** / **CK → TM** (máy chủ nhận cả 2 chiều, vẫn đòi 2 vế bằng nhau); bảng tiền ghi "± Luân chuyển TM – CK". Phiếu cũ giữ số.
+- **Quyền Kiểm tra theo cơ sở** (anh chọn (b)): mọi phiếu chỉ **Chủ, Quản lý tổng, quản lý đối soát của cơ sở** (ô Đối soát ca, Bảng phân công) được vào Kiểm tra / Lưu / Sửa thẳng / Duyệt; quản lý khác thấy "🔒 Chỉ quản lý đối soát cơ sở này…". Muốn ai kiểm tra cơ sở nào thì thêm tên vào ô đó.
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
