@@ -30,6 +30,8 @@ begin
   insert into public.employees(code, name, rank, status) values ('ZZT120', 'Học viên thử', 'Thử việc', 'Đang làm') returning id into emp;
   insert into public.trainings(employee_id, program_id, start_date, manager_id, branch_id)
     select emp, id, (public.vn_now()::date - 8)::text, aql.id, br from public.training_programs where code = 'chay_ban' returning id into tid;
+  -- tệp 122: phiếu phải có người hướng dẫn chính cấp Quản lý
+  update public.trainings set instructor_id = (select id from public.employees where rank = 'Quản lý' and status = 'Đang làm' order by id limit 1) where id = tid;
   select count(*) into n_items from public.training_items i join public.trainings t on t.program_id = i.program_id where t.id = tid;
   select count(*) into n_before from public.notifications;
 

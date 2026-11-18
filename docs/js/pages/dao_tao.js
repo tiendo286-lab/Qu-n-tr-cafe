@@ -13,11 +13,12 @@ export const dtLabel = (t) => (!t ? 'Chưa đào tạo' : t.status === 'dang_dao
 export async function openCreateDialog(emp) {
   const opt = await rpc('app_dt_options');
   const brId = opt.branches.find((x) => x.code === emp.branch)?.id || '';
+  const mgrs = opt.employees.filter((e) => e.rank === 'Quản lý');   // bước 139: người hướng dẫn chính chỉ là Quản lý
   const d = dialog(html`<form class="stack" style="gap:10px" id="dt-new">
     <h2 style="margin:0">Tạo phiếu đào tạo chạy bàn</h2><div><strong>${emp.name}</strong></div>
     <label class="stack" style="gap:4px">Cơ sở<select class="input" name="branch"><option value="">—</option>${opt.branches.map((x) => html`<option value="${x.id}" ${String(x.id) === String(brId) ? 'selected' : ''}>${x.code}</option>`)}</select></label>
     <label class="stack" style="gap:4px">Ngày bắt đầu<input class="input" type="date" name="start" value="${vnToday()}" required></label>
-    <label class="stack" style="gap:4px">Người hướng dẫn chính<input class="input" name="hd" list="dt-emps" placeholder="Gõ mã hoặc tên"><datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist></label>
+    <label class="stack" style="gap:4px">Người hướng dẫn chính (Quản lý)<input class="input" name="hd" list="dt-emps" placeholder="Gõ mã hoặc tên quản lý" required><datalist id="dt-emps">${mgrs.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist></label>
     <label class="stack" style="gap:4px">Quản lý phụ trách<select class="input" name="ql"><option value="">—</option>${opt.managers.map((m) => html`<option value="${m.id}">${m.name}</option>`)}</select></label>
     <div id="dt-err"></div>
     <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn secondary" id="dt-cancel">Hủy</button><button class="btn" type="submit">Tạo phiếu</button></div></form>`);
@@ -26,8 +27,9 @@ export async function openCreateDialog(emp) {
   d.querySelector('#dt-new').addEventListener('submit', async (ev) => {
     ev.preventDefault(); const f = ev.target;
     const q = f.hd.value.trim().toLowerCase(); const code = q.split(/\s*[–-]\s*/)[0];
-    const hd = q ? (opt.employees.find((x) => `${x.code} – ${x.name}`.toLowerCase() === q) || opt.employees.find((x) => String(x.code).toLowerCase() === code)) : null;
-    if (q && !hd) { err('Không tìm thấy người hướng dẫn. Chọn trong danh sách gợi ý.'); return; }
+    const hd = q ? (mgrs.find((x) => `${x.code} – ${x.name}`.toLowerCase() === q) || mgrs.find((x) => String(x.code).toLowerCase() === code)) : null;
+    if (!q) { err('Chọn người hướng dẫn chính (nhân viên cấp Quản lý).'); return; }
+    if (!hd) { err('Người hướng dẫn chính phải là nhân viên cấp Quản lý. Chọn trong danh sách gợi ý.'); return; }
     try {
       const id = await rpc('app_dt_create', { p_employee: emp.id, p: { branch_id: f.branch.value || null, start_date: f.start.value, instructor_id: hd?.id || null, manager_id: f.ql.value || null } });
       d.close(); go(`/dao-tao/phieu?id=${id}`);

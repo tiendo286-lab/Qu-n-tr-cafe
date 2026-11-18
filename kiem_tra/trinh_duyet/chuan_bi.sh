@@ -11,7 +11,7 @@ if [ "${2:-}" = "--dao-tao-gia" ]; then
 else
   python3 -I "$D/dump_web.py" "$D/../../du_lieu/app.sqlite3" "$W/test/data.js"
 fi
-cp "$D/flow_dt137.js" "$D/hn_gia.js" "$D/flow_hn138.js" "$W/test/"
+cp "$D/flow_dt137.js" "$D/hn_gia.js" "$D/flow_hn138.js" "$D/flow_hd139.js" "$W/test/"
 python3 - "$W/index.html" <<'PY'
 import re,sys; p=sys.argv[1]; s=open(p).read()
 s=re.sub(r'(<script type="module" src="js/app\.js(?:\?v=[^"]+)?"></script>)',r'<script src="test/catch.js"></script>\n\1\n<script type="module" src="test/driver.js"></script>',s,count=1)

@@ -5,7 +5,7 @@ import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.7';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.8';
 import { STATUS as TASK_STATUS } from './viec.js';
 
 const ITEM_FILTERS = {
@@ -105,10 +105,11 @@ export async function render({ params }) {
           <div class="pc-grid">
             ${!T.due ? html`<label class="pc-f"><span>Cơ sở</span>${adm ? html`<select class="input info-f" data-f="branch_id"><option value="">—</option>${opt.branches.map((b) => html`<option value="${b.id}" ${b.id === T.branch_id ? 'selected' : ''}>${b.code}</option>`)}</select>` : html`<div class="pc-fixed">${T.branch || '—'}</div>`}</label>` : ''}
             <label class="pc-f"><span>Ngày bắt đầu</span>${adm ? html`<input class="input info-f" type="date" data-f="start_date" value="${T.start_date}">` : html`<div class="pc-fixed">${dmy(T.start_date)}</div>`}</label>
-            <label class="pc-f"><span>Người hướng dẫn chính</span>${adm ? html`<input class="input emp-f" data-f="instructor_id" list="dt-emps" value="${empName(T.instructor_id)}" placeholder="Gõ mã hoặc tên">` : html`<div class="pc-fixed">${T.instructor || '—'}</div>`}</label>
+            <label class="pc-f"><span>Người hướng dẫn chính</span>${adm ? html`<input class="input emp-f" data-f="instructor_id" list="dt-mgrs" value="${empName(T.instructor_id)}" placeholder="Gõ mã hoặc tên quản lý">` : html`<div class="pc-fixed">${T.instructor || '—'}</div>`}</label>
             <label class="pc-f"><span>Quản lý phụ trách</span>${adm ? html`<select class="input info-f" data-f="manager_id"><option value="">—</option>${opt.managers.map((m) => html`<option value="${m.id}" ${m.id === T.manager_id ? 'selected' : ''}>${m.name}</option>`)}</select>` : html`<div class="pc-fixed">${T.manager || '—'}</div>`}</label>
           </div>
-          ${adm ? html`<datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>` : ''}
+          ${adm ? html`<datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>
+            <datalist id="dt-mgrs">${opt.employees.filter((e) => e.rank === 'Quản lý').map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>` : ''}
           <div class="st-meta">Mỗi hạng mục đi đủ 3 bước: Đã giới thiệu → Đã thực hành có giám sát → Mức đạt (Trung bình / Khá / Tốt — cả 3 mức đều tính là đạt). Hệ thống ghi người và ngày xác nhận thay cho chữ ký.</div>
           ${T.tasks.length ? html`<div><span class="pc-sub">NHIỆM VỤ ĐÀO TẠO ĐƯỢC GIAO (TAB CÔNG VIỆC)</span>${T.tasks.map((k) => html`<div class="st-meta">• ${k.content} — ${k.assignee || 'chưa giao'} · <span class="pill ${TASK_STATUS[k.status][1]}">${TASK_STATUS[k.status][0]}</span>${k.due_date ? ' · hạn ' + dmy(k.due_date) : ''}</div>`)}</div>` : ''}
         </section>
@@ -192,8 +193,10 @@ export async function render({ params }) {
       $$('.info-f').forEach((el) => el.addEventListener('change', async () => { if (await saveInfo({ [el.dataset.f]: el.value || null }) && ['start_date', 'cont_trainer_kind'].includes(el.dataset.f)) rerender(); }));
       $$('.emp-f').forEach((el) => el.addEventListener('change', async () => {
         const q = el.value.trim().toLowerCase(); const code = q.split(/\s*[–-]\s*/)[0];
-        const e = q ? (opt.employees.find((x) => `${x.code} – ${x.name}`.toLowerCase() === q) || opt.employees.find((x) => String(x.code).toLowerCase() === code)) : null;
-        if (q && !e) { showSaved('Không tìm thấy nhân viên. Chọn trong danh sách gợi ý.', true); return; }
+        const main = el.dataset.f === 'instructor_id';   // bước 139: người hướng dẫn chính chỉ là Quản lý
+        const pool = main ? opt.employees.filter((x) => x.rank === 'Quản lý') : opt.employees;
+        const e = q ? (pool.find((x) => `${x.code} – ${x.name}`.toLowerCase() === q) || pool.find((x) => String(x.code).toLowerCase() === code)) : null;
+        if (q && !e) { showSaved(main ? 'Người hướng dẫn chính phải là nhân viên cấp Quản lý. Chọn trong danh sách gợi ý.' : 'Không tìm thấy nhân viên. Chọn trong danh sách gợi ý.', true); return; }
         await saveInfo({ [el.dataset.f]: e ? e.id : null });
       }));
       $('#cont-ok')?.addEventListener('change', (ev) => saveInfo({ cont_result: ev.target.checked ? 'dat' : null }));
