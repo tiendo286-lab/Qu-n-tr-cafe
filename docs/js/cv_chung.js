@@ -171,7 +171,8 @@ export function gvCreate({ people, branches, me, done }) {
   const d = modal(html`<h2>+ Giao việc riêng</h2><div class="sub">Việc gì cũng giao được: sửa chữa, mua đồ, vệ sinh… Người làm nhận việc, ghi tiến độ, báo xong kèm ảnh; người kiểm tra bấm Đạt mới đóng.</div>
     ${fld('Nội dung việc', html`<textarea class="input" id="g-tt" rows="2" placeholder="vd: Gọi thợ sửa máy lạnh tầng 2"></textarea>`)}
     ${fld('Cơ sở', html`<select class="input" id="g-br"><option value="">Chung (không theo cơ sở)</option>${(branches || []).map((b) => html`<option value="${b.id}">${b.code}</option>`)}</select>`)}
-    ${giaoFields(people, me)}${acts('Giao việc')}`, true);
+    ${giaoFields(people, me)}
+    <div class="pc-note" style="background:var(--info-bg);color:var(--info-ink);border-radius:12px;padding:10px 12px;font-size:13px">Việc này hiện trong nhóm <b>Khác</b> ở trang Việc hôm nay của người làm, người kiểm tra và ô Theo dõi của bạn.</div>${acts('Giao việc')}`, true);
   $('[data-ok]', d).addEventListener('click', (e) => run(d, e.target, async () => {
     await rpc('app_gv_create', { p: { content: $('#g-tt', d).value, branch_id: $('#g-br', d).value || null, assignee_id: $('#g-who', d).value || null, reviewer_id: $('#g-rv', d).value || null, due: dueText(+$('#g-due', d).value), priority: $('#g-pri', d).value } });
     done('Đã giao việc — người làm đã được báo');
