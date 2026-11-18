@@ -2,7 +2,7 @@
 // Lần 1 dùng cho việc tự thêm (mode 'custom'); lần 2 dùng lại cho việc có sẵn.
 import { rpc } from './sb.js';
 import { $, $$, dialog, html, str } from './ui.js';
-import { money, shortName, ROLE } from './cv_chung.js?v=2026.11.18.4';
+import { money, shortName, ROLE } from './cv_chung.js?v=2026.11.18.5';
 
 export const CYCLE = { ngay: 'Hằng ngày', tuan: 'Hằng tuần', thang: 'Hằng tháng' };
 export const DOW = ['', 'Thứ Hai', 'Thứ Ba', 'Thứ Tư', 'Thứ Năm', 'Thứ Sáu', 'Thứ Bảy', 'Chủ nhật'];

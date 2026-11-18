@@ -696,7 +696,7 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Nay: **dừng gõ ~1 giây là tự lưu**; trang bị ẩn (chuyển app, tắt màn hình) hoặc rời trang thì **lưu ngay** số vừa gõ. Trên điện thoại chữ **"Đã lưu ca … · giờ"** nổi ở cuối màn hình (trước nằm tít trên đầu trang, cuộn xuống không thấy).
 - Bài thử: `flow_ck135` (role=nvkt; `index.html` và `test/phone.html`).
 
-## 5r41. File ca Fabi — báo rõ ca lỗi + bảng so sánh nhân viên nhập / file Fabi — CHỐT 18/11/2026 (bước 136)
+## 5r41. File ca Fabi — báo rõ ca lỗi + bảng so sánh nhân viên nhập / file Fabi — CHỐT và ĐÃ LÀM 18/11/2026 (bước 136, máy chủ `119_fabi_so_sanh_ql.sql`, web 2026.11.18.5)
 - **Vì sao:** tab chỉ ghi "Cần quản lý xem"; lỗi gì phải mở mục thu gọn, chỉ thấy vài dòng "phiếu X → Fabi Y"; có ca bị báo mà không thấy dòng nào (số đối soát web đã sửa theo Fabi — mảng `fixed` — trước không hiện).
 - **Ai xem:** Kế toán **và Quản lý (quyền Đối soát)**. Quản lý chỉ xem; khung Đồng bộ từ Fabi + nút "Chọn Excel thủ công" chỉ người có quyền Kế toán thấy (giống Hàng hoá › Phiếu xuất). Máy chủ: `app_fabi_list` cho `ke_toan` hoặc `doi_soat`; `app_fabi_upload` vẫn chỉ `ke_toan`.
 - **Khung "Ca cần quản lý xem"** đầu tab (cơ sở + tuần đang xem): mỗi dòng ngày · ca · loại lỗi ("Nhân viên gõ khác Fabi: Tổng tiền, Tiền chênh lệch" / "Có file Fabi, chưa có phiếu nhân viên" / "Web đã sửa số đối soát theo Fabi") + nút Xem (nhảy tới ca đó ở chi tiết ngày).

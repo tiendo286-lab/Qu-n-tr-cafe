@@ -1,14 +1,14 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 135. Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 136. Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.4** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **118** (`118_tuan_da_chot.sql`).
+- Web: **2026.11.18.5** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Máy chủ: đã chạy tới tệp **119** (`119_fabi_so_sanh_ql.sql`).
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
 
 ## Việc còn mở
@@ -17,6 +17,7 @@ Cập nhật: 18/11/2026, sau bước 135. Phiên mới **không cần đọc l�
 | Lưu số dư cuối tháng đã chốt (Sổ quỹ / Chốt tháng) | Làm **sau khi chốt tháng 11**. Hiện `app__fund_rows` vẫn dựng sổ từ ngày bắt đầu quỹ (01/11), nên chậm dần theo số ngày. Tháng đã chốt bị khoá, có thể lưu số dư cuối tháng; khi Chủ mở lại tháng thì xoá số đã lưu. |
 | Bài thử `flow_ds110` lỗi thời | Không còn nút `#add-rut2` (Khách CK rút tiền mặt) ở bước Tiền. Lỗi có từ trước bước 134. Cần viết lại theo giao diện hiện tại. |
 | Trang còn hơn 0,5 giây phía máy chủ | Chốt tháng ~1,5s, Dữ liệu & sao lưu ~1,2s (tải 2,9 MB, ít dùng), Sổ quỹ ~0,8s. Còn lại < 0,4s. |
+| File ca Fabi: mảng `fixed` cộng dồn | `app__fabi_apply` ghi nối `fixed` mỗi lần tải file, nên ca từng được web sửa theo Fabi vẫn hiện "Cần quản lý xem" mãi (bước 136 chỉ hiện rõ lý do). Nếu anh muốn ca tự hết báo sau khi quản lý xem, cần thêm nút "Đã xem" hoặc xoá `fixed` khi số đã khớp. |
 | Mở web lần đầu | Giữ cách cũ (số trên menu lấy xong mới vẽ trang), vì Thông báo / Tổng quan / Việc hôm nay đọc `state.unread`, `state.warn` lúc vẽ. Muốn vẽ song song thì phải sửa 3 trang đó trước. |
 
 ## Tốc độ: công cụ và bài học (bước 125–134)
