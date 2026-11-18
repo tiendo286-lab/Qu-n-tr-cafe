@@ -65,6 +65,9 @@ ok(ch.get(SANG_18).expOpen === FLOAT && ch.get(CHIEU_18).expOpen === FLOAT, 'ca 
 const ch17 = dayChain(D, '2026-11-17');
 ok(ch17.get(TOI_17).expOpen === ch17.get(CHIEU_17).money.tm.real, 'thu theo ngày → bằng thực tế ca trước');
 ok(!ch.has(FULLTIME_18) && dayTree(D, 'thu', 'tm')[0].cas.some((c) => c.caId === FULLTIME_18), 'FULL TIME ngoài chuỗi két nhưng vẫn trong sổ');
+const D2 = { ...D, cas: D.cas.map((c) => (c.id === CHIEU_18 ? { ...c, start_tm: 1050000 } : c)) };
+const c2 = dayChain(D2, '2026-11-18').get(CHIEU_18);
+ok(c2.expOpen === FLOAT && c2.money.tm.start === 1050000, 'tiền ca tính từ tiền đầu ca thật (start_tm), ô mở ca so với số phải là');
 const ch16 = dayChain(D, '2026-11-16');
 ok(ch16.get(TOI_16).expOpen === ch16.get(SANG_16).money.tm.real, 'ngày thiếu ca Chiều: ca Tối mở bằng thực tế ca Sáng');
 

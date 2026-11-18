@@ -57,7 +57,8 @@ export function dayChain(data, date) {
   SHIFT_ORDER.forEach((s) => {
     const c = data.cas.find((x) => x.date === date && x.shift === s); if (!c) return;
     const expOpen = !prev ? FLOAT : prev.ca.cash_mode === 'ca' ? FLOAT : prev.money.tm.real;
-    const money = caMoney(data.items, c.id, expOpen);
+    // tiền ca tính từ tiền đầu ca thật (bản đối soát); lệch so với số phải là hiện ở ô "Tiền mở ca"
+    const money = caMoney(data.items, c.id, c.start_tm != null ? Number(c.start_tm) : expOpen);
     out.set(c.id, { expOpen, money }); prev = { ca: c, money };
   });
   return out;
