@@ -1,17 +1,24 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 142 (Việc hôm nay chia nhóm Vận hành / Nhân sự / Khác) và sửa lỗi web 2026.11.18.12 (Quản lý sửa được ô của mục web tự đối soát). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 143 (Sổ thu chi mới — đợt 1 chỉ xem, chạy song song). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.12** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **126** (`125_viec_hom_nay_sua.sql` sửa `app_today_more`; `126_sua_pc_tick_bi_danh.sql` sửa gấp `app__pc_tick`: bí danh bảng "sc" trùng biến record → Công việc lỗi mỗi khi có việc con hàng hoá mới, hỏng 15:18–15:36 ngày 18/11). **Bài học:** trong plpgsql không đặt bí danh bảng trùng tên biến.
+- Web: **2026.11.19** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Máy chủ: đã chạy tới tệp **128** (`127_so_thu_chi_xem.sql` = `app_stc_month`, `128_so_thu_chi_quy_ngoai.sql` = `app_stc_ext`, chỉ đọc). Trước đó: tệp **126** (`125_viec_hom_nay_sua.sql` sửa `app_today_more`; `126_sua_pc_tick_bi_danh.sql` sửa gấp `app__pc_tick`: bí danh bảng "sc" trùng biến record → Công việc lỗi mỗi khi có việc con hàng hoá mới, hỏng 15:18–15:36 ngày 18/11). **Bài học:** trong plpgsql không đặt bí danh bảng trùng tên biến.
 - **Vùng khoá quyền "Mở để sửa" đối soát (18/11):** xem mục riêng trong `CLAUDE.md`. Claude trên máy anh Tiến bị hook chặn tới khi anh gõ mật khẩu (mở 30 phút). Bộ khoá và bài thử của nó (`kiem_tra_khoa.sh`) nằm ngoài kho mã, trong thư mục `milano` ở `~/.claude`. Đổi mật khẩu: ghi băm sha256 mới vào tệp băm ở đó (cách làm ghi ở đầu tệp khoá). Thiết kế / kế hoạch: `tai_lieu/superpowers/specs|plans/2026-11-18-khoa-quyen-doi-soat*`.
 - **Bài học 18/11 (lỗi bước 129):** đổi quyền ở máy chủ thì phải dò cả giao diện tìm chỗ còn chặn theo vai (`grep -rn "is_chu\|can_unlock\|system_role" docs/js`). Bài thử phải dựng đúng tình huống được đổi (ở đây là phiếu **có mục web tự đối soát**, `app__test_auto_lock`), và phải thấy bài thử **báo lỗi trên bản cũ** trước khi sửa. Bước 129 chỉ sửa máy chủ, còn dòng `LK?.is_chu ? [] : …` của bước 121 trong `phieu_ca.js` vẫn khoá ô với người không phải Chủ. Lỗi lọt qua vì bài thử dùng phiếu không có mục tự đối soát.
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
+
+## Sổ thu chi mới (bước 143, đợt 1 đã lên web — chỉ xem)
+
+- Thiết kế (anh Tiến duyệt): `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi-design.md`. Kế hoạch đợt 1: `tai_lieu/superpowers/plans/2026-11-18-so-thu-chi-moi-dot1.md`. Mẫu bấm thử: https://claude.ai/artifact/6L53uqto8BgLHgBSLh744E. Tóm tắt điểm chốt: `TINH_NANG_DA_CHOT.md` mục "Sổ thu chi mới".
+- Trang `docs/js/pages/so_thu_chi.js` (`#/quan-ly/so-thu-chi`, menu Quản lý ca › "Sổ thu chi (mới)"), hàm tính thuần `docs/js/so_thu_chi_tinh.js` (thử: `jsc -m kiem_tra/so_thu_chi_tinh_dot1.mjs`). Máy chủ thử: `kiem_tra/so_thu_chi_127.sql` (tự hoàn tác, báo lệch so với cách cũ). Bộ thử Chrome: `flow_stc1` (role chu / qlt / ql, `index.html` + `test/phone.html`), giả lập `stc_gia.js` + `stc_fixture.js`.
+- **Đang chạy song song 1 tuần**, sau đó gỡ 4 trang cũ + phần tiền của Đối soát ca. **Việc tiếp theo:** đợt 2 (sửa / thêm / xoá phiếu có gạch ngang + phiếu bổ sung, người nợ ✓, khung Khách đang nợ), đợt 3 (phiếu chênh lệch), đợt 4 (Đối soát tiền 3 bước + Chốt tiền ca — **đụng vùng khoá**, phải xin mật khẩu), đợt 5 (tab Tổng đủ nút, Quỹ ngoài, Chốt tháng dùng nguồn mới).
+- Tồn quỹ mới khác Sổ quỹ cũ ở vài ngày (ĐK −369.000 TM từ 15/11; HS +5.000 từ 07/11) — cần anh Tiến xem khung "So với trang cũ" và quyết định.
 
 ## Đào tạo (bước 137, đã lên web)
 

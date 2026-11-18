@@ -817,3 +817,14 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-desi
 - **Quản lý:** dòng gộp **Đào tạo đã giao người hướng dẫn** (phiếu mình phụ trách): hạng mục, bước hiện tại, người hướng dẫn, hạn.
 - Ô **Theo dõi** liệt kê từng việc mình đã giao, kèm người làm.
 - Máy chủ `124_viec_hom_nay_nhom.sql` (`app_today_more`) + `125_viec_hom_nay_sua.sql` (trả `who_id`, bỏ việc bị xoá / tự bỏ khỏi Đã xong). Phiên bản `2026.11.18.11`.
+
+## Sổ thu chi mới — chốt 18/11/2026, đợt 1 (chỉ xem) đã làm (bước 143)
+
+Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi-design.md` (anh Tiến duyệt 18/11). Kế hoạch đợt 1: `tai_lieu/superpowers/plans/2026-11-18-so-thu-chi-moi-dot1.md`. Mẫu: https://claude.ai/artifact/6L53uqto8BgLHgBSLh744E
+
+- **Mục tiêu:** một trang **Sổ thu chi** thay 4 trang cũ (Thu chi, Lệch tiền ca, Công nợ, Sổ quỹ) và phần tiền của Đối soát ca. Mỗi cơ sở 1 lần xem; 4 tab **Tổng · Đối soát tiền · Sổ thu · Sổ chi**; nút **Quỹ ngoài** (chỉ Chủ).
+- **Công thức:** Tổng thu = Doanh thu + Thu nợ + Thu khác + Luân chuyển + Chênh lệch dư; Tổng chi = Các khoản chi + Cho nợ + Luân chuyển + Chênh lệch thiếu. Mỗi ca, mỗi loại tiền: Thu − Chi = Thực tế − Tiền đầu ca. Tồn quỹ = Tồn đầu tháng + Thu − Chi − Chuyển về Quỹ ngoài.
+- **Đã chốt (làm ở đợt sau):** sửa / thêm / xoá mọi phiếu (Chủ, QL tổng, QL cơ sở) — phiếu cũ gạch ngang + phiếu bổ sung, chỉ sau khi **Chốt tiền ca**; phiếu chênh lệch xử lý ngay trong sổ (ghép / quán chịu chờ Chủ duyệt; đã tạo phiếu trừ tiền thì không ghép; đã tạo phiếu thu thì không gán nợ); người nợ có dấu ✓ (không nhắc ở phiếu chốt ca, thay Công nợ gia đình / Nợ kho tổng); Đối soát tiền 3 bước (so phiếu Fabi ↔ NV ghi, Fabi là chuẩn, "Sửa theo Fabi"; tiền thực nhận theo ca / theo ngày; Chốt tiền ca); ca nào ghi sai tiền mở ca ca đó chịu; chuyển khoản thực nhận luôn lấy số kế toán; bỏ ô Cuối ngày; Chuyển về Quỹ ngoài thay phiếu rút.
+- **Đợt 1 (bước 143, máy chủ `127_so_thu_chi_xem.sql` + `128_so_thu_chi_quy_ngoai.sql`, web 2026.11.19):** trang `#/quan-ly/so-thu-chi` **chỉ xem**, chạy song song trang cũ, chỉ Chủ + Quản lý tổng xem (Quỹ ngoài chỉ Chủ). Dữ liệu thật từ 01/11. Mọi nút sửa tắt ("Đang chạy thử"). Tab Tổng có khung **So với trang cũ** (tồn quỹ từng ngày so Sổ quỹ cũ, lệch từng ca so Lệch tiền ca cũ).
+- Kết quả chạy thử máy chủ 18/11: chênh lệch mọi ca khớp 100% cách tính cũ (4 cơ sở), luân chuyển cân, < 0,5 giây / cơ sở. Tồn quỹ khác Sổ quỹ cũ: ĐK −369.000 tiền mặt từ 15/11, HS +5.000 từ 07/11, ngày đang chạy (kế toán chưa nhập đủ) — xem khung So với trang cũ.
+- Đợt 1 tạm hiểu: "Đã chốt tiền" = ca đã đối soát mục Tiền mặt + Chuyển khoản; doanh thu theo bản đối soát; phiếu chi chuyển khoản hiện ngoài ca.
