@@ -1,14 +1,14 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 141 (Việc hôm nay đợt 2a: Nội quy & Cam kết). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 142 (Việc hôm nay chia nhóm Vận hành / Nhân sự / Khác). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.10** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **123** (`123_noi_quy_cam_ket_viec.sql`).
+- Web: **2026.11.18.11** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Máy chủ: đã chạy tới tệp **124** (`124_viec_hom_nay_nhom.sql`).
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
 
 ## Đào tạo (bước 137, đã lên web)
@@ -23,7 +23,8 @@ Cập nhật: 18/11/2026, sau bước 141 (Việc hôm nay đợt 2a: Nội quy 
 - Phương án: `work/proposals/phuong-an-viec-hom-nay.md` (tệp cục bộ, không có trên GitHub). Đợt 1 đã làm mục 1, 2, 3, 5 (bản gọn), 6 và một phần 4, 7 — chi tiết ở `TINH_NANG_DA_CHOT.md` mục "Việc hôm nay — đợt 1".
 - Trang `docs/js/pages/hom_nay.js` hỏi cùng lúc 6 nguồn (`app_today_me`, `app_home_todo`, `app_pc_mine`, `app_dt_work_list`, `app_ka_mine`, `app_cong_mine`); gom / xếp việc ở `docs/js/hom_nay_viec.js` (thử: `jsc -m kiem_tra/hom_nay_viec_138.mjs`). Bộ thử Chrome: `flow_hn138` (xem README).
 - Đợt 2a (Nội quy & Cam kết, bỏ cửa sổ nhắc) đã xong — bước 141.
-- **Việc tiếp theo (phiên khác làm, anh Tiến giao 18/11):** chia nhóm Vận hành / Nhân sự / Khác theo `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-design.md` (tệp cục bộ). Bước 141 đã đẩy lên `main` (web 2026.11.18.10, máy chủ 123) — `git pull` rồi đọc lại `docs/js/hom_nay_viec.js` (đã có khoá `nq`, `ck`, `nqf:<bài>:<bản>`, `ckf`; nguồn `today` = `app_today_me`). Sau chia nhóm: khoản âm / lệch tiền ca theo trạng thái, rồi máy chủ chặn phiếu ca không có tên.
+- **Chia nhóm Vận hành / Nhân sự / Khác đã xong — bước 142** (thiết kế `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-design.md`, kế hoạch `tai_lieu/superpowers/plans/2026-11-18-viec-hom-nay-chia-nhom.md`). Trang hỏi thêm `app_today_more` (máy chủ 124); Chủ hỏi thêm `app_pc_all` + `app_dt_work_list(false)`. Luật nhóm ở `hom_nay_viec.js` (`jobCat`, `todoCat`); chia khối / gộp / Mọi người ở `docs/js/hom_nay_nhom.js` (thử: `jsc -m kiem_tra/hom_nay_nhom_142.mjs`). Bộ thử Chrome: `flow_hn142`. Khoá mới ở `collectWork` mà chưa có trong bảng luật sẽ vào **Khác**.
+- **Việc tiếp theo:** khoản âm / lệch tiền ca theo trạng thái, rồi máy chủ chặn phiếu ca không có tên.
 - **Đợt 2 còn lại:** Theo dõi theo bộ phận / cơ sở có số quá hạn và việc chưa có người nhận; khoản âm nối trạng thái Lệch tiền ca + nút Mở ca từng dòng; máy chủ chặn nhân viên mở chi tiết / gửi phiếu ca không có tên mình (mục 8).
 - Các bài thử chỉ dùng dữ liệu giả. Cách chạy nằm trong `kiem_tra/trinh_duyet/README.md`.
 

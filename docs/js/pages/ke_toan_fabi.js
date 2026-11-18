@@ -46,4 +46,4 @@ export function parseDetail(X, wb) {
 }
 
 // Bảng tuần: giao diện kiểm soát một cơ sở, giữ parser dùng chung cho tiện ích C02.
-export { render } from './fabi_board.js?v=2026.11.18.10';
+export { render } from './fabi_board.js?v=2026.11.18.11';

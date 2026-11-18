@@ -803,3 +803,16 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Trang mới **Nội quy & quy trình › Theo dõi đọc & cam kết** (`#/theo-doi-noi-quy`, quyền Kế toán hoặc Quản lý nhân viên): lọc Tất cả / Chưa đọc đủ / Chưa nộp cam kết, tìm theo mã / tên, bài chưa đọc từng người, đổi trạng thái cam kết. **Kế toán được cập nhật cam kết** (trước chỉ Quản lý nhân viên).
 - Bỏ cửa sổ "Việc được giao cho bạn" lúc đăng nhập (đã có trong Việc hôm nay).
 - Máy chủ `123_noi_quy_cam_ket_viec.sql`. Phiên bản `2026.11.18.10`.
+
+## Việc hôm nay — chia nhóm (18/11/2026, bước 142)
+
+Thiết kế: `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-design.md`, bản thử anh Tiến đã bấm duyệt.
+- "Việc của tôi" chia **Vận hành / Nhân sự / Khác**, thu gọn / mở rộng từng nhóm (nút Mở hết · Thu gọn hết). Trang nhớ trạng thái theo tài khoản. Đầu nhóm luôn hiện số cần kiểm tra / làm lại / gấp / quá hạn / hôm nay.
+- **Luật nhóm** (anh chốt): tiền, chốt ca, hàng hoá, số dư ngân hàng → Vận hành (gồm khoản âm và việc sinh từ **Bàn giao ca**); nghỉ & làm thay, đào tạo, nội quy, cam kết → Nhân sự; còn lại → Khác. Giao việc riêng gõ tay → **Khác** (cách A, không có ô chọn nhóm; hộp Giao việc riêng có dòng ghi chú). Việc tự thêm trong Bảng phân công → Khác.
+- Việc cùng loại (từ 2 việc) **gộp 1 dòng**, mở ra xem từng việc. Giao việc riêng gõ tay không gộp.
+- Mỗi dòng ghi **"Người làm: …"** (xanh = có mình, tím = người khác, vàng = chưa có người nhận).
+- **Kiểm tra việc:** người làm báo xong thì việc ở lại cuối nhóm, ghi "Chờ X kiểm tra". Người kiểm tra thấy việc ở đầu nhóm với nhãn "Cần bạn kiểm tra". Làm lại → việc lên đầu nhóm, nhãn đỏ, ghi lý do. Đạt → mục **Đã xong hôm nay** (nhóm thứ 4, thu sẵn, hết ngày tự xoá).
+- **Chủ:** tab **Việc của tôi | Mọi người** (mở sẵn Mọi người), lọc **Tất cả · Quản lý tổng · Quản lý · Kế toán · Việc khác**. Tab Mọi người không có việc chỉ Chủ làm, cũng không có dòng hồ sơ tồn dạng số tổng. Phiếu đào tạo tính theo Quản lý phụ trách.
+- **Quản lý:** dòng gộp **Đào tạo đã giao người hướng dẫn** (phiếu mình phụ trách): hạng mục, bước hiện tại, người hướng dẫn, hạn.
+- Ô **Theo dõi** liệt kê từng việc mình đã giao, kèm người làm.
+- Máy chủ `124_viec_hom_nay_nhom.sql` (`app_today_more`). Phiên bản `2026.11.18.11`.
