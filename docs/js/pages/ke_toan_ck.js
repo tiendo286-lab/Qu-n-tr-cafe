@@ -39,6 +39,7 @@ export async function render({ params }) {
 
   // trạng thái từng ô (phiếu ca × tài khoản); ORDER = các phiếu ca theo thời gian (để điền số dư đầu cho ca sau)
   const S = new Map(); const ROW = new Map(); const ORDER = []; const accMap = new Map();
+  const T = new Map();   // bước 135: hẹn tự lưu theo phiếu ca
   days.forEach((d, i) => shifts.forEach((sh) => {
     const x = get(i, sh); const r = x && x.row; if (!r) return;
     ROW.set(r.report_id, { ...r, shift: sh, work_date: d }); ORDER.push(r.report_id);
@@ -95,7 +96,7 @@ export async function render({ params }) {
     title: `Chuyển khoản thực nhận ${BR.code}`,
     html: html`<style>${CKW_CSS}</style>
       <div class="page-head"><div><h1>Chuyển khoản thực nhận</h1>${mob ? html`<div class="sub">Gõ <b>số dư lúc đóng ca trên Fabi</b> · tự tính Thực nhận, tự lưu · ⋯ để sửa số dư đầu, chuyển ra, ghi chú, tiền về chậm.` : html`<div class="sub">Chọn cơ sở · gõ <b>số dư của từng tài khoản lúc đóng ca trên Fabi</b> · web tự tính <b>Thực nhận</b> từng ca, từng ngày, cả tuần và <b>tự lưu</b>. Số dư đầu ca tự điền bằng số dư lúc đóng ca trước (chỉ với ca chưa nhập). Bấm <b>⋯</b> để sửa số dư đầu, tiền chuyển ra, ghi chú, tiền về chậm.`}</div></div>
-        <div id="saved-indicator" class="saved" role="status" hidden></div></div>
+        <div id="saved-indicator" class="saved ${mob ? 'ckm-saved' : ''}" role="status" hidden></div></div>
       <section class="card ckw-bar">
         <nav class="branch-tabs" aria-label="Cơ sở">${branches.map((b) => html`<a class="${b.id === cn ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${b.code}</a>`)}</nav>
         ${mob ? html`<div class="ckw-nav ckm-nav"><a class="btn sm secondary" href="${q({ ngay: addDays(mon, -7) })}" aria-label="Tuần trước">‹</a><strong>Tuần ${dmy(days[0]).slice(0, 5)} – ${dmy(days[6]).slice(0, 5)}</strong>${mon !== mondayOf(today) ? html`<a class="btn sm secondary" href="${q({ ngay: today })}">Tuần này</a>` : ''}<a class="btn sm secondary" href="${q({ ngay: addDays(mon, 7) })}" aria-label="Tuần sau">›</a></div>`
@@ -117,10 +118,15 @@ export async function render({ params }) {
       $$('.ckw-c').forEach((td) => {
         const st = S.get(td.dataset.k); const inp = td.querySelector('.ckw-close'); const r = ROW.get(st.report);
         inp.setAttribute('aria-label', `Số dư ${st.a.bank} ${st.a.account_no} lúc đóng ca ${r.shift} ${dmy(r.work_date)}`);
-        inp.addEventListener('input', () => { st.closing = parseMoney(inp.value); fillNext(st); paint(); });
-        inp.addEventListener('change', () => { st.closing = parseMoney(inp.value); fillNext(st); paint(); save(st.report); });
+        inp.addEventListener('input', () => { st.closing = parseMoney(inp.value); fillNext(st); paint(); later(st.report); });
+        inp.addEventListener('change', () => { st.closing = parseMoney(inp.value); fillNext(st); paint(); now(st.report); });
         td.querySelector('.ckw-more').addEventListener('click', () => more(st));
       });
+      // bước 135: trên điện thoại ẩn bàn phím / bấm chỗ trống / chuyển sang app ngân hàng thì ô KHÔNG mất chọn → không có 'change'.
+      // Vì vậy: dừng gõ ~1 giây là tự lưu; trang bị ẩn (chuyển app, tắt màn hình) hoặc rời trang thì lưu ngay.
+      const onHide = () => { if (document.visibilityState === 'hidden') flush(); };
+      document.addEventListener('visibilitychange', onHide); window.addEventListener('pagehide', flush);
+      return () => { flush(); document.removeEventListener('visibilitychange', onHide); window.removeEventListener('pagehide', flush); };
     },
   };
 
@@ -151,6 +157,10 @@ export async function render({ params }) {
     $$('.ckw-t[data-day]').forEach((td) => { const x = td.dataset.day === 'wk' ? wk : dayT[Number(td.dataset.day)]; td.innerHTML = x.any ? str(html`<b>${fmt(x.v)}</b>`) : '—'; });
     $$('[data-ds]').forEach((el) => { const st = dayState(Number(el.dataset.ds)); el.textContent = stripLbl(st); el.className = st === 'ok' ? 'ok' : st === 'none' ? '' : 'no'; });
   }
+  // hẹn lưu sau khi dừng gõ; lưu ngay khi rời ô / ẩn trang
+  function later(rid) { clearTimeout(T.get(rid)); T.set(rid, setTimeout(() => now(rid), 1000)); }
+  function now(rid) { clearTimeout(T.get(rid)); T.delete(rid); save(rid); }
+  function flush() { [...T.keys()].forEach(now); }
   // tự lưu đúng phiếu ca vừa sửa (lần lượt, không chồng nhau)
   function save(rid) {
     const r = ROW.get(rid); if (!r || r.locked) return Promise.resolve();
@@ -228,6 +238,7 @@ const CKW_CSS = `
   .ckw-all .ckw-l, .ckw-all td { background: #2f3e33; color: #fff; font-weight: 800; } .ckw-all td b { color: #fff; }
   .ckw-tag { display: inline-block; background: #fde9b8; color: #7a4a12; border-radius: 6px; padding: 1px 6px; font-size: 11px; font-weight: 700; }
   details.ckw-late > summary { cursor: pointer; font-size: 14px; font-weight: 600; color: var(--primary); }
+  .ckm-saved { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(16px + env(safe-area-inset-bottom, 0px)); z-index: 60; max-width: calc(100vw - 32px); box-shadow: 0 6px 20px rgba(0,0,0,.18); }
   .ckm-nav { width: 100%; justify-content: space-between; flex-wrap: nowrap; } .ckm-nav strong { flex: 1; text-align: center; font-size: 15px; } .ckm-nav .btn { width: auto; min-width: 40px; }
   .ckm-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 4px; margin-bottom: 4px; }
   .ckm-d { border: 1.5px solid var(--line); background: var(--card); border-radius: 10px; padding: 5px 0 4px; font-size: 11px; line-height: 1.25; color: var(--ink-2); cursor: pointer; }

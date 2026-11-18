@@ -691,6 +691,11 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - **"Luân chuyển tiền mặt – CK"** thay "Khách CK rút tiền mặt", có 2 chiều **TM → CK** / **CK → TM** (máy chủ nhận cả 2 chiều, vẫn đòi 2 vế bằng nhau); bảng tiền ghi "± Luân chuyển TM – CK". Phiếu cũ giữ số.
 - **Quyền Kiểm tra theo cơ sở** (anh chọn (b)): mọi phiếu chỉ **Chủ, Quản lý tổng, quản lý đối soát của cơ sở** (ô Đối soát ca, Bảng phân công) được vào Kiểm tra / Lưu / Sửa thẳng / Duyệt; quản lý khác thấy "🔒 Chỉ quản lý đối soát cơ sở này…". Muốn ai kiểm tra cơ sở nào thì thêm tên vào ô đó.
 
+## 5r40. Số dư ngân hàng trên điện thoại tự lưu khi dừng gõ — SỬA LỖI 18/11/2026 (bước 135, chỉ giao diện, web 2026.11.18.4)
+- Lỗi kế toán báo: gõ số dư ở **Kế toán › Chuyển khoản thực nhận** trên điện thoại không tự lưu. Nguyên nhân: trang chỉ lưu khi ô **mất chọn**; trên điện thoại ẩn bàn phím / bấm chỗ trống / chuyển sang app ngân hàng thì ô vẫn đang chọn → không lưu (máy chủ vẫn nhận bình thường).
+- Nay: **dừng gõ ~1 giây là tự lưu**; trang bị ẩn (chuyển app, tắt màn hình) hoặc rời trang thì **lưu ngay** số vừa gõ. Trên điện thoại chữ **"Đã lưu ca … · giờ"** nổi ở cuối màn hình (trước nằm tít trên đầu trang, cuộn xuống không thấy).
+- Bài thử: `flow_ck135` (role=nvkt; `index.html` và `test/phone.html`).
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
