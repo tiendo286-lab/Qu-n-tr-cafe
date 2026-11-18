@@ -781,3 +781,14 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Khi tích Thực hành, chọn Trung bình, Khá hoặc Tốt rồi hệ thống mới lưu thực hành và mức đạt cùng lúc.
 - Từ mốc 8 ngày kể từ ngày bắt đầu, người nhận xét thấy nút Hoàn thành. Chỉ hoàn thành khi đủ hạng mục và có nhận xét cuối. Hết ngày hạn 12 mà phiếu chưa xong thì hiện Quá hạn và vẫn tiếp tục xử lý trên phiếu.
 - Phiếu đang mở hiện ở Công việc → Việc của tôi của người học, người hướng dẫn được giao, quản lý phụ trách và người nhận xét. Khi có phân công mới hoặc đến lượt nhận xét, thông báo mở đúng phiếu.
+
+## Việc hôm nay — đợt 1 (18/11/2026, bước 138)
+
+- Sau khi đăng nhập, cả năm vai trò (Nhân viên, Quản lý, Kế toán, Quản lý tổng, Chủ) vào **Việc hôm nay** trước. Thanh dưới của nhân viên: tab **Hôm nay** thay tab Việc. Kế toán đổi màn qua lại cũng về Việc hôm nay.
+- **Ca của tôi hôm nay**: ca đã chốt lịch của người đăng nhập trong ngày (giờ, cơ sở, vai trò, trạng thái phiếu chốt ca) và nút **Mở ca**. Tài khoản không gắn nhân viên báo không có ca.
+- Nút **Order ca** ở đầu trang khi đợt Order tuần sau đang mở mà nhân viên chưa gửi.
+- **Việc của tôi** gom: việc theo Bảng phân công, Giao việc riêng, phiếu đào tạo theo trách nhiệm, khoản âm mới hoặc đang chờ quản lý xem giải trình, hồ sơ tồn theo quyền (đối soát, Fabi, chuyển khoản…). Xếp **Quá hạn → Hạn hôm nay → Sắp đến hạn (3 ngày) → Khác → Đang chờ** (ghi rõ đang chờ ai). Mỗi dòng mở đúng nơi xử lý. Nút **Xem tất cả công việc** mở Việc của tôi. Tải lỗi hiện **Chưa tải được công việc** + **Thử lại**; trống hiện **Hôm nay bạn không có việc cần xử lý**.
+- **Theo dõi** (Quản lý, Quản lý tổng, Chủ, Kế toán): việc mình đã giao đang chờ người khác, lối tắt Tất cả công việc / Quá hạn & phạt / Đào tạo / Thông báo. Thu gọn được trên điện thoại.
+- **Bảng lương của tôi**: số ca, giờ thực tế, giờ x2 cộng, giờ bị trừ, 3 ghi chú nghỉ / làm thay gần nhất và khoản âm trong tháng; không có tổng lương hay tiền mặt đã trả. **Xem chi tiết** mở Công của tôi — trang này có thêm mục **Khoản âm** của tháng (xem, Tôi đã xem, gửi giải trình).
+- Máy chủ: `121_viec_hom_nay.sql` (`app_today_me`). Phiên bản web `2026.11.18.7`.
+- Để đợt sau: việc Nội quy / Cam kết hạn 12 ngày, Theo dõi theo bộ phận / cơ sở có số quá hạn, khoản âm nối trạng thái Lệch tiền ca và nút Mở ca từng dòng, máy chủ chặn nhân viên mở / gửi phiếu ca không có tên mình.

@@ -1,14 +1,14 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 137 (Công việc › Đào tạo). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 138 (Việc hôm nay đợt 1). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.6** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **120** (`120_cong_viec_dao_tao.sql`).
+- Web: **2026.11.18.7** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Máy chủ: đã chạy tới tệp **121** (`121_viec_hom_nay.sql`).
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
 
 ## Đào tạo (bước 137, đã lên web)
@@ -17,7 +17,13 @@ Cập nhật: 18/11/2026, sau bước 137 (Công việc › Đào tạo). Phiên
 
 - Mục **Công việc › Đào tạo** lấy các phiếu đã tạo trong trang Nhân viên, dùng một danh sách chung. Trên phiếu mỗi hạng mục hiện người hướng dẫn và cơ sở đào tạo, có thể sửa riêng từng hạng mục. Phiếu đang mở có trong Việc của tôi của người liên quan. Có thông báo phân công, nhắc hạn và nhận xét cuối. Có thể giao giai đoạn 2 cho hạng mục thực hành ở mức Trung bình hoặc Khá.
 - Máy chủ đã chạy `120_cong_viec_dao_tao.sql` (thử tự hoàn tác trước bằng `kiem_tra/cong_viec_dao_tao_120_may_chu.sql`). **Chủ chưa chọn tài khoản nhận xét**: vào Công việc › Đào tạo để chọn; chưa chọn thì không ai bấm được Hoàn thành / Nhắc hạn.
-- Tab **Việc hôm nay** (phương án `work/proposals/phuong-an-viec-hom-nay.md`) là việc tiếp theo, làm từng phần.
+
+## Việc hôm nay (bước 138, đợt 1 đã lên web)
+
+- Phương án: `work/proposals/phuong-an-viec-hom-nay.md` (tệp cục bộ, không có trên GitHub). Đợt 1 đã làm mục 1, 2, 3, 5 (bản gọn), 6 và một phần 4, 7 — chi tiết ở `TINH_NANG_DA_CHOT.md` mục "Việc hôm nay — đợt 1".
+- Trang `docs/js/pages/hom_nay.js` hỏi cùng lúc 6 nguồn (`app_today_me`, `app_home_todo`, `app_pc_mine`, `app_dt_work_list`, `app_ka_mine`, `app_cong_mine`); gom / xếp việc ở `docs/js/hom_nay_viec.js` (thử: `jsc -m kiem_tra/hom_nay_viec_138.mjs`). Bộ thử Chrome: `flow_hn138` (xem README).
+- **Đợt 2 còn lại:** việc Nội quy (đọc bản mới, hạn 12 ngày) và Cam kết (Kế toán cập nhật Đã ký và nộp) — cần bảng theo dõi mới; Theo dõi theo bộ phận / cơ sở có số quá hạn và việc chưa có người nhận; khoản âm nối trạng thái Lệch tiền ca + nút Mở ca từng dòng; máy chủ chặn nhân viên mở chi tiết / gửi phiếu ca không có tên mình (mục 8).
+- Cửa sổ "Việc được giao cho bạn" lúc đăng nhập vẫn giữ; nay trùng một phần với Việc hôm nay — hỏi anh Tiến có bỏ không.
 - Các bài thử chỉ dùng dữ liệu giả. Cách chạy nằm trong `kiem_tra/trinh_duyet/README.md`.
 
 ## Việc còn mở
