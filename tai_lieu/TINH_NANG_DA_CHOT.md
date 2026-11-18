@@ -845,3 +845,8 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
   - **Kiểm quỹ** (so với sổ, lệch bắt lý do) + khung "Kiểm quỹ tháng này"; lệch chưa điều chỉnh có nút **Điều chỉnh…** (chọn nhóm, tạo khoản thu / chi). Ô **Kiểm quỹ lần cuối**.
   - **Quỹ ngoài:** "+ Thêm khoản ngoài" ở Sổ chi / Sổ thu, khoản ngoài có Sửa / Xoá, cách chia: theo doanh thu / chia đều / 1 cơ sở / tự nhập.
   - **Chốt tháng:** không đổi — Chuyển về Quỹ ngoài chính là bảng phiếu rút mà Chốt tháng đang đối chiếu.
+- **Đợt 4 (19/11, máy chủ `133_so_thu_chi_doi_soat.sql`, web 2026.11.19.6 — vùng khoá, anh Tiến mở bằng mật khẩu 19/11):** tab **Đối soát tiền** làm thật, mỗi ca 3 bước — kế hoạch / ghi chép `tai_lieu/superpowers/plans/2026-11-19-so-thu-chi-moi-dot4.md`.
+  - ① **Sửa theo Fabi** cho Tiền mở ca / Doanh thu / Nợ (sửa số nhân viên ghi trong bản đối soát, lưu số cũ → mới, người sửa; nợ Fabi nhiều hơn thì thêm báo nợ phần chênh nếu ghi tên). Tiền mở ca 2 tầng: NV ↔ Fabi, rồi Fabi ↔ số phải là → **"Ca trước ghi sai" / "Ca này ghi sai"** (ca nào ghi sai ca đó chịu, có Huỷ chọn; ca trước thu theo ca thì chỉ chọn được "Ca này").
+  - ② **Thu theo ca / Thu theo ngày**: thu theo ca nhập tiền mặt quản lý đếm mỗi ca; thu theo ngày chỉ ca cuối nhập (đếm két sau ca). Chuyển khoản luôn số kế toán.
+  - ③ **Chốt tiền ca**: cần hết ô đỏ ở ①, có file Fabi + ngân hàng, có tiền mặt thực nhận (thu theo ca). Lệch không chặn chốt — thành phiếu chênh lệch. **Mở lại chốt** bắt lý do.
+  - Trang Đối soát ca cũ vẫn giữ phần tiền trong lúc chạy song song (anh dặn chưa bỏ trang cũ); hai trang dùng chung dữ liệu.
