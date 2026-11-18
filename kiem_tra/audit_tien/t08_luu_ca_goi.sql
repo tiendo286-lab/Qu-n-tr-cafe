@@ -67,7 +67,7 @@ begin
   begin
     perform public.app_ca_recon_apply(rid, jsonb_build_object('fields', jsonb_build_object('cups', 999)), 'thử 121 ql');
     m5 := 'không bị từ chối';
-  exception when others then e_ok := sqlerrm like '%chỉ Chủ%'; m5 := sqlerrm;
+  exception when others then e_ok := sqlerrm like 'Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát%'; m5 := sqlerrm;
   end;
   raise exception 'REPORT>> %', json_build_object('ket_qua', case when a_ok and b_ok and c_ok and d_ok and e_ok then 'PASS' else 'FAIL' end,
     'a_luu_ca_goi', a_ok, 'a_loi', m1, 'b_hong_thi_khong_luu', b_ok, 'b_loi', m2, 'c_bat_buoc_ly_do', c_ok, 'c_loi', m3, 'd_goi_rong', d_ok, 'd_loi', m4,

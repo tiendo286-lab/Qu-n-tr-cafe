@@ -28,7 +28,7 @@ begin
     perform public.app_ca_recon_apply(rid, jsonb_build_object('fields', jsonb_build_object('moves', '[{"kind":"chuyen_khoan","amount":-1000,"note":"thử 128"}]'::jsonb)), 'thử 128');
     e2 := 'không bị chặn';
   exception when others then e2 := sqlerrm; end;
-  a_ok := qx is not null and e2 = 'Mục web đã tự đối soát — chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này sửa được.';
+  a_ok := qx is not null and e2 in ('Mục web đã tự đối soát — chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này sửa được.', 'Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này kiểm tra / sửa được phiếu này.');   -- bước 133 chặn sớm hơn
   m := m || jsonb_build_object('a', e2);
   -- b) quản lý đối soát của cơ sở → lưu được, Chủ được báo
   perform set_config('request.jwt.claims', json_build_object('sub', uql, 'role', 'authenticated')::text, true);

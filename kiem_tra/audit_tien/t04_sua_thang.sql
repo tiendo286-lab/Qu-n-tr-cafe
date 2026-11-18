@@ -6,7 +6,7 @@
 -- Chạy trong begin … rollback. Kết quả ở REPORT>>.
 begin;
 do $$
-declare rid bigint; chu uuid; ql uuid; r0 public.shift_reports; cc bigint; a_ok boolean := false; b_ok boolean := false; c_ok boolean := false;
+declare rid bigint; chu uuid; ql uuid; qx uuid; r0 public.shift_reports; cc bigint; a_ok boolean := false; b_ok boolean := false; c_ok boolean := false;
         d1_ok boolean := false; d2_ok boolean := false; m1 text; m2 text; m3 text; m4 text; m5 text;
 begin
   select a.auth_user_id into chu from public.accounts a where a.system_role = 'chu' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 order by a.id limit 1;
@@ -16,6 +16,9 @@ begin
      and exists (select 1 from public.fabi_shifts f where f.report_id = r.id) and (public.app__ca_money(r.id) ->> 'bank_ok')::boolean
    order by r.work_date desc, r.id desc limit 1;
   rid := r0.id;
+  -- bước 133: quyền Kiểm tra theo cơ sở — d1 dùng người đối soát của cơ sở phiếu, d2 dùng quản lý KHÔNG phân công cơ sở đó
+  select a.auth_user_id into ql from public.accounts a where a.auth_user_id is not null and coalesce(a.locked, 0) = 0 and a.id = any(public.app__pc_who(1, 'branch', r0.branch_id)) order by a.id limit 1;
+  select a.auth_user_id into qx from public.accounts a where a.system_role = 'ql' and a.auth_user_id is not null and coalesce(a.locked, 0) = 0 and not a.id = any(public.app__pc_who(1, 'branch', r0.branch_id)) order by a.id limit 1;
   set local session_replication_role = replica;   -- dựng tình huống: tạm tắt trigger khoá (chỉ trong phần dựng)
   delete from public.shift_report_results where report_id = rid;
   delete from public.shift_report_checks where report_id = rid;
@@ -61,10 +64,11 @@ begin
   exception when others then m4 := sqlerrm;
   end;
   update public.shift_report_checks set auto = 1 where report_id = rid and item = 'doanh_thu';
+  perform set_config('request.jwt.claims', json_build_object('sub', qx, 'role', 'authenticated')::text, true);
   begin
     perform public.app_ca_recon_direct(rid, '{}'::jsonb, 'kiểm tra tự động', array['doanh_thu']);
     m5 := 'không bị từ chối';
-  exception when others then d2_ok := sqlerrm like '%chỉ Chủ%'; m5 := sqlerrm;
+  exception when others then d2_ok := sqlerrm like 'Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát%'; m5 := sqlerrm;
   end;
   raise exception 'REPORT>> %', json_build_object('ket_qua', case when a_ok and b_ok and c_ok and d1_ok and d2_ok then 'PASS' else 'FAIL' end,
     'a_o_muc_chua_duyet_van_mo', a_ok, 'a_loi', m1, 'b_them_no_hd', b_ok, 'b_loi', m2, 'c_tu_choi_doi_so_lech', c_ok, 'c_loi', m3,
