@@ -6,7 +6,7 @@ import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
-import { ALERT, COLS, caChecks, caState, compareDays, dayChain, dayTree, fundSummary, sumItems } from '../so_thu_chi_tinh.js';
+import { ALERT, COLS, caChecks, caState, compareDays, dayChain, dayTree, fundSummary, gapMath, sumItems } from '../so_thu_chi_tinh.js';
 
 export const perm = 'chot_thang';
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
@@ -71,9 +71,10 @@ export async function render({ params }) {
     mount() {
       const root = $('#stc-page'); if (!root) return;
       root.addEventListener('click', (ev) => {
-        const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt],[data-addca]');
+        const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt],[data-addca],[data-gap]');
         if (w && root.contains(w)) {
-          if (w.dataset.addca) addCaDialog(D, w.dataset.addca, P.tab === 'thu' ? 'thu' : 'chi');
+          if (w.dataset.gap) { const it = D.items.find((x) => x.id === w.dataset.gap); if (it?.gap) gapDialog(D, it); }
+          else if (w.dataset.addca) addCaDialog(D, w.dataset.addca, P.tab === 'thu' ? 'thu' : 'chi');
           else if (w.dataset.ed) editDialog(D, D.items.find((x) => x.id === w.dataset.ed));
           else if (w.dataset.unc) uncollectDialog(D, D.items.find((x) => x.id === w.dataset.unc));
           else if (w.dataset.colDebt) collectDialog(D, w.dataset.colDebt);
@@ -215,6 +216,90 @@ async function personMark(D, name, on) {
   catch (e) { showSaved(e.message, true); }
 }
 
+// ---------------- Phiếu chênh lệch (đợt 3) ----------------
+// Ca thiếu: Trừ lương / Quán chịu / Ghép · Ca dư: Ghép / Phiếu thu / Gán nợ khách trả. Quán chịu, Ghép của người không phải Chủ → chờ Chủ duyệt.
+const gapStatus = (s) => String(s || '').replace('Chờ xử lý (dư)', 'Chờ xử lý · chưa làm phiếu thu');
+function gapDialog(D, x) {
+  const g = x.gap; const thieu = g.kind === 'thieu'; const ca = (D.cas || []).find((c) => c.id === x.ca_id) || {};
+  const mm = dayChain(D, x.date).get(ca.id)?.money?.[x.pm] || {}; const gross = Number(x.gross ?? x.amount);
+  const avail = Number(g.avail || 0); const people = g.people || [];
+  const split = (i) => { const n = people.length || 1; const b = Math.floor(avail / n / 1000) * 1000; return i === 0 ? avail - b * (n - 1) : b; };
+  const ghepLock = thieu && g.has_tl ? 'Đã tạo phiếu trừ tiền — huỷ phiếu trừ tiền trước khi ghép.' : '';
+  const noLock = !thieu && g.has_thu ? 'Đã tạo phiếu thu — huỷ phiếu thu trước khi gán nợ.' : 'Gán nợ khách trả làm ở bước sau (cần mở khoá).';
+  const acts = thieu ? [['tl', 'Trừ lương', ''], ['qc', 'Quán chịu', ''], ['match', 'Ghép với ca dư', ghepLock]]
+    : [['match', 'Ghép với ca thiếu', ''], ['thu', 'Tạo phiếu thu', ''], ['no', 'Gán nợ khách trả', noLock]];
+  const first = acts.find((a) => !a[2])?.[0];
+  const bU = (ref) => html`<button type="button" class="btn sm secondary" data-undo="${ref}">Huỷ</button>`;
+  const bOk = (ref) => html`<button type="button" class="btn sm" data-ok="${ref}">Duyệt</button><button type="button" class="btn sm secondary" data-no="${ref}">Từ chối</button>`;
+  const owner = !!D.owner;
+  const done = [
+    ...(g.tl || []).map((t) => html`<div class="stc-gd"><span>Trừ lương ${t.name}</span><b>${fmt(t.amount)}</b>${bU(`tl:${t.id}`)}</div>`),
+    ...(g.decisions || []).map((d) => html`<div class="stc-gd"><span>${d.kind === 'quan_chiu' ? 'Quán chịu' : d.kind === 'thu_khac' ? 'Phiếu thu (Thu khác)' : d.kind}</span><b>${fmt(d.amount)}</b>${bU(`decision:${d.id}`)}</div>`),
+    ...(g.matches || []).map((m) => html`<div class="stc-gd"><span>Ghép với ${m.with}${m.status === 'cho_duyet' ? ' · ⏳ chờ Chủ duyệt' : ''}</span><b>${fmt(m.amount)}</b>
+      ${m.status === 'cho_duyet' && owner ? bOk(`match:${m.id}`) : ''}${bU(`match:${m.id}`)}</div>`),
+    ...(g.qc_wait || []).map((q) => html`<div class="stc-gd"><span>Quán chịu · ${q.by || ''} · ⏳ chờ Chủ duyệt</span><b>${fmt(q.amount)}</b>
+      ${owner ? bOk(`qc:${q.id}`) : ''}${bU(`qc:${q.id}`)}</div>`),
+  ];
+  const cands = (g.cands || []).filter((c) => Number(c.amount) > 0);
+  const pane = (k, body) => html`<div class="stc-gp" data-pane="${k}" ${k === first ? '' : 'hidden'}>${body}</div>`;
+  const lockNote = (m) => html`<div class="st-meta">🔒 ${m}</div>`;
+  const panes = {
+    tl: () => pane('tl', html`<div class="st-meta">Mặc định chia đều người làm ca, sửa được. Tổng không quá ${fmt(avail)}.</div>
+      ${people.map((p, i) => html`<label class="field stc-tlp"><span>${p.name}</span><input class="input" name="tl_${p.id}" inputmode="numeric" data-money value="${fmt(split(i))}"></label>`)}`),
+    qc: () => pane('qc', html`<label class="field"><span>Số tiền quán chịu</span><input class="input" name="qc_amount" inputmode="numeric" data-money value="${fmt(avail)}"></label>
+      ${owner ? '' : html`<div class="st-meta">⏳ Quán chịu cần Chủ duyệt.</div>`}`),
+    match: () => pane('match', ghepLock ? lockNote(ghepLock) : cands.length ? html`<label class="field"><span>Ghép với</span><select class="input" name="cand">${cands.map((c) => html`<option value="${c.report}" data-amt="${c.amount}">${c.label} · còn ${fmt(c.amount)}</option>`)}</select></label>
+      <label class="field"><span>Số tiền ghép</span><input class="input" name="match_amount" inputmode="numeric" data-money value="${fmt(Math.min(avail, Number(cands[0].amount)))}"></label>
+      ${owner ? '' : html`<div class="st-meta">⏳ Ghép cần Chủ duyệt.</div>`}` : html`<div class="st-meta">Không có ca ${thieu ? 'dư' : 'thiếu'} cùng loại tiền trong 3 ngày để ghép.</div>`),
+    thu: () => pane('thu', html`<label class="field"><span>Số tiền ghi Thu khác</span><input class="input" name="thu_amount" inputmode="numeric" data-money value="${fmt(avail)}"></label>`),
+    no: () => pane('no', lockNote(noLock)),
+  };
+  const d = dialog(html`<form class="stack stc-dlg stc-gapd" style="gap:10px"><h2 style="margin:0">Phiếu chênh lệch · Ca ${ca.shift || ''} ${dm(x.date)} · ${PM[x.pm]}</h2>
+    <div class="stc-gnum"><div><span>Phải có</span><b>${fmt(mm.must ?? 0)}</b></div><div><span>Thực tế</span><b>${fmt(mm.real ?? 0)}</b></div>
+      <div><span>Lệch</span><b class="${thieu ? 'stc-red' : ''}">${thieu ? '−' : '+'}${fmt(gross)}</b></div><div><span>Người làm ca</span><b>${people.map((p) => p.name).join(', ') || ca.staff || '—'}</b></div></div>
+    ${gapMath(x) ? html`<div class="pill info">${gapMath(x)}</div>` : ''}
+    ${done.length ? html`<div class="stc-gdl"><div class="st-meta">Đã xử lý / đang chờ</div>${done}</div>` : ''}
+    <div class="stc-avail">Còn xử lý được: <b>${fmt(avail)}</b></div>
+    <div class="stc-gacts">${acts.map(([k, l, lock]) => html`<button type="button" class="btn sm ${k === first && avail > 0 ? '' : 'secondary'}" data-act="${k}" ${lock || avail <= 0 ? 'disabled' : ''} title="${lock || (avail <= 0 ? 'Đã xử lý hết' : '')}">${l}</button>`)}</div>
+    ${avail > 0 ? acts.map(([k]) => panes[k]()) : ''}${acts.filter((a) => a[2]).map((a) => lockNote(a[2]))}
+    <label class="field"><span>Lý do (bắt buộc)</span><input class="input" name="reason" placeholder="vd: khách quỵt / nhân viên đưa nhầm tiền thối"></label>
+    <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Đóng</button>${avail > 0 && first ? html`<button class="btn sm" type="submit">Lưu</button>` : ''}</div></form>`);
+  let cur = first;
+  d.querySelectorAll('[data-money]').forEach((i) => i.classList.add('money')); bindMoneyInputs(d);
+  d.querySelector('[data-x]').addEventListener('click', () => d.close());
+  const cs = d.querySelector('[name=cand]');
+  cs?.addEventListener('change', () => { const a = Number(cs.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=match_amount]').value = fmt(Math.min(avail, a)); });
+  const run = async (fn, msg) => { try { await fn(); d.close(); after(msg); } catch (e) { err(d, e); } };
+  const need = () => { const r = val(d, 'reason'); if (!r) throw new Error('Ghi lý do.'); return r; };
+  const item = g.item;
+  d.addEventListener('click', (ev) => {
+    const a = ev.target.closest('[data-act]');
+    if (a && !a.disabled) { cur = a.dataset.act; d.querySelectorAll('[data-act]').forEach((b) => b.classList.toggle('secondary', b !== a)); d.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== cur; }); return; }
+    const u = ev.target.closest('[data-undo],[data-ok],[data-no]'); if (!u) return;
+    const [kind, id] = (u.dataset.undo || u.dataset.ok || u.dataset.no).split(':');
+    if (u.dataset.undo) run(async () => rpc('app_stc_gap_undo', { p_kind: kind, p_id: Number(id), p_reason: need() }), 'Đã huỷ');
+    else run(async () => rpc('app_stc_gap_approve', { p_kind: kind, p_id: Number(id), p_ok: !!u.dataset.ok }), u.dataset.ok ? 'Chủ đã duyệt' : 'Đã từ chối');
+  });
+  d.querySelector('form').addEventListener('submit', (ev) => {
+    ev.preventDefault();
+    run(async () => {
+      const r = need(); let res = 'ok';
+      if (cur === 'tl') {
+        const ps = people.map((p) => ({ employee_id: p.id, amount: money(d, 'tl_' + p.id) })).filter((p) => p.amount > 0);
+        if (!ps.length) throw new Error('Nhập số tiền trừ lương.');
+        await rpc('app_stc_gap_tl', { p_report: ca.id, p_item: item, p_people: ps, p_reason: r });
+      } else if (cur === 'qc') res = await rpc('app_stc_gap_qc', { p_report: ca.id, p_item: item, p_amount: money(d, 'qc_amount'), p_reason: r });
+      else if (cur === 'match') {
+        if (!cs) throw new Error('Không có ca để ghép.');
+        const o = Number(cs.value);
+        res = await rpc('app_stc_gap_match', { p_short: thieu ? ca.id : o, p_over: thieu ? o : ca.id, p_item: item, p_amount: money(d, 'match_amount'), p_reason: r });
+      } else if (cur === 'thu') await rpc('app_stc_gap_thu', { p_report: ca.id, p_item: item, p_amount: money(d, 'thu_amount'), p_reason: r });
+      else throw new Error(noLock);
+      if (res === 'cho_duyet') showSaved('Đã gửi — chờ Chủ duyệt');
+    }, 'Đã lưu phiếu chênh lệch');
+  });
+}
+
 // ---------------- Sổ thu / Sổ chi ----------------
 function itemRow(x, book, D = null) {
   const pills = [];
@@ -231,7 +316,13 @@ function itemRow(x, book, D = null) {
     pills.push(html`<span class="pill info">Phiếu bổ sung của quản lý${e.action === 'them' ? ' · thêm' : ''}</span><span class="st-meta">${e.by || ''} · ${e.at || ''}${e.action === 'sua' && e.old_amount != null && Number(e.old_amount) !== Number(x.amount) ? ` · số cũ ${fmt(e.old_amount)} → ${fmt(x.amount)}` : ''}${e.reason ? ' · lý do: ' + e.reason : ''}</span>`);
   }
   if (x.from) pills.push(html`<span class="st-meta">Nợ từ ${x.from}</span>`);
-  if (x.status) pills.push(html`<span class="pill ${x.recv === 'cho' || /Chờ/.test(x.status) ? 'warn' : /Đã/.test(x.status) ? 'ok' : 'mute'}">${x.status}</span>`);
+  if (x.status) { const st = x.col === 'lech' ? gapStatus(x.status) : x.status; pills.push(html`<span class="pill ${x.recv === 'cho' || /Chờ/.test(st) ? 'warn' : /Đã/.test(st) ? 'ok' : 'mute'}">${st}</span>`); }
+  if (x.col === 'lech' && gapMath(x)) pills.push(html`<span class="pill info">${gapMath(x)}</span>`);
+  if (x.col === 'lech' && x.gap && D && !D.ext) {
+    const ca = (D.cas || []).find((c) => c.id === x.ca_id);
+    pills.push(ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-gapb" data-gap="${x.id}">Phiếu chênh lệch</button>`
+      : html`<button type="button" class="btn sm secondary stc-act" data-gap="${x.id}" disabled>Phiếu chênh lệch</button><span class="st-meta">🔒 Chốt tiền ca ở tab Đối soát tiền mới xử lý được</span>`);
+  }
   if (book === 'chi' && x.col === 'chi') {
     pills.push(x.cat ? html`<span class="pill mute">${x.cat}</span>` : html`<span class="pill warn">Chưa phân loại</span>`);
     if (x.no_cost) pills.push(html`<span class="pill stc-nc">Không tính chi phí</span>`);
@@ -509,6 +600,10 @@ const STYLE = html`<style>
   .stc-big .v { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .stc-big .s { font-size: 12px; color: var(--muted); }
   .stc-tile.warn { border-color: var(--warn-line); background: var(--warn-bg); }
+  .stc-gnum { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; } .stc-gnum div { display: flex; flex-direction: column; min-width: 0; }
+  .stc-gnum span { font-size: 12px; color: var(--muted); } .stc-gnum b { font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+  .stc-gd { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); } .stc-gd span { flex: 1 1 140px; min-width: 0; } .stc-gd b { font-variant-numeric: tabular-nums; }
+  .stc-gacts { display: flex; flex-wrap: wrap; gap: 6px; } .stc-avail b { font-variant-numeric: tabular-nums; }
   .stc-cmp { margin-top: 12px; border-left: 4px solid var(--info-line); }
   .stc-cmp h3 { margin: 0 0 6px; font-size: 15px; } .stc-cmp small { color: var(--muted); font-weight: 400; }
   .stc-cmpr { display: grid; grid-template-columns: minmax(0, 1fr) auto auto; gap: 10px; padding: 5px 0; border-bottom: 1px solid var(--line-soft); font-variant-numeric: tabular-nums; }

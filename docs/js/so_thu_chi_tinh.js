@@ -42,10 +42,16 @@ export function dayTree(data, book, pm, col = null) {
   }).filter((d) => (col ? d.total > 0 : d.total > 0 || d.cas.length > 0));
 }
 
+// phép tính lệch sau ghép: "30.000 − 20.000 ghép = 10.000" (chưa ghép thì rỗng)
+export function gapMath(x) {
+  const g = Number(x.gross ?? x.amount), a = Number(x.amount); if (!(g > a)) return '';
+  return `${fmt(g)} − ${fmt(g - a)} ghép = ${fmt(a)}`;
+}
 export function caMoney(items, caId, startTm) {
   const one = (pm, start) => {
     const g = (book, c) => sumItems(items, { book, pm, col: c, caId });
-    const r = { start, dt: g('thu', 'dt'), no: g('thu', 'no'), khac: g('thu', 'khac'), lc: g('thu', 'lc') - g('chi', 'lc'), chi: g('chi', 'chi'), cn: g('chi', 'no'), du: g('thu', 'lech'), th: g('chi', 'lech') };
+    const gl = (book) => live(items).filter((x) => x.book === book && x.pm === pm && x.col === 'lech' && (x.ca_id ?? null) === caId).reduce((a, x) => a + Number(x.gross ?? x.amount ?? 0), 0);
+    const r = { start, dt: g('thu', 'dt'), no: g('thu', 'no'), khac: g('thu', 'khac'), lc: g('thu', 'lc') - g('chi', 'lc'), chi: g('chi', 'chi'), cn: g('chi', 'no'), du: gl('thu'), th: gl('chi') };   // lệch gộp (trước ghép)
     r.must = r.start + r.dt + r.no + r.khac + r.lc - r.chi - r.cn;
     r.real = r.must + r.du - r.th;
     r.gap = r.real - r.must;

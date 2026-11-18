@@ -7,6 +7,9 @@ const ca = (id, date, shift, o = {}) => ({ id, date, shift, staff: 'Lan, Minh', 
   bank_ck: 0, kt_wait: false, kt_missing: [], recon_money_done: true, ...o });
 const it = (date, caId, book, pm, col, amount, o = {}) => ({ id: 'z:' + (++k), date, ca_id: caId, book, pm, col, amount, title: col, meta: 'Phiếu ca', cat: null,
   cat_type: null, checked: true, no_cost: false, status: null, status_cls: null, from: null, who: null, to_qn: false, recv: null, src: 'move', ...o });
+// chi tiết lệch (đợt 3) — cùng dạng gap của app_stc_month
+const G = (kind, total, names, o = {}) => ({ item: 'tien_mat', kind, total, remain: total, avail: total, people: names.map((name, i) => ({ id: 900 + i, name })),
+  tl: [], decisions: [], matches: [], qc_wait: [], cands: [], has_tl: false, has_thu: false, ...o });
 const dt = (date, caId, tm, ck) => [it(date, caId, 'thu', 'tm', 'dt', tm, { title: 'Doanh thu', src: 'dt' }), it(date, caId, 'thu', 'ck', 'dt', ck, { title: 'Doanh thu', src: 'dt' })];
 const rev = (tm, ck, o = {}) => ({ nv: { opening: 1000000, revenue: tm + ck, debt: 0 }, fabi: { has: true, opening: 1000000, revenue: tm + ck, tm, ck, debt: 0, edited_bills: 0 }, bank_ck: ck, ...o });
 
@@ -25,14 +28,16 @@ const cas = [
 // tiền đầu ca thật theo chuỗi két (ca Sáng 1.000.000; thu theo ngày: bằng ca trước để lại)
 const items = [
   ...dt(D14, 141, 1760000, 2580000), ...dt(D14, 142, 2050000, 3120000), ...dt(D14, 143, 1640000, 2400000),
-  it(D14, 142, 'chi', 'tm', 'chi', 65000, { title: 'Mua chanh, cam', cat: 'Nguyên liệu' }), it(D14, 143, 'thu', 'tm', 'lech', 10000, { title: 'Ca dư tiền', src: 'gap', status: 'Lệch nhỏ ≤ 5.000 (coi như khớp)' }),
+  it(D14, 142, 'chi', 'tm', 'chi', 65000, { title: 'Mua chanh, cam', cat: 'Nguyên liệu' }), it(D14, 143, 'thu', 'tm', 'lech', 10000, { id: 'g:143:tm', title: 'Ca dư tiền', src: 'gap', status: 'Chờ xử lý (dư)', gross: 10000, gap: G('du', 10000, ['Lan', 'Minh']) }),
   ...dt(D15, 151, 1930000, 2760000), ...dt(D15, 152, 2380000, 3610000), ...dt(D15, 153, 1820000, 2690000),
   it(D15, 151, 'chi', 'tm', 'chi', 50000, { title: 'Mua đá', cat: 'Nguyên liệu' }), it(D15, 152, 'chi', 'tm', 'chi', 120000, { title: 'Mua cốc giấy', cat: 'Vật dụng' }),
-  it(D15, 152, 'chi', 'tm', 'lech', 40000, { title: 'Ca thiếu tiền', src: 'gap', status: 'Đã xử lý' }),
+  it(D15, 152, 'chi', 'tm', 'lech', 40000, { id: 'g:152:tm', title: 'Ca thiếu tiền', src: 'gap', status: 'Đã xử lý', gross: 40000,
+    gap: G('thieu', 40000, ['Lan', 'Minh'], { remain: 0, avail: 0, has_tl: true, tl: [{ id: 71, name: 'Lan', amount: 20000, status: 'cho' }, { id: 72, name: 'Minh', amount: 20000, status: 'cho' }] }) }),
   it(D15, 153, 'chi', 'ck', 'chi', 350000, { title: 'Thợ sửa máy xay', cat: 'Sửa chữa & thiết bị' }), it(D15, 153, 'chi', 'tm', 'no', 500000, { title: 'Khách mượn – Anh Vinh', meta: 'Khách mượn tiền két (Nợ TM)' }),
   ...dt(D16, 161, 2010000, 2980000), ...dt(D16, 162, 2260000, 3420000), ...dt(D16, 163, 1700000, 2530000),
   it(D16, 161, 'chi', 'tm', 'chi', 50000, { title: 'Mua đá', cat: 'Nguyên liệu' }), it(D16, 161, 'chi', 'tm', 'chi', 35000, { title: 'Bút, sổ ghi order', cat: 'Khác' }),
-  it(D16, 162, 'chi', 'tm', 'lech', 50000, { title: 'Ca thiếu tiền', src: 'gap', status: 'Đã xử lý' }),
+  it(D16, 162, 'chi', 'tm', 'lech', 50000, { id: 'g:162:tm', title: 'Ca thiếu tiền', src: 'gap', status: 'Chờ xử lý · chưa làm phiếu trừ tiền · ⏳ chờ Chủ duyệt', gross: 50000,
+    gap: G('thieu', 50000, ['Lan', 'Minh'], { avail: 0, qc_wait: [{ id: 5, amount: 50000, by: 'Quản lý tổng' }] }) }),
   it(D16, 163, 'chi', 'tm', 'chi', 250000, { title: 'Chi lương – Phong', meta: 'Lương trả tiền mặt', cat: 'Lương' }),
   it(D16, 163, 'thu', 'tm', 'no', 180000, { title: 'Chị Hoa', meta: 'Khách trả nợ trong ca', from: 'ca Chiều 12/11', src: 'debt' }),
   it(D16, null, 'chi', 'ck', 'chi', 280000, { title: 'Internet tháng 11', meta: 'Quản lý tạo', cat: 'Internet', src: 'entry' }),
@@ -51,7 +56,10 @@ const items = [
   it(D18, 181, 'chi', 'tm', 'lc', 500000, { title: 'Khách chuyển khoản, lấy tiền mặt' }), it(D18, 181, 'thu', 'ck', 'lc', 500000, { title: 'Khách chuyển khoản, lấy tiền mặt' }),
   it(D18, 182, 'chi', 'tm', 'chi', 180000, { title: 'Mua sữa tươi', checked: false }), it(D18, 182, 'chi', 'ck', 'chi', 45000, { title: 'Phí ship nguyên liệu', cat: 'Nguyên liệu' }),
   it(D18, 183, 'chi', 'tm', 'chi', 1000000, { title: 'Quản lý lấy tiền két', cat: 'Không tính', no_cost: true }),
-  it(D18, 183, 'chi', 'tm', 'lech', 30000, { title: 'Ca thiếu tiền', src: 'gap', status: 'Chờ xử lý · chưa làm phiếu trừ tiền' }),
+  it(D18, 183, 'chi', 'tm', 'lech', 30000, { id: 'g:183:tm', title: 'Ca thiếu tiền', src: 'gap', status: 'Chờ xử lý · chưa làm phiếu trừ tiền', gross: 30000,
+    gap: G('thieu', 30000, ['Tú', 'Ngọc'], { cands: [{ report: 181, label: 'ca Sáng 18/11', amount: 20000 }] }) }),
+  it(D18, 181, 'thu', 'tm', 'lech', 20000, { id: 'g:181:tm', title: 'Ca dư tiền', src: 'gap', status: 'Chờ xử lý (dư)', gross: 20000,
+    gap: G('du', 20000, ['Lan', 'Minh'], { cands: [{ report: 183, label: 'ca Tối 18/11', amount: 30000 }] }) }),
   it(D18, null, 'chi', 'tm', 'chi', 1250000, { title: 'Tiền điện tháng 10', meta: 'Quản lý tạo', cat: 'Điện nước', src: 'entry' }),
   it(D18, null, 'thu', 'ck', 'no', 150000, { title: 'Cô Mai', meta: 'Quản lý thu ngoài ca', from: 'quản lý ghi', src: 'debt' }),
   it(D18, null, 'chi', 'ck', 'lc', 20000000, { title: 'Chuyển về Quỹ ngoài', meta: 'Phiếu rút giữ hộ (cũ)', to_qn: true, recv: 'cho', status: 'Chờ Chủ nhận', src: 'withdrawal' }),
