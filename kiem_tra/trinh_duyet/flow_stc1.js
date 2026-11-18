@@ -1,7 +1,7 @@
 // Bài thử trang Sổ thu chi mới (đợt 1 — chỉ xem). Chạy: index.html?auto=1&role=chu&script=flow_stc1 và test/phone.html?...
 // role=ql: chỉ kiểm thông báo "Đang chạy thử". Kết quả: out[].stc1 = { ok: [...], fail: [...] }.
 import { MONTH } from './stc_fixture.js';
-import { COLS, dayTree, sumItems } from '../js/so_thu_chi_tinh.js';
+import { ALERT, COLS, dayTree, fundSummary, sumItems } from '../js/so_thu_chi_tinh.js';
 
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -13,6 +13,12 @@ export default async ({ sleep, out }) => {
   const role = localStorage.getItem('test_role');
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
 
+  if (role === 'qlt') {
+    await go('#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-11', '.stc-big');
+    ok(!$('.stc-qn'), '12. Quản lý tổng không có nút Quỹ ngoài');
+    ok($$('.stc-big').length === 3, '12. Quản lý tổng xem được tab Tổng');
+    out.push({ stc1: { ok: good, fail: bad } }); return;
+  }
   if (role === 'ql') {
     await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11', '#root .alert');
     ok(txt($('#root')).includes('đang chạy thử: chỉ chủ và quản lý tổng xem được.'), '7. quản lý cơ sở thấy thông báo đang chạy thử');
@@ -47,8 +53,32 @@ export default async ({ sleep, out }) => {
   // 6. tháng chưa có dữ liệu
   await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-12', '.stc-pay');
   ok(txt($('#stc-book')).includes('tháng này chưa có khoản nào.'), '6. tháng 12 trống có chữ');
+  // 9–11. Tab Tổng: 3 ô lớn, tồn quỹ theo ngày, so với trang cũ
+  const F = fundSummary(MONTH);
+  await go('#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-11', '.stc-big');
+  const big = $$('.stc-big');
+  ok(big.length === 3 && num(txt($('.v', big[1]))) === F.tm.ton && num(txt($('.v', big[2]))) === F.ck.ton, `9. 3 ô lớn, tiền mặt ${F.tm.ton}, tài khoản ${F.ck.ton}`);
+  ok(big[1].classList.contains('hot') === (F.tm.ton > ALERT), '9. tiền mặt quá 20 triệu mới đỏ');
+  ok($$('.stc-tf').length === 2 && txt($$('.stc-tf')[0]).includes('chuyển về quỹ ngoài'), '9. cách tính tiền mặt / tài khoản có dòng Chuyển về Quỹ ngoài');
+  const dd = $$('.stc-dd');
+  ok(dd.length > 0 && num(txt($('.end', dd[0]))) === F.tm.ton, '10. cuối ngày mới nhất = tồn quỹ');
+  const cmp = $$('.stc-cmpr');
+  ok(cmp.length === 1 && txt(cmp[0]).includes('18/11') && txt(cmp[0]).includes('20.000'), '11. so với trang cũ: 1 ngày khác 20.000 (' + cmp.map(txt).join(' | ') + ')');
+  ok(!/−-|--\d/.test(txt($('#stc-page'))), '11. không có số hai dấu trừ');
+  // 13. chuyển về Quỹ ngoài chờ Chủ nhận, nút tắt
+  const qn = $$('.stc-qnl');
+  ok(qn.some((r) => txt(r).includes('chờ chủ nhận') && $('button[disabled]', r)), '13. khoản chờ Chủ nhận có nút Đã nhận tiền (tắt)');
+  // 12. Quỹ ngoài (Chủ)
+  await go('#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11', '.stc-pay');
+  ok(!$$('.stc-tabs a').some((a) => txt(a) === 'đối soát tiền'), '12. Quỹ ngoài không có tab Đối soát tiền');
+  $('.stc-all')?.click(); await sleep(300);
+  ok($$('.stc-it').some((i) => txt(i).includes('1 cơ sở: hs')), '12. chi ngoài (tiền mặt) có nhãn cách chia');
+  await go('#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11&pm=ck', '.stc-pay'); $('.stc-all')?.click(); await sleep(300);
+  ok($$('.stc-it').some((i) => txt(i).includes('chia đều')), '12. chi ngoài (chuyển khoản) có nhãn Chia đều');
   // 8. không tràn ngang trên điện thoại
   if (window.innerWidth <= 400) {
+    for (const t of ['tong']) { await go(`#/quan-ly/so-thu-chi?tab=${t}&cn=1&thang=2026-11`, '.stc-big');
+      ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. ${t}: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`); }
     for (const t of ['thu', 'chi']) { await go(`#/quan-ly/so-thu-chi?tab=${t}&cn=1&thang=2026-11`, '.stc-pay'); $('.stc-all')?.click(); await sleep(300);
       ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. ${t}: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`); }
   }
