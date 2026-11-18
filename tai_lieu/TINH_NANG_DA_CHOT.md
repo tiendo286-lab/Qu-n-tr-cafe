@@ -780,6 +780,7 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Chủ chọn tài khoản kiểm tra tiến độ, nhắc người liên quan đúng hạn và ghi nhận xét cuối. Phiếu hoàn thành khi đủ các hạng mục và có nhận xét cuối. Các hạng mục đã thực hành ở mức Trung bình hoặc Khá có thể giao giai đoạn 2 để luyện thêm. Giữ mức đã ghi đến khi đánh giá lại. Mục đang luyện giai đoạn 2 phải được đánh giá lại trước khi đóng phiếu.
 - Khi tích Thực hành, chọn Trung bình, Khá hoặc Tốt rồi hệ thống mới lưu thực hành và mức đạt cùng lúc.
 - **Người hướng dẫn chính chỉ là nhân viên cấp Quản lý** (chốt 18/11/2026, bước 139). Bắt buộc chọn khi tạo phiếu; ô trên phiếu chỉ gợi ý Quản lý; máy chủ chặn chọn người khác hoặc xoá trống (`122_huong_dan_chinh_quan_ly.sql`). Phiếu cũ chưa có người hướng dẫn vẫn sửa được các ô khác. Phân công riêng từng hạng mục vẫn giao được cho nhân viên Cấp 1; người đào tạo tiếp vẫn chọn được mọi nhân viên. Phiên bản `2026.11.18.8`.
+- Bộ lọc hạng mục trên phiếu có thêm **Thực hành · Trung bình / Khá / Tốt**: lọc theo mức đạt hiện tại của hạng mục (gồm cả mục đang luyện giai đoạn 2 vẫn giữ mức cũ). Phiên bản `2026.11.18.9`.
 - Từ mốc 8 ngày kể từ ngày bắt đầu, người nhận xét thấy nút Hoàn thành. Chỉ hoàn thành khi đủ hạng mục và có nhận xét cuối. Hết ngày hạn 12 mà phiếu chưa xong thì hiện Quá hạn và vẫn tiếp tục xử lý trên phiếu.
 - Phiếu đang mở hiện ở Công việc → Việc của tôi của người học, người hướng dẫn được giao, quản lý phụ trách và người nhận xét. Khi có phân công mới hoặc đến lượt nhận xét, thông báo mở đúng phiếu.
 
