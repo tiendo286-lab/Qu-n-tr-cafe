@@ -8,7 +8,7 @@ Cập nhật: 18/11/2026, sau bước 142 (Việc hôm nay chia nhóm Vận hàn
 
 ## Tình trạng lúc bàn giao
 - Web: **2026.11.18.11** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **124** (`124_viec_hom_nay_nhom.sql`).
+- Máy chủ: đã chạy tới tệp **125** (`125_viec_hom_nay_sua.sql` — bản sửa của `app_today_more` ở tệp 124).
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
 
 ## Đào tạo (bước 137, đã lên web)

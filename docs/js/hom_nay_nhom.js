@@ -10,7 +10,7 @@ export const CATS = [
 export const ROLE_TABS = ['Quản lý tổng', 'Quản lý', 'Kế toán', 'Việc khác'];
 
 const ms = (s) => (s ? Date.parse(String(s).replace(' ', 'T')) : NaN);
-const rank = (i) => (i.review || i.redo ? 0 : i.gap ? 1 : 2);
+const rank = (i) => (i.review || i.redo ? 0 : i.gap && i.group !== 'waiting' ? 1 : 2);   // việc Gấp đã báo xong (đang chờ) không vượt việc quá hạn
 const byUrgency = (a, b) => rank(a) - rank(b) || ORDER.indexOf(a.group) - ORDER.indexOf(b.group)
   || (ms(a.due) || Infinity) - (ms(b.due) || Infinity);
 const short = (s) => String(s || '').replace(/^[^–]*–\s*/, '');
@@ -19,7 +19,7 @@ const hm = (s) => String(s || '').slice(11, 16);
 export function countOf(list) {
   const c = { n: list.length, gap: 0, late: 0, today: 0, review: 0, redo: 0, waiting: 0 };
   for (const i of list) {
-    if (i.gap) c.gap++; if (i.review) c.review++; if (i.redo) c.redo++;
+    if (i.gap && i.group !== 'waiting') c.gap++; if (i.review) c.review++; if (i.redo) c.redo++;
     if (i.group === 'late') c.late++; else if (i.group === 'today') c.today++; else if (i.group === 'waiting') c.waiting++;
   }
   return c;
@@ -40,13 +40,13 @@ export function buildSections(items) {
   });
 }
 
-// app_today_more().done_today → dòng Đã xong hôm nay (mới nhất trước)
+// app_today_more().done_today → dòng Đã xong hôm nay (mới nhất trước). meId: mã tài khoản để đổi tên mình thành "Bạn" (tên máy chủ dạng "Mã – Tên").
 const doneTag = (d) => (d.kind === 'pc' ? (jobCat(d.job).tag || 'Việc') : d.handover ? 'Bàn giao ca' : 'Giao việc riêng');
-export function doneRows(list, today, meName) {
+export function doneRows(list, today, meId) {
   return (list || []).filter((d) => String(d.at || '').startsWith(today))
     .sort((a, b) => String(b.at).localeCompare(String(a.at)))
     .map((d) => ({ tag: doneTag(d), title: d.title + (d.code ? ' · ' + d.code : ''), at: hm(d.at), by: d.kind === 'gv' ? (d.by || null) : null,
-      who: meName && d.who === meName ? 'Bạn' : (d.who || '') }));
+      who: meId != null && d.who_id === meId ? 'Bạn' : (d.who || '') }));
 }
 
 export function roleOfPerson(p) {
@@ -89,7 +89,8 @@ export function everyoneWork(pcAll, training, me, helpers) {
     items.push({ ...i, review: false, who, roles: rolesOf(ids) });
   }
   const done = [
-    ...(pcAll?.done || []).filter((d) => String(d.done_at || '').startsWith(today)).map((d) => ({ tag: jobCat(d.job).tag || 'Việc', title: d.title, at: hm(d.done_at), by: null,
+    // bỏ dòng không có người làm (tự bỏ làm bổ sung) hoặc do chính mình đóng (Chủ xoá việc tự thêm)
+    ...(pcAll?.done || []).filter((d) => String(d.done_at || '').startsWith(today) && d.by && pByName.get(d.by)?.id !== me).map((d) => ({ tag: jobCat(d.job).tag || 'Việc', title: d.title, at: hm(d.done_at), by: null,
       who: d.by || '', roles: d.by && pByName.get(d.by) ? [roleOfPerson(pByName.get(d.by))] : ['Việc khác'], sort: d.done_at })),
     ...(pcAll?.gv || []).filter((k) => helpers.rstate(k) === 4 && String(k.approved_at || '').startsWith(today)).map((k) => ({ tag: k.handover ? 'Bàn giao ca' : 'Giao việc riêng',
       title: k.content + (k.code ? ' · ' + k.code : ''), at: hm(k.approved_at), by: short(k.reviewer) || null, who: short(k.assignee), roles: rolesOf([k.assignee_id].filter((x) => x != null)), sort: k.approved_at })),

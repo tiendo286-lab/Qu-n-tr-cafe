@@ -32,7 +32,10 @@ export default async ({ visit, settle, sleep, out }) => {
     }
     assert(cats() === 'vh,ns,kh,done', 'Khối phải theo thứ tự Vận hành, Nhân sự, Khác, Đã xong: ' + cats());
     assert(sec('done').querySelector('.hn-gh').getAttribute('aria-expanded') === 'false', 'Đã xong hôm nay phải thu gọn sẵn.');
-    assert(/Đã xong hôm nay/.test(sec('done').textContent) && /\(2\)/.test(sec('done').querySelector('.hn-gh').textContent), 'Đã xong hôm nay thiếu số việc.');
+    assert(/Đã xong hôm nay/.test(sec('done').textContent) && /\(3\)/.test(sec('done').querySelector('.hn-gh').textContent), 'Đã xong hôm nay thiếu số việc.');
+    const dw = [...sec('done').querySelectorAll('.hn-who')];
+    assert(dw.filter((x) => x.textContent === 'Người làm: Bạn' && !x.classList.contains('other')).length === 2 && dw.some((x) => /Quản lý HS/.test(x.textContent) && x.classList.contains('other')),
+      'Đã xong hôm nay: việc của mình phải ghi Bạn (xanh), việc người khác ghi tên (tím): ' + dw.map((x) => x.textContent).join(' | '));
     // thu gọn Vận hành, vẽ lại vẫn thu
     const gh = () => sec('vh').querySelector('.hn-gh');
     assert(gh().getAttribute('aria-expanded') === 'true', 'Vận hành có việc phải mở sẵn.');

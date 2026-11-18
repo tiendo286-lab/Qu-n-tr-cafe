@@ -56,7 +56,9 @@ export function collectWork({ now, pc, training, ka, todo, today, more }, helper
     const waiting = sent || (st === 3 && me != null && k.reviewer_id != null && k.reviewer_id !== me);
     const reviewer = short(k.reviewer);
     const who = st === 0 ? whoOf((k.classifiers || []).map((c) => c.id), (k.classifiers || []).map((c) => c.name), me)
-      : review ? whoOf([k.assignee_id], [k.assignee], me) : (k.assignee_id === me || sent) ? YOU : whoOf([k.assignee_id].filter((x) => x != null), [k.assignee], me);
+      : review ? whoOf([k.assignee_id], [k.assignee], me)
+      : waiting ? whoOf([k.reviewer_id].filter((x) => x != null), [k.reviewer], me)   // đã báo xong: người đang giữ việc là người kiểm tra
+      : k.assignee_id === me ? YOU : whoOf([k.assignee_id].filter((x) => x != null), [k.assignee], me);
     add({ key: 'gv:' + k.id, title: (k.content || helpers.jobName(24)) + (k.code ? ' · ' + k.code : ''), due: helpers.gvDue(k), link: '/viec',
       sub: k.handover ? (k.src || 'Bàn giao ca') : '',
       cat: k.handover ? 'vh' : 'kh', tag: k.handover ? 'Bàn giao ca' : 'Giao việc riêng', kind: k.handover ? 'bgc' : null, kindLabel: k.handover ? 'Bàn giao ca' : '',

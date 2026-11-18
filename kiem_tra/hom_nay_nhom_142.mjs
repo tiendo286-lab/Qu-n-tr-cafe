@@ -36,6 +36,9 @@ const c = S[0].counts;
 ok(c.n === 7 && c.gap === 1 && c.late === 1 && c.today === 2 && c.review === 1 && c.redo === 1 && c.waiting === 1, 'số đầu khối: ' + JSON.stringify(c));
 ok(S[2].counts.n === 1, 'Khác có 1 việc');
 
+const S2 = buildSections([it('w', { gap: true, group: 'waiting', waitingFor: 'QL H kiểm tra' }), it('l', { group: 'late', due: '2026-11-17 10:00:00' })]);
+ok(S2[0].entries.map((e) => e.key).join() === 'l,w' && S2[0].counts.gap === 0, 'việc Gấp đã báo xong xuống cuối, không tính số gấp');
+
 // 3. Vai trò người làm
 ok(roleOfPerson({ role: 'ql', kt: true }) === 'Kế toán' && roleOfPerson({ role: 'ql_tong', kt: true }) === 'Quản lý tổng', 'Kế toán / Quản lý tổng');
 ok(roleOfPerson({ role: 'ql', kt: false }) === 'Quản lý' && roleOfPerson({ role: 'nv' }) === 'Việc khác' && roleOfPerson(null) === 'Việc khác', 'Quản lý / Việc khác');
@@ -59,7 +62,8 @@ const pcAll = { now: '2026-11-18 13:00:00', me: 1,
     { id: 11, content: 'Sửa biển', status: 'cho_duyet', assignee_id: 2, assignee: 'QL B', reviewer_id: 1, reviewer: 'Chủ' },
     { id: 12, content: 'Rửa bình', status: 'hoan_thanh', assignee_id: 5, assignee: 'NV G', reviewer_id: 2, reviewer: 'QL B', approved_at: '2026-11-18 09:15:00' },
     { id: 13, content: 'Cũ', status: 'hoan_thanh', assignee_id: 5, assignee: 'NV G', reviewer_id: 2, reviewer: 'QL B', approved_at: '2026-11-17 09:15:00' }],
-  done: [{ title: 'Đối soát ca LHP 16/11', code: 'LHP', job: 1, done_at: '2026-11-18 08:40:00', by: 'QL B' }, { title: 'Cũ', job: 1, done_at: '2026-11-16 08:00:00', by: 'QL B' }] };
+  done: [{ title: 'Đối soát ca LHP 16/11', code: 'LHP', job: 1, done_at: '2026-11-18 08:40:00', by: 'QL B' }, { title: 'Cũ', job: 1, done_at: '2026-11-16 08:00:00', by: 'QL B' },
+    { title: 'Tự bỏ làm bổ sung', job: 100, done_at: '2026-11-18 03:00:00', by: null }, { title: 'Chủ xoá việc', job: 100, done_at: '2026-11-18 07:00:00', by: 'Chủ' }] };
 const training = { rows: [{ id: 7, employee: 'HV1 – Học viên', status: 'dang_dao_tao', due: '2026-11-25', manager: 'QL B', instructor: 'Q1 – QL B', my_duties: [] },
   { id: 8, employee: 'HV2 – Xong', status: 'hoan_thanh', due: '2026-11-10', manager: 'QL B', my_duties: [] }] };
 const E = everyoneWork(pcAll, training, 1, helpers);
@@ -79,14 +83,14 @@ ok(E.done.find((d) => d.title.startsWith('Rửa bình')).by === 'QL B' && E.done
 
 // 5. Đã xong hôm nay của tôi (app_today_more.done_today)
 const D = doneRows([
-  { kind: 'pc', id: 1, job: 1, title: 'Đối soát ca', code: 'LHP', at: '2026-11-18 08:40:00', who: 'QL B' },
-  { kind: 'gv', id: 2, title: 'Kiểm kê', code: 'LHP', handover: false, at: '2026-11-18 10:20:00', by: 'QL B', who: 'NV G' },
-  { kind: 'gv', id: 3, title: 'Máy xay', handover: true, at: '2026-11-18 11:00:00', by: 'QL B', who: 'NV E' },
-  { kind: 'gv', id: 4, title: 'Cũ', at: '2026-11-17 10:00:00', by: 'QL B', who: 'NV G' }], '2026-11-18', 'QL B');
+  { kind: 'pc', id: 1, job: 1, title: 'Đối soát ca', code: 'LHP', at: '2026-11-18 08:40:00', who: 'Q2 – QL B', who_id: 2 },
+  { kind: 'gv', id: 2, title: 'Kiểm kê', code: 'LHP', handover: false, at: '2026-11-18 10:20:00', by: 'Q2 – QL B', who: 'NV5 – NV G', who_id: 5 },
+  { kind: 'gv', id: 3, title: 'Máy xay', handover: true, at: '2026-11-18 11:00:00', by: 'Q2 – QL B', who: 'NV6 – NV E', who_id: 6 },
+  { kind: 'gv', id: 4, title: 'Cũ', at: '2026-11-17 10:00:00', by: 'Q2 – QL B', who: 'NV5 – NV G', who_id: 5 }], '2026-11-18', 2);
 ok(D.length === 3 && D[0].title.startsWith('Máy xay'), 'bỏ việc hôm qua, mới nhất trước');
 ok(D[0].tag === 'Bàn giao ca' && D[1].tag === 'Giao việc riêng' && D[2].tag === 'Chốt ca', 'nhãn loại');
-ok(D[2].by === null && D[1].by === 'QL B' && D[2].at === '08:40', 'pc không có người kiểm tra, giờ HH:MM');
-ok(D[2].who === 'Bạn' && D[1].who === 'NV G', 'tên mình đổi thành Bạn');
+ok(D[2].by === null && D[1].by === 'Q2 – QL B' && D[2].at === '08:40', 'pc không có người kiểm tra, giờ HH:MM');
+ok(D[2].who === 'Bạn' && D[1].who === 'NV5 – NV G', 'việc của mình (so mã tài khoản, tên dạng Mã – Tên) đổi thành Bạn');
 ok(doneRows(null, '2026-11-18').length === 0, 'không có dữ liệu thì rỗng');
 
 print(`ĐẠT ${n} kiểm tra`);

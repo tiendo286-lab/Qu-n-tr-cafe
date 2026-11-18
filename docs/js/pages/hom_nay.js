@@ -79,7 +79,7 @@ function doneHtml(rows, O) {
       <span class="grow"><b>Đã xong hôm nay</b> <span class="sub">(${rows ? rows.length : '…'})</span><span class="hn-hint">Việc đã kiểm tra Đạt hoặc làm xong trong ngày · hết ngày tự xoá</span></span></button>
     <div class="hn-gbody">${rows == null ? html`<div class="sub hn-empty">Chưa tải được việc đã xong.</div>`
       : rows.length ? rows.map((d) => html`<div class="hn-row hn-ok"><span class="hn-tick">✓</span><div class="grow"><div>${d.tag ? html`<span class="hn-tag">${d.tag}</span>` : ''}<strong>${d.title}</strong></div>
-        <div class="sub">${d.by ? html`<span class="pill ok">Đạt</span> · ${short(d.by)} kiểm tra` : html`<span class="pill ok">Xong</span>`} · ${d.at}</div>${whoHtml({ text: short(d.who) || 'Bạn', mine: d.who === 'Bạn', none: false })}</div></div>`)
+        <div class="sub">${d.by ? html`<span class="pill ok">Đạt</span> · ${short(d.by)} kiểm tra` : html`<span class="pill ok">Xong</span>`} · ${d.at}</div>${whoHtml({ text: d.who === 'Bạn' ? 'Bạn' : short(d.who) || '—', mine: d.who === 'Bạn', none: false })}</div></div>`)
       : html`<div class="sub hn-empty">Hôm nay chưa có việc xong.</div>`}</div></section>`;
 }
 // V = { W, E, done, isChu, me }
@@ -165,7 +165,7 @@ export async function render({ me, can }) {
   const now = T?.now || pc?.now || new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
   const W = collectWork({ now, pc, training, ka, todo: todo ? todo.items || [] : null, today: T, more }, H);
   const today0 = T?.today || now.slice(0, 10);
-  const V = { W, E: isChu ? everyoneWork(pcAll, dtAll, me.account_id, H) : null, done: more ? doneRows(more.done_today, today0, me.name) : null, isChu, me };
+  const V = { W, E: isChu ? everyoneWork(pcAll, dtAll, me.account_id, H) : null, done: more ? doneRows(more.done_today, today0, me.account_id) : null, isChu, me };
   const order = T?.order && !T.order.submitted ? T.order : null;
   const watcher = ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(me.role) || can('doi_soat') || can('ke_toan');
   const today = T?.today || now.slice(0, 10);

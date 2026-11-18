@@ -815,4 +815,4 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-desi
 - **Chủ:** tab **Việc của tôi | Mọi người** (mở sẵn Mọi người), lọc **Tất cả · Quản lý tổng · Quản lý · Kế toán · Việc khác**. Tab Mọi người không có việc chỉ Chủ làm, cũng không có dòng hồ sơ tồn dạng số tổng. Phiếu đào tạo tính theo Quản lý phụ trách.
 - **Quản lý:** dòng gộp **Đào tạo đã giao người hướng dẫn** (phiếu mình phụ trách): hạng mục, bước hiện tại, người hướng dẫn, hạn.
 - Ô **Theo dõi** liệt kê từng việc mình đã giao, kèm người làm.
-- Máy chủ `124_viec_hom_nay_nhom.sql` (`app_today_more`). Phiên bản `2026.11.18.11`.
+- Máy chủ `124_viec_hom_nay_nhom.sql` (`app_today_more`) + `125_viec_hom_nay_sua.sql` (trả `who_id`, bỏ việc bị xoá / tự bỏ khỏi Đã xong). Phiên bản `2026.11.18.11`.

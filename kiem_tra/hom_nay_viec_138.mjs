@@ -73,6 +73,7 @@ ok(g('gv:31').cat === 'vh' && g('gv:31').tag === 'Bàn giao ca' && g('gv:31').ki
 ok(g('gv:32').cat === 'kh' && g('gv:32').kind === null && g('gv:32').redo === 'Chụp lại ảnh' && g('gv:32').gap, 'giao việc riêng gõ tay → Khác, không gộp, Làm lại, Gấp');
 ok(g('gv:33').review && !g('gv:33').who.mine && g('gv:33').who.text.includes('NV G'), 'chờ mình kiểm tra: review, người làm là NV G');
 ok(g('gv:34').group === 'waiting' && g('gv:34').waitingFor === 'QL H kiểm tra', 'mình báo xong: việc ở lại, đang chờ QL H');
+ok(g('gv:34').who.text === 'QL H' && !g('gv:34').who.mine, 'việc mình đã báo xong: người làm ghi người kiểm tra');
 ok(g('dtf:5:3').cat === 'ns' && g('dtf:5:3').kind === 'dtf' && g('dtf:5:3').who.text === 'NV E', 'đào tạo đã giao người hướng dẫn → Nhân sự');
 ok(g('ka:8').cat === 'vh' && g('ka:8').tag === 'Tiền', 'khoản âm → Vận hành');
 ok(g('nq').cat === 'ns' && g('ck').cat === 'ns' && g('nqf:33:2').kind === 'nqf', 'nội quy / cam kết → Nhân sự');

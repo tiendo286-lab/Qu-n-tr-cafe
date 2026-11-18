@@ -45,8 +45,9 @@ export function makeHn(T, me) {
     return { today: d,
       review_wait: [{ id: 901, content: 'Sắp lại kệ ly quầy bar', branch_id: 1, code: 'LHP', status: 'cho_duyet', priority: 'binh_thuong', handover: false, src: 'Giao tay',
         assignee_id: me.account_id, assignee: me.name, reviewer_id: me.account_id === 6 ? 5 : 6, reviewer: me.account_id === 6 ? '5 – Quản lý thử' : 'NV01 – QL tổng thử', review_due: d + ' 22:00:00', submitted_at: now() }],
-      done_today: [{ kind: 'pc', id: 801, job: 1, title: 'Đối soát Ca Tối LHP', code: 'LHP', at: d + ' 08:40:00', who: me.name },
-        { kind: 'gv', id: 802, title: 'Rửa bình đá ngoài sân', code: 'ĐK', handover: false, at: d + ' 09:15:00', by: 'NV01 – QL tổng thử', who: me.name }],
+      done_today: [{ kind: 'pc', id: 801, job: 1, title: 'Đối soát Ca Tối LHP', code: 'LHP', at: d + ' 08:40:00', who: me.code + ' – ' + me.name, who_id: me.account_id },
+        { kind: 'gv', id: 802, title: 'Rửa bình đá ngoài sân', code: 'ĐK', handover: false, at: d + ' 09:15:00', by: 'NV01 – QL tổng thử', who: me.code + ' – ' + me.name, who_id: me.account_id },
+        { kind: 'gv', id: 803, title: 'Thay bóng đèn', code: 'HS', handover: false, at: d + ' 10:05:00', by: me.code + ' – ' + me.name, who: '8 – Quản lý HS', who_id: 8 }],
       followups: mgr ? [{ training_id: 1, employee: 'HV1 – Học viên thử', item_no: 3, item: 'Mời nước khách', stage: 'chua_gioi_thieu', instructor: 'Nhân viên hướng dẫn thử', due: add12(d) },
         { training_id: 1, employee: 'HV1 – Học viên thử', item_no: 5, item: 'Dọn bàn đúng quy trình', stage: 'da_gioi_thieu', instructor: 'Nhân viên hướng dẫn thử', due: add12(d) }] : [] };
   };
