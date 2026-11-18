@@ -839,3 +839,9 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
   - **Quán chịu / Ghép** do Quản lý tổng / Quản lý cơ sở bấm → **⏳ chờ Chủ duyệt** (chỉ Chủ có nút Duyệt / Từ chối); Chủ bấm thì có hiệu lực ngay. Quán chịu chờ duyệt lưu ở bảng `stc_gap_requests`; ghép chờ duyệt dùng `gap_matches` như tab Lệch tiền ca cũ.
   - Sổ chỉ cộng **phần còn lại sau ghép đã duyệt**, hiện phép tính "30.000 − 20.000 ghép = 10.000"; tab Đối soát tiền vẫn tính tiền thật của ca bằng lệch gộp (trước ghép). Ca dư ghi "Chờ xử lý · chưa làm phiếu thu".
   - Hàm `app_stc_gap_*` bọc hàm cũ của tab Lệch tiền ca nên hai trang dùng chung dữ liệu trong lúc chạy song song.
+- **Đợt 5 (19/11, web 2026.11.19.5, không thêm tệp SQL)** — kế hoạch `tai_lieu/superpowers/plans/2026-11-19-so-thu-chi-moi-dot5.md`. Bật các nút ở tab Tổng và Quỹ ngoài, dùng lại hàm Sổ quỹ cũ:
+  - **Chuyển về Quỹ ngoài** (= phiếu rút cũ, bảng `fund_withdrawals`): tiền mặt / tài khoản, giữa tháng / cuối tháng (điền sẵn số dư), ngày, ghi chú. Còn chờ thì Sửa / Xoá; Chủ bấm **Đã nhận tiền** (ở tab Tổng cơ sở hoặc Quỹ ngoài) thì khoá cả 2 bên.
+  - **Luân chuyển tiền mặt ↔ tài khoản** (mở sẵn hộp thoại luân chuyển của đợt 2).
+  - **Kiểm quỹ** (so với sổ, lệch bắt lý do) + khung "Kiểm quỹ tháng này"; lệch chưa điều chỉnh có nút **Điều chỉnh…** (chọn nhóm, tạo khoản thu / chi). Ô **Kiểm quỹ lần cuối**.
+  - **Quỹ ngoài:** "+ Thêm khoản ngoài" ở Sổ chi / Sổ thu, khoản ngoài có Sửa / Xoá, cách chia: theo doanh thu / chia đều / 1 cơ sở / tự nhập.
+  - **Chốt tháng:** không đổi — Chuyển về Quỹ ngoài chính là bảng phiếu rút mà Chốt tháng đang đối chiếu.
