@@ -11,7 +11,7 @@ const ASSET_VERSION = '2026.11.18.13';
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
   ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', null]], null, 'Vận hành'],   // bước 62 / 138: trang chủ của cả 5 vai trò
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat'], ['Sổ thu chi (mới)', '/quan-ly/so-thu-chi', 'chot_thang']], 'ngay', 'Vận hành'],
   // bước 104: Hàng hoá kho tổng tách hẳn khỏi chốt ca — nhận hàng · đối soát · phiếu xuất (kế toán tải) · kiểm soát (giao bù, hoá đơn bổ sung, tiền tháng)
   ['Hàng hoá', [['Nhận hàng', '/hang-hoa/nhan', ['chot_ca', 'doi_soat', 'ke_toan']], ['Đối soát', '/hang-hoa/doi-soat', 'doi_soat'], ['Phiếu xuất', '/hang-hoa/phieu-xuat', ['ke_toan', 'doi_soat']],
     ['Kiểm soát', '/hang-hoa/kiem-soat', ['ke_toan', 'doi_soat']]], 'cn', 'Vận hành'],
@@ -92,6 +92,7 @@ const PAGES = {
   '/quan-ly/danh-gia': 'danh_gia',
   '/quan-ly/chot-thang': 'chot_thang',
   '/quan-ly/so-quy': 'so_quy',
+  '/quan-ly/so-thu-chi': 'so_thu_chi',   // bước 143: Sổ thu chi mới (đợt 1 chỉ xem, chạy song song)
 };
 
 export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0, ka: 0 };
