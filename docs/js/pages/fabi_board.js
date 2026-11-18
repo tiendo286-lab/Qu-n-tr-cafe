@@ -1,4 +1,5 @@
-import { render as rerender } from '../app.js';
+import { can, render as rerender } from '../app.js';
+import { compareRows, reviewOf } from '../fabi_so_sanh.js';
 import { addDays, catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { xlsx } from '../excel.js';
@@ -9,10 +10,10 @@ import { parseDetail } from './ke_toan_fabi.js';
 import { DOW, mondayOf } from './ke_toan_ck.js';
 
 const SHIFTS = ['Sáng', 'Chiều', 'Tối'];
-const STATES = { khop: ['Khớp phiếu', 'ok'], lech: ['Khác phiếu · đã cập nhật theo Fabi', 'warn'],
+const STATES = { khop: ['Khớp phiếu', 'ok'], lech: ['Nhân viên gõ khác Fabi', 'warn'], da_sua: ['Web đã sửa số theo Fabi', 'warn'],
   chua_phieu: ['Chưa có phiếu nhân viên', 'warn'], dang_chot: ['Nhân viên đang chốt', 'mute'] };
-const stateOf = (f) => !f.report_id ? 'chua_phieu' : f.report_status !== 'hoan_thanh' ? 'dang_chot' :
-  (f.diff || []).length || (f.fixed || []).length ? 'lech' : 'khop';
+// bước 136: ca cần quản lý xem = reviewOf (chưa có phiếu / nhân viên gõ khác Fabi / web đã sửa số đối soát theo Fabi)
+const stateOf = (f) => reviewOf(f)?.kind || (f.report_status !== 'hoan_thanh' ? 'dang_chot' : 'khop');
 const lsGet = () => { try { return localStorage.getItem('ckBranch'); } catch (_) { return null; } };
 const lsSet = (v) => { try { localStorage.setItem('ckBranch', String(v)); } catch (_) { /* bộ nhớ bị chặn */ } };
 const validDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
@@ -33,7 +34,8 @@ export async function render({ params }) {
   const belongs = (f) => [branch.code, branch.display_code].filter(Boolean).includes(f.branch_code);
   const files = D.files.filter(belongs), missing = D.missing.filter(belongs);
   const unknown = D.files.filter((f) => !f.branch_code);
-  const review = files.filter((f) => ['lech', 'chua_phieu'].includes(stateOf(f)));
+  const review = files.filter((f) => reviewOf(f)).sort((a, b) => (a.work_date + a.open_at < b.work_date + b.open_at ? -1 : 1));
+  const isKT = can('ke_toan'), isDS = can('doi_soat');
   const wait = KW.filter((k) => String(k.branch_id) === String(branch.id) && k.date >= mon && k.date <= days[6]);
   const menuMissing = (MN.items || []).filter((x) => !x.grp);
   const query = (p = {}) => '#/ke-toan/fabi?' + new URLSearchParams({ cn: branch.id, ngay: day, ...p });
@@ -42,33 +44,44 @@ export async function render({ params }) {
   const shifts = [...new Set([...SHIFTS, ...files.map((f) => f.shift).filter(Boolean)])];
   const summaryCell = (d, sh) => {
     const rows = at(d, sh), miss = missingAt(d, sh);
-    const bad = rows.some((f) => ['lech', 'chua_phieu'].includes(stateOf(f)));
-    return html`<td><button class="fb-cell ${bad ? 'review' : rows.length ? 'ready' : miss ? 'missing' : 'empty'} ${d === day ? 'selected' : ''}"
+    const bad = rows.map(reviewOf).filter(Boolean), why = bad.map((v) => v.short).join(' · ');
+    return html`<td><button class="fb-cell ${bad.length ? 'review' : rows.length ? 'ready' : miss ? 'missing' : 'empty'} ${d === day ? 'selected' : ''}"
       data-day="${d}" aria-label="${sh} ${dmy(d)}: ${rows.length ? `${rows.length} file` : miss ? 'thiếu file' : 'chưa có dữ liệu'}">
-      ${rows.length ? html`<b>${fmt(total(rows, 'net'))}</b><span>CK ${fmt(total(rows, 'ck'))}</span><small>${bad ? 'Cần quản lý xem' : rows.some((f) => stateOf(f) === 'dang_chot') ? 'Đang chốt phiếu' : '✓ Đã có file'}</small>`
+      ${rows.length ? html`<b>${fmt(total(rows, 'net'))}</b><span>CK ${fmt(total(rows, 'ck'))}</span><small title="${why}">${bad.length ? (why.length > 44 ? why.slice(0, 42) + '…' : why) : rows.some((f) => stateOf(f) === 'dang_chot') ? 'Đang chốt phiếu' : '✓ Đã có file'}</small>`
         : html`<b>${miss ? 'Thiếu file' : '—'}</b><small>${miss ? 'Phiếu đã có trên web' : 'Chưa có dữ liệu'}</small>`}</button></td>`;
   };
   const money = (label, value) => html`<div><span>${label}</span><b>${fmt(value)}<small>đ</small></b></div>`;
+  // bước 136: bảng so sánh 7 mục — Nhân viên nhập · File Fabi · Chênh (dòng khác tô đỏ)
+  const cmpTable = (f) => html`<div class="fb-cmp-wrap"><table class="fb-cmp"><thead><tr><th>Mục</th><th>Nhân viên nhập</th><th>File Fabi</th><th>Chênh</th></tr></thead>
+    <tbody>${compareRows(f).map((x) => html`<tr class="${x.same ? '' : 'bad'}"><td>${x.label}</td><td>${x.nv === null ? '—' : fmt(x.nv)}</td><td>${x.fabi === null ? '—' : fmt(x.fabi)}</td>
+      <td>${x.same ? '✓' : x.gap === null ? 'chưa ghi' : signed(x.gap)}</td></tr>`)}</tbody></table></div>`;
   const fileCard = (f) => {
-    const st = STATES[stateOf(f)];
-    return html`<article class="fb-file"><div class="fb-file-head"><strong>${(f.open_at || '').slice(11, 16)}–${(f.close_at || '').slice(11, 16)}</strong><span class="pill ${st[1]}">${st[0]}</span></div>
+    const st = STATES[stateOf(f)], rv = reviewOf(f);
+    return html`<article class="fb-file ${rv ? 'has-review' : ''}" id="fb-ca-${f.ma_ca}"><div class="fb-file-head"><strong>${(f.open_at || '').slice(11, 16)}–${(f.close_at || '').slice(11, 16)}</strong><span class="pill ${st[1]}">${st[0]}</span></div>
+      ${rv ? html`<div class="fb-why"><div class="fb-reason"><b>Lỗi:</b>${rv.lines.map((l) => html`<div>${l}</div>`)}</div>
+        ${f.nguoi_chot ? html`<p class="st-meta">Người chốt phiếu: <b>${f.nguoi_chot}</b></p>` : ''}
+        ${f.nv ? cmpTable(f) : ''}
+        ${isDS && f.report_id ? html`<a class="btn sm secondary fb-open-ds" href="#/quan-ly/doi-soat/ca?id=${f.report_id}">Mở đối soát ca ›</a>` : ''}</div>` : ''}
       <div class="fb-money">${money('Doanh thu NET', f.net)}${money('Chuyển khoản', f.ck)}${money('Tiền mặt', f.tm)}${money('Nợ trên Fabi', f.no)}</div>
       <details><summary>Xem số tiền và thông tin file</summary><div class="fb-extra">
         <div class="fb-money">${money('Số dư đầu ca', f.dau)}${money('Tiền đếm thực tế', f.tong)}</div>
         <p>Chênh lệch tiền trên Fabi: <strong>${signed(f.chenh)}</strong></p>
         <p class="st-meta">Đây là chênh lệch trên Fabi; kết quả sau thu chi và công nợ xem ở Đối soát.</p>
         <p>Số cốc: <strong>${f.cups ?? 'Chưa tính được'}</strong>${(f.cups_unknown || []).length ? html` · thiếu nhóm ${f.cups_unknown.length} món` : ''}</p>
-        ${(f.diff || []).length ? html`<div class="alert warn">${f.diff.map((x) => html`<div>${x.label}: phiếu ${fmt(x.nv)} → Fabi ${fmt(x.fabi)}</div>`)}</div>` : ''}
         ${(f.tra_no || []).length ? html`<p>Khách trả nợ trên file: ${f.tra_no.map((x) => `${x.method} ${fmt(x.amount)}đ`).join(' · ')}</p>` : ''}
         ${(f.sua || []).length ? html`<p class="pill warn">${f.sua.length} hóa đơn sửa / xóa</p>` : ''}
         <p class="st-meta">Mã ca: ${f.ma_ca}<br>Nhập gần nhất: ${f.uploaded_at ? dt(f.uploaded_at) : '—'}</p>
       </div></details></article>`;
   };
+  // bước 136: khung "Ca cần quản lý xem" của cơ sở + tuần đang xem
+  const reviewBox = review.length ? html`<section class="card fb-review" id="fb-review"><div class="fb-section-head"><h2>Ca cần quản lý xem · ${code}</h2><span class="st-meta">${review.length} ca trong tuần</span></div>
+    ${review.map((f) => html`<div class="fb-review-row"><div><strong>${dmy(f.work_date).slice(0, 5)} · Ca ${f.shift || '?'}</strong><div class="fb-review-why">${reviewOf(f).short}</div></div>
+      <button class="btn sm secondary" data-ca="${f.ma_ca}" data-cday="${f.work_date}">Xem</button></div>`)}</section>` : '';
   return { title: 'File ca Fabi', html: html`<style>${CSS}</style>
-    <div class="page-head"><div><h1>File ca Fabi</h1><div class="sub">Kiểm soát file chi tiết từng ca và kết quả so với phiếu nhân viên.</div></div>
-      <div class="fb-head-actions"><button class="btn secondary" id="fb-reload">Làm mới</button><label class="btn">Chọn Excel thủ công<input type="file" id="fb-file" accept=".xlsx,.xls" multiple hidden></label></div>
+    <div class="page-head"><div><h1>File ca Fabi</h1><div class="sub">${isKT ? 'Kiểm soát file chi tiết từng ca và kết quả so với phiếu nhân viên.' : 'Xem kết quả so file Fabi với phiếu nhân viên.'}</div></div>
+      <div class="fb-head-actions"><button class="btn secondary" id="fb-reload">Làm mới</button>${isKT ? html`<label class="btn">Chọn Excel thủ công<input type="file" id="fb-file" accept=".xlsx,.xls" multiple hidden></label>` : ''}</div>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div>
-    <div class="fb-board stack">${syncPanel()}<div id="fb-msg" role="status"></div>
+    <div class="fb-board stack">${isKT ? syncPanel() : ''}<div id="fb-msg" role="status"></div>
       <section class="card fb-controls"><nav class="branch-tabs" aria-label="Cơ sở">${branches.map((b) => html`<a class="${b.id === branch.id ? 'on' : ''}" href="${query({ cn: b.id })}" title="${b.name}">${b.display_code || b.code}</a>`)}</nav>
         <div class="fb-week-nav"><a class="btn sm secondary" href="${query({ ngay: addDays(mon, -7) })}" aria-label="Tuần trước">‹</a>
           <div><strong>${dmy(mon).slice(0, 5)} – ${dmy(days[6])}</strong><span>${branch.name || code}</span></div>
@@ -78,6 +91,7 @@ export async function render({ params }) {
       <div class="fb-stats"><div><span>File đã có · ${code}</span><b>${files.length}</b><small>trong tuần đang xem</small></div>
         <div class="${missing.length ? 'needs' : ''}"><span>Phiếu thiếu file</span><b>${missing.length}</b><small>đã có phiếu trên web</small></div>
         <div class="${review.length ? 'needs' : ''}"><span>Cần quản lý xem</span><b>${review.length}</b><small>khác phiếu hoặc chưa có phiếu</small></div></div>
+      ${reviewBox}
       ${unknown.length ? html`<div class="alert warn">${unknown.length} file trong tuần chưa nhận ra cơ sở: ${unknown.map((f) => f.store).join(', ')}. Báo Chủ kiểm tra.</div>` : ''}
       <section class="card fb-week"><div class="fb-section-head"><h2>Tuần của ${code}</h2><span class="st-meta">Bấm ô ca để xem chi tiết ngày</span></div>
         <div class="table-wrap"><table class="fb-table"><thead><tr><th>Ca</th>${days.map((d) => html`<th class="${d === day ? 'selected' : ''}"><button data-day="${d}">${DOW[new Date(d + 'T00:00:00Z').getUTCDay()]}<b>${dmy(d).slice(0, 5)}</b></button></th>`)}<th>Cả tuần</th></tr></thead>
@@ -106,6 +120,10 @@ export async function render({ params }) {
       $('#fb-reload').onclick = () => rerender();
       $('#fb-wday').onchange = (e) => { if (e.target.value) go(query({ ngay: e.target.value }).slice(1)); };
       $$('[data-day]').forEach((b) => { b.onclick = () => go(query({ ngay: b.dataset.day }).slice(1)); });
+      $$('[data-ca]').forEach((b) => { b.onclick = () => go(query({ ngay: b.dataset.cday, ca: b.dataset.ca }).slice(1)); });
+      const target = params.ca && document.getElementById('fb-ca-' + params.ca);
+      if (target) { target.classList.add('focus'); setTimeout(() => target.scrollIntoView({ block: 'start', behavior: 'smooth' }), 50); }
+      if (!isKT) return undefined;
       $('#fb-file').onchange = (e) => importFiles(e, (date) => go(query({ ngay: date }).slice(1)));
       return mountSync(() => rerender());
     },
@@ -151,5 +169,8 @@ const CSS = html`
 .fb-shift { padding:16px; }.fb-shift h3 { font-size:18px; }.fb-file { margin-top:12px; padding-top:12px; border-top:1px solid var(--line); }.fb-file-head > strong { color:var(--ink-2); font-size:13px; }.fb-money { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; margin:14px 0; font-variant-numeric:tabular-nums; }.fb-money span { display:block; color:var(--ink-2); font-size:12px; margin-bottom:4px; }.fb-money b { font-size:19px; }.fb-money small { font-size:11px; font-weight:400; margin-left:3px; }.fb-file summary { color:var(--primary); font-size:13px; cursor:pointer; padding:6px 0; }.fb-extra { overflow-wrap:anywhere; }.fb-extra .fb-money { grid-template-columns:repeat(2,minmax(0,1fr)); max-width:500px; }
 .fb-day-total { display:flex; justify-content:space-between; align-items:center; gap:10px; border-radius:14px; padding:16px; background:#344536; color:#fff; }.fb-day-total small { display:block; font-weight:400; font-size:11px; margin-top:4px; opacity:.8; }.fb-day-total b { color:#fff; font-size:24px; }
 .fb-tasks > summary { cursor:pointer; font-weight:700; }.fb-tasks .pill { margin-left:8px; }.fb-task { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:12px 0; border-top:1px solid var(--line); }.fb-task > div { min-width:0; }.fb-board #fb-msg:empty { display:none; }
-@media(max-width:700px) { .fb-board { gap:12px; }.fb-week { display:none; }.fb-head-actions { width:100%; }.fb-head-actions > * { flex:1; text-align:center; }.fb-head-actions .btn { font-size:12px; }.fb-sync-head h2 { font-size:20px; }.fb-sync-head { align-items:flex-start; }.fb-sync-actions > .btn { flex:1 1 130px; min-height:44px; padding:9px; font-size:13px; }.fb-sync-foot { align-items:flex-start; }.fb-sync-foot label { font-size:13px; }.fb-controls { padding:12px; }.fb-week-nav { gap:6px; }.fb-week-nav > div { min-width:150px; }.fb-week-nav input { flex:1 1 180px; min-width:150px; width:auto; }.fb-stats { gap:6px; }.fb-stats > div { padding:12px 9px; }.fb-stats span { font-size:11px; min-height:30px; }.fb-stats b { font-size:25px; }.fb-stats small { font-size:10px; }.fb-section-head h2 { font-size:19px; }.fb-shift { padding:13px; }.fb-file-head .pill { white-space:normal; font-size:11px; }.fb-money { grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; }.fb-money b { font-size:19px; }.fb-day-total b { font-size:21px; }.fb-tasks > summary { font-size:14px; }.fb-tasks .pill { margin:6px 0 0; }.fb-task { flex-wrap:wrap; } }
+.fb-review { border-left:4px solid var(--warn-line); }.fb-review-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-top:1px solid var(--line); }.fb-review-row > div { min-width:0; }.fb-review-why { color:var(--warn-ink); font-size:13px; margin-top:3px; overflow-wrap:anywhere; }
+.fb-file.focus { outline:2px solid var(--primary); outline-offset:6px; border-radius:6px; }.fb-why { margin:12px 0; display:flex; flex-direction:column; gap:8px; align-items:flex-start; }.fb-reason { width:100%; box-sizing:border-box; background:var(--off-bg); border:1px solid var(--off-line); color:var(--off-ink); border-radius:10px; padding:10px 12px; font-size:14px; line-height:1.5; }.fb-reason b { display:block; margin-bottom:2px; }
+.fb-cmp-wrap { width:100%; }.fb-cmp { width:100%; max-width:640px; border-collapse:collapse; font-variant-numeric:tabular-nums; font-size:13px; }.fb-cmp th,.fb-cmp td { border:1px solid var(--line); padding:7px 9px; text-align:right; }.fb-cmp th:first-child,.fb-cmp td:first-child { text-align:left; }.fb-cmp th { background:var(--subtle); font-size:12px; }.fb-cmp tr.bad td { background:var(--off-bg); color:var(--off-ink); font-weight:700; }.fb-cmp td:last-child { white-space:nowrap; }
+@media(max-width:700px) { .fb-board { gap:12px; }.fb-week { display:none; }.fb-head-actions { width:100%; }.fb-head-actions > * { flex:1; text-align:center; }.fb-head-actions .btn { font-size:12px; }.fb-sync-head h2 { font-size:20px; }.fb-sync-head { align-items:flex-start; }.fb-sync-actions > .btn { flex:1 1 130px; min-height:44px; padding:9px; font-size:13px; }.fb-sync-foot { align-items:flex-start; }.fb-sync-foot label { font-size:13px; }.fb-controls { padding:12px; }.fb-week-nav { gap:6px; }.fb-week-nav > div { min-width:150px; }.fb-week-nav input { flex:1 1 180px; min-width:150px; width:auto; }.fb-stats { gap:6px; }.fb-stats > div { padding:12px 9px; }.fb-stats span { font-size:11px; min-height:30px; }.fb-stats b { font-size:25px; }.fb-stats small { font-size:10px; }.fb-section-head h2 { font-size:19px; }.fb-shift { padding:13px; }.fb-file-head .pill { white-space:normal; font-size:11px; }.fb-money { grid-template-columns:repeat(2,minmax(0,1fr)); gap:13px; }.fb-money b { font-size:19px; }.fb-day-total b { font-size:21px; }.fb-tasks > summary { font-size:14px; }.fb-tasks .pill { margin:6px 0 0; }.fb-task { flex-wrap:wrap; }.fb-cmp { table-layout:fixed; font-size:12px; }.fb-cmp th,.fb-cmp td { padding:6px 4px; overflow-wrap:anywhere; }.fb-cmp th:first-child { width:30%; }.fb-cmp th { font-size:10.5px; }.fb-review-row .btn { flex:none; } }
 `;

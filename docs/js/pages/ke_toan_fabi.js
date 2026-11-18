@@ -1,7 +1,7 @@
 // Kế toán · File ca Fabi (bước 42): tải file "BÁO CÁO CA CHI TIẾT" của từng ca từ Fabi (chọn nhiều file một lần).
 // Web đọc file ngay trên trình duyệt, gửi số lên máy chủ; máy chủ tự so với phiếu chốt ca, sửa theo Fabi và báo quản lý.
 // Kế toán không phải xem hay xử lý lệch.
-export const perm = 'ke_toan';
+export const perm = ['ke_toan', 'doi_soat'];   // bước 136: quản lý xem được (chỉ kế toán tải file)
 
 // Bước 49: gợi ý nhóm theo tên món (kế toán xem lại rồi bấm Lưu)
 const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase();

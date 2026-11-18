@@ -39,7 +39,7 @@ export function makeFb(T, me) {
   const LKF = { thoi_gian: ['rev_start', 'rev_end'], doanh_thu: ['total_revenue', 'pos_cash', 'pos_transfer', 'cups', 'opening_cash', 'ipos_opening', 'pos_debt', 'pos_diff'], tien_mat: ['cash_counted', 'opening_cash', 'pos_cash', 'moves'],
     chuyen_khoan: ['reported_transfer', 'pos_transfer', 'moves'], thu_chi: ['moves'], cong_no: ['debts'], nhan_su: ['staff'], nhap_hang: ['goods_status', 'goods_note', 'goods'] };
   T.__autoLock = T.__autoLock || {};
-  return {
+  const API = {
     app_ca_auto_locks({ p_id }) { const it = T.__autoLock[p_id] || []; const done = T.shift_report_checks.filter((c) => c.report_id === p_id).map((c) => c.item); return { items: it, fields: [...new Set(done.flatMap((i) => LKF[i] || []))], done, can_unlock: me.role === 'chu', is_chu: me.role === 'chu', can_direct: true }; },   // bước 119
     app_ca_auto_unlock({ p_id, p_item, p_reason }) {
       if (me.role !== 'chu') throw new Error('Chỉ Chủ mở khoá mục web đã tự đối soát.');
@@ -67,6 +67,16 @@ export function makeFb(T, me) {
     },
     app_fabi_upload({ p_rows }) {
       if (!me.perms.ke_toan && me.role !== 'chu') throw new Error('Bạn không có quyền thực hiện thao tác này.');
+      return upload(p_rows);
+    },
+    // bước 136: chỉ bộ thử — dựng file Fabi cho vai không có quyền Kế toán (quản lý), tuỳ chọn gắn 'fixed' (số đối soát web đã sửa)
+    app__test_fabi_seed({ p_rows, p_fixed }) {
+      const res = upload(p_rows);
+      Object.entries(p_fixed || {}).forEach(([ma, fx]) => { const f = T.fabi_shifts.find((y) => y.ma_ca === ma); if (f) f.fixed = fx; });
+      return res;
+    },
+  };
+  function upload(p_rows) {
       return p_rows.map((x) => {
         const op = ts(x.open);
         const f = { ma_ca: x.ma_ca, store: x.store, code: STORES[x.store.toLowerCase()] || null, work_date: op.slice(0, 10), shift: shiftOf(op), open_at: op, close_at: ts(x.close),
@@ -76,7 +86,8 @@ export function makeFb(T, me) {
         const res = apply(f); cups(f);
         return { ma_ca: f.ma_ca, store: f.store, branch_code: f.code, work_date: f.work_date, shift: f.shift, cups: f.cups, cups_unknown: f.cups_unknown, ...res };
       });
-    },
+  }
+  Object.assign(API, {
     app_fabi_menu() {
       const by = {}; T.fabi_shifts.forEach((f) => (f.items || []).forEach((x) => { const o = (by[x.name] ||= { name: x.name, files: 0, qty: 0 }); o.files += 1; o.qty += x.qty; }));
       const groups = [...new Set([...T.fabi_shifts.flatMap((f) => (f.groups || []).map((g) => g.name)), ...Object.values(T.fabi_menu)])].sort();
@@ -84,9 +95,11 @@ export function makeFb(T, me) {
     },
     app_fabi_menu_set({ p_items }) { p_items.forEach((x) => { if (x.grp) T.fabi_menu[x.name] = x.grp; else delete T.fabi_menu[x.name]; }); T.fabi_shifts.forEach(cups); return p_items.length; },
     app_fabi_list({ p_from, p_to }) {
+      if (!me.perms.ke_toan && !me.perms.doi_soat && me.role !== 'chu') throw new Error('Bạn không có quyền thực hiện thao tác này.');   // bước 136
       const files = T.fabi_shifts.filter((f) => f.work_date >= p_from && f.work_date <= p_to).map((f) => {
         const r = T.shift_reports.find((x) => x.id === f.report_id);
-        return { ...f, branch_code: f.code, chenh: f.tong - f.cuoi, report_status: r?.status || null, uploaded_by: 'Chủ' };
+        const nv = r ? Object.fromEntries(['ipos_opening', 'total_revenue', 'pos_transfer', 'pos_cash', 'pos_debt', 'cash_counted', 'pos_diff'].map((k) => [k, r[k] ?? null])) : null;   // bước 136
+        return { ...f, branch_code: f.code, chenh: f.tong - f.cuoi, report_status: r?.status || null, uploaded_by: 'Chủ', nv, nguoi_chot: r?.completed_by ? (T.accounts?.find((a) => a.id === r.completed_by)?.display_name || 'Người chốt thử') : null };
       });
       const missing = T.shift_reports.filter((r) => r.work_date >= p_from && r.work_date <= p_to && !/full/i.test(r.shift) && !T.fabi_shifts.some((f) => f.branch_id === r.branch_id && f.work_date === r.work_date && f.shift === r.shift))
         .map((r) => ({ report_id: r.id, branch_code: (T.branches.find((b) => b.id === r.branch_id) || {}).code, work_date: r.work_date, shift: r.shift, status: r.status }));
@@ -97,5 +110,6 @@ export function makeFb(T, me) {
       const f = T.fabi_shifts.find((x) => x.branch_id === r.branch_id && x.work_date === r.work_date && x.shift === r.shift);
       return f ? { ...f, chenh: f.tong - f.cuoi, other: 0, pay: [] } : null;
     },
-  };
+  });
+  return API;
 }

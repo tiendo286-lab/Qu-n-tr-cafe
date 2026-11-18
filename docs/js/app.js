@@ -20,7 +20,7 @@ export const HUBS = [
   // bước 109: Bảng phân công công việc chung (Đợt 1) — việc tự tạo theo bảng + Giao việc riêng + Quá hạn & phạt
   ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
-  ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', 'ke_toan']], null, 'Tiền'],
+  ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', ['ke_toan', 'doi_soat']]], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
   ['Cài đặt', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
