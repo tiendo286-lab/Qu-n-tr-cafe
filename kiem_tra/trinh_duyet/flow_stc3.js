@@ -79,6 +79,19 @@ export default async ({ sleep, out }) => {
   ok(txt(row('g:143:tm')).includes('chưa làm phiếu thu'), '7. ca dư ghi "Chờ xử lý · chưa làm phiếu thu"');
   act('match').click(); await sleep(100);
   ok(txt(dlg()).includes('không có ca thiếu'), '7. không có ca thiếu trong 3 ngày → báo rõ');
+  // 7b. gán nợ khách trả (chỉ nợ ghi trước ca) → hết dư; Huỷ thu ở dòng thu nợ → dư trở lại
+  ok(!!act('no') && !act('no').disabled, '7b. Gán nợ khách trả bấm được');
+  act('no').click(); await sleep(100);
+  const dsel = txt($('[name=debt]', dlg()));
+  ok(dsel.includes('cô lan anh') && !dsel.includes('bàn 5'), '7b. chỉ chọn được nợ ghi trước ca (' + dsel + ')');
+  ok($('[name=debt_amount]', dlg())?.value === '10.000', '7b. số gán mặc định = phần dư 10.000');
+  setv('[name=reason]', 'Cô Lan Anh trả nợ'); await save(); await settle(THU);
+  const gn = () => $$('.stc-it:not(.void)').find((i) => txt(i).includes('cô lan anh') && txt(i).includes('gán nợ khách trả'));
+  ok(!row('g:143:tm') && !!gn(), '7b. gán hết → không còn dư, có dòng thu nợ "Gán nợ khách trả"');
+  $('button.stc-unc', gn()).click(); await wait('dialog[open]', 30); await sleep(200);
+  setv('[name=reason]', 'Gán nhầm'); await save(); await settle(THU);
+  ok(!!row('g:143:tm') && txt($('.stc-amt', row('g:143:tm'))).includes('10.000') && !gn(), '7b. Huỷ thu → ca dư 10.000 trở lại');
+  await openGap('g:143:tm');
   act('thu').click(); await sleep(100); setv('[name=reason]', 'Tiền dư thật'); await save(); await settle(THU);
   await openGap('g:143:tm');
   ok(act('no')?.disabled && txt(dlg()).includes('đã tạo phiếu thu'), '7. đã tạo phiếu thu → Gán nợ bị khoá');

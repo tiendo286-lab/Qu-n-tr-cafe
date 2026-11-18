@@ -9,7 +9,7 @@ const it = (date, caId, book, pm, col, amount, o = {}) => ({ id: 'z:' + (++k), d
   cat_type: null, checked: true, no_cost: false, status: null, status_cls: null, from: null, who: null, to_qn: false, recv: null, src: 'move', ...o });
 // chi tiết lệch (đợt 3) — cùng dạng gap của app_stc_month
 const G = (kind, total, names, o = {}) => ({ item: 'tien_mat', kind, total, remain: total, avail: total, people: names.map((name, i) => ({ id: 900 + i, name })),
-  tl: [], decisions: [], matches: [], qc_wait: [], cands: [], has_tl: false, has_thu: false, ...o });
+  tl: [], decisions: [], matches: [], qc_wait: [], cands: [], debts: [], has_tl: false, has_thu: false, ...o });
 const dt = (date, caId, tm, ck) => [it(date, caId, 'thu', 'tm', 'dt', tm, { title: 'Doanh thu', src: 'dt' }), it(date, caId, 'thu', 'ck', 'dt', ck, { title: 'Doanh thu', src: 'dt' })];
 const rev = (tm, ck, o = {}) => ({ nv: { opening: 1000000, revenue: tm + ck, debt: 0 }, fabi: { has: true, opening: 1000000, revenue: tm + ck, tm, ck, debt: 0, edited_bills: 0 }, bank_ck: ck, ...o });
 

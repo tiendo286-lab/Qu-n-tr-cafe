@@ -29,6 +29,11 @@ export function makeStc(T, me) {
     const ca = st().cas.find((c) => c.id === Number(rid)); if (!ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');
     const x = gapAll().find((i) => i.ca_id === Number(rid) && i.gap.kind === kind); if (!x) throw new Error('Không tìm thấy khoản lệch.'); return x;
   };
+  const ganUndo = (dc, r) => {
+    const { snap, odSnap } = dc.gan; items().push(voidOf(dc, 'xoa', r)); items().splice(items().indexOf(dc), 1);
+    const cur = items().find((i) => i.id === snap.id && !i.void); if (cur) items().splice(items().indexOf(cur), 1, snap); else items().push(snap);
+    const od = st().open_debts.find((d) => d.id === odSnap.id); if (od) od.left = odSnap.left; else st().open_debts.push(odSnap);
+  };
   const gapAmt = (a, avail) => { amountOk(a); if (Number(a) > avail) throw new Error('Chỉ còn ' + avail + ' chờ xử lý.'); };
   const caLab = (rid) => { const c = st().cas.find((i) => i.id === Number(rid)); return c ? `ca ${c.shift} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}` : ''; };
   const matchApply = (x, a) => { x.amount -= a; x.gap.remain -= a; };
@@ -89,6 +94,7 @@ export function makeStc(T, me) {
     },
     app_stc_uncollect({ p_debt, p_reason }) {
       need(); const r = reason(p_reason); const x = items().find((i) => i.id === 'dc:' + p_debt || i.id.startsWith('dc:' + p_debt + ':'));
+      if (x?.gan) return ganUndo(x, r);
       items().push(voidOf(x, 'xoa', r)); items().splice(items().indexOf(x), 1);
       const od = st().open_debts.find((d) => d.id === (x.debt_ref || 'd:' + p_debt));
       if (od) od.left += x.amount; else st().open_debts.push({ id: x.debt_ref || 'd:' + p_debt, who: x.title, kind: 'bill', amount: x.amount, left: x.amount, date: x.date, from: x.from || '', no_remind: false });
@@ -133,6 +139,22 @@ export function makeStc(T, me) {
       const x = gapIt(p_report, 'du'); reason(p_reason); const g = x.gap; gapAmt(p_amount, g.avail);
       g.decisions.push({ id: ++N, kind: 'thu_khac', amount: Number(p_amount) }); g.remain -= p_amount; g.avail -= p_amount; g.has_thu = true; gapStat(x);
     },
+    // Task 3: gán nợ khách trả — nợ đóng vào ca dư, lệch tự giảm (hết dư thì mất khoản lệch; ≤ 5.000 thì coi như khớp)
+    app_stc_gap_debt({ p_report, p_debt, p_amount, p_reason }) {
+      const x = gapIt(p_report, 'du'); const r = reason(p_reason); const g = x.gap;
+      if (g.has_thu) throw new Error('Đã tạo phiếu thu — huỷ phiếu thu trước khi gán nợ.');
+      gapAmt(p_amount, g.avail); const a = Number(p_amount);
+      const od = st().open_debts.find((d) => d.id === 'd:' + p_debt); if (!od) throw new Error('Khoản nợ này đã được thu hoặc không còn.');
+      if (od.date > x.date) throw new Error('Khoản nợ ghi sau ngày của ca này.');
+      if (a > od.left) throw new Error('Khách trả nhiều hơn số nợ (' + od.left + ').');
+      const snap = copy(x); const odSnap = copy(od);
+      od.left -= a; if (od.left <= 0) st().open_debts.splice(st().open_debts.indexOf(od), 1);
+      items().push({ id: 'dc:' + p_debt, date: x.date, ca_id: x.ca_id, book: 'thu', pm: x.pm, col: 'no', amount: a, title: od.who, meta: 'Gán nợ khách trả (quản lý)',
+        from: od.from, src: 'debt', can_edit: true, edit: edit('them', r), gan: { snap, odSnap } });
+      x.amount -= a; x.gross = (x.gross ?? snap.amount) - a; g.total -= a; g.remain -= a; g.avail -= a; g.debts.push({ id: Number(p_debt), who: od.who, amount: a });
+      if (x.amount <= 0) items().splice(items().indexOf(x), 1);
+      else if (x.amount <= 5000) { x.gap = null; x.status = 'Lệch nhỏ ≤ 5.000 (coi như khớp)'; } else gapStat(x);
+    },
     app_stc_gap_approve({ p_kind, p_id, p_ok }) {
       if (me.role !== 'chu') throw new Error('Chỉ Chủ duyệt.');
       gapAll().forEach((x) => {
@@ -145,7 +167,8 @@ export function makeStc(T, me) {
       });
     },
     app_stc_gap_undo({ p_kind, p_id, p_reason }) {
-      reason(p_reason);
+      const rr = reason(p_reason);
+      if (p_kind === 'debt') { const dc = items().find((i) => i.id === 'dc:' + p_id && i.gan); if (!dc) throw new Error('Không phải khoản gán nợ của Sổ thu chi.'); return ganUndo(dc, rr); }
       gapAll().forEach((x) => {
         const g = x.gap; const list = { tl: g.tl, decision: g.decisions, match: g.matches, qc: g.qc_wait }[p_kind];
         const e = list.find((w) => w.id === p_id); if (!e) return; list.splice(list.indexOf(e), 1);

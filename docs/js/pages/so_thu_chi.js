@@ -225,7 +225,8 @@ function gapDialog(D, x) {
   const avail = Number(g.avail || 0); const people = g.people || [];
   const split = (i) => { const n = people.length || 1; const b = Math.floor(avail / n / 1000) * 1000; return i === 0 ? avail - b * (n - 1) : b; };
   const ghepLock = thieu && g.has_tl ? 'Đã tạo phiếu trừ tiền — huỷ phiếu trừ tiền trước khi ghép.' : '';
-  const noLock = !thieu && g.has_thu ? 'Đã tạo phiếu thu — huỷ phiếu thu trước khi gán nợ.' : 'Gán nợ khách trả làm ở bước sau (cần mở khoá).';
+  const noLock = !thieu && g.has_thu ? 'Đã tạo phiếu thu — huỷ phiếu thu trước khi gán nợ.' : '';
+  const debts = (D.open_debts || []).filter((o) => o.date <= x.date && Number(o.left) > 0);   // chỉ nợ ghi trước ca (máy chủ kiểm lại)
   const acts = thieu ? [['tl', 'Trừ lương', ''], ['qc', 'Quán chịu', ''], ['match', 'Ghép với ca dư', ghepLock]]
     : [['match', 'Ghép với ca thiếu', ''], ['thu', 'Tạo phiếu thu', ''], ['no', 'Gán nợ khách trả', noLock]];
   const first = acts.find((a) => !a[2])?.[0];
@@ -235,6 +236,7 @@ function gapDialog(D, x) {
   const done = [
     ...(g.tl || []).map((t) => html`<div class="stc-gd"><span>Trừ lương ${t.name}</span><b>${fmt(t.amount)}</b>${bU(`tl:${t.id}`)}</div>`),
     ...(g.decisions || []).map((d) => html`<div class="stc-gd"><span>${d.kind === 'quan_chiu' ? 'Quán chịu' : d.kind === 'thu_khac' ? 'Phiếu thu (Thu khác)' : d.kind}</span><b>${fmt(d.amount)}</b>${bU(`decision:${d.id}`)}</div>`),
+    ...(g.debts || []).map((o) => html`<div class="stc-gd"><span>Gán nợ khách trả · ${o.who}</span><b>${fmt(o.amount)}</b>${bU(`debt:${o.id}`)}</div>`),
     ...(g.matches || []).map((m) => html`<div class="stc-gd"><span>Ghép với ${m.with}${m.status === 'cho_duyet' ? ' · ⏳ chờ Chủ duyệt' : ''}</span><b>${fmt(m.amount)}</b>
       ${m.status === 'cho_duyet' && owner ? bOk(`match:${m.id}`) : ''}${bU(`match:${m.id}`)}</div>`),
     ...(g.qc_wait || []).map((q) => html`<div class="stc-gd"><span>Quán chịu · ${q.by || ''} · ⏳ chờ Chủ duyệt</span><b>${fmt(q.amount)}</b>
@@ -252,7 +254,10 @@ function gapDialog(D, x) {
       <label class="field"><span>Số tiền ghép</span><input class="input" name="match_amount" inputmode="numeric" data-money value="${fmt(Math.min(avail, Number(cands[0].amount)))}"></label>
       ${owner ? '' : html`<div class="st-meta">⏳ Ghép cần Chủ duyệt.</div>`}` : html`<div class="st-meta">Không có ca ${thieu ? 'dư' : 'thiếu'} cùng loại tiền trong 3 ngày để ghép.</div>`),
     thu: () => pane('thu', html`<label class="field"><span>Số tiền ghi Thu khác</span><input class="input" name="thu_amount" inputmode="numeric" data-money value="${fmt(avail)}"></label>`),
-    no: () => pane('no', lockNote(noLock)),
+    no: () => pane('no', noLock ? lockNote(noLock) : debts.length ? html`<div class="st-meta">Ca dư vì khách trả nợ cũ: chọn khoản nợ, phần dư thành Thu nợ của ca này.</div>
+      <label class="field"><span>Khách trả nợ</span><select class="input" name="debt">${debts.map((o) => html`<option value="${o.id}" data-amt="${o.left}">${o.who} · còn ${fmt(o.left)} · ${o.from || dm(o.date)}</option>`)}</select></label>
+      <label class="field"><span>Số tiền khách trả</span><input class="input" name="debt_amount" inputmode="numeric" data-money value="${fmt(Math.min(avail, Number(debts[0].left)))}"></label>`
+      : html`<div class="st-meta">Không có khách đang nợ ghi trước ca này.</div>`),
   };
   const d = dialog(html`<form class="stack stc-dlg stc-gapd" style="gap:10px"><h2 style="margin:0">Phiếu chênh lệch · Ca ${ca.shift || ''} ${dm(x.date)} · ${PM[x.pm]}</h2>
     <div class="stc-gnum"><div><span>Phải có</span><b>${fmt(mm.must ?? 0)}</b></div><div><span>Thực tế</span><b>${fmt(mm.real ?? 0)}</b></div>
@@ -269,6 +274,8 @@ function gapDialog(D, x) {
   d.querySelector('[data-x]').addEventListener('click', () => d.close());
   const cs = d.querySelector('[name=cand]');
   cs?.addEventListener('change', () => { const a = Number(cs.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=match_amount]').value = fmt(Math.min(avail, a)); });
+  const dsl = d.querySelector('[name=debt]');
+  dsl?.addEventListener('change', () => { const a = Number(dsl.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=debt_amount]').value = fmt(Math.min(avail, a)); });
   const run = async (fn, msg) => { try { const m = await fn(); d.close(); after(m || msg); } catch (e) { err(d, e); } };
   const need = () => { const r = val(d, 'reason'); if (!r) throw new Error('Ghi lý do.'); return r; };
   const item = g.item;
@@ -294,7 +301,11 @@ function gapDialog(D, x) {
         const o = Number(cs.value);
         res = await rpc('app_stc_gap_match', { p_short: thieu ? ca.id : o, p_over: thieu ? o : ca.id, p_item: item, p_amount: money(d, 'match_amount'), p_reason: r });
       } else if (cur === 'thu') await rpc('app_stc_gap_thu', { p_report: ca.id, p_item: item, p_amount: money(d, 'thu_amount'), p_reason: r });
-      else throw new Error(noLock);
+      else {
+        if (!dsl) throw new Error(noLock || 'Không có khách đang nợ để gán.');
+        await rpc('app_stc_gap_debt', { p_report: ca.id, p_item: item, p_debt: idNum(dsl.value), p_amount: money(d, 'debt_amount'), p_reason: r });
+        return 'Đã gán nợ khách trả';
+      }
       return res === 'cho_duyet' ? 'Đã gửi — chờ Chủ duyệt' : null;
     }, 'Đã lưu phiếu chênh lệch');
   });
