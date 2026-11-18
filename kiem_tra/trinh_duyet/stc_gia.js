@@ -81,6 +81,19 @@ export function makeStc(T, me) {
       const od = st().open_debts.find((d) => d.id === (x.debt_ref || 'd:' + p_debt));
       if (od) od.left += x.amount; else st().open_debts.push({ id: x.debt_ref || 'd:' + p_debt, who: x.title, kind: 'bill', amount: x.amount, left: x.amount, date: x.date, from: x.from || '', no_remind: false });
     },
+    app_stc_move_save({ p_report, p_mkey, p, p_reason }) {
+      need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report));
+      if (!ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');
+      const id = p_mkey ? `m:${p_report}:${p_mkey}` : null; const x = id ? items().find((i) => i.id === id) : null;
+      if (p.delete) { items().push(voidOf(x, 'xoa', r)); items().splice(items().indexOf(x), 1); return null; }
+      amountOk(Math.abs(p.amount)); if (!String(p.note || x?.title || '').trim()) throw new Error('Ghi nội dung khoản.');
+      const nk = 'n' + (++N);
+      const it = { id: `m:${p_report}:${nk}`, date: ca.date, ca_id: ca.id, book: p.amount < 0 ? 'chi' : 'thu', pm: pmOf(p.kind), col: p.amount < 0 ? 'chi' : 'khac', amount: Math.abs(p.amount),
+        title: p.note || x?.title, meta: 'Phiếu ca', cat: catName(p.category_id) || x?.cat || null, src: 'move', can_edit: true };
+      if (x) { items().push(voidOf(x, 'sua', r)); items().splice(items().indexOf(x), 1, { ...it, edit: edit('sua', r, x.amount) }); }
+      else items().push({ ...it, edit: edit('them', r) });
+      return nk;
+    },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;
       st().open_debts.filter((d) => d.who.toLowerCase() === String(p_name).toLowerCase()).forEach((d) => { d.no_remind = !!p_no_remind; });

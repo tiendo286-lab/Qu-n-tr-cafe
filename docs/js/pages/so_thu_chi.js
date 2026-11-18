@@ -71,9 +71,10 @@ export async function render({ params }) {
     mount() {
       const root = $('#stc-page'); if (!root) return;
       root.addEventListener('click', (ev) => {
-        const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt]');
+        const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt],[data-addca]');
         if (w && root.contains(w)) {
-          if (w.dataset.ed) editDialog(D, D.items.find((x) => x.id === w.dataset.ed));
+          if (w.dataset.addca) addCaDialog(D, w.dataset.addca, P.tab === 'thu' ? 'thu' : 'chi');
+          else if (w.dataset.ed) editDialog(D, D.items.find((x) => x.id === w.dataset.ed));
           else if (w.dataset.unc) uncollectDialog(D, D.items.find((x) => x.id === w.dataset.unc));
           else if (w.dataset.colDebt) collectDialog(D, w.dataset.colDebt);
           else addDialog(D, P.tab === 'thu' ? 'thu' : 'chi');
@@ -135,6 +136,16 @@ async function editDialog(D, x) {
       <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${note}"></label>`, del));
     open(d, async () => { await rpc('app_stc_transfer_save', { p_id: idNum(x.id), p: { date: val(d, 'date'), direction: val(d, 'dir'), amount: money(d, 'amount'), note: val(d, 'note') }, p_reason: val(d, 'reason') }); after('Đã sửa luân chuyển'); },
       async () => { await rpc('app_stc_transfer_delete', { p_id: idNum(x.id), p_reason: val(d, 'reason') }); after('Đã xoá luân chuyển'); });
+  } else if (x.id.startsWith('m:')) {
+    const [, rid, ...mk] = x.id.split(':'); const kind = x.book === 'chi' ? 'chi' : 'thu';
+    const ca = (D.cas || []).find((c) => c.id === Number(rid));
+    const d = dialog(form(`Sửa khoản ${kind} · Ca ${ca?.shift || ''} ${dm(x.date)}`, html`<div class="st-meta">Sửa vào bản đối soát, phiếu nhân viên giữ nguyên. Mục tiền đã duyệt không bị mở lại.</div>
+      <label class="field"><span>Nội dung</span><input class="input" name="note" value="${x.title}"></label>
+      <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money value="${fmt(x.amount)}"></label>
+      ${pmSel('pay', x.pm)}${await catSel(kind, x.cat)}`, del));
+    const sign = kind === 'chi' ? -1 : 1;
+    open(d, async () => { await rpc('app_stc_move_save', { p_report: Number(rid), p_mkey: mk.join(':'), p: { kind: val(d, 'pay'), amount: sign * money(d, 'amount'), note: val(d, 'note'), category_id: val(d, 'cat') || null }, p_reason: val(d, 'reason') }); after('Đã sửa khoản của ca — phiếu cũ gạch ngang'); },
+      async () => { await rpc('app_stc_move_save', { p_report: Number(rid), p_mkey: mk.join(':'), p: { delete: true }, p_reason: val(d, 'reason') }); after('Đã xoá khoản của ca'); });
   } else if (x.id.startsWith('dn:')) {
     const name = x.title.replace(/^Nợ (TM|CK): /, '');
     const d = dialog(form(`Sửa cho nợ · ${dm(x.date)}`, html`<label class="field"><span>Người nợ</span><input class="input" name="name" value="${name}"></label>
@@ -176,6 +187,18 @@ async function addDialog(D, book) {
     after('Đã thêm phiếu');
   });
 }
+async function addCaDialog(D, caId, book) {
+  const ca = (D.cas || []).find((c) => c.id === Number(caId)); if (!ca) return;
+  const kind = book === 'chi' ? 'chi' : 'thu';
+  const d = dialog(form(`+ Thêm phiếu ${kind} vào Ca ${ca.shift} ${dm(ca.date)}`, html`<div class="st-meta">Thêm vào bản đối soát của ca (phiếu bổ sung của quản lý). Lý do bắt buộc.</div>
+    <label class="field"><span>Nội dung</span><input class="input" name="note"></label>
+    <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money></label>${pmSel('pay', P.pm)}${await catSel(kind)}`, ' '));
+  open(d, async () => {
+    if (!val(d, 'reason')) throw new Error('Ghi lý do (thêm vào ca bắt buộc lý do).');
+    await rpc('app_stc_move_save', { p_report: ca.id, p_mkey: null, p: { kind: val(d, 'pay'), amount: (kind === 'chi' ? -1 : 1) * money(d, 'amount'), note: val(d, 'note'), category_id: val(d, 'cat') || null }, p_reason: val(d, 'reason') });
+    after('Đã thêm phiếu vào ca');
+  });
+}
 function collectDialog(D, debtId) {
   const x = (D.open_debts || []).find((o) => o.id === debtId); if (!x) return;
   const d = dialog(form(`Thu nợ · ${x.who}`, html`<div class="st-meta">Còn nợ ${fmt(x.left)} · từ ${x.from}. Trả một phần được.</div>
@@ -193,7 +216,7 @@ async function personMark(D, name, on) {
 }
 
 // ---------------- Sổ thu / Sổ chi ----------------
-function itemRow(x, book) {
+function itemRow(x, book, D = null) {
   const pills = [];
   if (x.void) {
     const v = x.void_info || {};
@@ -216,7 +239,11 @@ function itemRow(x, book) {
   if (x.chia) pills.push(html`<span class="pill info">${x.chia}</span>`);
   if (x.can_edit) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
     : html`<button type="button" class="btn sm secondary stc-ed" data-ed="${x.id}">Sửa / Xoá</button>`);
-  else if (!['dt', 'lech'].includes(x.col) && !x.to_qn) pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="Khoản của ca: sửa ở đợt sau">Sửa / Xoá · đợt sau</button>`);
+  else if (!['dt', 'lech'].includes(x.col) && !x.to_qn) {
+    const ca = x.ca_id ? (D?.cas || []).find((c) => c.id === x.ca_id) : null;
+    const why = ca && !ca.recon_money_done ? 'Chốt tiền ca ở tab Đối soát tiền mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
+    pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="${why}">Sửa / Xoá</button><span class="st-meta">🔒 ${why}</span>`);
+  }
   return html`<div class="stc-it"><span class="stc-tag t-${x.col}">${colName(book, x.col)}</span>
     <div class="stc-itb"><div class="stc-itt">${x.title}</div><div class="st-meta">${x.meta || ''}</div>${pills.length ? html`<div class="stc-pills">${pills}</div>` : ''}</div>
     <span class="stc-amt ${book}">${sg(book)}${fmt(x.amount)}</span></div>`;
@@ -224,6 +251,13 @@ function itemRow(x, book) {
 function cells(byCol, book, totalV) {
   return html`${COLS[book].map(([k]) => html`<span class="stc-c ${byCol[k] ? '' : 'z'}">${byCol[k] ? fmt(byCol[k]) : '–'}</span>`)}<span class="stc-c tot">${fmt(totalV)}</span>
     <span class="stc-chips">${COLS[book].filter(([k]) => byCol[k]).map(([k, l]) => html`<span>${l} <b>${fmt(byCol[k])}</b></span>`)}</span>`;
+}
+function addBtn(D, c, book, label) {
+  if (D.ext) return off(`+ Thêm phiếu ${book}`, 'btn sm secondary');
+  if (String(c.caId).startsWith('o:')) return html`<button type="button" class="btn sm secondary stc-add">+ Thêm phiếu ${book} ngoài ca</button>`;
+  const ca = (D.cas || []).find((x) => x.id === c.caId);
+  return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>`
+    : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
 }
 function bookCard(D, book) {
   const days = dayTree(D, book, P.pm, P.cot || null);
@@ -236,8 +270,8 @@ function bookCard(D, book) {
         <span class="stc-lab"><span class="stc-chev">›</span>${dm(d.date)} <small>${wd(d.date)}</small></span>${cells(d.byCol, book, d.total)}</button>
       ${o ? html`<div class="stc-cas">${cas.map((c) => { const co = OPEN_C.has(String(c.caId)); return html`<div class="stc-ca ${co ? 'open' : ''}">
           <button type="button" class="stc-crow stc-g" style="--n:${n}" data-ca="${c.caId}" aria-expanded="${co}"><span class="stc-lab"><span class="stc-chev">›</span>${caLabel(c)} <small>${c.staff || ''}</small></span>${cells(c.byCol, book, c.total)}</button>
-          ${co ? html`<div class="stc-its">${c.items.length ? c.items.map((x) => itemRow(x, book)) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
-            <div class="stc-it add">${off(`+ Thêm phiếu ${book} vào ${caLabel(c).toLowerCase()}`, 'btn sm secondary')}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
+          ${co ? html`<div class="stc-its">${c.items.length ? c.items.map((x) => itemRow(x, book, D)) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
+            <div class="stc-it add">${addBtn(D, c, book, caLabel(c))}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
   });
   return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} <small>${P.cot ? `chỉ hiện ${colName(book, P.cot)}` : 'theo ngày · bấm ngày để xem từng ca'}</small></h2>
       <span class="stc-tools">${P.cot ? html`<a class="btn sm secondary" href="${q({ cot: '' })}">Bỏ lọc</a>` : ''}<button type="button" class="btn sm secondary stc-all">Mở hết</button><button type="button" class="btn sm secondary stc-none">Thu gọn</button>${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>

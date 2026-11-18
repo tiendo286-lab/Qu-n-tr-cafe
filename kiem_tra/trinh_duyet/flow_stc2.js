@@ -18,8 +18,8 @@ export default async ({ sleep, out }) => {
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
   const td = item('tiền điện tháng 10');
   ok(!!td && !!$('button.stc-ed:not([disabled])', td), '1. khoản ngoài ca có nút Sửa / Xoá bấm được');
-  const kt = item('quản lý lấy tiền két');
-  ok(!!kt && !!$('.stc-act[disabled]', kt) && !$('button.stc-ed:not([disabled])', kt), '1. khoản của ca vẫn tắt');
+  const kt = item('chi lương – minh');
+  ok(!!kt && !!$('.stc-act[disabled]', kt) && !$('button.stc-ed:not([disabled])', kt), '1. khoản tự động của ca (chi lương) vẫn tắt');
   // 2. sửa số tiền + lý do → gạch ngang + phiếu bổ sung
   const t0 = total();
   $('button.stc-ed', td).click(); await wait('dialog[open]', 30); await sleep(200);
@@ -59,6 +59,24 @@ export default async ({ sleep, out }) => {
   $('button.stc-col', kd).click(); await wait('dialog[open]', 30); await sleep(200);
   setv('[name=amount]', '15.000'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   ok(!!item('cô lan anh') && txt($$('.stc-kd').find((r) => txt(r).includes('cô lan anh'))).includes('5.000'), '7. thu nợ một phần: có khoản thu nợ, còn nợ 5.000');
+  // 9–11. đợt 2b: khoản của ca đã chốt tiền sửa được; ca chưa chốt khoá; thêm vào ca bắt lý do
+  await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm'); await openAll();
+  const da = item('mua đá');
+  ok(!!da && !!$('button.stc-ed:not([disabled])', da), '9. khoản của ca đã chốt tiền có Sửa / Xoá');
+  const st = item('mua sữa tươi');
+  ok(!!st && !$('button.stc-ed:not([disabled])', st) && txt(st).includes('chốt tiền ca'), '10. ca chưa chốt: khoá, ghi "Chốt tiền ca … mới sửa được"');
+  $('button.stc-ed', da).click(); await wait('dialog[open]', 30); await sleep(200);
+  setv('[name=amount]', '55.000'); setv('[name=reason]', 'Mua thêm đá');
+  $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
+  ok($$('.stc-it.void').some((i) => txt(i).includes('mua đá')) && txt(item('mua đá')).includes('55.000') && txt(item('mua đá')).includes('phiếu bổ sung'), '9. sửa khoản ca: gạch ngang + phiếu bổ sung 55.000');
+  const addCa = $$('button.stc-addca').find((b) => !b.disabled);
+  ok(!!addCa && $$('button.stc-addca[disabled]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã chốt bấm được, ca chưa chốt tắt');
+  addCa.click(); await wait('dialog[open]', 30); await sleep(200);
+  setv('[name=note]', 'Mua giấy in'); setv('[name=amount]', '25.000'); setv('[name=reason]', '');
+  $('button[type=submit]', dlg()).click(); await sleep(500);
+  ok(txt($('.stc-err', dlg())).includes('ghi lý do'), '11. thêm vào ca thiếu lý do bị báo');
+  setv('[name=reason]', 'NV quên ghi'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
+  ok(!!item('mua giấy in') && txt(item('mua giấy in')).includes('thêm'), '11. khoản thêm vào ca có nhãn thêm');
   // 8. không tràn ngang
   if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
   out.push({ stc2: { ok: good, fail: bad } });

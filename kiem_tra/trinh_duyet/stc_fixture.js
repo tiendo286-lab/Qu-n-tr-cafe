@@ -58,6 +58,8 @@ const items = [
 ];
 // đợt 2a: khoản ngoài ca sửa được (khoản quản lý tạo, luân chuyển quỹ, thu nợ ngoài ca); khoản của ca chưa sửa được
 items.forEach((x) => { x.can_edit = false; });
+// đợt 2b: khoản thu chi thường của ca đã chốt tiền sửa được (mã m:<ca>:<khoá>)
+items.forEach((x, i) => { if (x.ca_id && ['chi', 'khac'].includes(x.col) && x.meta === 'Phiếu ca') { x.id = `m:${x.ca_id}:k${i}`; x.src = 'move'; } });
 { const set = (title, id) => { const x = items.find((i) => i.title === title && i.ca_id === null); if (x) { x.id = id; x.can_edit = true; } };
   set('Internet tháng 11', 'e:901'); set('Tiền điện tháng 10', 'e:902'); set('Cô Mai', 'dc:3');
   items.filter((x) => x.src === 'transfer').forEach((x) => { x.can_edit = true; }); }
@@ -76,6 +78,7 @@ Object.values(byDate).forEach((list) => {
 });
 { const c = cas.find((x) => x.id === 182); const net = items.filter((x) => x.ca_id === 182 && x.pm === 'tm').reduce((a, x) => a + (x.book === 'thu' ? x.amount : -x.amount), 0); c.real_tm = 1050000 + net; c.nv_counted = c.real_tm; }
 
+items.forEach((x) => { if (x.id.startsWith('m:')) x.can_edit = !!cas.find((c) => c.id === x.ca_id)?.recon_money_done; });
 const base = {
   branch: { id: 1, code: 'LHP', name: 'Lê Hồng Phong' },
   branches: [{ id: 1, code: 'LHP' }, { id: 2, code: 'ĐK' }, { id: 3, code: 'HS' }, { id: 4, code: 'LL' }, { id: 5, code: 'LLB' }],
