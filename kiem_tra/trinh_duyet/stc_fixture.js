@@ -56,6 +56,11 @@ const items = [
   it(D18, null, 'thu', 'ck', 'no', 150000, { title: 'Cô Mai', meta: 'Quản lý thu ngoài ca', from: 'quản lý ghi', src: 'debt' }),
   it(D18, null, 'chi', 'ck', 'lc', 20000000, { title: 'Chuyển về Quỹ ngoài', meta: 'Phiếu rút giữ hộ (cũ)', to_qn: true, recv: 'cho', status: 'Chờ Chủ nhận', src: 'withdrawal' }),
 ];
+// đợt 2a: khoản ngoài ca sửa được (khoản quản lý tạo, luân chuyển quỹ, thu nợ ngoài ca); khoản của ca chưa sửa được
+items.forEach((x) => { x.can_edit = false; });
+{ const set = (title, id) => { const x = items.find((i) => i.title === title && i.ca_id === null); if (x) { x.id = id; x.can_edit = true; } };
+  set('Internet tháng 11', 'e:901'); set('Tiền điện tháng 10', 'e:902'); set('Cô Mai', 'dc:3');
+  items.filter((x) => x.src === 'transfer').forEach((x) => { x.can_edit = true; }); }
 // tiền đầu ca thật: theo chuỗi két + thực tế
 const byDate = {};
 cas.forEach((c) => { (byDate[c.date] = byDate[c.date] || []).push(c); });
@@ -82,6 +87,7 @@ const base = {
     { id: 'd:3', who: 'Kho Tổng', kind: 'ck', amount: 300000, left: 300000, date: D16, from: 'quản lý ghi', no_remind: true },
   ],
   compare: { fund_days: [], gaps: [{ ca_id: 183, pm: 'tm', lech: -30000, state: 'cho_gan' }, { ca_id: 152, pm: 'tm', lech: -40000, state: 'xong' }] },
+  people: [{ name: 'Kho Tổng', no_remind: true, open: 300000, n: 1 }, { name: 'Bàn 5', no_remind: false, open: 50000, n: 1 }, { name: 'Cô Lan Anh', no_remind: false, open: 20000, n: 1 }],
 };
 const F = fundSummary(base);
 const end = (pm, d) => F.daily[pm].find((x) => x.date === d).end;

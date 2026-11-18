@@ -23,11 +23,13 @@ export function sumItems(items, { book, pm, col, date, caId } = {}) {
 }
 
 function byColOf(items, book) {
-  const o = {}; COLS[book].forEach(([k]) => { o[k] = total(items.filter((x) => x.col === k)); }); return o;
+  const o = {}; COLS[book].forEach(([k]) => { o[k] = total(live(items).filter((x) => x.col === k)); }); return o;
 }
 
+// Khoản gạch ngang (void) vẫn nằm trong danh sách để hiện, nhưng không cộng vào tổng.
 export function dayTree(data, book, pm, col = null) {
-  const its = live(data.items).filter((x) => x.book === book && x.pm === pm && (!col || x.col === col));
+  const its = data.items.filter((x) => x.book === book && x.pm === pm && (!col || x.col === col));
+  const total = (list) => live(list).reduce((a, x) => a + Number(x.amount || 0), 0);
   const dates = [...new Set([...data.cas.map((c) => c.date), ...its.map((x) => x.date)])].sort().reverse();
   return dates.map((date) => {
     const cas = data.cas.filter((c) => c.date === date).sort((a, b) => shiftRank(a.shift) - shiftRank(b.shift))

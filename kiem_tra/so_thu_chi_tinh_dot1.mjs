@@ -99,7 +99,8 @@ ok(compareDays({ ...D, compare: { ...D.compare, fund_days: [{ date: '2026-11-17'
 // 7. Lọc cột
 ok(dayTree(D, 'chi', 'tm', 'lech').length === 1 && dayTree(D, 'chi', 'tm', 'lech').every((d) => d.total > 0 && d.cas.every((c) => c.total > 0)), 'lọc cột bỏ ngày / ca có tổng 0');
 const d18 = dayTree(D, 'chi', 'tm')[0];
-ok(d18.date === '2026-11-18' && d18.cas.map((c) => c.shift).join() === 'Sáng,Chiều,Tối,FULL TIME' && d18.outside.items.length === 0, 'ca theo thứ tự Sáng · Chiều · Tối, ca khác sau; khoản gạch không vào ngoài ca');
+ok(d18.date === '2026-11-18' && d18.cas.map((c) => c.shift).join() === 'Sáng,Chiều,Tối,FULL TIME', 'ca theo thứ tự Sáng · Chiều · Tối, ca khác sau');
+ok(d18.outside.items.length === 1 && d18.outside.items[0].void && d18.outside.total === 0 && d18.outside.byCol.chi === 0, 'khoản gạch ngang vẫn hiện trong sổ nhưng không cộng');
 ok(d18.byCol.chi === 500000 + 1000000 + 50000 && d18.byCol.lech === 30000, 'tổng theo cột của ngày');
 ok(dayTree(D, 'thu', 'tm', 'dt').every((d) => d.date >= '2026-11-16'), 'ngày đúng');
 
