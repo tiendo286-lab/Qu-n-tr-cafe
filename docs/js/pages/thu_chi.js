@@ -44,14 +44,19 @@ export async function render(ctx) {
   // bước 69: luôn 1 cơ sở — lấy từ địa chỉ, rồi cơ sở xem lần trước, rồi cơ sở đầu tiên được xem
   let cn = Number(params.cn) || lsGet();
   const range = { p_from: `${month}-01`, p_to: lastDay(month) };
+  // bước 134: nhóm chi phí + số tổng hỏi cùng lúc với danh sách (trước: chờ danh sách xong mới hỏi)
+  const ftP = rpc('app_fin_types').catch(() => ({ types: [], cats: [] }));
+  let smP = cn ? rpc('app_tc_summary', { p_branch: cn, ...range }).catch(() => null) : null;
   let D = cn ? await rpc('app_tc_list', { p_branch: cn, ...range }).catch(() => null) : null;
   if (!D) {
     const t = vnToday(); const L = await rpc('app_tc_list', { p_branch: null, p_from: t, p_to: t });
     if (!L.branches.length) return { title: 'Thu chi', html: html`<div class="page-head"><h1>Thu chi</h1></div><div class="alert warn">Bạn chưa được xem thu chi cơ sở nào.</div>` };
-    cn = L.branches[0].id; D = await rpc('app_tc_list', { p_branch: cn, ...range });
+    cn = L.branches[0].id;
+    smP = rpc('app_tc_summary', { p_branch: cn, ...range }).catch(() => null);
+    D = await rpc('app_tc_list', { p_branch: cn, ...range });
   }
   lsSet(cn);
-  const [FT, SM] = await Promise.all([rpc('app_fin_types').catch(() => ({ types: [], cats: [] })), rpc('app_tc_summary', { p_branch: cn, ...range }).catch(() => null)]);
+  const [FT, SM] = await Promise.all([ftP, smP]);
   const typeById = new Map(FT.types.map((t) => [t.id, t])); const catById = new Map(FT.cats.map((c) => [c.id, c]));
   const typeOf = (r) => (r.category_id ? typeById.get(catById.get(r.category_id)?.type_id) || null : null);
   const path = (r) => { const t = typeOf(r); return `${t ? t.name + ' › ' : ''}${r.category || 'Chưa phân nhóm'}`; };

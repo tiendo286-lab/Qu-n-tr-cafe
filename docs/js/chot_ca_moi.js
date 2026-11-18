@@ -1,12 +1,12 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender, can } from './app.js';
-import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.18.2';
+import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.18.3';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, raw, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from './ca_chung.js?v=2026.11.18.2';
+import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from './ca_chung.js?v=2026.11.18.3';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -31,12 +31,16 @@ function toDT(date, time) {
 
 export async function renderNew(R0, P, SH) {
   const R = R0;
-  let fabiBranch = true; try { fabiBranch = !!(await rpc('app_ca_kt_state', { p_id: R0.id }))?.need; } catch (_) { /* chưa có bước 44 */ }
   const managerClose = can('doi_soat');
+  // bước 134: 3 câu không phụ thuộc nhau → hỏi cùng lúc (trước: lần lượt)
+  const [KTS, categories, debtPeople] = await Promise.all([
+    rpc('app_ca_kt_state', { p_id: R0.id }).then((x) => ({ x }), () => null),   // lỗi = chưa có bước 44 → coi như cần Fabi
+    managerClose ? rpc('app_fin_types') : [],
+    rpc('app_ca_debt_people', { p_branch: R0.branch_id }).catch(() => []),   // bước 133: menu Người nợ
+  ]);
+  const fabiBranch = KTS ? !!KTS.x?.need : true;
   const ORDER = [0, 1, 8, 11, 12];
   LABEL[11] = 'Tiền'; LABEL[12] = 'Kiểm tra';
-  const categories = managerClose ? (await rpc('app_fin_types')) : [];
-  const debtPeople = await rpc('app_ca_debt_people', { p_branch: R0.branch_id }).catch(() => []);   // bước 133: menu Người nợ
   const STEPS = ORDER.map((k) => LABEL[k]);
   const firstTien = ORDER.findIndex((k) => TIEN.includes(k)); const lastViec = firstTien - 1;
   const partOf = (i) => (VIEC.includes(ORDER[i]) ? 'viec' : TIEN.includes(ORDER[i]) ? 'tien' : '');

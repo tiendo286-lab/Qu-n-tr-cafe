@@ -65,7 +65,9 @@ class Q {
     return { rows, count };
   }
   then(res, rej) {
-    return new Promise((ok) => setTimeout(ok, 2)).then(() => {
+    const t0 = performance.now();
+    return new Promise((ok) => setTimeout(ok, TRE)).then(() => {
+      window.__RPCT.push(['bảng ' + this.t, t0, performance.now()]);
       const r = this.run();
       if (this.op === 'select') return { data: this.head ? null : (this.one ? r.rows[0] || null : r.rows), count: r.count, error: null };
       return { data: this.one ? r[0] : r, error: null };
@@ -100,11 +102,14 @@ export const sb = {
   functions: { invoke: async (n, { body }) => { window.__LOG.push(['fn', body]); return { data: { ok: true, password: 'abc12345', results: [], rows: [{ code: 'NV1', name: 'A', password: 'x1', login: 'NV1' }], accounts: T.accounts.map((a) => ({ ...a, employees: T.employees.find((e) => e.id === a.employee_id) || null })) }, error: null }; } },
 };
 export function viError(e) { return String(e?.message || e); }
+// &tre=300: giả lập mỗi lần hỏi máy chủ mất 300ms (mạng thật VN → Singapore); window.__RPCT ghi [tên, bắt đầu, kết thúc]
+const TRE = Number(new URLSearchParams(location.search).get('tre') || 2); window.__RPCT = [];
 export async function rpc(name, args = {}) {
   window.__LOG.push(['rpc', name, args]);
-  await new Promise((ok) => setTimeout(ok, 2));
+  const t0 = performance.now(); await new Promise((ok) => setTimeout(ok, TRE)); window.__RPCT.push([name, t0, performance.now()]);
   if (CA[name]) return CA[name](args);
   if (name === 'app_me') return ME;
+  if (name === 'app_published_weeks') { const ids = new Set((T.schedule_published || []).map((p) => p.week_id)); return (T.weeks || []).filter((w) => ids.has(w.id)).sort((a, b) => (a.start_date < b.start_date ? -1 : 1)).map((w) => ({ ...w })); }   // bước 134
   if (name === 'app_sys_overview') return { plan: 'Free', db_bytes: 25165824, db_limit: 524288000, storage: { 'phieu-ca': { bytes: 3145728, files: 12 } }, storage_bytes: 3145728, storage_limit: 1073741824, ram: null, egress: null, now: '2026-11-07 02:10:00',
     current: { version: '2026.11.07', released_at: '2026-11-07 02:10', released_by: 'Claude (theo yêu cầu anh Tiến)', added: ['Tab LOG'], changed: ['Gộp menu'], fixed: ['Sửa đếm'], removed: ['Họp'] } };
   if (name === 'app_sys_releases') return [{ version: '2026.11.07', released_at: '2026-11-07 02:10', released_by: 'Claude', added: ['Tab LOG'], changed: [], fixed: [], removed: ['Họp'] }, { version: '2026.11.06', released_at: '2026-11-06 23:59', released_by: 'Claude', added: ['Quản lý ca'], changed: [], fixed: [], removed: [] }];

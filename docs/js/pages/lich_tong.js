@@ -15,8 +15,9 @@ const STATE_FILTERS = [['', 'Tất cả trạng thái'], ['unassigned', 'Chưa �
 
 export async function render({ params, me }) {
   let start = parseWeekParam(params.tuan);
-  if (!start) { const fw = await focusWeek(); start = fw ? fw.start_date : weekStart(vnToday()); }
-  const week = await getWeek(start);
+  let fw = null;   // bước 134: dùng lại tuần vừa tra, khỏi hỏi lại
+  if (!start) { fw = await focusWeek(); start = fw ? fw.start_date : weekStart(vnToday()); }
+  const week = fw && fw.start_date === start ? fw : await getWeek(start);
   const days = weekDays(start);
   const nav = html`<div class="wk-nav">
     <a class="btn sm secondary" href="#/quan-ly/lich-tong?tuan=${addDays(start, -7)}">‹ Tuần trước</a><span class="wk-label">${weekLabel(start)}</span>

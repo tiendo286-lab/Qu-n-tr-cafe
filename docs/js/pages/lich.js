@@ -7,11 +7,9 @@ import { html } from '../ui.js';
 export const perm = 'xem_lich_minh';
 const hh = (t) => (t || '').slice(0, 5);
 
+// bước 134: máy chủ trả thẳng các tuần đã chốt (trước: tải mọi dòng lịch đã chốt để lấy số tuần — chạm giới hạn 1.000 dòng sau ~4 tuần)
 async function publishedWeeks() {
-  const pub = await sel('schedule_published', 'week_id');
-  const ids = [...new Set(pub.map((p) => p.week_id))];
-  if (!ids.length) return [];
-  return sel('weeks', '*', (b) => b.in('id', ids).order('start_date'));
+  return (await rpc('app_published_weeks')) || [];
 }
 
 function pickWeek(weeks, tuan) {
@@ -44,9 +42,15 @@ export async function render({ me, params }) {
   if (!week) {
     body = html`<div class="card">Chưa có lịch tuần nào được chốt. Khi quản lý chốt lịch, bạn sẽ thấy ca của mình ở đây.</div>`;
   } else {
-    const cl = (await sel('schedule_closures', 'status', (b) => b.eq('week_id', week.id)))[0];
+    // bước 134: ca của tôi + thông báo thay đổi không phụ thuộc trạng thái / danh mục → hỏi cùng lúc
+    const mineP = tab === 'cua_toi' && me.employee_id ? Promise.all([
+      sel('schedule_published', '*', (b) => b.eq('week_id', week.id).eq('employee_id', me.employee_id)),
+      sel('notifications', 'id, title, body, created_at', (b) => b.eq('account_id', me.account_id).is('read_at', null).eq('link', `/lich?tuan=${week.start_date}`).order('id')),
+    ]) : null;
+    if (mineP) mineP.catch(() => {});   // lỗi (nếu có) báo ở chỗ chờ bên dưới
+    const [clr, cat] = await Promise.all([sel('schedule_closures', 'status', (b) => b.eq('week_id', week.id)), catalog()]);
+    const cl = clr[0];
     const editing = cl?.status === ST_SUA;
-    const cat = await catalog();
     const shiftIdx = new Map(cat.shifts.map((s, i) => [s.name, i]));
     if (tab === 'cua_toi') {
       // Bấm một ngày trên dải ngày ở đầu trang → cuộn tới ngày đó (chỉ khi đang xem tuần hiện tại)
@@ -54,9 +58,8 @@ export async function render({ me, params }) {
       if (!me.employee_id) {
         body = html`<div class="card">Tài khoản này không gắn với nhân viên nên không có lịch cá nhân. Xem <a href="#/lich?tab=co-so">Lịch cơ sở</a>.</div>`;
       } else {
-        const rows = await sel('schedule_published', '*', (b) => b.eq('week_id', week.id).eq('employee_id', me.employee_id));
+        const [rows, unread] = await mineP;
         const link = `/lich?tuan=${week.start_date}`;
-        const unread = await sel('notifications', 'id, title, body, created_at', (b) => b.eq('account_id', me.account_id).is('read_at', null).eq('link', link).order('id'));
         const changes = unread.filter((n) => n.title.includes('thay đổi'));
         const since = changes.length ? changes[0].created_at : null;
         const bmap = new Map(cat.branches.map((b) => [b.id, b]));

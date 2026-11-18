@@ -185,12 +185,13 @@ export function statusLabel(st, published) {
 
 // Tuần tập trung: tuần tới nếu đã bắt đầu xếp, không thì tuần này (giống bản Python)
 export async function focusWeek() {
-  const cur = weekStart(vnToday());
-  for (const start of [addDays(cur, 7), cur]) {
-    const w = await getWeek(start);
-    if (w && await closure(w.id)) return w;
-  }
-  return null;
+  // bước 134: hỏi tuần sau + tuần này cùng lúc (trước: lần lượt tới 4 câu); ưu tiên tuần sau như cũ
+  const cur = weekStart(vnToday()); const order = [addDays(cur, 7), cur];
+  const ws = await sel('weeks', '*', (b) => b.in('start_date', order));
+  const cands = order.map((s) => ws.find((w) => w.start_date === s)).filter(Boolean);
+  const cls = await Promise.all(cands.map((w) => closure(w.id)));
+  const i = cls.findIndex(Boolean);
+  return i >= 0 ? cands[i] : null;
 }
 
 // Định biên của tuần: {`${b}|${d}|${shift}|${role}`: n}. Tuần đã chốt dùng bản lưu lúc chốt.

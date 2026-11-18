@@ -7,8 +7,9 @@ export const perm = 'xep_lich';
 
 export async function render({ params }) {
   let start = parseWeekParam(params.tuan);
-  if (!start) { const fw = await focusWeek(); start = fw ? fw.start_date : addDays(weekStart(vnToday()), 7); }
-  const week = await getWeek(start);
+  let fw = null;   // bước 134: dùng lại tuần vừa tra, khỏi hỏi lại
+  if (!start) { fw = await focusWeek(); start = fw ? fw.start_date : addDays(weekStart(vnToday()), 7); }
+  const week = fw && fw.start_date === start ? fw : await getWeek(start);
   const nav = html`<div class="wk-nav">
     <a class="btn sm secondary" href="#/quan-ly/canh-bao?tuan=${addDays(start, -7)}">‹ Tuần trước</a>
     <span class="wk-label">${weekLabel(start)}</span>

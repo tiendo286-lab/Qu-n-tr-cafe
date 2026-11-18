@@ -14,10 +14,11 @@ const roleCode = (r) => String(r || '').split(/\s+/).filter(Boolean).map((w) => 
 
 export async function render({ params }) {
   let start = parseWeekParam(params.tuan);
-  if (!start) { const fw = await focusWeek(); start = fw ? fw.start_date : weekStart(vnToday()); }
+  let fw = null;   // bước 134: dùng lại tuần vừa tra, khỏi hỏi lại
+  if (!start) { fw = await focusWeek(); start = fw ? fw.start_date : weekStart(vnToday()); }
   const tab = TABS.some(([k]) => k === params.tab) ? params.tab : 'lich';
   const q = (k, v) => { const p = { tuan: start, tab, ...params, [k]: v }; return '#/quan-ly/bao-cao?' + new URLSearchParams(p).toString(); };
-  const week = await getWeek(start);
+  const week = fw && fw.start_date === start ? fw : await getWeek(start);
   const cl = week ? (await sel('schedule_closures', '*', (b) => b.eq('week_id', week.id)))[0] : null;
   const days = weekDays(start);
   const head = html`<div class="page-head"><div><h1>Chốt lịch &amp; báo cáo <span id="st-pill"></span></h1>

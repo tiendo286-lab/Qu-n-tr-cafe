@@ -105,6 +105,11 @@ export async function render({ params }) {
   const day = /^\d{4}-\d{2}-\d{2}$/.test(params.ngay || '') ? params.ngay : vnToday();
   const wkMode = params.xem !== 'ngay';   // bước 77: mặc định xem theo tuần, 1 cơ sở
   const wkDay = /^\d{4}-\d{2}-\d{2}$/.test(params.tuan || '') ? params.tuan : day;
+  // bước 134: các câu của ngày đang xem không phụ thuộc bảng tuần → hỏi ngay, cùng lúc
+  const dayP = Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }),
+    rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => []),
+    rpc('app_ca_debt_marks', { p_date: day }).catch(() => null)]);
+  dayP.catch(() => {});   // lỗi (nếu có) báo ở chỗ chờ bên dưới
   let WD = null; let cn = null; const BRS = [];
   if (wkMode) {
     WD = await weekData(wkDay);
@@ -112,11 +117,12 @@ export async function render({ params }) {
     const has = (v) => BRS.some((x) => String(x.id) === String(v));
     cn = has(params.cn) ? Number(params.cn) : has(lsGet()) ? Number(lsGet()) : BRS[0]?.id || null;
     if (cn) lsSet(cn);
-    if (cn) WD.debt = new Map(((await rpc('app_ca_debt_week', { p_branch: cn, p_from: WD.days[0], p_to: WD.days[6] }).catch(() => [])) || []).map((x) => [x.report_id, x]));   // bước 79
   }
-  const [rows, days, T, LO, KW, CVT] = await Promise.all([rpc('app_ca_overview', { p_date: day }), rpc('app_ca_day', { p_date: day }), rpc('app_ds_todo', { p_branch: wkMode ? cn : null }),
-    rpc('app_ca_loans_open').catch(() => []), rpc('app_ca_kt_wait').catch(() => []), rpc('app_cv_todo').catch(() => [])]);
-  const DM = new Map(((await rpc('app_ca_debt_marks', { p_date: day }).catch(() => null)) || []).map((x) => [x.report_id, x]));   // bước 55
+  const [DW, T] = await Promise.all([wkMode && cn ? rpc('app_ca_debt_week', { p_branch: cn, p_from: WD.days[0], p_to: WD.days[6] }).catch(() => []) : null,   // bước 79
+    rpc('app_ds_todo', { p_branch: wkMode ? cn : null })]);
+  if (wkMode && cn) WD.debt = new Map((DW || []).map((x) => [x.report_id, x]));
+  const [rows, days, LO, KW, CVT, DMr] = await dayP;
+  const DM = new Map((DMr || []).map((x) => [x.report_id, x]));   // bước 55
   // bước 44: phần tiền chờ kế toán (thiếu file chốt ca Fabi / chuyển khoản ngân hàng)
   const ktById = new Map((KW || []).filter((k) => k.status === 'hoan_thanh').map((k) => [k.id, k]));
   const repReady = (T.reports || []).filter((r) => !ktById.has(r.id));
