@@ -52,5 +52,34 @@ ok(it('nqf:33:2')?.sub === '12 người chưa đọc bản 2' && it('nqf:33:2').
 ok(it('ckf')?.sub === '5 nhân viên chưa ký và nộp · 1 quá hạn' && it('ckf').group === 'soon', 'Kế toán theo dõi cam kết');
 ok(collectWork({ now, pc: null, training: null, ka: null, todo: null, today: null }, helpers).failed, 'mọi nguồn lỗi kể cả Việc hôm nay thì báo lỗi');
 ok(GROUP_LABEL.late === 'Quá hạn' && GROUP_LABEL.waiting === 'Đang chờ', 'nhãn nhóm');
+// bước 142: nhóm / nhãn / gộp / người làm / kiểm tra
+const H2 = { ...helpers, curStep: (t) => t.steps?.find((s) => !s.done_at) };
+const pc2 = { me: 7, tasks: [
+    { id: 21, job: 1, code: 'LHP', due_at: '2026-11-18 20:00:00', steps: [{ accounts: [7, 6], names: ['Bạn A', 'QL tổng D'] }] },
+    { id: 22, job: 4, code: 'ĐK', due_at: '2026-11-19 10:00:00', steps: [{ accounts: [7], names: ['Bạn A'] }] },
+    { id: 23, job: 101, code: 'HS', steps: [{ accounts: [7], names: ['Bạn A'] }] }],
+  gv: [{ id: 31, content: 'Máy xay kêu', handover: true, status: 'chua_phan_cong', classifiers: [{ id: 7, name: 'Bạn A' }] },
+       { id: 32, content: 'Mua ống hút', handover: false, status: 'dang_xu_ly', assignee_id: 7, assignee: 'Bạn A', review_note: 'Chụp lại ảnh', priority: 'gap' },
+       { id: 33, content: 'Thay đèn', handover: false, status: 'cho_duyet', assignee_id: 9, assignee: 'NV G', reviewer_id: 7 }], watch: [] };
+const more = { review_wait: [{ id: 34, content: 'Sắp kệ', handover: false, status: 'cho_duyet', assignee_id: 7, reviewer_id: 8, reviewer: 'QL H' }],
+  done_today: [], followups: [{ training_id: 5, employee: 'HV1 – Học viên', item_no: 3, item: 'Mời nước', stage: 'chua_gioi_thieu', instructor: 'NV E', due: '2026-11-20' }] };
+const todo2 = [{ key: 'thieu_nh', label: 'Ca thiếu số dư', n: 2 }, { key: 'nghi_thay', label: 'Nghỉ & làm thay', n: 1 }, { key: 'sao_luu', label: 'Sao lưu', n: 3 }, { key: 'la_moi', label: 'Lạ', n: 1 }];
+const r3 = collectWork({ now, pc: pc2, training: null, ka, todo: todo2, today, more }, H2);
+const g = (k) => r3.items.find((i) => i.key === k);
+ok(g('pc:21').cat === 'vh' && g('pc:21').tag === 'Chốt ca' && g('pc:21').kind === 'pc:1', 'Đối soát ca → Vận hành, nhãn Chốt ca, gộp theo job');
+ok(g('pc:22').tag === 'Ngân hàng' && g('pc:23').cat === 'kh', 'Chuyển khoản → Ngân hàng; việc tự thêm → Khác');
+ok(g('pc:21').who.mine && /\+/.test(g('pc:21').who.text), 'việc 2 người có mình: nhãn xanh, ghi cả hai');
+ok(g('gv:31').cat === 'vh' && g('gv:31').tag === 'Bàn giao ca' && g('gv:31').kind === 'bgc', 'bàn giao ca chờ phân loại → Vận hành');
+ok(g('gv:32').cat === 'kh' && g('gv:32').kind === null && g('gv:32').redo === 'Chụp lại ảnh' && g('gv:32').gap, 'giao việc riêng gõ tay → Khác, không gộp, Làm lại, Gấp');
+ok(g('gv:33').review && !g('gv:33').who.mine && g('gv:33').who.text.includes('NV G'), 'chờ mình kiểm tra: review, người làm là NV G');
+ok(g('gv:34').group === 'waiting' && g('gv:34').waitingFor === 'QL H kiểm tra', 'mình báo xong: việc ở lại, đang chờ QL H');
+ok(g('dtf:5:3').cat === 'ns' && g('dtf:5:3').kind === 'dtf' && g('dtf:5:3').who.text === 'NV E', 'đào tạo đã giao người hướng dẫn → Nhân sự');
+ok(g('ka:8').cat === 'vh' && g('ka:8').tag === 'Tiền', 'khoản âm → Vận hành');
+ok(g('nq').cat === 'ns' && g('ck').cat === 'ns' && g('nqf:33:2').kind === 'nqf', 'nội quy / cam kết → Nhân sự');
+ok(g('todo:thieu_nh').cat === 'vh' && g('todo:nghi_thay').cat === 'ns' && g('todo:sao_luu').cat === 'kh' && g('todo:la_moi').cat === 'kh', 'hồ sơ tồn theo bảng luật, khoá lạ → Khác');
+ok(!r3.failedMore && collectWork({ now, pc: pc2, training: null, ka, todo: todo2, today, more: null }, H2).failedMore, 'app_today_more lỗi chỉ báo riêng');
+// Review Focus 2: người làm nhiều người có mình → "Bạn + …" và ghi chú làm trước
+ok(g('pc:21').who.text === 'Bạn + QL tổng D (ai làm trước cũng được)', 'nhãn người làm việc 2 người');
+ok(g('dt:3') === undefined && collectWork({ now, pc: null, training, ka: null, todo: null }, H2).items.every((i) => i.cat === 'ns' && i.who.mine), 'phiếu đào tạo của mình → Nhân sự, người làm là Bạn');
 out.push(`ĐẠT ${n} kiểm tra`);
 print(out.join('\n'));
