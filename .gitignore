@@ -17,3 +17,6 @@ kiem_tra/_tam/
 # Bản gốc quy trình (Word) của anh Tiến — chỉ ở máy, đưa lên web qua Supabase (cần đăng nhập), KHÔNG lên GitHub
 quy_trinh_goc/
 *.docx
+
+# Khoá vùng quyền đối soát trên máy anh Tiến (không đưa lên GitHub)
+.claude/settings.local.json
