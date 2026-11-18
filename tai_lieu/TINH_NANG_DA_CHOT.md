@@ -769,3 +769,15 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Máy chủ đã chạy `78_nhieu_quy_trinh.sql`; đã thử tự hoàn tác trước khi áp dụng thật: giữ nguyên 19 bài cũ, kiểm tra quyền Chủ / Nhân viên và tách nhóm bản nháp / bản đăng. Giao diện phát hành phiên bản `2026.11.13.20`.
 - Giao diện đọc quy trình (13/11/2026): danh sách bộ, ô tìm kiếm, mục lục bài trên máy tính và mục lục thu gọn trên điện thoại. Trong **Quy trình nhân viên order**, tài khoản nhân viên chạy bàn thấy tiến độ training thật, điểm đánh giá chạy bàn tháng hiện tại và đường dẫn mở phiếu chi tiết; không dùng số liệu mẫu. Phiên bản `2026.11.13.23`.
 - Ô tìm kiếm Quy trình dò cả tên bộ, tên bài và toàn bộ chữ trong nội dung bài đã đăng (vd tìm “kéo rèm” ra đúng bài), áp dụng ở trang thư viện và trong mục lục. Phiên bản `2026.11.13.25`.
+
+
+## Công việc đào tạo — chốt 18/11/2026
+
+- Đào tạo có hai mục **Pha chế** và **Chạy bàn**. Mỗi mục dùng phiếu riêng. Phiếu Pha chế chờ danh sách hạng mục.
+
+- Mỗi phiếu của nhân viên mới tương ứng một việc trên danh sách chung, không chia theo cơ sở. Đào tạo theo đầy đủ hạng mục trên phiếu. Chương trình giữ 8 ngày, hạn công việc là 12 ngày.
+- Mỗi hạng mục hiện người hướng dẫn chính hoặc người được phân công riêng và cơ sở đào tạo. Có thể chọn cơ sở riêng cho từng hạng mục. Hạng mục chưa chọn riêng lấy cơ sở trên phiếu nếu đã có. Chủ, Quản lý tổng, Quản lý và tài khoản được Chủ chọn để nhận xét có thể phân công từng hạng mục, kể cả cho nhân viên cấp 1. Giữ kết quả đã đạt và ghi nhận kết quả bổ sung theo người phụ trách.
+- Chủ chọn tài khoản kiểm tra tiến độ, nhắc người liên quan đúng hạn và ghi nhận xét cuối. Phiếu hoàn thành khi đủ các hạng mục và có nhận xét cuối. Các hạng mục đã thực hành ở mức Trung bình hoặc Khá có thể giao giai đoạn 2 để luyện thêm. Giữ mức đã ghi đến khi đánh giá lại. Mục đang luyện giai đoạn 2 phải được đánh giá lại trước khi đóng phiếu.
+- Khi tích Thực hành, chọn Trung bình, Khá hoặc Tốt rồi hệ thống mới lưu thực hành và mức đạt cùng lúc.
+- Từ mốc 8 ngày kể từ ngày bắt đầu, người nhận xét thấy nút Hoàn thành. Chỉ hoàn thành khi đủ hạng mục và có nhận xét cuối. Hết ngày hạn 12 mà phiếu chưa xong thì hiện Quá hạn và vẫn tiếp tục xử lý trên phiếu.
+- Phiếu đang mở hiện ở Công việc → Việc của tôi của người học, người hướng dẫn được giao, quản lý phụ trách và người nhận xét. Khi có phân công mới hoặc đến lượt nhận xét, thông báo mở đúng phiếu.

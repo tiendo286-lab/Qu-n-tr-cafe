@@ -5,7 +5,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.18.5';
+const ASSET_VERSION = '2026.11.18.6';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
@@ -18,7 +18,7 @@ export const HUBS = [
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
   // bước 109: Bảng phân công công việc chung (Đợt 1) — việc tự tạo theo bảng + Giao việc riêng + Quá hạn & phạt
-  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
+  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Đào tạo', '/cong-viec/dao-tao', null], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
   ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', ['ke_toan', 'doi_soat']]], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
@@ -51,6 +51,7 @@ const PAGES = {
   '/noi-quy': 'tai_lieu',
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
+  '/cong-viec/dao-tao': 'cv_dao_tao',
   '/dao-tao/phieu': 'phieu_dao_tao',
   '/cua-toi/dao-tao': 'dao_tao_cua_toi',
   '/ho-tro': 'ho_tro',

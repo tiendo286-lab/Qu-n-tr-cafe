@@ -4,9 +4,20 @@ import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js';
+import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.18.6';
 import { STATUS as TASK_STATUS } from './viec.js';
 
+const ITEM_FILTERS = {
+  all: 'Tất cả',
+  new: 'Chưa giới thiệu',
+  introduced: 'Đã giới thiệu · chưa hoàn thành',
+  phase2: 'Giai đoạn 2',
+  done: 'Hoàn thành',
+};
+const itemFiltersBySheet = new Map();
+
+const needsMorePractice = (level) => level === 'tb' || level === 'kha';
 const LEVEL = { tb: 'Trung bình', kha: 'Khá', tot: 'Tốt' };
 
 export async function render({ params }) {
@@ -15,22 +26,45 @@ export async function render({ params }) {
   let guided = []; try { guided = (await rpc('app_dt_guide_items', { p_program: PROG })) || []; } catch (_) { /* chưa có sổ tay */ }
   const hasGuide = new Set(guided.map(Number));
   const opt = T.can_admin ? await rpc('app_dt_options') : null;
-  const ed = !!T.can_edit; const adm = !!T.can_admin;
+  const ed = !!T.can_edit;
+  const followups = new Map((T.followups || []).map((f) => [f.no, f]));
+  const canMark = (no) => {
+    const assignment = followups.get(no);
+    return !T.workflow_review_at && (ed || (assignment?.mine && (!assignment.is_extra || !assignment.finished_at)));
+  };
+  const adm = !!T.can_admin;
+  const canAssign = T.can_assign && T.status !== 'hoan_thanh';
   const days = T.program.days;
   const items = T.items;
   const cnt = (lv) => items.filter((i) => i.level === lv).length;
   const dlog = (d) => T.days_log[String(d)] || {};
   const empName = (id) => { const e = opt?.employees.find((x) => x.id === id); return e ? `${e.code} – ${e.name}` : ''; };
 
-  const itemRow = (i) => html`<div class="dt-item ${i.level ? 'done' : ''}" data-no="${i.no}">
+  const itemRow = (i) => {
+    const edit = canMark(i.no);
+    const extra = followups.get(i.no);
+    const pending = extra?.is_extra && !extra.finished_at;
+    return html`<div class="dt-item ${i.level ? 'done' : ''}" data-no="${i.no}" data-phase-two="${pending ? '1' : '0'}">
     <div class="dt-it-title">${hasGuide.has(i.no) ? html`<button type="button" class="it-guide" data-no="${i.no}" title="Mở hướng dẫn trong sổ tay"><strong>${i.no}.</strong> ${i.title} <span class="it-book">📖 Hướng dẫn</span></button>`
       : html`<strong>${i.no}.</strong> ${i.title}`} <span class="st-meta">Tr. ${i.page}</span></div>
+    <div class="toolbar" style="gap:6px">
+      <span class="st-meta dt-item-guide" style="overflow-wrap:anywhere">Người hướng dẫn: <strong>${extra?.name || T.instructor || 'Chưa phân công'}</strong>${extra?.name ? ' · Phân công riêng' : ''}</span>
+      <span class="st-meta dt-item-branch">Cơ sở: <strong>${extra?.branch || T.branch || 'Chưa chọn'}</strong></span>
+      ${canAssign ? html`<button type="button" class="btn sm secondary" data-dt-guide-person="${i.no}" aria-label="Đổi người hướng dẫn và cơ sở hạng mục ${i.no}">Đổi phân công</button>` : ''}
+      ${canAssign && T.helpers?.length ? html`<button type="button" class="btn sm secondary" data-dt-guide-person="${i.no}" data-dt-phase="2"
+        ${pending || needsMorePractice(i.level) ? '' : 'hidden'}>${pending ? 'Giao lại giai đoạn 2' : 'Giao giai đoạn 2'}</button>` : ''}
+    </div>
+    ${extra?.is_extra ? html`<div class="st-meta" style="overflow-wrap:anywhere">
+      <strong>${pending ? 'Đang luyện giai đoạn 2' : 'Đã đánh giá giai đoạn 2'}</strong>${extra.note ? ' · ' + extra.note : ''}
+    </div>` : ''}
     <div class="dt-it-ctl">
-      <label><input type="checkbox" class="check it-intro" ${i.introduced ? 'checked' : ''} ${ed ? '' : 'disabled'}> Giới thiệu</label>
-      <label><input type="checkbox" class="check it-prac" ${i.practiced ? 'checked' : ''} ${ed && i.introduced ? '' : 'disabled'}> Thực hành</label>
-      <select class="input sm it-level" aria-label="Mức đạt hạng mục ${i.no}" ${ed && i.introduced && i.practiced ? '' : 'disabled'}>
-        <option value="">— Mức đạt —</option>${Object.entries(LEVEL).map(([k, l]) => html`<option value="${k}" ${i.level === k ? 'selected' : ''}>${l}</option>`)}</select>
-      <span class="st-meta it-by">${i.at ? `${i.by} · ${dt(i.at)}` : ''}</span></div></div>`;
+      <label><input type="checkbox" class="check it-intro" ${i.introduced ? 'checked' : ''} ${edit ? '' : 'disabled'}> Giới thiệu</label>
+      <label><input type="checkbox" class="check it-prac" ${i.practiced ? 'checked' : ''} ${edit && i.introduced ? '' : 'disabled'}> Thực hành</label>
+      <select class="input sm it-level" aria-label="Mức đạt hạng mục ${i.no}" ${edit && i.introduced && i.practiced ? '' : 'disabled'}>
+        <option value="" disabled ${!i.level ? 'selected' : ''}>— Mức đạt —</option>${Object.entries(LEVEL).map(([k, l]) => html`<option value="${k}" ${i.level === k ? 'selected' : ''}>${l}</option>`)}</select>
+      <span class="st-meta it-by">${i.at ? `${i.by} · ${dt(i.at)}` : ''}</span>
+      ${edit && pending && i.level && (extra.mine || adm) ? html`<button type="button" class="btn sm secondary it-finish-phase">Lưu mức hiện tại</button>` : ''}
+    </div></div>`; };
 
   const confirmBox = (d) => { const l = dlog(d); return html`<div class="dt-confirm">
     <button type="button" class="btn sm ${l.trainee_at ? '' : 'secondary'} day-ok" data-day="${d}" data-who="nv" data-on="${l.trainee_at ? 0 : 1}" ${T.is_trainee ? '' : 'disabled'}>${l.trainee_at ? `✓ Nhân viên đã xác nhận ${dt(l.trainee_at)}` : 'Nhân viên xác nhận'}</button>
@@ -65,10 +99,11 @@ export async function render({ params }) {
         <div class="toolbar" style="gap:6px;margin-top:6px"><span class="pill ${DT_STATUS[st][1]}" id="dt-status">${dtLabel(T)}</span></div></div>
         <div class="toolbar">${adm ? html`<a class="btn sm secondary" href="#/quan-ly/nhan-vien">‹ Nhân viên</a>` : html`<a class="btn sm secondary" href="#/cua-toi/dao-tao">‹ Phiếu của tôi</a>`}<div id="saved-indicator" class="saved" role="status" hidden></div></div></div>
       <div class="stack" style="max-width:900px;gap:12px">
+        ${trainingWork(T)}
         <section class="card stack" style="gap:10px">
           <div class="dt-prog"><div class="dt-bar"><div id="dt-bar" style="width:${Math.round((T.achieved / T.total) * 100)}%"></div></div><strong><span id="dt-ach">${T.achieved}</span>/${T.total} hạng mục đạt</strong></div>
           <div class="pc-grid">
-            <label class="pc-f"><span>Cơ sở</span>${adm ? html`<select class="input info-f" data-f="branch_id"><option value="">—</option>${opt.branches.map((b) => html`<option value="${b.id}" ${b.id === T.branch_id ? 'selected' : ''}>${b.code}</option>`)}</select>` : html`<div class="pc-fixed">${T.branch || '—'}</div>`}</label>
+            ${!T.due ? html`<label class="pc-f"><span>Cơ sở</span>${adm ? html`<select class="input info-f" data-f="branch_id"><option value="">—</option>${opt.branches.map((b) => html`<option value="${b.id}" ${b.id === T.branch_id ? 'selected' : ''}>${b.code}</option>`)}</select>` : html`<div class="pc-fixed">${T.branch || '—'}</div>`}</label>` : ''}
             <label class="pc-f"><span>Ngày bắt đầu</span>${adm ? html`<input class="input info-f" type="date" data-f="start_date" value="${T.start_date}">` : html`<div class="pc-fixed">${dmy(T.start_date)}</div>`}</label>
             <label class="pc-f"><span>Người hướng dẫn chính</span>${adm ? html`<input class="input emp-f" data-f="instructor_id" list="dt-emps" value="${empName(T.instructor_id)}" placeholder="Gõ mã hoặc tên">` : html`<div class="pc-fixed">${T.instructor || '—'}</div>`}</label>
             <label class="pc-f"><span>Quản lý phụ trách</span>${adm ? html`<select class="input info-f" data-f="manager_id"><option value="">—</option>${opt.managers.map((m) => html`<option value="${m.id}" ${m.id === T.manager_id ? 'selected' : ''}>${m.name}</option>`)}</select>` : html`<div class="pc-fixed">${T.manager || '—'}</div>`}</label>
@@ -76,6 +111,14 @@ export async function render({ params }) {
           ${adm ? html`<datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>` : ''}
           <div class="st-meta">Mỗi hạng mục đi đủ 3 bước: Đã giới thiệu → Đã thực hành có giám sát → Mức đạt (Trung bình / Khá / Tốt — cả 3 mức đều tính là đạt). Hệ thống ghi người và ngày xác nhận thay cho chữ ký.</div>
           ${T.tasks.length ? html`<div><span class="pc-sub">NHIỆM VỤ ĐÀO TẠO ĐƯỢC GIAO (TAB CÔNG VIỆC)</span>${T.tasks.map((k) => html`<div class="st-meta">• ${k.content} — ${k.assignee || 'chưa giao'} · <span class="pill ${TASK_STATUS[k.status][1]}">${TASK_STATUS[k.status][0]}</span>${k.due_date ? ' · hạn ' + dmy(k.due_date) : ''}</div>`)}</div>` : ''}
+        </section>
+        <section class="card toolbar" style="gap:8px">
+          <label class="pc-f"><span>Lọc hạng mục</span>
+            <select class="input" id="dt-item-filter">
+              ${Object.entries(ITEM_FILTERS).map(([key, label]) => html`<option value="${key}" ${(itemFiltersBySheet.get(T.id) || 'all') === key ? 'selected' : ''}>${label}</option>`)}
+            </select>
+          </label>
+          <span class="st-meta" id="dt-item-filter-count" role="status"></span>
         </section>
         ${days.map(daySec)}
         <section class="card stack" style="gap:10px">
@@ -88,10 +131,8 @@ export async function render({ params }) {
           <label class="pc-f"><span>Điểm mạnh</span><textarea class="input info-f" data-f="strengths" rows="2" ${ed ? '' : 'disabled'}>${T.strengths || ''}</textarea></label>
           <label class="pc-f"><span>Điểm cần cải thiện</span><textarea class="input info-f" data-f="improvements" rows="2" ${ed ? '' : 'disabled'}>${T.improvements || ''}</textarea></label>
           <div class="pc-sub">C. KẾT LUẬN</div>
-          <div>${st === 'hoan_thanh' ? html`<span class="pill ok">Hoàn thành: đạt đủ ${T.total}/${T.total} hạng mục</span>`
-            : st === 'dao_tao_tiep' ? html`<span class="pill warn">Chưa hoàn thành: chuyển đào tạo tiếp (mục E)</span>`
-            : html`<span class="pill info">Đang trong 8 ngày đào tạo (bắt đầu ${dmy(T.start_date)})</span>`}</div>
-          ${st !== 'hoan_thanh' ? html`<div class="pc-sub">E. ĐÀO TẠO TIẾP</div>
+          <div><span class="pill ${DT_STATUS[st][1]}">${dtLabel(T)}</span></div>
+          ${st !== 'hoan_thanh' && !T.due ? html`<div class="pc-sub">E. ĐÀO TẠO TIẾP</div>
             <div class="pc-grid">
               <label class="pc-f"><span>Người đào tạo tiếp là</span>${adm ? html`<select class="input info-f" data-f="cont_trainer_kind"><option value="">—</option><option value="quan_ly" ${T.cont_trainer_kind === 'quan_ly' ? 'selected' : ''}>Quản lý</option><option value="cap_1" ${T.cont_trainer_kind === 'cap_1' ? 'selected' : ''}>Nhân viên cấp 1</option></select>`
                 : html`<div class="pc-fixed">${{ quan_ly: 'Quản lý', cap_1: 'Nhân viên cấp 1' }[T.cont_trainer_kind] || '—'}</div>`}</label>
@@ -102,10 +143,51 @@ export async function render({ params }) {
           ${adm ? html`<div style="margin-top:8px"><button type="button" class="btn sm secondary danger" id="dt-del">Xóa phiếu đào tạo</button></div>` : ''}
         </section>
       </div>`,
-    mount() {
+    mount(root) {
+      bindTrainingWork(root, T, rerender);
+      $$('[data-dt-guide-person]', root).forEach((button) => button.addEventListener('click', onItemGuide));
+      function onItemGuide(event) {
+        const button = event.target.closest('[data-dt-guide-person]');
+        if (!button) return;
+        const no = Number(button.dataset.dtGuidePerson);
+        const item = items.find((i) => i.no === no);
+        if (!item) return;
+        openItemGuide(T, item, followups.get(no), async () => {
+          await rerender();
+          const row = $(`.dt-item[data-no="${no}"]`);
+          if (!row) return;
+          row.closest('details').open = true;
+          if (!row.hidden) row.scrollIntoView({ block: 'nearest' });
+        }, button.dataset.dtPhase === '2');
+      }
       // mở sẵn ngày đang học (ngày đầu còn hạng mục chưa đạt)
       const firstOpen = days.find((d) => items.some((i) => i.day === d.day && !i.level)) || days[days.length - 1];
-      $(`.dt-day[data-day="${firstOpen.day}"]`)?.setAttribute('open', '');
+      $(`.dt-day[data-day="${firstOpen?.day}"]`, root)?.setAttribute('open', '');
+      const filter = $('#dt-item-filter', root);
+      const daySections = $$('.dt-day', root);
+      let openBeforeFilter = daySections.filter((day) => day.open);
+      const updateItemFilter = (reopenDays) => {
+        let count = 0;
+        daySections.forEach((day) => {
+          let matches = 0;
+          $$('.dt-item', day).forEach((row) => {
+            const stage = row.dataset.phaseTwo === '1' ? 'phase2' : row.classList.contains('done') ? 'done' : $('.it-intro', row).checked ? 'introduced' : 'new';
+            row.hidden = filter.value !== 'all' && filter.value !== stage;
+            if (!row.hidden) matches++;
+          });
+          day.hidden = filter.value !== 'all' && matches === 0;
+          if (reopenDays) day.open = filter.value === 'all' ? openBeforeFilter.includes(day) : !day.hidden;
+          count += matches;
+        });
+        $('#dt-item-filter-count', root).textContent = count ? `${count}/${items.length} hạng mục` : 'Không có hạng mục phù hợp';
+      };
+      filter.addEventListener('change', () => {
+        if (!itemFiltersBySheet.has(T.id)) openBeforeFilter = daySections.filter((day) => day.open);
+        if (filter.value === 'all') itemFiltersBySheet.delete(T.id);
+        else itemFiltersBySheet.set(T.id, filter.value);
+        updateItemFilter(true);
+      });
+      updateItemFilter(true);
       const saveInfo = async (p) => { try { await rpc('app_dt_update', { p_id: T.id, p }); showSaved('Đã lưu · ' + hhmm()); return true; } catch (e) { showSaved(e.message, true); return false; } };
       $$('.info-f').forEach((el) => el.addEventListener('change', async () => { if (await saveInfo({ [el.dataset.f]: el.value || null }) && ['start_date', 'cont_trainer_kind'].includes(el.dataset.f)) rerender(); }));
       $$('.emp-f').forEach((el) => el.addEventListener('change', async () => {
@@ -121,32 +203,83 @@ export async function render({ params }) {
       $$('.day-ok').forEach((b) => b.addEventListener('click', async () => {
         try { await rpc('app_dt_day_confirm', { p_id: T.id, p_day: Number(b.dataset.day), p_who: b.dataset.who, p_on: b.dataset.on === '1' }); rerender(); } catch (e) { showSaved(e.message, true); }
       }));
-      // hạng mục: lưu ngay từng thao tác
+      // Lưu từng thao tác và khôi phục cả hàng nếu máy chủ từ chối.
       $$('.dt-item').forEach((row) => {
-        const no = Number(row.dataset.no); const intro = row.querySelector('.it-intro'); const prac = row.querySelector('.it-prac'); const lv = row.querySelector('.it-level');
-        const sync = () => { prac.disabled = !ed || !intro.checked; lv.disabled = !ed || !(intro.checked && prac.checked); row.classList.toggle('done', !!lv.value); };
-        const send = async (p, undo) => {
+        const no = Number(row.dataset.no);
+        if (!canMark(no)) return;
+        const intro = row.querySelector('.it-intro'), prac = row.querySelector('.it-prac');
+        const lv = row.querySelector('.it-level');
+        const phaseButton = row.querySelector('[data-dt-phase="2"]');
+        const finishPhase = row.querySelector('.it-finish-phase');
+        let saved = { introduced: intro.checked, practiced: prac.checked, level: lv.value || null };
+        const sync = (pending) => {
+          intro.disabled = pending;
+          prac.disabled = pending || !intro.checked;
+          lv.disabled = pending || !(intro.checked && prac.checked);
+          row.classList.toggle('done', !!lv.value);
+          if (phaseButton) {
+            phaseButton.disabled = pending;
+            phaseButton.hidden = row.dataset.phaseTwo !== '1' && !needsMorePractice(lv.value);
+          }
+          if (finishPhase) finishPhase.disabled = pending || !lv.value;
+        };
+        const send = async () => {
+          const p = { introduced: intro.checked, practiced: prac.checked, level: lv.value || null };
+          sync(true);
+          updateItemFilter(false);
           try {
             const r = await rpc('app_dt_mark', { p_id: T.id, p_no: no, p });
+            saved = p;
             row.querySelector('.it-by').textContent = `${r.by} · ${dt(r.at)}`;
-            $('#dt-ach').textContent = r.achieved; $('#dt-bar').style.width = `${Math.round((r.achieved / T.total) * 100)}%`;
-            const day = row.closest('.dt-day'); const n = day.querySelector('.day-ok-n'); if (n) n.textContent = $$('.dt-item.done', day).length;
-            if (r.status !== T.status) { T.status = r.status; T.achieved = r.achieved; $('#dt-status').textContent = dtLabel(T); $('#dt-status').className = `pill ${DT_STATUS[r.status][1]}`; }
+            const ach = $('#dt-ach');
+            ach.textContent = r.achieved;
+            $('#dt-bar').style.width = `${Math.round(r.achieved / T.total * 100)}%`;
+            if (r.status !== T.status || (p.level && row.dataset.phaseTwo === '1')) {
+              rerender();
+              return;
+            }
             showSaved('Đã lưu · ' + hhmm());
-          } catch (e) { undo(); sync(); showSaved(e.message, true); }
+          } catch (e) {
+            intro.checked = saved.introduced;
+            prac.checked = saved.practiced;
+            lv.value = saved.level || '';
+            showSaved(e.message, true);
+          } finally {
+            sync(false);
+            const n = row.closest('.dt-day').querySelector('.day-ok-n');
+            if (n) n.textContent = $$('.dt-item.done', row.closest('.dt-day')).length;
+            if (row.isConnected) updateItemFilter(false);
+          }
         };
         intro.addEventListener('change', () => {
-          const p = { introduced: intro.checked };
-          if (!intro.checked) { prac.checked = false; lv.value = ''; p.practiced = false; p.level = null; }
-          sync(); send(p, () => { intro.checked = !intro.checked; });
+          if (!intro.checked) { prac.checked = false; lv.value = ''; }
+          send();
         });
         prac.addEventListener('change', () => {
-          const p = { practiced: prac.checked };
-          if (!prac.checked) { lv.value = ''; p.level = null; }
-          sync(); send(p, () => { prac.checked = !prac.checked; });
+          if (!prac.checked) {
+            lv.value = '';
+            send();
+            return;
+          }
+          prac.checked = false;
+          const item = items.find((i) => i.no === no);
+          const picker = dialog(html`<form method="dialog" id="dt-practice-level" class="d-body stack" style="gap:12px">
+            <h3 style="margin:0">Chọn mức đạt</h3>
+            <div>${item.no}. ${item.title}</div>
+            <div class="toolbar">
+              ${Object.entries(LEVEL).map(([value, label]) => html`<button type="submit" class="btn" value="${value}">${label}</button>`)}
+              <button type="submit" class="btn secondary" data-cancel value="" autofocus>Hủy</button>
+            </div>
+          </form>`);
+          picker.addEventListener('close', () => {
+            if (!row.isConnected || !Object.hasOwn(LEVEL, picker.returnValue)) return;
+            prac.checked = true;
+            lv.value = picker.returnValue;
+            send();
+          }, { once: true });
         });
-        let last = lv.value;
-        lv.addEventListener('change', () => { sync(); send({ level: lv.value || null }, () => { lv.value = last; }); last = lv.value; });
+        lv.addEventListener('change', send);
+        finishPhase?.addEventListener('click', send);
       });
       // hướng dẫn trong sổ tay: cửa sổ nổi ngay trên phiếu, ‹ › sang hạng mục trước / sau
       const order = items.map((i) => i.no).filter((n) => hasGuide.has(n));
@@ -184,6 +317,7 @@ export async function render({ params }) {
 }
 
 const STYLE = html`<style>
+  .dt-item[hidden], .dt-day[hidden], [data-dt-phase][hidden] { display: none; }
   .pill.info { background: var(--info-bg); color: var(--info-ink); }
   .dt-prog { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .dt-bar { flex: 1 1 200px; height: 10px; background: var(--line-soft); border-radius: 6px; overflow: hidden; }

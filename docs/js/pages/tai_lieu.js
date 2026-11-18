@@ -20,6 +20,8 @@ const TRAINING_LABEL = {
   hoan_thanh: ['Đã hoàn thành', 'ok'],
   dang_dao_tao: ['Đang training', 'info'],
   dao_tao_tiep: ['Đào tạo tiếp', 'warn'],
+  dao_tao_bo_sung: ['Đang đào tạo giai đoạn 2', 'warn'],
+  cho_nhan_xet: ['Chờ nhận xét cuối', 'info'],
 };
 
 export async function render({ params, me }) {

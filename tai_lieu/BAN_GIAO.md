@@ -1,15 +1,24 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 136. Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 137 (Công việc › Đào tạo). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.5** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **119** (`119_fabi_so_sanh_ql.sql`).
+- Web: **2026.11.18.6** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Máy chủ: đã chạy tới tệp **120** (`120_cong_viec_dao_tao.sql`).
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
+
+## Đào tạo (bước 137, đã lên web)
+
+- Đã chia **Pha chế** và **Chạy bàn** trên giao diện. Mới có chương trình Chạy bàn 68 hạng mục.
+
+- Mục **Công việc › Đào tạo** lấy các phiếu đã tạo trong trang Nhân viên, dùng một danh sách chung. Trên phiếu mỗi hạng mục hiện người hướng dẫn và cơ sở đào tạo, có thể sửa riêng từng hạng mục. Phiếu đang mở có trong Việc của tôi của người liên quan. Có thông báo phân công, nhắc hạn và nhận xét cuối. Có thể giao giai đoạn 2 cho hạng mục thực hành ở mức Trung bình hoặc Khá.
+- Máy chủ đã chạy `120_cong_viec_dao_tao.sql` (thử tự hoàn tác trước bằng `kiem_tra/cong_viec_dao_tao_120_may_chu.sql`). **Chủ chưa chọn tài khoản nhận xét**: vào Công việc › Đào tạo để chọn; chưa chọn thì không ai bấm được Hoàn thành / Nhắc hạn.
+- Tab **Việc hôm nay** (phương án `work/proposals/phuong-an-viec-hom-nay.md`) là việc tiếp theo, làm từng phần.
+- Các bài thử chỉ dùng dữ liệu giả. Cách chạy nằm trong `kiem_tra/trinh_duyet/README.md`.
 
 ## Việc còn mở
 | Việc | Ghi chú |

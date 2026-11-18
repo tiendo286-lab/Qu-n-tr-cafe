@@ -7,15 +7,57 @@ export function makeDt(T, me) {
   T.training_marks = [{ training_id: 1, item_no: 1, introduced: true, practiced: true, level: 'tot', by_account: 1, at: now() }, { training_id: 1, item_no: 2, introduced: true, practiced: false, level: null }];
   T.training_days = [];
   const total = PROG.items.length;
+  const params = new URLSearchParams(location.search);
+  const workflow = params.get('script') === 'flow_dt137' || params.get('dtwork') === '1';
+  let reviewer = null;
+  const extras = [];
+  const part = (t) => extras.filter((f) => f.training_id === t.id);
+  const dayFromStart = (t, days) => new Date(Date.parse(t.start_date) + days * 864e5).toISOString().slice(0, 10);
+  const due = (t) => dayFromStart(t, 12);
   const tr = (id) => { const t = T.trainings.find((x) => x.id === id); if (!t) throw new Error('Không tìm thấy phiếu đào tạo.'); return t; };
   const ach = (t) => T.training_marks.filter((m) => m.training_id === t.id && m.level).length;
-  const status = (t) => (ach(t) >= total ? 'hoan_thanh' : today >= new Date(Date.parse(t.start_date) + 8 * 864e5).toISOString().slice(0, 10) || t.cont_trainer_kind ? 'dao_tao_tiep' : 'dang_dao_tao');
+  const status = (t) => (workflow && part(t).some((f) => f.is_extra && !f.finished_at) ? 'dao_tao_bo_sung'
+    : ach(t) >= total ? workflow && !t.workflow_review_at ? 'cho_nhan_xet' : 'hoan_thanh' : today >= dayFromStart(t, 8) || t.cont_trainer_kind ? 'dao_tao_tiep' : 'dang_dao_tao');
   const emp = (id) => T.employees.find((e) => e.id === id);
   const canEdit = (t) => !!me.perms.dao_tao || [t.instructor_id, t.cont_trainer_id].includes(me.employee_id);
   const sum = (t) => ({ id: t.id, employee_id: t.employee_id, start_date: t.start_date, branch_id: t.branch_id, branch: (T.branches.find((b) => b.id === t.branch_id) || {}).code,
     instructor: t.instructor_id ? `${emp(t.instructor_id).code} – ${emp(t.instructor_id).name}` : null, manager: t.manager_id ? 'admin – Chủ' : null,
     achieved: ach(t), total, status: status(t), missing: PROG.items.filter((i) => !T.training_marks.some((m) => m.training_id === t.id && m.item_no === i.no && m.level)).map((i) => i.no) });
   return {
+    app_dt_work_list: ({ p_mine } = {}) => ({ today, reviewer: reviewer ? 'Người nhận xét thử' : null, reviewer_id: reviewer,
+      accounts: me.role === 'chu' ? [{ id: 1, name: 'Người nhận xét thử' }] : null,
+      rows: T.trainings.filter((t) => !p_mine || (workflow && status(t) !== 'hoan_thanh')).map((t) => ({
+        ...sum(t), program: 'chay_ban', due: due(t), employee: emp(t.employee_id).name,
+        my_duties: ['Quản lý phụ trách', ...(me.account_id === reviewer ? ['Kiểm tra và nhận xét'] : [])],
+      })) }),
+    app_dt_reviewer_save({ p_account }) { if (me.role !== 'chu') throw new Error('Chỉ Chủ được chọn.'); reviewer = p_account; },
+    app_dt_followup_save({ p_id, p_no, p_employee, p_note, p_extra = true, p_branch = null }) {
+      const next = { training_id: p_id, no: p_no, note: p_note, employee_id: p_employee, name: emp(p_employee)?.name, is_extra: p_extra, finished_at: null };
+      const current = part(tr(p_id)).find((f) => f.no === p_no);
+      next.branch_id = p_extra && !p_branch ? current?.branch_id : p_branch;
+      next.branch = T.branches.find((b) => b.id === next.branch_id)?.code;
+      if (current) Object.assign(current, next);
+      else extras.push(next);
+    },
+    app_dt_work_action({ p_id, p_action, p_note }) {
+      const t = tr(p_id);
+      if (me.account_id !== reviewer) throw new Error('Chỉ người nhận xét được thao tác.');
+      if (p_action === 'review') {
+        if (today < dayFromStart(t, 8)) throw new Error('Chưa đến mốc 8 ngày để hoàn thành phiếu.');
+        if (status(t) !== 'cho_nhan_xet') throw new Error('Chưa đủ hạng mục.');
+        t.workflow_review = p_note;
+        t.workflow_review_at = now();
+      }
+    },
+    app__test_dt_fill() {
+      const t = tr(1);
+      for (const i of PROG.items) if (!T.training_marks.some((m) => m.training_id === t.id && m.item_no === i.no && m.level)) {
+        const existing = T.training_marks.find((m) => m.training_id === t.id && m.item_no === i.no);
+        const fields = { training_id: t.id, item_no: i.no, introduced: true, practiced: true, level: 'tot' };
+        if (existing) Object.assign(existing, fields);
+        else T.training_marks.push(fields);
+      }
+    },
     app_dt_list: () => T.employees.filter((e) => e.status === 'Đang làm').map((e) => ({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank,
       branches: T.employee_branches.filter((x) => x.employee_id === e.id).map((x) => (T.branches.find((b) => b.id === x.branch_id) || {}).code),
       roles: T.employee_roles.filter((x) => x.employee_id === e.id).map((x) => x.role), training: (() => { const t = T.trainings.find((x) => x.employee_id === e.id); return t ? sum(t) : null; })() })),
@@ -30,6 +72,8 @@ export function makeDt(T, me) {
       return { ...t, ...sum(t), program: { name: 'Nhân viên chạy bàn 8 ngày', days: PROG.days }, employee: { code: emp(t.employee_id).code, name: emp(t.employee_id).name, rank: emp(t.employee_id).rank },
         items: PROG.items.map((i) => { const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === i.no) || {}; return { ...i, introduced: !!m.introduced, practiced: !!m.practiced, level: m.level || null, by: m.at ? 'admin – Chủ' : null, at: m.at || null }; }),
         days_log: Object.fromEntries(T.training_days.filter((d) => d.training_id === t.id).map((d) => [d.day, d])), tasks: [],
+        ...(workflow ? { due: due(t), today, review_from: dayFromStart(t, 8), followups: part(t), can_review: me.account_id === reviewer,
+          can_assign: !!me.perms.dao_tao, item_branches: T.branches, helpers: T.employees.filter((e) => e.id !== t.employee_id && e.rank === 'Cấp 1') } : {}),
         can_edit: canEdit(t), can_admin: !!me.perms.dao_tao, is_trainee: me.employee_id === t.employee_id };
     },
     app_dt_update({ p_id, p }) { const t = tr(p_id); if (!canEdit(t)) throw new Error('Bạn không có quyền.'); Object.assign(t, p); },
@@ -37,9 +81,13 @@ export function makeDt(T, me) {
       const t = tr(p_id); if (!canEdit(t)) throw new Error('Bạn không có quyền.');
       let m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === p_no); if (!m) { m = { training_id: t.id, item_no: p_no, introduced: false, practiced: false, level: null }; T.training_marks.push(m); }
       const n = { ...m, ...p };
+      if (workflow && n.practiced && !n.level && (!m.practiced || m.level)) throw new Error('Chọn mức đạt khi đánh dấu đã thực hành.');
       if (n.practiced && !n.introduced) throw new Error(`Hạng mục ${p_no} phải “Đã giới thiệu” trước.`);
       if (n.level && !(n.introduced && n.practiced)) throw new Error(`Hạng mục ${p_no} phải đủ 2 bước rồi mới đánh giá mức đạt.`);
-      Object.assign(m, n, { at: now() }); return { by: `${me.code} – ${me.name}`, at: now(), achieved: ach(t), status: status(t) };
+      Object.assign(m, n, { at: now() });
+      const followup = part(t).find((f) => f.no === p_no && f.employee_id);
+      if (followup && p.level) followup.finished_at = now();
+      return { by: `${me.code} – ${me.name}`, at: now(), achieved: ach(t), status: status(t) };
     },
     app_dt_day_comment({ p_id, p_day, p_comment }) { let d = T.training_days.find((x) => x.training_id === p_id && x.day === p_day); if (!d) T.training_days.push(d = { training_id: p_id, day: p_day }); d.comment = p_comment; },
     app_dt_day_confirm({ p_id, p_day, p_who, p_on }) {

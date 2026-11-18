@@ -5,6 +5,7 @@ import { dialog, go, html } from '../ui.js';
 
 export const DT_STATUS = {
   chua_dao_tao: ['Chưa đào tạo', 'mute'], dang_dao_tao: ['Đang đào tạo', 'info'], dao_tao_tiep: ['Đào tạo tiếp', 'warn'], hoan_thanh: ['Đã hoàn thành', 'ok'],
+  dao_tao_bo_sung: ['Đang đào tạo giai đoạn 2', 'warn'], cho_nhan_xet: ['Chờ nhận xét cuối', 'info'],
 };
 export const dtLabel = (t) => (!t ? 'Chưa đào tạo' : t.status === 'dang_dao_tao' ? `Đang đào tạo — ${t.achieved}/${t.total}` : t.status === 'dao_tao_tiep' ? `Đào tạo tiếp — ${t.achieved}/${t.total}` : DT_STATUS[t.status][0]);
 
