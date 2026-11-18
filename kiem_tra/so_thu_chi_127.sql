@@ -42,6 +42,19 @@ begin
       || ' · ca chờ kế toán ' || (select count(*) from jsonb_array_elements(j -> 'cas') c where (c ->> 'kt_wait')::boolean);
   end loop;
 
+  -- (g) Quỹ ngoài: tiền chuyển về = tổng phiếu rút tháng 11 mọi cơ sở; khoản chi ngoài có cách chia
+  j := public.app_stc_ext('2026-11');
+  rep := rep || E'\n(g) Quỹ ngoài: chuyển về ' || coalesce((select sum((x ->> 'amount')::bigint) from jsonb_array_elements(j -> 'items') x where x ->> 'col' = 'lc'), 0)
+    || ' / phiếu rút ' || coalesce((select sum(amount) from public.fund_withdrawals where wdate between '2026-11-01' and '2026-11-30'), 0)
+    || ' · chi ngoài thiếu cách chia ' || (select count(*) from jsonb_array_elements(j -> 'items') x where x ->> 'src' = 'ext' and coalesce(x ->> 'chia', '') = '');
+  perform set_config('request.jwt.claims', json_build_object('sub', (select auth_user_id from public.accounts where system_role = 'ql_tong' and auth_user_id is not null limit 1), 'role', 'authenticated')::text, true);
+  begin
+    perform public.app_stc_ext('2026-11');
+    rep := rep || E'\n(g) KHÔNG chặn Quản lý tổng xem Quỹ ngoài!';
+  exception when others then
+    rep := rep || E'\n(g) Quản lý tổng xem Quỹ ngoài: ' || sqlerrm;
+  end;
+
   -- (f) quản lý cơ sở bị chặn
   perform set_config('request.jwt.claims', json_build_object('sub', ql.auth_user_id, 'role', 'authenticated')::text, true);
   begin
