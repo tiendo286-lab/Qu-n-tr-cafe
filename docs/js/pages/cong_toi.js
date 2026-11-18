@@ -3,12 +3,15 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, flash, go, html, showSaved } from '../ui.js';
+import { KA_STYLE, bindKa, kaCard } from './khoan_am_toi.js?v=2026.11.18.6';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
 
 export async function render({ params }) {
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : '';
-  const D = await rpc('app_cong_mine', { p_month: month || null });
+  // bước 138: giờ làm, ghi chú và khoản âm của tháng trong cùng một trang
+  const [D, kaAll] = await Promise.all([rpc('app_cong_mine', { p_month: month || null }), rpc('app_ka_mine').catch(() => null)]);
+  const ka = (kaAll || []).filter((k) => k.status !== 'huy' && String(k.work_date || '').startsWith(D.month));
   const worked = D.shifts.filter((x) => x.worked);
   const hours = worked.reduce((t, x) => t + Number(x.hours || 0), 0);
   const plus = D.covers.filter((c) => !c.me_absent && c.x2).reduce((t, c) => t + Number(c.hours || 0), 0);
@@ -18,7 +21,7 @@ export async function render({ params }) {
   const myKN = (c) => (c.me_absent ? c.complaint_absent : c.complaint_helper);
   return {
     title: 'Công của tôi',
-    html: html`<style>.cg-k { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; } .cg-k .card { padding: 10px 12px; } .cg-k strong { font-size: 20px; }
+    html: html`${KA_STYLE}<style>.cg-k { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 8px; } .cg-k .card { padding: 10px 12px; } .cg-k strong { font-size: 20px; }
         .cg-c { border: 1px solid var(--line-soft); border-left: 4px solid #6366f1; border-radius: 10px; padding: 10px 12px; display: flex; flex-direction: column; gap: 4px; font-size: 14px; }
         .cg-c.minus { border-left-color: #dc2626; } .cg-s { display: flex; justify-content: space-between; gap: 8px; font-size: 14px; padding: 6px 0; border-top: 1px solid var(--line-soft); }</style>
       <div class="page-head"><div><h1>Công của tôi</h1><div class="sub">Các ca bạn làm theo phiếu chốt ca. Nghỉ mà nhờ quản lý tìm người thay thì bị trừ đúng số giờ người thay làm; làm thay có thể được x2 (Chủ quyết). Không đồng ý thì gửi khiếu nại.</div></div>
@@ -43,8 +46,12 @@ export async function render({ params }) {
         <div class="card" style="padding:4px 14px">${D.shifts.length ? D.shifts.map((x) => html`<div class="cg-s"><span>${dmy(x.date)} · ca ${x.shift} ${x.branch}${x.source === 'ho_tro' ? ' · hỗ trợ' : ''}</span>
             <span>${x.worked ? html`${x.time_in ? `${String(x.time_in).slice(0, 5)}–${String(x.time_out || '').slice(0, 5)} · ` : ''}<strong>${h2(x.hours)} giờ</strong>` : html`<span style="color:#b91c1c">Nghỉ</span>`}
               ${x.official ? '' : html` <span class="pill warn">chờ xác nhận</span>`}</span></div>`) : html`<div class="st-meta" style="padding:8px 0">Chưa có ca nào trong tháng này.</div>`}</div>
+        <section id="cg-ka" class="stack" style="gap:10px"><strong>Khoản âm tháng ${ml} (${ka.length})</strong>
+          ${kaAll === null ? html`<div class="alert warn">Chưa tải được khoản âm.</div>` : ka.length ? ka.map(kaCard) : html`<div class="st-meta">Không có khoản âm trong tháng này.</div>`}
+          <div><a class="btn sm secondary" href="#/cua-toi/khoan-am">Xem mọi khoản âm</a></div></section>
       </div>`,
-    mount() {
+    mount(root) {
+      bindKa(root);
       $('#cg-m').addEventListener('change', (ev) => { if (ev.target.value) go('/cua-toi/cong?thang=' + ev.target.value); });
       $$('.cg-send').forEach((b) => b.addEventListener('click', async () => {
         const c = b.closest('.cg-c');

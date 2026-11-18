@@ -18,7 +18,7 @@ export default async ({ sleep, out }) => {
     check(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, 'Màn kế toán không tràn ngang');
     check(!!$('.kt-back'), 'Màn kế toán có nút "Về màn nhân viên"');
     $('.kt-back').click(); await wait('.mobile'); await sleep(500);
-    check(location.hash.startsWith('#/order') && !!$('.mobile .kt-switch'), 'Bấm → quay về màn nhân viên (Order ca)');
+    check(location.hash.startsWith('#/hom-nay') && !!$('.mobile .kt-switch'), 'Bấm → quay về màn nhân viên (Việc hôm nay)');
   } catch (e) { fail = e.message; r.push('FAIL: ' + e.message); }
   out.push({ route: 'kt118', title: r.join(' | '), errs: [...(window.__ERR || []), ...(fail ? [fail] : [])] });
 };

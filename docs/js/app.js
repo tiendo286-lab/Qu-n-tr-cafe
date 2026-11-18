@@ -10,7 +10,7 @@ const ASSET_VERSION = '2026.11.18.6';
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
-  ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', ['doi_soat', 'ke_toan']]], null, 'Vận hành'],   // bước 62: trang chủ theo vai trò
+  ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', null]], null, 'Vận hành'],   // bước 62 / 138: trang chủ của cả 5 vai trò
   ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],
   // bước 104: Hàng hoá kho tổng tách hẳn khỏi chốt ca — nhận hàng · đối soát · phiếu xuất (kế toán tải) · kiểm soát (giao bù, hoá đơn bổ sung, tiền tháng)
   ['Hàng hoá', [['Nhận hàng', '/hang-hoa/nhan', ['chot_ca', 'doi_soat', 'ke_toan']], ['Đối soát', '/hang-hoa/doi-soat', 'doi_soat'], ['Phiếu xuất', '/hang-hoa/phieu-xuat', ['ke_toan', 'doi_soat']],
@@ -137,12 +137,6 @@ const onPath = (path, href) => path === href || path.startsWith(href + '/');
 const visibleTabs = (tabs) => tabs.filter(([, href, perm]) => allowedTab(perm, href));
 const badges = () => ({ '/thong-bao': state.unread, '/quan-ly/canh-bao': state.warn, '/viec': state.tasks, '/quan-ly/giao-viec': state.review, '/cong-viec/qua-han': state.pen, '/ho-tro': state.support, '/cua-toi/khoan-am': state.ka, '/hang-hoa/nhan': state.ghNhan, '/hang-hoa/doi-soat': state.ghDs });
 
-// Trang mở đầu cho quản lý khi Tổng quan đang tạm ẩn: tab đầu tiên mình có quyền
-function homePath() {
-  for (const [, all] of HUBS) { const tabs = visibleTabs(all); if (tabs.length) return tabs[0][1]; }
-  return '/order';
-}
-
 function menuHtml(path) {
   const b = badges();
   let grp;
@@ -211,7 +205,7 @@ function layout(path, body, flashMsg) {
     <nav class="tabbar pillbar" aria-label="Menu nhân viên">
       <div class="tb-side">
         ${tabItem(path.startsWith('/lich'), '#/lich', 'Lịch', ICONS.lich)}
-        ${tabItem(path === '/viec', '#/viec', 'Việc', ICONS.viec, state.tasks)}
+        ${tabItem(path === '/hom-nay' || path === '/viec', '#/hom-nay', 'Hôm nay', ICONS.viec, state.tasks)}
         ${can('chot_ca') ? tabItem(path.startsWith('/ca'), '#/ca', 'Chốt ca', ICONS.ca) : ''}
       </div>
       <a class="tb-plus ${path === '/order' ? 'on' : ''}" href="#/order"><i class="tb-c">${ICONS.plus}</i><span>Order ca</span></a>
@@ -306,9 +300,7 @@ export async function render() {
   if (!me && path !== '/dang-nhap') return go('/dang-nhap');
   if (me && path === '/dang-nhap') return go('/');
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
-  if (path === '/' && me && !isManager()) return go('/order');
-  if (path === '/' && me && !me.must_change && (can('doi_soat') || can('ke_toan'))) return go('/hom-nay');   // bước 62: trang chủ = Việc hôm nay
-  if (path === '/' && me && !me.must_change) return go(homePath());   // Tổng quan tạm ẩn: vào thẳng tab đầu tiên của menu
+  if (path === '/' && me && !me.must_change) return go('/hom-nay');   // bước 138: cả 5 vai trò vào Việc hôm nay trước
   // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
   if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());
   if (path === '/quan-ly/bao-cao-ca') return go('/quan-ly/thu-chi');
@@ -339,7 +331,7 @@ export async function render() {
   const nav = document.querySelector('details.navd');
   if (nav && window.matchMedia('(max-width: 900px)').matches) nav.open = false;
   document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
-  document.querySelectorAll('[data-ktmode]').forEach((b) => b.addEventListener('click', () => { const on = b.dataset.ktmode === '1'; setKtMode(on); go(on ? '/hom-nay' : '/order'); }));
+  document.querySelectorAll('[data-ktmode]').forEach((b) => b.addEventListener('click', () => { const on = b.dataset.ktmode === '1'; setKtMode(on); go('/hom-nay'); }));
   if (page.mount) {
     try { const c = await page.mount(root()); if (typeof c === 'function') cleanup = c; } catch (e) { console.error(e); alert(viError(e)); }
   }
