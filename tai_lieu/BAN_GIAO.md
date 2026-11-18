@@ -23,6 +23,7 @@ Cập nhật: 18/11/2026, sau bước 141 (Việc hôm nay đợt 2a: Nội quy 
 - Phương án: `work/proposals/phuong-an-viec-hom-nay.md` (tệp cục bộ, không có trên GitHub). Đợt 1 đã làm mục 1, 2, 3, 5 (bản gọn), 6 và một phần 4, 7 — chi tiết ở `TINH_NANG_DA_CHOT.md` mục "Việc hôm nay — đợt 1".
 - Trang `docs/js/pages/hom_nay.js` hỏi cùng lúc 6 nguồn (`app_today_me`, `app_home_todo`, `app_pc_mine`, `app_dt_work_list`, `app_ka_mine`, `app_cong_mine`); gom / xếp việc ở `docs/js/hom_nay_viec.js` (thử: `jsc -m kiem_tra/hom_nay_viec_138.mjs`). Bộ thử Chrome: `flow_hn138` (xem README).
 - Đợt 2a (Nội quy & Cam kết, bỏ cửa sổ nhắc) đã xong — bước 141.
+- **Việc tiếp theo (phiên khác làm, anh Tiến giao 18/11):** chia nhóm Vận hành / Nhân sự / Khác theo `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-design.md` (tệp cục bộ). Bước 141 đã đẩy lên `main` (web 2026.11.18.10, máy chủ 123) — `git pull` rồi đọc lại `docs/js/hom_nay_viec.js` (đã có khoá `nq`, `ck`, `nqf:<bài>:<bản>`, `ckf`; nguồn `today` = `app_today_me`). Sau chia nhóm: khoản âm / lệch tiền ca theo trạng thái, rồi máy chủ chặn phiếu ca không có tên.
 - **Đợt 2 còn lại:** Theo dõi theo bộ phận / cơ sở có số quá hạn và việc chưa có người nhận; khoản âm nối trạng thái Lệch tiền ca + nút Mở ca từng dòng; máy chủ chặn nhân viên mở chi tiết / gửi phiếu ca không có tên mình (mục 8).
 - Các bài thử chỉ dùng dữ liệu giả. Cách chạy nằm trong `kiem_tra/trinh_duyet/README.md`.
 
