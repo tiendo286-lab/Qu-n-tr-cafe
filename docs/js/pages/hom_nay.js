@@ -4,8 +4,8 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, ROLE_LABELS, html } from '../ui.js';
-import { gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.18.9';
-import { GROUP_LABEL, collectWork } from '../hom_nay_viec.js?v=2026.11.18.9';
+import { gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.18.10';
+import { GROUP_LABEL, collectWork } from '../hom_nay_viec.js?v=2026.11.18.10';
 import { KA_STATUS } from './phieu_ca.js';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
@@ -92,7 +92,7 @@ export async function render({ me, can }) {
   ]);
   if (pc) learnJobs(pc.tasks);
   const now = T?.now || pc?.now || new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
-  const W = collectWork({ now, pc, training, ka, todo: todo ? todo.items || [] : null }, { jobName, pcDue, gvDue, rstate });
+  const W = collectWork({ now, pc, training, ka, todo: todo ? todo.items || [] : null, today: T }, { jobName, pcDue, gvDue, rstate });
   const order = T?.order && !T.order.submitted ? T.order : null;
   const watcher = ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(me.role) || can('doi_soat') || can('ke_toan');
   const today = T?.today || now.slice(0, 10);

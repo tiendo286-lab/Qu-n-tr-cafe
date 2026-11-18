@@ -794,3 +794,12 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - **Bảng lương của tôi**: số ca, giờ thực tế, giờ x2 cộng, giờ bị trừ, 3 ghi chú nghỉ / làm thay gần nhất và khoản âm trong tháng; không có tổng lương hay tiền mặt đã trả. **Xem chi tiết** mở Công của tôi — trang này có thêm mục **Khoản âm** của tháng (xem, Tôi đã xem, gửi giải trình).
 - Máy chủ: `121_viec_hom_nay.sql` (`app_today_me`). Phiên bản web `2026.11.18.7`.
 - Để đợt sau: việc Nội quy / Cam kết hạn 12 ngày, Theo dõi theo bộ phận / cơ sở có số quá hạn, khoản âm nối trạng thái Lệch tiền ca và nút Mở ca từng dòng, máy chủ chặn nhân viên mở / gửi phiếu ca không có tên mình.
+
+## Việc hôm nay — đợt 2a: Nội quy & Cam kết (18/11/2026, bước 141)
+
+- Nhân viên: **1 dòng "Đọc nội quy · Đã đọc x/y bài"** trên Việc hôm nay, bấm mở bài chưa đọc đầu tiên; hạn 12 ngày từ ngày đăng bài / bản mới (lấy bài chưa đọc đăng sớm nhất). Hết khi đã đọc đủ bản đang áp dụng.
+- Nhân viên: dòng **"Ký cam kết"** (trạng thái + "ký bản giấy và nộp cho Kế toán") tới khi Đã ký và nộp. Hạn 12 ngày từ ngày vào làm; nhân viên vào trước 18/11/2026 tính từ 18/11/2026 (hạn 30/11/2026).
+- **Kế toán phụ trách** (vai Kế toán hoặc được cấp quyền Kế toán; Chủ không tính): mỗi bài nội quy / bản mới còn người chưa đọc là 1 việc "Nhắc đọc nội quy", và 1 việc "Theo dõi cam kết" (số chưa ký và nộp, số quá hạn).
+- Trang mới **Nội quy & quy trình › Theo dõi đọc & cam kết** (`#/theo-doi-noi-quy`, quyền Kế toán hoặc Quản lý nhân viên): lọc Tất cả / Chưa đọc đủ / Chưa nộp cam kết, tìm theo mã / tên, bài chưa đọc từng người, đổi trạng thái cam kết. **Kế toán được cập nhật cam kết** (trước chỉ Quản lý nhân viên).
+- Bỏ cửa sổ "Việc được giao cho bạn" lúc đăng nhập (đã có trong Việc hôm nay).
+- Máy chủ `123_noi_quy_cam_ket_viec.sql`. Phiên bản `2026.11.18.10`.

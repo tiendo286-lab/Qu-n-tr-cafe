@@ -40,6 +40,17 @@ ok(collectWork({ now, pc: null, training: null, ka: null, todo: null }, helpers)
 ok(!collectWork({ now, pc, training: null, ka, todo }, helpers).failed, 'một nguồn lỗi vẫn hiện phần còn lại');
 ok(collectWork({ now, pc: { tasks: [], gv: [] }, training: { rows: [] }, ka: [], todo: [] }, helpers).items.length === 0, 'trống');
 ok(r.items.find((i) => i.key === 'gv:5').title === 'Sửa máy · LHP' && r.items.find((i) => i.key === 'gv:6').waitingFor === 'Lan kiểm tra', 'việc giao riêng hiện nội dung, người đang giữ bước');
+// bước 141: Nội quy / Cam kết / theo dõi của Kế toán (lấy từ app_today_me)
+const today = { rules: { total: 6, read: 2, due: '2026-11-30', first_unread: 31 }, commit: { status: 'da_ky_chua_nop', due: '2026-11-17' },
+  follow: { rules: [{ doc_id: 33, title: 'Văn hóa phục vụ', version: 2, due: '2026-11-30', unread: 12 }], commit: { pending: 5, overdue: 1, due: '2026-11-20' } } };
+const r2 = collectWork({ now, pc: null, training: null, ka: null, todo: null, today }, helpers);
+const it = (k) => r2.items.find((i) => i.key === k);
+ok(!r2.failed, 'chỉ có dữ liệu Việc hôm nay vẫn không báo lỗi');
+ok(it('nq')?.title === 'Đọc nội quy' && it('nq').sub === 'Đã đọc 2/6 bài' && it('nq').link === '/noi-quy?id=31' && it('nq').group === 'later', 'việc đọc nội quy gộp 1 dòng, mở bài chưa đọc');
+ok(it('ck')?.group === 'late' && /Đã ký, chưa nộp/.test(it('ck').sub), 'việc cam kết quá hạn, ghi trạng thái');
+ok(it('nqf:33:2')?.sub === '12 người chưa đọc bản 2' && it('nqf:33:2').link === '/theo-doi-noi-quy?loc=chua_doc', 'Kế toán nhắc đọc từng bài');
+ok(it('ckf')?.sub === '5 nhân viên chưa ký và nộp · 1 quá hạn' && it('ckf').group === 'soon', 'Kế toán theo dõi cam kết');
+ok(collectWork({ now, pc: null, training: null, ka: null, todo: null, today: null }, helpers).failed, 'mọi nguồn lỗi kể cả Việc hôm nay thì báo lỗi');
 ok(GROUP_LABEL.late === 'Quá hạn' && GROUP_LABEL.waiting === 'Đang chờ', 'nhãn nhóm');
 out.push(`ĐẠT ${n} kiểm tra`);
 print(out.join('\n'));

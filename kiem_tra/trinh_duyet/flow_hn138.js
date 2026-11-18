@@ -31,6 +31,19 @@ export default async ({ visit, settle, out }) => {
       assert(has('#hn-luong') && root.querySelector('#hn-luong-more')?.getAttribute('href') === '#/cua-toi/cong', 'Thiếu Bảng lương của tôi / Xem chi tiết.');
       assert(!/tổng lương|tiền mặt đã trả/i.test(root.querySelector('#hn-luong').textContent), 'Bảng lương không được hiện tổng lương / tiền mặt.');
     } else assert(!has('#hn-luong'), 'Tài khoản không gắn nhân viên không có bảng lương.');
+    // bước 141: Nội quy / Cam kết, không còn cửa sổ nhắc lúc đăng nhập
+    assert(!document.querySelector('dialog[open]'), 'Còn cửa sổ nhắc việc lúc mở web.');
+    const row = (k) => root.querySelector(`.hn-row[data-key="${k}"]`);
+    if (staff) {
+      assert(row('nq')?.getAttribute('href')?.startsWith('#/noi-quy?id=') && /Đã đọc 0\/\d+ bài/.test(row('nq').textContent), 'Thiếu việc Đọc nội quy (gộp 1 dòng).');
+      assert(row('ck') && /Chưa ký/.test(row('ck').textContent), 'Thiếu việc Ký cam kết.');
+    } else assert(!row('nq') && !row('ck'), 'Tài khoản không gắn nhân viên không có việc đọc nội quy / cam kết.');
+    const owner = role === 'kt' || role === 'nvkt';
+    const follow = [...root.querySelectorAll('.hn-row[data-key^="nqf:"]')];
+    if (owner) {
+      assert(follow.length > 0 && follow[0].getAttribute('href') === '#/theo-doi-noi-quy?loc=chua_doc', 'Kế toán thiếu việc nhắc đọc nội quy.');
+      assert(row('ckf')?.getAttribute('href') === '#/theo-doi-noi-quy?loc=chua_ky', 'Kế toán thiếu việc theo dõi cam kết.');
+    } else assert(!follow.length && !row('ckf'), 'Chỉ Kế toán phụ trách mới có việc theo dõi nội quy / cam kết.');
     assert(fits(), 'Việc hôm nay tràn ngang.');
     if (staff) {
       const cong = await visit('#/cua-toi/cong');

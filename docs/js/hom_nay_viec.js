@@ -3,6 +3,7 @@
 
 export const GROUP_LABEL = { late: 'Quá hạn', today: 'Hạn hôm nay', soon: 'Sắp đến hạn', later: 'Khác', waiting: 'Đang chờ' };
 const ORDER = ['late', 'today', 'soon', 'later', 'waiting'];
+const COMMIT_LABEL = { chua_ky: 'Chưa ký', da_ky_chua_nop: 'Đã ký, chưa nộp', da_ky_nop: 'Đã ký và nộp' };
 const SOON_MS = 3 * 864e5;
 const ms = (s) => (s ? Date.parse(String(s).replace(' ', 'T')) : NaN);
 const dm = (d) => (d ? `${d.slice(8, 10)}/${d.slice(5, 7)}` : '');
@@ -15,9 +16,9 @@ function groupOf(item, now) {
   return ms(item.due) - ms(now) <= SOON_MS ? 'soon' : 'later';
 }
 
-// src: { now, pc, training, ka, todo } — nguồn nào lỗi thì truyền null.
+// src: { now, pc, training, ka, todo, today } — nguồn nào lỗi thì truyền null (today = app_today_me).
 // helpers: { jobName, pcDue, gvDue, rstate } từ cv_chung.js.
-export function collectWork({ now, pc, training, ka, todo }, helpers) {
+export function collectWork({ now, pc, training, ka, todo, today }, helpers) {
   const items = [];
   const seen = new Set();
   const add = (it) => { if (seen.has(it.key)) return; seen.add(it.key); items.push({ waitingFor: null, sub: '', ...it }); };
@@ -48,6 +49,24 @@ export function collectWork({ now, pc, training, ka, todo }, helpers) {
       sub: isNew ? 'Xem và giải trình nếu không đồng ý' : 'Đã gửi giải trình', due: null, link: '/cua-toi/khoan-am',
       waitingFor: waiting ? 'Quản lý xem giải trình' : null });
   }
+  // bước 141: đọc Nội quy (gộp 1 dòng), ký Cam kết, theo dõi của Kế toán — từ app_today_me
+  const end = (d) => (d ? d + ' 23:59:59' : null);
+  if (today?.rules) {
+    const r = today.rules;
+    add({ key: 'nq', title: 'Đọc nội quy', sub: `Đã đọc ${r.read}/${r.total} bài`, due: end(r.due), link: '/noi-quy?id=' + r.first_unread });
+  }
+  if (today?.commit) {
+    add({ key: 'ck', title: 'Ký cam kết', sub: `${COMMIT_LABEL[today.commit.status] || 'Chưa ký'} · ký bản giấy và nộp cho Kế toán`, due: end(today.commit.due), link: '/noi-quy' });
+  }
+  for (const d of today?.follow?.rules || []) {
+    add({ key: `nqf:${d.doc_id}:${d.version}`, title: 'Nhắc đọc nội quy: ' + d.title, sub: `${d.unread} người chưa đọc bản ${d.version}`,
+      due: end(d.due), link: '/theo-doi-noi-quy?loc=chua_doc' });
+  }
+  const fc = today?.follow?.commit;
+  if (fc && Number(fc.pending) > 0) {
+    add({ key: 'ckf', title: 'Theo dõi cam kết', sub: `${fc.pending} nhân viên chưa ký và nộp${Number(fc.overdue) ? ` · ${fc.overdue} quá hạn` : ''}`,
+      due: end(fc.due), link: '/theo-doi-noi-quy?loc=chua_ky' });
+  }
   for (const x of todo || []) {
     if (x.key === 'cong_viec_cua_toi' || !(Number(x.n) > 0)) continue;
     add({ key: 'todo:' + x.key, title: x.label, sub: `${x.n} hồ sơ`, due: null, link: x.link });
@@ -56,5 +75,5 @@ export function collectWork({ now, pc, training, ka, todo }, helpers) {
   for (const it of items) it.group = groupOf(it, now);
   items.sort((a, b) => ORDER.indexOf(a.group) - ORDER.indexOf(b.group)
     || (ms(a.due) || Infinity) - (ms(b.due) || Infinity));
-  return { items, failed: pc == null && training == null && ka == null && todo == null };
+  return { items, failed: pc == null && training == null && ka == null && todo == null && today == null };
 }

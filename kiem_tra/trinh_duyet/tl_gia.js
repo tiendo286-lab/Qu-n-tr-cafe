@@ -58,6 +58,7 @@ export function makeTl(T, me) {
       if (p_read) T.docs.filter((d) => d.kind === 'noi_quy' && d.published_version > 0).forEach((d) => T.doc_reads.push({ doc_id: d.id, employee_id: p_employee, version: d.published_version, read_at: now() }));
     },
     app_tl_set_commit({ p_employee, p_status }) {
+      if (!me.perms.ke_toan && !me.perms.quan_ly_nhan_vien) throw new Error('Chỉ Kế toán hoặc người quản lý nhân viên được cập nhật cam kết.');
       if (!['chua_ky', 'da_ky_chua_nop', 'da_ky_nop'].includes(p_status)) throw new Error('Trạng thái cam kết không hợp lệ.');
       T.employee_commitments = T.employee_commitments.filter((x) => x.employee_id !== p_employee); T.employee_commitments.push({ employee_id: p_employee, status: p_status, updated_at: now() });
     },

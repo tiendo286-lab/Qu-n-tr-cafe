@@ -5,7 +5,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.18.9';
+const ASSET_VERSION = '2026.11.18.10';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
@@ -22,7 +22,7 @@ export const HUBS = [
   ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
   ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', ['ke_toan', 'doi_soat']]], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
-  ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null]], null, 'Nhân sự'],
+  ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null], ['Theo dõi đọc & cam kết', '/theo-doi-noi-quy', ['ke_toan', 'quan_ly_nhan_vien']]], null, 'Nhân sự'],
   ['Cài đặt', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
     ['Tài khoản ngân hàng', '/cai-dat/tai-khoan', 'ke_toan'], ['Nhóm món Fabi', '/cai-dat/nhom-mon', 'ke_toan'], ['Loại & nhóm thu chi', '/cai-dat/thu-chi', ['doi_soat', 'chot_thang']]], null, 'Hệ thống'],
@@ -52,6 +52,7 @@ const PAGES = {
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
   '/cong-viec/dao-tao': 'cv_dao_tao',
+  '/theo-doi-noi-quy': 'nq_theo_doi',
   '/dao-tao/phieu': 'phieu_dao_tao',
   '/cua-toi/dao-tao': 'dao_tao_cua_toi',
   '/ho-tro': 'ho_tro',
@@ -122,7 +123,6 @@ export async function loadMe() {
 export async function logout() {
   await sb.auth.signOut();
   state.me = null; state.remind = null; state.tasks = 0; state.review = 0; state.pen = 0; state.support = 0; badgeAt = 0;
-  try { sessionStorage.removeItem('nhac_viec'); } catch (_) { /* bỏ qua */ }
   go('/dang-nhap');
 }
 
@@ -339,26 +339,8 @@ export async function render() {
   // điện thoại: cuộn thanh tab con để thấy tab đang mở
   const onTab = document.querySelector('.hub-tabs a.on');
   if (onTab) { const bar = onTab.parentElement; bar.scrollLeft = onTab.offsetLeft - (bar.clientWidth - onTab.offsetWidth) / 2; }
-  remindOnce(path);
 }
 
-// Nhắc việc mỗi khi mở app (một lần mỗi phiên): quá hạn → hôm nay → còn lại
-function remindOnce(path) {
-  const r = state.remind;
-  if (!r || !can('nhan_viec') || path === '/viec' || path === '/doi-mat-khau') return;
-  try { if (sessionStorage.getItem('nhac_viec')) return; sessionStorage.setItem('nhac_viec', '1'); } catch (_) { return; }
-  if (!r.items.length) return;
-  const g = (k) => r.items.filter((t) => t.group === k);
-  const dd = (d) => (d ? d.split('-').reverse().slice(0, 2).join('/') : 'chưa có hạn');
-  const list = (items, color) => html`${items.map((t) => html`<li style="color:${color}">${t.kind === 'dao_tao' ? '[Đào tạo] ' : ''}${t.content} <span style="font-size:12px;color:var(--muted)">· ${t.due_date ? 'hạn ' + dd(t.due_date) : 'không đặt hạn'}</span></li>`)}`;
-  const sec = (title, items, color) => (items.length ? html`<div><strong style="color:${color}">${title} (${items.length})</strong><ul style="margin:4px 0 0;padding-left:20px">${list(items, color)}</ul></div>` : '');
-  const d = dialog(html`<div class="stack" style="gap:10px;max-width:520px">
-    <h2 style="margin:0">Việc được giao cho bạn</h2>
-    ${sec('Quá hạn', g('overdue'), '#b91c1c')}${sec('Đến hạn hôm nay', g('today'), '#b45309')}${sec('Việc còn lại chưa xử lý xong', g('open'), 'var(--ink)')}
-    <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn secondary" id="rm-close">Để sau</button><a class="btn" href="#/viec" id="rm-go">Mở Việc của tôi</a></div></div>`);
-  d.querySelector('#rm-close').addEventListener('click', () => d.close());
-  d.querySelector('#rm-go').addEventListener('click', () => d.close());
-}
 
 window.addEventListener('hashchange', render);
 
