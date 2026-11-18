@@ -269,7 +269,7 @@ function gapDialog(D, x) {
   d.querySelector('[data-x]').addEventListener('click', () => d.close());
   const cs = d.querySelector('[name=cand]');
   cs?.addEventListener('change', () => { const a = Number(cs.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=match_amount]').value = fmt(Math.min(avail, a)); });
-  const run = async (fn, msg) => { try { await fn(); d.close(); after(msg); } catch (e) { err(d, e); } };
+  const run = async (fn, msg) => { try { const m = await fn(); d.close(); after(m || msg); } catch (e) { err(d, e); } };
   const need = () => { const r = val(d, 'reason'); if (!r) throw new Error('Ghi lý do.'); return r; };
   const item = g.item;
   d.addEventListener('click', (ev) => {
@@ -277,8 +277,8 @@ function gapDialog(D, x) {
     if (a && !a.disabled) { cur = a.dataset.act; d.querySelectorAll('[data-act]').forEach((b) => b.classList.toggle('secondary', b !== a)); d.querySelectorAll('[data-pane]').forEach((p) => { p.hidden = p.dataset.pane !== cur; }); return; }
     const u = ev.target.closest('[data-undo],[data-ok],[data-no]'); if (!u) return;
     const [kind, id] = (u.dataset.undo || u.dataset.ok || u.dataset.no).split(':');
-    if (u.dataset.undo) run(async () => rpc('app_stc_gap_undo', { p_kind: kind, p_id: Number(id), p_reason: need() }), 'Đã huỷ');
-    else run(async () => rpc('app_stc_gap_approve', { p_kind: kind, p_id: Number(id), p_ok: !!u.dataset.ok }), u.dataset.ok ? 'Chủ đã duyệt' : 'Đã từ chối');
+    if (u.dataset.undo) run(async () => { await rpc('app_stc_gap_undo', { p_kind: kind, p_id: Number(id), p_reason: need() }); }, 'Đã huỷ');
+    else run(async () => { await rpc('app_stc_gap_approve', { p_kind: kind, p_id: Number(id), p_ok: !!u.dataset.ok }); }, u.dataset.ok ? 'Chủ đã duyệt' : 'Đã từ chối');
   });
   d.querySelector('form').addEventListener('submit', (ev) => {
     ev.preventDefault();
@@ -295,7 +295,7 @@ function gapDialog(D, x) {
         res = await rpc('app_stc_gap_match', { p_short: thieu ? ca.id : o, p_over: thieu ? o : ca.id, p_item: item, p_amount: money(d, 'match_amount'), p_reason: r });
       } else if (cur === 'thu') await rpc('app_stc_gap_thu', { p_report: ca.id, p_item: item, p_amount: money(d, 'thu_amount'), p_reason: r });
       else throw new Error(noLock);
-      if (res === 'cho_duyet') showSaved('Đã gửi — chờ Chủ duyệt');
+      return res === 'cho_duyet' ? 'Đã gửi — chờ Chủ duyệt' : null;
     }, 'Đã lưu phiếu chênh lệch');
   });
 }
