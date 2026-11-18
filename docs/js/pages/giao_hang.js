@@ -9,6 +9,7 @@ import { rpc, sb } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { BUCKET, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
+const MAX_PER_PHOTO = 4;   // bước 132: mỗi ảnh nhận hàng tối đa 4 món (máy chủ cũng chặn)
 
 export const perm = ['chot_ca', 'doi_soat', 'ke_toan'];
 const LS_BR = 'ckBranch';
@@ -187,6 +188,7 @@ async function receivePage(id, params = {}, can = () => false) {
           <input class="input sm gh-q" inputmode="decimal" autocomplete="off" disabled aria-label="Số thực nhận ${l.name}"></div><div class="gh-note" data-n="${l.id}" hidden><input class="input sm" placeholder="Ghi chú (bắt buộc): vd thiếu 1 bao…" aria-label="Ghi chú ${l.name}"></div>`)}</div>
       ${!nh ? html`<div class="gh-extra"><b>+ Món KHÔNG có trong phiếu</b><span class="st-meta">Kho giao dư món ngoài phiếu thì ghi ở đây (tên + ĐVT + số lượng).</span>
         <div class="gh-nrs"></div><button type="button" class="btn sm secondary gh-nadd" style="align-self:flex-start">+ Thêm món ngoài phiếu</button></div>` : ''}
+      <div class="gh-max st-meta" hidden>Mỗi ảnh tối đa ${MAX_PER_PHOTO} món — chụp ảnh khác cho các món còn lại.</div>
       <div class="gh-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" id="gh-pc">Huỷ ảnh</button><button type="button" class="btn sm gh-ok" id="gh-ps">✓ Lưu ảnh</button></div></section>`);
     box.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -201,7 +203,12 @@ async function receivePage(id, params = {}, can = () => false) {
         qi.classList.toggle('gh-w', diff); nb.hidden = !diff; if (c.checked) n++;
       });
       n += freeRows().length;
-      $('#gh-ps').textContent = n ? `✓ Lưu ảnh · ${n} món` : '✓ Lưu ảnh';
+      // bước 132: mỗi ảnh tối đa 4 món — đủ thì khoá ô còn lại, ẩn "+ Thêm món"
+      const full = n >= MAX_PER_PHOTO;
+      $$('.gh-sel .gh-c', box).forEach((c) => { c.disabled = full && !c.checked; c.closest('.gh-sel').classList.toggle('gh-off', c.disabled); });
+      $$('.gh-nadd', box).forEach((b) => { b.style.display = full ? 'none' : ''; });
+      box.querySelector('.gh-max').hidden = !full;
+      $('#gh-ps').textContent = n ? `✓ Lưu ảnh · ${n}/${MAX_PER_PHOTO} món` : '✓ Lưu ảnh';
     };
     $$('.gh-nadd', box).forEach((b) => b.addEventListener('click', () => { b.previousElementSibling.insertAdjacentHTML('beforeend', str(nrow())); b.previousElementSibling.lastElementChild.querySelector('input')?.focus(); upd(); }));
     box.addEventListener('change', (e) => { if (e.target.classList.contains('gh-nn')) { const hit = cat.find((c) => c.name.toLowerCase() === e.target.value.trim().toLowerCase()); const u = e.target.closest('.gh-nr').querySelector('.gh-nu'); if (hit && !u.value) u.value = hit.unit || ''; } });
@@ -216,6 +223,7 @@ async function receivePage(id, params = {}, can = () => false) {
       const free = freeRows();
       if (!picked.length && !free.length) { err(nh ? 'Ghi ít nhất 1 món có trong ảnh (tên + số lượng).' : 'Tick ít nhất 1 món có trong ảnh (hoặc ghi món ngoài phiếu).'); return; }
       if (free.some((l) => !l.name || !(l.qty > 0))) { err('Mỗi món cần tên và số lượng lớn hơn 0.'); return; }
+      if (picked.length + free.length > MAX_PER_PHOTO) { err(`Mỗi ảnh tối đa ${MAX_PER_PHOTO} món — chụp ảnh khác cho các món còn lại.`); return; }
       const bad = picked.find((x) => x.qv === null || x.qv < 0); if (bad) { err(`Nhập số thực nhận cho ${bad.l.name}.`); return; }
       const zero = picked.find((x) => x.qv === 0); if (zero) { err(`${zero.l.name}: số 0 thì không chọn trong ảnh — bấm "Không nhận được".`); return; }
       const noN = picked.find((x) => !nh && x.qv !== base(x.l) && !x.nt); if (noN) { err(`Ghi chú cho ${noN.l.name} (số khác phiếu).`); return; }
@@ -487,6 +495,7 @@ export const GH_CSS = html`<style>
   .gh-cam { display: flex; flex-direction: column; align-items: center; gap: 6px; background: #1f2622; color: #e8efe9; border-radius: 14px; padding: 18px 12px; cursor: pointer; text-align: center; }
   .gh-cam .st-meta { color: #b9c6bd; } .gh-shot { width: 58px; height: 58px; border-radius: 50%; border: 4px solid #fff; background: var(--primary); }
   .gh-prev { width: 100%; max-height: 300px; object-fit: contain; border-radius: 10px; background: #1f2622; display: block; }
+  .gh-sel.gh-off { opacity: .45; } .gh-max { color: var(--warn-ink, #78350f); background: var(--warn-bg, #fef3c7); border-radius: 8px; padding: 6px 10px; }
   .gh-sel { display: grid; grid-template-columns: minmax(0, 1fr) 84px; gap: 8px; align-items: center; padding: 7px 0; border-top: 1px solid var(--line); }
   .gh-chk { display: flex; gap: 8px; align-items: center; cursor: pointer; min-width: 0; } .gh-chk input { width: 22px; height: 22px; flex: 0 0 auto; } .gh-chk b, .gh-sel b { display: block; overflow-wrap: anywhere; }
   .gh-sel .st-meta { display: block; } .gh-q { text-align: center; font-size: 17px !important; font-weight: 800; } .gh-w { border-color: #d97706 !important; background: #fff7e6 !important; }

@@ -237,6 +237,7 @@ export function makeNh(T, me) {
     app_gh_photo_add({ p_id, p_path, p_lines }) {
       const i = T.delivery_invoices.find((x) => x.id === p_id); ghCan(i);
       if (!new RegExp('^gh' + p_id + '/[^/]+$').test(p_path || '')) throw new Error('Đường dẫn ảnh không hợp lệ.');
+      if (new Set(p_lines || []).size > 4) throw new Error('Mỗi ảnh tối đa 4 món — chụp ảnh khác cho các món còn lại.');   // bước 132 (như máy chủ)
       const id = nid('delivery_receipt_photos'); T.delivery_receipt_photos.push({ id, invoice_id: p_id, path: p_path, created_by: me.account_id, created_at: now() });
       (p_lines || []).forEach((l) => T.delivery_photo_lines.push({ photo_id: id, line_id: l })); return id;
     },

@@ -680,6 +680,10 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - 8 phiếu quản lý tự chốt **trước** bước 122 đã bị ghi "hoàn thành đối soát" khi kế toán chưa có số liệu → **trả về Chờ kế toán** (bỏ mục đã duyệt + kết quả, ghi lịch sử "tra_ve_cho_ke_toan"): ĐK Tối 12/11, Chiều + Tối 13/11, Sáng 16/11, Sáng 17/11; LHP Chiều + Tối 16/11; LL Tối 16/11. Không phiếu nào có khoản âm / xử lý lệch.
 - **Sửa lỗi** (từ tệp 104): kế toán nhập số dư ngân hàng cho phiếu đang Chờ kế toán bị chặn (dòng lịch sử "kế toán sửa" bị trigger khoá Kiểm tra chặn). Nay cho qua đúng dòng lịch sử kế toán; quản lý vẫn không kiểm tra được khi chưa đủ dữ liệu.
 
+## 5r38. Ảnh nhận hàng tối đa 4 món — CHỐT và ĐÃ LÀM 18/11/2026 (bước 132, máy chủ `116_anh_nhan_hang_toi_da_4_mon.sql`, web 2026.11.18.1)
+- Hàng hoá › Nhận hàng: mỗi ảnh chụp gắn **tối đa 4 món** (tính cả món trong phiếu, món ngoài phiếu, món ghi tay khi nhận không hoá đơn) để ảnh nào cũng nhìn rõ, đếm được.
+- Đủ 4 món: ô còn lại mờ / khoá, ẩn "+ Thêm món", dòng nhắc "Mỗi ảnh tối đa 4 món — chụp ảnh khác cho các món còn lại"; nút Lưu ghi "n/4 món". Máy chủ cũng chặn (`app_gh_photo_add`). Ảnh cũ nhiều hơn 4 món giữ nguyên.
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
