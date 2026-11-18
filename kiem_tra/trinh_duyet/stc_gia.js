@@ -1,11 +1,14 @@
 // Giả lập app_stc_* (Sổ thu chi mới). Đợt 1: đọc (app_stc_month / app_stc_ext). Đợt 2a: sửa / thêm / xoá khoản ngoài ca, người nợ ✓,
 // làm giống máy chủ trên bản sao dữ liệu giả: khoản cũ thành void (gạch ngang), khoản mới có edit (phiếu bổ sung).
 import { EXT, MONTH } from '../test/stc_fixture.js';
+import { makeFund } from '../test/fund_gia.js';
 
 const copy = (o) => JSON.parse(JSON.stringify(o));
 export function makeStc(T, me) {
   const admin = () => ['chu', 'ql_tong'].includes(me.role);
   let ST = null; const st = () => ST || (ST = copy(MONTH));
+  let EX = null; const ex = () => EX || (EX = copy(EXT));
+  const base = makeFund(T, me);   // đợt 5: hàm Sổ quỹ cũ, giữ T đồng bộ cho trang cũ
   let V = 0, N = 1000;
   const now = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 16).replace('T', ' ');
   const by = () => me.name || 'Chủ';
@@ -51,7 +54,7 @@ export function makeStc(T, me) {
     },
     app_stc_ext({ p_month }) {
       if (me.role !== 'chu') throw new Error('Quỹ ngoài: chỉ Chủ xem được.');
-      const d = copy(EXT); if (p_month !== '2026-11') { d.month = p_month; d.items = []; }
+      const d = copy(ex()); d.items.forEach((x) => { if (x.id.startsWith('x:')) x.can_edit = true; }); if (p_month !== '2026-11') { d.month = p_month; d.items = []; }
       return d;
     },
     app_stc_entry_save({ p_id, p, p_reason }) {
@@ -176,6 +179,51 @@ export function makeStc(T, me) {
         else if (p_kind === 'tl' || p_kind === 'decision') g.remain += e.amount;
         g.avail += e.amount; g.has_tl = g.tl.length > 0; g.has_thu = g.decisions.some((d) => d.kind === 'thu_khac'); gapStat(x);
       });
+    },
+    // đợt 5: Chuyển về Quỹ ngoài (= phiếu rút) — gọi hàm cũ (T) rồi phản chiếu vào sổ cơ sở + Quỹ ngoài
+    app_fund_withdraw_save({ p_id, p }) {
+      const inT = !p_id || T.fund_withdrawals.some((w) => w.id === p_id);
+      const old = p_id ? items().find((i) => i.id === 'w:' + p_id) : null;
+      if (old?.recv === 'da') throw new Error('Chủ đã xác nhận nhận tiền nên phiếu này không sửa được nữa.');
+      const id = inT ? base.app_fund_withdraw_save({ p_id, p }) : (amountOk(p.amount), p_id);
+      const pm = pmOf(p.method); const t = 'Chuyển về Quỹ ngoài' + (p.note ? ' · ' + p.note : '');
+      const meta = p.kind === 'cuoi_thang' ? 'Phiếu rút cuối tháng (cũ)' : 'Phiếu rút giữ hộ (cũ)';
+      const row = { date: p.wdate, ca_id: null, pm, col: 'lc', amount: Number(p.amount), meta, status: 'Chờ Chủ nhận', recv: 'cho', src: 'withdrawal', checked: true, no_cost: true };
+      const up = (list, it) => { const i = list.findIndex((x) => x.id === it.id); if (i >= 0) list[i] = { ...list[i], ...it }; else list.push(it); };
+      up(items(), { ...row, id: 'w:' + id, book: 'chi', title: t, to_qn: true });
+      up(ex().items, { ...row, id: 'w:' + id, book: 'thu', title: 'Từ ' + (st().branch?.code || 'LHP') + ' chuyển về' + (p.note ? ' · ' + p.note : ''), from: 'LHP' });
+      return id;
+    },
+    app_fund_withdraw_delete({ p_id }) {
+      if (items().find((i) => i.id === 'w:' + p_id)?.recv === 'da') throw new Error('Chủ đã xác nhận nhận tiền nên phiếu này không xóa được.');
+      if (T.fund_withdrawals.some((w) => w.id === p_id)) base.app_fund_withdraw_delete({ p_id });
+      [items(), ex().items].forEach((l) => { const i = l.findIndex((x) => x.id === 'w:' + p_id); if (i >= 0) l.splice(i, 1); });
+    },
+    app_fund_withdraw_confirm({ p_id }) {
+      if (me.role !== 'chu') throw new Error('Chỉ Chủ xác nhận đã nhận tiền.');
+      if (T.fund_withdrawals.some((w) => w.id === p_id)) base.app_fund_withdraw_confirm({ p_id });
+      [items(), ex().items].forEach((l) => { const x = l.find((i) => i.id === 'w:' + p_id); if (x) Object.assign(x, { recv: 'da', status: 'Chủ đã nhận · khoá' }); });
+    },
+    // đợt 5: khoản chi / thu ngoài của Quỹ ngoài
+    app_ext_month({ p_month }) {
+      const d = base.app_ext_month({ p_month });
+      ex().items.filter((x) => x.id.startsWith('x:') && !d.entries.some((e) => 'x:' + e.id === x.id)).forEach((x) => d.entries.push({ id: Number(x.id.slice(2)), entry_date: x.date,
+        kind: x.book === 'chi' ? 'chi' : 'thu', category_id: (T.fin_categories || []).find((c) => c.name === x.cat)?.id || null, note: x.title, amount: x.amount,
+        pay_method: x.pm === 'ck' ? 'chuyen_khoan' : 'tien_mat', alloc_mode: x.alloc_mode || 'doanh_thu', alloc_branch: null, manual: {}, alloc: [], ok: true, fixed: false, category: x.cat }));
+      return d;
+    },
+    app_ext_entry_save({ p_id, p }) {
+      const inT = !p_id || T.ext_entries.some((e) => e.id === p_id);
+      if (!inT) { amountOk(p.amount); if (!String(p.note || '').trim()) throw new Error('Ghi nội dung khoản ' + p.kind + '.'); }
+      const id = inT ? base.app_ext_entry_save({ p_id, p }) : p_id;
+      const it = { id: 'x:' + id, date: p.entry_date, ca_id: null, book: p.kind === 'chi' ? 'chi' : 'thu', pm: pmOf(p.pay_method), col: p.kind === 'chi' ? 'chi' : 'khac',
+        amount: Number(p.amount), title: p.note, meta: 'Chủ ghi', cat: catName(p.category_id), checked: true, no_cost: false, src: 'ext', alloc_mode: p.alloc_mode };
+      const l = ex().items; const i = l.findIndex((x) => x.id === it.id); if (i >= 0) l[i] = it; else l.push(it);
+      return id;
+    },
+    app_ext_entry_delete({ p_id }) {
+      if (T.ext_entries.some((e) => e.id === p_id)) base.app_ext_entry_delete({ p_id });
+      const l = ex().items; const i = l.findIndex((x) => x.id === 'x:' + p_id); if (i >= 0) l.splice(i, 1);
     },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;

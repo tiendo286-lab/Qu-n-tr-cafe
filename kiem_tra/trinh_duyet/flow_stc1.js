@@ -67,7 +67,7 @@ export default async ({ sleep, out }) => {
   ok(!/−-|--\d/.test(txt($('#stc-page'))), '11. không có số hai dấu trừ');
   // 13. chuyển về Quỹ ngoài chờ Chủ nhận, nút tắt
   const qn = $$('.stc-qnl');
-  ok(qn.some((r) => txt(r).includes('chờ chủ nhận') && $('button[disabled]', r)), '13. khoản chờ Chủ nhận có nút Đã nhận tiền (tắt)');
+  ok(qn.some((r) => txt(r).includes('chờ chủ nhận') && $('button[data-qnok]:not([disabled])', r)), '13. khoản chờ Chủ nhận: Chủ có nút Đã nhận tiền (đợt 5)');
   // 14–17. Tab Đối soát tiền (chỉ xem)
   await go('#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11', '.stc-wk');
   const hdr = txt($('.stc-wk .stc-hdr'));

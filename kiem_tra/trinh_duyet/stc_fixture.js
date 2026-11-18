@@ -62,7 +62,7 @@ const items = [
     gap: G('du', 20000, ['Lan', 'Minh'], { cands: [{ report: 183, label: 'ca Tối 18/11', amount: 30000 }] }) }),
   it(D18, null, 'chi', 'tm', 'chi', 1250000, { title: 'Tiền điện tháng 10', meta: 'Quản lý tạo', cat: 'Điện nước', src: 'entry' }),
   it(D18, null, 'thu', 'ck', 'no', 150000, { title: 'Cô Mai', meta: 'Quản lý thu ngoài ca', from: 'quản lý ghi', src: 'debt' }),
-  it(D18, null, 'chi', 'ck', 'lc', 20000000, { title: 'Chuyển về Quỹ ngoài', meta: 'Phiếu rút giữ hộ (cũ)', to_qn: true, recv: 'cho', status: 'Chờ Chủ nhận', src: 'withdrawal' }),
+  it(D18, null, 'chi', 'ck', 'lc', 20000000, { id: 'w:902', title: 'Chuyển về Quỹ ngoài', meta: 'Phiếu rút giữ hộ (cũ)', to_qn: true, recv: 'cho', status: 'Chờ Chủ nhận', src: 'withdrawal' }),
 ];
 // đợt 2a: khoản ngoài ca sửa được (khoản quản lý tạo, luân chuyển quỹ, thu nợ ngoài ca); khoản của ca chưa sửa được
 items.forEach((x) => { x.can_edit = false; });
@@ -109,8 +109,8 @@ export const EXT = {
   month: '2026-11', from: '2026-11-01', to: '2026-11-30', opening: { tm: 5000000, ck: 30000000 },
   branches: base.branches,
   items: [
-    { id: 'w:1', date: D16, ca_id: null, book: 'thu', pm: 'tm', col: 'lc', amount: 15000000, title: 'Từ LHP chuyển về', meta: 'QL Bình tạo', cat: null, cat_type: null, checked: true, no_cost: true, status: 'Chủ đã nhận · khoá', from: 'LHP', who: null, to_qn: false, recv: 'da', chia: null, src: 'withdrawal' },
-    { id: 'w:2', date: D18, ca_id: null, book: 'thu', pm: 'ck', col: 'lc', amount: 20000000, title: 'Từ LHP chuyển về', meta: 'QL Bình tạo', cat: null, cat_type: null, checked: true, no_cost: true, status: 'Chờ Chủ nhận', from: 'LHP', who: null, to_qn: false, recv: 'cho', chia: null, src: 'withdrawal' },
+    { id: 'w:901', date: D16, ca_id: null, book: 'thu', pm: 'tm', col: 'lc', amount: 15000000, title: 'Từ LHP chuyển về', meta: 'QL Bình tạo', cat: null, cat_type: null, checked: true, no_cost: true, status: 'Chủ đã nhận · khoá', from: 'LHP', who: null, to_qn: false, recv: 'da', chia: null, src: 'withdrawal' },
+    { id: 'w:902', date: D18, ca_id: null, book: 'thu', pm: 'ck', col: 'lc', amount: 20000000, title: 'Từ LHP chuyển về', meta: 'QL Bình tạo', cat: null, cat_type: null, checked: true, no_cost: true, status: 'Chờ Chủ nhận', from: 'LHP', who: null, to_qn: false, recv: 'cho', chia: null, src: 'withdrawal' },
     { id: 'x:1', date: D16, ca_id: null, book: 'chi', pm: 'ck', col: 'chi', amount: 25000000, title: 'Tiền nhà tháng 11', meta: 'Chủ ghi', cat: 'Mặt bằng', cat_type: null, checked: true, no_cost: false, status: null, from: null, who: null, to_qn: false, recv: null, chia: 'Chia đều các cơ sở', src: 'ext' },
     { id: 'x:2', date: D17, ca_id: null, book: 'chi', pm: 'tm', col: 'chi', amount: 6000000, title: 'Mua máy xay cho HS', meta: 'Chủ ghi', cat: 'Sửa chữa & thiết bị', cat_type: null, checked: true, no_cost: false, status: null, from: null, who: null, to_qn: false, recv: null, chia: '1 cơ sở: HS', src: 'ext' },
   ],
