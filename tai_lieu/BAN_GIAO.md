@@ -1,13 +1,13 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 18/11/2026, sau bước 134. Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 18/11/2026, sau bước 135. Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.18.3** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
+- Web: **2026.11.18.4** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
 - Máy chủ: đã chạy tới tệp **118** (`118_tuan_da_chot.sql`).
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
 
