@@ -696,6 +696,15 @@ Anh Tiến chốt từng việc. **Không ghi tên nhân viên ở đây** (kho 
 - Nay: **dừng gõ ~1 giây là tự lưu**; trang bị ẩn (chuyển app, tắt màn hình) hoặc rời trang thì **lưu ngay** số vừa gõ. Trên điện thoại chữ **"Đã lưu ca … · giờ"** nổi ở cuối màn hình (trước nằm tít trên đầu trang, cuộn xuống không thấy).
 - Bài thử: `flow_ck135` (role=nvkt; `index.html` và `test/phone.html`).
 
+## 5r41. File ca Fabi — báo rõ ca lỗi + bảng so sánh nhân viên nhập / file Fabi — CHỐT 18/11/2026 (bước 136)
+- **Vì sao:** tab chỉ ghi "Cần quản lý xem"; lỗi gì phải mở mục thu gọn, chỉ thấy vài dòng "phiếu X → Fabi Y"; có ca bị báo mà không thấy dòng nào (số đối soát web đã sửa theo Fabi — mảng `fixed` — trước không hiện).
+- **Ai xem:** Kế toán **và Quản lý (quyền Đối soát)**. Quản lý chỉ xem; khung Đồng bộ từ Fabi + nút "Chọn Excel thủ công" chỉ người có quyền Kế toán thấy (giống Hàng hoá › Phiếu xuất). Máy chủ: `app_fabi_list` cho `ke_toan` hoặc `doi_soat`; `app_fabi_upload` vẫn chỉ `ke_toan`.
+- **Khung "Ca cần quản lý xem"** đầu tab (cơ sở + tuần đang xem): mỗi dòng ngày · ca · loại lỗi ("Nhân viên gõ khác Fabi: Tổng tiền, Tiền chênh lệch" / "Có file Fabi, chưa có phiếu nhân viên" / "Web đã sửa số đối soát theo Fabi") + nút Xem (nhảy tới ca đó ở chi tiết ngày).
+- **Ô bảng tuần** ghi loại lỗi ngắn thay cho chỉ "Cần quản lý xem".
+- **Thẻ ca có lỗi:** dòng LỖI bằng lời (vd "Tổng tiền nhân viên ghi thiếu 180.000đ so với Fabi"), người chốt phiếu, **bảng 7 mục** (Số dư đầu · Doanh thu NET · Chuyển khoản · Tiền mặt · Nợ · Tổng tiền · Tiền chênh lệch) × (Nhân viên nhập · File Fabi · Chênh), dòng khác tô đỏ, khớp ✓; dòng "Web đã sửa số đối soát theo Fabi: … → …"; nút **Mở đối soát ca** (chỉ quyền Đối soát). Bảng hiện sẵn, không thu gọn. Ca khớp giữ gọn như cũ.
+- Máy chủ gửi thêm đủ 7 số nhân viên nhập (kể cả số khớp) + tên người chốt phiếu.
+- Không làm: không đổi cách máy chủ so / tự sửa theo Fabi; hoá đơn sửa / xoá vẫn chỉ là dòng thông tin.
+
 ## 5r33. Đối soát giống hệt chốt ca — làm 16/11/2026 (bước 113, chỉ giao diện, máy chủ không đổi)
 
 - Trang tiền của **đối soát** dùng đúng khung và thứ tự của **chốt ca**: Thời gian doanh thu → Phiếu Fabi → Bảng tiền của ca → Các khoản tiền của ca → Tiền thực tế → Xử lý lệch (chỉ khi lệch) → Lý do sửa → Duyệt. Bỏ nhãn "CHƯA ĐỐI SOÁT", bỏ Phiếu Fabi lặp 2 lần, bỏ tiêu đề "Bước 4 · ② Phần tiền". Quản lý thấy thêm 1 dòng so với file Fabi kế toán tải (giờ kết thúc, doanh thu, TM, CK) và ô nhóm của từng khoản Thu / Chi.
