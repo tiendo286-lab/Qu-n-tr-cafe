@@ -70,6 +70,8 @@ export async function render({ params }) {
     mount() {
       const root = $('#stc-page'); if (!root) return;
       root.addEventListener('click', (ev) => {
+        const ds = ev.target.closest('[data-dsca]');
+        if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); return; }
         const t = ev.target.closest('[data-day],[data-ca],.stc-all,.stc-none'); if (!t || !root.contains(t)) return;
         if (t.dataset.day) { OPEN_D.has(t.dataset.day) ? OPEN_D.delete(t.dataset.day) : OPEN_D.add(t.dataset.day); }
         else if (t.dataset.ca) { OPEN_C.has(t.dataset.ca) ? OPEN_C.delete(t.dataset.ca) : OPEN_C.add(t.dataset.ca); }
@@ -220,7 +222,59 @@ function tongPage(D) {
           ${notChot.length + pend.length + todo.length ? '' : html`<div class="st-meta">Không còn gì. 👍</div>`}</section>`}
       </aside></div>`;
 }
-function dsPage(D) { return html`<section class="card stc-empty">Tab Đối soát tiền đang làm.</section>`; }
+let DS_SEL = null;   // ca đang mở ở tab Đối soát tiền
+function dsInfo(D) {
+  const dates = [...new Set((D.cas || []).map((c) => c.date))].sort();
+  const chains = Object.fromEntries(dates.map((d) => [d, dayChain(D, d)]));
+  const all = (D.cas || []).map((c) => { const link = chains[c.date].get(c.id); const cs = caChecks(c, link); return { c, link, cs, st: caState(c, cs) }; });
+  return { dates, all };
+}
+function dsPanel(D, a) {
+  const { c, link, cs, st } = a; const m = link ? link.money : null;
+  const box = (x) => html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name}</b><span class="st-meta">${x.a} · ${x.b}</span><span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${x.txt}</span>
+      ${x.st === 'red' && ['mo', 'dt', 'no'].includes(x.k) ? html`<span class="stc-tools">${off('Sửa theo Fabi')}${x.k === 'mo' ? html`${off('Ca trước ghi sai')}${off('Ca này ghi sai')}` : ''}</span>` : ''}</div>`;
+  const s1 = cs.filter((x) => ['mo', 'dt', 'no'].includes(x.k)), s3 = cs.filter((x) => ['tm', 'ck'].includes(x.k));
+  const kt = c.kt_wait || c.bank_ck == null; const byCa = c.cash_mode === 'ca';
+  const its = D.items.filter((x) => x.ca_id === c.id && x.col !== 'dt' && !x.void);
+  const r = (lab, a1, b1) => html`<div class="stc-mr"><span>${lab}</span><b>${a1}</b><b>${b1}</b></div>`;
+  return html`<div class="stc-dsp"><div class="stc-dsh"><b>Phiếu tiền · Ca ${c.shift} ${dm(c.date)}</b> <span class="st-meta">${c.staff || ''}</span> <span class="pill ${st.cls.replace('p-', '')}">${st.txt}</span></div>
+    <div class="stc-stp"><div class="h"><b>①</b> So phiếu Fabi ↔ nhân viên ghi <span class="st-meta">· Fabi là chuẩn</span></div><div class="stc-c4s">${s1.map(box)}</div>
+      ${c.fabi && !c.fabi.has ? html`<div class="st-meta">Chưa có file Fabi: ${(c.kt_missing || []).join(', ') || 'chờ kế toán tải'}.</div>` : ''}</div>
+    <div class="stc-stp"><div class="h"><b>②</b> Tiền thực nhận <span class="pill mute">${byCa ? 'Thu theo ca' : 'Thu theo ngày'}</span></div>
+      <div class="stc-mt">${r('', 'Tiền mặt', 'Chuyển khoản')}
+        ${r('Phải có / phải nhận', m ? fmt(m.tm.must) : '–', m ? fmt(m.ck.must) : '–')}
+        ${r('Thực nhận', byCa ? (c.ql_counted != null ? fmt(c.ql_counted) + ' (quản lý thu)' : 'chưa nhập') : `NV đếm ${fmt(c.nv_counted ?? 0)}`, kt ? 'chờ kế toán' : fmt(c.bank_ck) + ' (kế toán)')}</div>
+      ${byCa ? '' : html`<div class="st-meta">Thu theo ngày: tiền mặt thực nhận nhập ở ca cuối ngày (đợt sau).</div>`}</div>
+    <div class="stc-stp"><div class="h"><b>③</b> Kết quả & chốt</div><div class="stc-c4s">${s3.map(box)}</div>
+      <div class="stc-tools">${c.recon_money_done ? html`<span class="pill ok">🔒 Đã chốt (theo đối soát hiện nay)</span>` : off('Chốt tiền ca', 'btn sm')}<span class="st-meta">Chốt xong mới sửa được thu chi của ca.</span></div></div>
+    <details class="stc-det"><summary>Bảng tiền chi tiết</summary>${m ? html`<div class="stc-mt">${r('', 'Tiền mặt', 'Chuyển khoản')}${r('Tiền đầu ca', fmt(m.tm.start), '–')}
+      ${r('+ Doanh thu', fmt(m.tm.dt), fmt(m.ck.dt))}${r('+ Thu nợ / thu khác', fmt(m.tm.no + m.tm.khac), fmt(m.ck.no + m.ck.khac))}${r('± Luân chuyển', fmt(m.tm.lc), fmt(m.ck.lc))}
+      ${r('− Chi / cho nợ', fmt(m.tm.chi + m.tm.cn), fmt(m.ck.chi + m.ck.cn))}${r('= Phải có', fmt(m.tm.must), fmt(m.ck.must))}${r('Thực tế', fmt(m.tm.real), kt ? '⏳' : fmt(m.ck.real))}</div>` : html`<div class="st-meta">Ca này không nằm trong chuỗi két (vd FULL TIME).</div>`}</details>
+    <div class="stc-stp stc-kl"><div class="h">Các khoản thu chi của ca <span class="pill mute">🔒 chốt tiền ca mới sửa được</span></div>
+      ${its.length ? its.map((x) => html`<div class="stc-si"><span><span class="stc-tag t-${x.col}">${x.book === 'thu' ? 'Thu' : 'Chi'} · ${x.pm === 'tm' ? 'TM' : 'CK'} · ${colName(x.book, x.col)}</span> ${x.title}</span><b class="stc-amt ${x.book}">${sg(x.book)}${fmt(x.amount)}</b></div>`) : html`<div class="st-meta">Không có khoản nào ngoài doanh thu.</div>`}</div></div>`;
+}
+function dsBody(D) {
+  const { dates, all } = dsInfo(D);
+  if (!all.length) return html`<section class="card stc-empty">Tháng này chưa có ca nào.</section>`;
+  const extra = [...new Set(all.map((a) => a.c.shift).filter((s) => !['Sáng', 'Chiều', 'Tối'].includes(s)))];
+  const cols = ['Sáng', 'Chiều', 'Tối', ...extra];
+  if (!all.some((a) => String(a.c.id) === String(DS_SEL))) DS_SEL = (all.find((a) => a.st.k !== 'chot') || all[all.length - 1]).c.id;
+  const sel = all.find((a) => String(a.c.id) === String(DS_SEL));
+  const cell = (d, s) => { const a = all.find((x) => x.c.date === d && x.c.shift === s); if (!a) return html`<span class="st-meta">–</span>`;
+    return html`<button type="button" class="stc-dsc ${String(a.c.id) === String(DS_SEL) ? 'on' : ''}" data-dsca="${a.c.id}"><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`; };
+  const side = (title, list, empty) => html`<section class="card stc-side"><h3>${title} <small>${list.length}</small></h3>${list.length ? list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>Ca ${a.c.shift} ${dm(a.c.date)}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`) : html`<div class="st-meta">${empty}</div>`}</section>`;
+  return html`<div class="stc-tiles">
+      <div class="stc-tile"><span>Ca đã chốt tiền</span><b>${all.filter((a) => a.st.k === 'chot').length} / ${all.length}</b><small>theo đối soát hiện nay</small></div>
+      <div class="stc-tile ${all.some((a) => a.st.k === 'lech') ? 'warn' : ''}"><span>Ca có ô đỏ</span><b>${all.filter((a) => a.st.k === 'lech').length}</b><small>mở ca / doanh thu / nợ</small></div>
+      <div class="stc-tile ${all.some((a) => a.st.k === 'kt') ? 'warn' : ''}"><span>Chờ kế toán</span><b>${all.filter((a) => a.st.k === 'kt').length}</b><small>thiếu file Fabi / ngân hàng</small></div></div>
+    <div class="st-meta stc-formula">Mỗi ca: ① so phiếu Fabi ↔ nhân viên ghi → ② tiền thực nhận → ③ <b>Chốt tiền ca</b>; chốt xong mới sửa được thu chi của ca.</div>
+    <div class="stc-layout"><section class="card stc-book">
+        <div class="stc-wk"><div class="stc-wr stc-hdr" style="--k:${cols.length}"><span>Ngày</span>${cols.map((s) => html`<span>${s}</span>`)}</div>
+          ${[...dates].reverse().map((d) => html`<div class="stc-wr" style="--k:${cols.length}"><span class="stc-lab">${dm(d)} <small>${wd(d)}</small></span>${cols.map((s) => cell(d, s))}</div>`)}</div>
+        ${sel ? dsPanel(D, sel) : ''}</section>
+      <aside class="stc-aside">${side('Ca chưa chốt', all.filter((a) => ['cho', 'lech'].includes(a.st.k)), 'Đã chốt hết. 👍')}${side('Chờ kế toán', all.filter((a) => a.st.k === 'kt'), 'Không có.')}</aside></div>`;
+}
+function dsPage(D) { return html`<div id="stc-ds">${dsBody(D)}</div>`; }
 
 const STYLE = html`<style>
   .stc-bar { display: flex; flex-direction: column; gap: 10px; }
@@ -302,6 +356,23 @@ const STYLE = html`<style>
   .stc-dg { display: grid; grid-template-columns: minmax(90px, 1.1fr) repeat(5, minmax(0, 1fr)); gap: 8px; align-items: center; padding: 9px 14px; }
   .stc-dg.stc-hdr span:not(:first-child) { text-align: right; }
   .stc-dd { border-bottom: 1px solid var(--line-soft); }
+  .stc-wk { padding: 8px 12px; overflow-x: auto; }
+  .stc-wr { display: grid; grid-template-columns: minmax(80px, 1fr) repeat(var(--k), minmax(110px, 1.3fr)); gap: 6px; align-items: center; padding: 3px 0; min-width: 440px; }
+  .stc-wr.stc-hdr { padding: 6px 0; border: 0; }
+  .stc-dsc { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 5px; text-align: left; cursor: pointer; font: inherit; }
+  .stc-dsc .pill { white-space: normal; } .stc-dsc.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
+  .stc-dsp { margin: 6px 12px 14px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--subtle); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .stc-dsh { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .stc-stp { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .stc-stp .h { font-weight: 700; } .stc-stp .h b { color: var(--primary); }
+  .stc-c4s { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 8px; }
+  .stc-c4 { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; display: flex; flex-direction: column; gap: 4px; align-items: flex-start; }
+  .stc-c4.red { border-color: var(--off-line); } .stc-c4 .pill { white-space: normal; }
+  .stc-mt { display: flex; flex-direction: column; overflow-x: auto; }
+  .stc-mr { display: grid; grid-template-columns: minmax(130px, 1.5fr) minmax(90px, 1fr) minmax(90px, 1fr); gap: 8px; padding: 4px 0; font-size: 13px; border-bottom: 1px solid var(--line-soft); }
+  .stc-mr b { text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; }
+  .stc-det summary { cursor: pointer; font-weight: 600; font-size: 13px; }
+  .stc-go { width: 100%; background: none; border: 0; border-bottom: 1px solid var(--line-soft); text-align: left; cursor: pointer; font: inherit; color: inherit; }
   @media (max-width: 980px) { .stc-layout { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 720px) {
     .stc-bigs { grid-template-columns: 1fr 1fr; } .stc-big:first-child { grid-column: 1 / -1; }
