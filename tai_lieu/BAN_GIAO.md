@@ -1,10 +1,36 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 19/11/2026, sau bước 151 (Đối soát Fabi + Chốt ca vĩnh viễn + Khoản treo, web 2026.11.19.8, máy chủ 135). Trước đó bước 150 (kiểm toán giao diện + sửa 33 lỗi, web 2026.11.19.7). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–170 trên nhánh riêng — xem mục ngay dưới). Trước đó: 19/11/2026, sau bước 151 (Đối soát Fabi + Chốt ca vĩnh viễn + Khoản treo, web 2026.11.19.8, máy chủ 135). Trước đó bước 150 (kiểm toán giao diện + sửa 33 lỗi, web 2026.11.19.7). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
+
+## Đêm 19→20/11/2026 — làm một mình (bước 167–170), CHƯA lên web, CHƯA chạy SQL thật
+
+5 phần làm trên **nhánh riêng**, đã đẩy lên GitHub, **chưa mở PR** (máy không có `gh`, không lấy được mã GitHub). Nội dung PR viết sẵn ở `work/pr_dem_1911/p1.md … p5.md` (tệp cục bộ) — mỗi tệp có link "Mở PR" để anh bấm, dán nội dung. Gộp thử cả 5 nhánh cùng lúc: **không xung đột**.
+
+| Phần | Nhánh | Trạng thái | Tệp SQL (chưa chạy thật) | Bài thử |
+|---|---|---|---|---|
+| 1. Cấu hình làm một mình | `dem1911/p1-lam-mot-minh` | ✅ Xong | — | JSON đọc được |
+| 2. Hàng hoá: bộ lọc ngày (bước 167) | `dem1911/p2-loc-ngay-hang-hoa` | ✅ Xong | `146_hang_hoa_loc_ngay.sql` (chạy TRƯỚC khi gộp) | `flow_ln167` chu/qlt/kt ×2 khung; `hang_hoa_loc_ngay_146.sql` 12/12; `loc_ngay_167.mjs` 25/25; bài Hàng hoá cũ đạt |
+| 3. Đối soát Fabi: giao diện (bước 168) | `dem1911/p3-doi-soat-fabi-giao-dien` | ✅ Xong (nút "Chốt ca" đã bỏ từ bước 158 → xem "Cần anh quyết" trong PR) | `147_thu_no_truoc_ca.sql` | `flow_ql_tu_ds`, `flow_stc6`, `flow_stc7` (chu/qlt/ql ×2 khung), `flow_ds168`, `so_thu_chi_tinh_dot11.mjs`, `thu_no_truoc_ca_147.sql` 9/9 |
+| 4. Đào tạo: quy tắc phân công (bước 169) | `dem1911/p4-dao-tao-phan-cong` | ✅ Xong | `148_dao_tao_phan_cong.sql` (chạy TRƯỚC khi gộp) | `flow_dt169` 5 vai ×2 khung; `dao_tao_phan_cong_148.sql` 24/24 (hỏng trên bản cũ); `flow_dt137`, `flow_hn142`, `flow_hn138` đạt |
+| 5. Đào tạo: tab Phân công (bước 170) | `dem1911/p5-dao-tao-tab-phan-cong` (nằm trên nhánh 4) | ✅ Xong — **gộp SAU phần 4** | `149_dao_tao_tab_phan_cong.sql` (sau 148) | `flow_dt170` 5 vai ×2 khung; `dao_tao_tab_phan_cong_149.sql` 16/16 |
+| Bàn giao | `dem1911/ban-giao` | tệp này | — | — |
+
+- **Thứ tự chạy SQL:** 146 → 147 → 148 → 149 (đã thử trên CSDL cục bộ: mỗi tệp chạy 2 lần không lỗi, 4 bài thử máy chủ đạt). **Thứ tự gộp:** 1, 2, 3, 4 rồi 5 (bàn giao lúc nào cũng được). Chạy SQL của phần nào trước khi gộp phần đó.
+- **Chưa tăng `docs/version.json` / chưa ghi `app_releases`** trên nhánh nào — làm khi lên web.
+- **Bài thử hỏng sẵn trên `main` (không do đêm nay):** `flow_stc2` (bước 7 thu nợ một phần, bước 9), `flow_stc3` (bước 7b gán nợ). Đã so trên bản `main` chưa sửa: hỏng y hệt.
+- **Công cụ mới** (có trên nhánh 2–5, giống hệt nhau):
+  - `kiem_tra/trinh_duyet/chay_pw.py`: chạy 1 bài thử Chrome bằng Playwright, thời gian thật, in ĐẠT / LỖI.
+  - `kiem_tra/may_chu_cuc_bo/`: dựng Postgres ngay trên máy từ mọi `supabase/*.sql` (gói `pgserver`, cần Python 3.9 hệ thống) để chạy thử tệp SQL mới + bài `kiem_tra/*.sql` **không cần mã sbp_**. Ngày 19/11 nạp 145 tệp: 0 lỗi.
+  - Lưu ý: khi dựng phải đứng ở nhánh có đủ tệp SQL cần thử.
+- **Bài học đêm nay:**
+  - Bộ kiểm an toàn của Claude Code đôi khi chặn nhầm lệnh heredoc dài có `$$(`. Cách tránh: ghi đoạn sửa ra tệp `.py` trong scratchpad rồi chạy.
+  - Bài thử dùng `visit()` cùng 1 đường dẫn thì trang không vẽ lại → thêm `&t=<số>`.
+  - `innerText` của phần tử nằm trong `<details>` đang đóng (hoặc nhãn viết hoa bằng CSS) khác chữ gốc → dùng `textContent`.
+  - Nhiều nhánh cùng sửa một tệp: mỗi nhánh chèn ở chỗ khác nhau, cách xa nhau, thì gộp không xung đột. Importmap trong `index.html` chỉ có 1 dòng, nên chỉ một nhánh được thêm tệp `docs/js/*.js` mới.
 
 ## Tình trạng lúc bàn giao
 - Web: **2026.11.19.23** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` — cả 2 tệp CSS và **importmap liệt kê mọi tệp `docs/js/*.js`** — và các dòng import có `?v=`). Thêm tệp mới vào `docs/js/` (không phải `pages/`) thì thêm một dòng vào importmap trong `index.html`.
