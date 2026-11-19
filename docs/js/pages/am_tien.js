@@ -57,7 +57,7 @@ export async function render(ctx) {
   const matchLine = (r, m) => html`<div class="at-log" data-m="${m.id}">${m.status === 'cho_duyet' ? html`⏳ <b>Chờ Chủ / QL tổng duyệt</b>: ` : '✓ '}Ghép ${fmt(m.amount)} với ca ${m.other_shift} ${dmy(m.other_date).slice(0, 5)} · ${m.reason} · ${m.by || ''}${m.approved_by && m.status === 'da_duyet' ? ` (duyệt: ${m.approved_by})` : ''}
       ${r.locked ? '' : html`<span class="at-btns">${m.status === 'cho_duyet' && admin ? html`<button type="button" class="btn sm at-ap" data-ok="1">Duyệt</button><button type="button" class="btn sm secondary at-ap" data-ok="">Từ chối</button>`
         : admin || (m.status === 'cho_duyet' && m.mine) ? html`<button type="button" class="btn sm secondary at-unm">Bỏ ghép</button>` : ''}</span>`}</div>`;
-  const decLine = (r, d) => html`<div class="at-log" data-d="${d.id}">${d.kind === 'quan_chiu' ? '🏠 Quán chịu' : '＋ Thu khác'} ${fmt(d.amount)}${d.reason ? ` · ${d.reason}` : ''} · ${d.by || ''}
+  const decLine = (r, d) => html`<div class="at-log" data-d="${d.id}">${d.kind === 'quan_chiu' ? '🏠 Quán chịu' : d.kind === 'treo' ? '⏳ Khoản treo (tiền về / ghép từ ca đã chốt)' : '＋ Thu khác'} ${fmt(d.amount)}${d.reason ? ` · ${d.reason}` : ''} · ${d.by || ''}
       ${r.locked || (d.kind === 'quan_chiu' && !admin) ? '' : html`<span class="at-btns"><button type="button" class="btn sm secondary at-und">Bỏ</button></span>`}</div>`;
   const shortCard = (r) => {
     const sug = r.locked ? [] : sugOf(r); const can = !r.locked && shortFree(r) > 0;

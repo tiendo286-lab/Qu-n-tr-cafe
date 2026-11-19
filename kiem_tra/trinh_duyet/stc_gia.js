@@ -312,12 +312,17 @@ export function makeStc(T, me) {
     },
     app_stc_treo_close({ p_treo, p_kind, p_people, p_reason }) {
       const t = TREO.find((x) => x.id === Number(p_treo)); if (!t || t.status !== 'mo') throw new Error('Khoản treo không còn mở.');
-      if (t.kind !== 'tien') throw new Error('Chỉ khoản chờ tiền về mới trừ tiền / quán chịu.');
-      const c = st().cas.find((x) => x.id === t.report_id); if (dd(c.date, today()) <= 3) throw new Error('Chưa quá hạn 3 ngày — chờ tiền về hoặc bấm "Đã về".');
-      reason(p_reason); let res = 'ok';
-      if (p_kind === 'qc') res = me.role === 'chu' ? 'ok' : 'cho_duyet'; else if (!(p_people || []).length) throw new Error('Nhập số tiền trừ.');
-      t.status = 'xong'; t.done_kind = p_kind; t.done_note = p_kind === 'tru' ? 'trừ tiền nhân viên' : res === 'cho_duyet' ? 'quán chịu (chờ Chủ duyệt)' : 'quán chịu';
-      return res;
+      const c = st().cas.find((x) => x.id === t.report_id);
+      if (p_kind === 'thu') { if (t.kind !== 'thua') throw new Error('Chỉ tiền thừa chờ ghép mới ghi Thu khác.'); }
+      else {
+        if (t.kind !== 'tien') throw new Error('Chỉ khoản chờ tiền về mới trừ tiền / quán chịu.');
+        if (dd(c.date, today()) <= 3) throw new Error('Chưa quá hạn 3 ngày — chờ tiền về hoặc bấm "Đã về".');
+        if (p_kind === 'qc' && me.role !== 'chu') throw new Error('Chỉ Chủ quyết Quán chịu cho khoản treo.');
+        if (p_kind === 'tru' && (p_people || []).reduce((s, p) => s + Number(p.amount), 0) !== Number(t.left ?? t.amount)) throw new Error('Tổng trừ tiền phải bằng phần còn treo.');
+      }
+      reason(p_reason);
+      t.status = 'xong'; t.done_kind = p_kind; t.done_note = p_kind === 'tru' ? 'trừ tiền nhân viên' : p_kind === 'qc' ? 'quán chịu' : 'ghi Thu khác';
+      return 'ok';
     },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;

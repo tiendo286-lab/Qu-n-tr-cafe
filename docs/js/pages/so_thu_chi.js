@@ -38,7 +38,8 @@ async function load(cn, month) {
     (D.items || []).forEach((x) => { if (String(x.id).startsWith('x:') && !x.void && !D.locked) x.can_edit = true; });
   } else {
     // bước 151: ca đã chốt + khoản treo (máy chủ chưa có hàm thì coi như chưa có ca nào chốt)
-    const [M, F] = await Promise.all([rpc('app_stc_month', { p_branch: Number(cn), p_month: month }), rpc('app_stc_finals', { p_branch: Number(cn), p_month: month }).catch(() => null)]);
+    const [M, F] = await Promise.all([rpc('app_stc_month', { p_branch: Number(cn), p_month: month }), rpc('app_stc_finals', { p_branch: Number(cn), p_month: month })
+      .catch((e) => { if (/app_stc_finals|does not exist|could not find/i.test(String(e?.message || e))) return null; throw e; })]);   // chỉ bỏ qua khi máy chủ chưa có hàm
     D = M; D.finals = Object.fromEntries(((F && F.finals) || []).map((f) => [f.id, f])); D.treo = (F && F.treo) || [];
     (D.items || []).forEach((x) => { if (x.ca_id && D.finals[x.ca_id]) x.can_edit = false; });
   }
@@ -372,14 +373,14 @@ function gapDialog(D, x) {
   const owner = !!D.owner;
   const done = [
     ...(g.tl || []).map((t) => html`<div class="stc-gd"><span>Trừ lương ${t.name}</span><b>${fmt(t.amount)}</b>${bU(`tl:${t.id}`)}</div>`),
-    ...(g.decisions || []).map((d) => html`<div class="stc-gd"><span>${d.kind === 'quan_chiu' ? 'Quán chịu' : d.kind === 'thu_khac' ? 'Phiếu thu (Thu khác)' : d.kind}</span><b>${fmt(d.amount)}</b>${bU(`decision:${d.id}`)}</div>`),
+    ...(g.decisions || []).map((d) => html`<div class="stc-gd"><span>${d.kind === 'quan_chiu' ? 'Quán chịu' : d.kind === 'thu_khac' ? 'Phiếu thu (Thu khác)' : d.kind === 'treo' ? 'Khoản treo của ca đã chốt (tiền về / ghép) — huỷ thì khoản treo mở lại' : d.kind}</span><b>${fmt(d.amount)}</b>${bU(`decision:${d.id}`)}</div>`),
     ...(g.debts || []).map((o) => html`<div class="stc-gd"><span>Gán nợ khách trả · ${o.who}</span><b>${fmt(o.amount)}</b>${bU(`debt:${o.id}`)}</div>`),
     ...(g.matches || []).map((m) => html`<div class="stc-gd"><span>Ghép với ${m.with}${m.status === 'cho_duyet' ? ' · ⏳ chờ Chủ duyệt' : ''}</span><b>${fmt(m.amount)}</b>
       ${m.status === 'cho_duyet' && owner ? bOk(`match:${m.id}`) : ''}${bU(`match:${m.id}`)}</div>`),
     ...(g.qc_wait || []).map((q) => html`<div class="stc-gd"><span>Quán chịu · ${q.by || ''} · ⏳ chờ Chủ duyệt</span><b>${fmt(q.amount)}</b>
       ${owner ? bOk(`qc:${q.id}`) : ''}${bU(`qc:${q.id}`)}</div>`),
   ];
-  const cands = (g.cands || []).filter((c) => Number(c.amount) > 0);
+  const cands = (g.cands || []).filter((c) => Number(c.amount) > 0 && !isFin(D, Number(c.report)));   // ca đã chốt không ghép được
   const pane = (k, body) => html`<div class="stc-gp" data-pane="${k}" ${k === first ? '' : 'hidden'}>${body}</div>`;
   const lockNote = (m) => html`<div class="st-meta">🔒 ${m}</div>`;
   const panes = {
@@ -497,6 +498,9 @@ function cells(byCol, book, totalV) {
 // bước 151: khôi phục phiếu đã xoá = thêm lại phiếu y hệt (ca đã xác nhận Fabi, chưa chốt; hoặc khoản ngoài ca quản lý tạo)
 function canRestore(D, x) {
   if (!D || D.ext || D.locked || !x.void || x.void_info?.action !== 'xoa' || !['chi', 'khac'].includes(x.col)) return false;
+  // đã có phiếu y hệt còn hiệu lực (đã khôi phục rồi) → ẩn nút, tránh thêm trùng
+  if ((D.items || []).some((o) => !o.void && o.id !== x.id && (o.ca_id ?? null) === (x.ca_id ?? null) && o.date === x.date && o.book === x.book
+    && o.pm === x.pm && Number(o.amount) === Number(x.amount) && o.title === x.title)) return false;
   if (x.src === 'move') { const ca = (D.cas || []).find((c) => c.id === x.ca_id); return !!ca && ca.recon_money_done && !isFin(D, ca.id); }
   return x.src === 'entry' && !x.ca_id;
 }
@@ -612,7 +616,7 @@ function tongPage(D) {
   const waitN = (ext ? incoming.filter((x) => x.recv === 'cho') : F.waitQN).length;
   const notChot = (D.cas || []).filter((c) => !isFin(D, c.id));
   const tOpen = (D.treo || []).filter((t) => t.status === 'mo'); const tOver = tOpen.filter((t) => treoView(t).over).length;
-  const pend = its.filter((x) => x.col === 'lech' && x.status && /Chờ/.test(x.status));
+  const pend = its.filter((x) => x.col === 'lech' && x.status && /Chờ/.test(x.status) && !isFin(D, x.ca_id));   // ca đã chốt: phần còn chờ nằm ở Khoản treo
   const todo = its.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat);
   return html`${cmp}
     <div class="stc-bigs">${big(`Tồn ${name}`, F.tm.ton + F.ck.ton, `${ext ? 'Chỉ Chủ thấy · ' : ''}Tiền mặt + Tài khoản`)}
@@ -727,12 +731,14 @@ function partA(D, a) {
     dt: (x) => (x.st === 'red' ? html`<span class="st-meta">→ Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi; thiếu tiền thật thì hiện ở dòng Chênh lệch.</span>` : ''),
     no: (x) => (x.st === 'red' && Number(f.debt) > Number(nv.debt) ? html`<span class="st-meta">→ Không tạo phiếu chi: thêm khách nợ ${fmt(Number(f.debt) - Number(nv.debt))} ở Công nợ (bill nợ chưa phải tiền).</span>` : '') };
   const raw = { mo: [nv.opening, f.opening], dt: [nv.revenue, f.revenue], no: [nv.debt, f.debt] };
+  const pv = (D.cas || []).find((o) => o.date === c.date && SHIFT_ORDER.indexOf(o.shift) === SHIFT_ORDER.indexOf(c.shift) - 1);
+  const prevFin = !!pv && isFin(D, pv.id);   // máy chủ cũng chặn
   const box = (x) => { const [a1, b1] = raw[x.k]; const nvT = Number(a1 ?? 0), fbT = Number(b1 ?? 0);
     const txt = x.st === 'red' && x.fix === 'fabi' ? `🔴 Nhân viên ghi ${nvT > fbT ? 'thừa' : 'thiếu'} ${fmt(nvT - fbT)} so với máy` : x.txt;
     return html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name}</b><span class="stc-ln">Phiếu nhân viên ghi: <b>${fmt(nvT)}</b></span><span class="stc-ln">Máy Fabi ghi: <b>${f.has ? fmt(fbT) : 'chưa có'}</b></span>
       ${x.k === 'mo' ? html`<span class="st-meta">${x.b}</span>` : ''}<span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${txt}</span>${effect[x.k](x)}
       ${D.ext ? '' : x.fix === 'fabi' ? html`<span class="stc-tools"><button type="button" class="btn sm" data-dsfabi="${x.k}">Lấy số máy Fabi${x.k === 'no' && Number(f.debt) > Number(nv.debt) ? ` (thêm báo nợ ${fmt(Number(f.debt) - Number(nv.debt))})` : ''}</button></span>`
-        : x.fix === 'blame' ? html`<span class="st-meta">Ca nào ghi sai thì ca đó chịu tiền lệch:</span><span class="stc-tools"><button type="button" class="btn sm secondary" data-dsblame="truoc">Ca trước ghi sai</button><button type="button" class="btn sm secondary" data-dsblame="nay">Ca này ghi sai</button></span>`
+        : x.fix === 'blame' ? html`<span class="st-meta">Ca nào ghi sai thì ca đó chịu tiền lệch:</span><span class="stc-tools">${prevFin ? html`<span class="st-meta">Ca trước đã chốt ca — không chọn "Ca trước ghi sai" được.</span>` : html`<button type="button" class="btn sm secondary" data-dsblame="truoc">Ca trước ghi sai</button>`}<button type="button" class="btn sm secondary" data-dsblame="nay">Ca này ghi sai</button></span>`
         : x.blame ? html`<span class="stc-tools"><span class="st-meta">${x.blame.by || ''}${x.blame.reason ? ' · ' + x.blame.reason : ''}</span><button type="button" class="btn sm secondary" data-dsunblame="1">Huỷ chọn</button></span>` : ''}</div>`; };
   const s1 = cs.filter((x) => ['mo', 'dt', 'no'].includes(x.k));
   const red1 = s1.some((x) => x.st === 'red'); const need = [];
@@ -793,6 +799,13 @@ function partB(D, a) {
       <div class="stc-its" style="margin:0 10px 10px">${gl.length ? gl.map(glRow) : html`<div class="st-meta stc-empty">Không có ${book === 'thu' ? 'tiền dư' : 'tiền thiếu'} ${PM[pm].toLowerCase()}.</div>`}</div></section></div>`;
 }
 // ---- 🔒 Chốt ca
+// Ca sau cùng ngày nhận két của ca này phải xong ô "Tiền mở ca" (có Fabi, khớp hoặc đã chọn ca chịu) — máy chủ kiểm lại cả ca sau chưa gửi phiếu.
+function nextNeed(D, c) {
+  const i = SHIFT_ORDER.indexOf(c.shift); if (i < 0 || i >= SHIFT_ORDER.length - 1) return null;
+  const nx = (D.cas || []).find((o) => o.date === c.date && o.shift === SHIFT_ORDER[i + 1]); if (!nx) return null;
+  const mo = caChecks(nx, dayChain(D, c.date).get(nx.id)).find((k) => k.k === 'mo');
+  return nx.fabi?.has && mo?.st === 'ok' ? null : `Ca ${nx.shift} (ca sau) chưa xong tiền mở ca — xử lý ở ca ${nx.shift} trước`;
+}
 function partFinal(D, a) {
   const { c } = a; const fin = D.finals?.[c.id];
   if (fin) { const tr = treoOf(D, c.id);
@@ -800,6 +813,8 @@ function partFinal(D, a) {
       ${tr.length ? html`<span class="st-meta">Khoản treo: ${tr.map((t) => `${t.pm === 'tm' ? 'TM' : 'CK'} ${fmt(t.amount)} (${treoView(t).label})`).join(' · ')} — <a href="${q({ tab: 'tong' })}">xem tab Tổng ›</a></span>` : ''}</div>`; }
   if (D.ext) return '';
   const { need, treo } = finalNeeds(c, D.items);
+  const nn = nextNeed(D, c); if (nn) need.push(nn);
+  if (D.locked) need.push('Tháng đã chốt');
   return html`<div class="stc-fin"><button type="button" class="btn sm" data-dsfinal="1" ${need.length ? 'disabled' : ''}>🔒 Chốt ca</button>
     <span class="st-meta">${need.length ? '🔒 ' + need.join(' · ') : treo.length ? `Đủ điều kiện. ${treo.length} khoản còn chờ sẽ thành Khoản treo.` : 'Đủ điều kiện chốt. Chốt xong khoá vĩnh viễn.'}</span></div>`;
 }
@@ -840,8 +855,8 @@ function treoCard(D) {
   const list = D.treo || []; const open = list.filter((t) => t.status === 'mo'); const done = list.filter((t) => t.status !== 'mo');
   const row = (t) => { const v = treoView(t);
     const acts = t.status !== 'mo' || D.ext ? '' : t.kind === 'tien' && v.over
-      ? html`<button type="button" class="btn sm" data-treodo="tru" data-treo="${t.id}">Trừ tiền nhân viên</button><button type="button" class="btn sm secondary" data-treodo="qc" data-treo="${t.id}">Quán chịu</button>`
-      : t.kind === 'thua' && t.thu_khac ? '' : html`<button type="button" class="btn sm" data-treodo="use" data-treo="${t.id}">${t.kind === 'tien' ? 'Đã về' : 'Ghép với ca thiếu'}</button>`;
+      ? html`<button type="button" class="btn sm" data-treodo="tru" data-treo="${t.id}">Trừ tiền nhân viên</button>${D.owner ? html`<button type="button" class="btn sm secondary" data-treodo="qc" data-treo="${t.id}">Quán chịu</button>` : ''}`
+      : t.kind === 'thua' && t.thu_khac ? html`<button type="button" class="btn sm" data-treodo="thu" data-treo="${t.id}">Ghi Thu khác</button>` : html`<button type="button" class="btn sm" data-treodo="use" data-treo="${t.id}">${t.kind === 'tien' ? 'Đã về' : 'Ghép với ca thiếu'}</button>`;
     return html`<div class="stc-si stc-treo"><span><b>${t.pm === 'tm' ? 'Tiền mặt' : 'Chuyển khoản'} ${fmt(t.left ?? t.amount)}</b>${Number(t.left) !== Number(t.amount) ? html` <span class="st-meta">/ ${fmt(t.amount)}</span>` : ''}
       <br><span class="pill ${v.cls}">${v.label}</span><br><span class="st-meta">Từ ca ${t.shift} ${dm(t.date)} (ca gốc đã chốt)</span></span><span class="stc-tools">${acts}</span></div>`; };
   return html`<section class="card stc-side"><h3>Khoản treo <small>${open.length} đang chờ${open.some((t) => treoView(t).over) ? ` · ${open.filter((t) => treoView(t).over).length} quá hạn` : ''}</small></h3>
@@ -866,17 +881,23 @@ function treoAct(D, b) {
       await rpc('app_stc_treo_use', { p_treo: t.id, p_report: Number(ca.value), p_amount: money(d, 'amount'), p_reason: val(d, 'reason') || null }); after(t.kind === 'tien' ? 'Đã ghi tiền về' : 'Đã ghép'); });
   } else if (b.dataset.treodo === 'tru') {
     const g = D.items.find((x) => x.ca_id === t.report_id && x.col === 'lech' && x.pm === t.pm)?.gap; const people = g?.people || [];
-    const d = dialog(form(`Trừ tiền nhân viên · ${head}`, html`<div class="st-meta">Quá hạn 3 ngày chưa thấy tiền về. Ghi phiếu trừ tiền lên ca gốc (ca gốc vẫn khoá, số chênh lệch không đổi).</div>
-      ${people.length ? people.map((p) => html`<label class="field"><span>${p.name}</span><input class="input" name="tl_${p.id}" inputmode="numeric" data-money value="${fmt(Math.floor(Number(t.left) / people.length / 1000) * 1000)}"></label>`)
+    const left = Number(t.left); const each = people.length ? Math.floor(left / people.length / 1000) * 1000 : 0;
+    const d = dialog(form(`Trừ tiền nhân viên · ${head}`, html`<div class="st-meta">Quá hạn 3 ngày chưa thấy tiền về. Ghi phiếu trừ tiền lên ca gốc (ca gốc vẫn khoá, số chênh lệch không đổi). Tổng phải đúng ${fmt(left)}.</div>
+      ${people.length ? people.map((p, i) => html`<label class="field"><span>${p.name}</span><input class="input" name="tl_${p.id}" inputmode="numeric" data-money value="${fmt(i ? each : left - each * (people.length - 1))}"></label>`)
         : html`<div class="alert warn">Mở tháng của ca gốc để thấy người làm ca.</div>`}`));
     open(d, async () => { if (!val(d, 'reason')) throw new Error('Ghi lý do.');
       const ps = people.map((p) => ({ employee_id: p.id, amount: money(d, 'tl_' + p.id) })).filter((p) => p.amount > 0);
       if (!ps.length) throw new Error('Nhập số tiền trừ.');
+      const tot = ps.reduce((s, p) => s + p.amount, 0); if (tot !== left) throw new Error(`Tổng trừ ${fmt(tot)} — phải đúng ${fmt(left)}.`);
       await rpc('app_stc_treo_close', { p_treo: t.id, p_kind: 'tru', p_people: ps, p_reason: val(d, 'reason') }); after('Đã tạo phiếu trừ tiền'); });
   } else if (b.dataset.treodo === 'qc') {
-    const d = dialog(form(`Quán chịu · ${head}`, html`<div class="st-meta">Quá hạn 3 ngày chưa thấy tiền về. Quán chịu ${fmt(t.left)} (tính chi phí "Âm tiền – quán chịu"). Không phải Chủ thì chờ Chủ duyệt.</div>`));
+    const d = dialog(form(`Quán chịu · ${head}`, html`<div class="st-meta">Quá hạn 3 ngày chưa thấy tiền về. Quán chịu ${fmt(t.left)} (tính chi phí "Âm tiền – quán chịu"). Chỉ Chủ quyết.</div>`));
     open(d, async () => { if (!val(d, 'reason')) throw new Error('Ghi lý do.');
-      const r = await rpc('app_stc_treo_close', { p_treo: t.id, p_kind: 'qc', p_people: null, p_reason: val(d, 'reason') }); after(r === 'cho_duyet' ? 'Đã gửi Chủ duyệt quán chịu' : 'Đã ghi quán chịu'); });
+      await rpc('app_stc_treo_close', { p_treo: t.id, p_kind: 'qc', p_people: null, p_reason: val(d, 'reason') }); after('Đã ghi quán chịu'); });
+  } else if (b.dataset.treodo === 'thu') {
+    const d = dialog(form(`Ghi Thu khác · ${head}`, html`<div class="st-meta">Hết tháng chưa ghép được với ca thiếu nào. Ghi ${fmt(t.left)} thành phiếu thu "Thu khác" của ca gốc (ca gốc vẫn khoá).</div>`));
+    open(d, async () => { if (!val(d, 'reason')) throw new Error('Ghi lý do.');
+      await rpc('app_stc_treo_close', { p_treo: t.id, p_kind: 'thu', p_people: null, p_reason: val(d, 'reason') }); after('Đã ghi Thu khác'); });
   }
 }
 

@@ -60,9 +60,17 @@ export default async ({ sleep, out }) => {
       await open(181); $('[data-dsbook="chi"]').click(); await sleep(400);
       ok(!!rowOf('mua đá'), '6b. khôi phục → phiếu "Mua đá" trở lại (phiếu xoá vẫn gạch ngang)');
     } else bad.push('6b. không thấy nút Sửa / Xoá của "Mua đá"');
-    // 7. ca Sáng 18/11 (dư tiền mặt 20.000) → chốt → khoản treo tiền thừa
+    // 7. ca Sáng 18/11 (dư tiền mặt 20.000): ca sau (Chiều) chưa xong tiền mở ca → chưa chốt được
     await open(181);
-    ok(txt($('.stc-fin')).includes('khoản treo'), '7. ca dư: báo sẽ thành Khoản treo');
+    ok(!!$('[data-dsfinal][disabled]') && txt($('.stc-fin')).includes('ca chiều (ca sau) chưa xong tiền mở ca'), '7. ca sau chưa xong tiền mở ca → Chốt ca tắt, ghi rõ lý do');
+    // xử lý ca Chiều: lấy số máy Fabi (mở ca) → "Ca này ghi sai"
+    await open(182);
+    $('[data-dsfabi="mo"]')?.click(); await wait('dialog[open]', 30); await sleep(200); if (dlg()) await submit();
+    await open(182);
+    $('[data-dsblame="nay"]')?.click(); await wait('dialog[open]', 30); await sleep(200); if (dlg()) { setv('[name=reason]', 'nhận két ghi sai'); await submit(); }
+    if (dlg()) { bad.push('7. chọn ca chịu lệch lỗi: ' + txt($('.stc-err', dlg()))); $('[data-x]', dlg())?.click(); }
+    await open(181);
+    ok(txt($('.stc-fin')).includes('khoản treo') && !!$('[data-dsfinal]:not([disabled])'), '7. ca sau xong tiền mở ca → chốt được, báo sẽ thành Khoản treo');
     $('[data-dsfinal]').click(); await wait('dialog[open]', 30); await sleep(200);
     ok(txt(dlg()).includes('tiền thừa chờ ghép'), '7. hộp xác nhận ghi "tiền thừa chờ ghép"'); await submit();
     location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-11&t=' + Date.now(); await sleep(400); await wait('.stc-big'); await sleep(400);

@@ -870,3 +870,11 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
     - Ca gốc không đổi một đồng. Khoản treo hiện ở tab Tổng (ô + khung).
   - Sửa lỗi đợt 4: "Xác nhận Fabi" không còn báo "mục đã tự đối soát nên KHOÁ" khi mục đó đã khớp (kết quả trùng, hoặc lệch ≤ 5.000).
   - Sổ chung: ca đã chốt ẩn mọi nút ("🔒 Ca đã chốt"); ca chưa chốt có đường dẫn "Xử lý & chốt ca này ở Đối soát Fabi ›".
+  - Sửa sau duyệt mã (19/11, trước khi chạy thật):
+    - Tải lại file Fabi bỏ qua ca đã chốt (status `da_chot_ca`).
+    - Khách trả một phần nợ ghi từ ca đã chốt vẫn ghi được (tách / gộp dòng, tổng nợ ca giữ nguyên).
+    - Huỷ "Đã về / Ghép" → khoản treo mở lại; khoản treo đã đóng bằng trừ tiền / quán chịu / thu khác thì không huỷ được.
+    - Trừ tiền khoản treo phải đúng phần còn treo; **Quán chịu khoản treo chỉ Chủ**; tiền thừa hết tháng → nút **Ghi Thu khác**.
+    - Chặn gán nợ / tiền về muộn / xử lý lệch trên ca đã chốt; dấu duyệt việc không phải tiền + gán lương nhân viên vẫn làm được; Công việc không nhắc lệch ca đã chốt.
+    - **Chốt ca cần ca sau cùng ngày đã xong ô Tiền mở ca** (có Fabi, khớp hoặc đã chọn ca chịu) — để lệch giao ca không đổi số ca đã chốt.
+    - Khôi phục phiếu: đã có phiếu y hệt thì ẩn nút (tránh thêm trùng).
