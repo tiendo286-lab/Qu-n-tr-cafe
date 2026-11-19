@@ -282,3 +282,33 @@ export function filterItems(items, f, ctx = {}) {
     return true;
   });
 }
+
+// ---------------- Tab Tổng mẫu B (bước 166) ----------------
+const dmShort = (d) => `${String(d || '').slice(8, 10)}/${String(d || '').slice(5, 7)}`;
+const byRedDate = (a, b) => (a.red !== b.red ? (a.red ? -1 : 1) : a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+// Việc cần làm: ca chưa xác nhận Fabi (đỏ), lệch chờ xử lý, chi chưa phân loại, Chuyển về Quỹ ngoài chờ Chủ nhận
+export function todoItems(D, waitQN = []) {
+  const its = (D?.items || []).filter((x) => !x.void);
+  const out = [
+    ...(D?.cas || []).filter((c) => !c.recon_money_done).map((c) => ({ kind: 'fabi', red: true, date: c.date, text: `Ca ${c.shift} ${dmShort(c.date)} chưa xác nhận Fabi`, amount: null, ref: c })),
+    ...its.filter((x) => x.col === 'lech' && /Chờ/.test(x.status || '')).map((x) => ({ kind: 'lech', red: false, date: x.date, text: `${x.title} · ${dmShort(x.date)}`, sub: x.status, amount: Number(x.amount || 0), ref: x })),
+    ...its.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat).map((x) => ({ kind: 'cat', red: false, date: x.date, text: `Chưa phân loại · ${x.title} · ${dmShort(x.date)}`, amount: Number(x.amount || 0), ref: x })),
+    ...(waitQN || []).map((x) => ({ kind: 'qn', red: false, date: x.date, text: `Chuyển về Quỹ ngoài ${dmShort(x.date)} · chờ Chủ nhận`, amount: Number(x.amount || 0), ref: x })),
+  ];
+  return out.sort(byRedDate);
+}
+// Ai còn nợ: gom theo người (tên + dấu ✓), người nợ lâu nhất lên đầu; ✓ (không nhắc) tách riêng
+export function debtGroups(debts, today) {
+  const t0 = new Date(today + 'T00:00:00').getTime();
+  const map = new Map();
+  (debts || []).filter((d) => Number(d.left) > 0).forEach((d) => {
+    const days = Math.max(0, Math.round((t0 - new Date(d.date + 'T00:00:00').getTime()) / 864e5));
+    const key = `${d.who}|${d.no_remind ? 1 : 0}`;
+    if (!map.has(key)) map.set(key, { who: d.who, no_remind: !!d.no_remind, total: 0, n: 0, maxDays: 0, ks: [] });
+    const g = map.get(key); g.total += Number(d.left); g.n += 1; g.maxDays = Math.max(g.maxDays, days); g.ks.push({ ...d, days });
+  });
+  const gs = [...map.values()]; gs.forEach((g) => g.ks.sort((a, b) => b.days - a.days));
+  const order = (a, b) => b.maxDays - a.maxDays || b.total - a.total;
+  const main = gs.filter((g) => !g.no_remind).sort(order), fam = gs.filter((g) => g.no_remind).sort(order);
+  return { main, fam, total: gs.reduce((s, g) => s + g.total, 0), late: main.filter((g) => g.maxDays > 7).length };
+}
