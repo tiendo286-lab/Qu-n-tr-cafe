@@ -23,9 +23,9 @@ export default async ({ sleep, out }) => {
     const rid2 = await rpc('app_ca_open', { p_branch: o2.branch_id, p_date: day, p_shift: o2.shift });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: rid2, p_part: k, p_force: false });
     const routes = (new URLSearchParams(location.search).get('r') || [
-      '/hom-nay', '/ca', `/ca/phieu?id=${rid}`, `/ca/phieu?id=${rid2}`, `/quan-ly/doi-soat/ca?id=${rid}`, '/quan-ly/doi-soat', '/quan-ly/thu-chi', '/quan-ly/lech-tien',
+      '/hom-nay', '/ca', `/ca/phieu?id=${rid}`, `/ca/phieu?id=${rid2}`, `/quan-ly/doi-soat/ca?id=${rid}`, '/quan-ly/doi-soat', '/quan-ly/so-thu-chi?tab=chi',   // bước 152: Thu chi / Lệch tiền ca cũ đã xoá
       '/quan-ly/bao-cao', '/hang-hoa/nhan', '/hang-hoa/doi-soat', '/hang-hoa/phieu-xuat', '/lich', '/quan-ly/lich-tong', '/quan-ly/cong-no',
-      '/quan-ly/giao-viec', '/viec', '/quan-ly/so-quy', '/quan-ly/chot-thang', '/order', '/quan-ly/canh-bao', '/quan-ly/nhan-vien',
+      '/quan-ly/giao-viec', '/viec', '/quan-ly/so-thu-chi?tab=tong', '/quan-ly/chot-thang', '/order', '/quan-ly/canh-bao', '/quan-ly/nhan-vien',
     ].join(',')).split(',');
     // mở web lần đầu: từ lúc tải trang tới khi xong câu hỏi cuối cùng trước khi đo
     { const c = window.__RPCT; let w = 0, p = -1e9; for (const s of c.map((x) => x[1]).sort((a, b) => a - b)) { if (s - p > 50) w++; p = s; }

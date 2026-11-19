@@ -5,9 +5,7 @@ export default async ({ sleep, out }) => {
   const r = [];
   const CASES = [
     ['Cài đặt chốt tháng', '#/quan-ly/chot-thang', '#ct-set'],
-    ['Thêm khoản thu chi', '#/quan-ly/thu-chi', '#tc-add'],
-    ['Phiếu rút quỹ', '#/quan-ly/so-quy?cn=1', '#sq-new'],
-    ['Kiểm quỹ', '#/quan-ly/so-quy?cn=1', '#sq-count'],
+    // bước 152: Thu chi / Sổ quỹ cũ đã xoá — hộp thoại Sổ thu chi thử ở flow_stc2 / flow_stc5
     ['Thêm việc', '#/quan-ly/giao-viec', '#v-add'],
     ['Tạo phiếu đào tạo', '#/quan-ly/nhan-vien', '.new-dt'],
     ['Đánh giá nhân viên', '#/quan-ly/danh-gia', '.dg-row'],

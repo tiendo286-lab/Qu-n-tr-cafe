@@ -93,8 +93,7 @@ export default async ({ sleep, out }) => {
   await step('Chốt tháng + Quỹ ngoài', async () => {
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/quan-ly/chot-thang?cn=1'; await wait('.ct-rc', 300); await sleep(800);
     const a = [...document.querySelectorAll('.pc-sub')].find((x) => /KHO TỔNG/i.test(x.innerText))?.innerText.replace(/\s+/g, ' ').slice(0, 70) || ('KHÔNG THẤY: ' + [...document.querySelectorAll('.pc-sub, h2')].map((x) => x.innerText.slice(0, 25)).join(' / ') + ' ' + (window.__ERR || []).join(' ').slice(0, 200));
-    location.hash = '#/quan-ly/so-quy?cn=ngoai'; await wait('.sq-k', 200); await sleep(400);
-    return `${a} · nút Quỹ ngoài: ${txt('#ex-kho') || 'KHÔNG CÓ'}`;
+    return a;   // bước 152: Sổ quỹ cũ (nút tiền hàng kho tổng ở Quỹ ngoài) đã bỏ
   });
   out.push({ route: 'nhập hàng kho tổng', title: r.join(' || ') + ` || rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`, len: 0, errs: [...errs, ...window.__ERR] });
 };

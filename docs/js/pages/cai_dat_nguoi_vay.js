@@ -21,7 +21,7 @@ export async function render() {
         .lp-add { display: flex; gap: 8px; flex-wrap: wrap; } .lp-add input { flex: 1 1 160px; min-width: 0; }
         @media (max-width: 560px) { .lp-r { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
       </style>
-      <div class="page-head"><div><h1>Người vay</h1><div class="sub">Người ngoài được cơ sở cho vay (nhân viên không vay). Tích <b>Công nợ gia đình</b> cho người nhà: cuối tháng mới thu, không nhắc khi chốt ca. Ghi khoản vay / trả nợ ở trang <a href="#/quan-ly/thu-chi">Thu chi</a> của cơ sở bật mục Cho vay (hiện là LHP).${ed ? '' : ' Chỉ Chủ và Quản lý tổng sửa được.'}</div></div>
+      <div class="page-head"><div><h1>Người vay</h1><div class="sub">Người ngoài được cơ sở cho vay (nhân viên không vay). Tích <b>Công nợ gia đình</b> cho người nhà: cuối tháng mới thu, không nhắc khi chốt ca. Ghi khoản vay / trả nợ ở trang <a href="#/quan-ly/so-thu-chi?tab=chi">Sổ thu chi</a> của cơ sở bật mục Cho vay (hiện là LHP).${ed ? '' : ' Chỉ Chủ và Quản lý tổng sửa được.'}</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:860px;gap:12px">
         ${ed ? html`<section class="card stack" style="gap:8px"><h2 style="margin:0">Thêm người vay</h2>

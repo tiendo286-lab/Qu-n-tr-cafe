@@ -11,7 +11,7 @@ const ASSET_VERSION = '2026.11.19.8';
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
 export const HUBS = [
   ['Việc hôm nay', [['Việc hôm nay', '/hom-nay', null]], null, 'Vận hành'],   // bước 62 / 138: trang chủ của cả 5 vai trò
-  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Thu chi', '/quan-ly/thu-chi', 'doi_soat'], ['Lệch tiền ca', '/quan-ly/lech-tien', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat'], ['Sổ thu chi (mới)', '/quan-ly/so-thu-chi', 'chot_thang']], 'ngay', 'Vận hành'],
+  ['Quản lý ca', [['Chốt ca', '/ca', 'chot_ca'], ['Sổ thu chi', '/quan-ly/so-thu-chi', 'doi_soat'], ['Công nợ', '/quan-ly/cong-no', 'doi_soat']], 'ngay', 'Vận hành'],   // bước 152: Thu chi / Lệch tiền ca cũ đã gộp vào Sổ thu chi
   // bước 104: Hàng hoá kho tổng tách hẳn khỏi chốt ca — nhận hàng · đối soát · phiếu xuất (kế toán tải) · kiểm soát (giao bù, hoá đơn bổ sung, tiền tháng)
   ['Hàng hoá', [['Nhận hàng', '/hang-hoa/nhan', ['chot_ca', 'doi_soat', 'ke_toan']], ['Đối soát', '/hang-hoa/doi-soat', 'doi_soat'], ['Phiếu xuất', '/hang-hoa/phieu-xuat', ['ke_toan', 'doi_soat']],
     ['Kiểm soát', '/hang-hoa/kiem-soat', ['ke_toan', 'doi_soat']]], 'cn', 'Vận hành'],
@@ -19,7 +19,7 @@ export const HUBS = [
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
   // bước 109: Bảng phân công công việc chung (Đợt 1) — việc tự tạo theo bảng + Giao việc riêng + Quá hạn & phạt
   ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Đào tạo', '/cong-viec/dao-tao', null], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
-  ['Sổ quỹ & chốt tháng', [['Sổ quỹ', '/quan-ly/so-quy', 'chot_thang'], ['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],
+  ['Sổ quỹ & chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],   // bước 152: Sổ quỹ cũ → tab Tổng của Sổ thu chi
   ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', ['ke_toan', 'doi_soat']]], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null], ['Theo dõi đọc & cam kết', '/theo-doi-noi-quy', ['ke_toan', 'quan_ly_nhan_vien']]], null, 'Nhân sự'],
@@ -77,9 +77,6 @@ const PAGES = {
   '/cai-dat/tai-khoan': 'cai_dat_tk',
   '/cai-dat/nhom-mon': 'cai_dat_nhom_mon',
   '/cai-dat/thu-chi': 'cai_dat_thu_chi',
-  '/quan-ly/thu-chi': 'thu_chi',
-  '/quan-ly/am-tien': 'am_tien',   // đường dẫn cũ — vẫn mở được
-  '/quan-ly/lech-tien': 'am_tien',
   '/hang-hoa/nhan': 'giao_hang',   // bước 104: Hàng hoá (đường dẫn cũ /quan-ly/giao-hang, /ke-toan/hoa-don tự chuyển sang)
   '/hang-hoa/doi-soat': 'giao_hang',
   '/hang-hoa/phieu-xuat': 'ke_toan_hoa_don',
@@ -90,8 +87,7 @@ const PAGES = {
   '/cua-toi/cong': 'cong_toi',
   '/quan-ly/danh-gia': 'danh_gia',
   '/quan-ly/chot-thang': 'chot_thang',
-  '/quan-ly/so-quy': 'so_quy',
-  '/quan-ly/so-thu-chi': 'so_thu_chi',   // bước 143: Sổ thu chi mới (đợt 1 chỉ xem, chạy song song)
+  '/quan-ly/so-thu-chi': 'so_thu_chi',   // bước 152: chỗ làm tiền duy nhất (thay Thu chi / Lệch tiền ca / Sổ quỹ cũ)
 };
 
 export const state = { me: null, unread: 0, warn: 0, tasks: 0, review: 0, remind: null, support: 0, ka: 0 };
@@ -304,9 +300,14 @@ export async function render() {
   if (me && path === '/dang-nhap') return go('/');
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
   if (path === '/' && me && !me.must_change) return go('/hom-nay');   // bước 138: cả 5 vai trò vào Việc hôm nay trước
-  // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
-  if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());
-  if (path === '/quan-ly/bao-cao-ca') return go('/quan-ly/thu-chi');
+  // bước 152: Thu chi / Lệch tiền ca / Sổ quỹ / Khoản âm / Báo cáo ca cũ đã xoá → Sổ thu chi (giữ tháng + cơ sở; khoản âm → lọc Có trừ lương).
+  // Thông báo, việc trong Công việc và dấu trang cũ vẫn bấm được.
+  const OLD_TAB = { '/quan-ly/thu-chi': 'chi', '/quan-ly/bao-cao-ca': 'chi', '/quan-ly/khoan-am': 'chi', '/quan-ly/lech-tien': 'doi-soat', '/quan-ly/am-tien': 'doi-soat', '/quan-ly/so-quy': 'tong' };
+  if (OLD_TAB[path]) {
+    const o = { tab: OLD_TAB[path] }; if (params.thang) o.thang = params.thang; if (params.cn) o.cn = params.cn;
+    if (path === '/quan-ly/khoan-am' || params.xem === 'khoan-am') o.loc = 'st:tl';
+    return go('/quan-ly/so-thu-chi?' + new URLSearchParams(o).toString());
+  }
   if (path === '/cai-dat/nguoi-vay') return go('/quan-ly/cong-no');   // UI-29: mục Người vay đã bỏ từ bước 85 → Công nợ
   // bước 104: giao hàng kho tổng chuyển sang menu Hàng hoá (giữ link cũ trong thông báo)
   if (path === '/quan-ly/giao-hang') return go((params.nhan ? '/hang-hoa/nhan' : params.ds || params.xem || can('doi_soat') ? '/hang-hoa/doi-soat' : '/hang-hoa/nhan') + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));

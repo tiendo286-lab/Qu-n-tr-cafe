@@ -404,7 +404,7 @@ export async function render({ params }) {
     ${isDs ? html`<div id="bank-box"></div><div id="bank-outs" class="diff-card"></div>` : ''}
     ${done && (R.shortfalls || []).length ? html`<div class="ka-box"><div class="pc-sub" style="margin:0">KHOẢN ÂM ĐÃ GÁN CHO NHÂN VIÊN</div>
       ${R.shortfalls.map((k) => html`<div class="pc-line"><strong>${k.employee}</strong> · ${CHECK_LABEL[k.item]} · ${vnd(k.amount)} <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}</span>${k.seen_at ? html`<span class="st-meta">đã xem</span>` : ''}${k.reply ? html`<span class="st-meta">· giải trình: ${k.reply}</span>` : ''}</div>`)}
-      <a class="st-meta" href="#/quan-ly/thu-chi?xem=khoan-am">Mở phiếu trừ lương trong Thu chi</a></div>` : ''}
+      <a class="st-meta" href="#/quan-ly/so-thu-chi?tab=chi&loc=st:tl">Mở phiếu trừ lương trong Sổ chi</a></div>` : ''}
     ${isDs ? '' : movesEd}`);   // bước 93: đối soát — sửa / thêm thu chi ở bước Thu chi
 
   // D. Công nợ

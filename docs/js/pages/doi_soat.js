@@ -71,7 +71,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
       <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th class="dw-end">Kiểm đếm</th></tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}
           <td>${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</td></tr>`)}</tbody></table></div>
-      <div class="dw-lg">${['xong', 'mot', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/am-tien">Âm tiền</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
+      <div class="dw-lg">${['xong', 'mot', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/so-thu-chi?tab=doi-soat">Sổ thu chi › Đối soát Fabi</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
     ${debtSection(DEBT, reps)}`;
 }
 
@@ -208,7 +208,7 @@ export async function render({ params }) {
       <div class="td-m"><strong>${k.employee} · −${fmt(k.amount)}đ</strong> <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}${k.auto_tru ? ' (mặc định)' : ''}</span>
         <div class="st-meta">Ca ${k.shift} ${k.branch} ${dmy(k.work_date)} · ${k.item_label}${k.reason ? ` · ${k.reason}` : ''}</div>
         <div class="td-rep">Giải trình ${dt(k.reply_at)}: ${k.reply}</div></div>
-      <span class="toolbar" style="gap:6px"><button type="button" class="btn sm td-keep">Giữ trừ lương</button><a class="btn sm secondary" href="#/quan-ly/thu-chi?xem=khoan-am&thang=${String(k.work_date).slice(0, 7)}">Sửa / xóa</a></span></div>`;
+      <span class="toolbar" style="gap:6px"><button type="button" class="btn sm td-keep">Giữ trừ lương</button><a class="btn sm secondary" href="#/quan-ly/so-thu-chi?tab=chi&loc=st:tl&thang=${String(k.work_date).slice(0, 7)}">Sửa / xóa</a></span></div>`;
   const loanRow = (d) => html`<div class="td-r" data-br="${d.branch_id}">
       <div class="td-m"><strong>${d.name} · ${fmt(d.amount)}đ</strong> ${d.days >= 3 ? html`<span class="pill off">${d.days} ngày</span>` : html`<span class="pill mute">${d.days} ngày</span>`}
         <div class="st-meta">${d.branch} · Nợ TM ca ${d.shift} ${dmy(d.date)}${d.by ? ` · ${d.by} ghi` : ''}${d.note ? ` · ${d.note}` : ''}</div></div>
