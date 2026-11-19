@@ -990,6 +990,20 @@ function dsInfo(D) {
   return { dates, all };
 }
 // ---- phần A · Fabi
+// bước 157: nợ của ca ngay dưới ô Nợ bill — hiện ngay khi nhân viên gửi phiếu (không chờ Xác nhận Fabi). Chỉ xem.
+const DEBT_TAG = { bill: ['HĐ', 'hd', ''], muon: ['TM', 'tm', 'két thiếu'], ck: ['CK', 'ck', 'hotline thiếu'] };
+function debtList(D, c) {
+  const xs = (D.ca_debts || []).filter((x) => Number(x.report_id) === Number(c.id));
+  if (!xs.length) return '';
+  const moi = xs.filter((x) => x.t === 'moi'), tra = xs.filter((x) => x.t === 'tra');
+  const rowMoi = (x) => { const [lab, cls, why] = DEBT_TAG[x.kind] || DEBT_TAG.bill; const a = Number(x.amount), l = Number(x.left);
+    const st = l <= 0 ? html`<span class="pill ok">đã trả</span>` : l < a ? html`<span class="pill warn">còn nợ ${fmt(l)}</span>` : '';
+    return html`<div class="stc-cdr" data-t="moi"><span class="stc-dtag d-${cls}">${lab}</span><span><b>${x.who || '—'}</b>${why ? html` <span class="st-meta">· ${why}</span>` : ''} ${st}</span><b class="stc-amt">${fmt(a)}</b></div>`; };
+  const rowTra = (x) => html`<div class="stc-cdr" data-t="tra"><span class="stc-dtag d-tra">Trả</span><span><b>${x.who || '—'}</b> <span class="st-meta">· ${x.pm === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} · nợ từ ${x.from || '—'}</span></span><b class="stc-amt">+${fmt(x.amount)}</b></div>`;
+  return html`<div class="stc-cadebt">
+    ${moi.length ? html`<div class="stc-cdh">Nợ mới trong ca · ${moi.length} khoản</div>${moi.map(rowMoi)}` : ''}
+    ${tra.length ? html`<div class="stc-cdh">Khách trả nợ cũ trong ca</div>${tra.map(rowTra)}` : ''}</div>`;
+}
 function partA(D, a) {
   const { c, link, cs } = a; const m = link ? link.money : null; const fin = isFin(D, c.id); const f = c.fabi || {}, nv = c.nv || {};
   const kt = c.kt_wait || c.bank_ck == null; const byCa = c.cash_mode === 'ca';
@@ -998,7 +1012,7 @@ function partA(D, a) {
     return html`<div class="stc-part stc-pa"><div class="h">A · Fabi <span class="pill ok">Đã xác nhận</span>${phBtn(c)}${fin ? '' : html`<button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại xác nhận</button>`}</div>
       <div class="stc-fsum"><div><span>Tiền mở ca</span><b>${fmt(f.has ? f.opening ?? 0 : nv.opening ?? 0)}</b></div><div><span>Doanh thu (máy Fabi)</span><b>${fmt(f.revenue ?? nv.revenue ?? 0)}</b></div>
         <div><span>Nợ bill (máy Fabi)</span><b>${fmt(f.debt ?? nv.debt ?? 0)}</b></div>
-        <div><span>Tiền mặt thực nhận</span><b>${m ? fmt(m.tm.real) : '–'}</b></div><div><span>Chuyển khoản thực nhận</span><b>${kt ? 'chờ kế toán' : fmt(c.bank_ck)}</b></div></div></div>`;
+        <div><span>Tiền mặt thực nhận</span><b>${m ? fmt(m.tm.real) : '–'}</b></div><div><span>Chuyển khoản thực nhận</span><b>${kt ? 'chờ kế toán' : fmt(c.bank_ck)}</b></div></div>${debtList(D, c)}</div>`;
   }
   const effect = { mo: (x) => (x.blame ? html`<span class="st-meta">→ <b>Có vào sổ:</b> dòng Chênh lệch tiền mặt ${signedFmt(Number(x.blame.diff))} của ${x.blame.who === 'nay' ? 'ca này' : 'ca trước'}.</span>` : x.fix === 'fabi' ? html`<span class="st-meta">→ Lấy số máy: chỉ sửa số trên phiếu nhân viên, không tạo phiếu.</span>` : ''),
     dt: (x) => (x.st === 'red' ? html`<span class="st-meta">→ Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi; thiếu tiền thật thì hiện ở dòng Chênh lệch.</span>` : ''),
@@ -1019,7 +1033,7 @@ function partA(D, a) {
   const r = (lab, a1, b1) => html`<div class="stc-mr"><span>${lab}</span><b>${a1}</b><b>${b1}</b></div>`;
   const flags = Number(f.edited_bills || 0);
   return html`<div class="stc-part stc-pa"><div class="h">A · Fabi ${phBtn(c)} <span class="st-meta">máy Fabi là chuẩn · chỉ xác định phiếu đúng, tiền mặt và chuyển khoản thực nhận</span></div>
-    <div class="stc-stp"><div class="h"><b>①</b> So phiếu nhân viên với máy Fabi</div><div class="stc-c4s">${s1.map(box)}</div>
+    <div class="stc-stp"><div class="h"><b>①</b> So phiếu nhân viên với máy Fabi</div><div class="stc-c4s">${s1.map(box)}</div>${debtList(D, c)}
       ${!f.has ? html`<div class="st-meta">Chưa có file Fabi: ${(c.kt_missing || []).join(', ') || 'chờ kế toán tải'}.</div>` : ''}
       ${flags ? html`<div class="stc-warnbox">⚠ Trên máy Fabi ca này có <b>${flags} hoá đơn bị sửa / xoá</b>. Hoá đơn bị sửa / xoá không còn đúng trong doanh thu Fabi — kiểm tra lại (hỏi nhân viên / xem camera).</div>` : ''}</div>
     <div class="stc-stp"><div class="h"><b>②</b> Tiền thực nhận <span class="stc-tools"><button type="button" class="btn sm ${byCa ? '' : 'secondary'}" data-dsmode="ca">Thu theo ca</button><button type="button" class="btn sm ${byCa ? 'secondary' : ''}" data-dsmode="ngay">Thu theo ngày</button></span></div>
@@ -1299,6 +1313,13 @@ const STYLE = html`<style>
   .stc-part > .h { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-weight: 800; font-size: 12.5px; letter-spacing: .04em; text-transform: uppercase; }
   .stc-part > .h .st-meta { text-transform: none; letter-spacing: 0; font-weight: 500; }
   .stc-pa > .h { color: var(--primary); } .stc-pb { border: 2px solid var(--info-line); } .stc-pb > .h { color: var(--info-ink); } .stc-lockp { opacity: .65; }
+  .stc-cadebt { margin-top: 8px; border: 2px solid var(--warn-line, #d9a441); background: var(--warn-bg, #fff8ea); border-radius: 10px; padding: 4px 10px 6px; }
+  .stc-cdh { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); margin-top: 6px; }
+  .stc-cdr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--line); }
+  .stc-cdh + .stc-cdr { border-top: 0; }
+  .stc-cdr .stc-amt { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .stc-dtag { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 6px; color: #fff; min-width: 32px; text-align: center; }
+  .stc-dtag.d-hd { background: #6a4fa0; } .stc-dtag.d-tm { background: #2e7d32; } .stc-dtag.d-ck { background: #1565c0; } .stc-dtag.d-tra { background: #00796b; }
   .stc-fsum { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 8px; }
   .stc-fsum > div { background: var(--subtle); border: 1px solid var(--line); border-radius: 10px; padding: 6px 10px; display: flex; flex-direction: column; font-size: 12.5px; color: var(--muted); min-width: 0; }
   .stc-fsum b { color: var(--ink); font-size: 15px; font-variant-numeric: tabular-nums; }
