@@ -26,6 +26,7 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
   - `kiem_tra/trinh_duyet/chay_pw.py`: chạy 1 bài thử Chrome bằng Playwright, thời gian thật, in ĐẠT / LỖI.
   - `kiem_tra/may_chu_cuc_bo/`: dựng Postgres ngay trên máy từ mọi `supabase/*.sql` (gói `pgserver`, cần Python 3.9 hệ thống) để chạy thử tệp SQL mới + bài `kiem_tra/*.sql` **không cần mã sbp_**. Ngày 19/11 nạp 145 tệp: 0 lỗi.
   - Lưu ý: khi dựng phải đứng ở nhánh có đủ tệp SQL cần thử.
+- **`.claude/settings.json`**: trước đêm nay chỉ là tệp cục bộ (bật superpowers). Phần 1 đưa nó lên git. Đổi sang nhánh khác rồi về `main` thì git gỡ tệp này đi; em đã ghi lại đúng nội dung gốc. Sau khi gộp Phần 1, `git pull` có thể báo trùng tệp chưa lưu → đổi tên tệp cục bộ rồi pull lại.
 - **Bài học đêm nay:**
   - Bộ kiểm an toàn của Claude Code đôi khi chặn nhầm lệnh heredoc dài có `$$(`. Cách tránh: ghi đoạn sửa ra tệp `.py` trong scratchpad rồi chạy.
   - Bài thử dùng `visit()` cùng 1 đường dẫn thì trang không vẽ lại → thêm `&t=<số>`.
