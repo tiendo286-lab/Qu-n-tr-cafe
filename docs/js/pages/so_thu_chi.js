@@ -109,6 +109,8 @@ export async function render({ params }) {
           return;
         }
         // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
+        const pp = ev.target.closest('[data-people]');
+        if (pp && root.contains(pp)) { peopleDialog(D); return; }
         const pw = ev.target.closest('[data-dsphoto]');
         if (pw && root.contains(pw)) { photoDialog(D, Number(pw.dataset.dsphoto)); return; }
         const kw = ev.target.closest('[data-kaed],[data-kadel],[data-toka],[data-kaundo],[data-bankout]');
@@ -151,10 +153,19 @@ export async function render({ params }) {
       const lfSet = (k, v) => { const f = parseLoc(P.loc); f[k] = v; if (k === 'type') f.cat = ''; P.loc = locStr(f);
         try { history.replaceState(null, '', q()); } catch (_) { /* bỏ qua */ }
         const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab));
-        const c = $('#stc-lfclr'); if (c) c.hidden = !P.loc; if (k === 'type') fillFilter(D, P.tab); };
+        const c = $('#stc-lfclr'); if (c) c.hidden = !P.loc; if (k === 'type') fillFilter(D, P.tab);
+        root.querySelectorAll('.stc-flt [data-lf]').forEach((e2) => e2.closest('.stc-fl')?.classList.toggle('on', !!f[e2.dataset.lf]));
+        const nOn = ['src', 'type', 'cat', 'st'].filter((x) => f[x]).length; const fb = $('.stc-fbtn'); if (fb) fb.textContent = '⚙ Lọc' + (nOn ? ` (${nOn})` : ''); };
       root.addEventListener('input', (ev) => { const i = ev.target.closest('[data-lf="q"]'); if (!i) return; clearTimeout(lfT); lfT = setTimeout(() => lfSet('q', i.value), 250); });
       root.addEventListener('change', (ev) => { const i = ev.target.closest('select[data-lf]'); if (i) lfSet(i.dataset.lf, i.value); });
       root.addEventListener('click', (ev) => { if (!ev.target.closest('#stc-lfclr')) return; P.loc = ''; location.hash = q(); });
+      root.addEventListener('click', (ev) => {   // bước 164: ✕ từng điều kiện / Bỏ hết (giữ ô đang chọn) + ⚙ Lọc trên điện thoại
+        const fb = ev.target.closest('.stc-fbtn'); if (fb && root.contains(fb)) { fb.closest('.stc-flt').classList.toggle('open'); return; }
+        const uw = ev.target.closest('[data-unloc]'); if (!uw || !root.contains(uw)) return;
+        if (uw.dataset.unloc === 'all') { P.loc = ''; location.hash = q(); return; }
+        const ctl = root.querySelector(`.stc-flt [data-lf="${uw.dataset.unloc}"]`); if (ctl) ctl.value = '';
+        lfSet(uw.dataset.unloc, '');
+      });
     },
   };
 }
@@ -657,10 +668,21 @@ async function setWho(D, x, v, sel) {
   const save = async (name) => rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name, amount: Number(x.amount), kind: x.pm === 'ck' ? 'ck' : 'muon', date: x.date }, p_reason: 'Đổi người nợ: ' + name });
   if (v !== '__add') { try { await save(v); after('Đã đổi người nợ'); } catch (e) { showSaved(e.message || e, true); sel.value = debtName(x); } return; }
   sel.value = debtName(x);
+  addPersonDialog(async (n, nr) => { await save(n); await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: n, p_no_remind: nr }); after('Đã thêm người nợ'); });
+}
+// bước 164: hộp Thêm người nợ dùng chung (đổi người nợ trên dòng Cho nợ + cửa sổ 👥 Người nợ)
+function addPersonDialog(onSave) {
   const d = dialog(form('Thêm người nợ', html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" placeholder="vd: Kho Tổng"></label>
     <label class="stc-chk"><input type="checkbox" name="nr" checked> ✓ Không cần nhắc thu ở phiếu chốt ca</label>`, ' '));
-  open(d, async () => { const n = val(d, 'name'); if (!n) throw new Error('Nhập tên người nợ.'); await save(n);
-    await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: n, p_no_remind: !!d.querySelector('[name=nr]').checked }); after('Đã thêm người nợ'); });
+  open(d, async () => { const n = val(d, 'name'); if (!n) throw new Error('Nhập tên người nợ.'); await onSave(n, !!d.querySelector('[name=nr]').checked); });
+}
+// bước 164: cửa sổ 👥 Người nợ (Sổ chi) — chỉ gom việc đã có: danh sách, ✓ không nhắc, thêm người
+function peopleDialog(D) {
+  const d = dialog(html`<div class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">👥 Người nợ</h2>${peopleBox(D)}
+    <div class="toolbar" style="justify-content:space-between"><button type="button" class="btn sm secondary" data-padd>+ Thêm người nợ</button><button type="button" class="btn sm" data-x>Đóng</button></div></div>`);
+  d.querySelector('[data-x]').addEventListener('click', () => d.close());
+  d.addEventListener('change', (ev) => { const c = ev.target.closest('[data-person]'); if (c) { d.close(); personMark(D, c.dataset.person, c.checked); } });
+  d.querySelector('[data-padd]').addEventListener('click', () => { d.close(); addPersonDialog(async (n, nr) => { await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: n, p_no_remind: nr }); after('Đã thêm người nợ'); }); });
 }
 // ---- bước 154: ảnh phiếu Fabi chốt ca (nhân viên chụp) — trước ở bước Tiền của Đối soát ca (đã bỏ ở bước 152)
 const phBtn = (c) => html`<button type="button" class="btn sm secondary" data-dsphoto="${c.id}">📷 Ảnh phiếu Fabi</button>`;
@@ -739,25 +761,34 @@ const HINT = { thu: { dt: 'khách trả TM / CK trên Fabi', no: 'khách trả n
 const SRC_OPTS = [['', 'Mọi nguồn'], ['ca', 'Từ phiếu ca'], ['tay', 'Quản lý tạo (ngoài ca)'], ['bu', 'Nộp bù khoản âm'], ['lech', 'Chênh lệch']];
 const ST_OPTS = [['', 'Mọi trạng thái'], ['todo', 'Chưa phân loại'], ['cho', 'Chờ xử lý'], ['tl', 'Có trừ lương'], ['void', 'Đã xoá'], ['fin', 'Ca đã chốt'], ['open', 'Ca chưa chốt']];
 const TL_ST = { tru_luong: 'Trừ lương', da_bu: 'Đã nộp bù', mien: 'Miễn', huy: 'Đã huỷ' };
-function filterBar(book) {
-  const f = parseLoc(P.loc);
-  const sel = (k, opts, label) => html`<select class="input sm" data-lf="${k}" aria-label="${label}">${opts.map(([v, l]) => html`<option value="${v}" ${f[k] === v ? 'selected' : ''}>${l}</option>`)}</select>`;
+function filterBar(book) {   // bước 164: mỗi ô chọn ghi tên trước giá trị, ô đang lọc tô nâu; điện thoại gom vào ⚙ Lọc
+  const f = parseLoc(P.loc); const nOn = ['src', 'type', 'cat', 'st'].filter((k) => f[k]).length;
+  const wrap = (k, label, ctl) => html`<label class="stc-fl ${f[k] ? 'on' : ''}"><span>${label}</span>${ctl}</label>`;
+  const sel = (k, opts, label, help = {}) => wrap(k, label, html`<select class="input sm" data-lf="${k}" aria-label="${label}">${opts.map(([v, l]) => html`<option value="${v}" ${f[k] === v ? 'selected' : ''}>${v ? l : 'Tất cả'}${help[v] ? ' — ' + help[v] : ''}</option>`)}</select>`);
   return html`<div class="stc-flt" role="search">
     <input class="input sm stc-q" type="search" data-lf="q" value="${f.q}" placeholder="Tìm nội dung, nhóm, người, giải trình…" aria-label="Tìm">
+    <button type="button" class="btn sm secondary stc-fbtn">⚙ Lọc${nOn ? ` (${nOn})` : ''}</button>
     ${sel('src', SRC_OPTS, 'Nguồn')}
-    <select class="input sm" data-lf="type" aria-label="Loại"><option value="">Mọi loại</option>${f.type ? html`<option value="${f.type}" selected>…</option>` : ''}</select>
-    <select class="input sm" data-lf="cat" aria-label="Nhóm"><option value="">Mọi nhóm</option>${f.cat ? html`<option value="${f.cat}" selected>${f.cat}</option>` : ''}</select>
-    ${sel('st', ST_OPTS, 'Trạng thái')}
+    ${wrap('type', 'Loại', html`<select class="input sm" data-lf="type" aria-label="Loại"><option value="">Tất cả</option>${f.type ? html`<option value="${f.type}" selected>…</option>` : ''}</select>`)}
+    ${wrap('cat', 'Nhóm', html`<select class="input sm" data-lf="cat" aria-label="Nhóm"><option value="">Tất cả</option>${f.cat ? html`<option value="${f.cat}" selected>${f.cat}</option>` : ''}</select>`)}
+    ${sel('st', ST_OPTS, 'Trạng thái', ST_HELP)}
     <button type="button" class="btn sm secondary" id="stc-lfclr" ${P.loc ? '' : 'hidden'}>Bỏ lọc</button></div>`;
 }
+const ST_HELP = { todo: 'khoản chi chưa chọn nhóm', cho: 'ca dư / thiếu chưa xử lý', tl: 'hiện danh sách phiếu trừ lương', void: 'phiếu đã xoá (gạch ngang)' };
+// dòng "Đang lọc:" — mỗi điều kiện một nút ✕, Bỏ hết, số khoản · tổng tiền
+function locRow(f, n, sum) {
+  const names = { src: SRC_OPTS, st: ST_OPTS, type: Object.fromEntries(((FTV && FTV.types) || []).map((t) => [String(t.id), t.name])) };
+  return html`<div class="stc-locrow"><span class="stc-lcl">Đang lọc:</span>${locChips(f, names).map((c) => html`<button type="button" class="stc-chip" data-unloc="${c.k}">${c.label} ✕</button>`)}<button type="button" class="stc-lnk" data-unloc="all">Bỏ hết</button><span class="stc-lcn">${n} khoản · ${fmt(sum)}</span></div>`;
+}
+const peopleBtn = (D, book) => (book === 'chi' && !D.ext ? html`<button type="button" class="btn sm secondary" data-people="1">👥 Người nợ</button>` : '');
 // Điền Loại / Nhóm theo danh mục thu chi (tải chậm, không chặn trang)
 async function fillFilter(D, book) {
   const r = await finTypes(); const f = parseLoc(P.loc); const kind = book === 'thu' ? 'thu' : 'chi';
   const ts = (r.types || []).filter((t) => t.active !== false && (!t.kind || t.kind === kind));
   const cs = (r.cats || []).filter((c) => c.active !== false && c.kind === kind && (!f.type || String(c.type_id) === String(f.type)));
   const ty = $('select[data-lf="type"]'); const ca = $('select[data-lf="cat"]'); if (!ty || !ca) return;
-  ty.innerHTML = str(html`<option value="">Mọi loại</option>${ts.map((t) => html`<option value="${t.id}" ${String(f.type) === String(t.id) ? 'selected' : ''}>${t.name}</option>`)}`);
-  ca.innerHTML = str(html`<option value="">Mọi nhóm</option>${cs.map((c) => html`<option value="${c.name}" ${f.cat === c.name ? 'selected' : ''}>${c.name}</option>`)}`);
+  ty.innerHTML = str(html`<option value="">Tất cả</option>${ts.map((t) => html`<option value="${t.id}" ${String(f.type) === String(t.id) ? 'selected' : ''}>${t.name}</option>`)}`);
+  ca.innerHTML = str(html`<option value="">Tất cả</option>${cs.map((c) => html`<option value="${c.name}" ${f.cat === c.name ? 'selected' : ''}>${c.name}</option>`)}`);
 }
 // Có lọc: danh sách phẳng theo ngày · ca. "Có trừ lương" lấy cả 2 bảng (phiếu trừ lương không thuộc bảng tiền nào).
 const KA_ITEM = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', am_tien: 'Âm tiền (khoản chi)', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
@@ -771,7 +802,7 @@ function kaList(D, f) {
       <div class="stc-tlr"><span><b>${k.name}</b> · ${TL_ST[k.status] || 'Chờ xử lý'}${k.reason ? html`<br><span class="st-meta">Lý do: ${k.reason}</span>` : ''}
         ${k.reply ? html`<br><span class="st-meta">Giải trình: “${k.reply}”</span>` : ''}${k.note ? html`<br><span class="st-meta">Ghi chú: ${k.note}</span>` : ''}</span><b>${fmt(k.amount)}</b></div>
       <div class="stc-tlr"><span class="st-meta">${live ? '' : '🔒 Ca đã chốt — không sửa được'}</span><span class="stc-tools">${live ? html`<button type="button" class="btn sm secondary" data-kaed="${k.id}">Sửa</button><button type="button" class="btn sm secondary" data-kadel="${k.id}">Xoá</button>` : ''}${g && live ? html`<button type="button" class="btn sm secondary" data-gap="${g.id}">Mở phiếu chênh lệch</button>` : ''}</span></div></div>`; });
-  return html`<div class="stc-ch"><h2>Phiếu trừ lương · đang lọc <small>${list.length} phiếu · ${fmt(list.reduce((a, k) => a + Number(k.amount || 0), 0))}</small></h2></div>
+  return html`<div class="stc-ch"><h2>Phiếu trừ lương · đang lọc</h2></div>${locRow(f, list.length, list.reduce((a, k) => a + Number(k.amount || 0), 0))}
     ${rows.length ? html`<div class="stc-its stc-flat">${rows}</div>` : html`<div class="stc-empty">Không có phiếu trừ lương nào khớp bộ lọc.</div>`}`;
 }
 function bookFlat(D, book, f) {
@@ -782,11 +813,15 @@ function bookFlat(D, book, f) {
   const caOf = (x) => (D.cas || []).find((c) => c.id === x.ca_id);
   const tlRows = (x) => (f.st === 'tl' ? ((x.gap && x.gap.tl) || []).map((t) => html`<div class="stc-tlr ${t.status === 'huy' ? 'void' : ''}"><span><b>${t.name}</b> · ${TL_ST[t.status] || 'Chờ xử lý'}
       ${t.reply ? html`<br><span class="st-meta">Giải trình: “${t.reply}”</span>` : ''}</span><b>${fmt(t.amount)}</b></div>`) : '');
-  const rows = list.map((x) => { const c = caOf(x); return html`<div class="stc-fr"><div class="st-meta stc-frh">${dm(x.date)} · ${c ? 'Ca ' + c.shift : 'Ngoài ca'}${x.pm === 'ck' ? ' · CK' : ' · TM'}</div>
+  let lastD = '';
+  const rows = list.map((x) => { const c = caOf(x); const dh = x.date !== lastD ? html`<div class="stc-dh">${dm(x.date)} <small>${wd(x.date)}</small></div>` : ''; lastD = x.date;
+    return html`${dh}<div class="stc-fr"><div class="st-meta stc-frh">${c ? 'Ca ' + c.shift : 'Ngoài ca'}${x.pm === 'ck' ? ' · CK' : ' · TM'}</div>
       ${itemRow(x, book, D)}${tlRows(x)}${f.st === 'tl' && x.gap ? html`<div class="stc-tlr"><span class="st-meta">${isFin(D, x.ca_id) ? '🔒 Ca đã chốt — không huỷ được' : ''}</span><button type="button" class="btn sm secondary" data-gap="${x.id}">Mở phiếu chênh lệch</button></div>` : ''}</div>`; });
-  return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · đang lọc <small>${list.length} khoản · ${fmt(sumItems(list.filter((x) => !x.void)))}</small></h2></div>
+  const fsum = sumItems(list.filter((x) => !x.void));
+  return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]}${P.cot ? html` · chỉ hiện <span class="stc-tag t-${P.cot}">${colName(book, P.cot)}</span>` : ''} · đang lọc</h2>
+      <span class="stc-tools">${peopleBtn(D, book)}${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>${locRow(f, list.length, fsum)}
     <div class="stc-g stc-hdr" style="--n:${n}"><span>Khoản</span>${COLS[book].map(([, l]) => html`<span>${l}</span>`)}<span>Tổng</span></div>
-    ${rows.length ? html`<div class="stc-its stc-flat">${rows}</div>` : html`<div class="stc-empty">Không có khoản nào khớp bộ lọc.</div>`}`;
+    ${rows.length ? html`<div class="stc-its stc-flat">${rows}</div><div class="stc-sum"><span>Cộng</span><b>${fmt(fsum)}</b></div>` : html`<div class="stc-empty">Không có khoản nào khớp bộ lọc.</div>`}`;
 }
 // bước 164: cột nhìn thấy của bảng ngày (ẩn cột cả tháng bằng 0 theo bảng tiền đang xem, trừ cột đang chọn)
 const hiddenCols = (D, book) => (SHOW_ZERO ? [] : zeroCols(D.items || [], book, P.pm, P.cot || ''));
@@ -808,7 +843,7 @@ function bookCard(D, book) {
             <div class="stc-it add">${addBtn(D, c, book, caLabel(c))}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
   });
   return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} <small>${P.cot ? `chỉ hiện ${colName(book, P.cot)}` : 'theo ngày · bấm ngày để xem từng ca'}</small></h2>
-      <span class="stc-tools">${P.cot ? html`<a class="btn sm secondary" href="${q({ cot: '' })}">Bỏ lọc</a>` : ''}<button type="button" class="btn sm secondary stc-all">Mở hết</button><button type="button" class="btn sm secondary stc-none">Thu gọn</button>${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
+      <span class="stc-tools">${P.cot ? html`<a class="btn sm secondary" href="${q({ cot: '' })}">Bỏ lọc</a>` : ''}<button type="button" class="btn sm secondary stc-all">Mở hết</button><button type="button" class="btn sm secondary stc-none">Thu gọn</button>${peopleBtn(D, book)}${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
     ${hid.length ? html`<div class="st-meta stc-hidecols">Đang ẩn cột ${hid.map((k) => colName(book, k)).join(', ')} (cả tháng bằng 0) · <button type="button" class="stc-lnk" data-showzero="1">hiện lại</button></div>` : ''}
     <div class="stc-g stc-hdr" style="--n:${n}"><span>Ngày</span>${cols.map(([k, l]) => html`<span class="${P.cot === k ? 'hl' : ''}">${l}</span>`)}<span>Tổng ${book}</span></div>
     ${rows.length ? rows : html`<div class="stc-empty">Tháng này chưa có khoản nào.</div>`}`;
@@ -863,7 +898,7 @@ function colView(D, book, col) {
   else if (book === 'chi' && col === 'no') { top = peopleBox(D); body = sect('Các khoản cho nợ', list); }
   else body = list.map(row);
   return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} · chỉ hiện <span class="stc-tag t-${col}">${colName(book, col)}</span> <small>${live.length} khoản · ${fmt(sum)}</small></h2>
-      <span class="stc-tools"><a class="btn sm secondary" href="${q({ cot: '' })}">✕ Bỏ lọc</a>${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
+      <span class="stc-tools"><a class="btn sm secondary" href="${q({ cot: '' })}">✕ Bỏ lọc</a>${peopleBtn(D, book)}${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
     ${top ? html`<div class="stc-boxes">${top}</div>` : ''}
     ${list.length ? html`<div class="stc-its stc-flat">${body}</div><div class="stc-sum"><span>Cộng</span><b>${fmt(sum)}</b></div>` : html`<div class="stc-empty">Không có khoản nào.</div>`}`;
 }
@@ -1296,6 +1331,14 @@ const STYLE = html`<style>
   .stc-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
   .stc-box { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--card); min-width: 0; }
   .stc-box h3 { margin: 0 0 6px; font-size: 15px; } .stc-box .st-meta { font-size: 12.5px; }
+  .stc-fl { display: inline-flex; align-items: center; gap: 4px; border: 1px solid var(--line); border-radius: 10px; padding-left: 8px; background: var(--card); }
+  .stc-fl > span { font-size: 12px; color: var(--muted); white-space: nowrap; } .stc-fl select { border: 0; background: transparent; max-width: 220px; }
+  .stc-fl.on { border-color: var(--primary); background: var(--caramel-soft); } .stc-fl.on > span { color: var(--primary); font-weight: 700; }
+  .stc-fbtn { display: none !important; }
+  .stc-locrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line-soft); background: var(--subtle); font-size: 13px; }
+  .stc-lcl { font-weight: 700; } .stc-lcn { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .stc-chip { border: 1px solid var(--primary); border-radius: 999px; padding: 2px 10px; background: var(--card); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .stc-dh { padding: 10px 4px 2px; font-weight: 800; } .stc-dh small { color: var(--muted); font-weight: 500; }
   .stc-sech { padding: 10px 4px 2px; font-weight: 700; font-size: 13px; color: var(--muted); }
   .stc-sum { display: flex; justify-content: space-between; padding: 10px 14px; border-top: 2px solid var(--line); font-weight: 800; font-variant-numeric: tabular-nums; }
   .stc-si { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
@@ -1452,6 +1495,7 @@ const STYLE = html`<style>
     .stc-it { grid-template-columns: minmax(0, 1fr) auto; } .stc-it .stc-tag { grid-column: 1 / 3; }
     .stc-pay .v { font-size: 18px; }
     .stc-head { grid-template-columns: minmax(0, 1fr); } .stc-tile.zero { display: none; }
+    .stc-fbtn { display: inline-flex !important; } .stc-flt .stc-fl { display: none; } .stc-flt.open .stc-fl { display: flex; flex: 1 1 100%; } .stc-flt.open .stc-fl select { flex: 1; max-width: none; }
     .stc-t5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>`;

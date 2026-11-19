@@ -56,6 +56,30 @@ export default async ({ sleep, out }) => {
       ok(txt($('#stc-book')).includes('không có khoản nào') && $$('.stc-tile.on').length === 1 && !$('.stc-tile.on.zero'), `3. ô bằng 0 (${zc.join(' ')}) đang chọn: "Không có khoản nào", ô vẫn hiện rõ (đang lọc)`); }
     else bad.push('3. dữ liệu thử không có ô nào bằng 0');
     wide('3. danh sách một loại');
+    // ===== Task 4: 👥 Người nợ + bộ lọc dễ đọc
+    await go('chi');
+    ok(!!$('#stc-book [data-people]'), '4. Sổ chi có nút 👥 Người nợ');
+    $('#stc-book [data-people]')?.click(); await wait('dialog[open] [data-person]', 40); await sleep(200);
+    const pd = $('dialog[open]');
+    ok(!!pd && !!$('[data-person]', pd) && txt(pd).includes('+ thêm người nợ'), '4. cửa sổ Người nợ có ô ✓ + "+ Thêm người nợ"');
+    if (pd) { if (phone) ok(pd.scrollWidth <= window.innerWidth + 1, '4. cửa sổ Người nợ vừa khung điện thoại');
+      const k0 = (window.__LOG || []).length; const cb = $('[data-person]', pd); cb.click(); await sleep(900);
+      ok(calls('app_stc_person_mark', k0).length === 1, '4. bấm ✓ → gọi app_stc_person_mark 1 lần'); $('dialog[open]')?.close(); await sleep(300); }
+    await go('chi', '&cot=chi');
+    const fq = $('.stc-flt [data-lf="q"]'); setv(fq, 'mua'); await sleep(700);
+    const srcSel = $('.stc-flt select[data-lf="src"]'); setv(srcSel, 'ca'); await sleep(500);
+    ok(txt($('#stc-book .stc-locrow')).includes('đang lọc:') && $$('#stc-book [data-unloc]').filter((b) => b.dataset.unloc !== 'all').length === 2, '4. dòng "Đang lọc:" có 2 điều kiện');
+    ok(/khoản ·/.test(txt($('#stc-book .stc-locrow'))), '4. dòng Đang lọc ghi số khoản · tổng tiền');
+    ok(!!srcSel.closest('.stc-fl.on'), '4. ô chọn đang khác "Tất cả" được tô');
+    $('#stc-book [data-unloc="q"]').click(); await sleep(500);
+    ok($$('#stc-book [data-unloc]').filter((b) => b.dataset.unloc !== 'all').length === 1 && /[?&]cot=chi/.test(location.hash) && $('.stc-flt [data-lf="q"]').value === '', '4. bỏ ✕ Tìm → còn 1 điều kiện, vẫn giữ ô đang chọn (cot)');
+    ok(!!$('#stc-book .stc-dh') && !!$('#stc-book .stc-sum'), '4. kết quả lọc nhóm theo ngày + dòng Cộng');
+    $('#stc-book [data-unloc="all"]').click(); await sleep(800);
+    ok(!$('#stc-book .stc-locrow'), '4. Bỏ hết → không còn dòng Đang lọc');
+    if (phone) { await go('chi');
+      const fb = $('.stc-fbtn'); const s0 = $('.stc-flt .stc-fl');
+      ok(!!fb && !!s0 && getComputedStyle(s0).display === 'none', '4. điện thoại: ô tìm + nút ⚙ Lọc, 4 ô chọn ẩn');
+      fb?.click(); await sleep(200); ok(!!s0 && getComputedStyle(s0).display !== 'none', '4. bấm ⚙ Lọc → hiện ô chọn'); }
     if (role === 'chu') {
       location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11&cot=chi&t=' + Date.now(); await wait('#stc-book'); await sleep(500);
       ok(txt($('#stc-book')).includes('phần mỗi cơ sở chịu'), '3. Quỹ ngoài · ô Các khoản chi: có "Phần mỗi cơ sở chịu"');
