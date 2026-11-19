@@ -2,7 +2,7 @@
 import { rpc } from '../sb.js';
 import { vnToday } from '../data.js';
 import { $, dialog, html, str } from '../ui.js';
-import { JOBS, ROLE, jobName, STYLE, dur, fd, money, ms, shortName, toast } from '../cv_chung.js?v=2026.11.19.6';
+import { JOBS, ROLE, jobName, STYLE, dur, fd, money, ms, shortName, toast } from '../cv_chung.js?v=2026.11.19.7';
 
 export const perm = 'phan_cong';
 let TAB = 'cho';
@@ -18,7 +18,7 @@ export async function render({ params }) {
     const row = (x) => {
       const end = x.end_at || now, open = !x.end_at, late = ms(end) - ms(x.due_at);
       let act;
-      if (x.status === 'cho') act = ed ? html`<input class="input" inputmode="numeric" value="${Number(x.fine || D.default_fine).toLocaleString('vi-VN')}" data-amt="${x.id}"><button class="btn sm danger" data-phat="${x.id}">Xác nhận phạt</button><button class="btn sm secondary" data-bo="${x.id}">Bỏ qua</button>` : html`<span class="pill warn">Chờ Chủ xác nhận</span>`;
+      if (x.status === 'cho') act = ed ? html`<input class="input" inputmode="numeric" aria-label="Số tiền phạt" value="${Number(x.fine || D.default_fine).toLocaleString('vi-VN')}" data-amt="${x.id}"><button class="btn sm danger" data-phat="${x.id}">Xác nhận phạt</button><button class="btn sm secondary" data-bo="${x.id}">Bỏ qua</button>` : html`<span class="pill warn">Chờ Chủ xác nhận</span>`;
       else if (x.status === 'phat') act = html`<span class="pill off">Đã phạt ${money(x.amount)} · ${fd(x.decided_at)}</span>${ed ? html`<button class="btn sm secondary" data-undo="${x.id}">Huỷ</button>` : ''}`;
       else act = html`<span class="pill mute">Bỏ qua: ${x.reason}</span>${ed ? html`<button class="btn sm secondary" data-undo="${x.id}">Huỷ</button>` : ''}`;
       return html`<div class="qh-row"><div><b>${shortName(x.name)}</b><div class="pc-sub">${ROLE[x.role] || ''}</div></div>
@@ -38,8 +38,9 @@ export async function render({ params }) {
   };
   return {
     title: 'Quá hạn & phạt',
-    html: html`${STYLE}<style>.qh-row{display:grid;grid-template-columns:150px 1fr 170px 330px;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line-soft)}.qh-row:first-child{border-top:0}
+    html: html`${STYLE}<style>.qh-row{display:grid;grid-template-columns:150px minmax(0,1fr) 170px auto;gap:12px;align-items:center;padding:12px 14px;border-top:1px solid var(--line-soft)}.qh-row:first-child{border-top:0}
       .qh-act{display:flex;gap:6px;align-items:center;justify-content:flex-end;flex-wrap:wrap}.qh-act input{width:100px;text-align:right}
+      @media (max-width:1180px) and (min-width:861px){.qh-row{grid-template-columns:130px minmax(0,1fr)}.qh-act{justify-content:flex-start}}   /* UI-06: máy tính nhỏ không tràn ngang */
       @media (max-width:860px){.qh-row{grid-template-columns:1fr;gap:6px}.qh-act{justify-content:flex-start}}</style>
       <div class="page-head"><div><h1>Quá hạn & phạt</h1><div class="sub">Mỗi lần quá hạn: Chủ xác nhận phạt hoặc bỏ qua</div></div></div><div id="pc-body">${draw()}</div>`,
     mount(root) {

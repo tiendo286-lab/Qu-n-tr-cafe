@@ -2,7 +2,7 @@
 import { render as rerender } from '../app.js';
 import { catalog } from '../data.js';
 import { rpc, sb, viError } from '../sb.js';
-import { $, $$, flash, hhmm, html, showSaved } from '../ui.js';
+import { $, $$, flash, hhmm, html, showSaved, once } from '../ui.js';
 
 export const perm = 'sua_danh_muc';
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -32,13 +32,13 @@ export async function render() {
       </section>
       <section class="card flush">
         <div class="card-head"><h2>Ca làm việc &amp; giờ ca từng chi nhánh</h2><div style="font-size:13px;color:var(--muted)">Tick để bật ca ở chi nhánh; giờ dạng 06:30. Ca “Ngừng sử dụng” không hiện trong lưới order.</div></div>
-        <div class="table-wrap"><table class="table rt-fx" aria-label="Ca làm việc">
+        <div class="table-wrap"><table class="table rt" aria-label="Ca làm việc">
           <thead><tr><th>Tên ca</th><th>Mã</th><th>Trạng thái</th>${cat.branches.map((b) => html`<th>${b.code}</th>`)}<th></th></tr></thead>
           <tbody>${cat.shifts.map((s) => html`<tr>
-            <td class="sh-cell" data-id="${s.id}"><input class="input sm" data-f="name" value="${s.name}" maxlength="30" aria-label="Tên ca" style="width:100px"></td>
-            <td class="sh-cell" data-id="${s.id}"><input class="input sm" data-f="code" value="${s.code}" maxlength="5" aria-label="Mã ca" style="width:60px"></td>
-            <td class="sh-cell" data-id="${s.id}"><select class="input sm" data-f="status" aria-label="Trạng thái ca">${['Đang sử dụng', 'Ngừng sử dụng'].map((x) => html`<option ${x === s.status ? 'selected' : ''}>${x}</option>`)}</select></td>
-            ${cat.branches.map((b) => { const c = cat.bsMap.get(`${b.id}|${s.id}`); return html`<td class="bs-cell" data-b="${b.id}" data-s="${s.id}" data-order="${s.sort_order}">
+            <td class="sh-cell" data-label="Tên ca" data-id="${s.id}"><input class="input sm" data-f="name" value="${s.name}" maxlength="30" aria-label="Tên ca" style="width:100px"></td>
+            <td class="sh-cell" data-label="Mã ca" data-id="${s.id}"><input class="input sm" data-f="code" value="${s.code}" maxlength="5" aria-label="Mã ca" style="width:60px"></td>
+            <td class="sh-cell" data-label="Trạng thái" data-id="${s.id}"><select class="input sm" data-f="status" aria-label="Trạng thái ca">${['Đang sử dụng', 'Ngừng sử dụng'].map((x) => html`<option ${x === s.status ? 'selected' : ''}>${x}</option>`)}</select></td>
+            ${cat.branches.map((b) => { const c = cat.bsMap.get(`${b.id}|${s.id}`); return html`<td class="bs-cell" data-label="${b.code}" data-b="${b.id}" data-s="${s.id}" data-order="${s.sort_order}">
               <div style="display:flex;align-items:center;gap:6px">
                 <input type="checkbox" class="check" data-f="enabled" ${c && c.enabled ? 'checked' : ''} aria-label="${b.code} có ca ${s.name}">
                 <input class="input sm" type="text" inputmode="numeric" maxlength="5" placeholder="06:30" data-f="start_time" value="${c?.start_time || ''}" aria-label="${b.code} ${s.name} bắt đầu" style="width:68px;text-align:center">
@@ -75,11 +75,11 @@ export async function render() {
         const { error } = await sb.from('branches').update({ code, name, status, display_code: code }).eq('id', Number(row.dataset.id));
         if (error) fail(error); else { saved(); rpc('app_log', { p_action: 'sua_chi_nhanh', p_detail: `${row.dataset.id}:${code}|${name}|${status}` }); }
       })));
-      $$('.del-br').forEach((b) => b.addEventListener('click', async () => {
+      $$('.del-br').forEach((b) => b.addEventListener('click', once(async () => {
         if (!confirm(`Xóa hẳn chi nhánh ${b.dataset.code}? Chỉ xóa được khi chưa có nhân viên, định biên, lịch nào gắn với chi nhánh này. Nếu đã có dữ liệu, hãy chuyển sang Ngừng hoạt động.`)) return;
         try { await rpc('app_delete_branch', { p_id: Number(b.dataset.id) }); flash('Đã xóa chi nhánh.'); } catch (e) { flash(e.message, 'error'); }
         rerender();
-      }));
+      })));
       $('#add-br').addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const f = new FormData(ev.target); const code = String(f.get('code')).trim(); const name = String(f.get('name')).trim();

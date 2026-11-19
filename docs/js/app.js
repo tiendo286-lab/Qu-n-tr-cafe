@@ -5,7 +5,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.19.6';
+const ASSET_VERSION = '2026.11.19.7';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
@@ -77,7 +77,6 @@ const PAGES = {
   '/cai-dat/tai-khoan': 'cai_dat_tk',
   '/cai-dat/nhom-mon': 'cai_dat_nhom_mon',
   '/cai-dat/thu-chi': 'cai_dat_thu_chi',
-  '/cai-dat/nguoi-vay': 'cai_dat_nguoi_vay',
   '/quan-ly/thu-chi': 'thu_chi',
   '/quan-ly/am-tien': 'am_tien',   // đường dẫn cũ — vẫn mở được
   '/quan-ly/lech-tien': 'am_tien',
@@ -298,13 +297,17 @@ export async function render() {
   const seq = ++renderSeq;
   const { path, params } = parseHash();
   const me = state.me;
-  if (!me && path !== '/dang-nhap') return go('/dang-nhap');
+  if (!me && path !== '/dang-nhap') {   // UI-24: nhớ trang đang mở để đăng nhập xong quay lại đúng trang
+    if (path !== '/') { try { sessionStorage.setItem('after_login', location.hash.slice(1)); } catch (_) { /* bỏ qua */ } }
+    return go('/dang-nhap');
+  }
   if (me && path === '/dang-nhap') return go('/');
   if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
   if (path === '/' && me && !me.must_change) return go('/hom-nay');   // bước 138: cả 5 vai trò vào Việc hôm nay trước
   // Khoản âm đã gộp vào Quản lý ca › Thu chi (giữ đường dẫn cũ trong thông báo); Báo cáo ca đã bỏ
   if (path === '/quan-ly/khoan-am') return go('/quan-ly/thu-chi?' + new URLSearchParams({ ...params, xem: 'khoan-am' }).toString());
   if (path === '/quan-ly/bao-cao-ca') return go('/quan-ly/thu-chi');
+  if (path === '/cai-dat/nguoi-vay') return go('/quan-ly/cong-no');   // UI-29: mục Người vay đã bỏ từ bước 85 → Công nợ
   // bước 104: giao hàng kho tổng chuyển sang menu Hàng hoá (giữ link cũ trong thông báo)
   if (path === '/quan-ly/giao-hang') return go((params.nhan ? '/hang-hoa/nhan' : params.ds || params.xem || can('doi_soat') ? '/hang-hoa/doi-soat' : '/hang-hoa/nhan') + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
   if (path === '/ke-toan/hoa-don') return go('/hang-hoa/phieu-xuat' + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));

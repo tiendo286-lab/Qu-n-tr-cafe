@@ -39,6 +39,20 @@ export function takeFlash() {
   return v ? JSON.parse(v) : null;
 }
 
+// UI-25: nút ghi dữ liệu chạy một lần tại một thời điểm — bấm nhanh 2 lần (hoặc bấm lại ngay sau hộp xác nhận) không gửi 2 lệnh.
+// Dùng: el.addEventListener('click', once(async (ev) => { ... }))
+export function once(fn) {
+  let busy = false;
+  return async function (ev) {
+    if (busy) return undefined;
+    busy = true;
+    const b = ev && ev.currentTarget && 'disabled' in ev.currentTarget ? ev.currentTarget : null;
+    if (b) b.disabled = true;
+    // mở lại sau một nhịp: phần lớn nút gọi rerender() (không chờ) — để trang kịp vẽ lại trước khi nút cũ bấm được lần nữa
+    try { return await fn.call(this, ev); } finally { setTimeout(() => { busy = false; if (b && b.isConnected) b.disabled = false; }, 800); }
+  };
+}
+
 export function showSaved(text, isError) {
   const el = document.getElementById('saved-indicator');
   if (!el) { if (isError) alert(text); return; }

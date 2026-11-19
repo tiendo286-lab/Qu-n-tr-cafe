@@ -5,9 +5,9 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, $$, ROLE_LABELS, html, raw, str } from '../ui.js';
-import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.19.6';
-import { collectWork } from '../hom_nay_viec.js?v=2026.11.19.6';
-import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.19.6';
+import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.19.7';
+import { collectWork } from '../hom_nay_viec.js?v=2026.11.19.7';
+import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.19.7';
 import { KA_STATUS } from './phieu_ca.js';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
@@ -191,9 +191,9 @@ export async function render({ me, can }) {
         .hn-ns .hn-ico { background: var(--sage-bg); color: var(--sage-ink); } .hn-kh .hn-ico { background: var(--info-bg); color: var(--info-ink); } .hn-done .hn-ico { background: var(--ok-bg); color: var(--ok-ink); }
         .hn-flags { display: inline-flex; gap: 4px; flex-wrap: wrap; justify-content: flex-end; } .hn-gh > .hn-flags { margin-left: auto; max-width: 45%; }
         .hn-p-gap { background: #dc2626; color: #fff; } .hn-p-late { background: var(--off-bg); color: var(--off-ink); } .hn-p-today { background: var(--warn-bg); color: var(--warn-ink); }
-        .hn-p-review { background: #f59e0b; color: #fff; } .hn-p-redo { background: #dc2626; color: #fff; }
+        .hn-p-review { background: #b45309; color: #fff; }   /* UI-19: cam đậm, chữ trắng đọc được */ .hn-p-redo { background: #dc2626; color: #fff; }
         .hn-gbody { display: none; flex-direction: column; gap: 6px; padding: 8px; } .hn-grp.open > .hn-gbody { display: flex; }
-        .hn-tag { font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--line-soft); color: var(--ink-2); margin-right: 5px; }
+        .hn-tag { display: inline-block; white-space: nowrap; font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 6px; background: var(--line-soft); color: var(--ink-2); margin-right: 5px; }
         .hn-who { display: inline-block; font-size: 12px; font-weight: 600; color: var(--sage-ink); background: var(--sage-bg); border-radius: 999px; padding: 1px 8px; margin-top: 4px; max-width: 100%; overflow-wrap: anywhere; }
         .hn-who.other { color: var(--plum-ink); background: var(--plum-bg); } .hn-who.none { color: var(--warn-ink); background: var(--warn-bg); }
         .hn-row.review { border-left-color: #f59e0b; background: var(--warn-bg); } .hn-row.redo { border-left-color: #dc2626; background: var(--off-bg); }

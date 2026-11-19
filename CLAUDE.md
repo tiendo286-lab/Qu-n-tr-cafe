@@ -11,6 +11,7 @@
 - Thay đổi CSDL = **thêm tệp mới có số thứ tự** trong `supabase/` (vd `15_....sql`), viết để chạy lại nhiều lần không sao. Tệp đã chạy thì không sửa lại.
 - Tính năng đã chốt và việc còn để ngỏ: `tai_lieu/TINH_NANG_DA_CHOT.md` (đọc trước khi làm). Giả định tạm: `tai_lieu/GIA_DINH_CHO_CHOT.md`.
 - Bàn giao trạng thái giữa các phiên AI (tình trạng hiện tại, việc còn mở, bài học tốc độ): `tai_lieu/BAN_GIAO.md` — phiên mới đọc tệp này thay cho lịch sử hội thoại cũ; cuối phiên cập nhật lại.
+- Kế hoạch / thiết kế superpowers lưu ở `tai_lieu/superpowers/` (plans, specs) — **không** để trong `docs/` vì mọi tệp trong `docs/` đều công khai trên web.
 
 ## Quy tắc bắt buộc
 - Kho mã này **công khai**. **Không bao giờ** đưa lên GitHub: mã `sbp_`, khóa `service_role`/`sb_secret`, mật khẩu CSDL, token GitHub; dữ liệu thật (`du_lieu/`, `*.sqlite3`), tên nhân viên thật.

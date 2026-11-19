@@ -2,10 +2,10 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
-import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
+import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str, once } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.19.6';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.19.7';
 import { STATUS as TASK_STATUS } from './viec.js';
 
 const ITEM_FILTERS = {
@@ -208,9 +208,9 @@ export async function render({ params }) {
       $$('.day-cmt').forEach((el) => el.addEventListener('change', async () => {
         try { await rpc('app_dt_day_comment', { p_id: T.id, p_day: Number(el.dataset.day), p_comment: el.value }); showSaved('Đã lưu · ' + hhmm()); } catch (e) { showSaved(e.message, true); }
       }));
-      $$('.day-ok').forEach((b) => b.addEventListener('click', async () => {
+      $$('.day-ok').forEach((b) => b.addEventListener('click', once(async () => {
         try { await rpc('app_dt_day_confirm', { p_id: T.id, p_day: Number(b.dataset.day), p_who: b.dataset.who, p_on: b.dataset.on === '1' }); rerender(); } catch (e) { showSaved(e.message, true); }
-      }));
+      })));
       // Lưu từng thao tác và khôi phục cả hàng nếu máy chủ từ chối.
       $$('.dt-item').forEach((row) => {
         const no = Number(row.dataset.no);
@@ -316,10 +316,10 @@ export async function render({ params }) {
         await fillImages(w);
       }
       $$('.it-guide').forEach((b) => b.addEventListener('click', () => openGuide(Number(b.dataset.no))));
-      $('#dt-del')?.addEventListener('click', async () => {
+      $('#dt-del')?.addEventListener('click', once(async () => {
         if (!confirm(`Xóa hẳn phiếu đào tạo của ${T.employee.code} – ${T.employee.name}? Mọi kết quả đã ghi sẽ mất.`)) return;
         try { await rpc('app_dt_delete', { p_id: T.id }); flash('Đã xóa phiếu đào tạo.'); go('/quan-ly/nhan-vien'); } catch (e) { showSaved(e.message, true); }
-      });
+      }));
     },
   };
 }

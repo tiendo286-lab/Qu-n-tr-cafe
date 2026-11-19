@@ -4,7 +4,7 @@ import { ST_CHOT, addDays, dmy, focusWeek, ftShort, getWeek, hasPublished, parse
 import { downloadXlsx } from '../excel.js';
 import { renderBangCong } from '../bang_cong.js';
 import { rpc, sel } from '../sb.js';
-import { $, flash, html, norm, raw } from '../ui.js';
+import { $, flash, html, norm, raw, once } from '../ui.js';
 import { loadReport, isShort } from '../reports.js';
 
 export const perm = 'bao_cao';
@@ -32,13 +32,13 @@ export async function render({ params }) {
     const cutoff = addDays(vnToday(), -30);
     const rows = await sel('schedule_closures', 'week_id, status, closed_at, updated_at');
     const weeks = rows.length ? await sel('weeks', '*', (b) => b.in('id', rows.map((r) => r.week_id)).gte('end_date', cutoff).order('start_date', { ascending: false })) : [];
-    const items = [];
-    for (const w of weeks) {
+    // UI-30: tải báo cáo các tuần cùng lúc (trước đây từng tuần một)
+    const items = await Promise.all(weeks.map(async (w) => {
       const c = rows.find((r) => r.week_id === w.id);
-      const rep = await loadReport(w);
+      const [rep, pub] = await Promise.all([loadReport(w), hasPublished(w.id)]);
       const wr = rep.warningReport();
-      items.push({ w, c, warn: Object.values(wr.counts).reduce((t, n) => t + n, 0), label: statusLabel(c.status, await hasPublished(w.id)) });
-    }
+      return { w, c, warn: Object.values(wr.counts).reduce((t, n) => t + n, 0), label: statusLabel(c.status, pub) };
+    }));
     return {
       title: 'Chốt lịch & báo cáo',
       html: html`${head}${tabsNav}<section class="card flush"><div class="card-head"><h2>Các tuần đã xếp lịch (30 ngày gần đây)</h2></div>
@@ -146,18 +146,18 @@ export async function render({ params }) {
       $('#cn-sel')?.addEventListener('change', (ev) => { location.hash = q('cn', ev.target.value).slice(1); });
       const search = (inp, rowsSel) => inp?.addEventListener('input', () => { const t = norm(inp.value.trim()); document.querySelectorAll(rowsSel).forEach((tr) => { tr.hidden = t && !tr.dataset.search.includes(t); }); });
       search($('#emp-q'), '#emp-t tbody tr'); search($('#nv-q'), '#nv-grid tbody tr');
-      $('#chot-btn')?.addEventListener('click', async () => {
+      $('#chot-btn')?.addEventListener('click', once(async () => {
         const msg = `Chốt lịch tuần ${weekLabel(start)}?\n\nCa thiếu tổng: ${counts.shortage}\nCa thừa: ${counts.overstaff}\nLệch vị trí: ${counts.role_mismatch}\nThiếu QL/Cấp 1+: ${counts.missing_senior}\nXếp vào ca Nghỉ: ${counts.assigned_off}\nXếp khi Chưa order: ${counts.assigned_no_order}\nLàm thông 3 ca: ${counts.three_shifts}\nNhân viên chưa có ca: ${counts.unassigned}\n\nVẫn chốt?`;
         if (!confirm(msg)) return;
         try { const r = await rpc('app_chot', { p_week: week.id }); flash(r.first ? `Đã chốt lịch tuần ${weekLabel(start)}. Nhân viên đã xem được lịch.` : `Đã chốt lại lịch tuần ${weekLabel(start)}. Đã gửi thông báo cho ${r.changed} nhân viên có ca thay đổi.`); }
         catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
-      $('#reopen-btn')?.addEventListener('click', async () => {
+      }));
+      $('#reopen-btn')?.addEventListener('click', once(async () => {
         if (!confirm('Mở lại tuần để chỉnh sửa? Nhân viên vẫn xem bản đã chốt gần nhất cho tới khi chốt lại.')) return;
         try { await rpc('app_reopen', { p_week: week.id }); flash('Đã mở lại tuần để chỉnh sửa.'); } catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
+      }));
       $('#xuat-bc').addEventListener('click', () => exportReport(rep, wr, stats, cl, published));
       $('#xuat-lich')?.addEventListener('click', () => exportWeekly(rep, params.che_do === 'cs' ? 'cs' : 'nv', branches.find((x) => x.code === cn) || branches[0]));
     },

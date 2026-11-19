@@ -3,7 +3,7 @@ import { render as rerender, can, state } from '../app.js';
 import { CODE, LABEL, RANKS, ST_CHOT, addDays, closure, hasPublished, orderWindow, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart, getWeek, catalog, ftShort, isFT, withFtAfter } from '../data.js';
 import { bindWeekPick, typed, weekBar } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
-import { $, $$, esc, flash, go, html, norm, showSaved, hhmm } from '../ui.js';
+import { $, $$, esc, flash, go, html, norm, showSaved, hhmm, once } from '../ui.js';
 
 export const perm = 'xem_tat_ca';
 
@@ -160,7 +160,7 @@ export async function render({ params, me }) {
         <table class="table og" id="order-grid" aria-label="Bảng order tuần ${weekLabel(start)}">
           <thead><tr><th class="sticky c1">STT</th><th class="sticky c2">Mã NV</th><th class="sticky c3">Tên nhân viên</th><th class="sticky c4">Phân cấp</th>
             ${days.map((d) => shifts.map((s) => html`<th class="center col-h" data-d="${d.index}" data-s="${s.name}">${d.name}<br>${d.date}<br>${isFT(s.name) ? ftShort(s.name) : s.name}</th>`))}</tr></thead>
-          <tbody>${rows}</tbody></table></div></section>${CSS}`,
+          <tbody>${rows}<tr id="og-empty" hidden><td colspan="${4 + days.length * shifts.length}" style="padding:16px;color:var(--muted)">Không có nhân viên phù hợp bộ lọc.</td></tr></tbody></table></div></section>${CSS}`,
     mount() {
       bindWeekPick();
       const sb = $('#start-btn');
@@ -169,21 +169,22 @@ export async function render({ params, me }) {
         try { const n = await rpc('app_start_scheduling', { p_week: week.id }); flash(`Đã bắt đầu xếp lịch tuần ${weekLabel(start)}. Đã đưa ${n} ca từ lịch cố định vào lịch.`); go(`/quan-ly/lich-co-so?tuan=${start}`); }
         catch (e) { flash(e.message, 'error'); rerender(); }
       });
-      mountGrid({ week, me, days, shiftNames, canEdit, who, par });
-      if (!canEdit) return;
-      $('#clear-btn').addEventListener('click', async () => {
+      const cleanup = mountGrid({ week, me, days, shiftNames, canEdit, who, par });   // UI-26: trả hàm dọn dẹp
+      if (!canEdit) return cleanup;
+      $('#clear-btn').addEventListener('click', once(async () => {
         if (!typed(`Xóa toàn bộ order tuần ${weekLabel(start)}? Order bị xóa không khôi phục được. Các ca đã xếp vẫn giữ nhưng sẽ báo viền đỏ vì không còn order.`, 'XOA')) return;
         try { const s = await rpc('app_order_clear', { p_week: week.id }); flash('Đã xóa toàn bộ order của tuần.' + (s ? ' Lịch đang xếp đã được cập nhật.' : '')); }
         catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
+      }));
       const del = $('#del-week');
-      if (del) del.addEventListener('click', async () => {
+      if (del) del.addEventListener('click', once(async () => {
         if (!typed(`Xóa toàn bộ order tuần ${weekLabel(start)}? Mọi order của tuần này (kể cả nhân viên tự gửi) sẽ bị xóa và không khôi phục được. Lịch đã xếp không bị ảnh hưởng.`, 'XOA')) return;
         try { const n = await rpc('app_delete_week_orders', { p_week: week.id }); flash(`Đã xóa toàn bộ order tuần ${weekLabel(start)} (${n} ô).`); }
         catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
+      }));
+      return cleanup;
     },
   };
 }
@@ -193,6 +194,7 @@ function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
   const byKey = new Map(cells.map((c) => [`${c.dataset.e}|${c.dataset.d}|${c.dataset.s}`, c]));
   const selected = new Set();
   const undoStack = [];
+  const offs = [];   // UI-26: trình nghe gắn vào document, gỡ khi rời trang
   const visible = (c) => !c.closest('tr').hidden && !c.classList.contains('hidecol');
   const LAB = { ok: 'Đi làm được', off: 'Nghỉ', none: 'Chưa order' };
   let curDay = 0;
@@ -228,12 +230,16 @@ function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
         setCell(c, x.status, `Sửa bởi ${me.code} – ${me.name} lúc ${t.slice(11, 16)} ${t.slice(8, 10)}/${t.slice(5, 7)}: ${LAB[c.dataset.st]} → ${LAB[x.status]}`);
       });
       // máy chủ tự đổi theo quy tắc FULL TIME: FT "đi làm được" → ca chính "đi làm được"; ca chính "nghỉ" → FT "nghỉ"
+      const auto = [];   // UI-32: nhớ trạng thái cũ của ô tự đổi để Hoàn tác trả lại cả ô đó
+      // ô có trong danh sách gửi đi giữ đúng giá trị đã gửi (máy chủ áp dụng sau cùng) — không tô đè theo quy tắc tự đổi
+      const explicit = new Set(changes.map((x) => byKey.get(`${x.employee_id}|${x.weekday}|${x.shift}`)));
+      const autoSet = (c, st, note) => { if (!c || explicit.has(c) || c.dataset.st === st) return; auto.push({ employee_id: c.dataset.e, weekday: c.dataset.d, shift: c.dataset.s, status: c.dataset.st }); setCell(c, st, note); };
       changes.forEach((x) => {
         const k = (s) => byKey.get(`${x.employee_id}|${x.weekday}|${s}`);
-        if (par[x.shift] && x.status === 'ok') { const c = k(par[x.shift]); if (c && c.dataset.st !== 'ok') setCell(c, 'ok', 'Tự đổi theo ca FULL TIME'); }
-        if (!par[x.shift] && x.status === 'off') Object.keys(par).filter((f) => par[f] === x.shift).forEach((f) => { const c = k(f); if (c && c.dataset.st !== 'off') setCell(c, 'off', 'Tự đổi theo ca chính'); });
+        if (par[x.shift] && x.status === 'ok') autoSet(k(par[x.shift]), 'ok', 'Tự đổi theo ca FULL TIME');
+        if (!par[x.shift] && x.status === 'off') Object.keys(par).filter((f) => par[f] === x.shift).forEach((f) => autoSet(k(f), 'off', 'Tự đổi theo ca chính'));
       });
-      if (remember) { undoStack.push(prev); $('#undo-btn').disabled = false; }
+      if (remember) { undoStack.push(auto.concat(prev)); $('#undo-btn').disabled = false; }
       showSaved(`Đã lưu ${changes.length} ô · ${hhmm()}`);
       stats();
     } catch (e) { showSaved(e.message, true); }
@@ -261,7 +267,8 @@ function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
       c.addEventListener('mouseenter', () => { if (!dragging) return; selected.clear(); base.forEach((x) => selected.add(x)); rect(anchor, c).forEach((x) => selected.add(x)); paintSel(); });
       c.addEventListener('dblclick', () => send([{ employee_id: c.dataset.e, weekday: c.dataset.d, shift: c.dataset.s, status: { ok: 'off', off: 'none', none: 'ok' }[c.dataset.st] }], true));
     });
-    document.addEventListener('mouseup', () => { dragging = false; });
+    const onUp = () => { dragging = false; };
+    document.addEventListener('mouseup', onUp); offs.push(() => document.removeEventListener('mouseup', onUp));
     $$('.qb').forEach((b) => b.addEventListener('click', () => applyStatus(b.dataset.set)));
     $('#clear-sel').addEventListener('click', () => { selected.clear(); paintSel(); });
     $('#undo-btn').addEventListener('click', async () => {
@@ -285,6 +292,7 @@ function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
       row.hidden = !show;
       if (show) row.querySelector('.rownum').textContent = ++n;
     });
+    const em = $('#og-empty'); if (em) em.hidden = n > 0;   // UI-18: lọc không ra ai thì báo
     renderM();
   }
   ['f-search', 'f-rank', 'f-has', 'f-day', 'f-shift', 'f-status'].forEach((id) => f(id).addEventListener(id === 'f-search' ? 'input' : 'change', applyFilters));
@@ -321,7 +329,11 @@ function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
       bg.remove();
       if (b.dataset.k !== c.dataset.st) send([{ employee_id: e, weekday: String(curDay), shift: sn, status: b.dataset.k }], false);
     });
-    document.body.appendChild(bg);
+    const onKey = (ev) => { if (ev.key === 'Escape') { bg.remove(); } };   // UI-18: Esc để đóng
+    const obs = new MutationObserver(() => { if (!bg.isConnected) { document.removeEventListener('keydown', onKey); obs.disconnect(); } });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(bg); obs.observe(document.body, { childList: true });
+    (bg.querySelector('button.cur') || bg.querySelector('button'))?.focus();
   }
   const mo = $('#m-order');
   if (mo) mo.addEventListener('click', (ev) => {
@@ -331,4 +343,5 @@ function mountGrid({ week, me, days, shiftNames, canEdit, par = {} }) {
     if (ch && canEdit) openSheet(ch.dataset.e, ch.dataset.s, ch.closest('.mo-row').querySelector('strong').textContent);
   });
   stats();
+  return () => offs.forEach((off) => off());
 }

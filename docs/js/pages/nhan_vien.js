@@ -1,10 +1,10 @@
 // Nhân viên: danh sách (lọc, sửa nhanh cấp bậc) + tài khoản đăng nhập (cấp mật khẩu, khóa, in hàng loạt, tài khoản riêng) + form thêm/sửa
 import { render as rerender, can } from '../app.js';
 import { RANKS, catalog } from '../data.js';
-import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js?v=2026.11.19.6';
+import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js?v=2026.11.19.7';
 import { rpc, sel, selAll } from '../sb.js';
 import { ACC_CSS, ACC_STATES, accCell, accMenu, accState, bindAccountActions, bindBulk, bindPwButtons, bulkButton, canTouch, pwButton, standaloneSection } from './tai_khoan_chung.js';
-import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved } from '../ui.js';
+import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved, once } from '../ui.js';
 
 // Người có quyền Quản lý nhân viên: đầy đủ. Người chỉ có quyền Đào tạo: xem danh sách + cột Đào tạo, tạo phiếu đào tạo.
 export const perm = ['quan_ly_nhan_vien', 'dao_tao'];
@@ -112,11 +112,11 @@ export async function render({ params, me }) {
       };
       ['#emp-search', '#show-stopped', '#ef-rank', '#ef-branch', '#ef-role', '#ef-state', '#ef-nq', '#ef-ck', '#ef-dt'].forEach((s) => $(s)?.addEventListener('input', apply));
       $('#ef-clear').addEventListener('click', () => { ['#ef-rank', '#ef-branch', '#ef-role', '#ef-state', '#emp-search', '#ef-nq', '#ef-ck', '#ef-dt'].forEach((s) => { if ($(s)) $(s).value = ''; }); apply(); });
-      $$('.nq-btn').forEach((b) => b.addEventListener('click', async () => {
+      $$('.nq-btn').forEach((b) => b.addEventListener('click', once(async () => {
         const read = b.dataset.read === '1';
         if (!confirm(read ? `Bỏ đánh dấu đã đọc nội quy của ${b.dataset.name}?` : `Xác nhận thay ${b.dataset.name}: đã đọc toàn bộ nội quy đang đăng?`)) return;
         try { await rpc('app_tl_mark_read', { p_employee: Number(b.dataset.id), p_read: !read }); rerender(); } catch (e) { showSaved(e.message, true); }
-      }));
+      })));
       $$('.ck-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
         try { await rpc('app_tl_set_commit', { p_employee: Number(s.dataset.id), p_status: s.value, p_note: null }); s.className = `input sm ck-select ck-${s.value}`; s.closest('tr').dataset.ck = s.value; last = s.value; showSaved('Đã lưu · ' + hhmm()); }
         catch (e) { s.value = last; showSaved(e.message, true); }
@@ -134,7 +134,7 @@ export async function render({ params, me }) {
         } catch (e) { s.value = last; showSaved(e.message, true); }
       }); });
       $$('.acc-chip').forEach((c) => c.addEventListener('click', () => { const f = $('#ef-state'); f.value = f.value === c.dataset.st ? '' : c.dataset.st; apply(); }));
-      $$('.st-btn').forEach((b) => b.addEventListener('click', () => setStatus(Number(b.dataset.id), b.dataset.to, b.dataset.name)));
+      $$('.st-btn').forEach((b) => b.addEventListener('click', once(() => setStatus(Number(b.dataset.id), b.dataset.to, b.dataset.name))));
       bindAccountActions(); bindBulk();
     },
   };
@@ -213,8 +213,11 @@ async function renderForm(params, me) {
         <button class="btn sm secondary danger" type="button" id="del-emp">Xóa nhân viên này</button></section>` : ''}`,
     mount() {
       bindPwButtons();
+      let saving = false;   // UI-25: bấm Lưu nhanh 2 lần chỉ gửi 1 lệnh
       $('#emp-form').addEventListener('submit', async (ev) => {
         ev.preventDefault();
+        if (saving) return; saving = true;
+        const sbtn = ev.submitter || ev.target.querySelector('[type=submit]'); if (sbtn) sbtn.disabled = true;
         const f = new FormData(ev.target);
         const p = { code: f.get('code'), name: f.get('name'), rank: f.get('rank'), status: f.get('status'), roles: f.getAll('roles'), preferred_role: f.get('preferred_role'),
           branch_ids: f.getAll('branches').map(Number), email: f.get('email'), phone: f.get('phone'), start_date: f.get('start_date'), pay_cash: f.get('pay_cash') === 'on' };
@@ -222,14 +225,14 @@ async function renderForm(params, me) {
           await rpc('app_save_employee', { p_id: emp ? emp.id : null, p });
           flash(emp ? `Đã lưu ${p.code} – ${p.name}.` : p.pay_cash ? `Đã thêm ${p.code} – ${p.name} (trả lương tiền mặt, không cần tài khoản).` : `Đã thêm ${p.code} – ${p.name}. Hãy cấp mật khẩu tạm để nhân viên đăng nhập.`);
           go('/quan-ly/nhan-vien');
-        } catch (e) { const el = $('#emp-err'); el.textContent = e.message; el.hidden = false; window.scrollTo(0, 0); }
+        } catch (e) { saving = false; if (sbtn) sbtn.disabled = false; const el = $('#emp-err'); el.textContent = e.message; el.hidden = false; window.scrollTo(0, 0); }
       });
-      $('#st-emp')?.addEventListener('click', () => setStatus(emp.id, v.status === 'Đang làm' ? 'Ngừng làm' : 'Đang làm', `${emp.code} – ${emp.name}`));
-      $('#del-emp')?.addEventListener('click', async () => {
+      $('#st-emp')?.addEventListener('click', once(() => setStatus(emp.id, v.status === 'Đang làm' ? 'Ngừng làm' : 'Đang làm', `${emp.code} – ${emp.name}`)));
+      $('#del-emp')?.addEventListener('click', once(async () => {
         if (!confirm(`Xóa hoàn toàn ${emp.code} – ${emp.name}?`)) return;
         try { await rpc('app_delete_employee', { p_id: emp.id }); flash(`Đã xóa ${emp.code} – ${emp.name}.`); go('/quan-ly/nhan-vien'); }
         catch (e) { flash(e.message, 'error'); rerender(); }
-      });
+      }));
     },
   };
 }

@@ -241,3 +241,35 @@ input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirr
 .pc-unified-steps > span.on { background: var(--forest, #2f3d31); border-color: var(--forest, #2f3d31); color: #fff; }
 .pc-unified-steps > span small { font-size: 12px; font-weight: 700; text-transform: uppercase; }
 @media (max-width: 480px) { .pc-unified-steps > span { flex-direction: column; gap: 3px; } .pc-unified-steps > span small { font-size: 10px; } }
+
+/* ---- Sửa theo kiểm toán giao diện 19/11/2026 (UI_AUDIT_REPORT.md) ---- */
+/* UI-03: nút nguy hiểm dạng đặc — nền đỏ chữ trắng (trước: chữ đỏ trên nền nâu) */
+.btn.danger:not(.secondary) { background: #b91c1c; color: #fff; border-color: #b91c1c; }
+.btn.danger:not(.secondary):hover { background: #991b1b; color: #fff; }
+/* UI-04: ô tiêu đề dính trái của bảng lịch giữ nền tiêu đề */
+.mtx thead th.nm { background: var(--header); color: #fff; z-index: 3; }
+/* UI-05: thanh dưới nhân viên — bên có 3 mục rộng hơn bên 2 mục, nhãn không đè nhau */
+.pillbar .tb-side:has(> :nth-child(3)) { flex-grow: 1.5; }
+.pillbar .tb-it span, .pillbar .tb-plus span { letter-spacing: 0; }
+@media (max-width: 400px) { .pillbar .tb-it, .pillbar .tb-plus { font-size: 10px; } }
+/* UI-14: tab con trên điện thoại nhỏ — giữ chữ 12px, thanh tab cuộn ngang */
+@media (max-width: 420px) { .hub-tabs a { padding: 9px 9px; font-size: 12px; } }
+/* UI-02: bảng Định biên / Ca làm việc trên điện thoại — dòng tiêu đề hàng chiếm cả bề ngang, ô giờ giữ cỡ cố định */
+@media (max-width: 760px) {
+  .table.rt-fx tbody th { grid-column: 1 / -1; }
+  .table.rt td.bs-cell input.input { width: 68px !important; }
+  .table.rt td.sh-cell input.input { width: 120px !important; }
+}
+/* UI-20: vùng bấm trên điện thoại tối thiểu ~36px */
+@media (max-width: 760px) {
+  .m-foot { gap: 2px 16px; }
+  .m-foot a, .m-foot button { display: inline-flex; align-items: center; min-height: 36px; }
+  .acc-chip, .dt-chip { min-height: 34px; padding-left: 12px; padding-right: 12px; }
+  .hn-link { min-height: 36px; }
+  .tc-on input[type="checkbox"] { width: 20px; height: 20px; }
+  li a.go { display: inline-flex; align-items: center; min-height: 36px; }
+}
+/* UI-33: nút chọn cơ sở — đủ 5 cơ sở trên một hàng điện thoại */
+.grid4.grid-cn { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
+/* UI-22: nhãn ngắn trong thẻ việc không gãy giữa chữ */
+.hn-flags .pill, .pc-top .pill, .pc-top .pc-jb, .pc-top .pc-br { white-space: nowrap; }

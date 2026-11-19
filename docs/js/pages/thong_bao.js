@@ -3,7 +3,7 @@ import { when } from '../data.js';
 import { rpc, sel } from '../sb.js';
 import { html } from '../ui.js';
 
-export const perm = 'xem_lich_minh';
+export const perm = null;   // UI-01: ai đăng nhập cũng xem thông báo của mình (máy chủ đã lọc theo account_id)
 const KIND = [
   ['thay đổi', '!', '#ffedd5', '#9a3412'],
   ['Sắp hết hạn', '!', '#fee2e2', '#991b1b'],

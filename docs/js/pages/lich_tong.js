@@ -3,7 +3,7 @@ import { render as rerender, can, state } from '../app.js';
 import { ASSIGNED, NONE, OFF, RANKS, ST_CHOT, ftShort, isFT, ST_SUA, ST_XEP, addDays, focusWeek, getWeek, hasPublished, parseWeekParam, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { typed } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
-import { $, $$, flash, hhmm, html, norm, raw, showSaved } from '../ui.js';
+import { $, $$, flash, hhmm, html, norm, raw, showSaved, once } from '../ui.js';
 import { isOver, isShort, loadReport } from '../reports.js';
 
 export const perm = 'bao_cao';
@@ -34,10 +34,10 @@ export async function render({ params, me }) {
           : html`Tuần này chưa bắt đầu xếp lịch.${can('xep_lich') ? html`<div style="margin-top:12px"><button class="btn" type="button" id="auto-btn">Xếp theo order &amp; lịch cố định</button></div><div style="font-size:13px;color:var(--muted);margin-top:6px">Chỉ làm được sau giờ hết hạn order.</div>` : ''}`}</div>`,
       mount() {
         pickMount();
-        $('#auto-btn')?.addEventListener('click', async () => {
+        $('#auto-btn')?.addEventListener('click', once(async () => {
           try { const n = await rpc('app_master_auto', { p_week: week.id }); flash(`Đã xếp theo order & lịch cố định: ${n} ca từ lịch cố định. Các ô khác để trống cho quản lý xếp tay.`); } catch (e) { flash(e.message, 'error'); }
           rerender();
-        });
+        }));
       },
     };
   }
@@ -119,6 +119,7 @@ export async function render({ params, me }) {
           ${published ? '' : html`<button class="btn sm secondary danger" type="button" id="clear-btn">Xóa lịch tuần</button>`}` : ''}
         <a class="btn sm secondary" href="#/quan-ly/bao-cao?tuan=${start}">Chốt lịch &amp; báo cáo →</a></div>
       ${lockBox}
+      <div class="alert warn m-only" role="note">📱 Lịch tổng là bảng lớn, nên xếp trên <strong>máy tính</strong>.${can('xem_tat_ca') ? html` Trên điện thoại, dùng <a href="#/quan-ly/lich-co-so?tuan=${start}">Lịch cơ sở</a> (xếp theo từng ngày).` : ''}</div>
       <div class="tiles">
         <div class="tile" style="border-top-color:var(--primary)"><div class="n">${stats.active}</div><div class="l">Nhân viên đang làm</div></div>
         <div class="tile" style="border-top-color:var(--ok-line)"><div class="n">${stats.assigned_employees}</div><div class="l">Đã có ca</div></div>
@@ -189,8 +190,9 @@ export async function render({ params, me }) {
         if (s.value && (base === OFF || base === NONE) && !confirm(`Nhân viên ${base === OFF ? 'đã order NGHỈ' : 'CHƯA ORDER'} ${ft ? 'ca FULL TIME' : 'ca'} này. Vẫn xếp?`)) { s.value = s.dataset.prev; return; }
         const cell = (sh, b, r) => rpc('app_master_cell', { p_week: week.id, p_emp: Number(s.dataset.e), p_day: Number(s.dataset.d), p_shift: sh, p_branch: b ? Number(b) : null, p_role: r });
         try {
-          if (s.dataset.prev && prevShift !== shift) await cell(prevShift, null, null);   // đổi ca thường ↔ FULL TIME
-          await cell(shift, bid, role);
+          if (s.dataset.prev && prevShift !== shift) {   // đổi ca thường ↔ FULL TIME: một lệnh máy chủ (UI-32)
+            await rpc('app_master_cell_doi_ca', { p_week: week.id, p_emp: Number(s.dataset.e), p_day: Number(s.dataset.d), p_from_shift: prevShift, p_shift: shift, p_branch: bid ? Number(bid) : null, p_role: role });
+          } else await cell(shift, bid, role);
           s.dataset.prev = s.value;
           td.className = s.value ? `st-ok${base === OFF || base === NONE ? ' st-warn' : ''}` : base === OFF ? 'st-off' : base === NONE ? 'st-none' : 'st-free';
           const tr = s.closest('tr'); tr.querySelector('.tot strong').textContent = [...tr.querySelectorAll('select')].filter((x) => x.value).length;
@@ -198,26 +200,28 @@ export async function render({ params, me }) {
           if (ft || pft) setTimeout(rerender, 400);   // cập nhật ô FULL TIME ở các ca chồng giờ
         } catch (e) { s.value = s.dataset.prev; showSaved(e.message, true); }
       }));
-      $('#auto-btn')?.addEventListener('click', async () => {
+      $('#auto-btn')?.addEventListener('click', once(async () => {
         if (!confirm('Xếp lại từ đầu theo order và lịch cố định?\n\nMọi ca đã xếp tay của tuần này sẽ bị xóa.')) return;
         try { const n = await rpc('app_master_auto', { p_week: week.id }); flash(`Đã xếp theo order & lịch cố định: ${n} ca từ lịch cố định. Các ô khác để trống cho quản lý xếp tay.`); } catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
-      $('#reapply-btn')?.addEventListener('click', async () => {
+      }));
+      $('#reapply-btn')?.addEventListener('click', once(async () => {
         if (!confirm('Đọc lại order mới nhất vào lịch? Các ca đã xếp được giữ nguyên.')) return;
         try {
           const r = await rpc('app_reapply_order', { p_week: week.id });
           flash(`Đã cập nhật order vào lịch: ${r.updated} ô cập nhật, ${r.inserted} ô mới, giữ nguyên ${r.assigned_preserved} ca đã xếp${r.conflicts ? `, ${r.conflicts} ca cần kiểm tra (order Nghỉ/Chưa order).` : '.'}`);
         } catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
-      $('#clear-btn')?.addEventListener('click', async () => {
+      }));
+      $('#clear-btn')?.addEventListener('click', once(async () => {
         if (!typed('Xóa toàn bộ lịch tuần này (order vẫn giữ)?', 'XOA')) return;
         try { await rpc('app_clear_schedule', { p_week: week.id }); flash('Đã xóa lịch tuần. Order vẫn giữ nguyên; bấm “Xếp theo order & lịch cố định” để xếp lại.'); } catch (e) { flash(e.message, 'error'); }
         rerender();
-      });
-      if (holds) return () => rpc('app_schedule_release', { p_week: week.id }).catch(() => {});
-      return undefined;
+      }));
+      if (!holds) return undefined;
+      const release = () => rpc('app_schedule_release', { p_week: week.id }).catch(() => {});
+      window.addEventListener('pagehide', release);   // UI-31: đóng thẻ trình duyệt cũng nhả quyền xếp lịch
+      return () => { window.removeEventListener('pagehide', release); release(); };
     },
   };
 }

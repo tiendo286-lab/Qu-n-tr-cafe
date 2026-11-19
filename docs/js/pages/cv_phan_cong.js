@@ -1,8 +1,8 @@
 // Bước 109 — Bảng phân công: mỗi việc × mỗi cơ sở ai làm, hạn bao lâu, mấy bước, mức phạt. Chỉ tài khoản Chủ sửa; Quản lý tổng xem.
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, str } from '../ui.js';
-import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.19.6';
-import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.19.6';
+import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.19.7';
+import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.19.7';
 
 export const perm = 'phan_cong';
 const FROM = {
@@ -66,7 +66,7 @@ export async function render() {
       ${D.old_rule_on ? html`<div class="alert warn">Quy tắc tự giao cũ (bước 108) vẫn đang bật.</div>` : html`<div class="alert ok" style="font-size:13px">✓ Quy tắc tự giao cũ (bước 108) đã tắt, 44 việc cũ đã đóng. Web tự tạo việc theo bảng này <b>từ ngày ${(D.start || '').split('-').reverse().join('/')}</b> — tồn cũ trước ngày đó không tạo việc, không phạt.</div>`}
       ${ed ? '' : html`<div class="pc-info" style="margin-top:10px">Quản lý tổng xem được bảng; chỉ tài khoản Chủ sửa được.</div>`}
       <div class="pb-set"><div class="card"><h3 style="margin:0">Người làm chức năng Kế toán</h3><div class="pc-sub">Chọn bất kỳ nhân viên nào. Người này nhận việc File Fabi, Chuyển khoản, Hoá đơn bù, Giao bù (và có quyền Kế toán).</div>
-          <select class="input" id="pb-kt" ${ed ? '' : 'disabled'}><option value="">— Chưa chọn —</option>${P.filter((p) => p.role !== 'chu').map((p) => html`<option value="${p.id}" ${p.id === D.kt ? 'selected' : ''}>${shortName(p.name)} · ${ROLE[p.role] || p.role}</option>`)}</select></div>
+          <select class="input" id="pb-kt" aria-label="Kế toán phụ trách" ${ed ? '' : 'disabled'}><option value="">— Chưa chọn —</option>${P.filter((p) => p.role !== 'chu').map((p) => html`<option value="${p.id}" ${p.id === D.kt ? 'selected' : ''}>${shortName(p.name)} · ${ROLE[p.role] || p.role}</option>`)}</select></div>
         <div class="card"><h3 style="margin:0">Phạt khi quá hạn</h3><div style="font-size:14px">Mặc định <b>50.000đ / lần</b> · từng việc sửa riêng (bấm tên việc).</div><div class="pc-sub">Web <b>không tự trừ</b>: việc quá hạn lên trang <a href="#/cong-viec/qua-han">Quá hạn & phạt</a>, Chủ xác nhận hoặc bỏ qua. Lý do: "Bị phạt do không hoàn thành công việc đúng hạn".</div></div></div>
       <div class="pb-mx"><table><thead><tr><th style="width:220px">Việc ${ed ? html`<span style="font-weight:400">(bấm tên để sửa)</span>` : ''}</th><th style="width:210px">Hạn · các bước</th>${D.branches.map((b) => html`<th>${b.code}</th>`)}<th style="width:80px">Phạt</th></tr></thead>
         <tbody>${Object.keys(GROUPS).map((g) => html`<tr class="pb-gh"><td colspan="${D.branches.length + 3}">${GROUPS[g]}</td></tr>${rowsFor(g)}`)}

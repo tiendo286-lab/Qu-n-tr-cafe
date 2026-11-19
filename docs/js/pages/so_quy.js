@@ -8,7 +8,7 @@ import { render as rerender } from '../app.js';
 import { vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, dt, fmt, parseMoney, signed, vnd } from '../tien.js';
-import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
+import { $, $$, dialog, flash, html, showSaved, str, once } from '../ui.js';
 
 export const perm = 'chot_thang';
 const M = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Tài khoản' };
@@ -187,11 +187,11 @@ export async function render({ params }) {
         if (!confirm(`Xóa phiếu rút ${vnd(w.amount)} ngày ${dmy(w.wdate)}?`)) return;
         try { await rpc('app_fund_withdraw_delete', { p_id: w.id }); flash('Đã xóa phiếu rút.'); rerender(); } catch (e) { showSaved(e.message, true); }
       }));
-      $$('.sq-ok').forEach((b) => b.addEventListener('click', async () => {
+      $$('.sq-ok').forEach((b) => b.addEventListener('click', once(async () => {
         const w = D.withdrawals.find((x) => x.id === Number(b.dataset.id));
         if (!confirm(`Xác nhận anh ĐÃ NHẬN ĐỦ ${vnd(w.amount)} (${M[w.method].toLowerCase()}, ngày ${dmy(w.wdate)})?\n\nXác nhận xong phiếu bị khóa, không ai sửa hay xóa được nữa.`)) return;
         try { await rpc('app_fund_withdraw_confirm', { p_id: w.id }); flash('Đã xác nhận nhận tiền. Phiếu đã khóa.'); rerender(); } catch (e) { showSaved(e.message, true); }
-      }));
+      })));
 
       $('#sq-count')?.addEventListener('click', () => {
         const d = dialog(html`<form class="stack sq-dlg" style="gap:12px"><h2 style="margin:0">Kiểm quỹ · ${D.code}</h2>
@@ -336,10 +336,10 @@ async function renderExt(month, head) {
     mount() {
       $$('.sq-lt').forEach((a) => a.addEventListener('click', () => { LEDGER = a.dataset.m; $$('.sq-lt').forEach((x) => x.classList.toggle('on', x === a)); $('#sq-led').innerHTML = str(ledger(LEDGER)); }));
       const errBox = (d, e) => { d.querySelector('.sq-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); };
-      $$('.ex-ok').forEach((b) => b.addEventListener('click', async () => {
+      $$('.ex-ok').forEach((b) => b.addEventListener('click', once(async () => {
         if (!confirm(`Xác nhận anh ĐÃ NHẬN ĐỦ ${vnd(b.dataset.a)}?\n\nXác nhận xong phiếu bị khóa, không ai sửa hay xóa được nữa.`)) return;
         try { await rpc('app_fund_withdraw_confirm', { p_id: Number(b.dataset.id) }); flash('Đã xác nhận nhận tiền. Phiếu đã khóa.'); rerender(); } catch (e) { showSaved(e.message, true); }
-      }));
+      })));
       $$('.ex-del').forEach((b) => b.addEventListener('click', async () => {
         const e = E.entries.find((x) => x.id === Number(b.dataset.id));
         if (!confirm(`Xóa khoản "${e.note}" (${vnd(e.amount)})?`)) return;

@@ -60,19 +60,19 @@ export async function render({ me } = {}) {
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <section class="card flush">
         <div class="card-head"><h2>Quyền theo vai trò</h2></div>
-        <div class="table-wrap"><table class="table rt-fx" aria-label="Quyền theo vai trò">
+        <div class="table-wrap"><table class="table rt rt-fx" style="--n:4" aria-label="Quyền theo vai trò">
           <thead class="dark"><tr><th scope="col">Chức năng</th><th scope="col" class="center">Chủ</th><th scope="col" class="center">Quản lý tổng</th><th scope="col" class="center">Quản lý</th><th scope="col" class="center">Nhân viên</th></tr></thead>
           <tbody>
             ${PERMISSIONS.map(([key, label]) => html`<tr>
               <th scope="row" style="background:none;font-weight:500;color:var(--ink)">${label}</th>
-              <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
-              ${EDITABLE_ROLES.map((role) => html`<td class="center">${cell(role, key, label)}</td>`)}</tr>`)}
+              <td class="center sc" data-label="Chủ" style="color:var(--muted);font-size:13px">Luôn có</td>
+              ${EDITABLE_ROLES.map((role) => html`<td class="center sc" data-label="${ROLE_LABELS[role]}">${cell(role, key, label)}</td>`)}</tr>`)}
             ${EVERYONE.map(([label, note]) => html`<tr class="locked">
               <th scope="row" style="background:var(--subtle);font-weight:500;color:var(--ink)">${label}</th>
               <td class="center" colspan="4" style="color:var(--muted);font-size:13px">${note}</td></tr>`)}
             ${OWNER_ONLY.map((label) => html`<tr class="locked">
               <th scope="row" style="background:var(--subtle);font-weight:500;color:var(--ink)">${label}</th>
-              <td class="center" style="color:var(--muted);font-size:13px">Luôn có</td>
+              <td class="center sc" data-label="Chủ" style="color:var(--muted);font-size:13px">Luôn có</td>
               <td class="center" colspan="3" style="color:var(--muted);font-size:13px">Chỉ Chủ — không cấp được cho vai trò khác</td></tr>`)}
           </tbody></table></div>
       </section>
@@ -110,6 +110,9 @@ export async function render({ me } = {}) {
       $$('.role-select').forEach((s) => {
         let prev = s.value;
         s.addEventListener('change', async () => {
+          // UI-12: hỏi lại trước khi đổi vai trò (quyền của người đó đổi ngay lập tức)
+          const who = s.closest('tr')?.children[1]?.textContent?.trim() || 'người này';
+          if (!confirm(`Đổi vai trò của ${who} từ ${ROLE_LABELS[prev] || prev} sang ${ROLE_LABELS[s.value] || s.value}?\n\nQuyền của người này đổi ngay lập tức.`)) { s.value = prev; return; }
           try { await rpc('app_set_system_role', { p_account: Number(s.dataset.account), p_role: s.value }); prev = s.value; showSaved('Đã lưu · ' + hhmm()); }
           catch (e) { s.value = prev; showSaved(e.message, true); }
         });

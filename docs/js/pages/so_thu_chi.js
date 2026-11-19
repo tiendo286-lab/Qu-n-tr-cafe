@@ -264,10 +264,13 @@ function qnDialog(D, x) {
     async () => { await rpc('app_fund_withdraw_delete', { p_id: idNum(x.id) }); after('Đã xoá'); });
 }
 const pmOf = (m) => (m === 'chuyen_khoan' ? 'ck' : 'tm');
+let qnBusy = false;   // UI-25: bấm "Đã nhận tiền" nhanh 2 lần chỉ gửi 1 lệnh
 async function qnConfirm(D, id) {
+  if (qnBusy) return;
   const x = D.items.find((i) => i.id === 'w:' + id); if (!x) return;
   if (!confirm(`Xác nhận anh ĐÃ NHẬN ĐỦ ${fmt(x.amount)} (${PM[x.pm].toLowerCase()}, ngày ${dm(x.date)})?\n\nXác nhận xong phiếu bị khoá cả 2 bên.`)) return;
-  try { await rpc('app_fund_withdraw_confirm', { p_id: id }); after('Đã nhận tiền — đã khoá'); } catch (e) { showSaved(e.message, true); }
+  qnBusy = true;
+  try { await rpc('app_fund_withdraw_confirm', { p_id: id }); after('Đã nhận tiền — đã khoá'); } catch (e) { showSaved(e.message, true); } finally { qnBusy = false; }
 }
 function countDialog(D) {
   const today = vnToday(); const br = D.branch.id; let book = null;

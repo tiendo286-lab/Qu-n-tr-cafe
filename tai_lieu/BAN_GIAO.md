@@ -1,17 +1,25 @@
 # Bàn giao trạng thái cho phiên AI mới
 
-Cập nhật: 19/11/2026, sau bước 149 (Sổ thu chi mới — xong đủ 5 đợt, đang chạy song song). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
+Cập nhật: 19/11/2026, sau bước 150 (kiểm toán giao diện + sửa 33 lỗi, web 2026.11.19.7). Trước đó bước 149 (Sổ thu chi mới — xong đủ 5 đợt, đang chạy song song). Phiên mới **không cần đọc lịch sử hội thoại cũ**. Đọc theo thứ tự:
 1. `CLAUDE.md` (Codex đọc thêm `AGENTS.md`): quy tắc chung, bí mật, cách chạy máy chủ, ghi phát hành.
 2. `tai_lieu/TINH_NANG_DA_CHOT.md`: mọi quyết định nghiệp vụ. Mục mới nhất ở cuối từng phần.
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## Tình trạng lúc bàn giao
-- Web: **2026.11.19.6** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` và các dòng import có `?v=`).
-- Máy chủ: đã chạy tới tệp **133** (`133_so_thu_chi_doi_soat.sql` Đối soát tiền 3 bước — vùng khoá, anh Tiến mở bằng mật khẩu 19/11). Trước đó **132** (`132_so_thu_chi_gan_no.sql` gán nợ khách trả cho ca dư — vùng khoá, anh Tiến mở bằng mật khẩu 19/11). Trước đó **131** (`131_so_thu_chi_lech.sql` phiếu chênh lệch: `app_stc_gap_*`, bảng `stc_gap_requests`). Trước đó **130** (`129_so_thu_chi_sua.sql` sửa / thêm / xoá ngoài ca + người nợ ✓; `130_so_thu_chi_sua_ca.sql` sửa khoản của ca — vùng khoá, anh Tiến mở bằng mật khẩu 19/11). Trước đó **128** (`127_so_thu_chi_xem.sql` = `app_stc_month`, `128_so_thu_chi_quy_ngoai.sql` = `app_stc_ext`, chỉ đọc). Trước đó: tệp **126** (`125_viec_hom_nay_sua.sql` sửa `app_today_more`; `126_sua_pc_tick_bi_danh.sql` sửa gấp `app__pc_tick`: bí danh bảng "sc" trùng biến record → Công việc lỗi mỗi khi có việc con hàng hoá mới, hỏng 15:18–15:36 ngày 18/11). **Bài học:** trong plpgsql không đặt bí danh bảng trùng tên biến.
+- Web: **2026.11.19.7** (`docs/version.json`, `ASSET_VERSION` trong `docs/js/app.js`, `?v=` trong `index.html` — cả 2 tệp CSS và **importmap liệt kê mọi tệp `docs/js/*.js`** — và các dòng import có `?v=`). Thêm tệp mới vào `docs/js/` (không phải `pages/`) thì thêm một dòng vào importmap trong `index.html`.
+- Máy chủ: đã chạy tới tệp **134** (`134_doi_ca_full_time.sql`: `app_assign_doi_ca`, `app_master_cell_doi_ca` — đổi ca thường ↔ FULL TIME trong một lệnh). Trước đó **133** (`133_so_thu_chi_doi_soat.sql` Đối soát tiền 3 bước — vùng khoá, anh Tiến mở bằng mật khẩu 19/11). Trước đó **132** (`132_so_thu_chi_gan_no.sql` gán nợ khách trả cho ca dư — vùng khoá, anh Tiến mở bằng mật khẩu 19/11). Trước đó **131** (`131_so_thu_chi_lech.sql` phiếu chênh lệch: `app_stc_gap_*`, bảng `stc_gap_requests`). Trước đó **130** (`129_so_thu_chi_sua.sql` sửa / thêm / xoá ngoài ca + người nợ ✓; `130_so_thu_chi_sua_ca.sql` sửa khoản của ca — vùng khoá, anh Tiến mở bằng mật khẩu 19/11). Trước đó **128** (`127_so_thu_chi_xem.sql` = `app_stc_month`, `128_so_thu_chi_quy_ngoai.sql` = `app_stc_ext`, chỉ đọc). Trước đó: tệp **126** (`125_viec_hom_nay_sua.sql` sửa `app_today_more`; `126_sua_pc_tick_bi_danh.sql` sửa gấp `app__pc_tick`: bí danh bảng "sc" trùng biến record → Công việc lỗi mỗi khi có việc con hàng hoá mới, hỏng 15:18–15:36 ngày 18/11). **Bài học:** trong plpgsql không đặt bí danh bảng trùng tên biến.
 - **Vùng khoá quyền "Mở để sửa" đối soát (18/11):** xem mục riêng trong `CLAUDE.md`. Claude trên máy anh Tiến bị hook chặn tới khi anh gõ mật khẩu (mở 30 phút). Bộ khoá và bài thử của nó (`kiem_tra_khoa.sh`) nằm ngoài kho mã, trong thư mục `milano` ở `~/.claude`. Đổi mật khẩu: ghi băm sha256 mới vào tệp băm ở đó (cách làm ghi ở đầu tệp khoá). Thiết kế / kế hoạch: `tai_lieu/superpowers/specs|plans/2026-11-18-khoa-quyen-doi-soat*`.
 - **Bài học 18/11 (lỗi bước 129):** đổi quyền ở máy chủ thì phải dò cả giao diện tìm chỗ còn chặn theo vai (`grep -rn "is_chu\|can_unlock\|system_role" docs/js`). Bài thử phải dựng đúng tình huống được đổi (ở đây là phiếu **có mục web tự đối soát**, `app__test_auto_lock`), và phải thấy bài thử **báo lỗi trên bản cũ** trước khi sửa. Bước 129 chỉ sửa máy chủ, còn dòng `LK?.is_chu ? [] : …` của bước 121 trong `phieu_ca.js` vẫn khoá ô với người không phải Chủ. Lỗi lọt qua vì bài thử dùng phiếu không có mục tự đối soát.
 - Hai phiên AI (Claude và Codex/ChatGPT) từng làm song song trên cùng kho mã. **Từ nay chỉ một phiên làm tại một thời điểm.**
+
+## Kiểm toán giao diện (bước 150, 19/11, web 2026.11.19.7)
+
+- Báo cáo đầy đủ (33 lỗi UI-01…UI-33, cách tái hiện, nguyên nhân, kết quả sửa): `UI_AUDIT_REPORT.md` ở gốc kho — **tệp cục bộ, không đưa lên GitHub**. Ảnh trước / sau: `kiem_tra/_tam/ui_audit/` (có tên nhân viên thật, đừng chép ra ngoài).
+- Đã sửa cả 33 lỗi. Đáng nhớ: hàm `once()` trong `docs/js/ui.js` chặn bấm 2 lần cho nút ghi dữ liệu (dùng cho nút mới); bảng nhập liệu trên điện thoại dùng `table rt rt-fx` + `data-label` (mẫu `lich_co_dinh.js`, `dinh_bien.js`); Thông báo mở cho mọi người đăng nhập; đăng nhập xong quay lại trang đang mở; trang Người vay chuyển về Công nợ.
+- Để sau (nhỏ, từ lần duyệt mã): người phải đổi mật khẩu lần đầu không được đưa về trang đã mở trước đăng nhập; nhả quyền xếp lịch khi đóng thẻ chỉ là "cố gắng" (nên dùng `fetch` có `keepalive`); bảng chọn người không lật lại vị trí khi đổi ca thường ↔ FULL TIME.
+- Bài thử cũ đã lỗi thời (không phải lỗi web): `flow_tg113` (tìm `#cm-check`, nay là `#cm-checks`), `flow_ct` (bước Mở lại tháng). Nên sửa hoặc gỡ.
+- Kế hoạch / thiết kế superpowers: chỉ để ở `tai_lieu/superpowers/` (đã chuyển 4 tệp lạc trong `docs/superpowers/` ra).
 
 ## Sổ thu chi mới (bước 143, đợt 1 đã lên web — chỉ xem)
 

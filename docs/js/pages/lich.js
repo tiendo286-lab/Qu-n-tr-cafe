@@ -112,7 +112,7 @@ export async function render({ me, params }) {
       }));
       const base = `/lich?tab=co-so&cn=${branch.id}&ngay=${ngay}&`;
       body = html`${weeknav(base, week, prev, next, editing ? 'Đang chỉnh sửa · bản đã chốt gần nhất' : 'Đã chốt')}
-        <div class="grid4" role="group" aria-label="Chi nhánh">${branches.map((b) => html`<a class="pick ${b.id === branch.id ? 'on' : ''}" href="#/lich?tab=co-so&tuan=${week.start_date}&cn=${b.id}&ngay=${ngay}">${b.code}</a>`)}</div>
+        <div class="grid4 grid-cn" role="group" aria-label="Chi nhánh">${branches.map((b) => html`<a class="pick ${b.id === branch.id ? 'on' : ''}" href="#/lich?tab=co-so&tuan=${week.start_date}&cn=${b.id}&ngay=${ngay}">${b.code}</a>`)}</div>
         <div class="grid7" role="group" aria-label="Ngày">${WD_SHORT.map((w, i) => html`<a class="dpick ${i === ngay ? 'on' : ''}" href="#/lich?tab=co-so&tuan=${week.start_date}&cn=${branch.id}&ngay=${i}"><b>${w}</b><span>${dm(addDays(week.start_date, i))}</span></a>`)}</div>
         <div style="font-size:16px;font-weight:700">${branch.code} – ${branch.name} · ${WEEKDAYS[ngay]} ${dm(addDays(week.start_date, ngay))}</div>
         ${blocks.map((b) => html`<section class="card flush"><div class="shift-h"><strong>Ca ${b.shift}</strong><span class="det">${b.hours}</span></div>

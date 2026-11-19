@@ -3,7 +3,7 @@ import { render as rerender, can, state } from '../app.js';
 import { CODE, RANKS, SENIOR, ST_CHOT, ST_SUA, ST_XEP, addDays, catalog, ftShort, hm, overlap, segText, staffSegments, toMin, closure, getWeek, hasPublished, orderWindow, parseWeekParam, requirements, statusLabel, vnToday, weekDays, weekLabel, weekStart } from '../data.js';
 import { bindWeekPick, typed } from '../parts.js';
 import { rpc, sel, selAll } from '../sb.js';
-import { $, esc, flash, go, html, raw, showSaved, hhmm } from '../ui.js';
+import { $, esc, flash, go, html, raw, showSaved, hhmm, once } from '../ui.js';
 import { computeWarnings } from '../warnings.js';
 
 export const perm = 'xem_tat_ca';
@@ -13,16 +13,20 @@ const CSS = raw(`<style>
   .act { display: inline-block; margin: 3px 0 0 4px; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 700; line-height: 18px; text-transform: none; white-space: nowrap; border: 1px solid transparent; }
   .act.ok { background: #dcfce7; color: #166534; } .act.no { background: #fee2e2; color: #b91c1c; } .act.plus { background: #e0e7ff; color: #3730a3; display: block; margin: 4px 2px 0; white-space: normal; text-align: left; }
   .act.pend { border-style: dashed; border-color: currentColor; background: transparent; }
+  .act.plus.lg-inl { display: inline-block; margin: 3px 0 0 4px; white-space: nowrap; }
   .act-m { display: flex; flex-wrap: wrap; gap: 4px; padding: 4px 0; }
   .grid-wrap { overflow: auto; max-height: calc(100vh - 140px); }
-  .sg { border-collapse: separate; border-spacing: 0; font-size: 12px; width: 100%; }
+  .sg { border-collapse: separate; border-spacing: 0; font-size: 12px; width: 100%; table-layout: fixed; min-width: 900px; }   /* UI-07: chia đều 7 ngày, vừa màn hình */
+  .sg thead th.lab { width: 170px; }
   .sg th, .sg td { padding: 0; border-bottom: 1px solid var(--line-soft); }
   .sg thead th { position: sticky; top: 0; z-index: 2; background: var(--header); color: #fff; padding: 10px 6px; font-size: 12px; text-align: center; }
-  .sg .lab { position: sticky; left: 0; z-index: 1; min-width: 210px; padding: 8px 12px; font-weight: 600; text-align: left; white-space: nowrap; }
+  .sg .lab { position: sticky; left: 0; z-index: 1; padding: 8px 10px; font-weight: 600; text-align: left; white-space: normal; overflow-wrap: anywhere; }
   .sg thead .lab { z-index: 3; }
   .sg tr.r-role .lab { background: var(--sage-bg); color: var(--forest); } .sg tr.r-role.alt .lab { background: var(--plum-bg); color: var(--plum-ink); }
   .sg tr.r-extra .lab { color: #9a3412; } .sg tr.r-total .lab, .sg tr.r-total td { background: var(--subtle); }
-  .sg td.c { padding: 4px; min-width: 150px; }
+  .sg td.c { padding: 4px; }
+  .sg .cell { display: block; height: auto; min-height: 36px; padding: 8px 6px; white-space: normal; line-height: 1.3; overflow-wrap: anywhere; }
+  .sg .cell.blocked { text-align: center; } .sg .cell .ftb { display: inline-block; }
   .cell { height: 36px; border-radius: 8px; display: flex; align-items: center; padding: 0 8px; font-weight: 600; font-size: 12px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; position: relative; border: 1px solid transparent; }
   .cell.sel { cursor: pointer; } .cell.sel:hover { outline: 2px solid var(--focus); }
   .cell.empty { background: #fff; border-color: var(--line-strong); color: var(--ink); } .cell.extra { background: #fff; border: 1px dashed var(--line-strong); color: var(--muted); font-weight: 500; }
@@ -45,6 +49,7 @@ const CSS = raw(`<style>
   .picker button { display: block; width: 100%; text-align: left; border: none; background: none; padding: 7px 10px; border-radius: 6px; font-size: 13px; cursor: pointer; color: var(--ink); }
   .picker button:hover, .picker button:focus { background: var(--caramel-soft); outline: none; }
   .picker .g-ok { background: var(--ok-bg); color: var(--ok-ink); } .picker .g-none { background: var(--subtle); color: var(--ink-2); } .picker .g-off { background: #fff1f2; color: #9f1239; }
+  .picker .pk-close { width: auto; margin: 0 0 4px auto; padding: 6px 10px; font-weight: 700; color: var(--ink-2); border: 1px solid var(--line-strong); }
   .picker .cur { font-weight: 700; } .picker .hd { font-size: 11px; font-weight: 700; color: var(--muted); padding: 8px 10px 2px; }
   .lg { padding: 2px 6px; border-radius: 6px; } .lg.empty { border: 1px solid var(--line-strong); } .lg.filled { background: #fef3c7; } .lg.warn { border: 2px solid #dc2626; }
   .m-days { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 5px; padding: 10px; background: #fff; border-bottom: 1px solid var(--line); position: sticky; top: 0; z-index: 5; }
@@ -60,10 +65,11 @@ const CSS = raw(`<style>
   .m-row .cell { flex-grow: 1; min-width: 0; }
   .cell.m { height: auto; min-height: 46px; padding: 8px 10px; font-size: 14px; white-space: normal; line-height: 1.3; flex-wrap: wrap; }
   .sheet-t { position: sticky; top: -6px; background: #fff; padding: 10px 12px; font-size: 13px; color: var(--ink); }
+  .m-legend { display: none; margin: 0 0 10px; font-size: 13px; line-height: 1.9; } .m-legend summary { font-weight: 700; cursor: pointer; padding: 6px 0; min-height: 32px; }
   .show-m { display: none; } .wkbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 14px 18px; } .wk-lab { font-weight: 700; padding: 0 6px; }
   @media (max-width: 760px) {
-    .show-m { display: inline; } .wkbar { padding: 10px 12px; flex-wrap: nowrap; } .wkbar .btn { min-height: 44px; min-width: 44px; padding: 0 12px; }
-    .wk-lab { flex-grow: 1; text-align: center; font-size: 15px; } .branch-nav { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .show-m { display: inline; } .m-legend { display: block; } .wkbar { padding: 10px 12px; flex-wrap: nowrap; } .wkbar .btn { min-height: 44px; min-width: 44px; padding: 0 12px; }
+    .wk-lab { flex-grow: 1; text-align: center; font-size: 15px; } .branch-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); gap: 8px; }
     .hide-m { display: none !important; } .grid-wrap { max-height: none; overflow: visible; }
     .picker { position: fixed !important; left: 0 !important; right: 0; top: auto !important; bottom: 0; width: auto; max-height: 72vh; border-radius: 16px 16px 0 0; padding: 4px 8px 16px; }
     .picker button { padding: 14px 12px; font-size: 15px; } .toolbar .btn { flex-grow: 1; }
@@ -146,8 +152,12 @@ export async function render({ params, me }) {
     base[`${r.employee_id}|${r.weekday}|${r.shift}`] = CODE[r.base_status] || 'none';
     if (r.state === 'ĐÃ XẾP' && r.branch_id) assign.push({ eid: r.employee_id, d: r.weekday, s: r.shift, b: r.branch_id, r: r.role, slot: r.slot, fixed: r.source === 'FIXED', manual: !!r.is_manual });
   });
+  // UI-13: người đã ngừng làm nhưng còn trong lịch tuần — tải riêng để hiện mã – tên
+  const known = new Set(emps.map((e) => e.id));
+  const goneIds = [...new Set(assign.map((a) => a.eid).filter((id) => !known.has(id)))];
+  const gone = goneIds.length ? await sel('employees', 'id, code, name, rank', (b) => b.in('id', goneIds)).catch(() => []) : [];
   const P = {
-    week_id: week.id, branch: { id: branch.id, code: branch.code, name: branch.name }, days: weekDays(week.start_date),
+    week_id: week.id, gone: Object.fromEntries((gone || []).map((e) => [e.id, { ...e, name: `${e.name} (đã nghỉ)` }])), branch: { id: branch.id, code: branch.code, name: branch.name }, days: weekDays(week.start_date),
     shifts: cat.ftOf(branch.id).main, ft: cat.ftOf(branch.id).ft,
     allShifts: cat.branchShifts(branch.id).map((s) => ({ name: s.name, start: s.start, end: s.end })),
     roles: cat.activeRoles.map((r) => r.name),
@@ -190,7 +200,11 @@ export async function render({ params, me }) {
         <span style="color:#dc2626">•</span> quản lý đã xếp tay · <span class="lg warn">⚠ Viền đỏ: order Nghỉ / Chưa order</span> ·
         <span class="lg ft">FT: làm FULL TIME</span> (hiện ở ca chính và tính cho mọi ca chồng giờ) ·
         Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:var(--ok-line)">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu người Cấp 2 hoặc Quản lý<br>
-        Thực tế (từ phiếu chốt ca): <span class="act ok">✓ đã làm</span> <span class="act no">✗ nghỉ</span> <span class="act plus">+ phát sinh</span> · <span class="act ok pend">viền nét đứt</span> = chờ quản lý xác nhận</div>
+        Thực tế (từ phiếu chốt ca): <span class="act ok">✓ đã làm</span> <span class="act no">✗ nghỉ</span> <span class="act plus lg-inl">+ phát sinh</span> · <span class="act ok pend">viền nét đứt</span> = chờ quản lý xác nhận</div>
+      <details class="m-legend"><summary>Chú giải màu &amp; ký hiệu</summary><div>
+        <span class="lg empty">Trắng: chưa xếp</span> <span class="lg filled">Vàng: đã xếp</span> <span class="lg warn">⚠ Viền đỏ: order Nghỉ / Chưa order</span>
+        <span class="lg ft">FT: FULL TIME</span> · CĐ: lịch cố định · <span style="color:#dc2626">•</span> quản lý xếp tay · <span style="color:#dc2626">●</span> trên ngày: ngày còn thiếu người<br>
+        Tổng ca: <span style="color:#b91c1c">đỏ thiếu</span>, <span style="color:var(--ok-line)">xanh đủ</span>, <span style="color:#a16207">vàng vượt</span>, <strong>!</strong> thiếu Cấp 2 / Quản lý · <span class="act ok">✓ đã làm</span> <span class="act no">✗ nghỉ</span> <span class="act plus lg-inl">+ phát sinh</span></div></details>
       <section class="card flush"><div class="grid-wrap" id="grid"></div></section>
       <div id="picker" class="picker" role="listbox" hidden></div>
       <dialog id="extra-dialog"><form class="stack" id="extra-form"><h2>Thêm vượt định biên</h2>
@@ -246,7 +260,7 @@ function mountGrid(P, { week, start, holds }) {
     return arr;
   }
   const filledCell = (a, d, s, attrs, mobile) => {
-    const e = empById.get(a.eid) || { code: '?', name: 'Ngừng làm' };
+    const e = empById.get(a.eid) || P.gone[a.eid] || { code: '?', name: 'Ngừng làm' };
     const f = P.ft[a.s]; const away = f && f.parent !== s;
     if (f) attrs = ` data-d="${d}" data-s="${esc(a.s)}" data-r="${esc(a.r)}" data-i="${a.slot ?? 0}" data-blk="${esc(f.parent)}"`;
     const b = baseOf(a.eid, d, a.s); const warn = b !== 'ok';
@@ -334,7 +348,7 @@ function mountGrid(P, { week, start, holds }) {
           if (!a && !(i < reqOf(curDay, s.name, r)) && !isExtra) continue;
           const attrs = ` data-d="${curDay}" data-s="${esc(s.name)}" data-r="${esc(r)}" data-i="${i}"`;
           const cell = a ? filledCell(a, curDay, s.name, attrs, true)
-            : i < reqOf(curDay, s.name, r) ? `<div class="cell empty m ${P.can_edit ? 'sel' : ''}"${attrs}>ĐỂ TRỐNG · bấm để chọn</div>`
+            : i < reqOf(curDay, s.name, r) ? `<div class="cell empty m ${P.can_edit ? 'sel' : ''}"${attrs}>ĐỂ TRỐNG${P.can_edit ? ' · bấm để chọn' : ''}</div>`
             : `<div class="cell extra m ${P.can_edit ? 'sel' : ''}"${attrs}>Ngoài định biên</div>`;
           const lastExtra = isExtra && extraOf(s.name, r) > 0 && i === mr + extraOf(s.name, r) - 1 && P.can_edit;
           lines.push(`<div class="m-row"><div class="m-lab">${isExtra ? 'Vượt ĐB' : (i + 1)}${lastExtra ? `<button class="rm-extra" data-s="${esc(s.name)}" data-r="${esc(r)}" aria-label="Xóa hàng vượt định biên">×</button>` : ''}</div>${cell}</div>`);
@@ -364,6 +378,10 @@ function mountGrid(P, { week, start, holds }) {
     picker.style.left = `${Math.min(window.scrollX + rc.left, window.scrollX + document.documentElement.clientWidth - 380)}px`;
     picker.style.top = `${window.scrollY + rc.bottom + 4}px`;
     picker.hidden = false;
+    if (!mq.matches) {   // UI-16: thiếu chỗ bên dưới thì lật bảng lên trên ô
+      const ph = picker.offsetHeight;
+      if (rc.bottom + 4 + ph > window.innerHeight && rc.top - 4 - ph > 0) picker.style.top = `${window.scrollY + rc.top - 4 - ph}px`;
+    }
     picker.querySelector('button[data-pick]')?.focus();
   }
   function drawPicker() {
@@ -377,7 +395,7 @@ function mountGrid(P, { week, start, holds }) {
     cands.forEach((e) => groups[baseOf(e.id, d, mode)].push(e));
     Object.values(groups).forEach((g) => g.sort((a, b) => b.rank_i - a.rank_i || a.name.localeCompare(b.name, 'vi')));
     const line = (e, g) => `<button type="button" class="g-${g}${e.id === cur ? ' cur' : ''}" data-pick="${e.id}">${e.id === cur ? '✓ ' : ''}${g === 'off' ? '⚠ ' : ''}${esc(`${e.code} – ${e.name} – ${e.rank}`)}${g === 'none' ? ' – CHƯA ORDER' : ''}</button>`;
-    let h = '';
+    let h = '<button type="button" class="pk-close" data-close-pk aria-label="Đóng bảng chọn">✕ Đóng</button>';   // UI-16
     if (modes.length > 1) h += '<div class="pk-modes" role="group" aria-label="Loại ca">' + modes.map((m) => { const o = shiftObj(m); return `<button type="button" data-mode="${esc(m)}" class="${m === mode ? 'on' : ''}">${esc(P.ft[m] ? 'FULL TIME' : `Ca ${m}`)} ${hm(o.start)}–${hm(o.end)}</button>`; }).join('') + '</div>';
     h += '<button type="button" data-pick="">ĐỂ TRỐNG</button>';
     if (groups.ok.length) h += '<div class="hd">ĐI LÀM ĐƯỢC</div>' + groups.ok.map((e) => line(e, 'ok')).join('');
@@ -396,10 +414,8 @@ function mountGrid(P, { week, start, holds }) {
     try {
       let res;
       if (c.mode === c.s) res = await call(c.s, eid, c.cur);
-      else {   // đổi giữa ca thường ↔ FULL TIME: gỡ ở ca cũ rồi xếp ở ca mới
-        if (c.cur) res = await call(c.s, null, c.cur);
-        P.assign = P.assign.filter((a) => !(a.d === c.d && a.s === c.s && a.eid === c.cur));
-        if (eid) res = await call(c.mode, eid, null);
+      else {   // đổi giữa ca thường ↔ FULL TIME: gỡ ở ca cũ + xếp ở ca mới trong MỘT lệnh máy chủ (UI-32: lỗi giữa chừng thì không mất người)
+        res = await rpc('app_assign_doi_ca', { p_week: P.week_id, p_branch: P.branch.id, p_day: c.d, p_from_shift: c.s, p_to_shift: c.mode, p_role: c.r, p_slot: c.i, p_emp: eid, p_prev: c.cur });
       }
       P.assign = P.assign.filter((a) => !(a.d === c.d && ((a.s === c.s && a.eid === c.cur) || (a.s === c.mode && a.eid === eid))));
       if (eid) P.assign.push({ eid, d: c.d, s: c.mode, b: P.branch.id, r: c.r, slot: c.i, fixed: false, manual: true });
@@ -416,6 +432,7 @@ function mountGrid(P, { week, start, holds }) {
     } catch (e) { showSaved(e.message, true); }
   }
   const grid = $('#grid');
+  grid.addEventListener('scroll', () => { if (!mq.matches && !picker.hidden) closePicker(); }, { passive: true });   // UI-16: bảng chọn không trôi lệch khi cuộn lưới
   grid.addEventListener('click', (ev) => {
     const dayBtn = ev.target.closest('.m-day');
     if (dayBtn) { curDay = +dayBtn.dataset.day; closePicker(); draw(); return; }
@@ -431,6 +448,7 @@ function mountGrid(P, { week, start, holds }) {
     if (cell && P.can_edit) { ev.stopPropagation(); openPicker(cell); }
   });
   picker.addEventListener('click', (ev) => {
+    if (ev.target.closest('[data-close-pk]')) { ev.stopPropagation(); closePicker(); return; }
     const m = ev.target.closest('button[data-mode]');
     if (m && pickCtx) { ev.stopPropagation(); pickCtx.mode = m.dataset.mode; drawPicker(); return; }
     const b = ev.target.closest('button[data-pick]'); if (b) pick(b.dataset.pick ? +b.dataset.pick : null);
@@ -471,22 +489,22 @@ function mountGrid(P, { week, start, holds }) {
       rerender();
     });
   }
-  $('#reopen-btn')?.addEventListener('click', async () => {
+  $('#reopen-btn')?.addEventListener('click', once(async () => {
     try { await rpc('app_reopen', { p_week: P.week_id }); flash('Đã mở lại tuần để chỉnh sửa. Nhân viên vẫn xem bản đã chốt gần nhất cho tới khi chốt lại.'); }
     catch (e) { flash(e.message, 'error'); }
     rerender();
-  });
+  }));
   $('#take-btn')?.addEventListener('click', async () => {
     try { await rpc('app_schedule_lock', { p_week: P.week_id, p_force: true }); flash('Bạn đã giành quyền xếp lịch. Người đang xếp sẽ chuyển sang chỉ xem.'); }
     catch (e) { flash(e.message, 'error'); }
     rerender();
   });
-  $('#clear-btn')?.addEventListener('click', async () => {
+  $('#clear-btn')?.addEventListener('click', once(async () => {
     if (!typed(`Xóa toàn bộ lịch tuần ${weekLabel(start)} của TẤT CẢ cơ sở?\n\nMọi ca đã xếp (kể cả lịch cố định) bị xóa, order của nhân viên vẫn giữ. Sau đó bấm "Bắt đầu xếp lịch" để xếp lại.`, 'XOA')) return;
     try { await rpc('app_clear_schedule', { p_week: P.week_id }); flash(`Đã xóa lịch tuần ${weekLabel(start)}. Order vẫn giữ nguyên; bấm “Bắt đầu xếp lịch” để xếp lại.`); }
     catch (e) { flash(e.message, 'error'); }
     rerender();
-  });
+  }));
   $('#back-btn')?.addEventListener('click', async () => {
     if (!confirm('Quay lại giai đoạn order? Các ô lịch cố định đã điền sẽ được xóa.')) return;
     try { await rpc('app_back_to_order', { p_week: P.week_id }); flash('Đã quay lại giai đoạn order. Muốn nhân viên order tiếp, hãy cài giờ hết hạn mới ở Giờ order.'); go(`/quan-ly/order?tuan=${start}`); }

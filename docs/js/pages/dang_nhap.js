@@ -38,7 +38,8 @@ export async function render() {
           await rpc('app_touch_login');
           const me = await loadMe();
           if (!me) throw new Error('Tài khoản không còn hoạt động.');
-          go(me.must_change ? '/doi-mat-khau' : '/');
+          let back = null; try { back = sessionStorage.getItem('after_login'); sessionStorage.removeItem('after_login'); } catch (_) { /* bỏ qua */ }
+          go(me.must_change ? '/doi-mat-khau' : back && back.startsWith('/') && !back.startsWith('/dang-nhap') ? back : '/');   // UI-24
         } catch (e) {
           err.textContent = viError(e);
           err.hidden = false;

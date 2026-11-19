@@ -101,13 +101,15 @@ export async function render({ me }) {
       const btn = $('#submit-btn'); const remainText = $('#remain-text');
       const update = () => {
         let done = 0;
+        const any = !!$('.order-row .opt:checked');   // UI-23: chưa chọn ô nào thì chưa tô đỏ
+        const mark = editable && any;
         $$('.day-card').forEach((card) => {
           let n = 0;
           $$('.order-row', card).forEach((row) => {
             const chosen = !!row.querySelector('.opt:checked');
             if (chosen) { n++; done++; }
-            row.classList.toggle('missing', editable && !chosen);
-            row.querySelector('.missing-text').hidden = !(editable && !chosen);
+            row.classList.toggle('missing', mark && !chosen);
+            row.querySelector('.missing-text').hidden = !(mark && !chosen);
           });
           card.querySelector('.day-count').textContent = `${n}/${$$('.order-row', card).length} đã chọn`;
         });
@@ -118,7 +120,7 @@ export async function render({ me }) {
         if (btn) {
           btn.disabled = done < total;
           remainText.hidden = done === total;
-          remainText.textContent = `Còn ${total - done} ô chưa chọn — các ô viền đỏ`;
+          remainText.textContent = `Còn ${total - done} ô chưa chọn${mark ? ' — các ô viền đỏ' : ''}`;
         }
       };
       // FULL TIME ↔ ca chính trong cùng ngày
@@ -135,11 +137,18 @@ export async function render({ me }) {
         ev.preventDefault();
         const cells = $$('.order-row').map((row) => ({ weekday: Number(row.dataset.d), shift: row.dataset.s, status: row.querySelector('.opt:checked')?.value }))
           .filter((c) => c.status);
+        const label0 = btn.textContent;
         btn.disabled = true; btn.textContent = 'Đang gửi…';
-        try {
-          const r = await rpc('app_submit_order', { p_week: week.id, p_cells: cells });
-          flash((r.first ? 'Đã gửi order. ' : 'Đã cập nhật order. ') + `Bạn vẫn sửa được đến ${r.close_text}.`);
-        } catch (e) { flash(e.message, 'error'); }
+        let r;
+        try { r = await rpc('app_submit_order', { p_week: week.id, p_cells: cells }); } catch (e) {
+          // UI-09: gửi lỗi (mất mạng, hết giờ order…) — giữ nguyên các ô đã chọn, báo lỗi ngay trên nút
+          btn.textContent = label0; update();
+          let box = $('#order-err');
+          if (!box) { box = document.createElement('div'); box.id = 'order-err'; box.className = 'alert error'; box.setAttribute('role', 'alert'); btn.before(box); }
+          box.textContent = `Chưa gửi được: ${e.message}. Các ô đã chọn vẫn giữ nguyên — bấm gửi lại.`;
+          return;
+        }
+        flash((r.first ? 'Đã gửi order. ' : 'Đã cập nhật order. ') + `Bạn vẫn sửa được đến ${r.close_text}.`);
         rerender();
       });
     },

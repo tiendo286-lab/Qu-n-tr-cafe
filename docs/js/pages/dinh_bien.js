@@ -27,13 +27,13 @@ export async function render({ params }) {
       <div style="font-size:14px;color:var(--ink-2)"><strong>${branch.code} – ${branch.name}</strong> · ${blocks.length} ca đang dùng: ${blocks.map((b) => b.s.name).join(' · ')}</div>
       ${blocks.length ? blocks.map((blk, bi) => html`<section class="card flush staff-block">
         <div class="card-head" style="background:${TINTS[bi % 5]};justify-content:center"><h2>Ca ${blk.s.name} <span style="font-weight:500;color:var(--ink-2);font-size:14px">· ${blk.s.start || '?'}–${blk.s.end || '?'}</span></h2></div>
-        <div class="table-wrap"><table class="table rt-fx" aria-label="Định biên ca ${blk.s.name}">
+        <div class="table-wrap"><table class="table rt rt-fx" style="--n:4" aria-label="Định biên ca ${blk.s.name}">
           <thead class="dark"><tr><th>Vị trí</th>${WEEKDAYS.map((d) => html`<th class="center">${d}</th>`)}</tr></thead>
           <tbody>${blk.rows.map((row) => html`<tr><th scope="row" style="background:none;color:var(--ink);font-weight:600">${blk.s.name} – ${row.role}</th>
-            ${row.counts.map((c, d) => html`<td class="center"><input class="input sm staff-input" type="number" min="0" max="50" step="1" inputmode="numeric" value="${c}"
+            ${row.counts.map((c, d) => html`<td class="center sc" data-label="${WEEKDAYS[d]}"><input class="input sm staff-input" type="number" min="0" max="50" step="1" inputmode="numeric" value="${c}"
               data-weekday="${d}" data-shift="${blk.s.name}" data-role="${row.role}" aria-label="${blk.s.name} ${row.role} ${WEEKDAYS[d]}" style="width:72px;text-align:center"></td>`)}</tr>`)}
             <tr style="background:var(--sage-bg)"><th scope="row" style="background:none;color:var(--primary-dark)">Tổng ca ${blk.s.name}</th>
-              ${blk.totals.map((t, d) => html`<td class="center total-cell" data-weekday="${d}" style="font-weight:700;color:var(--primary-dark)">${t}</td>`)}</tr>
+              ${blk.totals.map((t, d) => html`<td class="center sc total-cell" data-label="${WEEKDAYS[d]}" data-weekday="${d}" style="font-weight:700;color:var(--primary-dark)">${t}</td>`)}</tr>
           </tbody></table></div></section>`)
         : html`<div class="card">Chi nhánh này chưa bật ca nào. Vào <a href="#/quan-ly/chi-nhanh">Chi nhánh, ca &amp; vai trò</a> để bật ca và nhập giờ.</div>`}`,
     mount() {
