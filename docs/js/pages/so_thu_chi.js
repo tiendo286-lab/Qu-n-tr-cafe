@@ -7,6 +7,7 @@ import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
+import { watchGio } from '../gio_chot.js';
 import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
 
 export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
@@ -81,6 +82,7 @@ export async function render({ params }) {
     html: html`${STYLE}<div id="stc-page">${head}${body}</div>`,
     mount() {
       const root = $('#stc-page'); if (!root) return;
+      watchGio(root, () => after('Đã sửa giờ chốt'));   // bước 162: dòng giờ chốt ở Đối soát Fabi phần A
       if (P.tab === 'tong' && !D.ext) fillCounts(D);
       if (P.tab === 'thu' || P.tab === 'chi') fillFilter(D, P.tab);
       root.addEventListener('click', (ev) => {
@@ -1011,7 +1013,7 @@ function partA(D, a) {
   const kt = c.kt_wait || c.bank_ck == null; const byCa = c.cash_mode === 'ca';
   const last = !(D.cas || []).some((o) => o.date === c.date && SHIFT_ORDER.indexOf(o.shift) > SHIFT_ORDER.indexOf(c.shift));
   if (c.recon_money_done) {
-    return html`<div class="stc-part stc-pa"><div class="h">A · Fabi <span class="pill ${st ? st.cls.replace('p-', '') : 'ok'}">${st ? st.txt : 'Đã xác nhận'}</span>${phBtn(c)}${fin ? '' : html`<button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại xác nhận</button>`}</div>
+    return html`<div class="stc-part stc-pa"><div class="h">A · Fabi <span class="pill ${st ? st.cls.replace('p-', '') : 'ok'}">${st ? st.txt : 'Đã xác nhận'}</span>${phBtn(c)}${fin ? '' : html`<button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại xác nhận</button>`}</div><div class="stc-gio" data-gio-ca="${c.id}"></div>
       <div class="stc-fsum"><div><span>Tiền mở ca</span><b>${fmt(f.has ? f.opening ?? 0 : nv.opening ?? 0)}</b></div><div><span>Doanh thu (máy Fabi)</span><b>${fmt(f.revenue ?? nv.revenue ?? 0)}</b></div>
         <div><span>Nợ bill (máy Fabi)</span><b>${fmt(f.debt ?? nv.debt ?? 0)}</b></div>
         <div><span>Tiền mặt thực nhận</span><b>${m ? fmt(m.tm.real) : '–'}</b></div><div><span>Chuyển khoản thực nhận</span><b>${kt ? 'chờ kế toán' : fmt(c.bank_ck)}</b></div></div>${gapNote(gaps)}${debtList(D, c)}</div>`;
@@ -1034,7 +1036,7 @@ function partA(D, a) {
   if (red1) need.push('còn ô đỏ ở ①'); if (kt || !f.has) need.push('chờ kế toán'); if (byCa && c.ql_counted == null) need.push('chưa nhập tiền mặt thực nhận');
   const r = (lab, a1, b1) => html`<div class="stc-mr"><span>${lab}</span><b>${a1}</b><b>${b1}</b></div>`;
   const flags = Number(f.edited_bills || 0);
-  return html`<div class="stc-part stc-pa"><div class="h">A · Fabi ${phBtn(c)} <span class="st-meta">máy Fabi là chuẩn · chỉ xác định phiếu đúng, tiền mặt và chuyển khoản thực nhận</span></div>
+  return html`<div class="stc-part stc-pa"><div class="h">A · Fabi ${phBtn(c)} <span class="st-meta">máy Fabi là chuẩn · chỉ xác định phiếu đúng, tiền mặt và chuyển khoản thực nhận</span></div><div class="stc-gio" data-gio-ca="${c.id}"></div>
     <div class="stc-stp"><div class="h"><b>①</b> So phiếu nhân viên với máy Fabi</div><div class="stc-c4s">${s1.map(box)}</div>${debtList(D, c)}
       ${!f.has ? html`<div class="st-meta">Chưa có file Fabi: ${(c.kt_missing || []).join(', ') || 'chờ kế toán tải'}.</div>` : ''}
       ${flags ? html`<div class="stc-warnbox">⚠ Trên máy Fabi ca này có <b>${flags} hoá đơn bị sửa / xoá</b>. Hoá đơn bị sửa / xoá không còn đúng trong doanh thu Fabi — kiểm tra lại (hỏi nhân viên / xem camera).</div>` : ''}</div>

@@ -2,6 +2,7 @@
 // làm giống máy chủ trên bản sao dữ liệu giả: khoản cũ thành void (gạch ngang), khoản mới có edit (phiếu bổ sung).
 import { EXT, MONTH } from '../test/stc_fixture.js';
 import { makeFund } from '../test/fund_gia.js';
+import { gioCheck } from '../js/gio_chot_tinh.js';
 
 const copy = (o) => JSON.parse(JSON.stringify(o));
 export function makeStc(T, me) {
@@ -66,7 +67,46 @@ export function makeStc(T, me) {
   const gapStat = (x) => { const g = x.gap; const wait = g.qc_wait.length || g.matches.some((m) => m.status === 'cho_duyet');
     x.status = (g.remain <= 0 ? 'Đã xử lý' : g.kind === 'thieu' ? 'Chờ xử lý · chưa làm phiếu trừ tiền' : 'Chờ xử lý (dư)') + (wait ? ' · ⏳ chờ Chủ duyệt' : '');
     gapAll().forEach((y) => y.gap.cands.forEach((c) => { const o = gapAll().find((i) => i.ca_id === c.report && i.gap.kind !== y.gap.kind); if (o) c.amount = o.gap.avail; })); };
+
+  // bước 162: giờ chốt ca (app_ca_gio / app_ca_gio_save). Ca của Sổ thu chi (dữ liệu giả 141–183) giữ giờ riêng; phiếu thật (T.shift_reports) ghi thẳng vào phiếu.
+  // Ca 181: file Fabi vô lý (23:59) → sửa tay được; ca 182: có file Fabi → theo file; còn lại không có file.
+  const GIO = {}; const GLOG = {}; const SH3 = ['Sáng', 'Chiều', 'Tối']; const GT = { 'Sáng': ['06:45', '12:30'], 'Chiều': ['12:30', '17:30'], 'Tối': ['17:30', '22:45'] };
+  const gioRow = (id) => {
+    id = Number(id); const fc = st().cas.find((c) => c.id === id);
+    if (fc) { if (!GIO[id]) { const [a, b] = GT[fc.shift] || GT['Sáng']; GIO[id] = { id, date: fc.date, shift: fc.shift, branch: st().branches[0].id, status: 'hoan_thanh', fix: true,
+      rev_start: `${fc.date} ${a}`, rev_end: `${fc.date} ${b}`, fabi_close: id === 182 ? `${fc.date} ${b}` : id === 181 ? `${fc.date} 23:59` : null }; } return GIO[id]; }
+    const r = (T.shift_reports || []).find((x) => x.id === id); if (!r) return null;
+    return { id, date: r.work_date, shift: r.shift, branch: r.branch_id, status: r.status, rev_start: r.rev_start, rev_end: r.rev_end, fabi_close: null, ref: r };
+  };
+  const gioNext = (g) => { const ns = SH3[SH3.indexOf(g.shift) + 1]; if (!ns) return null;
+    if (g.fix) { const c = st().cas.find((x) => x.date === g.date && x.shift === ns); return c ? gioRow(c.id) : null; }
+    const r = (T.shift_reports || []).find((x) => x.branch_id === g.branch && x.work_date === g.date && x.shift === ns); return r ? gioRow(r.id) : null; };
+  const gioPut = (g, k, v) => { g[k] = v; if (g.ref) g.ref[k] = v; };
+  const gioView = (p_report) => {
+    const g = gioRow(p_report); if (!g) throw new Error('Không tìm thấy ca.');
+    const can0 = admin() || (me.role === 'ql' && (g.fix ? Number(g.branch) === st().branches[0].id : (T.branches || []).find((b) => b.id === g.branch)?.code === 'LLB'));   // quản lý thử: được giao cơ sở 1 (Sổ thu chi giả) + LLB (phiếu thật)
+    if (!can0) throw new Error('Không có quyền xem ca này.');
+    const n = gioNext(g);
+    const nx = n ? { id: n.id, shift: n.shift, submitted: n.status === 'hoan_thanh', rev_start: n.status === 'hoan_thanh' ? n.rev_start : null, rev_end: n.status === 'hoan_thanh' ? n.rev_end : null } : null;
+    const base0 = { id: g.id, shift: g.shift, date: g.date, status: g.status, rev_start: g.rev_start, rev_end: g.rev_end, fabi_close: g.fabi_close, next: nx };
+    const bad = !!g.fabi_close && gioCheck({ ...base0, by_fabi: false }, g.fabi_close, 'x') !== null;
+    const byf = !!g.fabi_close && !bad;
+    return { g, n, v: { ...base0, by_fabi: byf, fabi_bad: bad, can_edit: !byf && g.status === 'hoan_thanh', log: (GLOG[g.id] || []).slice().reverse() } };
+  };
+
   return {
+    app_ca_gio({ p_report }) { return gioView(p_report).v; },
+    app_ca_gio_save({ p_report, p_end, p_reason }) {
+      if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này đối soát tiền được.');
+      const { g, n, v } = gioView(p_report);
+      if (!v.can_edit && v.by_fabi) throw new Error('Ca đã có file Fabi — giờ chốt lấy theo file.');
+      const err = gioCheck(v, p_end, p_reason); if (err) throw new Error(err);
+      const old = g.rev_end; if (old === p_end) return { changed: false, rev_end: p_end, next: null };
+      gioPut(g, 'rev_end', p_end); (GLOG[g.id] = GLOG[g.id] || []).push({ at: now(), by_name: by(), action: 'sua_gio', before: old, after: p_end, reason: String(p_reason).trim() });
+      let next = null;
+      if (n && n.status === 'hoan_thanh' && n.rev_start !== p_end) { next = { shift: n.shift, from: n.rev_start, to: p_end }; gioPut(n, 'rev_start', p_end); }
+      return { changed: true, rev_end: p_end, next };
+    },
     app_stc_month({ p_branch, p_month }) {
       // bước 152: quản lý cơ sở chỉ được giao cơ sở đầu tiên (giả lập Phân công việc Đối soát ca)
       const mine = (bid) => admin() || (me.role === 'ql' && Number(bid) === st().branches[0].id);

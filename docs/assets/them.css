@@ -273,3 +273,10 @@ input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirr
 .grid4.grid-cn { grid-template-columns: repeat(auto-fit, minmax(56px, 1fr)); }
 /* UI-22: nhãn ngắn trong thẻ việc không gãy giữa chữ */
 .hn-flags .pill, .pc-top .pill, .pc-top .pc-jb, .pc-top .pc-br { white-space: nowrap; }
+
+/* bước 162: dòng giờ chốt ca (Sổ thu chi › Đối soát Fabi phần A, Đối soát ca) + ô Sửa giờ chốt */
+.stc-gio:empty { display: none; }
+.gio-line { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0; font-size: 14px; }
+.gio-dlg .gio-pv:empty, .gio-dlg .gio-log:empty { display: none; }
+.gio-dlg .gio-pv { color: var(--accent, #8a5a2b); font-weight: 600; }
+.gio-dlg input[type=datetime-local] { max-width: 100%; }

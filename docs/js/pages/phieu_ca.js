@@ -13,6 +13,7 @@ import { catalog } from '../data.js';
 import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.18';
 import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.18';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
+import { watchGio } from '../gio_chot.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
 import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.18';
@@ -835,6 +836,7 @@ export async function render({ params }) {
   const mDone = ['tien_mat', 'chuyen_khoan'].every((it) => (R.results || {})[it]);
   const stcHref = `#/quan-ly/so-thu-chi?tab=doi-soat&cn=${R.branch_id}&thang=${String(R.work_date || '').slice(0, 7)}&ds=${R.id}`;
   const stcCard = isDs ? html`<section class="card stack pc-sec ds-stc-card" style="gap:10px"><div class="pc-sec-head"><h2>Phần tiền · làm ở Sổ thu chi</h2><span class="pill ${mDone ? 'ok' : 'warn'}">${mDone ? '✓ Đã xác nhận Fabi' : 'Chưa xác nhận Fabi'}</span></div>
+      <div class="stc-gio" data-gio-ca="${R.id}"></div>
       <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Xác nhận Fabi xong thì các mục tiền ở đây tự "✓ Xong"; ca xong cả phần việc thì tự Hoàn thành đối soát.</div>
       <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a>
       ${iposPhotos.length ? html`<h3 style="margin:4px 0 0;font-size:15px">Ảnh phiếu Fabi chốt ca</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}</div>` : html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`}</section>` : '';
@@ -966,6 +968,7 @@ function mount(R, ed, C0, ctx = {}) {
   // khung Nghỉ & làm thay: trước khi lưu phân loại thì lưu danh sách nhân viên đang sửa; danh sách đổi thì vẽ lại khung
   const cvCtx = { sum: $('#ds-cv-sum'), onChange: () => rerender(), flush: () => (saveNow ? saveNow() : null) };
   if (isDs) { mountLights($('#ds-lights'), R0, R); mountReportEval($('#ds-dg'), R); mountCover($('#ds-cv'), R, cvCtx); }
+  if (isDs) watchGio($('.ds-stc-card'), () => { showSaved('Đã sửa giờ chốt'); rerender(); });   // bước 162: dòng giờ chốt + ✎ Sửa giờ chốt
   const form = $('#pc-form');
   bindMoneyInputs(form);
   // bước 119: Số dư đầu phiếu Fabi (ipos_opening) đi theo ô Số dư đầu khi quản lý sửa
