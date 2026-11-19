@@ -79,7 +79,7 @@ end $$;
 -- Đặt giờ chốt + kéo giờ bắt đầu ca sau + ghi lịch sử (không kiểm quyền — người gọi kiểm)
 create or replace function public.app__ca_gio_set(p_report bigint, p_end text, p_action text, p_reason text, p_by bigint) returns jsonb
 language plpgsql security definer set search_path = public as $$
-declare r public.shift_reports; nx public.shift_reports; err text; old text; ost text; nxt jsonb;
+declare r public.shift_reports; nx public.shift_reports; pv public.shift_reports; err text; old text; ost text; nxt jsonb;
 begin
   select * into r from public.shift_reports where id = p_report;
   if r.id is null then raise exception 'Không tìm thấy ca.'; end if;
@@ -105,6 +105,12 @@ begin
     end if;
   end if;
   perform set_config('app.ca_gio', '', true);
+  -- duyệt mã I1: đổi giờ ca này có thể làm giờ file Fabi của ca liền trước / liền sau thành hợp lệ → xét lại (dừng vì đặt trùng giờ thì không làm gì)
+  if public.app__ca_chain(r.shift) then
+    select * into pv from public.shift_reports where branch_id = r.branch_id and work_date = r.work_date and shift = public.app__ca_prev_shift(r.shift);
+    if pv.id is not null then perform public.app__ca_gio_fabi(pv.id); end if;
+  end if;
+  if nx.id is not null then perform public.app__ca_gio_fabi(nx.id); end if;
   return jsonb_build_object('changed', true, 'rev_end', p_end, 'next', nxt);
 end $$;
 
@@ -115,12 +121,14 @@ declare r public.shift_reports; fc text; acc bigint;
 begin
   select * into r from public.shift_reports where id = p_report;
   if r.id is null or r.status <> 'hoan_thanh' then return; end if;
+  if public.app__fin_locked(r.branch_id, r.work_date) then return; end if;   -- duyệt mã I2: tháng đã chốt không đổi giờ
   fc := public.app__ca_gio_fabi_close(r);
-  if fc is null then return; end if;
+  if fc is null or public.app__ca_gio_check(r, fc) is not null then return; end if;   -- giờ file vô lý: app_ca_gio báo fabi_bad, cho sửa tay
   begin acc := (public.app_account()).id; exception when others then acc := null; end;
   begin
     perform public.app__ca_gio_set(r.id, fc, 'gio_fabi', 'Theo file Fabi', acc);
-  exception when others then null;
+  exception when others then   -- lỗi bất ngờ: không làm hỏng việc tải file, nhưng để lại dấu vết ở LOG
+    begin perform public.app_log('gio_fabi_loi', 'report=' || r.id || ' ' || fc || ': ' || sqlerrm); exception when others then null; end;
   end;
 end $$;
 

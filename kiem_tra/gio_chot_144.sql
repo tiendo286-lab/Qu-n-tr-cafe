@@ -123,5 +123,24 @@ begin
     rep := rep || format(E'\n(o) so_ca=%s moi_ca_khac=%s', jsonb_array_length(j), not exists (select 1 from jsonb_array_elements(j) x where x ->> 'from' = x ->> 'to'));
   exception when others then rep := rep || E'\n(o) LỖI: ' || sqlerrm; end;
 
+  -- (q) duyệt mã I1: file Sáng vô lý vì giờ chốt Chiều đang sai; sửa tay Chiều → Sáng phải tự lấy giờ file (không kẹt "theo file Fabi" với giờ cũ)
+  perform set_config('request.jwt.claims', json_build_object('sub', (select auth_user_id from accounts where id = a_chu), 'role', 'authenticated')::text, true);
+  delete from fabi_shifts where branch_id = 3 and work_date = '2026-11-17' and shift = 'Chiều';
+  select ma_ca into ma from fabi_shifts where branch_id = 3 and work_date = '2026-11-17' and shift = 'Sáng';
+  update fabi_shifts set close_at = '2026-11-17 18:00' where ma_ca = ma;
+  begin perform public.app__fabi_apply(ma);
+    rep := rep || format(E'\n(q) trước: sang_end=%s fabi_bad=%s', public.app__ca_eff(272) ->> 'rev_end', public.app_ca_gio(272) ->> 'fabi_bad');
+    perform public.app_ca_gio_save(302, '2026-11-17 19:00', 'sửa giờ chiều');
+    j := public.app_ca_gio(272);
+    rep := rep || format(E'\n(q) sau: sang_end=%s chieu_start=%s by_fabi=%s', public.app__ca_eff(272) ->> 'rev_end', public.app__ca_eff(302) ->> 'rev_start', j ->> 'by_fabi');
+  exception when others then rep := rep || E'\n(q) LỖI: ' || sqlerrm; end;
+  -- (r) duyệt mã I2: tháng đã Chốt tháng → tải lại file không đổi giờ
+  insert into fin_month_closes(branch_id, month) values (2, '2026-11');
+  select ma_ca into ma from fabi_shifts where branch_id = 2 and work_date = '2026-11-17' and shift = 'Tối';
+  update fabi_shifts set close_at = '2026-11-17 22:59' where ma_ca = ma;
+  begin perform public.app__fabi_apply(ma); rep := rep || format(E'\n(r) toi_end=%s (phải giữ 22:53)', public.app__ca_eff(t2) ->> 'rev_end');
+  exception when others then rep := rep || E'\n(r) tải file lỗi: ' || left(sqlerrm, 60); end;
+  delete from fin_month_closes where branch_id = 2 and month = '2026-11';
+
   raise exception 'REPORT>> %', rep;
 end $$;
