@@ -17,3 +17,8 @@ insert into public.accounts(id, login_name, employee_id, system_role, auth_user_
 on conflict (employee_id) do update set login_name = excluded.login_name, system_role = excluded.system_role, auth_user_id = excluded.auth_user_id, locked = 0;
 -- đăng nhập trong bài thử: perform set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-0000-0000-00000000000N', 'role', 'authenticated')::text, true);
 insert into public.shifts(id, code, name, sort_order) values (1, 'S', 'Sáng', 1), (2, 'C', 'Chiều', 2), (3, 'T', 'Tối', 3) on conflict (id) do nothing;
+-- dời bộ đếm id sau khi chèn id cố định (để bài thử chèn thêm người / ca không trùng id)
+select setval(pg_get_serial_sequence('public.branches', 'id'), (select max(id) from public.branches));
+select setval(pg_get_serial_sequence('public.employees', 'id'), (select max(id) from public.employees));
+select setval(pg_get_serial_sequence('public.accounts', 'id'), (select max(id) from public.accounts));
+select setval(pg_get_serial_sequence('public.shifts', 'id'), (select max(id) from public.shifts));
