@@ -37,9 +37,20 @@ export default async ({ sleep, out }) => {
     const href = a ? a.getAttribute('href') : '';
     check(!!a && /quan-ly\/so-thu-chi\?/.test(href) && /tab=doi-soat/.test(href) && new RegExp('ds=' + id + '(&|$)').test(href), 'có thẻ "Phần tiền làm ở Sổ thu chi › Đối soát Fabi" mở đúng ca' + (a ? '' : ' (không thấy)'));
     check(!!a && /(chưa xác nhận fabi|đã xác nhận fabi|đã chốt ca)/i.test(a.closest('.ds-stc-card')?.innerText || ''), 'thẻ ghi trạng thái phần tiền');
+    // bước 152 (lỗi duyệt mã C1): sửa phần việc ở Đối soát ca KHÔNG được gửi số tiền / thu chi / khách nợ rỗng (ô tiền đã bỏ khỏi trang)
+    { location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=1'; await wait('.ds-pane'); await sleep(1500);
+      const k0 = window.__LOG.length;
+      const why = $('.rc-why') || $('#rc-reason'); if (why) setv(why, 'thử sửa giờ');
+      const note = $('.st-row .st-note'); if (note) { note.focus(); setv(note, 'ghi chú thử'); note.blur(); note.dispatchEvent(new Event('focusout', { bubbles: true })); }
+      for (let i = 0; i < 40 && !window.__LOG.slice(k0).some((x) => x[0] === 'rpc' && x[1] === 'app_ca_recon_save'); i++) await sleep(150);
+      const sv = window.__LOG.slice(k0).filter((x) => x[0] === 'rpc' && x[1] === 'app_ca_recon_save').map((x) => (x[2] && x[2].p) || {});
+      const bad = sv.flatMap((p) => ['total_revenue', 'pos_cash', 'pos_transfer', 'reported_transfer', 'cash_counted', 'opening_cash', 'rev_start', 'moves', 'debts'].filter((k) => k in p));
+      check(!!note && sv.length > 0 && !bad.length, 'sửa giờ / ghi chú người làm ở Đối soát ca: lưu không gửi ô tiền rỗng' + (!note ? ' (không thấy ô)' : !sv.length ? ' (không thấy lần lưu)' : bad.length ? ' (gửi ' + [...new Set(bad)].join(', ') + ')' : ''));
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await sleep(1200); }
     if (new URLSearchParams(location.search).get('dung')) { window.scrollTo(0, 0); out.push({ route: 'ql_tu_ds', title: seen.join(' · '), errs: fails }); return; }   // &dung=1: dừng để chụp màn hình
-    if (a) {
-      a.click(); await sleep(2500);
+    const a2 = document.querySelector('.ds-pane[data-ds="3"] a.ds-stc');
+    if (a2) {
+      a2.click(); await sleep(2500);
       const hp = new URLSearchParams(location.hash.split('?')[1] || '');
       check(location.hash.startsWith('#/quan-ly/so-thu-chi') && hp.get('tab') === 'doi-soat' && hp.get('ds') === String(id), 'bấm thẻ → Sổ thu chi › Đối soát Fabi đúng ca (' + location.hash.slice(0, 80) + ')');
       check(!!document.querySelector('#stc-page, #root .alert'), 'trang Sổ thu chi mở được');

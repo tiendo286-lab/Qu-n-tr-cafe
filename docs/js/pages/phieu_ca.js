@@ -4,18 +4,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.19.9';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.19.10';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.9';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.9';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.10';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.10';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.9';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.10';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -916,23 +916,25 @@ function missingList(v, c, R) {
 function parseSigned(x) { const t = String(x ?? '').trim(); const n = parseMoney(t); return n === null ? null : (/^[-−]/.test(t) ? -n : n); }
 function collect() {
   const v = (sel) => ($(sel)?.value ?? '');
+  // bước 152: chỉ gửi ô CÓ trên trang. Đối soát ca không còn bước tiền → không gửi số tiền / thu chi / khách nợ rỗng
+  // (máy chủ giữ số cũ khi thiếu khoá); phiếu chốt ca của nhân viên vẫn có đủ ô nên gửi như cũ.
+  const has = (sel) => !!$(sel);
+  const num = (k) => (has('#' + k) ? { [k]: parseMoney(v('#' + k)) } : {});
   return {
-    rev_start: fromLocalInput(v('#rev_start')), rev_end: fromLocalInput(v('#rev_end')),
-    total_revenue: parseMoney(v('#total_revenue')), pos_cash: parseMoney(v('#pos_cash')), pos_transfer: parseMoney(v('#pos_transfer')),
-    reported_transfer: parseMoney(v('#reported_transfer')), cash_counted: parseMoney(v('#cash_counted')), opening_cash: parseMoney(v('#opening_cash')),
-    ipos_opening: parseMoney(v('#ipos_opening')),
+    ...(has('#rev_start') ? { rev_start: fromLocalInput(v('#rev_start')) } : {}), ...(has('#rev_end') ? { rev_end: fromLocalInput(v('#rev_end')) } : {}),
+    ...num('total_revenue'), ...num('pos_cash'), ...num('pos_transfer'), ...num('reported_transfer'), ...num('cash_counted'), ...num('opening_cash'), ...num('ipos_opening'),
     ...($('#pos_debt') ? { pos_debt: parseMoney(v('#pos_debt')) } : {}), ...($('#pos_diff') ? { pos_diff: parseSigned(v('#pos_diff')) } : {}),   // bước 119
-    cups: v('#cups').replace(/\D/g, '') === '' ? null : Number(v('#cups').replace(/\D/g, '')),
-    opening_note: v('#opening_note').trim() || null,
+    ...(has('#cups') ? { cups: v('#cups').replace(/\D/g, '') === '' ? null : Number(v('#cups').replace(/\D/g, '')) } : {}),
+    ...(has('#opening_note') ? { opening_note: v('#opening_note').trim() || null } : {}),
     goods_status: $('input[name=goods]:checked')?.value || $('#goods-keep')?.value || null,
     goods_note: v('#goods_note').trim() || null,
-    moves: expandMoves($$('.mv-row').map((r) => ({ exchange_key: r.dataset.exchange || undefined, dir: r.dataset.dir || undefined, kind: r.querySelector('.mv-kind').value, amount: (parseMoney(r.querySelector('.mv-amt').value) || 0) * (r.querySelector('.mv-sign').value === '-' ? -1 : 1), note: r.querySelector('.mv-note').value.trim() }))),
+    ...(has('#moves') ? { moves: expandMoves($$('.mv-row').map((r) => ({ exchange_key: r.dataset.exchange || undefined, dir: r.dataset.dir || undefined, kind: r.querySelector('.mv-kind').value, amount: (parseMoney(r.querySelector('.mv-amt').value) || 0) * (r.querySelector('.mv-sign').value === '-' ? -1 : 1), note: r.querySelector('.mv-note').value.trim() }))) } : {}),
     staff: $$('.st-row').map((r) => ({ employee_id: Number(r.dataset.emp), source: r.dataset.src, role: r.dataset.role || null, worked: r.querySelector('.st-worked').value === '1',
       time_in: r.querySelector('.st-in').value || null, time_out: r.querySelector('.st-out').value || null, absent_reason: r.querySelector('.st-reason').value.trim() || null, note: r.querySelector('.st-note').value.trim() || null,
       cash_paid: r.querySelector('.st-cash') ? (parseMoney(r.querySelector('.st-cash').value) || null) : null })),
     handover: $$('.ho-row').map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, content: r.querySelector('.ho-text').value })),
     goods: $$('.gd-row').map((r) => ({ item: r.querySelector('.gd-item').value.trim(), qty: r.querySelector('.gd-qty').value.trim() })),
-    debts: $$('.db-row').filter((r) => !r.dataset.del && !r.dataset.rut && (!r.querySelector('.db-table').disabled || r.dataset.id)).map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, table_name: r.querySelector('.db-table').value, amount: parseMoney(r.querySelector('.db-amt').value), note: r.querySelector('.db-note').value.trim() })),
+    ...(has('#debts') && !has('.ds-pane') ? { debts: $$('.db-row').filter((r) => !r.dataset.del && !r.dataset.rut && (!r.querySelector('.db-table').disabled || r.dataset.id)).map((r) => ({ id: r.dataset.id ? Number(r.dataset.id) : null, table_name: r.querySelector('.db-table').value, amount: parseMoney(r.querySelector('.db-amt').value), note: r.querySelector('.db-note').value.trim() })) } : {}),
   };
 }
 
@@ -1597,7 +1599,7 @@ function mount(R, ed, C0, ctx = {}) {
     dirty = false;
     const hoRows = $$('.ho-row'); const dbRows = $$('.db-row').filter((r) => !r.querySelector('.db-table').disabled || r.dataset.id);
     const payload = collect();
-    payload.debts = (payload.debts || []).concat((R.debts || []).filter((d) => d.kind === 'muon' || d.kind === 'ck').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: d.kind })));
+    if (payload.debts) payload.debts = payload.debts.concat((R.debts || []).filter((d) => d.kind === 'muon' || d.kind === 'ck').map((d) => ({ id: d.id, table_name: d.table_name, amount: d.amount, note: d.note || '', kind: d.kind })));
     const call0 = isDs ? (DIR ? rpc('app_ca_recon_direct', { p_id: R.id, p: payload, p_reason: DIR.why, p_items: DIR.items })
       : rpc('app_ca_recon_save', { p_id: R.id, p: payload, p_reason: rcWhyVal() || null })) : rpc('app_ca_save', { p_id: R.id, p: payload });
     // bước 119: Bàn giao ở bước Kiểm tra lưu riêng (không nằm trong bản kiểm tra)
