@@ -793,6 +793,7 @@ const hiddenCols = (D, book) => (SHOW_ZERO ? [] : zeroCols(D.items || [], book, 
 const visCols = (D, book) => { const h = hiddenCols(D, book); return COLS[book].filter(([k]) => !h.includes(k)); };
 function bookCard(D, book) {
   const lf = parseLoc(P.loc); if (locStr(lf)) return bookFlat(D, book, lf);
+  if (P.cot) return colView(D, book, P.cot);   // bước 164
   const days = dayTree(D, book, P.pm, P.cot || null);
   const cols = visCols(D, book); const hid = hiddenCols(D, book); const n = cols.length;
   const caLabel = (c) => (c.shift === 'Ngoài ca' ? 'Ngoài ca' : 'Ca ' + c.shift);
@@ -821,47 +822,50 @@ function qnShare(D) {
     if (c.startsWith('Chia đều')) brs.forEach((b) => { share[b] += a / brs.length; });
     else if (c.startsWith('1 cơ sở: ')) { const b = c.slice(9); if (b in share) share[b] += a; else other += a; }
     else if (c.startsWith('Theo tỉ lệ')) byRev += a; else other += a; });
-  return html`<section class="card stc-side"><h3>Phần mỗi cơ sở chịu <small class="st-meta">tạm tính</small></h3>
+  return html`<section class="stc-box"><h3>Phần mỗi cơ sở chịu <small class="st-meta">tạm tính</small></h3>
     ${brs.map((b) => html`<div class="stc-si"><span><b>${b}</b></span><b>${fmt(Math.round(share[b]))}</b></div>`)}
     ${byRev ? html`<div class="stc-si"><span>Theo tỉ lệ doanh thu tháng<br><span class="st-meta">chia ở Chốt tháng</span></span><b>${fmt(byRev)}</b></div>` : ''}
     ${other ? html`<div class="stc-si"><span>Không chia / tự nhập / chưa chọn cách chia</span><b>${fmt(other)}</b></div>` : ''}
     <div class="st-meta stc-note">Tính vào chi phí của cơ sở ở Chốt tháng. Thanh toán kho tổng không chia lại (đã tính theo từng hoá đơn).</div></section>`;
 }
-function bookSide(D, book) {
-  const its = D.items.filter((x) => !x.void);
-  const card = (title, list, empty, note = '') => html`<section class="card stc-side"><h3>${title}</h3>${list.length ? list : html`<div class="st-meta">${empty}</div>`}${note ? html`<div class="st-meta stc-note">${note}</div>` : ''}</section>`;
-  const li = (x, extra = '') => html`<div class="stc-si"><span><b>${x.title}</b> <span class="stc-tag t-${x.pm}">${x.pm === 'tm' ? 'TM' : 'CK'}</span><br><span class="st-meta">${dm(x.date)}${x.from ? ' · nợ từ ' + x.from : ''}${x.status ? ' · ' + x.status : ''}${extra}</span></span><b class="stc-amt ${x.book}">${sg(x.book)}${fmt(x.amount)}</b></div>`;
-  // bước 155: ca thiếu / dư bấm vào là mở phiếu chênh lệch; khoản chưa phân loại chọn nhóm tại chỗ
-  const caOf = (x) => (D.cas || []).find((c) => c.id === x.ca_id);
-  const liGap = (x) => { const ok = !!x.gap && !D.ext && caOf(x)?.recon_money_done && !isFin(D, x.ca_id);
-    return ok ? html`<button type="button" class="stc-si stc-go" data-gap="${x.id}"><span><b>${caOf(x) ? caName(caOf(x)) : dm(x.date)}</b> <span class="stc-tag t-${x.pm}">${x.pm === 'tm' ? 'TM' : 'CK'}</span><br><span class="st-meta">${x.status ? gapStatus(x.status) : ''} · mở phiếu chênh lệch ›</span></span><b class="stc-amt ${x.book}">${sg(x.book)}${fmt(x.amount)}</b></button>` : li(x); };
-  const liTodo = (x) => { const cs = catSelect(D, x); return cs ? html`<div class="stc-si stc-todo"><span><b>${x.title}</b> <span class="stc-tag t-${x.pm}">${x.pm === 'tm' ? 'TM' : 'CK'}</span><br><span class="st-meta">${caOf(x) ? caName(caOf(x)) : dm(x.date)}${x.meta ? ' · ' + x.meta : ''}</span><br>${cs}</span><b class="stc-amt chi">−${fmt(x.amount)}</b></div>` : li(x); };
-  if (book === 'thu') {
-    const no = its.filter((x) => x.book === 'thu' && x.col === 'no');
-    const du = its.filter((x) => x.book === 'thu' && x.col === 'lech');
-    const today = vnToday();
-    const debts = (D.open_debts || []).map((d) => { const days = Math.max(0, Math.round((new Date(today) - new Date(d.date)) / 864e5)); return html`<div class="stc-si stc-kd"><span><b>${d.who}</b> ${d.no_remind ? html`<span class="pill ok">✓ không nhắc</span>` : ''}<br><span class="st-meta">${d.from} · <span class="${days > 7 ? 'stc-red' : ''}">${days} ngày</span></span></span><span class="stc-r"><b>${fmt(d.left)}</b>${D.ext ? '' : html`<button type="button" class="btn sm secondary stc-col" data-col-debt="${d.id}">Thu nợ</button>`}</span></div>`; });
-    return html`${card(`Thu nợ tháng này · ${fmt(sumItems(no))}`, no.map((x) => li(x)), 'Chưa có khoản thu nợ.')}${card('Ca dư tiền', du.map(liGap), 'Không có ca dư.', 'Bấm một ca để mở phiếu chênh lệch: gán nợ khách trả, ghép với ca thiếu, hoặc tạo phiếu thu.')}
-      ${card('Khách đang nợ', debts, 'Không còn ai nợ.', 'Gồm cả nợ hoá đơn (chưa phải tiền nên không nằm trong sổ). Đỏ khi quá 7 ngày.')}`;
-  }
-  const th = its.filter((x) => x.book === 'chi' && x.col === 'lech');
-  const cn = its.filter((x) => x.book === 'chi' && x.col === 'no');
-  const todo = its.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat);
-  const cost = its.filter((x) => x.book === 'chi' && x.col === 'chi' && x.cat && !x.no_cost);
-  const totalCost = sumItems(cost);
-  const people = (D.people || []).map((p) => html`<label class="stc-si stc-pp"><span><input type="checkbox" data-person="${p.name}" ${p.no_remind ? 'checked' : ''} ${D.ext ? 'disabled' : ''}> <b>${p.name}</b><br>
+// bước 164: các khung của cột phải cũ, chỉ hiện khi bấm ô tương ứng (colView)
+const sbox = (title, body, note = '') => html`<section class="stc-box"><h3>${title}</h3>${body}${note ? html`<div class="st-meta stc-note">${note}</div>` : ''}</section>`;
+function debtBox(D) {
+  const today = vnToday();
+  const rows = (D.open_debts || []).map((d) => { const days = Math.max(0, Math.round((new Date(today) - new Date(d.date)) / 864e5)); return html`<div class="stc-si stc-kd"><span><b>${d.who}</b> ${d.no_remind ? html`<span class="pill ok">✓ không nhắc</span>` : ''}<br><span class="st-meta">${d.from} · <span class="${days > 7 ? 'stc-red' : ''}">${days} ngày</span></span></span><span class="stc-r"><b>${fmt(d.left)}</b>${D.ext ? '' : html`<button type="button" class="btn sm secondary stc-col" data-col-debt="${d.id}">Thu nợ</button>`}</span></div>`; });
+  return sbox(`Khách còn nợ · ${rows.length}`, rows.length ? rows : html`<div class="st-meta">Không còn ai nợ.</div>`, 'Gồm cả nợ hoá đơn (chưa phải tiền nên không nằm trong sổ). Đỏ khi quá 7 ngày.');
+}
+function peopleBox(D) {
+  const rows = (D.people || []).map((p) => html`<label class="stc-si stc-pp"><span><input type="checkbox" data-person="${p.name}" ${p.no_remind ? 'checked' : ''} ${D.ext ? 'disabled' : ''}> <b>${p.name}</b><br>
       <span class="st-meta">${p.n ? `${p.n} khoản còn nợ · ` : ''}${p.no_remind ? '✓ không nhắc ở phiếu chốt ca' : 'phiếu chốt ca nhắc thu'}</span></span><b>${p.open ? fmt(p.open) : ''}</b></label>`);
-  // Chi theo loại (như bản mẫu): gom theo loại chi phí, có nhóm con
+  return sbox('Người nợ', rows.length ? rows : html`<div class="st-meta">Chưa có người nợ có tên.</div>`, 'Có dấu ✓: phiếu chốt ca không nhắc thu người này. Khách luôn được nhắc.');
+}
+function catBox(D) {
+  const its = D.items.filter((x) => !x.void && x.book === 'chi' && x.col === 'chi');
+  const cost = its.filter((x) => x.cat && !x.no_cost); const totalCost = sumItems(cost);
   const tnames = Object.fromEntries(((FTV && FTV.types) || []).map((t) => [String(t.id), t.name]));
   const tgroups = [...new Set(cost.map((x) => String(x.cat_type ?? '')))].map((t) => { const xs = cost.filter((x) => String(x.cat_type ?? '') === t);
     return { t: tnames[t] || (t ? 'Loại khác' : 'Chưa có loại'), v: sumItems(xs), cs: [...new Set(xs.map((x) => x.cat))].map((c) => [c, sumItems(xs.filter((x) => x.cat === c))]).sort((a, b) => b[1] - a[1]) }; }).sort((a, b) => b.v - a.v);
-  const shareCard = D.ext ? qnShare(D) : '';
-  return html`${shareCard}${card('Ca thiếu tiền', th.map(liGap), 'Không có ca thiếu.', 'Bấm một ca để mở phiếu chênh lệch: trừ lương, quán chịu hoặc ghép ca.')}${card(`Cho nợ tháng này · ${fmt(sumItems(cn))}`, cn.map((x) => li(x)), 'Chưa có khoản cho nợ.')}
-    ${card('Người nợ', people, 'Chưa có người nợ có tên.', 'Có dấu ✓: phiếu chốt ca không nhắc thu người này (thay "Công nợ gia đình" và "Nợ kho tổng"). Khách luôn được nhắc. Thêm người nợ mới bằng "+ Thêm phiếu" › Cho nợ.')}
-    ${card(`Cần phân loại · ${todo.length} khoản`, todo.map(liTodo), 'Đã phân loại hết.', 'Chọn nhóm là đối soát luôn.')}
-    ${card(`Chi theo loại · TM + CK · ${fmt(totalCost)}`, tgroups.map((g) => html`<div class="stc-tyg"><div class="stc-tyh"><span>${g.t}</span><b>${fmt(g.v)}</b></div><div class="stc-bar"><i style="width:${totalCost ? Math.round(g.v / totalCost * 100) : 0}%"></i></div>
-      ${g.cs.map(([c, v]) => html`<div class="stc-tyc"><span>${c}</span><b>${fmt(v)}</b></div>`)}</div>`), 'Chưa có khoản chi.',
-      `Không cộng ${fmt(sumItems(its.filter((x) => x.book === 'chi' && x.col === 'chi' && x.no_cost)))} của các khoản Không tính chi phí. Chi phí Quỹ ngoài và tiền hàng kho tổng xem ở Chốt tháng.`)}`;
+  return sbox(`Chi theo loại · TM + CK · ${fmt(totalCost)}`, tgroups.length ? tgroups.map((g) => html`<div class="stc-tyg"><div class="stc-tyh"><span>${g.t}</span><b>${fmt(g.v)}</b></div><div class="stc-bar"><i style="width:${totalCost ? Math.round(g.v / totalCost * 100) : 0}%"></i></div>
+      ${g.cs.map(([c, v]) => html`<div class="stc-tyc"><span>${c}</span><b>${fmt(v)}</b></div>`)}</div>`) : html`<div class="st-meta">Chưa có khoản chi.</div>`,
+    `Không cộng ${fmt(sumItems(its.filter((x) => x.no_cost)))} của các khoản Không tính chi phí. Chi phí Quỹ ngoài và tiền hàng kho tổng xem ở Chốt tháng.`);
+}
+// bấm một ô số → danh sách từng khoản của loại đó (theo bảng tiền đang xem) + khung liên quan
+function colView(D, book, col) {
+  const list = D.items.filter((x) => x.book === book && x.pm === P.pm && x.col === col).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const live = list.filter((x) => !x.void); const sum = sumItems(live);
+  const caOf = (x) => (D.cas || []).find((c) => c.id === x.ca_id);
+  const row = (x) => html`<div class="stc-fr"><div class="st-meta stc-frh">${dm(x.date)} · ${caOf(x) ? 'Ca ' + caOf(x).shift : 'Ngoài ca'}</div>${itemRow(x, book, D)}</div>`;
+  const sect = (h, xs) => (xs.length ? html`<div class="stc-sech">${h} · ${xs.length}</div>${xs.map(row)}` : '');
+  let top = '', body;
+  if (book === 'thu' && col === 'no') { top = debtBox(D); body = sect('Đã thu nợ tháng này', list); }
+  else if (book === 'chi' && col === 'chi') { top = html`${D.ext ? qnShare(D) : ''}${catBox(D)}`; const todo = list.filter((x) => !x.void && !x.cat); body = html`${sect('⚠ Cần phân loại', todo)}${sect('Đã phân loại', list.filter((x) => !todo.includes(x)))}`; }
+  else if (book === 'chi' && col === 'no') { top = peopleBox(D); body = sect('Các khoản cho nợ', list); }
+  else body = list.map(row);
+  return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} · chỉ hiện <span class="stc-tag t-${col}">${colName(book, col)}</span> <small>${live.length} khoản · ${fmt(sum)}</small></h2>
+      <span class="stc-tools"><a class="btn sm secondary" href="${q({ cot: '' })}">✕ Bỏ lọc</a>${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
+    ${top ? html`<div class="stc-boxes">${top}</div>` : ''}
+    ${list.length ? html`<div class="stc-its stc-flat">${body}</div><div class="stc-sum"><span>Cộng</span><b>${fmt(sum)}</b></div>` : html`<div class="stc-empty">Không có khoản nào.</div>`}`;
 }
 function bookPage(D, book) {   // bước 164: 1 nút chuyển 2 nửa + 1 hàng ô số (bấm ô = chỉ xem loại đó), bỏ cột phải
   const its = D.items;
@@ -1289,6 +1293,11 @@ const STYLE = html`<style>
   .stc-empty { padding: 16px 14px; color: var(--muted); }
   .stc-aside { display: flex; flex-direction: column; gap: 12px; }
   .stc-side h3 { margin: 0 0 6px; font-size: 15px; }
+  .stc-boxes { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 10px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .stc-box { border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; background: var(--card); min-width: 0; }
+  .stc-box h3 { margin: 0 0 6px; font-size: 15px; } .stc-box .st-meta { font-size: 12.5px; }
+  .stc-sech { padding: 10px 4px 2px; font-weight: 700; font-size: 13px; color: var(--muted); }
+  .stc-sum { display: flex; justify-content: space-between; padding: 10px 14px; border-top: 2px solid var(--line); font-weight: 800; font-variant-numeric: tabular-nums; }
   .stc-si { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
   .stc-si:last-of-type { border-bottom: 0; }
   .stc-dsl { max-height: 230px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
