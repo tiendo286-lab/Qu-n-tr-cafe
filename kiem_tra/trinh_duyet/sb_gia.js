@@ -84,6 +84,10 @@ const meFor = (role) => role === 'chu'
     ? { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true, ke_toan: true } }
   : role === 'qlt'
     ? { account_id: 6, employee_id: 6, role: 'ql_tong', must_change: false, code: 'NV01', name: 'QL tổng thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, hop_giao_viec: true, phan_cong: true, doi_soat: true } }
+  : role === 'c1'   // bước 169: nhân viên Cấp 1 thử (nhân viên 7 trong dt_fixture)
+    ? { account_id: 9, employee_id: 7, role: 'nv', must_change: false, code: 'NV07', name: 'Nhân viên cấp 1 thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true } }
+  : role === 'ql2'   // bước 169: Quản lý khác (không phải HD chính, không phải người phụ trách chính)
+    ? { account_id: 10, employee_id: 8, role: 'ql', must_change: false, code: 'NV08', name: 'Quản lý khác thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, dao_tao: true, doi_soat: true } }
   : role === 'ql'
     ? { account_id: 5, employee_id: 5, role: 'ql', must_change: false, code: '5', name: 'Quản lý thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, dao_tao: true, doi_soat: true } }
     : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true } };

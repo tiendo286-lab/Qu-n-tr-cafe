@@ -6,6 +6,7 @@ export const DATA = {
     { id: 3, code: 'NV03', name: 'Người học thử', rank: 'Thử việc', status: 'Đang làm' },
     { id: 5, code: 'NV05', name: 'Người hướng dẫn thử', rank: 'Quản lý', status: 'Đang làm' },
     { id: 7, code: 'NV07', name: 'Nhân viên cấp 1 thử', rank: 'Cấp 1', status: 'Đang làm' },
+    { id: 8, code: 'NV08', name: 'Quản lý khác thử', rank: 'Quản lý', status: 'Đang làm' },
   ],
   weekly_schedule_entries: [], employee_branches: [], employee_roles: [], settings: [],
 };

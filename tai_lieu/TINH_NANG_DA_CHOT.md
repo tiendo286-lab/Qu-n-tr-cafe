@@ -784,6 +784,15 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Bộ lọc hạng mục trên phiếu có thêm **Thực hành · Trung bình / Khá / Tốt**: lọc theo mức đạt hiện tại của hạng mục (gồm cả mục đang luyện giai đoạn 2 vẫn giữ mức cũ). Phiên bản `2026.11.18.9`.
 - Từ mốc 8 ngày kể từ ngày bắt đầu, người nhận xét thấy nút Hoàn thành. Chỉ hoàn thành khi đủ hạng mục và có nhận xét cuối. Hết ngày hạn 12 mà phiếu chưa xong thì hiện Quá hạn và vẫn tiếp tục xử lý trên phiếu.
 - Phiếu đang mở hiện ở Công việc → Việc của tôi của người học, người hướng dẫn được giao, quản lý phụ trách và người nhận xét. Khi có phân công mới hoặc đến lượt nhận xét, thông báo mở đúng phiếu.
+- **Quy tắc phân công — anh Tiến giao 19/11/2026 đêm (bước 169, máy chủ `148_dao_tao_phan_cong.sql` chờ chạy, nhánh riêng chờ gộp)** — thay các điểm cũ ở trên khi khác nhau:
+  1. **Người phụ trách chính (PTC)** = tài khoản Chủ chọn ở Công việc › Đào tạo (trước gọi là "người nhận xét"). Không gắn cứng tên.
+  2. PTC (và người có quyền Đào tạo) **chọn / đổi Người hướng dẫn chính (HDC)** ngay trên phiếu. HDC phải là Quản lý đang làm **và có tài khoản đang hoạt động**.
+  3. **Giao từng hạng mục (cả giai đoạn 2): chỉ HDC của phiếu + PTC + Chủ.** Quản lý khác, Quản lý tổng hết quyền giao (vẫn xem phiếu, vẫn ghi hạng mục nếu có quyền Đào tạo như cũ).
+  4. **Nhân viên Cấp 1** ghi mức đạt (Giới thiệu + Thực hành + mức) → hạng mục **"Chờ kiểm tra"**, CHƯA tính đạt; báo HDC + PTC (mỗi người 1 thông báo chưa đọc cho mỗi phiếu, không dồn).
+  5. HDC hoặc PTC bấm **"Xác nhận đạt"** (giữ hoặc sửa mức) mới tính đạt. HDC / PTC tự ghi thì khỏi kiểm. Phiếu chỉ sang Chờ nhận xét / Hoàn thành khi không còn "Chờ kiểm tra". Việc của tôi của HDC / PTC có dòng "Chờ bạn kiểm tra N hạng mục".
+  6. **Bỏ ô "Quản lý phụ trách"** ở hộp tạo phiếu và trên phiếu; bỏ quyền / thông báo / Việc của tôi / Việc hôm nay dựa trên nó (đổi sang HDC). Cột `manager_id` vẫn giữ trong CSDL.
+  7. Hạng mục Cấp 1 ghi trước đây: giữ là đạt.
+  - Sửa thêm: chỉ báo "được giao hướng dẫn" khi thật sự đổi người (đổi cơ sở / ghi chú thì không báo); "Đổi phân công" không làm mất dấu "Đã đánh giá giai đoạn 2".
 
 ## Việc hôm nay — đợt 1 (18/11/2026, bước 138)
 
