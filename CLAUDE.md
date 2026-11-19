@@ -30,8 +30,7 @@
 - Vùng khoá là mã quyết định **ai sửa / xác nhận / chốt được phần tiền của ca, mục nào bị khoá** (cả web lẫn máy chủ). Gồm:
   - Ở `docs/js`: các chỗ dùng `can_recon`, `recon_note`, `is_chu`, `can_unlock`, `can_direct`, `mEdit`, `MONEY_EDIT`, `LKF`, `lkItem`, `ds-money-open`, `ds-money-save`, `app_ca_auto_locks` (mã cũ còn sót trong `phieu_ca.js`, không còn nút gọi).
   - Ở máy chủ: các hàm `app__ca_auto_ok`, `app_ca_recon_apply`, `app_ca_auto_locks`, `app__ca_locked_items`, `app__ca_locked_fields`; phần `can_recon` / `recon_note` của `app_ca_get`; `app_can`; bảng `role_permissions`; khoá Chốt ca `app__stc_final_guard` (tệp 135); quyền Sổ thu chi `app__stc_can` / `app__stc_need` (tệp 136).
-- **Trước khi sửa vùng này: dừng lại, nói cho anh Tiến biết định sửa gì và vì sao, rồi xin anh tự gõ mật khẩu trong khung chat.** Mật khẩu không ghi trong kho mã. AI không được đoán mật khẩu, không đọc hay sửa tệp khoá, không tìm cách lách.
-- Trên máy anh Tiến, Claude Code tự chặn bằng hook. Bộ khoá nằm trong thư mục `milano` ở `~/.claude`, đăng ký trong tệp cấu hình local của `.claude`, cả hai đều ngoài Git. Anh gõ đúng mật khẩu thì phiên đó được mở khoá 30 phút. Codex và phiên chạy trên đám mây không có hook, nhưng **vẫn phải theo quy tắc này**.
+- **Bỏ mật khẩu (anh Tiến chốt 19/11/2026):** không còn hook / mật khẩu. Trước khi sửa vùng này chỉ cần nói cho anh Tiến biết định sửa gì và vì sao (trong thiết kế hoặc trong chat).
 - Sửa xong phải chạy bài thử `kiem_tra/trinh_duyet/flow_ql_tu_ds.js` (role=ql và role=chu, ở `index.html` và `test/phone.html`) và thấy đạt, trước khi đẩy lên web. Từ bước 152 bài này kiểm tra Đối soát ca **không còn** chỗ sửa tiền và thẻ dẫn mở đúng ca ở Đối soát Fabi; chạy thêm `flow_stc6` + `flow_stc7` (role chu / qlt / ql) cho phần tiền mới. Đổi quyền ở máy chủ thì phải dò cả giao diện (bài học lỗi bước 129, xem `tai_lieu/BAN_GIAO.md`).
 
 ## Kiểm tra
