@@ -1,5 +1,5 @@
 // Lịch làm: Lịch của tôi (ca đã chốt) + Lịch cơ sở 4 chi nhánh (bản rút gọn cho nhân viên)
-import { isManager } from '../app.js';
+import { isManager, state } from '../app.js';
 import { RANKS, SHIFT_COLORS, ST_SUA, hm, isFT, toMin, WEEKDAYS, WD_SHORT, addDays, catalog, dm, parseWeekParam, vnToday, weekDays, weekLabel, weekStart, when } from '../data.js';
 import { rpc, sel } from '../sb.js';
 import { html } from '../ui.js';
@@ -78,7 +78,7 @@ export async function render({ me, params }) {
           });
         }
         const lines = changes.flatMap((n) => (n.body || '').split('\n').filter(Boolean));
-        if (unread.length) rpc('app_notifications_read_link', { p_link: link }).catch(() => {});
+        if (unread.length && !state.me?.view_as) rpc('app_notifications_read_link', { p_link: link }).catch(() => {});   // bước 165: đang xem như thì không đánh dấu đã đọc hộ
         body = html`${weeknav('/lich?tab=cua-toi&', week, prev, next, editing ? 'Đang chỉnh sửa · bản đã chốt gần nhất' : `Đã chốt · ${rows.length} ca`)}
           ${changes.length ? html`<div class="upd-banner" role="status">Lịch tuần này vừa được cập nhật ${when(changes[changes.length - 1].created_at).toLowerCase()}: <strong>${lines.length} thay đổi</strong>, ca bị đổi hoặc thêm được đánh dấu “Mới cập nhật” bên dưới.
             ${lines.map((l) => html`<div class="bl">${l}</div>`)}</div>` : ''}
