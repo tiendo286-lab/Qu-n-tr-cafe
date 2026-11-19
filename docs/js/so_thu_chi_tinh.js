@@ -31,6 +31,34 @@ export function sumItems(items, { book, pm, col, date, caId } = {}) {
     && (!date || x.date === date) && (caId === undefined || (x.ca_id ?? null) === caId)));
 }
 
+// bước 164 (Sổ thu / Sổ chi gọn): cột cả tháng bằng 0 theo bảng tiền đang xem (cột đang chọn không bao giờ ẩn)
+export function zeroCols(items, book, pm, keep = '') {
+  return COLS[book].map(([k]) => k).filter((k) => k !== keep && !sumItems(items, { book, pm, col: k }));
+}
+// ô số ở phần đầu: số tiền, dòng phụ chỉ khi có việc, viền vàng khi có việc chờ, mờ khi bằng 0
+export function tileInfo(D, book, pm, k) {
+  const its = live(D.items || []); const v = sumItems(its, { book, pm, col: k }); let sub = '', warn = false;
+  if (k === 'lech') { const w = its.filter((x) => x.book === book && x.pm === pm && x.col === 'lech' && /Chờ/.test(x.status || '')).length; if (w) { sub = `${w} ca chờ xử lý`; warn = true; } }
+  else if (book === 'thu' && k === 'no') { const c = (D.open_debts || []).length; if (c) sub = `+ ${c} khách còn nợ`; }
+  else if (book === 'chi' && k === 'chi') {
+    const todo = its.filter((x) => x.book === 'chi' && x.pm === pm && x.col === 'chi' && !x.cat).length;
+    if (todo) { sub = `${todo} khoản cần phân loại`; warn = true; }
+    else { const nc = sumItems(its.filter((x) => x.no_cost), { book: 'chi', pm, col: 'chi' }); if (nc) sub = `trong đó ${fmt(nc)} không tính chi phí`; }
+  } else if (book === 'chi' && k === 'no') { const c = (D.people || []).filter((p) => Number(p.open) > 0).length; if (c) sub = `${c} người nợ`; }
+  return { v, sub, warn, zero: !v };
+}
+// dòng "Đang lọc:" — mỗi điều kiện một nút ✕ (thứ tự q, src, type, cat, st)
+export function locChips(f, names = {}) {
+  const lab = (opts, v) => ((opts || []).find((o) => o[0] === v) || [v, v])[1];
+  const out = [];
+  if (f.q) out.push({ k: 'q', label: `Tìm "${f.q}"` });
+  if (f.src) out.push({ k: 'src', label: `Nguồn: ${lab(names.src, f.src)}` });
+  if (f.type) out.push({ k: 'type', label: `Loại: ${(names.type || {})[f.type] || f.type}` });
+  if (f.cat) out.push({ k: 'cat', label: `Nhóm: ${f.cat}` });
+  if (f.st) out.push({ k: 'st', label: `Trạng thái: ${lab(names.st, f.st)}` });
+  return out;
+}
+
 function byColOf(items, book) {
   const o = {}; COLS[book].forEach(([k]) => { o[k] = total(live(items).filter((x) => x.col === k)); }); return o;
 }
