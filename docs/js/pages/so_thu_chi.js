@@ -230,7 +230,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   const debts = D.open_debts || [];
   // bước 163: ô Ca chỉ hiện ca của ngày đang chọn (caChoices); ca chưa xác nhận Fabi / tháng đã chốt hiện mờ kèm lý do
   const caById = (id) => (id ? (D.cas || []).find((c) => String(c.id) === String(id)) : null);
-  const day0 = caById(caId)?.date || today;
+  const day0 = caById(caId)?.date || (today.startsWith(P.thang) ? today : P.thang + '-01');   // xem tháng khác → ngày đầu tháng đó (như Quỹ ngoài)
   const cs = (await cats()).filter((c) => c.kind === (book === 'chi' ? 'chi' : 'thu') && c.active !== false);
   const pmOpt = (name) => html`<select class="input" name="${name}"><option value="tien_mat" ${pm !== 'ck' ? 'selected' : ''}>Tiền mặt</option><option value="chuyen_khoan" ${pm === 'ck' ? 'selected' : ''}>Chuyển khoản</option></select>`;
   const f = (label, ctl, show = '', cls = '') => html`<label class="stc-af ${cls}" data-show="${show}"><span>${label}</span>${ctl}</label>`;
@@ -259,18 +259,20 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   bindMoneyInputs(box);
   const el = (n) => box.querySelector(`[name=${n}]`);
   const fillCa = (keep) => {
-    const list = caChoices(D.cas || [], el('date').value, { locked: !!D.locked });
+    const dv = el('date').value; const other = !!dv && !dv.startsWith(P.thang);   // D.cas chỉ có ca của tháng đang xem
+    const list = other ? [] : caChoices(D.cas || [], dv, { locked: !!D.locked });
     el('ca').innerHTML = str(html`<option value="">Ngoài ca</option>${list.map((x) => html`<option value="${x.id}" ${x.ok ? '' : 'disabled'}>${x.label}${x.why ? ' — ' + x.why : ''}</option>`)}`);
     el('ca').value = list.some((x) => x.ok && String(x.id) === String(keep ?? '')) ? String(keep) : '';
-    const note = box.querySelector('.stc-canote'); const none = !!el('date').value && !D.locked && !list.some((x) => x.ok);
-    note.hidden = !none; note.textContent = none ? `Ngày ${dm(el('date').value)} chưa có ca nào xác nhận Fabi` : '';
+    const msg = !dv ? '' : other ? `Ngày ${dm(dv)} thuộc tháng khác — mở sổ tháng đó để thêm vào ca`
+      : D.locked ? `Ngày ${dm(dv)} — tháng đã chốt, chỉ ghi được ngoài ca` : !list.some((x) => x.ok) ? `Ngày ${dm(dv)} chưa có ca nào xác nhận Fabi` : '';
+    const note = box.querySelector('.stc-canote'); note.hidden = !msg; note.textContent = msg;
   };
   const kindOf = () => { const k = el('kind').value; return k === 'no' ? `no-${book}` : k; };
   const sync = () => {
     const k = kindOf(); const caOk = k === 'chi' || k === 'khac';
     box.querySelectorAll('[data-show]').forEach((x) => { x.hidden = !!x.dataset.show && !x.dataset.show.split(' ').includes(k); });
     if (!caOk) el('ca').value = '';
-    el('ca').disabled = !caOk || !el('ca').querySelector('option:not([value=""]):not([disabled])'); el('ca').title = caOk ? '' : 'Cho nợ / Thu nợ / Luân chuyển chỉ thêm ngoài ca';
+    el('ca').disabled = !caOk; el('ca').title = caOk ? '' : 'Cho nợ / Thu nợ / Luân chuyển chỉ thêm ngoài ca';
     const ca = caById(el('ca').value);
     el('reason').placeholder = ca ? 'bắt buộc khi thêm vào ca' : 'không bắt buộc';
   };

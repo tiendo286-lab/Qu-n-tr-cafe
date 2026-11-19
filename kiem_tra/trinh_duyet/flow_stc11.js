@@ -14,6 +14,13 @@ export default async ({ sleep, out }) => {
   const openAdd = async () => { location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp [name=ca]', 60); await sleep(200); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
+    if (new URLSearchParams(location.search).get('stclock')) {   // duyệt mã I2: tháng đã chốt (&stclock=1) — lý do phải thấy được
+      await openAdd(); setv(el('date'), '2026-11-17'); await sleep(150);
+      const o = opts();
+      ok(!el('ca').disabled && o.slice(1).every((x) => x.d && x.t.includes('tháng đã chốt')), '9. tháng đã chốt: ô Ca vẫn mở xem được, mọi ca mờ "— tháng đã chốt"');
+      ok(txt($('.stc-canote', P())).includes('tháng đã chốt'), '9. dòng nhắc ghi "tháng đã chốt"');
+      out.push({ stc11: { ok: good, fail: bad } }); return;
+    }
     // 1. Ngày 17/11: Ngoài ca + Sáng → Chiều → Tối, không có ca ngày khác
     await openAdd();
     setv(el('date'), '2026-11-17'); await sleep(150);
@@ -41,6 +48,11 @@ export default async ({ sleep, out }) => {
     setv(el('note'), 'Mua đá thử'); setv(el('amount'), '30000'); const cat = el('cat'); if (cat && cat.tagName === 'SELECT') setv(cat, cat.options[1]?.value || '');
     const k0 = (window.__LOG || []).length; $('button[type=submit]', P()).click(); await sleep(1200);
     ok(!calls('app_stc_move_save', k0).length && calls('app_stc_entry_save', k0).length === 1, '6. chọn ca rồi đổi ngày → Lưu ghi ngoài ca, không gắn vào ca cũ');
+    // 8. duyệt mã I1: ngày ngoài tháng đang xem → không báo nhầm "chưa có ca nào xác nhận Fabi"; xem tháng khác → ngày sẵn là ngày đầu tháng đó
+    await openAdd(); setv(el('date'), '2026-12-02'); await sleep(150);
+    ok(txt($('.stc-canote', P())).includes('thuộc tháng khác') && !txt($('.stc-canote', P())).includes('chưa có ca nào'), '8. ngày 02/12 (tháng khác): nhắc "thuộc tháng khác", không báo nhầm');
+    location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-10&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp [name=ca]', 60); await sleep(200);
+    ok(el('date').value === '2026-10-01', '8. xem sổ tháng 10 → ô Ngày điền sẵn 01/10 (' + el('date').value + ')');
     // 7. bấm nút thêm trong dòng một ca cũ → Ngày = ngày ca, chọn sẵn ca đó
     location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-all'); await sleep(300); $('.stc-ch .stc-all').click(); await sleep(400);
     const b = $('[data-addca="161"]');

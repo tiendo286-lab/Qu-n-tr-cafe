@@ -115,6 +115,7 @@ export function makeStc(T, me) {
       const b = d.branches.find((x) => x.id === Number(p_branch)) || d.branches[0];
       d.branch = { id: b.id, code: b.code, name: b.code };
       if (p_month !== '2026-11') { Object.assign(d, { month: p_month, from: p_month + '-01', to: p_month + '-28', cas: [], items: [], compare: { fund_days: [], gaps: [] } }); }
+      if (new URLSearchParams(location.search).get('stclock')) d.locked = true;   // bước 163: &stclock=1 giả tháng đã Chốt tháng
       return d;
     },
     app_stc_ext({ p_month }) {
