@@ -20,7 +20,7 @@ export default async ({ sleep, out }) => {
     ok(txt($('.stc-dsh')).includes('ca chiều 18/11'), '1. mở phiếu tiền ca Chiều 18/11');
     ok(!!$('[data-dsclose][disabled]'), '1. còn ô đỏ → nút Chốt tiền ca tắt');
     // 2. mở ca tầng 1: Sửa theo Fabi
-    ok(!!$('[data-dsfabi="mo"]', box('mo')) && txt(box('mo')).includes('nv ghi khác fabi'), '2. tiền mở ca: NV ghi khác Fabi → có Sửa theo Fabi');
+    ok(!!$('[data-dsfabi="mo"]', box('mo')) && txt(box('mo')).includes('so với máy'), '2. tiền mở ca: nhân viên ghi khác máy → có Lấy số máy Fabi');
     await act('[data-dsfabi="mo"]', ''); await settle();
     ok(!!$('[data-dsblame="nay"]', box('mo')) && !!$('[data-dsblame="truoc"]', box('mo')), '2. sửa xong → còn lệch số phải là → chọn Ca trước / Ca này ghi sai');
     // 3. ca trước thu theo ca → không chọn được "ca trước"; chọn "ca này"
@@ -44,7 +44,7 @@ export default async ({ sleep, out }) => {
     // 6. chốt
     ok(!!$('[data-dsclose]:not([disabled])'), '6. hết ô đỏ + có tiền thực nhận → Chốt bấm được');
     $('[data-dsclose]').click(); await sleep(1000); await settle();
-    ok(txt($('.stc-dsp')).includes('đã chốt') && !!$('[data-dsreopen]') && !$('[data-dsfabi]'), '6. Đã chốt: khoá, có Mở lại chốt');
+    ok(txt($('.stc-dsp')).includes('đã xác nhận') && !!$('[data-dsreopen]') && !$('[data-dsfabi]'), '6. Đã xác nhận Fabi: phần A khoá, có Mở lại xác nhận');
     location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm'; await sleep(300); await wait('.stc-pay'); await sleep(400); $('.stc-all')?.click(); await sleep(300);
     const sua = $$('.stc-it:not(.void)').find((i) => txt(i).includes('mua sữa tươi'));
     ok(!!sua && !!$('button.stc-ed:not([disabled])', sua), '6. chốt xong → khoản của ca sửa được ở Sổ chi');

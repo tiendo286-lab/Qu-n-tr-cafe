@@ -850,3 +850,23 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
   - ② **Thu theo ca / Thu theo ngày**: thu theo ca nhập tiền mặt quản lý đếm mỗi ca; thu theo ngày chỉ ca cuối nhập (đếm két sau ca). Chuyển khoản luôn số kế toán.
   - ③ **Chốt tiền ca**: cần hết ô đỏ ở ①, có file Fabi + ngân hàng, có tiền mặt thực nhận (thu theo ca). Lệch không chặn chốt — thành phiếu chênh lệch. **Mở lại chốt** bắt lý do.
   - Trang Đối soát ca cũ vẫn giữ phần tiền trong lúc chạy song song (anh dặn chưa bỏ trang cũ); hai trang dùng chung dữ liệu.
+- **Bước 151 — Đối soát Fabi + Chốt ca vĩnh viễn + Khoản treo (19/11, máy chủ `135_doi_soat_fabi_chot_ca.sql` — vùng khoá, anh Tiến mở bằng mật khẩu 19/11; web 2026.11.19.8)** — thiết kế `tai_lieu/superpowers/specs/2026-11-19-doi-soat-fabi-chot-ca-design.md`, kế hoạch `tai_lieu/superpowers/plans/2026-11-19-doi-soat-fabi-chot-ca.md` (thay mục 3.3 của thiết kế Sổ thu chi):
+  - Tab **"Đối soát Fabi"** (đổi tên từ "Đối soát tiền"). Chọn ca thì mở khung rộng hết trang gồm 3 phần: **A · Fabi** → **B · Thu chi của ca** → **🔒 Chốt ca**.
+  - **A · Fabi** chỉ xác định phiếu đúng, tiền mặt và chuyển khoản thực nhận.
+    - ① Mỗi ô ghi "Phiếu nhân viên ghi" / "Máy Fabi ghi", nhãn "Nhân viên ghi thiếu / thừa X so với máy", nút **Lấy số máy Fabi** (tên cũ "Sửa theo Fabi"). Mỗi ô ghi rõ ảnh hưởng tới sổ: lệch mở ca → dòng chênh lệch tiền mặt của ca chịu; doanh thu → phiếu thu không đổi; báo nợ → khách nợ ở Công nợ, không tạo phiếu chi.
+    - Cảnh báo hoá đơn bị sửa / xoá trên Fabi nằm ở khung vàng riêng.
+    - ② Tiền thực nhận như cũ.
+    - Nút **Xác nhận Fabi** (= "Chốt tiền ca" cũ) và **Mở lại xác nhận** (không bấm được khi đã Chốt ca). Xác nhận xong phần A thu gọn thành 5 ô số.
+  - **B · Thu chi của ca** giống Sổ thu / Sổ chi, chỉ lọc ca này: nút Sổ thu | Sổ chi, bảng Tiền mặt | Chuyển khoản, ô số theo cột, bảng Tiền của ca, Nợ bill của ca, + Thêm phiếu.
+    - **Chênh lệch là khung riêng** theo đúng bảng và sổ: tiền mặt ở bảng Tiền mặt, chuyển khoản ở bảng Chuyển khoản; dư ghi Sổ thu, thiếu ghi Sổ chi.
+    - Phần lệch tiền mở ca tách thành dòng "Gồm: …", không gộp chung.
+    - Dòng nhắc "⚠ Ca còn chênh lệch ở …" để quản lý không bỏ sót.
+  - **🔒 Chốt ca**: cần đã xác nhận Fabi, chi đã phân loại hết, không còn khoản chờ Chủ duyệt, tiền mặt thiếu đã xử lý (lệch ≤ 5.000 coi như khớp). **Khoá vĩnh viễn, không có nút mở lại.**
+    - Máy chủ chặn bằng trigger `stc_final_guard` (giống khoá tháng), nên mọi trang cũ cũng không sửa được ca đã chốt.
+    - File Fabi / số dư ngân hàng / bản đối soát do hệ thống tự ghi thì bỏ qua lặng lẽ, để kế toán tải file không bị lỗi.
+  - **Khoản treo** (tạo khi Chốt ca, bảng `stc_treo`):
+    - Chuyển khoản thiếu → **chờ tiền về**, hạn 3 ngày. "Đã về" = chọn ca có chuyển khoản dư (đã xác nhận, chưa chốt) để bù. Quá hạn thì Trừ tiền nhân viên / Quán chịu (ghi lên ca gốc qua lối riêng; không phải Chủ thì chờ Chủ duyệt).
+    - Phần dư → **tiền thừa chờ ghép** tới hết tháng; "Ghép với ca thiếu". Hết tháng chưa ghép thì thành Thu khác.
+    - Ca gốc không đổi một đồng. Khoản treo hiện ở tab Tổng (ô + khung).
+  - Sửa lỗi đợt 4: "Xác nhận Fabi" không còn báo "mục đã tự đối soát nên KHOÁ" khi mục đó đã khớp (kết quả trùng, hoặc lệch ≤ 5.000).
+  - Sổ chung: ca đã chốt ẩn mọi nút ("🔒 Ca đã chốt"); ca chưa chốt có đường dẫn "Xử lý & chốt ca này ở Đối soát Fabi ›".

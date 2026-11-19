@@ -136,3 +136,52 @@ export function compareDays(data, summary) {
   }));
   return out;
 }
+
+// ---------------- Đối soát Fabi + Chốt ca + Khoản treo (bước 151) ----------------
+// Trạng thái 1 ca ở tab Đối soát Fabi. fin = {by, at} nếu đã Chốt ca; treoOpen = ca còn khoản treo mở.
+export function caStage(ca, checks, fin, treoOpen = false) {
+  if (fin) return { k: 'fin', txt: treoOpen ? '🔒 Đã chốt · có khoản treo' : '🔒 Đã chốt ca', cls: 'p-ok' };
+  if (ca.recon_money_done) return { k: 'fab', txt: '🔵 Fabi ✓ · chưa chốt ca', cls: 'p-info' };
+  const ab = checks.filter((c) => ['mo', 'dt', 'no'].includes(c.k));
+  if (ab.some((c) => c.st === 'kt') || ca.kt_wait || !ca.fabi?.has) return { k: 'kt', txt: '⏳ Chờ kế toán', cls: 'p-mute' };
+  const reds = ab.filter((c) => c.st === 'red');
+  if (reds.length) return { k: 'lech', txt: '🔴 ' + reds.map((c) => c.name).join(', '), cls: 'p-off' };
+  return { k: 'cho', txt: '🟡 Chờ xác nhận Fabi', cls: 'p-warn' };
+}
+// Điều kiện Chốt ca (cùng luật với máy chủ app_stc_ca_final) + khoản nào sẽ thành Khoản treo.
+export function finalNeeds(ca, items) {
+  const need = [], treo = [];
+  if (!ca.recon_money_done) need.push('Chưa xác nhận Fabi (phần A)');
+  const mine = live(items).filter((x) => (x.ca_id ?? null) === ca.id);
+  const todo = mine.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat).length;
+  if (todo) need.push(`Còn ${todo} khoản chi chưa phân loại`);
+  const gaps = mine.filter((x) => x.col === 'lech' && x.gap);
+  if (gaps.some((x) => (x.gap.qc_wait || []).length || (x.gap.matches || []).some((m) => m.status === 'cho_duyet'))) need.push('Còn khoản chờ Chủ duyệt (quán chịu / ghép)');
+  gaps.forEach((x) => {
+    const rest = Number(x.gap.remain || 0); if (rest <= 5000) return;
+    if (x.gap.kind === 'thieu' && x.pm === 'tm') need.push(`Tiền mặt thiếu ${fmt(rest)} chưa xử lý (trừ tiền / quán chịu / ghép)`);
+    else treo.push({ pm: x.pm, kind: x.gap.kind === 'thieu' ? 'tien' : 'thua', amount: rest });
+  });
+  return { need, treo };
+}
+// Nhãn khoản treo.
+export function treoView(t) {
+  if (t.status === 'xong') return { label: 'Đã xử lý' + (t.done_note ? ' · ' + t.done_note : ''), cls: 'ok', over: false };
+  if (t.kind === 'thua') return t.thu_khac ? { label: 'Hết tháng chưa ghép → thành Thu khác', cls: 'mute', over: false } : { label: 'Tiền thừa chờ ghép · tới hết tháng', cls: 'ok', over: false };
+  const d = Number(t.days_left);
+  if (t.over || d < 0) return { label: `Chờ tiền về · quá hạn ${Math.abs(d)} ngày`, cls: 'off', over: true };
+  return { label: d ? `Chờ tiền về · còn ${d} ngày` : 'Chờ tiền về · hạn hôm nay', cls: 'info', over: false };
+}
+// Tách 1 dòng chênh lệch tiền mặt thành từng nguồn: phần lệch tiền mở ca (đã chọn ca chịu) + phần còn lại.
+// signedGap: dư dương, thiếu âm. cas: mọi ca của tháng (để tìm ca sau chọn "Ca trước ghi sai").
+export function gapParts(ca, cas, pm, signedGap) {
+  if (pm !== 'tm') return [];
+  const parts = [];
+  if (ca.blame && ca.blame.who === 'nay' && Number(ca.blame.diff)) parts.push({ label: 'Lệch tiền mở ca (ca này ghi sai)', amount: Number(ca.blame.diff) });
+  (cas || []).filter((o) => o.blame && o.blame.who === 'truoc' && Number(o.blame.prev_report) === Number(ca.id) && Number(o.blame.diff))
+    .forEach((o) => parts.push({ label: `Lệch tiền mở ca của ca ${o.shift} sau (ca này ghi sai, để lại khác số)`, amount: Number(o.blame.diff) }));
+  if (!parts.length) return [];
+  const rest = signedGap - parts.reduce((a, p) => a + p.amount, 0);
+  if (rest) parts.push({ label: 'Lệch đếm két / do sửa thu chi', amount: rest });
+  return parts;
+}

@@ -64,13 +64,13 @@ export default async ({ sleep, out }) => {
   const da = item('mua đá');
   ok(!!da && !!$('button.stc-ed:not([disabled])', da), '9. khoản của ca đã chốt tiền có Sửa / Xoá');
   const st = item('mua sữa tươi');
-  ok(!!st && !$('button.stc-ed:not([disabled])', st) && txt(st).includes('chốt tiền ca'), '10. ca chưa chốt: khoá, ghi "Chốt tiền ca … mới sửa được"');
+  ok(!!st && !$('button.stc-ed:not([disabled])', st) && txt(st).includes('xác nhận fabi'), '10. ca chưa xác nhận Fabi: khoá, ghi "Xác nhận Fabi … mới sửa được"');
   $('button.stc-ed', da).click(); await wait('dialog[open]', 30); await sleep(200);
   setv('[name=amount]', '55.000'); setv('[name=reason]', 'Mua thêm đá');
   $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   ok($$('.stc-it.void').some((i) => txt(i).includes('mua đá')) && txt(item('mua đá')).includes('55.000') && txt(item('mua đá')).includes('phiếu bổ sung'), '9. sửa khoản ca: gạch ngang + phiếu bổ sung 55.000');
   const addCa = $$('button.stc-addca').find((b) => !b.disabled);
-  ok(!!addCa && $$('button.stc-addca[disabled]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã chốt bấm được, ca chưa chốt tắt');
+  ok(!!addCa && $$('a[href*="tab=doi-soat"][href*="ds="]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã xác nhận bấm được, ca chưa xác nhận có đường dẫn sang Đối soát Fabi');
   addCa.click(); await wait('dialog[open]', 30); await sleep(200);
   setv('[name=note]', 'Mua giấy in'); setv('[name=amount]', '25.000'); setv('[name=reason]', '');
   $('button[type=submit]', dlg()).click(); await sleep(500);

@@ -27,9 +27,16 @@ export function makeStc(T, me) {
       { id: `t:${id}:thu`, date: p.date, ca_id: null, book: 'thu', pm: i, col: 'lc', amount: Number(p.amount), title: t, meta: 'Luân chuyển quỹ', src: 'transfer', can_edit: true }]; };
   const amountOk = (a) => { if (!(Number(a) > 0)) throw new Error('Nhập số tiền lớn hơn 0.'); };
   const SH = ['Sáng', 'Chiều', 'Tối'];
+  // bước 151: Chốt ca vĩnh viễn + Khoản treo (giống máy chủ 135)
+  const FIN = {}; const TREO = []; let TN = 0;
+  const finGuard = (rid) => { if (FIN[Number(rid)]) throw new Error('Ca này đã CHỐT CA (khoá vĩnh viễn) nên không sửa được.'); };
+  const today = () => new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+  const dd = (a, b) => Math.round((Date.parse(b) - Date.parse(a)) / 864e5);
+  const treoLeft = (t) => t.amount - t.used;
   const dsCa = (rid, open) => {
     if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này đối soát tiền được.');
     const c = st().cas.find((x) => x.id === Number(rid)); if (!c) throw new Error('Không tìm thấy ca.');
+    finGuard(rid);
     if (open && c.recon_money_done) throw new Error('Ca đã chốt tiền — bấm "Mở lại chốt" trước khi sửa.'); return c;
   };
   const expOpen = (c) => { const i = SH.indexOf(c.shift); if (i <= 0) return { exp: 1000000, prev: null };
@@ -39,6 +46,7 @@ export function makeStc(T, me) {
   const gapIt = (rid, kind) => {
     if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Bạn không được xử lý lệch tiền của cơ sở này.');
     const ca = st().cas.find((c) => c.id === Number(rid)); if (!ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');
+    finGuard(rid);
     const x = gapAll().find((i) => i.ca_id === Number(rid) && i.gap.kind === kind); if (!x) throw new Error('Không tìm thấy khoản lệch.'); return x;
   };
   const ganUndo = (dc, r) => {
@@ -112,7 +120,7 @@ export function makeStc(T, me) {
       if (od) od.left += x.amount; else st().open_debts.push({ id: x.debt_ref || 'd:' + p_debt, who: x.title, kind: 'bill', amount: x.amount, left: x.amount, date: x.date, from: x.from || '', no_remind: false });
     },
     app_stc_move_save({ p_report, p_mkey, p, p_reason }) {
-      need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report));
+      need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
       if (!ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');
       const id = p_mkey ? `m:${p_report}:${p_mkey}` : null; const x = id ? items().find((i) => i.id === id) : null;
       if (p.delete) { items().push(voidOf(x, 'xoa', r)); items().splice(items().indexOf(x), 1); return null; }
@@ -273,6 +281,43 @@ export function makeStc(T, me) {
     app_stc_ds_reopen({ p_report, p_reason }) {
       const c = dsCa(p_report, false); reason(p_reason); c.recon_money_done = false;
       items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
+    },
+    app_stc_finals() {
+      if (!admin()) throw new Error('Đang chạy thử: chỉ Chủ và Quản lý tổng xem được.');
+      const t0 = today();
+      return { finals: Object.entries(FIN).map(([id, f]) => ({ id: Number(id), ...f })),
+        treo: TREO.map((t) => { const c = st().cas.find((x) => x.id === t.report_id); const age = dd(c.date, t0);
+          return { ...t, date: c.date, shift: c.shift, left: treoLeft(t), days_left: 3 - age, over: t.kind === 'tien' && t.status === 'mo' && age > 3, thu_khac: t.kind === 'thua' && t.status === 'mo' && c.date.slice(0, 7) < t0.slice(0, 7) }; }) };
+    },
+    app_stc_ca_final({ p_report }) {
+      const c = dsCa(p_report, false);
+      if (!c.recon_money_done) throw new Error('Chưa xác nhận Fabi — xác nhận ở phần A trước.');
+      const mine = items().filter((x) => x.ca_id === c.id && !x.void);
+      const todo = mine.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat).length; if (todo) throw new Error(`Còn ${todo} khoản chi chưa phân loại.`);
+      const gs = mine.filter((x) => x.gap);
+      if (gs.some((x) => x.gap.qc_wait.length || x.gap.matches.some((m) => m.status === 'cho_duyet'))) throw new Error('Còn khoản chờ Chủ duyệt (quán chịu / ghép) — duyệt xong mới chốt.');
+      const tm = gs.find((x) => x.gap.kind === 'thieu' && x.pm === 'tm' && x.gap.remain > 5000); if (tm) throw new Error(`Tiền mặt thiếu còn ${tm.gap.remain} chưa xử lý (trừ tiền / quán chịu / ghép).`);
+      FIN[c.id] = { by: by(), at: now() }; const out = [];
+      gs.filter((x) => x.gap.remain > 5000).forEach((x) => { const t = { id: ++TN, report_id: c.id, pm: x.pm, kind: x.gap.kind === 'thieu' ? 'tien' : 'thua', amount: x.gap.remain, used: 0, status: 'mo', done_kind: null, done_note: null }; TREO.push(t); out.push(t); });
+      return { treo: out.map((t) => ({ id: t.id, item: t.pm === 'tm' ? 'tien_mat' : 'chuyen_khoan', kind: t.kind, amount: t.amount })) };
+    },
+    app_stc_treo_use({ p_treo, p_report, p_amount }) {
+      const t = TREO.find((x) => x.id === Number(p_treo)); if (!t || t.status !== 'mo') throw new Error('Khoản treo không còn mở.');
+      if (FIN[Number(p_report)]) throw new Error('Ca nhận đã chốt — chọn ca chưa chốt.');
+      const kind = t.kind === 'tien' ? 'du' : 'thieu'; const y = gapAll().find((i) => i.ca_id === Number(p_report) && i.gap.kind === kind && i.pm === t.pm);
+      amountOk(p_amount); if (Number(p_amount) > treoLeft(t)) throw new Error('Khoản treo chỉ còn ' + treoLeft(t) + '.');
+      if (!y || Number(p_amount) > y.gap.avail) throw new Error('Ca nhận chỉ còn ' + (y ? y.gap.avail : 0) + (kind === 'du' ? ' tiền dư.' : ' tiền thiếu.'));
+      y.gap.decisions.push({ id: ++N, kind: 'treo', amount: Number(p_amount) }); y.gap.remain -= p_amount; y.gap.avail -= p_amount; gapStat(y);
+      t.used += Number(p_amount); if (treoLeft(t) <= 0) { t.status = 'xong'; t.done_kind = t.kind === 'tien' ? 've' : 'ghep'; t.done_note = (t.kind === 'tien' ? 'tiền về ở ' : 'ghép với ') + caLab(p_report); }
+    },
+    app_stc_treo_close({ p_treo, p_kind, p_people, p_reason }) {
+      const t = TREO.find((x) => x.id === Number(p_treo)); if (!t || t.status !== 'mo') throw new Error('Khoản treo không còn mở.');
+      if (t.kind !== 'tien') throw new Error('Chỉ khoản chờ tiền về mới trừ tiền / quán chịu.');
+      const c = st().cas.find((x) => x.id === t.report_id); if (dd(c.date, today()) <= 3) throw new Error('Chưa quá hạn 3 ngày — chờ tiền về hoặc bấm "Đã về".');
+      reason(p_reason); let res = 'ok';
+      if (p_kind === 'qc') res = me.role === 'chu' ? 'ok' : 'cho_duyet'; else if (!(p_people || []).length) throw new Error('Nhập số tiền trừ.');
+      t.status = 'xong'; t.done_kind = p_kind; t.done_note = p_kind === 'tru' ? 'trừ tiền nhân viên' : res === 'cho_duyet' ? 'quán chịu (chờ Chủ duyệt)' : 'quán chịu';
+      return res;
     },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;
