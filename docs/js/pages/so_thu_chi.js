@@ -967,8 +967,8 @@ function dsAct(D, b) {
   } else if (b.dataset.dsclose) {
     run(() => rpc('app_stc_ds_close', { p_report: c.id }), 'Đã xác nhận Fabi — phần B đã mở');
   } else if (b.dataset.dsreopen) {
-    ask('Mở lại xác nhận Fabi', html`<div class="st-meta">Mở lại để sửa số Fabi / nhân viên ghi / tiền thực nhận. Thu chi của ca khoá sửa tới khi xác nhận lại.</div>`, true,
-      (d) => rpc('app_stc_ds_reopen', { p_report: c.id, p_reason: val(d, 'reason') }), 'Đã mở lại xác nhận');
+    ask('Mở lại xác nhận Fabi', html`<div class="st-meta">Mở lại để sửa số Fabi / nhân viên ghi / tiền thực nhận. Thu chi của ca khoá sửa tới khi xác nhận lại.</div>`, false,   // bước 160: không bắt ghi lý do
+      (d) => rpc('app_stc_ds_reopen', { p_report: c.id, p_reason: val(d, 'reason') || null }), 'Đã mở lại xác nhận');
   } else if (b.dataset.dsfinal) {
     const { need, treo } = finalNeeds(c, D.items);
     if (need.length) { showSaved(need.join(' · '), true); return; }

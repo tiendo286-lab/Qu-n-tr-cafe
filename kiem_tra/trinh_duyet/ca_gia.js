@@ -266,11 +266,13 @@ export function makeCa(T, me) {
     app_ca_debt_collect_part({ p_debt, p_report, p_kind, p_amount, p_note }) {
       const d = T.shift_debts.find((x) => x.id === p_debt); if (!d || d.closed_at) throw new Error('Khoản nợ này đã được thu hoặc không còn.');
       if (!(p_amount > 0)) throw new Error('Nhập số tiền khách trả lớn hơn 0.'); if (p_amount > d.amount) throw new Error('Khách trả nhiều hơn số nợ.');
-      if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: Math.max(...T.shift_debts.map((x) => x.id)) + 1, amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
-      needEdit(p_report); const part = !!T.shift_debts.find((x) => x.split_from === d.id && !x.closed_at);
-      Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || (part ? 'Thu một phần' : 'Đã thu'), collect_kind: p_kind });
+      needEdit(p_report);
+      Object.assign(d, { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || 'Đã thu', collect_kind: p_kind });
+      if (p_amount < d.amount) T.shift_debts.push({ id: Math.max(...T.shift_debts.map((x) => x.id)) + 1, branch_id: d.branch_id, report_id: p_report, table_name: d.table_name, phone: d.phone || null,
+        amount: d.amount - p_amount, kind: p_kind === 'chuyen_khoan' ? 'ck' : 'muon', grp: d.grp || 'khach', family: d.family || 0, rest_of: d.id, note: 'Còn thiếu khi trả nợ', created_at: now(), closed_at: null });
     },
-    app_ca_debt_collect({ p_debt, p_report, p_kind, p_note }) { needEdit(p_report); const d = T.shift_debts.find((x) => x.id === p_debt); Object.assign(d, p_kind === null ? { closed_at: null, closed_by: null, closed_report_id: null, close_note: null, collect_kind: null } : { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || 'Đã thu', collect_kind: p_kind }); },
+    app_ca_debt_collect({ p_debt, p_report, p_kind, p_note }) { needEdit(p_report); const d = T.shift_debts.find((x) => x.id === p_debt);
+      if (p_kind === null) { if (T.shift_debts.some((x) => x.rest_of === p_debt && x.closed_at)) throw new Error('Phần còn thiếu của khoản này (nợ mới) đã được trả — bỏ trả khoản đó trước.'); T.shift_debts = T.shift_debts.filter((x) => !(x.rest_of === p_debt && !x.closed_at)); } Object.assign(d, p_kind === null ? { closed_at: null, closed_by: null, closed_report_id: null, close_note: null, collect_kind: null } : { closed_at: now(), closed_by: me.account_id, closed_report_id: p_report, close_note: p_note || 'Đã thu', collect_kind: p_kind }); },
     app_ca_photo_add({ p_id, p_path, p_kind }) { needEdit(p_id); const id = nid('shift_report_photos'); T.shift_report_photos.push({ id, report_id: p_id, path: p_path, kind: p_kind || 'hang' }); return id; },
     app_ca_cash_receive({ p_id, p_amount }) {
       const r = needEdit(p_id); const sh = shifts();

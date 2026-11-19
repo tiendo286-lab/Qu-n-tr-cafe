@@ -311,10 +311,13 @@ export function makeFin(T, me) {
       const d = T.shift_debts.find((x) => x.id === p_id); if (!d || d.closed_at) throw new Error('Khoản nợ này đã thu rồi.');
       if (!['tien_mat', 'chuyen_khoan'].includes(p_kind)) throw new Error('Chọn tiền mặt hay chuyển khoản.');
       if (!(p_amount > 0) || p_amount > d.amount) throw new Error('Số tiền thu phải lớn hơn 0 và không quá ' + d.amount + '.');
-      if (p_amount < d.amount) { T.shift_debts.push({ ...d, id: nid('shift_debts'), amount: d.amount - p_amount, split_from: d.id }); d.amount = p_amount; }
       Object.assign(d, { closed_at: (p_date || '') + ' 10:00:00', closed_report_id: null, collect_kind: p_kind, close_note: p_note || 'Quản lý thu' });
+      if (p_amount < d.amount) T.shift_debts.push({ id: nid('shift_debts'), branch_id: d.branch_id, report_id: null, table_name: d.table_name, phone: d.phone || null, amount: d.amount - p_amount,
+        kind: p_kind === 'chuyen_khoan' ? 'ck' : 'muon', grp: d.grp || 'khach', family: d.family || 0, fund_out: 1, rest_of: d.id, note: 'Còn thiếu khi trả nợ', created_at: (p_date || '') + ' 10:00:00', closed_at: null });
     },
-    app_cn_debt_uncollect({ p_id }) { const d = T.shift_debts.find((x) => x.id === p_id); Object.assign(d, { closed_at: null, collect_kind: null, close_note: null }); },
+    app_cn_debt_uncollect({ p_id }) { const d = T.shift_debts.find((x) => x.id === p_id);
+      if (T.shift_debts.some((x) => x.rest_of === p_id && x.closed_at)) throw new Error('Phần còn thiếu của khoản này (nợ mới) đã được trả — bỏ trả khoản đó trước.');
+      T.shift_debts = T.shift_debts.filter((x) => !(x.rest_of === p_id && !x.closed_at)); Object.assign(d, { closed_at: null, collect_kind: null, close_note: null }); },
     // bước 64: cho vay (chỉ LHP)
     app_loans({ p_branch }) {
       const b = T.branches.find((x) => x.id === p_branch); if (!b) return { enabled: false };

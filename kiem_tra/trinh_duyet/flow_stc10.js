@@ -48,6 +48,16 @@ export default async ({ sleep, out }) => {
       ok((window.__LOG || []).some((l) => l[0] === 'confirm' && /đưa thiếu 40\.000/.test(l[1])), '4. đưa thiếu 40.000 → web hỏi trước khi ghi');
       $('dialog[open] [data-x]')?.click(); await sleep(200);
     }
+    // 5. bước 160: Mở lại xác nhận Fabi không cần ghi lý do
+    await open(181);
+    const rb = $('[data-dsreopen]'); ok(!!rb, '5. ca đã xác nhận có nút Mở lại xác nhận');
+    if (rb) {
+      rb.click(); await wait('dialog[open]', 40); await sleep(300);
+      const dl = $('dialog[open]'); ok(txt(dl).includes('không bắt buộc'), '5. ô lý do ghi "không bắt buộc"');
+      $('button[type=submit]', dl).click(); await sleep(1200);
+      ok(!$('dialog[open]') && !$('[data-dsreopen]') && !!$('[data-dsclose]'), '5. bấm Lưu không ghi lý do → đã mở lại (có lại nút Xác nhận Fabi)');
+      $('dialog[open] [data-x]')?.click();
+    }
   } catch (e) { bad.push('LỖI: ' + e.message); }
   out.push({ stc10: { ok: good, fail: bad } });
 };

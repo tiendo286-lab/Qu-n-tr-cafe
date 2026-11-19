@@ -287,7 +287,7 @@ export function makeStc(T, me) {
       return { tm: 0, ck: 0 };
     },
     app_stc_ds_reopen({ p_report, p_reason }) {
-      const c = dsCa(p_report, false); reason(p_reason); c.recon_money_done = false;
+      const c = dsCa(p_report, false); c.recon_money_done = false;   // bước 160 (tệp 143): không bắt lý do
       items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
     },
     // bước 153: phiếu trừ lương — sửa / xoá; khoản chi → trừ lương / bỏ chuyển

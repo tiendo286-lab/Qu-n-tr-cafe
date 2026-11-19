@@ -1,11 +1,12 @@
 // Bước 95: tab Công nợ riêng (3 nhóm, theo người, ngày nợ → ngày trả, thu gộp, đổi nhóm) + Đối soát › Thu chi "Thành nợ". role=chu (điện thoại, confirm=1)
 export default async ({ sleep, out }) => {
+  const fails = []; const chk = (c, m) => { if (!c) fails.push(m); };
   const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
   const txt = (s) => ($(s)?.innerText || '').replace(/\s+/g, ' ').trim();
   const wait = async (sel, n = 600) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
   const W = () => `rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`;
   const vis = () => $$('.ds-pane').filter((p) => !p.hidden).map((p) => p.dataset.ds).join(',');
-  const r = []; window.confirm = () => true;
+  const r = []; const asked = []; window.confirm = (m) => { asked.push(m); return true; };
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(2500);
     const { rpc } = await import('../js/sb.js');
@@ -52,25 +53,22 @@ export default async ({ sleep, out }) => {
     $$('.cn-p').find((x) => !x.hidden).querySelector('.cn-ph').click(); await wait('#cn-thu'); await sleep(1200);
     r.push(`chi tiết: ${txt('h1')} · ${txt('.cn-big')} · ${W()}`);
     await halt('2');
+    // bước 159: khách trả một lần — đưa thiếu thì hỏi trước, khoản cũ trả đủ, phần còn thiếu thành nợ mới; bỏ thu → nợ mới tự xoá
     $('#cn-thu').click(); await wait('dialog[open] form [name=amount]'); await sleep(300);
+    asked.length = 0;
     f = $$('dialog[open] form').pop(); f.amount.value = '100.000'; f.requestSubmit(); await sleep(2500); await wait('.cn-big');
     r.push(`thu 100.000: ${txt('.cn-big')} · ${$$('section h2').map((x) => x.innerText).join(' / ')}`);
+    chk(asked.some((m) => /đưa thiếu 200\.000/.test(m)), 'đưa thiếu 200.000 → web hỏi trước');
+    chk(txt('.cn-big').includes('200.000'), 'sau khi thu 100.000: còn nợ 200.000 (nợ mới)');
+    chk($$('.cn-l').some((l) => /trả .*quản lý thu/i.test(l.innerText) && l.innerText.includes('300.000')), 'khoản cũ ghi trả đủ 300.000 · quản lý thu');
     $('.cn-unthu').click(); await sleep(2500); await wait('.cn-big');
     r.push(`bỏ thu: ${txt('.cn-big')}`);
+    chk(txt('.cn-big').includes('300.000'), 'bỏ thu → nợ mới tự xoá, còn nợ 300.000');
     $('#cn-edit').click(); await wait('dialog[open] form [name=grp]'); await sleep(300);
     f = $$('dialog[open] form').pop(); [...f.grp].find((x) => x.value === 'khach').checked = true; f.requestSubmit(); await sleep(2500); await wait('.cn-big');
     r.push(`đổi nhóm: ${decodeURIComponent(location.hash)} · ${txt('.sub')}`);
-    // đối soát › Thu chi: Thành nợ
-    await go('#/quan-ly/doi-soat/ca?id=' + id + '&buoc=6', '.dt-2no');
-    r.push(`nút Thành nợ: ${$$('.dt-2no').length}`);
-    $('.dt-2no').click(); await wait('dialog[open] form [name=grp]'); await sleep(600);
-    f = $$('dialog[open] form').pop(); [...f.grp].find((x) => x.value === 'kho').checked = true; f.name.value = 'Kho tổng'; f.requestSubmit(); await sleep(2500); await wait('.dt-undebt');
-    r.push(`sau Thành nợ: ${txt('.dt-r .pill.warn')}`);
-    const B = await rpc('app_cn_book', { p_branch: o.branch_id });
-    r.push(`tab Công nợ có: ${B.rows.filter((x) => x.mv_report).map((x) => x.name + ' ' + x.amount + ' ' + x.kind + ' từ ca ' + x.mv_ca).join(', ')}`);
-    // bước 152: trang Thu chi cũ đã xoá — bỏ phần thử trang đó (bước 96)
-    $('.dt-undebt').click(); await sleep(2500); await wait('.dt-2no');
-    r.push(`bỏ: còn ${(await rpc('app_cn_book', { p_branch: o.branch_id })).rows.filter((x) => x.mv_report).length} khoản từ thu chi · ${W()}`);
-  } catch (e) { r.push('LỖI ' + (e.stack || e)); }
-  out.push({ route: 'tab công nợ 95', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
+    // bước 156: trang Đối soát ca không còn bước Thu chi (nút Thành nợ) — đã bỏ phần thử đó; tiền làm ở Sổ thu chi
+    r.push(W());
+  } catch (e) { r.push('LỖI ' + (e.stack || e)); fails.push('LỖI ' + (e.message || e)); }
+  out.push({ route: 'tab công nợ 95', title: r.join(' || '), len: 0, errs: [...window.__ERR, ...fails] });
 };
