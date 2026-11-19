@@ -4,18 +4,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.19.11';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.19.12';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.11';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.11';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.12';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.12';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.11';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.12';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -836,7 +836,8 @@ export async function render({ params }) {
   const stcHref = `#/quan-ly/so-thu-chi?tab=doi-soat&cn=${R.branch_id}&thang=${String(R.work_date || '').slice(0, 7)}&ds=${R.id}`;
   const stcCard = isDs ? html`<section class="card stack pc-sec ds-stc-card" style="gap:10px"><div class="pc-sec-head"><h2>Phần tiền</h2><span class="pill ${mDone ? 'ok' : 'warn'}">${mDone ? '✓ Đã xác nhận Fabi' : 'Chưa xác nhận Fabi'}</span></div>
       <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Xác nhận Fabi xong thì các mục tiền ở đây tự "✓ Xong"; ca xong cả phần việc thì tự Hoàn thành đối soát.</div>
-      <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a></section>` : '';
+      <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a>
+      ${iposPhotos.length ? html`<h3 style="margin:4px 0 0;font-size:15px">Ảnh phiếu Fabi chốt ca</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}</div>` : html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`}</section>` : '';
   const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
   const dsX2 = isDs && (R.staff || []).some((s2) => !s2.worked || (s2.source && s2.source !== 'lich'));   // bước 87: có người nghỉ / làm hộ / ca bổ sung
   const dsBody = isDs ? html`${DEN_CSS}${unifiedSteps}<div id="ds-parts" class="dsp" data-left="${JSON.stringify(DS_ITEMS.map((_, i) => dsLeft(i).length))}" data-x2="${dsX2 ? 1 : 0}"></div><section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang kiểm tra các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" hidden aria-label="Các mục kiểm tra">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}

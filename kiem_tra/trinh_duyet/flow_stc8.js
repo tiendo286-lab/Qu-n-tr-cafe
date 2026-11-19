@@ -61,6 +61,10 @@ export default async ({ sleep, out }) => {
     await go(BASE + '&pm=tm'); $('.stc-all')?.click(); await sleep(400);
     ok(!$('#stc-book [data-bankout]'), '6. bảng Tiền mặt không có nút phiếu chi chuyển khoản');
     wide('6. Sổ chi');
+    // 7. bước 154: ảnh phiếu Fabi chốt ca xem ở Đối soát Fabi (phần A)
+    location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=182&t=' + Date.now(); await sleep(500); await wait('.stc-dsp'); await sleep(500);
+    const pb = $('.stc-pa [data-dsphoto]'); ok(!!pb, '7. phần A có nút 📷 Ảnh phiếu Fabi');
+    if (pb) { pb.click(); await wait('dialog[open] #stc-ph', 40); await sleep(1200); ok(!!$('dialog[open] #stc-ph') && !!$('dialog[open] a[href*="#/ca/phieu?id=182"]'), '7. mở hộp ảnh phiếu Fabi + đường dẫn phiếu chốt ca'); $('dialog[open] [data-x]')?.click(); await sleep(300); }
   } catch (e) { bad.push('LỖI: ' + e.message); }
   out.push({ stc8: { ok: good, fail: bad } });
 };

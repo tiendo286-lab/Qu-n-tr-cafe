@@ -3,7 +3,7 @@
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi-design.md · Hàm tính: ../so_thu_chi_tinh.js · Máy chủ: app_stc_month, app_stc_ext
 import { render as rerender } from '../app.js';
 import { catalog, vnToday } from '../data.js';
-import { rpc } from '../sb.js';
+import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
@@ -71,14 +71,13 @@ export async function render({ params }) {
     if (!D) return { title: 'Sổ thu chi', html: html`${STYLE}<div class="page-head"><h1>Sổ thu chi</h1></div><div class="alert warn">${e.message}</div>` };
   }
   if (!isExt) lsSet(D.branch.id);
-  const head = html`<div class="page-head stc-head"><div><h1>Sổ thu chi · ${D.branch.code}</h1>
-      <div class="st-meta">Số liệu từ ${dmy(D.from)}. Thu chi, đối soát Fabi, chốt ca và quỹ của cơ sở ở một chỗ.</div></div></div>
-    <section class="card stc-bar">
-      <div class="stc-month"><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a><strong>${monthLabel(month)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
-      <nav class="branch-tabs" aria-label="Cơ sở">${(D.branches || []).map((b) => html`<a class="${String(cn) === String(b.id) ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}</a>`)}
-        ${D.owner ? html`<a class="stc-qn ${isExt ? 'on' : ''}" href="${q({ cn: 'ngoai', tab: tab === 'doi-soat' ? 'tong' : tab })}">Quỹ ngoài</a>` : ''}</nav>
-      <nav class="stc-tabs" aria-label="Tab">${TABS.filter((t) => !(isExt && t[0] === 'doi-soat')).map(([k, l]) => html`<a class="${tab === k ? 'on' : ''}" href="${q({ tab: k, cot: '' })}">${l}</a>`)}</nav>
-    </section>`;
+  const head = html`<header class="stc-top stc-head">
+      <div class="stc-toprow"><div class="stc-month"><a class="stc-mb" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a><strong>${monthLabel(month)}</strong><a class="stc-mb" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
+        <nav class="branch-tabs" aria-label="Cơ sở">${(D.branches || []).map((b) => html`<a class="${String(cn) === String(b.id) ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}</a>`)}
+          ${D.owner ? html`<a class="stc-qn ${isExt ? 'on' : ''}" href="${q({ cn: 'ngoai', tab: tab === 'doi-soat' ? 'tong' : tab })}">Quỹ ngoài</a>` : ''}</nav></div>
+      <div class="stc-sub"><b>Sổ thu chi · ${D.branch.code}</b> · số liệu từ ${dmy(D.from)} · thu chi, đối soát Fabi, chốt ca và quỹ ở một chỗ</div>
+      <nav class="stc-tabs" aria-label="Chọn sổ">${TABS.filter((t) => !(isExt && t[0] === 'doi-soat')).map(([k, l]) => html`<a class="${tab === k ? 'on' : ''}" href="${q({ tab: k, cot: '' })}">${l}</a>`)}</nav>
+    </header>`;
   const body = tab === 'thu' || tab === 'chi' ? bookPage(D, tab) : tab === 'tong' ? tongPage(D) : dsPage(D);
   return {
     title: `Sổ thu chi ${D.branch.code}`,
@@ -110,6 +109,8 @@ export async function render({ params }) {
           return;
         }
         // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
+        const pw = ev.target.closest('[data-dsphoto]');
+        if (pw && root.contains(pw)) { photoDialog(D, Number(pw.dataset.dsphoto)); return; }
         const kw = ev.target.closest('[data-kaed],[data-kadel],[data-toka],[data-kaundo],[data-bankout]');
         if (kw && root.contains(kw)) {
           if (kw.dataset.kaed) kaEditDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kaed));
@@ -563,6 +564,26 @@ function addBtn(D, c, book, label) {
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
     : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
 }
+// ---- bước 154: ảnh phiếu Fabi chốt ca (nhân viên chụp) — trước ở bước Tiền của Đối soát ca (đã bỏ ở bước 152)
+const phBtn = (c) => html`<button type="button" class="btn sm secondary" data-dsphoto="${c.id}">📷 Ảnh phiếu Fabi</button>`;
+async function photoDialog(D, caId) {
+  const ca = (D.cas || []).find((c) => c.id === caId);
+  const d = dialog(html`<div class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">Ảnh phiếu Fabi chốt ca · ${ca ? caName(ca) : ''}</h2>
+    <div class="stc-photos" id="stc-ph"><div class="st-meta">Đang tải…</div></div>
+    <div class="toolbar" style="justify-content:space-between"><a class="btn sm secondary" href="#/ca/phieu?id=${caId}">Mở phiếu chốt ca ›</a><button type="button" class="btn sm secondary" data-x>Đóng</button></div></div>`);
+  d.querySelector('[data-x]').addEventListener('click', () => d.close());
+  d.querySelector('a').addEventListener('click', () => d.close());
+  const box = d.querySelector('#stc-ph');
+  try {
+    const R = await rpc('app_ca_get', { p_id: caId });
+    const ph = (R.photos || []).filter((x) => x.kind === 'ipos');
+    if (!ph.length) { box.innerHTML = str(html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`); return; }
+    box.innerHTML = str(html`${ph.map((x) => html`<figure data-path="${x.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}`);
+    const { data } = await sb.storage.from('phieu-ca').createSignedUrls(ph.map((x) => x.path), 3600);
+    const u = new Map((data || []).map((x) => [x.path, x.signedUrl]));
+    box.querySelectorAll('figure[data-path]').forEach((f) => { const url = u.get(f.dataset.path); if (url) { f.querySelector('img').src = url; f.querySelector('a').href = url; } });
+  } catch (e) { box.innerHTML = str(html`<div class="alert error">Không mở được ảnh: ${e.message || e}</div>`); }
+}
 // ---- bước 153: phiếu trừ lương / → Trừ lương / phiếu chi chuyển khoản
 const mkeyOf = (x) => String(x.id).split(':').slice(2).join(':');
 const kaOf = (D, x) => (D.shortfalls || []).filter((k) => k.item === 'am_tien' && k.report_id === x.ca_id && k.move_mkey && k.move_mkey === mkeyOf(x));
@@ -615,6 +636,8 @@ function bankOutDialog(D, caId) {
   load();
 }
 // ---- bước 152: bộ lọc đầy đủ (thay trang Thu chi cũ)
+const HINT = { thu: { dt: 'khách trả TM / CK trên Fabi', no: 'khách trả nợ cũ, từng khoản', khac: 'bán đồ cũ, thu khác', lc: 'đổi TM ↔ CK, chuyển quỹ', lech: 'ca dư tiền' },
+  chi: { chi: 'phiếu ca, lương, QL tạo', no: 'khách mượn TM, nợ CK', lc: 'đổi TM ↔ CK, chuyển quỹ', lech: 'ca thiếu tiền' } };   // bước 154: như bản mẫu 18/11
 const SRC_OPTS = [['', 'Mọi nguồn'], ['ca', 'Từ phiếu ca'], ['tay', 'Quản lý tạo (ngoài ca)'], ['bu', 'Nộp bù khoản âm'], ['lech', 'Chênh lệch']];
 const ST_OPTS = [['', 'Mọi trạng thái'], ['todo', 'Chưa phân loại'], ['cho', 'Chờ xử lý'], ['tl', 'Có trừ lương'], ['void', 'Đã xoá'], ['fin', 'Ca đã chốt'], ['open', 'Ca chưa chốt']];
 const TL_ST = { tru_luong: 'Trừ lương', da_bu: 'Đã nộp bù', mien: 'Miễn', huy: 'Đã huỷ' };
@@ -720,7 +743,7 @@ function bookPage(D, book) {
     const v = sumItems(its, { book, pm: P.pm, col: k });
     let s = '';
     if (book === 'chi' && k === 'chi') { const nc = sumItems(its.filter((x) => x.no_cost && x.col === 'chi' && x.book === 'chi' && x.pm === P.pm)); if (nc) s = `trong đó ${fmt(nc)} không tính chi phí`; }
-    return html`<a class="stc-tile ${P.cot === k ? 'on' : ''}" data-col="${k}" href="${q({ cot: P.cot === k ? '' : k })}"><span class="stc-tag t-${k}">${l}</span><b>${fmt(v)}</b><small>${s}</small></a>`;
+    return html`<a class="stc-tile ${P.cot === k ? 'on' : ''}" data-col="${k}" href="${q({ cot: P.cot === k ? '' : k })}"><span class="stc-tag t-${k}">${l}</span><b>${fmt(v)}</b><small>${s || (HINT[book] || {})[k] || ''}</small></a>`;
   });
   return html`<div class="stc-pays">${pays}</div>
     <div class="st-meta stc-formula"><b>Tổng ${book}</b> = ${COLS[book].map(([, l], i) => html`${i ? ' + ' : ''}<b>${l}</b>`)}</div>
@@ -864,7 +887,7 @@ function partA(D, a) {
   const kt = c.kt_wait || c.bank_ck == null; const byCa = c.cash_mode === 'ca';
   const last = !(D.cas || []).some((o) => o.date === c.date && SHIFT_ORDER.indexOf(o.shift) > SHIFT_ORDER.indexOf(c.shift));
   if (c.recon_money_done) {
-    return html`<div class="stc-part stc-pa"><div class="h">A · Fabi <span class="pill ok">Đã xác nhận</span>${fin ? '' : html`<button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại xác nhận</button>`}</div>
+    return html`<div class="stc-part stc-pa"><div class="h">A · Fabi <span class="pill ok">Đã xác nhận</span>${phBtn(c)}${fin ? '' : html`<button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại xác nhận</button>`}</div>
       <div class="stc-fsum"><div><span>Tiền mở ca</span><b>${fmt(f.has ? f.opening ?? 0 : nv.opening ?? 0)}</b></div><div><span>Doanh thu (máy Fabi)</span><b>${fmt(f.revenue ?? nv.revenue ?? 0)}</b></div>
         <div><span>Nợ bill (máy Fabi)</span><b>${fmt(f.debt ?? nv.debt ?? 0)}</b></div>
         <div><span>Tiền mặt thực nhận</span><b>${m ? fmt(m.tm.real) : '–'}</b></div><div><span>Chuyển khoản thực nhận</span><b>${kt ? 'chờ kế toán' : fmt(c.bank_ck)}</b></div></div></div>`;
@@ -887,7 +910,7 @@ function partA(D, a) {
   if (red1) need.push('còn ô đỏ ở ①'); if (kt || !f.has) need.push('chờ kế toán'); if (byCa && c.ql_counted == null) need.push('chưa nhập tiền mặt thực nhận');
   const r = (lab, a1, b1) => html`<div class="stc-mr"><span>${lab}</span><b>${a1}</b><b>${b1}</b></div>`;
   const flags = Number(f.edited_bills || 0);
-  return html`<div class="stc-part stc-pa"><div class="h">A · Fabi <span class="st-meta">máy Fabi là chuẩn · chỉ xác định phiếu đúng, tiền mặt và chuyển khoản thực nhận</span></div>
+  return html`<div class="stc-part stc-pa"><div class="h">A · Fabi ${phBtn(c)} <span class="st-meta">máy Fabi là chuẩn · chỉ xác định phiếu đúng, tiền mặt và chuyển khoản thực nhận</span></div>
     <div class="stc-stp"><div class="h"><b>①</b> So phiếu nhân viên với máy Fabi</div><div class="stc-c4s">${s1.map(box)}</div>
       ${!f.has ? html`<div class="st-meta">Chưa có file Fabi: ${(c.kt_missing || []).join(', ') || 'chờ kế toán tải'}.</div>` : ''}
       ${flags ? html`<div class="stc-warnbox">⚠ Trên máy Fabi ca này có <b>${flags} hoá đơn bị sửa / xoá</b>. Hoá đơn bị sửa / xoá không còn đúng trong doanh thu Fabi — kiểm tra lại (hỏi nhân viên / xem camera).</div>` : ''}</div>
@@ -1049,9 +1072,6 @@ const STYLE = html`<style>
   .stc-month { display: flex; align-items: center; gap: 8px; }
   .stc-month strong { min-width: 110px; text-align: center; }
   .stc-qn { border-style: dashed !important; }
-  .stc-tabs { display: flex; gap: 4px; flex-wrap: wrap; border-top: 1px solid var(--line); padding-top: 8px; }
-  .stc-tabs a { padding: 8px 14px; border-radius: 10px; font-weight: 700; color: var(--muted); text-decoration: none; }
-  .stc-tabs a.on { background: var(--caramel-soft); color: var(--primary); }
   .stc-pays { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
   .stc-pay { display: flex; flex-direction: column; gap: 2px; padding: 12px 16px; border-radius: 16px; background: var(--card); border: 2px solid var(--line); text-decoration: none; color: var(--ink); }
   .stc-pay.on { border-color: var(--primary); background: var(--caramel-soft); }
@@ -1172,6 +1192,33 @@ const STYLE = html`<style>
   .stc-ck { display: flex; flex-direction: column; gap: 3px; font-size: 14px; color: var(--ok-ink); }
   .stc-tr0 { background: var(--subtle); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13.5px; }
   .stc-treo { align-items: flex-start; flex-wrap: wrap; } .stc-treo > span:first-child { flex: 1 1 180px; min-width: 0; }
+  /* bước 154: giao diện như bản mẫu 18/11 — dải đầu xanh rêu, tab hồ sơ, nút / tiêu đề chữ thường */
+  #stc-page { --stc-hd: var(--header, #3a4c3e); --stc-hd-ink: #f5efe6; --stc-hd-dim: #c9d3c4; }
+  .stc-top { background: var(--stc-hd); color: var(--stc-hd-ink); border-radius: 18px 18px 0 0; padding: 14px 18px 0; display: flex; flex-direction: column; gap: 10px; margin: 0 0 16px; }
+  .stc-toprow { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  .stc-top .stc-month { display: flex; align-items: center; gap: 6px; }
+  .stc-top .stc-mb { border: 1px solid rgba(255,255,255,.25); color: var(--stc-hd-ink); border-radius: 10px; width: 32px; height: 32px; display: inline-grid; place-items: center; text-decoration: none; font-weight: 700; }
+  .stc-top .stc-month strong { font-size: 15px; min-width: 110px; text-align: center; color: var(--stc-hd-ink); }
+  .stc-top .branch-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0; padding: 0; border: 0; }
+  .stc-top .branch-tabs a { color: var(--stc-hd-dim) !important; background: transparent !important; border: 0 !important; padding: 6px 12px; border-radius: 10px; font-weight: 600; text-decoration: none; text-transform: none; letter-spacing: normal; box-shadow: none; min-height: 0; }
+  .stc-top .branch-tabs a.on { background: rgba(255,255,255,.14) !important; color: var(--stc-hd-ink) !important; }
+  .stc-top .branch-tabs a.stc-qn { border: 1px dashed rgba(255,255,255,.35) !important; }
+  .stc-sub { font-size: 12px; color: var(--stc-hd-dim); } .stc-sub b { color: var(--stc-hd-ink); font-weight: 600; }
+  .stc-top .stc-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
+  .stc-top .stc-tabs a { color: var(--stc-hd-dim); padding: 10px 18px 12px; font-size: 17px; font-weight: 700; border-radius: 14px 14px 0 0; text-decoration: none; }
+  .stc-top .stc-tabs a.on { background: var(--ground, #f5efe6); color: var(--ink); }
+  #stc-page .btn { text-transform: none; letter-spacing: normal; font-weight: 600; border-radius: 10px; }
+  #stc-page .btn.secondary { background: var(--card); border: 1px solid var(--line-strong); color: var(--ink-2); box-shadow: none; }
+  #stc-page .btn.sm { padding: 5px 10px; font-size: 12.5px; min-height: 0; }
+  #stc-page h2, #stc-page h3 { text-transform: none; letter-spacing: normal; font-family: inherit; }
+  #stc-page .stc-side h3 { font-size: 16px; font-weight: 700; }
+  #stc-page .stc-side .st-meta { font-size: 12.5px; }
+  #stc-page .stc-c { font-size: 13.5px; }
+  #stc-page .stc-g { grid-template-columns: minmax(92px, 1fr) repeat(var(--n), minmax(0, 1fr)) minmax(0, 1.15fr); column-gap: 6px; }
+  #stc-page .stc-layout { grid-template-columns: minmax(0, 1fr) 310px; }
+  #stc-page .stc-ch .stc-tools { margin-left: auto; }
+  @media (max-width: 720px) { .stc-top { padding: 12px 12px 0; border-radius: 14px 14px 0 0; } .stc-top .stc-tabs a { font-size: 15px; padding: 9px 12px 11px; } #stc-page .stc-layout { grid-template-columns: minmax(0, 1fr); } }
+  .stc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; } .stc-photos figure { margin: 0; } .stc-photos img { width: 100%; border-radius: 10px; border: 1px solid var(--line, #e5e7eb); display: block; }
   .stc-flt { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line, #e5e7eb); }
   .stc-flt .stc-q { flex: 1 1 220px; min-width: 0; } .stc-flt select { flex: 0 1 auto; max-width: 100%; }
   .stc-flat { margin: 0 10px 10px; } .stc-fr { border-bottom: 1px dashed var(--line, #e5e7eb); padding: 4px 0; } .stc-frh { padding: 2px 4px; }
