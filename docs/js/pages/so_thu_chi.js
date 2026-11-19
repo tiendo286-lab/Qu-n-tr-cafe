@@ -8,7 +8,7 @@ import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
-import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caChoices, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
+import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caChoices, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
 
 export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
@@ -28,6 +28,7 @@ const off = (label, cls = 'btn sm secondary') => html`<button type="button" clas
 
 let CACHE = null;   // { key, at, D }
 const OPEN_D = new Set(); const OPEN_C = new Set();
+let SHOW_ZERO = false;   // bước 164: bấm "hiện lại" → hiện cả cột cả tháng bằng 0 (tới khi tải lại trang)
 let P = {};         // tham số đang xem
 
 async function load(cn, month) {
@@ -129,6 +130,8 @@ export async function render({ params }) {
         if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
         const ds = ev.target.closest('[data-dsca]');
         if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); if (ds.classList.contains('stc-go')) $('.stc-dsp')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+        const zw = ev.target.closest('[data-showzero]');   // bước 164: hiện lại cột cả tháng bằng 0
+        if (zw && root.contains(zw)) { SHOW_ZERO = true; const b0 = $('#stc-book'); if (b0) b0.innerHTML = str(bookCard(D, P.tab)); return; }
         const t = ev.target.closest('[data-day],[data-ca],.stc-all,.stc-none'); if (!t || !root.contains(t)) return;
         if (t.dataset.day) { OPEN_D.has(t.dataset.day) ? OPEN_D.delete(t.dataset.day) : OPEN_D.add(t.dataset.day); }
         else if (t.dataset.ca) { OPEN_C.has(t.dataset.ca) ? OPEN_C.delete(t.dataset.ca) : OPEN_C.add(t.dataset.ca); }
@@ -142,7 +145,7 @@ export async function render({ params }) {
         if (cx) { const it = D.items.find((x) => x.id === cx.dataset.catx); if (!it) return; cx.disabled = true; try { await setCat(D, it, cx.value); } catch (e) { showSaved(e.message || e, true); cx.disabled = false; } }
         else if (wx) { const it = D.items.find((x) => x.id === wx.dataset.whox); if (it) setWho(D, it, wx.value, wx); }
       });
-      if ((P.tab === 'thu' || P.tab === 'chi') && !FTV) finTypes().then(() => { const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab)); const a = $('.stc-aside'); if (a) a.innerHTML = str(bookSide(D, P.tab)); });
+      if ((P.tab === 'thu' || P.tab === 'chi') && !FTV) finTypes().then(() => { const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab)); });
       // bước 152: bộ lọc sổ — vẽ lại riêng phần sổ, giữ con trỏ ở ô tìm; đường dẫn cập nhật không tải lại trang
       let lfT = null;
       const lfSet = (k, v) => { const f = parseLoc(P.loc); f[k] = v; if (k === 'type') f.cat = ''; P.loc = locStr(f);
@@ -581,8 +584,8 @@ function itemRow(x, book, D = null) {
     <div class="stc-itb"><div class="stc-itt">${x.title}</div><div class="st-meta">${x.meta || ''}</div>${pills.length ? html`<div class="stc-pills">${pills}</div>` : ''}</div>
     <span class="stc-amt ${book}">${sg(book)}${fmt(x.amount)}</span></div>`;
 }
-function cells(byCol, book, totalV) {
-  return html`${COLS[book].map(([k]) => html`<span class="stc-c ${byCol[k] ? '' : 'z'}">${byCol[k] ? fmt(byCol[k]) : '–'}</span>`)}<span class="stc-c tot">${fmt(totalV)}</span>
+function cells(byCol, book, totalV, cols = COLS[book]) {
+  return html`${cols.map(([k]) => html`<span class="stc-c ${byCol[k] ? '' : 'z'}">${byCol[k] ? fmt(byCol[k]) : ''}</span>`)}<span class="stc-c tot">${fmt(totalV)}</span>
     <span class="stc-chips">${COLS[book].filter(([k]) => byCol[k]).map(([k, l]) => html`<span>${l} <b>${fmt(byCol[k])}</b></span>`)}</span>`;
 }
 // bước 151: khôi phục phiếu đã xoá = thêm lại phiếu y hệt (ca đã xác nhận Fabi, chưa chốt; hoặc khoản ngoài ca quản lý tạo)
@@ -785,24 +788,28 @@ function bookFlat(D, book, f) {
     <div class="stc-g stc-hdr" style="--n:${n}"><span>Khoản</span>${COLS[book].map(([, l]) => html`<span>${l}</span>`)}<span>Tổng</span></div>
     ${rows.length ? html`<div class="stc-its stc-flat">${rows}</div>` : html`<div class="stc-empty">Không có khoản nào khớp bộ lọc.</div>`}`;
 }
+// bước 164: cột nhìn thấy của bảng ngày (ẩn cột cả tháng bằng 0 theo bảng tiền đang xem, trừ cột đang chọn)
+const hiddenCols = (D, book) => (SHOW_ZERO ? [] : zeroCols(D.items || [], book, P.pm, P.cot || ''));
+const visCols = (D, book) => { const h = hiddenCols(D, book); return COLS[book].filter(([k]) => !h.includes(k)); };
 function bookCard(D, book) {
   const lf = parseLoc(P.loc); if (locStr(lf)) return bookFlat(D, book, lf);
   const days = dayTree(D, book, P.pm, P.cot || null);
-  const n = COLS[book].length;
+  const cols = visCols(D, book); const hid = hiddenCols(D, book); const n = cols.length;
   const caLabel = (c) => (c.shift === 'Ngoài ca' ? 'Ngoài ca' : 'Ca ' + c.shift);
   const rows = days.map((d) => {
     const o = OPEN_D.has(d.date);
     const cas = [...d.cas, ...(d.outside.items.length ? [{ caId: 'o:' + d.date, shift: 'Ngoài ca', staff: 'Quản lý ghi', total: d.outside.total, byCol: d.outside.byCol, items: d.outside.items }] : [])];
     return html`<div class="stc-day ${o ? 'open' : ''}"><button type="button" class="stc-drow stc-g" style="--n:${n}" data-day="${d.date}" aria-expanded="${o}">
-        <span class="stc-lab"><span class="stc-chev">›</span>${dm(d.date)} <small>${wd(d.date)}</small></span>${cells(d.byCol, book, d.total)}</button>
+        <span class="stc-lab"><span class="stc-chev">›</span>${dm(d.date)} <small>${wd(d.date)}</small></span>${cells(d.byCol, book, d.total, cols)}</button>
       ${o ? html`<div class="stc-cas">${cas.map((c) => { const co = OPEN_C.has(String(c.caId)); return html`<div class="stc-ca ${co ? 'open' : ''}">
-          <button type="button" class="stc-crow stc-g" style="--n:${n}" data-ca="${c.caId}" aria-expanded="${co}"><span class="stc-lab"><span class="stc-chev">›</span>${caLabel(c)} <small>${c.staff || ''}</small></span>${cells(c.byCol, book, c.total)}</button>
+          <button type="button" class="stc-crow stc-g" style="--n:${n}" data-ca="${c.caId}" aria-expanded="${co}"><span class="stc-lab"><span class="stc-chev">›</span>${caLabel(c)} <small>${c.staff || ''}</small></span>${cells(c.byCol, book, c.total, cols)}</button>
           ${co ? html`<div class="stc-its">${c.items.length ? c.items.map((x) => itemRow(x, book, D)) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
             <div class="stc-it add">${addBtn(D, c, book, caLabel(c))}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
   });
   return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} <small>${P.cot ? `chỉ hiện ${colName(book, P.cot)}` : 'theo ngày · bấm ngày để xem từng ca'}</small></h2>
       <span class="stc-tools">${P.cot ? html`<a class="btn sm secondary" href="${q({ cot: '' })}">Bỏ lọc</a>` : ''}<button type="button" class="btn sm secondary stc-all">Mở hết</button><button type="button" class="btn sm secondary stc-none">Thu gọn</button>${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
-    <div class="stc-g stc-hdr" style="--n:${n}"><span>Ngày</span>${COLS[book].map(([k, l]) => html`<span class="${P.cot === k ? 'hl' : ''}">${l}</span>`)}<span>Tổng ${book}</span></div>
+    ${hid.length ? html`<div class="st-meta stc-hidecols">Đang ẩn cột ${hid.map((k) => colName(book, k)).join(', ')} (cả tháng bằng 0) · <button type="button" class="stc-lnk" data-showzero="1">hiện lại</button></div>` : ''}
+    <div class="stc-g stc-hdr" style="--n:${n}"><span>Ngày</span>${cols.map(([k, l]) => html`<span class="${P.cot === k ? 'hl' : ''}">${l}</span>`)}<span>Tổng ${book}</span></div>
     ${rows.length ? rows : html`<div class="stc-empty">Tháng này chưa có khoản nào.</div>`}`;
 }
 // Quỹ ngoài › Sổ chi: phần mỗi cơ sở chịu (tạm tính theo cách chia); theo tỉ lệ doanh thu thì Chốt tháng tính
@@ -856,23 +863,17 @@ function bookSide(D, book) {
       ${g.cs.map(([c, v]) => html`<div class="stc-tyc"><span>${c}</span><b>${fmt(v)}</b></div>`)}</div>`), 'Chưa có khoản chi.',
       `Không cộng ${fmt(sumItems(its.filter((x) => x.book === 'chi' && x.col === 'chi' && x.no_cost)))} của các khoản Không tính chi phí. Chi phí Quỹ ngoài và tiền hàng kho tổng xem ở Chốt tháng.`)}`;
 }
-function bookPage(D, book) {
+function bookPage(D, book) {   // bước 164: 1 nút chuyển 2 nửa + 1 hàng ô số (bấm ô = chỉ xem loại đó), bỏ cột phải
   const its = D.items;
-  const pays = ['tm', 'ck'].map((pm) => html`<a class="stc-pay ${P.pm === pm ? 'on' : ''}" href="${q({ pm })}"><span class="k">Bảng ${PM[pm]}</span><span class="v">${sg(book)}${fmt(sumItems(its, { book, pm }))}</span><span class="s">Tổng ${book} ${monthLabel(P.thang).toLowerCase()}</span></a>`);
+  const sw = html`<div class="stc-sw">${['tm', 'ck'].map((pm) => html`<a class="stc-pay ${P.pm === pm ? 'on' : ''}" href="${q({ pm })}"><span class="k">${PM[pm]}</span><span class="v">${sg(book)}${fmt(sumItems(its, { book, pm }))}</span></a>`)}</div>`;
   const tiles = COLS[book].map(([k, l]) => {
-    const v = sumItems(its, { book, pm: P.pm, col: k });
-    let s = '';
-    if (book === 'chi' && k === 'chi') { const nc = sumItems(its.filter((x) => x.no_cost && x.col === 'chi' && x.book === 'chi' && x.pm === P.pm)); if (nc) s = `trong đó ${fmt(nc)} không tính chi phí`; }
-    if (k === 'lech') { const w = its.filter((x) => !x.void && x.book === book && x.pm === P.pm && x.col === 'lech' && /Chờ/.test(x.status || '') && !isFin(D, x.ca_id)).length; if (w) s = `${w} ca chờ xử lý`; }   // bước 155
-    return html`<a class="stc-tile ${P.cot === k ? 'on' : ''}" data-col="${k}" href="${q({ cot: P.cot === k ? '' : k })}"><span class="stc-tag t-${k}">${l}</span><b>${fmt(v)}</b><small>${s || (HINT[book] || {})[k] || ''}</small></a>`;
+    const t = tileInfo(D, book, P.pm, k); const on = P.cot === k;
+    return html`<a class="stc-tile ${on ? 'on' : ''} ${t.warn ? 'warn' : ''} ${t.zero && !on ? 'zero' : ''}" data-col="${k}" href="${q({ cot: on ? '' : k })}"><span class="stc-tag t-${k}">${l}</span><b>${fmt(t.v)}</b>${on ? html`<small class="stc-tsel">đang lọc ✕</small>` : t.sub ? html`<small>${t.sub}</small>` : ''}</a>`;
   });
-  return html`<div class="stc-pays">${pays}</div>
-    <div class="st-meta stc-formula"><b>Tổng ${book}</b> = ${COLS[book].map(([, l], i) => html`${i ? ' + ' : ''}<b>${l}</b>`)}</div>
-    <div class="stc-tiles">${tiles}<div class="stc-tile tot"><span>Tổng ${book} · ${PM[P.pm]}</span><b>${fmt(sumItems(its, { book, pm: P.pm }))}</b><small>bấm ô để lọc sổ</small></div></div>
-    <div class="stc-layout"><section class="card stc-book">${filterBar(book)}<div id="stc-book">${bookCard(D, book)}</div></section><aside class="stc-aside">${bookSide(D, book)}</aside></div>`;
+  return html`<div class="stc-head">${sw}<div class="stc-tiles stc-t5">${tiles}</div></div>
+    <div class="st-meta stc-formula">Tổng ${book} tháng ${Number(String(P.thang || '').slice(5, 7))} = ${COLS[book].map(([, l]) => l).join(' + ')} · bấm một ô để chỉ xem khoản loại đó</div>
+    <section class="card stc-book">${filterBar(book)}<div id="stc-book">${bookCard(D, book)}</div></section>`;
 }
-
-// ---------------- Tổng (Task 6) / Đối soát tiền (Task 7) ----------------
 function tongPage(D) {
   const F = fundSummary(D); const ext = !!D.ext; const name = ext ? 'Quỹ ngoài' : 'quỹ ' + D.branch.code;
   const hot = !ext && F.tm.ton > ALERT;
@@ -1232,6 +1233,18 @@ const STYLE = html`<style>
   .stc-pay .v { font-size: 22px; font-weight: 800; font-variant-numeric: tabular-nums; }
   .stc-pay .s { font-size: 12px; color: var(--muted); }
   .stc-formula { margin: 10px 2px; }
+  /* bước 164: phần đầu gọn */
+  .stc-head { display: grid; grid-template-columns: minmax(220px, 300px) minmax(0, 1fr); gap: 10px; align-items: stretch; margin-top: 12px; }
+  .stc-sw { display: grid; grid-template-columns: 1fr 1fr; border: 2px solid var(--line); border-radius: 16px; overflow: hidden; background: var(--card); }
+  .stc-sw .stc-pay { border: 0; border-radius: 0; padding: 10px 12px; justify-content: center; }
+  .stc-sw .stc-pay + .stc-pay { border-left: 1px solid var(--line); }
+  .stc-sw .stc-pay .v { font-size: 18px; }
+  .stc-t5 { grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); }
+  .stc-tile.zero { opacity: .5; } .stc-tsel { color: var(--primary) !important; font-weight: 700; }
+  .stc-hidecols { padding: 6px 14px; border-bottom: 1px solid var(--line-soft); }
+  .stc-lnk { background: none; border: 0; padding: 0; font: inherit; color: var(--primary); text-decoration: underline; cursor: pointer; }
+  .stc-day:nth-child(even of .stc-day) > .stc-drow { background: color-mix(in srgb, var(--subtle) 55%, transparent); }
+  .stc-g > .stc-c.tot { background: var(--subtle); border-radius: 6px; padding: 2px 6px; }
   .stc-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
   .stc-tile { display: flex; flex-direction: column; gap: 3px; padding: 10px 12px; border-radius: 14px; background: var(--card); border: 1px solid var(--line); text-decoration: none; color: var(--ink); }
   .stc-tile.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }
@@ -1429,5 +1442,7 @@ const STYLE = html`<style>
     .stc-crow { padding-left: 18px; } .stc-its { margin: 0 6px 8px 10px; }
     .stc-it { grid-template-columns: minmax(0, 1fr) auto; } .stc-it .stc-tag { grid-column: 1 / 3; }
     .stc-pay .v { font-size: 18px; }
+    .stc-head { grid-template-columns: minmax(0, 1fr); } .stc-tile.zero { display: none; }
+    .stc-t5 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   }
 </style>`;
