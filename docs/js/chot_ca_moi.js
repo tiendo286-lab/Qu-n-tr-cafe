@@ -128,7 +128,10 @@ export async function renderNew(R0, P, SH) {
   // ------------------------------------------------------------ các bước
   const moneyIn = (k, val, label) => html`<input class="input money cm-num" data-f="${k}" inputmode="numeric" autocomplete="off" placeholder="0" value="${val === null ? '' : fmt(Math.abs(val))}" aria-label="${label}">`;
   // Khách trả nợ cũ (bill nợ Fabi của ca trước) — chọn được ngay ở bước Phiếu Fabi vì Fabi đã cộng tiền trả nợ vào tiền phải có
-  // bước 70: khách nợ quản lý ghi (tên, SĐT), số ngày nợ, trả một phần (ô số tiền)
+  // bước 70: khách nợ quản lý ghi (tên, SĐT), số ngày nợ. Bước 159: khách trả MỘT LẦN — đưa thiếu (ô số tiền nhỏ hơn) thì hỏi,
+  // khoản cũ ghi trả đủ, phần còn thiếu thành nợ mới (Nợ TM / Nợ CK) ngay trong ca này.
+  const shortOk = (d, amt) => !(amt > 0 && amt < Number(d.amount)) || confirm(`Khách đưa thiếu ${fmt(Number(d.amount) - amt)}. Khoản nợ ${noName(d)} ghi đã trả đủ ${fmt(d.amount)}, phần còn thiếu ${fmt(Number(d.amount) - amt)} ghi thành nợ mới trong ca này (ca sau được nhắc thu). Đồng ý?`);
+  const paidAt = (d) => (d.paid_date ? ` ${dmy(d.paid_date).slice(0, 5)}${d.paid_shift ? ' ca ' + d.paid_shift : ''}` : '');
   const dDays = (x) => { const n = Math.max(0, Math.round((Date.parse(new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10)) - Date.parse(x)) / 864e5)); return n ? `${n} ngày` : 'hôm nay'; };
   const debtPayRow = (d) => html`<div class="cm-person"><div><strong>${noName(d)}</strong>${d.phone ? ` · ${d.phone}` : ''} · ${fmt(d.amount)}đ <span class="st-meta">· ${d.by_ql ? `quản lý ghi ${dmy(d.from_date)}` : `ca ${d.from_shift} ${dmy(d.from_date)}`}${d.closed_at ? '' : ` · ${dDays(d.from_date)}`}${d.note ? ' · ' + d.note : ''}</span></div>
             ${d.closed_at && d.closed_report_id !== R.id ? html`<span class="pill ok">Đã thu ở ca khác</span>`
@@ -248,7 +251,7 @@ export async function renderNew(R0, P, SH) {
       const c = money(); const pd = V.f.pos_debt || 0;
       return html`${V.debts.map((d, i) => html`<div class="sc-row cm-debt"><span class="sc-kt"><b>Báo nợ</b><span class="sc-seg" role="group" aria-label="Loại nợ">${[['muon', 'TM'], ['ck', 'CK'], ['bill', 'HĐ']].map(([k, l]) => html`<button type="button" data-dk="${i}" data-v="${k}" class="${(d.kind || '') === k ? 'on' : ''}" aria-pressed="${(d.kind || '') === k}" ${d.closed_at ? 'disabled' : ''}>${l}</button>`)}</span></span>
           <input class="input money" data-db="${i}" data-k="amount" inputmode="numeric" value="${d.amount ? fmt(d.amount) : ''}" placeholder="Số tiền" aria-label="Số tiền nợ" ${d.closed_at ? 'disabled' : ''}>
-          ${d.closed_at ? html`<span class="pill ok">Đã thu</span>` : html`<button type="button" class="btn secondary danger" data-dbx="${i}" aria-label="Xóa khoản nợ">×</button>`}
+          ${d.closed_at ? html`<span class="pill ok">Đã thu${paidAt(d)}</span>` : html`<button type="button" class="btn secondary danger" data-dbx="${i}" aria-label="Xóa khoản nợ">×</button>`}
           <div class="sc-full sc-two">${raw(debtWhoSel(d, debtPeople, `data-dwho="${i}" ${d.closed_at ? 'disabled' : ''}`))}${d.grp && d.grp !== 'khach' ? '' : html`<input class="input" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Bàn / tên khách" aria-label="Bàn hoặc tên khách" ${d.closed_at ? 'disabled' : ''}>`}<input class="input" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" ${d.closed_at ? 'disabled' : ''}></div>
           ${d.grp && d.grp !== 'khach' ? html`<span class="sc-full st-meta">Vào <b>${d.grp === 'kho' ? '② Nợ kho tổng' : '③ Nợ khác'}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ</span>` : ''}</div>`)}
         ${V.debts.length ? html`<span class="st-meta"><b>TM / CK</b>: bàn đã bấm thanh toán tiền mặt / chuyển khoản trên Fabi mà khách chưa trả (hoặc khách mượn tiền mặt). <b>HĐ</b>: Fabi ghi nợ. Ca sau được nhắc thu.</span>` : ''}
@@ -582,9 +585,10 @@ export async function renderNew(R0, P, SH) {
           const d = R.open_debts.find((x) => String(x.id) === s.dataset.paid); const am = $(`[data-paidamt="${s.dataset.paid}"]`, root);
           const amt = am ? parseMoney(am.value || '0') : Number(d.amount);
           if (s.value) {
+            if (!shortOk(d, amt)) { s.value = ''; return; }
             await rpc('app_ca_debt_collect_part', { p_debt: Number(s.dataset.paid), p_report: R.id, p_kind: s.value, p_amount: amt, p_note: null });
-            if (amt < Number(d.amount)) { showSaved('Đã lưu — khách trả một phần, phần còn lại vẫn nhắc ở ca sau.'); rerender(); return; }
-          } else await rpc('app_ca_debt_collect', { p_debt: Number(s.dataset.paid), p_report: R.id, p_kind: null, p_note: null });
+            if (amt < Number(d.amount)) { showSaved(`Đã lưu — khoản cũ trả đủ, phần còn thiếu ${fmt(Number(d.amount) - amt)} thành nợ mới ở bước Khách nợ.`); rerender(); return; }
+          } else { await rpc('app_ca_debt_collect', { p_debt: Number(s.dataset.paid), p_report: R.id, p_kind: null, p_note: null }); showSaved('Đã bỏ trả'); rerender(); return; }
           if (s.value) { d.closed_at = 'x'; d.closed_report_id = R.id; d.collect_kind = s.value; } else { d.closed_at = null; d.closed_report_id = null; d.collect_kind = null; }
           showSaved('Đã lưu'); soft();
         })));
@@ -627,6 +631,7 @@ export async function renderNew(R0, P, SH) {
               if (!sel.value) return; sel.disabled = true; const keep = m0 ? V.moves.slice() : null;
               try {
                 const debt = list.find((x) => String(x.id) === sel.dataset.paid); const amt = parseMoney(d.querySelector(`[data-paidamt="${sel.dataset.paid}"]`).value);
+                if (!shortOk(debt, amt)) { sel.value = ''; sel.disabled = false; return; }
                 if (m0) { const rest = amt0 - amt; if (rest > 0) m0.amount = (Number(m0.amount) < 0 ? -1 : 1) * rest; else V.moves.splice(conv, 1); }
                 await save(); await rpc('app_ca_debt_collect_part', {p_debt:debt.id,p_report:R.id,p_kind:sel.value,p_amount:amt,p_note:null}); d.close(); rerender();
               } catch(e) { if (keep) { V.moves = keep; await save().catch(() => {}); } sel.disabled = false; showSaved(e.message,true); } })); bindMoneyInputs(d); };

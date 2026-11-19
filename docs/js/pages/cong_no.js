@@ -46,7 +46,7 @@ export async function render(ctx) {
   const P = people(D.rows, today);
   const late = (r) => r.grp === 'khach' && !r.closed && days(r.date, today) > LATE;
   const fromTxt = (r) => (r.report_id ? `ca ${r.shift || ''}` : r.mv_report ? `từ thu chi ca ${r.mv_ca || ''}` : r.gap_report ? `ghi ở đối soát ca ${r.gap_ca || ''}` : 'QL ghi');
-  const paidTxt = (r) => `${dmy(r.paid_date).slice(0, 5)} · ${PAY[r.paid_kind] || ''} · ${r.paid_report ? `ca ${r.paid_shift || ''}` : 'QL thu'}`;
+  const paidTxt = (r) => `${dmy(r.paid_date).slice(0, 5)}${r.paid_report ? ` ca ${r.paid_shift || ''}` : ' · quản lý thu'} · ${({ tien_mat: 'tiền mặt', chuyen_khoan: 'chuyển khoản' })[r.paid_kind] || PAY[r.paid_kind] || ''}`;
   const line = (r, full = false) => html`<div class="cn-l ${r.closed ? 'done' : ''}">
       <div class="cn-l1"><span>Nợ <b>${dmy(r.date).slice(0, 5)}</b> · ${fromTxt(r)} · ${noKind(r.kind)}${r.split && !r.closed ? ' (phần còn lại)' : ''}</span><b class="cn-amt">${fmt(r.amount)}</b></div>
       <div class="cn-l2">→ ${r.closed ? html`<span class="cn-ok">Trả <b>${paidTxt(r)}</b> ✓</span>` : html`<span class="${late(r) ? 'cn-late' : ''}">chưa trả · ${days(r.date, today) ? `${days(r.date, today)} ngày` : 'hôm nay'}${late(r) ? ' ⚠' : ''}</span>`}
@@ -158,7 +158,7 @@ export async function render(ctx) {
   function collect(p) {
     const dl = dialog(html`<form class="stack cn-dlg" style="gap:12px"><h2 style="margin:0">Đã thu — ${p.name}</h2>
       <div>Còn nợ <b>${vnd(p.owe)}</b> · ${p.open.length} khoản</div>
-      <div class="st-meta">Web trừ dần từ <b>khoản cũ nhất</b>. Trả một phần thì phần còn lại vẫn là nợ. Sổ quỹ cộng khoản thu vào.</div>
+      <div class="st-meta">Web trừ dần từ <b>khoản cũ nhất</b>, mỗi khoản trả đủ một lần. Đưa thiếu thì khoản cuối ghi trả đủ, phần còn thiếu thành <b>nợ mới</b> (tiền đưa từ quỹ). Sổ quỹ cộng khoản thu vào.</div>
       <label class="field"><span>Số tiền người đó trả</span><input class="input money" name="amount" inputmode="numeric" autocomplete="off" value="${fmt(p.owe)}"></label>
       <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" checked> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan"> Chuyển khoản</label></div>
       <label class="field"><span>Ngày thu</span><input class="input" type="date" name="date" value="${today}" max="${today}"></label>
@@ -168,7 +168,10 @@ export async function render(ctx) {
     bindMoneyInputs(dl); const f = dl.querySelector('form');
     dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
     f.addEventListener('submit', async (ev) => {
-      ev.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
+      ev.preventDefault(); const btn = f.querySelector('[type=submit]');
+      const amt = parseMoney(f.amount.value);
+      if (amt > 0 && amt < p.owe && !confirm(`Khách đưa thiếu ${fmt(p.owe - amt)} so với tổng nợ ${fmt(p.owe)}. Các khoản cũ nhất ghi trả đủ; khoản cuối ghi trả đủ, phần còn thiếu thành nợ mới (tiền đưa từ quỹ). Đồng ý?`)) return;
+      btn.disabled = true;
       try {
         const n = await rpc('app_cn_collect_many', { p_ids: p.open.map((r) => r.id), p_date: f.date.value, p_kind: [...f.pay].find((x) => x.checked).value, p_amount: parseMoney(f.amount.value), p_note: f.note.value });
         dl.close(); flash(`Đã ghi thu (${n} khoản).`); rerender();

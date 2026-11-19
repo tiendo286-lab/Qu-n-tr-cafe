@@ -40,7 +40,7 @@ export default async ({ sleep, out }) => {
     const cn = $$('#stc-book .stc-it').find((i) => i.querySelector('[data-whox]') || /còn nợ|đã thu hết/.test(txt(i)));
     ok(!!cn && /(phiếu chốt ca sẽ nhắc thu|không nhắc thu)/.test(txt(cn)) && /(còn nợ|đã thu hết|đã thu)/.test(txt(cn)), '5. dòng Cho nợ: nhãn nhắc thu + trạng thái đã thu / còn nợ');
     const dg = $$('#stc-book .stc-it').find((i) => txt(i).includes('anh dũng'));
-    ok(!!dg && txt(dg).includes('đã thu 30.000 · còn nợ 60.000') && !!dg.querySelector('[data-whox] option[value="__add"]'), '5. Anh Dũng: "Đã thu 30.000 · còn nợ 60.000", chọn người nợ có "+ Thêm người nợ…"');
+    ok(!!dg && txt(dg).includes('còn nợ 90.000') && !txt(dg).includes('đã thu 30.000') && !!dg.querySelector('[data-whox] option[value="__add"]'), '5. Anh Dũng (bước 159 trả một lần): "Còn nợ 90.000", không còn "đã thu một phần"; chọn người nợ có "+ Thêm người nợ…"');
     wide('5. Sổ chi');
     // 6. Quỹ ngoài (chỉ Chủ): Phần mỗi cơ sở chịu
     if (role === 'chu') {

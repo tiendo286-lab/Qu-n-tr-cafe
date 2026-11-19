@@ -97,15 +97,17 @@ const base = {
     { id: 'd:1', who: 'Bàn 5', kind: 'bill', amount: 50000, left: 50000, date: D16, from: 'ca Tối 16/11', no_remind: false },
     { id: 'd:2', who: 'Cô Lan Anh', kind: 'bill', amount: 20000, left: 20000, date: '2026-11-10', from: 'ca Chiều 10/11', no_remind: false },
     { id: 'd:3', who: 'Kho Tổng', kind: 'ck', amount: 300000, left: 300000, date: D16, from: 'quản lý ghi', no_remind: true },
-    { id: 'd:501', who: 'Anh Dũng', kind: 'ck', amount: 90000, left: 60000, date: D18, from: 'ca Sáng 18/11', no_remind: false },
+    { id: 'd:501', who: 'Anh Dũng', kind: 'ck', amount: 90000, left: 90000, date: D18, from: 'ca Sáng 18/11', no_remind: false },
   ],
+  // bước 159: ngày / ca trả (app_stc_month.debt_paid)
+  debt_paid: { 703: { date: '2026-11-18', shift: 'Tối', pm: 'chuyen_khoan' }, 705: { date: '2026-11-19', shift: null, pm: 'tien_mat' } },
   // bước 157: nợ của ca (app_stc_month.ca_debts) — ca 182 chưa xác nhận, ca 181 đã xác nhận, ca 183 không nợ
   ca_debts: [
     { report_id: 182, t: 'moi', id: 701, who: 'Bàn 5', kind: 'bill', amount: 120000, left: 120000, pm: null, from: null },
     { report_id: 182, t: 'moi', id: 702, who: 'Bàn 3', kind: 'muon', amount: 85000, left: 85000, pm: null, from: null },
     { report_id: 182, t: 'moi', id: 703, who: 'Chị Lan', kind: 'ck', amount: 60000, left: 0, pm: null, from: null },
     { report_id: 182, t: 'tra', id: 704, who: 'Chú Hùng', kind: 'bill', amount: 200000, left: 0, pm: 'tien_mat', from: 'ca Tối 15/11' },
-    { report_id: 181, t: 'moi', id: 705, who: 'Bàn 9', kind: 'bill', amount: 100000, left: 40000, pm: null, from: null },
+    { report_id: 181, t: 'moi', id: 705, who: 'Bàn 9', kind: 'bill', amount: 100000, left: 0, pm: null, from: null },
   ],
   compare: { fund_days: [], gaps: [{ ca_id: 183, pm: 'tm', lech: -30000, state: 'cho_gan' }, { ca_id: 152, pm: 'tm', lech: -40000, state: 'xong' }] },
   people: [{ name: 'Kho Tổng', no_remind: true, open: 300000, n: 1 }, { name: 'Bàn 5', no_remind: false, open: 50000, n: 1 }, { name: 'Cô Lan Anh', no_remind: false, open: 20000, n: 1 }],

@@ -288,6 +288,8 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
         await rpc('app_stc_debt_save', { p_id: null, p: { branch_id: br, name: v('name'), amount, kind: v('pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: v('date') }, p_reason: reason });
       } else {
         if (!v('debt')) throw new Error('Chọn khách đang nợ.');
+        const od = (D.open_debts || []).find((o) => o.id === v('debt'));
+        if (od && !shortOk(Number(od.left), amount)) throw new Error('Chưa ghi — sửa số tiền khách trả.');
         await rpc('app_stc_collect', { p_debt: idNum(v('debt')), p: { date: v('date'), kind: v('pay2'), amount }, p_reason: reason });
       }
       after('Đã thêm phiếu');
@@ -298,10 +300,11 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
 }
 function collectDialog(D, debtId) {
   const x = (D.open_debts || []).find((o) => o.id === debtId); if (!x) return;
-  const d = dialog(form(`Thu nợ · ${x.who}`, html`<div class="st-meta">Còn nợ ${fmt(x.left)} · từ ${x.from}. Trả một phần được.</div>
+  const d = dialog(form(`Thu nợ · ${x.who}`, html`<div class="st-meta">Còn nợ ${fmt(x.left)} · từ ${x.from}. Khách trả một lần, đủ cả khoản — đưa thiếu thì phần còn thiếu ghi thành nợ mới.</div>
     <label class="field"><span>Ngày thu</span><input class="input" type="date" name="date" value="${vnToday()}"></label>${pmSel('pay', P.pm)}
     <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money value="${fmt(x.left)}"></label>`, ' '));
-  open(d, async () => { await rpc('app_stc_collect', { p_debt: idNum(x.id), p: { date: val(d, 'date'), kind: val(d, 'pay'), amount: money(d, 'amount') }, p_reason: val(d, 'reason') || null }); after('Đã ghi thu nợ'); });
+  open(d, async () => { if (!shortOk(Number(x.left), money(d, 'amount'))) throw new Error('Chưa ghi — sửa số tiền khách trả.');
+    await rpc('app_stc_collect', { p_debt: idNum(x.id), p: { date: val(d, 'date'), kind: val(d, 'pay'), amount: money(d, 'amount') }, p_reason: val(d, 'reason') || null }); after('Đã ghi thu nợ'); });
 }
 function uncollectDialog(D, x) {
   const d = dialog(form(`Huỷ thu nợ · ${x.title}`, html`<div class="st-meta">Dòng thu nợ ${fmt(x.amount)} sẽ gạch ngang, khoản nợ mở lại.</div>`, ' '));
@@ -432,7 +435,7 @@ function gapDialog(D, x) {
   const split = (i) => { const n = people.length || 1; const b = Math.floor(avail / n / 1000) * 1000; return i === 0 ? avail - b * (n - 1) : b; };
   const ghepLock = thieu && g.has_tl ? 'Đã tạo phiếu trừ tiền — huỷ phiếu trừ tiền trước khi ghép.' : '';
   const noLock = !thieu && g.has_thu ? 'Đã tạo phiếu thu — huỷ phiếu thu trước khi gán nợ.' : '';
-  const debts = (D.open_debts || []).filter((o) => o.date <= x.date && Number(o.left) > 0);   // chỉ nợ ghi trước ca (máy chủ kiểm lại)
+  const debts = (D.open_debts || []).filter((o) => o.date <= x.date && Number(o.left) > 0 && Number(o.left) <= Number(g.avail || 0));   // nợ ghi trước ca, két dư đủ cả khoản (máy chủ kiểm lại)
   const acts = thieu ? [['tl', 'Trừ lương', ''], ['qc', 'Quán chịu', ''], ['match', 'Ghép với ca dư', ghepLock]]
     : [['match', 'Ghép với ca thiếu', ''], ['thu', 'Tạo phiếu thu', ''], ['no', 'Gán nợ khách trả', noLock]];
   const first = acts.find((a) => !a[2])?.[0];
@@ -460,10 +463,10 @@ function gapDialog(D, x) {
       <label class="field"><span>Số tiền ghép</span><input class="input" name="match_amount" inputmode="numeric" data-money value="${fmt(Math.min(avail, Number(cands[0].amount)))}"></label>
       ${owner ? '' : html`<div class="st-meta">⏳ Ghép cần Chủ duyệt.</div>`}` : html`<div class="st-meta">Không có ca ${thieu ? 'dư' : 'thiếu'} cùng loại tiền trong 3 ngày để ghép.</div>`),
     thu: () => pane('thu', html`<label class="field"><span>Số tiền ghi Thu khác</span><input class="input" name="thu_amount" inputmode="numeric" data-money value="${fmt(avail)}"></label>`),
-    no: () => pane('no', noLock ? lockNote(noLock) : debts.length ? html`<div class="st-meta">Ca dư vì khách trả nợ cũ: chọn khoản nợ, phần dư thành Thu nợ của ca này.</div>
+    no: () => pane('no', noLock ? lockNote(noLock) : debts.length ? html`<div class="st-meta">Ca dư vì khách trả nợ cũ: chọn khoản nợ, thành Thu nợ của ca này. Khách trả một lần — chỉ gán khoản mà két dư đủ cả khoản.</div>
       <label class="field"><span>Khách trả nợ</span><select class="input" name="debt">${debts.map((o) => html`<option value="${o.id}" data-amt="${o.left}">${o.who} · còn ${fmt(o.left)} · ${o.from || dm(o.date)}</option>`)}</select></label>
-      <label class="field"><span>Số tiền khách trả</span><input class="input" name="debt_amount" inputmode="numeric" data-money value="${fmt(Math.min(avail, Number(debts[0].left)))}"></label>`
-      : html`<div class="st-meta">Không có khách đang nợ ghi trước ca này.</div>`),
+      <label class="field"><span>Số tiền khách trả (cả khoản)</span><input class="input" name="debt_amount" inputmode="numeric" data-money readonly value="${fmt(Number(debts[0].left))}"></label>`
+      : html`<div class="st-meta">Không có khoản nợ ghi trước ca này mà két dư đủ cả khoản.</div>`),
   };
   const d = dialog(html`<form class="stack stc-dlg stc-gapd" style="gap:10px"><h2 style="margin:0">Phiếu chênh lệch · Ca ${ca.shift || ''} ${dm(x.date)} · ${PM[x.pm]}</h2>
     <div class="stc-gnum"><div><span>Phải có</span><b>${fmt(mm.must ?? 0)}</b></div><div><span>Thực tế</span><b>${fmt(mm.real ?? 0)}</b></div>
@@ -481,7 +484,7 @@ function gapDialog(D, x) {
   const cs = d.querySelector('[name=cand]');
   cs?.addEventListener('change', () => { const a = Number(cs.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=match_amount]').value = fmt(Math.min(avail, a)); });
   const dsl = d.querySelector('[name=debt]');
-  dsl?.addEventListener('change', () => { const a = Number(dsl.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=debt_amount]').value = fmt(Math.min(avail, a)); });
+  dsl?.addEventListener('change', () => { const a = Number(dsl.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=debt_amount]').value = fmt(a); });
   const run = async (fn, msg) => { try { const m = await fn(); d.close(); after(m || msg); } catch (e) { err(d, e); } };
   const need = () => { const r = val(d, 'reason'); if (!r) throw new Error('Ghi lý do.'); return r; };
   const item = g.item;
@@ -629,7 +632,8 @@ const debtName = (x) => String(x.title || '').replace(/^Nợ (TM|CK)\s*[:–-]\s
 function debtPills(D, x) {
   const name = debtName(x); const pp = (D.people || []).find((q) => q.name === name);
   const od = (D.open_debts || []).find((o) => o.id === 'd:' + idNum(x.id));
-  const st = !od ? html`<span class="pill ok">Đã thu hết</span>` : Number(od.left) < Number(x.amount) ? html`<span class="pill warn">Đã thu ${fmt(Number(x.amount) - Number(od.left))} · còn nợ ${fmt(od.left)}</span>` : html`<span class="pill mute">Còn nợ ${fmt(od.left)}</span>`;
+  const pd = D.debt_paid?.[idNum(x.id)];
+  const st = !od ? html`<span class="pill ok">Đã thu${pd ? ' · ' + paidTxt(pd) : ' hết'}</span>` : html`<span class="pill mute">Còn nợ ${fmt(od.left)}</span>`;
   const names = [...new Set([name, ...(D.people || []).map((q) => q.name)])].filter(Boolean);
   const sel = x.can_edit ? html`<label class="stc-who">Người nợ <select class="input sm" data-whox="${x.id}" aria-label="Người nợ">${names.map((n) => html`<option value="${n}" ${n === name ? 'selected' : ''}>${n}${(D.people || []).find((q) => q.name === n)?.no_remind ? ' ✓' : ''}</option>`)}<option value="__add">+ Thêm người nợ…</option></select></label>` : '';
   return html`${sel}${pp?.no_remind ? html`<span class="pill ok">✓ Không nhắc thu ở phiếu chốt ca</span>` : html`<span class="pill info">Phiếu chốt ca sẽ nhắc thu</span>`}${st}`;
@@ -986,13 +990,16 @@ function dsInfo(D) {
 }
 // ---- phần A · Fabi
 // bước 157: nợ của ca ngay dưới ô Nợ bill — hiện ngay khi nhân viên gửi phiếu (không chờ Xác nhận Fabi). Chỉ xem.
+// bước 159: khách trả nợ MỘT LẦN, đủ cả khoản — ghi ngày / ca trả; đưa thiếu thì hỏi trước, phần còn thiếu thành nợ mới
+const paidTxt = (p) => (p ? `${dm(p.date)}${p.shift ? ' ca ' + p.shift : ' · quản lý thu'} · ${p.pm === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}` : '');
+const shortOk = (left, amt) => !(amt > 0 && amt < left) || confirm(`Khách đưa thiếu ${fmt(left - amt)}. Khoản nợ ghi đã trả đủ ${fmt(left)}, phần còn thiếu ${fmt(left - amt)} ghi thành nợ mới (tiền đưa từ quỹ). Đồng ý?`);
 const DEBT_TAG = { bill: ['HĐ', 'hd', ''], muon: ['TM', 'tm', 'két thiếu'], ck: ['CK', 'ck', 'hotline thiếu'] };
 function debtList(D, c) {
   const xs = (D.ca_debts || []).filter((x) => Number(x.report_id) === Number(c.id));
   if (!xs.length) return '';
   const moi = xs.filter((x) => x.t === 'moi'), tra = xs.filter((x) => x.t === 'tra');
   const rowMoi = (x) => { const [lab, cls, why] = DEBT_TAG[x.kind] || DEBT_TAG.bill; const a = Number(x.amount), l = Number(x.left);
-    const st = l <= 0 ? html`<span class="pill ok">đã trả</span>` : l < a ? html`<span class="pill warn">còn nợ ${fmt(l)}</span>` : '';
+    const st = l <= 0 ? html`<span class="pill ok">đã trả${D.debt_paid?.[x.id] ? ' · ' + paidTxt(D.debt_paid[x.id]) : ''}</span>` : '';
     return html`<div class="stc-cdr" data-t="moi"><span class="stc-dtag d-${cls}">${lab}</span><span><b>${x.who || '—'}</b>${why ? html` <span class="st-meta">· ${why}</span>` : ''} ${st}</span><b class="stc-amt">${fmt(a)}</b></div>`; };
   const rowTra = (x) => html`<div class="stc-cdr" data-t="tra"><span class="stc-dtag d-tra">Trả</span><span><b>${x.who || '—'}</b> <span class="st-meta">· ${x.pm === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} · nợ từ ${x.from || '—'}</span></span><b class="stc-amt">+${fmt(x.amount)}</b></div>`;
   return html`<div class="stc-cadebt">
