@@ -9,7 +9,7 @@
 - JavaScript thuần (ES modules, định tuyến bằng `#/...`), mẫu HTML qua `html\`\`` trong `docs/js/ui.js` (tự thoát ký tự). Menu ở `HUBS` và trang ở `PAGES` trong `docs/js/app.js`.
 - Máy chủ: Supabase (dự án `krndtaskjhjpnqauoqiw`, vùng Singapore). Mọi bảng bật RLS và thu hồi quyền; web chỉ gọi hàm `app_*` (SECURITY DEFINER). Hàm nội bộ `app__*` không cho gọi từ web. Quyền kiểm tra bằng `app_can('<quyền>')`.
 - Thay đổi CSDL = **thêm tệp mới có số thứ tự** trong `supabase/` (vd `15_....sql`), viết để chạy lại nhiều lần không sao. Tệp đã chạy thì không sửa lại.
-- Tính năng đã chốt và việc còn để ngỏ: `tai_lieu/TINH_NANG_DA_CHOT.md` (đọc trước khi làm). Giả định tạm: `tai_lieu/GIA_DINH_CHO_CHOT.md`.
+- Tính năng đã chốt và việc còn để ngỏ: `tai_lieu/TINH_NANG_DA_CHOT.md` — tệp rất dài, **KHÔNG đọc cả tệp**, tìm đọc đúng mục liên quan (vd `grep -n "^#" tai_lieu/TINH_NANG_DA_CHOT.md` rồi đọc mục cần). Giả định tạm: `tai_lieu/GIA_DINH_CHO_CHOT.md`.
 - Bàn giao trạng thái giữa các phiên AI (tình trạng hiện tại, việc còn mở, bài học tốc độ): `tai_lieu/BAN_GIAO.md` — phiên mới đọc tệp này thay cho lịch sử hội thoại cũ; cuối phiên cập nhật lại.
 - Kế hoạch / thiết kế superpowers lưu ở `tai_lieu/superpowers/` (plans, specs) — **không** để trong `docs/` vì mọi tệp trong `docs/` đều công khai trên web.
 
@@ -24,6 +24,20 @@
 - **Mỗi lần đẩy giao diện lên `main`**: tăng số trong `docs/version.json` (vd `2026.11.13.2`) — web đang mở sẽ hiện "Có bản mới — Tải lại".
 - Bảng mới: mặc định không cấp quyền cho `anon` / `authenticated` (bước 59); web đọc / ghi qua hàm `app_*`. Sao lưu tự lấy mọi bảng (`app__backup_tables`), không cần thêm tay.
 - **Chỉ một phiên AI làm việc trên dự án tại một thời điểm** (tránh sửa trùng tệp / trùng số thứ tự SQL). Bắt đầu phiên: `git pull`, xem `git log -5` và sổ tệp đã chạy.
+
+## Khi làm một mình (anh Tiến không có mặt)
+- Bắt đầu: `git pull`, `git log -5`, đọc `CLAUDE.md`, `tai_lieu/BAN_GIAO.md`. `TINH_NANG_DA_CHOT.md` chỉ tìm đọc mục liên quan.
+- Không dùng quy trình brainstorm / hỏi từng câu. Không dừng lại chờ.
+- Không đẩy lên `main`. Không chạy SQL lên Supabase thật, không cần mã `sbp_`, không đụng dữ liệu thật. Chạy thử bằng Supabase giả lập. Mỗi phần việc một nhánh riêng từ `main` + một PR riêng.
+- Tệp SQL mới: viết chạy lại nhiều lần không lỗi; dòng cuối ghi `app_migrations` như quy định.
+- Bài thử trong `kiem_tra/trinh_duyet`: máy tính + điện thoại 390px. Hỏng thì sửa đến khi đạt; không tắt / sửa bài thử cho qua.
+- Cập nhật `TINH_NANG_DA_CHOT.md` (đúng mục) theo quy tắc mới.
+- Khi không hiểu / cần hỏi:
+  - **A.** Chuyện nhỏ (chữ, nút, bố cục): theo cách web đang làm, ghi vào "Em đã tự quyết".
+  - **B.** Nghiệp vụ có 2 cách hiểu: chọn cách an toàn hơn (ít đổi, không đổi tiền, không mở thêm quyền), ghi vào "Cần anh quyết" kèm 2 lựa chọn.
+  - **C.** Đụng vùng khoá tiền đối soát, cách tính tiền, quyền, xoá dữ liệu mà việc được giao chưa nói rõ: KHÔNG làm, ghi vào "Chưa làm, chờ anh".
+  - **D.** Kẹt quá 3 lần thử: dừng phần đó, ghi đã thử gì, sang phần sau.
+- Mỗi PR bàn giao bằng tiếng Việt đơn giản, đủ 5 mục: **Đã làm gì & đã kiểm tra gì** · **Em đã tự quyết** · **Cần anh quyết** · **Chưa làm, chờ anh** · **Anh cần làm gì tiếp** (tệp SQL nào cần chạy, thứ tự gộp). Cuối buổi cập nhật `tai_lieu/BAN_GIAO.md` và viết 1 bảng tổng: phần nào xong / dở / chưa làm.
 
 ## Vùng khoá: quyền sửa phần tiền đối soát (anh Tiến chốt 18/11/2026, cập nhật 19/11 bước 152)
 - **Từ bước 152, phần tiền đối soát làm ở Sổ thu chi › Đối soát Fabi** (Xác nhận Fabi → thu chi của ca → 🔒 Chốt ca). Trang Đối soát ca cũ không còn bước tiền / nút ✎ Mở để sửa, chỉ còn thẻ dẫn sang Đối soát Fabi.
