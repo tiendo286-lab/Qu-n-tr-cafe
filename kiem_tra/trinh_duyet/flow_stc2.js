@@ -51,13 +51,14 @@ export default async ({ sleep, out }) => {
   const cs = $('[name=cat]', pan()); setp('[name=cat]', cs.options[1]?.value || '');
   $('button[type=submit]', pan()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   const kl = item('mua khăn lau'); ok(!!kl && txt(kl).includes('thêm'), '5. khoản mới có nhãn "thêm"');
-  // 6. người nợ ✓
-  const pr = $$('.stc-pp').find((r) => txt(r).includes('bàn 5'));
+  // 6. người nợ ✓ (bước 164: khung Người nợ hiện khi bấm ô Cho nợ)
+  await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm&cot=no');
+  const pr =$$('.stc-pp').find((r) => txt(r).includes('bàn 5'));
   ok(!!pr && txt(pr).includes('phiếu chốt ca nhắc thu'), '6. Bàn 5 đang được nhắc');
   $('input[type=checkbox]', pr).click(); await sleep(900); await wait('.stc-pay');
   ok(txt($$('.stc-pp').find((r) => txt(r).includes('bàn 5'))).includes('không nhắc'), '6. bấm ✓ → không nhắc ở phiếu chốt ca');
-  // 7. khách đang nợ → thu nợ một phần
-  await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11');
+  // 7. khách đang nợ → thu nợ một phần (bước 164: khung Khách còn nợ hiện khi bấm ô Thu nợ)
+  await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11&cot=no');
   const kd = $$('.stc-kd').find((r) => txt(r).includes('cô lan anh'));
   $('button.stc-col', kd).click(); await wait('dialog[open]', 30); await sleep(200);
   setv('[name=amount]', '15.000'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
@@ -67,7 +68,8 @@ export default async ({ sleep, out }) => {
   const da = item('mua đá');
   ok(!!da && !!$('button.stc-ed:not([disabled])', da), '9. khoản của ca đã chốt tiền có Sửa / Xoá');
   const st = item('mua sữa tươi');
-  ok(!!st && !$('button.stc-ed:not([disabled])', st) && txt(st).includes('xác nhận fabi'), '10. ca chưa xác nhận Fabi: khoá, ghi "Xác nhận Fabi … mới sửa được"');
+  const stCa = st && st.closest('.stc-ca');   // bước 164: ca khoá ghi 1 dòng ghi chú đầu danh sách khoản, từng khoản không lặp
+  ok(!!st && !$('button.stc-ed:not([disabled])', st) && !!stCa && txt($('.stc-calock', stCa)).includes('chưa xác nhận fabi'), '10. ca chưa xác nhận Fabi: khoá, ghi chú "Chưa xác nhận Fabi" ở đầu ca');
   $('button.stc-ed', da).click(); await wait('dialog[open]', 30); await sleep(200);
   setv('[name=amount]', '55.000'); setv('[name=reason]', 'Mua thêm đá');
   $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();

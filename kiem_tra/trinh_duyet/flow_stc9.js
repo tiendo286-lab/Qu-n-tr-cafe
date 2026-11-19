@@ -23,17 +23,19 @@ export default async ({ sleep, out }) => {
       ok(!!s2 && s2.value === v, '1. chọn nhóm → lưu ngay, dòng giữ nhóm mới');
     }
     // 2. Cần phân loại: chọn nhóm tại chỗ; Chi theo loại có loại + nhóm con
-    const todo = $$('.stc-side').find((s) => txt(s.querySelector('h3')).startsWith('cần phân loại'));
-    ok(!!todo && (!!todo.querySelector('select[data-catx]') || txt(todo).includes('đã phân loại hết')), '2. khung Cần phân loại chọn nhóm tại chỗ');
-    const ty = $$('.stc-side').find((s) => txt(s.querySelector('h3')).startsWith('chi theo loại'));
+    // bước 164: Cần phân loại / Chi theo loại hiện khi bấm ô Các khoản chi
+    await go(BASE + '&tab=chi&cot=chi');
+    const hasTodo = $$('#stc-book .stc-sech').some((h) => txt(h).includes('cần phân loại'));
+    ok(!hasTodo || !!$('#stc-book select[data-catx]'), '2. khung Cần phân loại chọn nhóm tại chỗ');
+    const ty = $$('.stc-box').find((s) => txt(s.querySelector('h3')).startsWith('chi theo loại'));
     ok(!!ty && !!ty.querySelector('.stc-tyg .stc-tyh') && !!ty.querySelector('.stc-tyc') && !!ty.querySelector('.stc-bar i'), '2. khung Chi theo loại: loại · thanh tỉ lệ · nhóm con');
     // 3. ô Chênh lệch ghi số ca chờ xử lý (Sổ chi · TM có ca Tối 18/11 thiếu 30.000 chờ xử lý)
     const lt = $('.stc-tile[data-col="lech"]');
     ok(!!lt && /\d+ ca chờ xử lý/.test(txt(lt)), '3. ô Chênh lệch: "N ca chờ xử lý"');
     // 4. Ca thiếu tiền ở khung phải: bấm mở phiếu chênh lệch
-    const th = $$('.stc-side').find((s) => txt(s.querySelector('h3')).startsWith('ca thiếu tiền'));
-    const gb = th && th.querySelector('button.stc-go[data-gap]');
-    ok(!!gb, '4. khung Ca thiếu tiền: ca chưa chốt là nút "mở phiếu chênh lệch"');
+    await go(BASE + '&tab=chi&cot=lech');   // bước 164: thay khung "Ca thiếu tiền" = bấm ô Chênh lệch
+    const gb = $('#stc-book .stc-fr [data-gap]');
+    ok(!!gb, '4. ô Chênh lệch (Sổ chi): ca thiếu tiền có nút "Phiếu chênh lệch"');
     if (gb) { gb.click(); await wait('dialog[open]', 40); await sleep(300); ok(!!$('dialog[open]'), '4. bấm → mở phiếu chênh lệch'); $('dialog[open] [data-x]')?.click(); await sleep(300); }
     // 5. Cho nợ: người nợ + trạng thái trên dòng
     await go(BASE + '&tab=chi&pm=ck'); $('.stc-all')?.click(); await sleep(500);
@@ -44,8 +46,8 @@ export default async ({ sleep, out }) => {
     wide('5. Sổ chi');
     // 6. Quỹ ngoài (chỉ Chủ): Phần mỗi cơ sở chịu
     if (role === 'chu') {
-      location.hash = '#/quan-ly/so-thu-chi?cn=ngoai&tab=chi&thang=2026-11&t=' + Date.now(); await sleep(500); await wait('.stc-flt'); await sleep(700);
-      const sh = $$('.stc-side').find((s) => txt(s.querySelector('h3')).startsWith('phần mỗi cơ sở chịu'));
+      location.hash = '#/quan-ly/so-thu-chi?cn=ngoai&tab=chi&thang=2026-11&cot=chi&t=' + Date.now(); await sleep(500); await wait('.stc-flt'); await sleep(700);
+      const sh = $$('.stc-box').find((s) => txt(s.querySelector('h3')).startsWith('phần mỗi cơ sở chịu'));
       ok(!!sh && $$('.stc-si', sh).length >= 2, '6. Quỹ ngoài › Sổ chi: khung Phần mỗi cơ sở chịu');
     }
   } catch (e) { bad.push('LỖI: ' + e.message); }

@@ -32,13 +32,13 @@ export default async ({ sleep, out }) => {
   ok(num(txt($('.stc-pay .v'))) === sumItems(MONTH.items, { book: 'thu', pm: 'tm' }), '1. tổng thu tiền mặt đúng dữ liệu (' + txt($('.stc-pay .v')) + ')');
   // 2. hàng ô theo cột, lọc Thu nợ
   ok($$('.stc-tile[data-col]').map((t) => t.dataset.col).join() === COLS.thu.map((c) => c[0]).join(), '2. hàng ô đúng cột Sổ thu');
-  $('.stc-tile[data-col=no]').click(); await sleep(300); await wait('.stc-day'); await sleep(300);
-  ok(location.hash.includes('cot=no') && $$('.stc-day').length === dayTree(MONTH, 'thu', 'tm', 'no').length, '2. lọc Thu nợ: số ngày = ' + dayTree(MONTH, 'thu', 'tm', 'no').length);
-  // 3. bấm ngày → ca → khoản
-  $('.stc-day .stc-drow').click(); await sleep(250);
-  ok($$('.stc-ca').length > 0, '3. bấm ngày hiện ca');
-  $('.stc-ca .stc-crow').click(); await sleep(250);
-  const its = $$('.stc-it:not(.add)');
+  // bước 164: bấm ô → danh sách từng khoản của loại đó (không còn bảng ngày)
+  $('.stc-tile[data-col=no]').click(); await sleep(300); await wait('#stc-book .stc-fr'); await sleep(300);
+  const nNo = MONTH.items.filter((x) => !x.void && x.book === 'thu' && x.pm === 'tm' && x.col === 'no').length;
+  ok(location.hash.includes('cot=no') && $$('#stc-book .stc-fr').length === nNo && dayTree(MONTH, 'thu', 'tm', 'no').length > 0, '2. lọc Thu nợ: danh sách ' + nNo + ' khoản');
+  // 3. mỗi dòng ghi ngày · ca, chỉ còn Thu nợ
+  ok($$('#stc-book .stc-frh').every((h) => /\d{2}\/\d{2} · (ca |ngoài ca)/.test(txt(h))), '3. mỗi khoản ghi ngày · ca');
+  const its = $$('#stc-book .stc-fr .stc-it');
   ok(its.length > 0 && its.every((i) => txt($('.stc-tag', i)) === 'thu nợ'), '3. bấm ca hiện khoản, chỉ còn Thu nợ');
   ok(its.some((i) => txt(i).includes('nợ từ')), '3. khoản thu nợ ghi "Nợ từ …"');
   // 4. Sổ chi: khoản Không tính có nhãn, Chi theo loại không cộng

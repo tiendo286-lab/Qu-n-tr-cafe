@@ -36,7 +36,7 @@ export default async ({ sleep, out }) => {
     await open(183);
     ok(!!$('.stc-pa') && !box(), '3. ca không nợ: không có khung nợ');
     // 4. bước 159: Thu nợ đưa thiếu → hỏi trước
-    location.hash = '#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11&t=' + Date.now(); await sleep(500); await wait('[data-col-debt]'); await sleep(300);
+    location.hash = '#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11&cot=no&t=' + Date.now(); await sleep(500); await wait('[data-col-debt]'); await sleep(300);   // bước 164: Khách còn nợ hiện khi bấm ô Thu nợ
     const cb = $$('[data-col-debt]').find((b) => b.dataset.colDebt === 'd:501'); ok(!!cb, '4. Khách đang nợ: Anh Dũng có nút Thu nợ');
     if (cb) {
       cb.click(); await wait('dialog[open] [name=amount]', 40); await sleep(300);
