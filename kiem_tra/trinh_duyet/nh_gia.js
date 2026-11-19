@@ -76,6 +76,7 @@ export function makeNh(T, me) {
   const fuJson = (f) => { const m = money(); const inv = T.delivery_invoices.find((d) => d.id === f.invoice_id) || {};
     return { ...f, price: m ? f.price : null, amount: m ? f.amount : null, resolved_amount: m ? f.resolved_amount : null, resolved_by: name(f.resolved_by),
       resolved_doc: T.delivery_invoices.find((d) => d.id === f.resolved_invoice_id)?.doc_no || null, doc_no: inv.doc_no || null, work_date: inv.work_date || null, days: days(f.created_at),
+      received_date: inv.received_date || (inv.received_at || '').slice(0, 10) || null, recon_date: (inv.recon_at || f.created_at || '').slice(0, 10) || null,
       extra: T.delivery_lines.find((l) => l.id === f.line_id)?.qty_invoice == null }; };
   const monthTotal = (br, mo) => {
     const inv = T.delivery_invoices.filter((i) => (!br || i.branch_id === br) && i.doc_no && String(i.work_date).startsWith(mo));
@@ -121,9 +122,14 @@ export function makeNh(T, me) {
       Object.assign(i, { doc_no: p.doc_no, total: p.total, ship_at: p.ship_at, work_date: p.ship_at.slice(0, 10), kho_code: p.kho_code, kho_name: p.kho_name });
       p.lines.forEach((x, k) => addLine(p_id, x, k + 1, { qty_invoice: x.qty, price: x.price, amount: x.amount })); return [];
     },
-    app_nh_list({ p_month, p_branch }) {
+    app_nh_list({ p_month, p_branch, p_from, p_to, p_kind }) {
+      if (!can('ke_toan') && !can('doi_soat')) throw new Error('Bạn không có quyền xem nhập hàng.');
       const all = T.delivery_invoices.filter((i) => !p_branch || i.branch_id === p_branch).map((i) => json(i));
-      return { rows: all.filter((i) => i.work_date.startsWith(p_month)).sort((a, b) => (a.work_date < b.work_date ? 1 : -1)), open: all.filter((i) => i.missing.length),
+      // bước 167 (tệp 146): khoảng ngày theo loại ngày
+      const dk = (i) => (p_kind === 'nhan' ? i.received_date || (i.received_at || '').slice(0, 10) || null : p_kind === 'ds' ? (i.recon_at || '').slice(0, 10) || null : i.work_date);
+      if (p_from || p_to) { if (!/^\d{4}-\d{2}-\d{2}$/.test(p_from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(p_to || '') || p_to < p_from) throw new Error('Khoảng ngày không hợp lệ.'); if (p_kind && !['giao', 'nhan', 'ds'].includes(p_kind)) throw new Error('Loại ngày không hợp lệ.'); }
+      const rng = !!(p_from && p_to); p_month = p_month || (rng ? p_to.slice(0, 7) : p_month);
+      return { rows: all.filter((i) => (rng ? dk(i) && dk(i) >= p_from && dk(i) <= p_to : i.work_date.startsWith(p_month))).sort((a, b) => ((rng ? dk(a) < dk(b) : a.work_date < b.work_date) ? 1 : -1)), open: all.filter((i) => i.missing.length),
         by_branch: T.branches.filter((b) => b.status === 'Đang hoạt động').map((b) => ({ branch_id: b.id, code: b.display_code || b.code, total: T.delivery_invoices.filter((i) => i.branch_id === b.id && i.doc_no && i.work_date.startsWith(p_month)).reduce((s, i) => s + (i.total || 0), 0),
           count: T.delivery_invoices.filter((i) => i.branch_id === b.id && i.work_date.startsWith(p_month)).length })), money: money(), kt: can('ke_toan') };
     },
@@ -243,12 +249,15 @@ export function makeNh(T, me) {
     },
     app_gh_photo_del({ p_photo }) { const p = T.delivery_receipt_photos.find((x) => x.id === p_photo); if (!p) return null; ghCan(T.delivery_invoices.find((x) => x.id === p.invoice_id));
       T.delivery_receipt_photos = T.delivery_receipt_photos.filter((x) => x !== p); T.delivery_photo_lines = T.delivery_photo_lines.filter((x) => x.photo_id !== p_photo); return p.path; },
-    app_gh_control({ p_branch, p_month }) {
+    app_gh_control({ p_branch, p_month, p_from, p_to, p_kind }) {
       if (!can('ke_toan') && !can('doi_soat')) throw new Error('Bạn không có quyền.');
       const F = T.delivery_followups.filter((f) => !p_branch || f.branch_id === p_branch);
       const nb = T.delivery_invoices.filter((i) => (!p_branch || i.branch_id === p_branch) && !i.recon_at && i.state !== 'dang_chuyen' && !i.deliv_path && !i.bu_path)
         .map((i) => ({ id: i.id, branch_id: i.branch_id, doc_no: i.doc_no || null, kind: i.kind, work_date: i.work_date, received_at: i.received_at, received_by: name(i.received_by), deliv_note: i.deliv_note || null }));
-      return { need_bu: nb, open: F.filter((f) => f.status === 'cho').map(fuJson), done: F.filter((f) => f.status !== 'cho' && String(f.resolved_at || f.created_at).startsWith(p_month)).map(fuJson),
+      const rng = !!(p_from && p_to);   // bước 167 (tệp 146): khoảng ngày chỉ lọc "Đã xử lý"; tiền tháng theo p_month
+      const fd = (f) => { const j = fuJson(f); return p_kind === 'nhan' ? j.received_date : p_kind === 'ds' ? j.recon_date : j.work_date; };
+      return { need_bu: nb.map((x) => ({ ...x, received_date: (x.received_at || '').slice(0, 10) || null })), open: F.filter((f) => f.status === 'cho').map(fuJson),
+        done: F.filter((f) => f.status !== 'cho' && (rng ? fd(f) && fd(f) >= p_from && fd(f) <= p_to : String(f.resolved_at || f.created_at).startsWith(p_month))).map(fuJson),
         money: money() ? monthTotal(p_branch, p_month) : null, kt: can('ke_toan'), today: today() };
     },
     app_gh_bu_lines({ p_followup }) {

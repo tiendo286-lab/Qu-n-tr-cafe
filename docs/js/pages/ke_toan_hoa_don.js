@@ -5,6 +5,7 @@ import { rpc, sb } from '../sb.js';
 import { compressImage, dmy, dt, fmt } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { DOW } from './ke_toan_ck.js';
+import { KINDS, LOC_CSS, dateOf, hasLocParams, inLoc, locBar, locLabel, locLoad, locQuery, locSave, locToSave, readLoc, sortLoc, wireLoc } from '../loc_ngay.js';
 
 export const perm = ['ke_toan', 'doi_soat'];   // quản lý xem được (chỉ kế toán tải / ghép / xóa hóa đơn)
 export const BUCKET = 'hoa-don';
@@ -80,24 +81,26 @@ const started = (d) => (d.photos || []).length > 0 || !!d.deliv_path || !!d.deli
 export async function render({ params, can }) {
   const { parseXuatExcel, guessBranch } = await import('../nhap_hang.js');
   const today = vnToday();
-  const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : today.slice(0, 7);
   const cat = await catalog(); const branches = cat.activeBranches;
   const bcode = (b) => b.display_code || b.code;
   const br = branches.some((b) => String(b.id) === String(params.cn)) ? Number(params.cn) : null;   // null = tất cả cơ sở
   const tt = ['dang', 'cho', 'xong'].includes(params.tt) ? params.tt : '';
-  const [D, ME] = await Promise.all([rpc('app_nh_list', { p_month: month, p_branch: br }), rpc('app_me')]);
+  // bước 167: lọc loại ngày + khoảng ngày (thay nút chuyển tháng); Chưa nhận chỉ có ngày giao, Chờ đối soát chưa có ngày đối soát
+  const KOF = { '': ['giao', 'nhan', 'ds'], dang: ['giao'], cho: ['giao', 'nhan'], xong: ['giao', 'nhan', 'ds'] };
+  if (hasLocParams(params)) locSave('px', locToSave(readLoc({ params, saved: locLoad('px'), kinds: KOF[''], today })));
+  const L = readLoc({ params, saved: locLoad('px'), kinds: KOF[tt], today });
+  const [D, ME] = await Promise.all([rpc('app_nh_list', { p_month: null, p_branch: br, p_from: L.from, p_to: L.to, p_kind: L.kind }), rpc('app_me')]);
   const kt = !!D.kt; const owner = ME?.role === 'chu'; const money = !!D.money;
   const seen = new Set(); const all = [];
   [...(D.rows || []), ...(D.open || [])].forEach((r) => { if (!seen.has(r.id) && (br === null || r.branch_id === br)) { seen.add(r.id); all.push(r); } });
   const byId = (id) => all.find((x) => x.id === Number(id));
   const needMerge = all.filter((d) => d.state === 'cho_hoa_don').sort((a, b) => String(a.received_at || '').localeCompare(String(b.received_at || '')));
   const grp = (d) => (d.state === 'dang_chuyen' ? 'dang' : d.recon_at ? 'xong' : 'cho');
-  const rows = (D.rows || []).filter((d) => (br === null || d.branch_id === br) && d.state !== 'cho_hoa_don' && d.doc_no);
+  const rows = (D.rows || []).filter((d) => (br === null || d.branch_id === br) && d.state !== 'cho_hoa_don' && d.doc_no && inLoc(d, L));
   const cnt = (k) => rows.filter((d) => grp(d) === k).length;
-  const list = rows.filter((d) => !tt || grp(d) === tt).sort((a, b) => String(b.work_date).localeCompare(String(a.work_date)) || String(b.ship_at || '').localeCompare(String(a.ship_at || '')) || b.id - a.id);
-  const days = [...new Set(list.map((d) => d.work_date))];
-  const q = (o) => '#/hang-hoa/phieu-xuat?' + Object.entries({ cn: br ?? '', tt, thang: month, ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
-  const shiftMonth = (k) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7); };
+  const list = sortLoc(rows.filter((d) => !tt || grp(d) === tt), L.kind);   // xếp theo ngày đang lọc, mới nhất trên
+  const days = [...new Set(list.map((d) => dateOf(d, L.kind)))];
+  const q = (o) => '#/hang-hoa/phieu-xuat?' + Object.entries({ cn: br ?? '', tt, ...locQuery(L), ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
   const dname = (d) => DOW[new Date(d + 'T00:00:00Z').getUTCDay()];
   const lechN = (d) => (d.lines || []).filter((l) => (l.qty_invoice == null ? Number(l.qty_checked ?? l.qty_received ?? 0) > 0 : Number(l.qty_checked ?? l.qty_received ?? 0) !== Number(l.qty_invoice))).length;
   const stPills = (d) => { const g = grp(d); const n = g === 'dang' ? 0 : lechN(d);
@@ -113,20 +116,22 @@ export async function render({ params, can }) {
       ${money ? html`<b class="px-tot">${d.total != null ? fmt(d.total) : '—'}</b>` : ''}<span class="px-st">${stPills(d)}</span><span class="px-hd">${docPill(d)}</span>${acts(d)}</div>`;
   return {
     title: 'Phiếu xuất kho tổng',
-    html: html`${HD_CSS}${PX_CSS}<div class="px-wrap"><div class="page-head"><div><h1>Phiếu xuất kho tổng</h1><div class="sub">Kế toán tải phiếu xuất trước khi giao · tra cứu phiếu. Tiền hàng tháng xem ở tab <a href="#/hang-hoa/kiem-soat">Kiểm soát</a>.</div></div>
+    html: html`${HD_CSS}${PX_CSS}${LOC_CSS}<div class="px-wrap"><div class="page-head"><div><h1>Phiếu xuất kho tổng</h1><div class="sub">Kế toán tải phiếu xuất trước khi giao · tra cứu phiếu. Tiền hàng tháng xem ở tab <a href="#/hang-hoa/kiem-soat">Kiểm soát</a>.</div></div>
         <div class="toolbar"><div id="saved-indicator" class="saved" role="status" hidden></div>${kt ? html`<label class="btn">+ Tải phiếu xuất (chọn nhiều file)<input type="file" id="px-files" accept=".xlsx,.xls" multiple hidden></label>` : ''}</div></div>
       <section class="card px-bar"><nav class="branch-tabs" aria-label="Cơ sở"><a class="${br === null ? 'on' : ''}" href="${q({ cn: '' })}">Tất cả</a>${branches.map((b) => html`<a class="${b.id === br ? 'on' : ''}" href="${q({ cn: b.id })}" title="${b.name}">${bcode(b)}</a>`)}</nav>
         <div class="px-f"><nav class="gh-tabs px-tt"><a class="${!tt ? 'on' : ''}" href="${q({ tt: '' })}">Mọi trạng thái</a><a class="${tt === 'dang' ? 'on' : ''}" href="${q({ tt: 'dang' })}">🚚 Chưa nhận <b>${cnt('dang')}</b></a><a class="${tt === 'cho' ? 'on' : ''}" href="${q({ tt: 'cho' })}">Đã nhận · chờ đối soát <b>${cnt('cho')}</b></a><a class="${tt === 'xong' ? 'on' : ''}" href="${q({ tt: 'xong' })}">✓ Đối soát xong <b>${cnt('xong')}</b></a></nav>
           <input class="input sm px-q" id="px-q" type="search" placeholder="🔍 Tìm số đơn…" aria-label="Tìm số đơn">
-          <span class="px-mon"><a class="btn sm secondary" href="${q({ thang: shiftMonth(-1) })}" aria-label="Tháng trước">‹</a><strong>Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(1) })}" aria-label="Tháng sau">›</a></span></div></section>
+</div>
+        ${locBar(L, KOF[tt], (o) => q(locQuery(o)))}</section>
       ${needMerge.length ? html`<section class="card px-need"><b>🔗 Cần ghép phiếu xuất (${needMerge.length})</b> <span class="st-meta">— nhân viên đã nhận hàng nhưng chưa có phiếu xuất trên web</span>
         ${needMerge.map((d) => html`<div class="px-nrow" data-id="${d.id}"><b>${d.branch_code}</b><span class="grow">Nhận ${d.received_at ? `${dmy(String(d.received_at).slice(0, 10)).slice(0, 5)} ${String(d.received_at).slice(11, 16)}` : ''}${d.received_by ? ` · ${d.received_by}` : ''} · ${d.n_lines} món · ${d.deliv_path ? html`<span class="pill ok">📄 có ảnh HĐ giao</span>` : html`<span class="pill off">không có HĐ giao</span>`}</span>
           <span class="px-act"><button type="button" class="btn sm secondary px-view">Xem</button>${kt ? html`<button type="button" class="btn sm px-merge">Ghép phiếu xuất ›</button>` : ''}${owner ? html`<button type="button" class="btn sm secondary danger px-del">Xóa</button>` : ''}</span></div>`)}</section>` : ''}
-      <div id="px-list">${days.length ? days.map((day) => { const L = list.filter((d) => d.work_date === day);
-          return html`<div class="px-day" data-day="${day}"><div class="px-dh"><span>${dname(day)} ${dmy(day).slice(0, 5)} · ${L.length} phiếu</span>${money ? html`<span>${fmt(L.reduce((t, d) => t + Number(d.total || 0), 0))}đ</span>` : ''}</div>
-            <div class="card px-rows">${L.map(row)}</div></div>`; }) : html`<div class="card st-meta">Không có phiếu xuất nào${tt ? ' ở mục này' : ''} trong tháng ${Number(month.slice(5))}/${month.slice(0, 4)}.</div>`}
-        <div class="card st-meta px-none" hidden>Không tìm thấy số đơn này trong tháng.</div></div></div>`,
+      <div id="px-list">${days.length ? days.map((day) => { const R = list.filter((d) => dateOf(d, L.kind) === day);
+          return html`<div class="px-day" data-day="${day}"><div class="px-dh"><span>${L.kind === 'giao' ? '' : `${KINDS[L.kind]} `}${dname(day)} ${dmy(day).slice(0, 5)} · ${R.length} phiếu</span>${money ? html`<span>${fmt(R.reduce((t, d) => t + Number(d.total || 0), 0))}đ</span>` : ''}</div>
+            <div class="card px-rows">${R.map(row)}</div></div>`; }) : html`<div class="card st-meta">Không có phiếu xuất nào${tt ? ' ở mục này' : ''} (${KINDS[L.kind].toLowerCase()} ${locLabel(L)}).</div>`}
+        <div class="card st-meta px-none" hidden>Không tìm thấy số đơn này trong khoảng ngày đang lọc.</div></div></div>`,
     mount() {
+      wireLoc($('.px-wrap'), L, (o) => q(locQuery(o)));
       const idOf = (b) => b.closest('[data-id]').dataset.id;
       $('#px-q')?.addEventListener('input', (e) => { const v = normName(e.target.value); let any = false;
         $$('.px-day').forEach((dy) => { let n = 0; $$('.px-row', dy).forEach((r) => { const ok = !v || r.dataset.doc.includes(v); r.hidden = !ok; if (ok) n++; }); dy.hidden = !n; if (n) any = true; });

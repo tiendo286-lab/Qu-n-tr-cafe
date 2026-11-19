@@ -9,6 +9,7 @@ import { rpc, sb } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { BUCKET, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
+import { KINDS, LOC_CSS, coverRange, hasLocParams, inLoc, locBar, locLabel, locLoad, locQuery, locSave, locToSave, readLoc, sortLoc, wireLoc } from '../loc_ngay.js';
 const MAX_PER_PHOTO = 4;   // bước 132: mỗi ảnh nhận hàng tối đa 4 món (máy chủ cũng chặn)
 
 export const perm = ['chot_ca', 'doi_soat', 'ke_toan'];
@@ -315,23 +316,29 @@ async function receivePage(id, params = {}, can = () => false) {
 // ---------------------------------------------------------------- Đối soát: danh sách (bước 106) — tất cả cơ sở, cũ nhất trước; Chờ đối soát · Chưa nhận · Đã xong
 async function listPage(params, can) {
   const today = vnToday();
-  const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : today.slice(0, 7);
+  const tab = ['cho', 'dang', 'xong'].includes(params.tt) ? params.tt : 'cho';
+  // bước 167: lọc theo loại ngày + khoảng ngày (thay nút chuyển tháng). Loại không áp dụng thì ẩn: Chưa nhận chỉ có ngày giao, Chờ đối soát chưa có ngày đối soát.
+  const KOF = { cho: ['giao', 'nhan'], dang: ['giao'], xong: ['giao', 'nhan', 'ds'] };
+  if (hasLocParams(params)) locSave('ds', locToSave(readLoc({ params, saved: locLoad('ds'), kinds: KOF.xong, today })));
+  const L = readLoc({ params, saved: locLoad('ds'), kinds: KOF[tab], today });
+  const Lof = (t) => ({ ...L, kind: KOF[t].includes(L.wantKind) ? L.wantKind : KOF[t][0] });
   const G = await rpc('app_gh_inbox', { p_branch: null });
   const cat = await catalog().catch(() => ({ activeBranches: [] }));
   const brs = (cat.activeBranches || []).map((b) => ({ id: b.id, code: b.display_code || b.code }));
   const br = brs.some((b) => String(b.id) === String(params.cn)) ? Number(params.cn) : null;   // null = tất cả cơ sở
   const open = (G.rows || []).filter((d) => br === null || d.branch_id === br);
-  const cho = open.filter((d) => d.state !== 'dang_chuyen').sort((a, b) => String(a.received_at || a.work_date).localeCompare(String(b.received_at || b.work_date)) || a.id - b.id);
-  const dang = open.filter((d) => d.state === 'dang_chuyen').sort((a, b) => String(a.work_date).localeCompare(String(b.work_date)) || a.id - b.id);
-  const tab = ['cho', 'dang', 'xong'].includes(params.tt) ? params.tt : 'cho';
+  const choAll = open.filter((d) => d.state !== 'dang_chuyen'); const dangAll = open.filter((d) => d.state === 'dang_chuyen');
+  const cho = sortLoc(choAll.filter((d) => inLoc(d, Lof('cho'))), Lof('cho').kind, true);   // Chờ đối soát: cũ nhất lên trước
+  const dang = sortLoc(dangAll.filter((d) => inLoc(d, Lof('dang'))), 'giao');
   let xong = [];
   if (tab === 'xong') {
-    const Dm = await rpc('app_nh_list', { p_month: month, p_branch: br });
-    xong = (Dm.rows || []).filter((d) => d.recon_at).sort((a, b) => String(b.recon_at).localeCompare(String(a.recon_at)));
+    const Dm = await rpc('app_nh_list', { p_month: null, p_branch: br, p_from: L.from, p_to: L.to, p_kind: L.kind });
+    xong = sortLoc((Dm.rows || []).filter((d) => d.recon_at && inLoc(d, L)), L.kind);
   }
+  const hidden = tab === 'cho' ? choAll.filter((d) => !cho.includes(d)) : tab === 'dang' ? dangAll.filter((d) => !dang.includes(d)) : [];
+  const cover = hidden.length ? coverRange(hidden, L) : null;
   const nCho = (id) => (G.rows || []).filter((d) => (id === null || d.branch_id === id) && d.state !== 'dang_chuyen').length;
-  const q = (o) => qs(DS, { cn: br ?? '', tt: tab, thang: tab === 'xong' ? month : '', ...o });
-  const shiftMonth = (k) => { const [y, m] = month.split('-').map(Number); return new Date(Date.UTC(y, m - 1 + k, 1)).toISOString().slice(0, 7); };
+  const q = (o) => qs(DS, { cn: br ?? '', tt: tab, ...locQuery(L), ...o });
   const days = (d) => (d.received_date ? Math.round((Date.parse(today) - Date.parse(d.received_date)) / 864e5) : 0);
   const thumbs = (d) => html`<div class="ql-th">${(d.photos || []).slice(0, 3).map((p) => html`<img data-path="${p.path}" alt="">`)}</div>`;
   const cnts = (d) => { const doc = !!d.doc_no; const L = d.lines || [];
@@ -357,13 +364,15 @@ async function listPage(params, can) {
   const list = tab === 'cho' ? cho : tab === 'dang' ? dang : xong;
   return {
     title: 'Đối soát hàng',
-    html: html`${GH_CSS}<div class="gh-wrap gh-wide"><div class="page-head"><div><h1>Đối soát hàng kho tổng</h1><div class="sub">Lần giao nhân viên đã nhận — món lệch xem trước, món khớp theo từng ảnh, rồi Xác nhận xong. Cũ nhất lên trước.</div></div></div>
+    html: html`${GH_CSS}${LOC_CSS}<div class="gh-wrap gh-wide"><div class="page-head"><div><h1>Đối soát hàng kho tổng</h1><div class="sub">Lần giao nhân viên đã nhận — món lệch xem trước, món khớp theo từng ảnh, rồi Xác nhận xong. Chờ đối soát: cũ nhất lên trước.</div></div></div>
       <section class="card stack" style="gap:8px;padding:12px 14px"><nav class="branch-tabs" aria-label="Cơ sở"><a class="${br === null ? 'on' : ''}" href="${q({ cn: 'all' })}">Tất cả${nCho(null) ? html` <span class="badge">${nCho(null)}</span>` : ''}</a>${brs.map((b) => html`<a class="${b.id === br ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}${nCho(b.id) ? html` <span class="badge">${nCho(b.id)}</span>` : ''}</a>`)}</nav>
-        <nav class="gh-tabs" aria-label="Lọc"><a class="${tab === 'cho' ? 'on' : ''}" href="${q({ tt: 'cho', thang: '' })}">✔ Chờ đối soát <b>${cho.length}</b></a><a class="${tab === 'dang' ? 'on' : ''}" href="${q({ tt: 'dang', thang: '' })}">🚚 Chưa nhận <b>${dang.length}</b></a><a class="${tab === 'xong' ? 'on' : ''}" href="${q({ tt: 'xong' })}">✓ Đã xong</a></nav>
-        ${tab === 'xong' ? html`<div class="gh-mon"><a class="btn sm secondary" href="${q({ thang: shiftMonth(-1) })}" aria-label="Tháng trước">‹</a><strong>Tháng ${Number(month.slice(5))}/${month.slice(0, 4)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(1) })}" aria-label="Tháng sau">›</a></div>` : ''}</section>
-      ${list.length ? list.map(tab === 'cho' ? card : tab === 'dang' ? dcard : xcard) : html`<div class="card st-meta">${tab === 'cho' ? 'Không có lần giao nào chờ đối soát.' : tab === 'dang' ? 'Không có phiếu xuất nào đang chuyển.' : 'Chưa có lần giao nào đối soát xong trong tháng này.'}</div>`}</div>`,
+        <nav class="gh-tabs" aria-label="Lọc"><a class="${tab === 'cho' ? 'on' : ''}" href="${q({ tt: 'cho' })}">✔ Chờ đối soát <b>${cho.length}</b></a><a class="${tab === 'dang' ? 'on' : ''}" href="${q({ tt: 'dang' })}">🚚 Chưa nhận <b>${dang.length}</b></a><a class="${tab === 'xong' ? 'on' : ''}" href="${q({ tt: 'xong' })}">✓ Đã xong</a></nav>
+        ${locBar(L, KOF[tab], (o) => q(locQuery(o)))}</section>
+      ${hidden.length ? html`<div class="card loc-more" id="gh-hidden"><span>Còn <b>${hidden.length}</b> lần giao ${tab === 'cho' ? 'chờ đối soát' : 'chưa nhận'} ngoài khoảng ngày đang lọc.</span>${cover ? html`<a class="btn sm secondary" href="${q(locQuery(cover))}">Hiện cả</a>` : ''}</div>` : ''}
+      ${list.length ? list.map(tab === 'cho' ? card : tab === 'dang' ? dcard : xcard) : html`<div class="card st-meta">${tab === 'cho' ? `Không có lần giao nào chờ đối soát${hidden.length ? ' trong khoảng ngày này' : ''}.` : tab === 'dang' ? `Không có phiếu xuất nào đang chuyển${hidden.length ? ' trong khoảng ngày này' : ''}.` : `Chưa có lần giao nào đối soát xong (${KINDS[L.kind].toLowerCase()} ${locLabel(L)}).`}</div>`}</div>`,
     mount() {
       signLinks($('.gh-wrap'));
+      wireLoc($('.gh-wrap'), L, (o) => q(locQuery(o)));
       $$('.ql-reopen').forEach((b) => b.addEventListener('click', async () => {
         if (!confirm('Mở lại đối soát lần giao này? Các món lệch đang chờ ở Kiểm soát sẽ gỡ ra cho tới khi xác nhận xong lại.')) return;
         b.disabled = true;
