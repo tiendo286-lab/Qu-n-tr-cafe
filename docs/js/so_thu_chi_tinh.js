@@ -6,6 +6,15 @@ export const START = '2026-11-01';
 export const FLOAT = 1000000;          // gối đầu két
 export const ALERT = 20000000;         // tiền mặt quá mức này thì nhắc chuyển về Quỹ ngoài
 export const SHIFT_ORDER = ['Sáng', 'Chiều', 'Tối'];
+// bước 163: ô Ca trong "+ Thêm phiếu" — chỉ ca của ngày đang chọn, Sáng → Chiều → Tối; ca chưa thêm được thì ok=false kèm lý do
+export function caChoices(cas, date, { locked = false } = {}) {
+  if (!date) return [];
+  const pos = (s) => { const i = SHIFT_ORDER.indexOf(s); return i < 0 ? 99 : i; };
+  return (cas || []).filter((c) => c.date === date).sort((a, b) => pos(a.shift) - pos(b.shift)).map((c) => {
+    const why = locked ? 'tháng đã chốt' : !c.recon_money_done ? 'chưa xác nhận Fabi' : null;
+    return { id: c.id, label: `Ca ${c.shift}` + (c.staff ? ` · ${c.staff}` : ''), ok: !why, why };
+  });
+}
 export const COLS = {
   thu: [['dt', 'Doanh thu'], ['no', 'Thu nợ'], ['khac', 'Thu khác'], ['lc', 'Luân chuyển'], ['lech', 'Chênh lệch']],
   chi: [['chi', 'Các khoản chi'], ['no', 'Cho nợ'], ['lc', 'Luân chuyển'], ['lech', 'Chênh lệch']],
