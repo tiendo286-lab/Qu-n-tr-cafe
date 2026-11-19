@@ -96,7 +96,7 @@ const vaNow = () => { if (role !== 'chu') return null; const k = localStorage.ge
   return { k, until }; };
 const VA = vaNow();
 const ME = VA ? { ...meFor(VA.k === 'nvkt' ? 'nv' : VA.k), account_id: VA_IDS[VA.k], ...(VA.k === 'nvkt' ? { name: 'Nhân viên kế toán thử' } : {}),
-  view_as: { account_id: VA_IDS[VA.k], name: VA.k === 'nvkt' ? 'Nhân viên kế toán thử' : meFor(VA.k).name, role: meFor(VA.k).role, branches: VA.k === 'ql' ? ['LHP'] : [], ke_toan: VA.k === 'nvkt', expires_at: new Date(VA.until).toISOString() } } : meFor(role);
+  view_as: { account_id: VA_IDS[VA.k], name: VA.k === 'nvkt' ? 'Nhân viên kế toán thử' : meFor(VA.k).name, role: meFor(VA.k).role, branches: VA.k === 'ql' ? ['LHP'] : [], ke_toan: VA.k === 'nvkt', expires_at: new Date(VA.until).toISOString(), expires_in: Math.max(0, Math.floor((VA.until - Date.now()) / 1000)) } } : meFor(role);
 const VA_PEOPLE = [{ account_id: 6, name: 'QL tổng thử', code: 'NV01', role: 'ql_tong', branches: [], ke_toan: false }, { account_id: 5, name: 'Quản lý thử', code: '5', role: 'ql', branches: ['LHP'], ke_toan: false },
   { account_id: 7, name: 'Kế toán thử', code: 'ketoan', role: 'ke_toan', branches: [], ke_toan: false }, { account_id: 3, name: 'Nhân viên thử', code: 'NV3', role: 'nv', branches: [], ke_toan: false },
   { account_id: 8, name: 'Nhân viên kế toán thử', code: 'NV8', role: 'nv', branches: [], ke_toan: true }];

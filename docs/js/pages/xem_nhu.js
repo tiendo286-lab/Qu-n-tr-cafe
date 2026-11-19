@@ -15,7 +15,7 @@ function peopleList(people) {
 }
 
 // Bắt đầu / đổi người → về Việc hôm nay của người đó, tải lại để mọi phần đọc lại quyền
-async function start(id) { await rpc('app_view_as_start', { p_account: Number(id) }); location.hash = '#/hom-nay'; location.reload(); }
+async function start(id) { await rpc('app_view_as_start', { p_account: Number(id) }); try { localStorage.setItem('vaStamp', String(Date.now())); } catch (_) { /* bỏ qua */ } location.hash = '#/hom-nay'; location.reload(); }
 
 function bind(el) {
   el.querySelector('.va-q')?.addEventListener('input', (e) => { const q = fold(e.target.value).trim(); el.querySelectorAll('.va-row').forEach((r) => { r.hidden = !!q && !r.dataset.q.includes(q); }); });

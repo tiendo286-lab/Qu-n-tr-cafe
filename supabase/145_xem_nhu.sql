@@ -1,7 +1,7 @@
 -- 145: Xem như người khác (bước 165, 19/11/2026) — chỉ Chủ, chỉ xem, tự hết hạn sau 30 phút.
 -- Thiết kế: tai_lieu/superpowers/specs/2026-11-19-xem-nhu-nguoi-khac-design.md · Kế hoạch: tai_lieu/superpowers/plans/2026-11-19-xem-nhu-nguoi-khac.md
 -- VÙNG KHOÁ: app_account() là gốc của app_can / app_me → đổi kết quả quyền trong lúc Chủ đang xem như. Đã báo anh Tiến trước khi chạy.
--- - Gắn theo phiên đăng nhập (JWT session_id): máy / thẻ khác của Chủ không bị đổi.
+-- - Gắn theo phiên đăng nhập (JWT session_id): máy khác của Chủ không bị đổi; các THẺ cùng trình duyệt dùng chung phiên nên đổi theo (web tự tải lại các thẻ đó).
 -- - Trong lúc xem như: hàm chạy trước mọi yêu cầu (pgrst.db_pre_request) bật chế độ chỉ đọc của CSDL, trừ app_view_as_start / app_view_as_stop.
 -- Chạy lại nhiều lần không sao.
 
@@ -53,15 +53,17 @@ begin
 end $$;
 
 -- Hàm chạy trước mọi yêu cầu của web: phiên đang xem như → chỉ đọc (trừ Bắt đầu / Thoát xem như). Lỗi gì cũng bỏ qua để không làm chết web.
--- KHÔNG đặt "set search_path" cho hàm này: hàm có SET … sẽ tự hoàn lại mọi set_config khi kết thúc → chỉ đọc không giữ được. Tên đều ghi đủ lược đồ.
+-- CẢNH BÁO: PostgREST gọi hàm này trước MỌI yêu cầu (pgrst.db_pre_request). Xoá / đổi tên / làm hàm báo lỗi = cả web hỏng.
+-- Gỡ khẩn cấp: alter role authenticator reset pgrst.db_pre_request; notify pgrst, 'reload config';
+-- transaction_read_only phải đặt NGOÀI khối exception (khối con hoàn lại thay đổi khi kết thúc).
 create or replace function public.app__pre_request() returns void
-language plpgsql security definer as $$
+language plpgsql security definer set search_path = pg_catalog, public as $$
 declare v public.view_as; p text; ro boolean := false;
 begin
   begin   -- dò phiên xem như trong khối bắt lỗi (lỗi gì cũng bỏ qua)
     v := public.app__view_as_row(public.app__real_account());
     p := coalesce(pg_catalog.current_setting('request.path', true), '');
-    ro := v.session_id is not null and p not in ('/rpc/app_view_as_start', '/rpc/app_view_as_stop');
+    ro := v.session_id is not null and p !~ '/rpc/app_view_as_(start|stop)$';   -- nhận cả đường dẫn có tiền tố (/rest/v1/rpc/...)
   exception when others then ro := false;
   end;
   -- bật chỉ đọc NGOÀI khối bắt lỗi: transaction_read_only đặt trong khối con bị hoàn lại khi khối kết thúc
@@ -138,10 +140,11 @@ begin
       'branches', coalesce((select jsonb_agg(coalesce(b.display_code, b.code) order by b.sort_order, b.id) from public.branches b
                              where a.system_role = 'ql' and a.id = any(coalesce(public.app__pc_who(1, 'branch', b.id), '{}'::bigint[]))), '[]'::jsonb),
       'ke_toan', exists (select 1 from public.account_perms x where x.account_id = a.id and x.perm = 'ke_toan'),
-      'expires_at', to_char(v.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'));
+      'expires_at', to_char(v.expires_at at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"'),
+      'expires_in', greatest(0, floor(extract(epoch from v.expires_at - now()))::int));   -- giây theo đồng hồ máy chủ (web không phụ thuộc đồng hồ máy)
   end if;
   return jsonb_build_object(
-    'account_id', a.id, 'employee_id', a.employee_id, 'role', a.system_role, 'must_change', a.must_change = 1,
+    'account_id', a.id, 'employee_id', a.employee_id, 'role', a.system_role, 'must_change', a.must_change = 1 and va is null,   -- đang xem như: không bắt đổi mật khẩu (sẽ đổi nhầm mật khẩu của Chủ)
     'code', coalesce(e.code, a.login_name), 'name', coalesce(e.name, a.display_name, 'Chủ'), 'rank', e.rank,
     'perms', perms, 'view_as', va);
 end $$;

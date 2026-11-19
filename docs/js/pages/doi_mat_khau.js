@@ -3,6 +3,8 @@ import { rpc, sb, viError } from '../sb.js';
 import { $, flash, go, html } from '../ui.js';
 
 export async function render({ me }) {
+  // bước 165 (duyệt mã): đang xem như → đổi mật khẩu sẽ đổi mật khẩu THẬT của Chủ (Supabase Auth không qua chế độ chỉ đọc) → khoá trang
+  if (me.view_as) return { title: 'Đổi mật khẩu', html: html`<div class="card stack" style="max-width:460px"><div class="alert warn">Đang xem như ${me.view_as.name} — chỉ xem. Thoát Xem như (dải vàng trên cùng) rồi mới đổi mật khẩu của anh.</div></div>` };
   const form = html`
     ${me.must_change ? html`<div class="alert warn">Bạn đang dùng mật khẩu tạm do quản lý cấp. Hãy đặt mật khẩu riêng trước khi tiếp tục.</div>` : ''}
     <div class="alert error" role="alert" id="pw-err" hidden></div>

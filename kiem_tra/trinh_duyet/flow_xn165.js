@@ -52,6 +52,10 @@ export default async ({ sleep, out }) => {
       ok(String(u?.error?.message || '').includes('chỉ xem'), '3. tải ảnh bị chặn ở web (' + (u?.error?.message || 'không chặn') + ')');
       const r = await sb.sb.storage.from('phieu-ca').remove(['x/y.jpg']).catch((e) => ({ error: e }));
       ok(String(r?.error?.message || '').includes('chỉ xem'), '3. xoá ảnh bị chặn ở web');
+      const fi = await sb.sb.functions.invoke('admin', { body: { action: 'reset' } }).catch((e) => ({ error: e }));
+      ok(String(fi?.error?.message || '').includes('chỉ xem'), '3. duyệt mã: lệnh quản trị tài khoản (cấp mật khẩu / khoá) bị chặn ở web');
+      location.hash = '#/doi-mat-khau'; await sleep(900);
+      ok(/đang xem như/i.test(txt($('#root'))) && !$('#root input[type=password]'), '3. duyệt mã: trang Đổi mật khẩu khoá khi đang xem như (không đổi nhầm mật khẩu Chủ)');
       if (window.innerWidth > 400) {
         $('#va-bar [data-va="phone"]').click(); await sleep(800);
         const fr = $('#va-frame');

@@ -5,7 +5,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.19.21';
+const ASSET_VERSION = '2026.11.19.22';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
@@ -121,7 +121,10 @@ export async function loadMe() {
 // chặn tải / xoá ảnh ở web (kho ảnh không đi qua hàm chạy trước của máy chủ), tự tải lại thành Chủ khi hết hạn.
 const VA_FRAME = new URLSearchParams(location.search).get('vaframe') === '1';
 const VA_MSG = 'Đang xem như người khác — chỉ xem, không lưu được.';
-let vaTimer = null; let vaPatched = false;
+let vaTimer = null; let vaPatched = false; let vaDeadline = 0;
+// các thẻ khác cùng trình duyệt dùng chung phiên đăng nhập → bắt đầu / thoát xem như ở một thẻ thì các thẻ kia tải lại cho khớp
+window.addEventListener('storage', (e) => { if (e.key === 'vaStamp') location.reload(); });
+const vaStamp = () => { try { localStorage.setItem('vaStamp', String(Date.now())); } catch (_) { /* bỏ qua */ } };
 const vaMode = () => { try { return localStorage.getItem('vaMode') === 'phone' ? 'phone' : 'desk'; } catch (_) { return 'desk'; } };
 function vaSetup() {
   const v = state.me?.view_as;
@@ -129,10 +132,16 @@ function vaSetup() {
   if (!vaPatched && sb.storage && typeof sb.storage.from === 'function') {
     vaPatched = true; const st = sb.storage; const orig = st.from.bind(st);
     st.from = (bucket) => { const o = orig(bucket); const no = async () => ({ data: null, error: { message: VA_MSG } });
-      return new Proxy(o, { get: (t, k) => (['upload', 'remove', 'update', 'move', 'copy'].includes(k) ? no : (typeof t[k] === 'function' ? t[k].bind(t) : t[k])) }); };
+      return new Proxy(o, { get: (t, k) => (['upload', 'remove', 'update', 'move', 'copy', 'createSignedUploadUrl', 'uploadToSignedUrl'].includes(k) ? no : (typeof t[k] === 'function' ? t[k].bind(t) : t[k])) }); };
+    // duyệt mã: hàm quản trị tài khoản (cấp mật khẩu tạm, khoá, đăng xuất…) chạy bằng khoá quản trị → máy chủ không chặn được → chặn ở web
+    if (sb.functions && typeof sb.functions.invoke === 'function') sb.functions.invoke = async () => ({ data: null, error: { message: VA_MSG } });
   }
   if (VA_FRAME) return;
-  if (!vaTimer) { vaTimer = setTimeout(() => location.reload(), Math.max(0, (Date.parse(v.expires_at) || 0) - Date.now()) + 800); setInterval(vaBar, 20000); }
+  if (!vaTimer) {   // duyệt mã: tính theo expires_in (giây, đồng hồ máy chủ); tối thiểu 5 giây để không tải lại liên tục
+    const left = Number.isFinite(Number(v.expires_in)) ? Number(v.expires_in) * 1000 : Math.max(0, (Date.parse(v.expires_at) || 0) - Date.now());
+    vaDeadline = Date.now() + left;
+    vaTimer = setTimeout(() => location.reload(), Math.max(5000, left + 1500)); setInterval(vaBar, 20000);
+  }
   vaBar();
 }
 function vaBar() {
@@ -144,10 +153,13 @@ function vaBar() {
       const b = ev.target.closest('[data-va]'); if (!b) return; const k = b.dataset.va;
       if (k === 'desk' || k === 'phone') { try { localStorage.setItem('vaMode', k); } catch (_) { /* bỏ qua */ } vaBar(); render(); }
       else if (k === 'swap') (await import(`./pages/xem_nhu.js?v=${ASSET_VERSION}`)).pickPerson();
-      else if (k === 'exit') { try { await rpc('app_view_as_stop'); } catch (e) { alert(viError(e)); return; } location.hash = '#/hom-nay'; location.reload(); }
+      else if (k === 'exit') {
+        try { await rpc('app_view_as_stop'); } catch (e) { alert('Không thoát được (' + viError(e) + ') — đăng xuất để thoát chắc chắn, rồi đăng nhập lại.'); vaStamp(); await sb.auth.signOut(); location.reload(); return; }
+        vaStamp(); location.hash = '#/hom-nay'; location.reload();
+      }
     });
   }
-  const min = Math.max(0, Math.ceil(((Date.parse(v.expires_at) || 0) - Date.now()) / 60000));
+  const min = Math.max(0, Math.ceil(((vaDeadline || Date.parse(v.expires_at) || 0) - Date.now()) / 60000));
   const who = [v.name, (ROLE_LABELS[v.role] || v.role) + (v.ke_toan ? ' + Kế toán' : ''), (v.branches || []).join(', ')].filter(Boolean).join(' · ');
   const m = vaMode();
   bar.innerHTML = str(html`<span class="va-t">👁 Đang xem như <b>${who}</b> — chỉ xem · còn ${min} phút</span>
@@ -337,7 +349,7 @@ export async function render() {
     return go('/dang-nhap');
   }
   if (me && path === '/dang-nhap') return go('/');
-  if (me && me.must_change && path !== '/doi-mat-khau') return go('/doi-mat-khau');
+  if (me && me.must_change && !me.view_as && path !== '/doi-mat-khau') return go('/doi-mat-khau');   // bước 165: đang xem như thì không
   if (path === '/' && me && !me.must_change) return go('/hom-nay');   // bước 138: cả 5 vai trò vào Việc hôm nay trước
   // bước 152: Thu chi / Lệch tiền ca / Sổ quỹ / Khoản âm / Báo cáo ca cũ đã xoá → Sổ thu chi (giữ tháng + cơ sở; khoản âm → lọc Có trừ lương).
   // Thông báo, việc trong Công việc và dấu trang cũ vẫn bấm được.

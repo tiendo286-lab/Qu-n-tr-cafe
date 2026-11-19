@@ -85,5 +85,14 @@ begin
     execute 'set local role anon'; perform set_config('request.jwt.claims', '', true); perform public.app__pre_request(); execute 'reset role';
     rep := rep || format(E'\n(m) vai web chạy được: me_role=%s', j ->> 'role');
   exception when others then execute 'reset role'; rep := rep || E'\n(m) LỖI dưới vai web: ' || sqlerrm; end;
+  -- (n) duyệt mã I2/I3: xem như tài khoản phải đổi mật khẩu → app_me không bắt đổi; có expires_in (giây, theo đồng hồ máy chủ)
+  update accounts set must_change = 1 where id = a_nv;
+  perform set_config('request.jwt.claims', json_build_object('sub', (select auth_user_id from accounts where id = a_chu), 'role', 'authenticated', 'session_id', 'S9')::text, true);
+  perform public.app_view_as_start(a_nv); j := public.app_me();
+  rep := rep || format(E'\n(n) must_change=%s expires_in=%s', j ->> 'must_change', j -> 'view_as' ->> 'expires_in');
+  -- (o) duyệt mã I4: đường dẫn có tiền tố (/rest/v1/rpc/...) vẫn cho Thoát
+  perform set_config('request.path', '/rest/v1/rpc/app_view_as_stop', true);
+  begin perform public.app__pre_request(); perform public.app_view_as_stop(); rep := rep || format(E'\n(o) thoát qua tiền tố: role=%s', (public.app_account()).system_role);
+  exception when others then rep := rep || E'\n(o) LỖI: ' || sqlerrm; end;
   raise exception 'REPORT>> %', rep;
 end $$;
