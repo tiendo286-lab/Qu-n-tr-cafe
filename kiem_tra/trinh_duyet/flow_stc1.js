@@ -20,8 +20,8 @@ export default async ({ sleep, out }) => {
     out.push({ stc1: { ok: good, fail: bad } }); return;
   }
   if (role === 'ql') {
-    await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11', '#root .alert');
-    ok(txt($('#root')).includes('đang chạy thử: chỉ chủ và quản lý tổng xem được.'), '7. quản lý cơ sở thấy thông báo đang chạy thử');
+    await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11', '.stc-pay');
+    ok(!!$('.stc-pay') && $$('.branch-tabs a').length === 1 && !$('.stc-qn'), '7. quản lý cơ sở vào được Sổ thu chi: chỉ cơ sở được giao, không có Quỹ ngoài');
     out.push({ stc1: { ok: good, fail: bad } }); return;
   }
 
@@ -49,7 +49,7 @@ export default async ({ sleep, out }) => {
   ok(!$$('.stc-ty').some((t) => txt(t).includes('không tính')), '4. Chi theo loại không có khoản Không tính');
   // 5. không có nút sửa bấm được
   ok($$('.stc-act').length > 0 && $$('.stc-act').every((b) => b.disabled), '5. nút sửa / thêm đều tắt');
-  ok(txt($('#root')).includes('đang chạy thử'), '5. có chữ Đang chạy thử');
+  ok(!txt($('#root')).includes('đang chạy thử'), '5. không còn chữ Đang chạy thử (bước 152: Sổ thu chi là chỗ làm chính)');
   // 6. tháng chưa có dữ liệu
   await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-12', '.stc-pay');
   ok(txt($('#stc-book')).includes('tháng này chưa có khoản nào.'), '6. tháng 12 trống có chữ');

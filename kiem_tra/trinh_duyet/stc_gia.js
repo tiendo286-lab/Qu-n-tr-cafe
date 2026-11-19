@@ -62,8 +62,10 @@ export function makeStc(T, me) {
     gapAll().forEach((y) => y.gap.cands.forEach((c) => { const o = gapAll().find((i) => i.ca_id === c.report && i.gap.kind !== y.gap.kind); if (o) c.amount = o.gap.avail; })); };
   return {
     app_stc_month({ p_branch, p_month }) {
-      if (!admin()) throw new Error('Đang chạy thử: chỉ Chủ và Quản lý tổng xem được.');
-      const d = copy(st()); d.owner = me.role === 'chu';
+      // bước 152: quản lý cơ sở chỉ được giao cơ sở đầu tiên (giả lập Phân công việc Đối soát ca)
+      const mine = (bid) => admin() || (me.role === 'ql' && Number(bid) === st().branches[0].id);
+      if (!mine(p_branch)) throw new Error('Bạn không được xem thu chi của cơ sở này.');
+      const d = copy(st()); d.owner = me.role === 'chu'; d.branches = d.branches.filter((x) => mine(x.id));
       const b = d.branches.find((x) => x.id === Number(p_branch)) || d.branches[0];
       d.branch = { id: b.id, code: b.code, name: b.code };
       if (p_month !== '2026-11') { Object.assign(d, { month: p_month, from: p_month + '-01', to: p_month + '-28', cas: [], items: [], compare: { fund_days: [], gaps: [] } }); }
@@ -282,8 +284,8 @@ export function makeStc(T, me) {
       const c = dsCa(p_report, false); reason(p_reason); c.recon_money_done = false;
       items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
     },
-    app_stc_finals() {
-      if (!admin()) throw new Error('Đang chạy thử: chỉ Chủ và Quản lý tổng xem được.');
+    app_stc_finals({ p_branch } = {}) {
+      if (!(admin() || (me.role === 'ql' && Number(p_branch) === st().branches[0].id))) throw new Error('Bạn không được xem thu chi của cơ sở này.');
       const t0 = today();
       return { finals: Object.entries(FIN).map(([id, f]) => ({ id: Number(id), ...f })),
         treo: TREO.map((t) => { const c = st().cas.find((x) => x.id === t.report_id); const age = dd(c.date, t0);

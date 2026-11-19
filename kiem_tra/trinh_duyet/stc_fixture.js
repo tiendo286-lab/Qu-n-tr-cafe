@@ -32,7 +32,7 @@ const items = [
   ...dt(D15, 151, 1930000, 2760000), ...dt(D15, 152, 2380000, 3610000), ...dt(D15, 153, 1820000, 2690000),
   it(D15, 151, 'chi', 'tm', 'chi', 50000, { title: 'Mua đá', cat: 'Nguyên liệu' }), it(D15, 152, 'chi', 'tm', 'chi', 120000, { title: 'Mua cốc giấy', cat: 'Vật dụng' }),
   it(D15, 152, 'chi', 'tm', 'lech', 40000, { id: 'g:152:tm', title: 'Ca thiếu tiền', src: 'gap', status: 'Đã xử lý', gross: 40000,
-    gap: G('thieu', 40000, ['Lan', 'Minh'], { remain: 0, avail: 0, has_tl: true, tl: [{ id: 71, name: 'Lan', amount: 20000, status: 'cho' }, { id: 72, name: 'Minh', amount: 20000, status: 'cho' }] }) }),
+    gap: G('thieu', 40000, ['Lan', 'Minh'], { remain: 0, avail: 0, has_tl: true, tl: [{ id: 71, name: 'Lan', amount: 20000, status: 'tru_luong', reply: 'Em đếm nhầm tờ 20 nghìn' }, { id: 72, name: 'Minh', amount: 20000, status: 'tru_luong' }] }) }),
   it(D15, 153, 'chi', 'ck', 'chi', 350000, { title: 'Thợ sửa máy xay', cat: 'Sửa chữa & thiết bị' }), it(D15, 153, 'chi', 'tm', 'no', 500000, { title: 'Khách mượn – Anh Vinh', meta: 'Khách mượn tiền két (Nợ TM)' }),
   ...dt(D16, 161, 2010000, 2980000), ...dt(D16, 162, 2260000, 3420000), ...dt(D16, 163, 1700000, 2530000),
   it(D16, 161, 'chi', 'tm', 'chi', 50000, { title: 'Mua đá', cat: 'Nguyên liệu' }), it(D16, 161, 'chi', 'tm', 'chi', 35000, { title: 'Bút, sổ ghi order', cat: 'Khác' }),

@@ -185,3 +185,47 @@ export function gapParts(ca, cas, pm, signedGap) {
   if (rest) parts.push({ label: 'Lệch đếm két / do sửa thu chi', amount: rest });
   return parts;
 }
+
+// ---------------- Bước 152: bộ lọc Sổ thu / Sổ chi ----------------
+// Bộ lọc giữ trên đường dẫn: loc=q:<chữ>,src:<nguồn>,type:<loại>,cat:<nhóm>,st:<trạng thái> (giá trị đã mã hoá).
+export const LOC_EMPTY = Object.freeze({ q: '', src: '', type: '', cat: '', st: '' });
+const LOC_KEYS = Object.keys(LOC_EMPTY);
+export function parseLoc(s) {
+  const f = { ...LOC_EMPTY };
+  String(s || '').split(',').forEach((p) => {
+    const i = p.indexOf(':'); if (i < 1) return;
+    const k = p.slice(0, i); if (!LOC_KEYS.includes(k)) return;
+    try { f[k] = decodeURIComponent(p.slice(i + 1)); } catch (_) { f[k] = p.slice(i + 1); }
+  });
+  return f;
+}
+export function locStr(f) {
+  return LOC_KEYS.filter((k) => f && f[k]).map((k) => `${k}:${encodeURIComponent(f[k])}`).join(',');
+}
+// Bỏ dấu tiếng Việt + chữ thường, để tìm "da" ra "Mua đá".
+export const fold = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[đĐ]/g, 'd').toLowerCase();
+const liveTl = (x) => ((x.gap && x.gap.tl) || []).filter((t) => t.status !== 'huy');
+// Lọc khoản của sổ. ctx.fin(caId) → ca đã chốt chưa. Khoản đã xoá chỉ hiện khi lọc "Đã xoá".
+export function filterItems(items, f, ctx = {}) {
+  const fin = ctx.fin || (() => false);
+  const q = fold(f.q).trim();
+  return (items || []).filter((x) => {
+    if (f.st === 'void' ? !x.void : x.void) return false;
+    if (f.src === 'ca' && x.ca_id == null) return false;
+    if (f.src === 'tay' && !(x.src === 'entry' && x.ca_id == null)) return false;
+    if (f.src === 'bu' && x.src !== 'shortfall') return false;
+    if (f.src === 'lech' && x.col !== 'lech') return false;
+    if (f.type && String(x.cat_type ?? '') !== String(f.type)) return false;
+    if (f.cat && x.cat !== f.cat) return false;
+    if (f.st === 'todo' && !(x.book === 'chi' && x.col === 'chi' && !x.cat)) return false;
+    if (f.st === 'cho' && !/Chờ/.test(x.status || '')) return false;
+    if (f.st === 'tl' && !(x.col === 'lech' && liveTl(x).length)) return false;
+    if (f.st === 'fin' && !(x.ca_id != null && fin(x.ca_id))) return false;
+    if (f.st === 'open' && !(x.ca_id != null && !fin(x.ca_id))) return false;
+    if (q) {
+      const hay = fold([x.title, x.cat, x.meta, ...((x.gap && x.gap.tl) || []).flatMap((t) => [t.name, t.reply])].filter(Boolean).join(' · '));
+      if (!hay.includes(q)) return false;
+    }
+    return true;
+  });
+}

@@ -2,13 +2,13 @@
 // 4 tab: Tổng · Đối soát Fabi · Sổ thu · Sổ chi + Quỹ ngoài (chỉ Chủ). Bước 151: tab Đối soát Fabi = A · Fabi → B · Thu chi của ca → 🔒 Chốt ca (khoá vĩnh viễn) + Khoản treo ở tab Tổng.
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi-design.md · Hàm tính: ../so_thu_chi_tinh.js · Máy chủ: app_stc_month, app_stc_ext
 import { render as rerender } from '../app.js';
-import { vnToday } from '../data.js';
+import { catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
-import { ALERT, COLS, SHIFT_ORDER, caChecks, caStage, compareDays, dayChain, dayTree, finalNeeds, fundSummary, gapMath, gapParts, sumItems, treoView } from '../so_thu_chi_tinh.js';
+import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fundSummary, gapMath, gapParts, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
 
-export const perm = 'chot_thang';
+export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
 const PM = { tm: 'Tiền mặt', ck: 'Chuyển khoản' };
 const TABS = [['tong', 'Tổng'], ['doi-soat', 'Đối soát Fabi'], ['thu', 'Sổ thu'], ['chi', 'Sổ chi']];
@@ -51,19 +51,27 @@ const q = (over = {}) => '#/quan-ly/so-thu-chi?' + new URLSearchParams(Object.en
 
 export async function render({ params }) {
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7);
-  const cn = params.cn === 'ngoai' ? 'ngoai' : (params.cn || lsGet() || '1');
+  let cn = params.cn === 'ngoai' ? 'ngoai' : (params.cn || lsGet() || '1');
   const isExt = cn === 'ngoai';
   let tab = TABS.some((t) => t[0] === params.tab) ? params.tab : 'tong';
   if (isExt && tab === 'doi-soat') tab = 'tong';
-  P = { tab, cn, thang: month, pm: params.pm === 'ck' ? 'ck' : 'tm', cot: params.cot || '' };
+  P = { tab, cn, thang: month, pm: params.pm === 'ck' ? 'ck' : 'tm', cot: params.cot || '', loc: params.loc || '' };
   if (params.ds && params.ds + '|' + (params.t || '') !== DS_PARAM) { DS_SEL = params.ds; DS_PARAM = params.ds + '|' + (params.t || ''); }   // đường dẫn chọn ca 1 lần
   let D;
   try { D = await load(cn, month); } catch (e) {
-    return { title: 'Sổ thu chi (mới)', html: html`${STYLE}<div class="page-head"><h1>Sổ thu chi (mới)</h1></div><div class="alert warn">${e.message}</div>` };
+    // bước 152: quản lý cơ sở chưa chọn cơ sở → tự mở cơ sở đầu tiên mình được giao
+    if (!isExt && !params.cn) {
+      const C = await catalog().catch(() => null);
+      for (const b of (C?.activeBranches || [])) {
+        if (String(b.id) === String(cn)) continue;
+        try { D = await load(String(b.id), month); cn = String(b.id); P.cn = cn; break; } catch (_) { /* thử cơ sở sau */ }
+      }
+    }
+    if (!D) return { title: 'Sổ thu chi', html: html`${STYLE}<div class="page-head"><h1>Sổ thu chi</h1></div><div class="alert warn">${e.message}</div>` };
   }
   if (!isExt) lsSet(D.branch.id);
-  const head = html`<div class="page-head stc-head"><div><h1>Sổ thu chi (mới) · ${D.branch.code}</h1>
-      <div class="st-meta"><span class="pill warn">${TRIAL}</span> Trang cũ vẫn dùng bình thường. Số liệu thật từ ${dmy(D.from)}.</div></div></div>
+  const head = html`<div class="page-head stc-head"><div><h1>Sổ thu chi · ${D.branch.code}</h1>
+      <div class="st-meta">Số liệu từ ${dmy(D.from)}. Thu chi, đối soát Fabi, chốt ca và quỹ của cơ sở ở một chỗ.</div></div></div>
     <section class="card stc-bar">
       <div class="stc-month"><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a><strong>${monthLabel(month)}</strong><a class="btn sm secondary" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
       <nav class="branch-tabs" aria-label="Cơ sở">${(D.branches || []).map((b) => html`<a class="${String(cn) === String(b.id) ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}</a>`)}
@@ -72,11 +80,12 @@ export async function render({ params }) {
     </section>`;
   const body = tab === 'thu' || tab === 'chi' ? bookPage(D, tab) : tab === 'tong' ? tongPage(D) : dsPage(D);
   return {
-    title: `Sổ thu chi (mới) ${D.branch.code}`,
+    title: `Sổ thu chi ${D.branch.code}`,
     html: html`${STYLE}<div id="stc-page">${head}${body}</div>`,
     mount() {
       const root = $('#stc-page'); if (!root) return;
       if (P.tab === 'tong' && !D.ext) fillCounts(D);
+      if (P.tab === 'thu' || P.tab === 'chi') fillFilter(D, P.tab);
       root.addEventListener('click', (ev) => {
         const f5 = ev.target.closest('.stc-qnadd,[data-qned],[data-qnok],.stc-lcadd,.stc-kq,[data-adj],.stc-xadd');
         if (f5 && root.contains(f5)) {
@@ -117,13 +126,24 @@ export async function render({ params }) {
         const b = $('#stc-book'); if (b && (P.tab === 'thu' || P.tab === 'chi')) b.innerHTML = str(bookCard(D, P.tab));
       });
       root.addEventListener('change', (ev) => { const c = ev.target.closest('[data-person]'); if (c && root.contains(c)) personMark(D, c.dataset.person, c.checked); });
+      // bước 152: bộ lọc sổ — vẽ lại riêng phần sổ, giữ con trỏ ở ô tìm; đường dẫn cập nhật không tải lại trang
+      let lfT = null;
+      const lfSet = (k, v) => { const f = parseLoc(P.loc); f[k] = v; if (k === 'type') f.cat = ''; P.loc = locStr(f);
+        try { history.replaceState(null, '', q()); } catch (_) { /* bỏ qua */ }
+        const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab));
+        const c = $('#stc-lfclr'); if (c) c.hidden = !P.loc; if (k === 'type') fillFilter(D, P.tab); };
+      root.addEventListener('input', (ev) => { const i = ev.target.closest('[data-lf="q"]'); if (!i) return; clearTimeout(lfT); lfT = setTimeout(() => lfSet('q', i.value), 250); });
+      root.addEventListener('change', (ev) => { const i = ev.target.closest('select[data-lf]'); if (i) lfSet(i.dataset.lf, i.value); });
+      root.addEventListener('click', (ev) => { if (!ev.target.closest('#stc-lfclr')) return; P.loc = ''; location.hash = q(); });
     },
   };
 }
 
 // ---------------- Sửa / thêm / xoá (đợt 2a: khoản ngoài ca) ----------------
 let CATS = null;
-const cats = async () => (CATS ||= rpc('app_fin_types').then((r) => r.cats || []).catch(() => []));
+let FT = null;   // app_fin_types: { types, cats }
+const finTypes = async () => (FT ||= rpc('app_fin_types').catch(() => ({ types: [], cats: [] })));
+const cats = async () => (CATS ||= finTypes().then((r) => r.cats || []));
 const idNum = (id) => Number(String(id).split(':')[1]);
 const after = (msg) => { CACHE = null; showSaved(msg); rerender(); };
 const err = (d, e) => { const b = d.querySelector('.stc-err'); if (b) b.innerHTML = str(html`<div class="alert error">${e.message || e}</div>`); };
@@ -526,7 +546,46 @@ function addBtn(D, c, book, label) {
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${P.tab === 'doi-soat' ? '' : go}`
     : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
 }
+// ---- bước 152: bộ lọc đầy đủ (thay trang Thu chi cũ)
+const SRC_OPTS = [['', 'Mọi nguồn'], ['ca', 'Từ phiếu ca'], ['tay', 'Quản lý tạo (ngoài ca)'], ['bu', 'Nộp bù khoản âm'], ['lech', 'Chênh lệch']];
+const ST_OPTS = [['', 'Mọi trạng thái'], ['todo', 'Chưa phân loại'], ['cho', 'Chờ xử lý'], ['tl', 'Có trừ lương'], ['void', 'Đã xoá'], ['fin', 'Ca đã chốt'], ['open', 'Ca chưa chốt']];
+const TL_ST = { tru_luong: 'Trừ lương', da_bu: 'Đã nộp bù', mien: 'Miễn', huy: 'Đã huỷ' };
+function filterBar(book) {
+  const f = parseLoc(P.loc);
+  const sel = (k, opts, label) => html`<select class="input sm" data-lf="${k}" aria-label="${label}">${opts.map(([v, l]) => html`<option value="${v}" ${f[k] === v ? 'selected' : ''}>${l}</option>`)}</select>`;
+  return html`<div class="stc-flt" role="search">
+    <input class="input sm stc-q" type="search" data-lf="q" value="${f.q}" placeholder="Tìm nội dung, nhóm, người, giải trình…" aria-label="Tìm">
+    ${sel('src', SRC_OPTS, 'Nguồn')}
+    <select class="input sm" data-lf="type" aria-label="Loại"><option value="">Mọi loại</option>${f.type ? html`<option value="${f.type}" selected>…</option>` : ''}</select>
+    <select class="input sm" data-lf="cat" aria-label="Nhóm"><option value="">Mọi nhóm</option>${f.cat ? html`<option value="${f.cat}" selected>${f.cat}</option>` : ''}</select>
+    ${sel('st', ST_OPTS, 'Trạng thái')}
+    <button type="button" class="btn sm secondary" id="stc-lfclr" ${P.loc ? '' : 'hidden'}>Bỏ lọc</button></div>`;
+}
+// Điền Loại / Nhóm theo danh mục thu chi (tải chậm, không chặn trang)
+async function fillFilter(D, book) {
+  const r = await finTypes(); const f = parseLoc(P.loc); const kind = book === 'thu' ? 'thu' : 'chi';
+  const ts = (r.types || []).filter((t) => t.active !== false && (!t.kind || t.kind === kind));
+  const cs = (r.cats || []).filter((c) => c.active !== false && c.kind === kind && (!f.type || String(c.type_id) === String(f.type)));
+  const ty = $('select[data-lf="type"]'); const ca = $('select[data-lf="cat"]'); if (!ty || !ca) return;
+  ty.innerHTML = str(html`<option value="">Mọi loại</option>${ts.map((t) => html`<option value="${t.id}" ${String(f.type) === String(t.id) ? 'selected' : ''}>${t.name}</option>`)}`);
+  ca.innerHTML = str(html`<option value="">Mọi nhóm</option>${cs.map((c) => html`<option value="${c.name}" ${f.cat === c.name ? 'selected' : ''}>${c.name}</option>`)}`);
+}
+// Có lọc: danh sách phẳng theo ngày · ca. "Có trừ lương" lấy cả 2 bảng (phiếu trừ lương không thuộc bảng tiền nào).
+function bookFlat(D, book, f) {
+  const n = COLS[book].length;
+  const base = D.items.filter((x) => x.book === book && (f.st === 'tl' || x.pm === P.pm) && (!P.cot || x.col === P.cot));
+  const list = filterItems(base, f, { fin: (id) => isFin(D, id) }).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+  const caOf = (x) => (D.cas || []).find((c) => c.id === x.ca_id);
+  const tlRows = (x) => (f.st === 'tl' ? ((x.gap && x.gap.tl) || []).map((t) => html`<div class="stc-tlr ${t.status === 'huy' ? 'void' : ''}"><span><b>${t.name}</b> · ${TL_ST[t.status] || 'Chờ xử lý'}
+      ${t.reply ? html`<br><span class="st-meta">Giải trình: “${t.reply}”</span>` : ''}</span><b>${fmt(t.amount)}</b></div>`) : '');
+  const rows = list.map((x) => { const c = caOf(x); return html`<div class="stc-fr"><div class="st-meta stc-frh">${dm(x.date)} · ${c ? 'Ca ' + c.shift : 'Ngoài ca'}${x.pm === 'ck' ? ' · CK' : ' · TM'}</div>
+      ${itemRow(x, book, D)}${tlRows(x)}${f.st === 'tl' && x.gap ? html`<div class="stc-tlr"><span class="st-meta">${isFin(D, x.ca_id) ? '🔒 Ca đã chốt — không huỷ được' : ''}</span><button type="button" class="btn sm secondary" data-gap="${x.id}">Mở phiếu chênh lệch</button></div>` : ''}</div>`; });
+  return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · đang lọc <small>${list.length} khoản · ${fmt(sumItems(list.filter((x) => !x.void)))}</small></h2></div>
+    <div class="stc-g stc-hdr" style="--n:${n}"><span>Khoản</span>${COLS[book].map(([, l]) => html`<span>${l}</span>`)}<span>Tổng</span></div>
+    ${rows.length ? html`<div class="stc-its stc-flat">${rows}</div>` : html`<div class="stc-empty">Không có khoản nào khớp bộ lọc.</div>`}`;
+}
 function bookCard(D, book) {
+  const lf = parseLoc(P.loc); if (locStr(lf)) return bookFlat(D, book, lf);
   const days = dayTree(D, book, P.pm, P.cot || null);
   const n = COLS[book].length;
   const caLabel = (c) => (c.shift === 'Ngoài ca' ? 'Ngoài ca' : 'Ca ' + c.shift);
@@ -583,7 +642,7 @@ function bookPage(D, book) {
   return html`<div class="stc-pays">${pays}</div>
     <div class="st-meta stc-formula"><b>Tổng ${book}</b> = ${COLS[book].map(([, l], i) => html`${i ? ' + ' : ''}<b>${l}</b>`)}</div>
     <div class="stc-tiles">${tiles}<div class="stc-tile tot"><span>Tổng ${book} · ${PM[P.pm]}</span><b>${fmt(sumItems(its, { book, pm: P.pm }))}</b><small>bấm ô để lọc sổ</small></div></div>
-    <div class="stc-layout"><section class="card stc-book" id="stc-book">${bookCard(D, book)}</section><aside class="stc-aside">${bookSide(D, book)}</aside></div>`;
+    <div class="stc-layout"><section class="card stc-book">${filterBar(book)}<div id="stc-book">${bookCard(D, book)}</div></section><aside class="stc-aside">${bookSide(D, book)}</aside></div>`;
 }
 
 // ---------------- Tổng (Task 6) / Đối soát tiền (Task 7) ----------------
@@ -1030,6 +1089,11 @@ const STYLE = html`<style>
   .stc-ck { display: flex; flex-direction: column; gap: 3px; font-size: 14px; color: var(--ok-ink); }
   .stc-tr0 { background: var(--subtle); border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; font-size: 13.5px; }
   .stc-treo { align-items: flex-start; flex-wrap: wrap; } .stc-treo > span:first-child { flex: 1 1 180px; min-width: 0; }
+  .stc-flt { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line, #e5e7eb); }
+  .stc-flt .stc-q { flex: 1 1 220px; min-width: 0; } .stc-flt select { flex: 0 1 auto; max-width: 100%; }
+  .stc-flat { margin: 0 10px 10px; } .stc-fr { border-bottom: 1px dashed var(--line, #e5e7eb); padding: 4px 0; } .stc-frh { padding: 2px 4px; }
+  .stc-tlr { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px 4px 22px; font-size: 13px; }
+  .stc-tlr > span { min-width: 0; overflow-wrap: anywhere; } .stc-tlr.void { opacity: .55; text-decoration: line-through; }
   .stc-tile.stc-bad { border-color: var(--off-line); background: var(--off-bg); }
   @media (max-width: 980px) { .stc-layout { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 720px) {
