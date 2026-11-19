@@ -8,7 +8,7 @@ import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
-import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caChoices, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
+import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, todoItems, debtGroups, caChecks, caChoices, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
 
 export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
@@ -409,11 +409,11 @@ async function adjDialog(D, id) {
 }
 async function fillCounts(D) {
   const box = document.getElementById('stc-kqbox'); const tile = document.querySelector('.stc-kqlast'); if (!box) return;
-  try { FUND = await rpc('app_fund_branch', { p_branch: D.branch.id, p_month: P.thang }); } catch (e) { box.innerHTML = str(html`<h3>Kiểm quỹ tháng này</h3><div class="st-meta">${e.message}</div>`); return; }
+  try { FUND = await rpc('app_fund_branch', { p_branch: D.branch.id, p_month: P.thang }); } catch (e) { box.innerHTML = str(html`<div class="st-meta">${e.message}</div>`); if (tile) tile.textContent = 'Lần cuối: —'; return; }
   const lc = FUND.last_count || {};
-  if (tile) tile.innerHTML = str(html`<span>Kiểm quỹ lần cuối</span><b>${lc.tien_mat ? dm(lc.tien_mat) : '—'}</b><small>tiền mặt · tài khoản ${lc.chuyen_khoan ? dm(lc.chuyen_khoan) : 'chưa'}</small>`);
+  if (tile) tile.textContent = `Lần cuối: tiền mặt ${lc.tien_mat ? dm(lc.tien_mat) : 'chưa'} · tài khoản ${lc.chuyen_khoan ? dm(lc.chuyen_khoan) : 'chưa'}`;   // bước 166: dòng chữ trong khung Kiểm quỹ
   const cs = FUND.counts || [];
-  box.innerHTML = str(html`<h3>Kiểm quỹ tháng này <small>${cs.length}</small></h3>${cs.length ? cs.map((c) => { const df = Number(c.counted) - Number(c.book);
+  box.innerHTML = str(html`${cs.length ? cs.map((c) => { const df = Number(c.counted) - Number(c.book);
     return html`<div class="stc-si stc-kqr"><span><b>${MM[c.method]} · ${dm(c.count_date)}</b><br><span class="st-meta">thực tế ${fmt(c.counted)} · sổ ${fmt(c.book)}${c.note ? ' · ' + c.note : ''}</span><br>
       ${df === 0 ? html`<span class="pill ok">Khớp</span>` : c.adj || c.adj_entry_id ? html`<span class="pill ok">Lệch ${df > 0 ? '+' : '−'}${fmt(Math.abs(df))} · đã điều chỉnh</span>`
         : html`<span class="pill warn">Lệch ${df > 0 ? '+' : '−'}${fmt(Math.abs(df))}</span> <button type="button" class="btn sm secondary" data-adj="${c.id}">Điều chỉnh…</button>`}</span></div>`; })
@@ -919,7 +919,7 @@ function bookPage(D, book) {   // bước 164: 1 nút chuyển 2 nửa + 1 hàng
     <div class="st-meta stc-formula">Tổng ${book} tháng ${Number(String(P.thang || '').slice(5, 7))} = ${COLS[book].map(([, l]) => l).join(' + ')} · bấm một ô để chỉ xem khoản loại đó</div>
     <section class="card stc-book">${filterBar(book)}<div id="stc-book">${bookCard(D, book)}</div></section>`;
 }
-function tongPage(D) {
+function tongPage(D) {   // bước 166 (KH5): mẫu B — Việc cần làm | Ai còn nợ lên đầu (khung có giới hạn), bỏ 5 ô nhỏ, So với trang cũ thu gọn cuối trang
   const F = fundSummary(D); const ext = !!D.ext; const name = ext ? 'Quỹ ngoài' : 'quỹ ' + D.branch.code;
   const hot = !ext && F.tm.ton > ALERT;
   const its = D.items.filter((x) => !x.void);
@@ -932,9 +932,9 @@ function tongPage(D) {
       if (neu !== Number(g.lech)) { const c = (D.cas || []).find((x) => x.id === g.ca_id); cmpRows.push(html`<div class="stc-cmpr"><span>Lệch ca ${c ? c.shift + ' ' + dm(c.date) : g.ca_id} · ${g.pm === 'tm' ? 'TM' : 'CK'}</span><span>cũ ${g.lech < 0 ? '−' : ''}${fmt(Math.abs(g.lech))} → mới ${neu < 0 ? '−' : ''}${fmt(Math.abs(neu))}</span><b>${neu - g.lech > 0 ? '+' : '−'}${fmt(Math.abs(neu - g.lech))}</b></div>`); }
     });
   }
-  const cmp = ext ? '' : html`<section class="card stc-cmp"><h3>So với trang cũ <small>(trong lúc chạy song song)</small></h3>
-    ${cmpRows.length ? html`<div class="st-meta">Những chỗ trang mới khác Sổ quỹ / Lệch tiền ca cũ:</div>${cmpRows}` : html`<div class="pill ok">Khớp trang cũ ✓</div>`}
-    <div class="st-meta stc-note">Khác dự kiến ở ngày quản lý từng sửa tay số nộp quỹ cuối ngày, và ngày hôm nay (kế toán chưa nhập đủ).</div></section>`;
+  const cmp = ext ? '' : html`<details class="card stc-cmp"><summary>So với trang cũ <small>(trong lúc chạy song song)</small> · ${cmpRows.length ? html`<span class="pill warn">${cmpRows.length} chỗ khác</span>` : html`<span class="pill ok">Khớp trang cũ ✓</span>`}</summary>
+    ${cmpRows.length ? html`<div class="st-meta">Những chỗ trang mới khác Sổ quỹ / Lệch tiền ca cũ:</div>${cmpRows}` : ''}
+    <div class="st-meta stc-note">Khác dự kiến ở ngày quản lý từng sửa tay số nộp quỹ cuối ngày, và ngày hôm nay (kế toán chưa nhập đủ).</div></details>`;
   const big = (k, v, s, cls = '') => html`<div class="stc-big ${cls}"><span class="k">${k}</span><span class="v">${fmt(v)}</span><span class="s">${s}</span></div>`;
   const tf = (pm) => { const f = F[pm]; return html`<div class="stc-tf"><div class="h">${pm === 'tm' ? 'Tiền mặt' : 'Tài khoản'}</div>
       <div class="l"><span>Tồn đầu tháng</span><b>${fmt(f.open)}</b></div>
@@ -946,44 +946,54 @@ function tongPage(D) {
   const daily = F.daily[P.pm];
   const incoming = ext ? its.filter((x) => x.src === 'withdrawal') : F.toQN;
   const waitN = (ext ? incoming.filter((x) => x.recv === 'cho') : F.waitQN).length;
-  const notOk = (D.cas || []).filter((c) => !c.recon_money_done);   // bước 158: ca chưa xác nhận Fabi
-  const pend = its.filter((x) => x.col === 'lech' && x.status && /Chờ/.test(x.status));
-  const todo = its.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat);
-  return html`${cmp}
+  // ----- 2 khung đầu trang (chỉ cơ sở)
+  let top = '';
+  if (!ext) {
+    const todos = todoItems(D, F.waitQN);
+    const act = (t) => {
+      if (t.kind === 'fabi') return html`<a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${t.ref.id}">Mở ›</a>`;
+      if (t.kind === 'lech') return html`<a class="btn sm secondary" href="${q({ tab: t.ref.book, pm: t.ref.pm, cot: 'lech' })}">Xử lý ›</a>`;
+      if (t.kind === 'cat') return html`<a class="btn sm secondary" href="${q({ tab: 'chi', pm: t.ref.pm, cot: 'chi' })}">Phân loại ›</a>`;
+      return D.owner ? html`<button type="button" class="btn sm" data-qnok="${idNum(t.ref.id)}">Đã nhận tiền</button>` : html`<span class="st-meta">chờ Chủ</span>`;
+    };
+    const nRed = todos.filter((t) => t.red).length;
+    const todoBox = html`<section class="card stc-todo"><h3>Việc cần làm <small>${todos.length ? `${todos.length} việc${nRed ? ' · đỏ = làm trước' : ''}` : ''}</small></h3>
+      <div class="stc-scroll">${todos.length ? todos.map((t) => html`<div class="stc-ti" data-kind="${t.kind}"><span class="stc-dot ${t.red ? 'red' : ''}"></span><span class="stc-tt">${t.text}${t.sub ? html`<br><span class="st-meta">${gapStatus(t.sub)}</span>` : ''}</span>${t.amount != null ? html`<b class="stc-amt">${fmt(t.amount)}</b>` : html`<span></span>`}${act(t)}</div>`)
+        : html`<div class="st-meta stc-none0">Không còn gì. 👍</div>`}</div></section>`;
+    const G = debtGroups(D.open_debts, vnToday());
+    const nP = G.main.length + G.fam.length;
+    const person = (g) => html`<details class="stc-dp"><summary><span class="stc-tt"><b>${g.who}</b>${g.no_remind ? html` <span class="pill ok">✓ không nhắc</span>` : ''}<br><span class="st-meta">${g.n} khoản · lâu nhất <span class="${g.maxDays > 7 && !g.no_remind ? 'stc-red' : ''}">${g.maxDays} ngày</span></span></span><b class="stc-amt">${fmt(g.total)}</b></summary>
+      ${g.ks.map((k) => html`<div class="stc-si stc-dk"><span class="st-meta">${k.from || dm(k.date)} · <span class="${k.days > 7 && !g.no_remind ? 'stc-red' : ''}">${k.days} ngày</span></span><span class="stc-r"><b>${fmt(k.left)}</b><button type="button" class="btn sm secondary stc-col" data-col-debt="${k.id}">Thu nợ</button></span></div>`)}</details>`;
+    const debtBox2 = html`<section class="card stc-debts"><h3>Ai còn nợ <small>${nP ? html`${nP} người · ${fmt(G.total)}${G.late ? html` · <span class="stc-red">${G.late} người quá 7 ngày</span>` : ''}` : ''}</small></h3>
+      <div class="stc-scroll">${nP ? html`${G.main.map(person)}${G.fam.length ? html`<details class="stc-fam"><summary>Người nhà / Kho Tổng (✓ không nhắc) · ${fmt(G.fam.reduce((s, g) => s + g.total, 0))}</summary>${G.fam.map(person)}</details>` : ''}`
+        : html`<div class="st-meta stc-none0">Không còn ai nợ.</div>`}</div>
+      ${nP ? html`<div class="st-meta stc-note">Gồm cả nợ hoá đơn. Bấm tên để xem từng khoản. Đỏ khi quá 7 ngày.</div>` : ''}</section>`;
+    top = html`<div class="stc-top2">${todoBox}${debtBox2}</div>`;
+  }
+  const qnBox = html`<section class="card stc-side"><h3>${ext ? 'Tiền các cơ sở chuyển về' : 'Chuyển về Quỹ ngoài'} <small>${incoming.length} lần · ${fmt(sumItems(incoming))}${waitN ? ` · ${waitN} chờ Chủ nhận` : ''}</small></h3>
+      ${incoming.length ? incoming.map((x) => html`<div class="stc-si stc-qnl"><span><b>${ext ? (x.from || '') + ' · ' : ''}${x.pm === 'tm' ? 'Tiền mặt' : 'Chuyển khoản'} · ${dm(x.date)}</b><br>${x.title.includes(' · ') ? html`<span class="st-meta">${x.title.split(' · ').slice(1).join(' · ')}</span><br>` : ''}<span class="pill ${x.recv === 'cho' ? 'warn' : 'ok'}">${x.status || ''}</span>
+        ${x.recv === 'cho' ? html`${D.owner ? html` <button type="button" class="btn sm" data-qnok="${idNum(x.id)}">Đã nhận tiền</button>` : ''}${ext ? '' : html` <button type="button" class="btn sm secondary" data-qned="${idNum(x.id)}">Sửa / Xoá</button>`}` : html` <span class="st-meta">🔒</span>`}</span><b>${fmt(x.amount)}</b></div>`)
+        : html`<div class="st-meta">Tháng này chưa có.</div>`}
+      <div class="st-meta stc-note">Thay cho phiếu rút cũ. Chủ bấm "Đã nhận tiền" thì khoá cả 2 bên.</div></section>`;
+  const kqBox = ext ? '' : html`<section class="card stc-side"><h3>Kiểm quỹ <button type="button" class="btn sm secondary stc-kq">Kiểm quỹ</button></h3>
+      <div class="st-meta stc-kqlast">Lần cuối: đang tải…</div><div id="stc-kqbox"><div class="st-meta">Đang tải…</div></div></section>`;
+  return html`${top}
     <div class="stc-bigs">${big(`Tồn ${name}`, F.tm.ton + F.ck.ton, `${ext ? 'Chỉ Chủ thấy · ' : ''}Tiền mặt + Tài khoản`)}
       ${big('Tiền mặt', F.tm.ton, hot ? `quá ${fmt(ALERT)} · nên chuyển về Quỹ ngoài` : ext ? 'Chủ giữ' : 'gồm 1.000.000 gối đầu trong két', hot ? 'hot' : '')}
       ${big('Tài khoản', F.ck.ton, 'theo sổ')}</div>
     <div class="st-meta stc-formula">${ext ? html`<b>Tồn Quỹ ngoài</b> = Tồn đầu tháng + Tổng thu (gồm tiền các cơ sở chuyển về) − Tổng chi (chi ngoài)`
       : html`<b>Tồn quỹ</b> = Tồn đầu tháng + Tổng thu − Tổng chi − Chuyển về Quỹ ngoài`}</div>
-    <div class="stc-tiles">
-      <div class="stc-tile"><span>${ext ? 'Các cơ sở chuyển về' : 'Chuyển về Quỹ ngoài'}</span><b>${fmt(sumItems(incoming))}</b><small>${incoming.length} lần</small></div>
-      <div class="stc-tile ${waitN ? 'warn' : ''}"><span>Chờ Chủ nhận</span><b>${waitN}</b><small>khoản</small></div>
-      ${ext ? '' : html`<div class="stc-tile stc-kqlast"><span>Kiểm quỹ lần cuối</span><b>…</b><small>đang tải</small></div>`}
-      ${ext ? '' : html`<div class="stc-tile ${notOk.length ? 'warn' : ''}"><span>Ca chưa xác nhận Fabi</span><b>${notOk.length}</b><small>xem tab Đối soát Fabi</small></div>
-        <div class="stc-tile ${pend.length + todo.length ? 'warn' : ''}"><span>Chờ xử lý</span><b>${pend.length + todo.length}</b><small>lệch chờ xử lý + chi chưa phân loại</small></div>`}
-    </div>
-    <div class="stc-layout"><section class="card">
-        <div class="stc-ch"><h2>Tồn ${name} <small>${monthLabel(P.thang)} · cách tính</small></h2></div>
-        <div class="stc-tfs">${tf('tm')}${tf('ck')}</div>
-        <div class="stc-tools stc-pad">${ext ? html`<span class="st-meta">Thêm khoản chi / thu ngoài ở tab Sổ chi / Sổ thu.</span>` : html`<button type="button" class="btn sm stc-qnadd">+ Chuyển về Quỹ ngoài</button><button type="button" class="btn sm secondary stc-lcadd">+ Luân chuyển tiền mặt ↔ tài khoản</button><button type="button" class="btn sm secondary stc-kq">Kiểm quỹ</button>`}</div>
-        <div class="stc-ch"><h2>Tồn quỹ theo ngày</h2><span class="stc-tools">${['tm', 'ck'].map((pm) => html`<a class="btn sm ${P.pm === pm ? '' : 'secondary'}" href="${q({ pm })}">${PM[pm]}</a>`)}</span></div>
-        <div class="stc-dg stc-hdr"><span>Ngày</span><span>Đầu ngày</span><span>+ Thu</span><span>− Chi</span><span>${ext ? '' : '− Về Quỹ ngoài'}</span><span>Cuối ngày</span></div>
-        ${daily.length ? daily.map((d) => html`<div class="stc-dg stc-dd"><span class="stc-lab">${dm(d.date)} <small>${wd(d.date)}</small></span><span class="stc-c">${fmt(d.start)}</span><span class="stc-c">${d.thu ? '+' + fmt(d.thu) : '–'}</span><span class="stc-c">${d.chi ? '−' + fmt(d.chi) : '–'}</span><span class="stc-c">${d.toQN ? '−' + fmt(d.toQN) : ''}</span><span class="stc-c tot end">${fmt(d.end)}</span></div>`)
-          : html`<div class="stc-empty">Tháng này chưa có khoản nào.</div>`}
-      </section>
-      <aside class="stc-aside">
-        <section class="card stc-side"><h3>${ext ? 'Tiền các cơ sở chuyển về' : 'Chuyển về Quỹ ngoài'} <small>${waitN} chờ Chủ nhận</small></h3>
-          ${incoming.length ? incoming.map((x) => html`<div class="stc-si stc-qnl"><span><b>${ext ? (x.from || '') + ' · ' : ''}${x.pm === 'tm' ? 'Tiền mặt' : 'Chuyển khoản'} · ${dm(x.date)}</b><br>${x.title.includes(' · ') ? html`<span class="st-meta">${x.title.split(' · ').slice(1).join(' · ')}</span><br>` : ''}<span class="pill ${x.recv === 'cho' ? 'warn' : 'ok'}">${x.status || ''}</span>
-            ${x.recv === 'cho' ? html`${D.owner ? html` <button type="button" class="btn sm" data-qnok="${idNum(x.id)}">Đã nhận tiền</button>` : ''}${ext ? '' : html` <button type="button" class="btn sm secondary" data-qned="${idNum(x.id)}">Sửa / Xoá</button>`}` : html` <span class="st-meta">🔒</span>`}</span><b>${fmt(x.amount)}</b></div>`)
-            : html`<div class="st-meta">Tháng này chưa có.</div>`}
-          <div class="st-meta stc-note">Thay cho phiếu rút cũ. Chủ bấm "Đã nhận tiền" thì khoá cả 2 bên.</div></section>
-        ${ext ? '' : html`<section class="card stc-side" id="stc-kqbox"><h3>Kiểm quỹ tháng này</h3><div class="st-meta">Đang tải…</div></section>`}
-        ${ext ? '' : html`<section class="card stc-side"><h3>Chờ xử lý</h3>
-          ${notOk.map((c) => html`<div class="stc-si"><span>Ca ${c.shift} ${dm(c.date)} chưa xác nhận Fabi</span><a href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.id}">Mở ›</a></div>`)}
-          ${pend.map((x) => html`<div class="stc-si"><span>${x.title} · ${dm(x.date)}<br><span class="st-meta">${x.status}</span></span><b>${fmt(x.amount)}</b></div>`)}
-          ${todo.map((x) => html`<div class="stc-si"><span>Chưa phân loại · ${x.title}</span><b>${fmt(x.amount)}</b></div>`)}
-          ${notOk.length + pend.length + todo.length ? '' : html`<div class="st-meta">Không còn gì. 👍</div>`}</section>`}
-      </aside></div>`;
+    <section class="card stc-tong">
+      <div class="stc-ch"><h2>Tồn ${name} <small>${monthLabel(P.thang)} · cách tính</small></h2></div>
+      <div class="stc-tfs">${tf('tm')}${tf('ck')}</div>
+      <div class="stc-tools stc-pad">${ext ? html`<span class="st-meta">Thêm khoản chi / thu ngoài ở tab Sổ chi / Sổ thu.</span>` : html`<button type="button" class="btn sm stc-qnadd">+ Chuyển về Quỹ ngoài</button><button type="button" class="btn sm secondary stc-lcadd">+ Luân chuyển tiền mặt ↔ tài khoản</button><button type="button" class="btn sm secondary stc-kq">Kiểm quỹ</button>`}</div>
+      <div class="stc-ch"><h2>Tồn quỹ theo ngày</h2><span class="stc-tools">${['tm', 'ck'].map((pm) => html`<a class="btn sm ${P.pm === pm ? '' : 'secondary'}" href="${q({ pm })}">${PM[pm]}</a>`)}</span></div>
+      <div class="stc-dg stc-hdr"><span>Ngày</span><span>Đầu ngày</span><span>+ Thu</span><span>− Chi</span><span>${ext ? '' : '− Về Quỹ ngoài'}</span><span>Cuối ngày</span></div>
+      ${daily.length ? daily.map((d) => html`<div class="stc-dg stc-dd"><span class="stc-lab">${dm(d.date)} <small>${wd(d.date)}</small></span><span class="stc-c">${fmt(d.start)}</span><span class="stc-c">${d.thu ? '+' + fmt(d.thu) : '–'}</span><span class="stc-c">${d.chi ? '−' + fmt(d.chi) : '–'}</span><span class="stc-c">${d.toQN ? '−' + fmt(d.toQN) : ''}</span><span class="stc-c tot end">${fmt(d.end)}</span></div>`)
+        : html`<div class="stc-empty">Tháng này chưa có khoản nào.</div>`}
+    </section>
+    <div class="stc-two">${qnBox}${kqBox}</div>
+    ${cmp}`;
 }
 let DS_SEL = null;   // ca đang mở ở tab Đối soát Fabi
 let DS_PARAM = '';   // tham số ds= đã dùng (không ép lại sau mỗi lần vẽ)
@@ -1487,6 +1497,30 @@ const STYLE = html`<style>
   .stc-tlr { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 8px 4px 22px; font-size: 13px; }
   .stc-tlr > span { min-width: 0; overflow-wrap: anywhere; } .stc-tlr.void { opacity: .55; text-decoration: line-through; }
   .stc-tile.stc-bad { border-color: var(--off-line); background: var(--off-bg); }
+  /* bước 166: tab Tổng mẫu B — 2 khung đầu trang cao bằng nhau, giới hạn chiều cao, cuộn bên trong */
+  .stc-top2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+  .stc-top2 > .card { display: flex; flex-direction: column; max-height: 340px; min-width: 0; padding: 12px 14px; }
+  .stc-top2 h3 { margin: 0 0 6px; font-size: 15px; display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; }
+  .stc-top2 h3 small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .stc-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+  .stc-ti { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; gap: 8px; align-items: center; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
+  .stc-ti:last-child { border-bottom: 0; } .stc-tt { min-width: 0; overflow-wrap: anywhere; }
+  .stc-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn-line); } .stc-dot.red { background: var(--off-line); }
+  .stc-dp { border-bottom: 1px solid var(--line-soft); padding: 6px 0; } .stc-dp:last-child { border-bottom: 0; }
+  .stc-dp > summary, .stc-fam > summary { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
+  .stc-dp > summary::-webkit-details-marker, .stc-fam > summary::-webkit-details-marker, .stc-cmp > summary::-webkit-details-marker { display: none; }
+  .stc-dp > summary::after, .stc-fam > summary::after { content: "›"; color: var(--muted); font-size: 18px; transition: transform .15s; }
+  .stc-dp[open] > summary::after, .stc-fam[open] > summary::after { transform: rotate(90deg); }
+  .stc-dp > summary { text-transform: none; letter-spacing: normal; }   /* tên người nợ là nội dung — giữ nguyên chữ (them.css in hoa mọi summary) */
+  .stc-dp > summary > .stc-tt { flex: 1; } .stc-dk { padding-left: 12px; align-items: center; }
+  .stc-fam { margin-top: 6px; border: 1px dashed var(--line-strong); border-radius: 10px; padding: 6px 10px; } .stc-fam > summary { font-weight: 600; color: var(--ink-2); font-size: 13px; }
+  .stc-none0 { padding: 6px 0; }
+  .stc-tong { margin-top: 12px; }
+  .stc-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 12px; align-items: start; }
+  .stc-two .stc-side h3 { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 4px 8px; } .stc-two .stc-side h3 small { color: var(--muted); font-weight: 500; font-size: 12px; }
+  .stc-two .stc-side { padding: 12px 14px; min-width: 0; }
+  details.stc-cmp { padding: 10px 14px; } details.stc-cmp > summary { cursor: pointer; font-weight: 600; } details.stc-cmp > summary small { color: var(--muted); font-weight: 400; }
+  @media (max-width: 720px) { .stc-top2, .stc-two { grid-template-columns: minmax(0, 1fr); } .stc-top2 > .card { max-height: 320px; } }
   @media (max-width: 980px) { .stc-layout { grid-template-columns: minmax(0, 1fr); } }
   @media (max-width: 720px) {
     .stc-full { margin: 10px -6px 0; padding: 8px; } .stc-part { padding: 8px; } .stc-glc .stc-its { margin: 0 4px 8px !important; }

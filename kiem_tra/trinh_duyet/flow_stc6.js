@@ -61,7 +61,7 @@ export default async ({ sleep, out }) => {
     // 8. tab Tổng: không còn Khoản treo / Ca chưa chốt
     location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-11&t=' + Date.now(); await sleep(400); await wait('.stc-big'); await sleep(400);
     ok(!$$('.stc-tile').some((t) => /khoản treo|ca chưa chốt/.test(txt(t))) && !$$('.stc-side').some((c) => txt(c).includes('khoản treo')), '8. tab Tổng: không còn ô / khung Khoản treo, Ca chưa chốt');
-    ok($$('.stc-tile').some((t) => txt(t).includes('ca chưa xác nhận fabi')), '8. tab Tổng: ô "Ca chưa xác nhận Fabi"');
+    ok($$('.stc-todo .stc-ti[data-kind=fabi]').some((t) => txt(t).includes('chưa xác nhận fabi')), '8. tab Tổng: khung Việc cần làm có "Ca … chưa xác nhận Fabi" (bước 166)');
     wide('8. Tổng');
   } catch (e) { bad.push('LỖI: ' + e.message); }
   out.push({ stc6: { ok: good, fail: bad } });

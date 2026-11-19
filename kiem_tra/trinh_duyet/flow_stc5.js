@@ -42,9 +42,9 @@ export default async ({ sleep, out }) => {
     $('[data-qnok]', qn('giao chủ')).click(); await sleep(1000); await go(TONG, '.stc-big');
     ok(txt(qn('giao chủ')).includes('chủ đã nhận') && !$('[data-qned]', qn('giao chủ')) && !$('[data-qnok]', qn('giao chủ')), '4. Đã nhận tiền → khoá, hết nút');
     // 5. luân chuyển
-    await openD($('button.stc-lcadd'));
-    ok($('[name=kind]', dlg())?.value === 'lc', '5. nút Luân chuyển mở sẵn loại Luân chuyển quỹ');
-    $('[data-x]', dlg()).click(); await sleep(200);
+    $('button.stc-lcadd').click(); await wait('.stc-addp', 30); await sleep(250);   // bước 166: + Thêm phiếu là khung trong trang (từ bước 163), không phải hộp thoại
+    ok($('.stc-addp [name=kind]')?.value === 'lc', '5. nút Luân chuyển mở sẵn loại Luân chuyển quỹ');
+    $('.stc-addp [data-x]')?.click(); await sleep(200);
     // 6. kiểm quỹ lệch → điều chỉnh
     await openD($('button.stc-kq'));
     setv('[name=m]', 'tien_mat'); setv('[name=amount]', '1'); setv('[name=note]', 'Đếm thử thiếu'); await sleep(300);

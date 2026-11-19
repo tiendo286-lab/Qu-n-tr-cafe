@@ -62,6 +62,7 @@ export default async ({ sleep, out }) => {
   ok($$('.stc-tf').length === 2 && txt($$('.stc-tf')[0]).includes('chuyển về quỹ ngoài'), '9. cách tính tiền mặt / tài khoản có dòng Chuyển về Quỹ ngoài');
   const dd = $$('.stc-dd');
   ok(dd.length > 0 && num(txt($('.end', dd[0]))) === F.tm.ton, '10. cuối ngày mới nhất = tồn quỹ');
+  if ($('details.stc-cmp')) $('details.stc-cmp').open = true;   // bước 166: So với trang cũ thu gọn cuối trang
   const cmp = $$('.stc-cmpr');
   ok(cmp.length === 1 && txt(cmp[0]).includes('18/11') && txt(cmp[0]).includes('20.000'), '11. so với trang cũ: 1 ngày khác 20.000 (' + cmp.map(txt).join(' | ') + ')');
   ok(!/−-|--\d/.test(txt($('#stc-page'))), '11. không có số hai dấu trừ');
