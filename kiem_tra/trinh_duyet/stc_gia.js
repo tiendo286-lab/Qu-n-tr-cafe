@@ -156,6 +156,7 @@ export function makeStc(T, me) {
     },
     app_stc_collect({ p_debt, p, p_reason }) {
       need(); amountOk(p.amount); const od = st().open_debts.find((d) => d.id === 'd:' + p_debt); if (!od) throw new Error('Không tìm thấy khoản nợ.');
+      if (od.date && p.date && p.date < od.date) throw new Error(`Khoản nợ ghi ngày ${od.date.slice(8, 10)}/${od.date.slice(5, 7)} — ngày thu phải từ ngày đó trở đi.`);   // bước 168 (tệp 147)
       if (Number(p.amount) > od.left) throw new Error('Số tiền thu phải lớn hơn 0 và không quá ' + od.left + '.');
       items().push({ id: 'dc:' + p_debt + ':' + (++V), date: p.date, ca_id: null, book: 'thu', pm: pmOf(p.kind), col: 'no', amount: Number(p.amount), title: od.who,
         meta: 'Quản lý thu ngoài ca', from: od.from, src: 'debt', can_edit: true, edit: edit('them', p_reason), debt_ref: od.id });

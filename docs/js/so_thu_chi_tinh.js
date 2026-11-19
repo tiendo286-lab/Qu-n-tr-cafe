@@ -15,6 +15,33 @@ export function caChoices(cas, date, { locked = false } = {}) {
     return { id: c.id, label: `Ca ${c.shift}` + (c.staff ? ` · ${c.staff}` : ''), ok: !why, why };
   });
 }
+// bước 168: điều kiện nút "Xác nhận Fabi" (phần A) — GIỮ ĐÚNG luật cũ của partA, chỉ gom về 1 chỗ để thanh cuối màn hình dùng chung.
+// k: chỗ cần xử lý (red = ô đỏ ở ①, kt = chờ kế toán, cash = ô tiền mặt thực nhận)
+export function fabiNeeds(ca, checks) {
+  const f = ca.fabi || {}; const kt = ca.kt_wait || ca.bank_ck == null; const byCa = ca.cash_mode === 'ca';
+  const need = [];
+  if ((checks || []).filter((x) => ['mo', 'dt', 'no'].includes(x.k)).some((x) => x.st === 'red')) need.push({ k: 'red', txt: 'còn ô đỏ ở ①' });
+  if (kt || !f.has) need.push({ k: 'kt', txt: 'chờ kế toán' });
+  if (byCa && ca.ql_counted == null) need.push({ k: 'cash', txt: 'chưa nhập tiền mặt thực nhận' });
+  return need;
+}
+// bước 168: việc còn lại để hoàn thành đối soát 1 ca (thanh "Hoàn thành đối soát ca" cuối màn hình điện thoại / máy tính)
+//  chưa xác nhận Fabi → các điều kiện của nút Xác nhận Fabi; đã xác nhận → các dòng chênh lệch chưa xử lý (bấm nhảy tới bảng đó ở phần B)
+export function dsTodo(ca, checks, gaps) {
+  if (!ca.recon_money_done) return { step: 'fabi', need: fabiNeeds(ca, checks) };
+  const pend = (gaps || []).filter((g) => !g.done);
+  return { step: pend.length ? 'lech' : 'xong', need: pend.map((g) => ({ k: 'gap', pm: g.pm, book: g.amt > 0 ? 'thu' : 'chi',
+    txt: `${g.pm === 'tm' ? 'Tiền mặt' : 'Chuyển khoản'} ${g.amt > 0 ? 'dư' : 'thiếu'} ${fmt(g.amt)}${g.wait ? ' — chờ Chủ duyệt' : ' chưa xử lý'}` })) };
+}
+// bước 168: Thu nợ chỉ hiện nợ phát sinh TRƯỚC ca ghi thu (nợ ca sáng trả ca chiều cùng ngày vẫn được); phiếu ngoài ca: nợ từ ngày đó trở về trước.
+// o = 1 dòng open_debts (date + from "ca Sáng 05/11" hoặc "quản lý ghi"); at = { date, shift } (shift trống = ngoài ca). Máy chủ (tệp 147) chặn lại.
+export function debtOrigin(o) { const m = /^ca (\S+) /.exec(String(o?.from || '')); return { date: o?.date || null, shift: o?.shift || (m ? m[1] : null) }; }
+export function debtBefore(o, at) {
+  const g = debtOrigin(o);
+  if (!g.date || !at?.date) return true;   // thiếu ngày thì không ẩn (máy chủ kiểm lại)
+  if (at.shift && g.shift) return g.date < at.date || (g.date === at.date && shiftRank(g.shift) < shiftRank(at.shift));
+  return g.date <= at.date;   // phiếu ngoài ca, hoặc nợ quản lý ghi (không có ca): ghi trong ngày đó hoặc trước
+}
 export const COLS = {
   thu: [['dt', 'Doanh thu'], ['no', 'Thu nợ'], ['khac', 'Thu khác'], ['lc', 'Luân chuyển'], ['lech', 'Chênh lệch']],
   chi: [['chi', 'Các khoản chi'], ['no', 'Cho nợ'], ['lc', 'Luân chuyển'], ['lech', 'Chênh lệch']],
