@@ -92,7 +92,7 @@ export async function render({ params }) {
           if (f5.classList.contains('stc-qnadd')) qnDialog(D, null);
           else if (f5.dataset.qned) qnDialog(D, D.items.find((x) => x.id === 'w:' + f5.dataset.qned));
           else if (f5.dataset.qnok) qnConfirm(D, Number(f5.dataset.qnok));
-          else if (f5.classList.contains('stc-lcadd')) addDialog(D, 'chi', 'lc');
+          else if (f5.classList.contains('stc-lcadd')) addPanel(D, f5, 'chi', { preset: 'lc' });
           else if (f5.classList.contains('stc-kq')) countDialog(D);
           else if (f5.dataset.adj) adjDialog(D, Number(f5.dataset.adj));
           else extDialog(D, null);
@@ -101,11 +101,11 @@ export async function render({ params }) {
         const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt],[data-addca],[data-gap]');
         if (w && root.contains(w)) {
           if (w.dataset.gap) { const it = D.items.find((x) => x.id === w.dataset.gap); if (it?.gap) gapDialog(D, it); }
-          else if (w.dataset.addca) addCaDialog(D, w.dataset.addca, w.dataset.book || (P.tab === 'thu' ? 'thu' : 'chi'));
+          else if (w.dataset.addca) addPanel(D, w, w.dataset.book || (P.tab === 'thu' ? 'thu' : 'chi'), { caId: w.dataset.addca });
           else if (w.dataset.ed) editDialog(D, D.items.find((x) => x.id === w.dataset.ed));
           else if (w.dataset.unc) uncollectDialog(D, D.items.find((x) => x.id === w.dataset.unc));
           else if (w.dataset.colDebt) collectDialog(D, w.dataset.colDebt);
-          else addDialog(D, P.tab === 'thu' ? 'thu' : 'chi');
+          else addPanel(D, w, P.tab === 'thu' ? 'thu' : 'chi');
           return;
         }
         // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
@@ -138,6 +138,12 @@ export async function render({ params }) {
         const b = $('#stc-book'); if (b && (P.tab === 'thu' || P.tab === 'chi')) b.innerHTML = str(bookCard(D, P.tab));
       });
       root.addEventListener('change', (ev) => { const c = ev.target.closest('[data-person]'); if (c && root.contains(c)) personMark(D, c.dataset.person, c.checked); });
+      root.addEventListener('change', async (ev) => {   // bước 155: chọn nhóm / người nợ ngay trên dòng
+        const cx = ev.target.closest('[data-catx]'); const wx = ev.target.closest('[data-whox]');
+        if (cx) { const it = D.items.find((x) => x.id === cx.dataset.catx); if (!it) return; cx.disabled = true; try { await setCat(D, it, cx.value); } catch (e) { showSaved(e.message || e, true); cx.disabled = false; } }
+        else if (wx) { const it = D.items.find((x) => x.id === wx.dataset.whox); if (it) setWho(D, it, wx.value, wx); }
+      });
+      if ((P.tab === 'thu' || P.tab === 'chi') && !FTV) finTypes().then(() => { const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab)); const a = $('.stc-aside'); if (a) a.innerHTML = str(bookSide(D, P.tab)); });
       // bước 152: bộ lọc sổ — vẽ lại riêng phần sổ, giữ con trỏ ở ô tìm; đường dẫn cập nhật không tải lại trang
       let lfT = null;
       const lfSet = (k, v) => { const f = parseLoc(P.loc); f[k] = v; if (k === 'type') f.cat = ''; P.loc = locStr(f);
@@ -154,7 +160,8 @@ export async function render({ params }) {
 // ---------------- Sửa / thêm / xoá (đợt 2a: khoản ngoài ca) ----------------
 let CATS = null;
 let FT = null;   // app_fin_types: { types, cats }
-const finTypes = async () => (FT ||= rpc('app_fin_types').catch(() => ({ types: [], cats: [] })));
+let FTV = null;  // danh mục đã tải xong (vẽ đồng bộ)
+const finTypes = async () => (FT ||= rpc('app_fin_types').catch(() => ({ types: [], cats: [] })).then((r) => (FTV = r)));
 const cats = async () => (CATS ||= finTypes().then((r) => r.cats || []));
 const idNum = (id) => Number(String(id).split(':')[1]);
 const after = (msg) => { CACHE = null; showSaved(msg); rerender(); };
@@ -214,51 +221,83 @@ async function editDialog(D, x) {
       async () => { await rpc('app_stc_debt_delete', { p_id: idNum(x.id), p_reason: val(d, 'reason') }); after('Đã xoá khoản cho nợ'); });
   }
 }
-async function addDialog(D, book, preset = null) {
+// Khung "+ Thêm phiếu" nằm ngay trong sổ (theo bản mẫu 18/11), thay hộp nổi: Loại · Tiền · Ngày · Ca · Nội dung · Số tiền · Nhóm · Lý do.
+// Chọn ca → phiếu bổ sung vào bản đối soát của ca (chỉ Khoản chi / Thu khác, lý do bắt buộc); Ngoài ca → khoản ngoài ca như cũ.
+async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
+  document.querySelectorAll('.stc-addp').forEach((x) => x.remove());
   const br = D.branch.id; const today = vnToday();
+  const pm = P.tab === 'doi-soat' ? DSB.pm : P.pm;
   const kinds = book === 'chi' ? [['chi', 'Khoản chi'], ['no', 'Cho nợ'], ['lc', 'Luân chuyển quỹ']] : [['khac', 'Thu khác'], ['no', 'Thu nợ'], ['lc', 'Luân chuyển quỹ']];
   const debts = D.open_debts || [];
-  const d = dialog(form(`+ Thêm phiếu ${book} · Ngoài ca`, html`<div class="st-meta">Phiếu thêm là phiếu bổ sung của quản lý. Thêm vào ca làm ở đợt sau.</div>
-    <label class="field"><span>Loại</span><select class="input" name="kind">${kinds.map(([k, l]) => html`<option value="${k}">${l}</option>`)}</select></label>
-    <label class="field"><span>Ngày</span><input class="input" type="date" name="date" value="${today}"></label>
-    <div data-show="chi khac no-chi">${pmSel('pay', P.pm)}</div>
-    <div data-show="lc"><label class="field"><span>Chiều</span><select class="input" name="dir"><option value="tm_tk">Tiền mặt → Tài khoản</option><option value="tk_tm">Tài khoản → Tiền mặt</option></select></label></div>
-    <div data-show="chi khac lc"><label class="field"><span>Nội dung</span><input class="input" name="note"></label></div>
-    <div data-show="no-chi"><label class="field"><span>Người nợ</span><input class="input" name="name" list="stc-people"><datalist id="stc-people">${(D.people || []).map((p) => html`<option value="${p.name}"></option>`)}</datalist></label></div>
-    <div data-show="no-thu"><label class="field"><span>Khách trả nợ</span><select class="input" name="debt"><option value="">— Chọn khách đang nợ —</option>${debts.map((x) => html`<option value="${x.id}">${x.who} · còn nợ ${fmt(x.left)} · từ ${x.from}</option>`)}</select></label>${pmSel('pay2', P.pm)}</div>
-    <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money></label>
-    <div data-show="chi khac" class="stc-catbox">${await catSel(book === 'chi' ? 'chi' : 'thu')}</div>`, ' '));
-  const kindOf = () => { const k = val(d, 'kind'); return k === 'no' ? `no-${book}` : k; };
-  const sync = () => d.querySelectorAll('[data-show]').forEach((el) => { el.hidden = !el.dataset.show.split(' ').includes(kindOf()); });
-  if (preset) d.querySelector('[name=kind]').value = preset;
-  d.querySelector('[name=kind]').addEventListener('change', sync); sync();
-  open(d, async () => {
-    const k = val(d, 'kind'); const amount = money(d, 'amount'); const reason = val(d, 'reason') || null;
-    if (k === 'chi' || k === 'khac') {
-      if (!val(d, 'cat')) throw new Error('Chọn nhóm.');
-      await rpc('app_stc_entry_save', { p_id: null, p: { branch_id: br, entry_date: val(d, 'date'), kind: book === 'chi' ? 'chi' : 'thu', amount, note: val(d, 'note'), pay_method: val(d, 'pay'), category_id: val(d, 'cat') }, p_reason: reason });
-    } else if (k === 'lc') {
-      await rpc('app_stc_transfer_save', { p_id: null, p: { branch_id: br, date: val(d, 'date'), direction: val(d, 'dir'), amount, note: val(d, 'note') }, p_reason: reason });
-    } else if (book === 'chi') {
-      await rpc('app_stc_debt_save', { p_id: null, p: { branch_id: br, name: val(d, 'name'), amount, kind: val(d, 'pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: val(d, 'date') }, p_reason: reason });
-    } else {
-      if (!val(d, 'debt')) throw new Error('Chọn khách đang nợ.');
-      await rpc('app_stc_collect', { p_debt: idNum(val(d, 'debt')), p: { date: val(d, 'date'), kind: val(d, 'pay2'), amount }, p_reason: reason });
-    }
-    after('Đã thêm phiếu');
+  const cas = (D.cas || []).filter((c) => c.recon_money_done && !isFin(D, c.id) && !D.locked)
+    .sort((a, b) => (a.date === b.date ? SHIFT_ORDER.indexOf(b.shift) - SHIFT_ORDER.indexOf(a.shift) : a.date < b.date ? 1 : -1));
+  const cs = (await cats()).filter((c) => c.kind === (book === 'chi' ? 'chi' : 'thu') && c.active !== false);
+  const pmOpt = (name) => html`<select class="input" name="${name}"><option value="tien_mat" ${pm !== 'ck' ? 'selected' : ''}>Tiền mặt</option><option value="chuyen_khoan" ${pm === 'ck' ? 'selected' : ''}>Chuyển khoản</option></select>`;
+  const f = (label, ctl, show = '', cls = '') => html`<label class="stc-af ${cls}" data-show="${show}"><span>${label}</span>${ctl}</label>`;
+  const box = document.createElement('form'); box.className = 'stc-addp'; box.noValidate = true;
+  box.innerHTML = str(html`<div class="stc-ah"><b>+ Thêm phiếu ${book}</b> <span class="st-meta">phiếu bổ sung của quản lý · Chủ, Quản lý tổng, Quản lý cơ sở đều thêm được</span>
+      ${f('Loại', html`<select class="input" name="kind">${kinds.map(([k, l]) => html`<option value="${k}" ${k === preset ? 'selected' : ''}>${l}</option>`)}</select>`, '', 'stc-ak')}</div>
+    <div class="stc-ar">
+      ${f('Tiền', pmOpt('pay'), 'chi khac no-chi')}
+      ${f('Chiều', html`<select class="input" name="dir"><option value="tm_tk">Tiền mặt → Tài khoản</option><option value="tk_tm">Tài khoản → Tiền mặt</option></select>`, 'lc')}
+      ${f('Tiền', pmOpt('pay2'), 'no-thu')}
+      ${f('Ngày', html`<input class="input" type="date" name="date" value="${today}">`)}
+      ${f('Ca', html`<select class="input" name="ca"><option value="">Ngoài ca</option>${cas.map((c) => html`<option value="${c.id}" ${String(c.id) === String(caId) ? 'selected' : ''}>${caName(c)}</option>`)}</select>`)}
+      ${f('Nội dung', html`<input class="input" name="note" placeholder="${book === 'chi' ? 'vd: Mua đá' : 'vd: Bán vỏ thùng'}">`, 'chi khac lc', 'stc-aw')}
+      ${f('Người nợ', html`<input class="input" name="name" list="stc-people" placeholder="Khách"><datalist id="stc-people">${(D.people || []).map((p) => html`<option value="${p.name}"></option>`)}</datalist>`, 'no-chi', 'stc-aw')}
+      ${f('Khách trả nợ', html`<select class="input" name="debt"><option value="">— Chọn khách đang nợ —</option>${debts.map((x) => html`<option value="${x.id}">${x.who} · còn nợ ${fmt(x.left)} · từ ${x.from}</option>`)}</select>`, 'no-thu', 'stc-aw')}
+    </div>
+    <div class="stc-ar">
+      ${f('Số tiền', html`<input class="input money" name="amount" inputmode="numeric">`, '', 'stc-am')}
+      ${cs.length === 1 ? html`<span class="pill mute stc-ac" data-show="chi khac">Nhóm: ${cs[0].name}<input type="hidden" name="cat" value="${cs[0].id}"></span>`
+        : f('Nhóm', html`<select class="input" name="cat"><option value="">— Chọn nhóm —</option>${cs.map((c) => html`<option value="${c.id}">${c.name}</option>`)}</select>`, 'chi khac')}
+      ${f('Lý do', html`<input class="input" name="reason">`, '', 'stc-aw')}
+      <span class="stc-abtn"><button class="btn sm" type="submit">Lưu phiếu</button><button type="button" class="btn sm secondary" data-x>Huỷ</button></span>
+    </div><div class="stc-err"></div>`);
+  const anchor = btn.closest('.stc-ch') || btn.closest('.stc-it.add, .stc-tools') || btn;
+  anchor.insertAdjacentElement('afterend', box);
+  bindMoneyInputs(box);
+  const el = (n) => box.querySelector(`[name=${n}]`);
+  const kindOf = () => { const k = el('kind').value; return k === 'no' ? `no-${book}` : k; };
+  const sync = () => {
+    const k = kindOf(); const caOk = k === 'chi' || k === 'khac';
+    box.querySelectorAll('[data-show]').forEach((x) => { x.hidden = !!x.dataset.show && !x.dataset.show.split(' ').includes(k); });
+    if (!caOk) el('ca').value = '';
+    el('ca').disabled = !caOk || !cas.length; el('ca').title = caOk ? '' : 'Cho nợ / Thu nợ / Luân chuyển chỉ thêm ngoài ca';
+    const ca = cas.find((c) => String(c.id) === el('ca').value);
+    if (ca) el('date').value = ca.date; el('date').disabled = !!ca;
+    el('reason').placeholder = ca ? 'bắt buộc khi thêm vào ca' : 'không bắt buộc';
+  };
+  el('kind').addEventListener('change', sync); el('ca').addEventListener('change', sync); sync();
+  box.querySelector('[data-x]').addEventListener('click', () => box.remove());
+  box.addEventListener('submit', async (ev) => {
+    ev.preventDefault(); const sb = box.querySelector('[type=submit]');
+    const v = (n) => (el(n)?.value || '').trim(); const amount = parseMoney(v('amount')) || 0; const reason = v('reason') || null;
+    const k = v('kind'); const ca = cas.find((c) => String(c.id) === v('ca'));
+    try {
+      if (!amount) throw new Error('Nhập số tiền.');
+      sb.disabled = true;
+      if (ca) {
+        if (!reason) throw new Error('Ghi lý do (thêm vào ca bắt buộc lý do).');
+        await rpc('app_stc_move_save', { p_report: ca.id, p_mkey: null, p: { kind: v('pay'), amount: (book === 'chi' ? -1 : 1) * amount, note: v('note'), category_id: v('cat') || null }, p_reason: reason });
+        return after(`Đã thêm phiếu vào ${caName(ca)}`);
+      }
+      if (k === 'chi' || k === 'khac') {
+        if (!v('cat')) throw new Error('Chọn nhóm.');
+        await rpc('app_stc_entry_save', { p_id: null, p: { branch_id: br, entry_date: v('date'), kind: book === 'chi' ? 'chi' : 'thu', amount, note: v('note'), pay_method: v('pay'), category_id: v('cat') }, p_reason: reason });
+      } else if (k === 'lc') {
+        await rpc('app_stc_transfer_save', { p_id: null, p: { branch_id: br, date: v('date'), direction: v('dir'), amount, note: v('note') }, p_reason: reason });
+      } else if (book === 'chi') {
+        await rpc('app_stc_debt_save', { p_id: null, p: { branch_id: br, name: v('name'), amount, kind: v('pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: v('date') }, p_reason: reason });
+      } else {
+        if (!v('debt')) throw new Error('Chọn khách đang nợ.');
+        await rpc('app_stc_collect', { p_debt: idNum(v('debt')), p: { date: v('date'), kind: v('pay2'), amount }, p_reason: reason });
+      }
+      after('Đã thêm phiếu');
+    } catch (e) { sb.disabled = false; err(box, e); }
   });
-}
-async function addCaDialog(D, caId, book) {
-  const ca = (D.cas || []).find((c) => c.id === Number(caId)); if (!ca) return;
-  const kind = book === 'chi' ? 'chi' : 'thu';
-  const d = dialog(form(`+ Thêm phiếu ${kind} vào Ca ${ca.shift} ${dm(ca.date)}`, html`<div class="st-meta">Thêm vào bản đối soát của ca (phiếu bổ sung của quản lý). Lý do bắt buộc.</div>
-    <label class="field"><span>Nội dung</span><input class="input" name="note"></label>
-    <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money></label>${pmSel('pay', P.pm)}${await catSel(kind)}`, ' '));
-  open(d, async () => {
-    if (!val(d, 'reason')) throw new Error('Ghi lý do (thêm vào ca bắt buộc lý do).');
-    await rpc('app_stc_move_save', { p_report: ca.id, p_mkey: null, p: { kind: val(d, 'pay'), amount: (kind === 'chi' ? -1 : 1) * money(d, 'amount'), note: val(d, 'note'), category_id: val(d, 'cat') || null }, p_reason: val(d, 'reason') });
-    after('Đã thêm phiếu vào ca');
-  });
+  box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  (el('note') && !el('note').closest('[hidden]') ? el('note') : el('amount')).focus({ preventScroll: true });
 }
 function collectDialog(D, debtId) {
   const x = (D.open_debts || []).find((o) => o.id === debtId); if (!x) return;
@@ -508,7 +547,8 @@ function itemRow(x, book, D = null) {
       : html`<button type="button" class="btn sm secondary stc-act" data-gap="${x.id}" disabled>Phiếu chênh lệch</button><span class="st-meta">🔒 Xác nhận Fabi ở tab Đối soát Fabi mới xử lý được</span>`);
   }
   if (book === 'chi' && x.col === 'chi') {
-    pills.push(x.cat ? html`<span class="pill mute">${x.cat}</span>` : html`<span class="pill warn">Chưa phân loại</span>`);
+    const cs = D ? catSelect(D, x) : null;   // bước 155: chọn nhóm ngay trên dòng (như bản mẫu 18/11)
+    pills.push(cs || (x.cat ? html`<span class="pill mute">${x.cat}</span>` : html`<span class="pill warn">Chưa phân loại</span>`));
     if (x.no_cost) pills.push(html`<span class="pill stc-nc">Không tính chi phí</span>`);
     if (D && !D.ext && x.src === 'move') {   // bước 153: khoản chi nhân viên ghi → phiếu trừ lương
       const ka = kaOf(D, x); const ca = (D.cas || []).find((c) => c.id === x.ca_id); const live = !!ca?.recon_money_done && !isFin(D, x.ca_id) && !D.locked;
@@ -517,6 +557,7 @@ function itemRow(x, book, D = null) {
     }
   }
   if (x.chia) pills.push(html`<span class="pill info">${x.chia}</span>`);
+  if (D && !D.ext && x.book === 'chi' && x.col === 'no' && String(x.id).startsWith('dn:')) pills.push(debtPills(D, x));   // bước 155
   if (x.can_edit) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
     : html`<button type="button" class="btn sm secondary stc-ed" data-ed="${x.id}">Sửa / Xoá</button>`);
   else if (!['dt', 'lech'].includes(x.col) && !x.to_qn) {
@@ -563,6 +604,47 @@ function addBtn(D, c, book, label) {
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
     : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
+}
+// ---- bước 155: tính năng bản mẫu 18/11 còn thiếu — chọn nhóm trên dòng, người nợ trên dòng Cho nợ, Chi theo loại, phần mỗi cơ sở chịu
+function catSelect(D, x) {
+  if (D.ext || !FTV || D.locked || x.void) return null;
+  const isMove = String(x.id).startsWith('m:');
+  // khoản của ca: chọn nhóm được khi ca chưa chốt (không đổi tiền; máy chủ chặn ca đã chốt); khoản ngoài ca: như nút Sửa
+  if (isMove ? (x.src !== 'move' || isFin(D, x.ca_id) || kaOf(D, x).length) : !(String(x.id).startsWith('e:') && x.can_edit)) return null;
+  const types = (FTV.types || []).filter((t) => t.kind === 'chi' && t.active !== false);
+  const cats = (FTV.cats || []).filter((c) => c.kind === 'chi' && c.active !== false);
+  const opt = (c) => html`<option value="${c.id}" ${x.cat === c.name ? 'selected' : ''}>${c.name}</option>`;
+  const loose = cats.filter((c) => !types.some((t) => String(t.id) === String(c.type_id)));
+  return html`<select class="input sm stc-cat ${x.cat || x.no_cost ? '' : 'need'}" data-catx="${x.id}" aria-label="Nhóm chi"><option value="">— Chọn nhóm —</option>
+    ${types.map((t) => { const cc = cats.filter((c) => String(c.type_id) === String(t.id)); return cc.length ? html`<optgroup label="${t.name}">${cc.map(opt)}</optgroup>` : ''; })}${loose.map(opt)}
+    ${isMove ? html`<option value="x" ${x.no_cost && !x.cat ? 'selected' : ''}>Không tính</option>` : ''}</select>`;
+}
+async function setCat(D, x, v) {
+  if (String(x.id).startsWith('m:')) {
+    const [, rid, ...mk] = String(x.id).split(':');
+    await rpc('app_tc_check', { p_report: Number(rid), p_mkey: mk.join(':'), p_category: v && v !== 'x' ? Number(v) : null, p_excluded: v === 'x', p_checked: !!v });
+  } else {
+    await rpc('app_stc_entry_save', { p_id: idNum(x.id), p: { entry_date: x.date, kind: 'chi', amount: Number(x.amount), note: x.title, pay_method: x.pm === 'ck' ? 'chuyen_khoan' : 'tien_mat', category_id: v ? Number(v) : null }, p_reason: 'Chọn nhóm' });
+  }
+  after(v ? 'Đã chọn nhóm' : 'Đã bỏ nhóm');
+}
+const debtName = (x) => String(x.title || '').replace(/^Nợ (TM|CK)\s*[:–-]\s*/, '');
+function debtPills(D, x) {
+  const name = debtName(x); const pp = (D.people || []).find((q) => q.name === name);
+  const od = (D.open_debts || []).find((o) => o.id === 'd:' + idNum(x.id));
+  const st = !od ? html`<span class="pill ok">Đã thu hết</span>` : Number(od.left) < Number(x.amount) ? html`<span class="pill warn">Đã thu ${fmt(Number(x.amount) - Number(od.left))} · còn nợ ${fmt(od.left)}</span>` : html`<span class="pill mute">Còn nợ ${fmt(od.left)}</span>`;
+  const names = [...new Set([name, ...(D.people || []).map((q) => q.name)])].filter(Boolean);
+  const sel = x.can_edit ? html`<label class="stc-who">Người nợ <select class="input sm" data-whox="${x.id}" aria-label="Người nợ">${names.map((n) => html`<option value="${n}" ${n === name ? 'selected' : ''}>${n}${(D.people || []).find((q) => q.name === n)?.no_remind ? ' ✓' : ''}</option>`)}<option value="__add">+ Thêm người nợ…</option></select></label>` : '';
+  return html`${sel}${pp?.no_remind ? html`<span class="pill ok">✓ Không nhắc thu ở phiếu chốt ca</span>` : html`<span class="pill info">Phiếu chốt ca sẽ nhắc thu</span>`}${st}`;
+}
+async function setWho(D, x, v, sel) {
+  const save = async (name) => rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name, amount: Number(x.amount), kind: x.pm === 'ck' ? 'ck' : 'muon', date: x.date }, p_reason: 'Đổi người nợ: ' + name });
+  if (v !== '__add') { try { await save(v); after('Đã đổi người nợ'); } catch (e) { showSaved(e.message || e, true); sel.value = debtName(x); } return; }
+  sel.value = debtName(x);
+  const d = dialog(form('Thêm người nợ', html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" placeholder="vd: Kho Tổng"></label>
+    <label class="stc-chk"><input type="checkbox" name="nr" checked> ✓ Không cần nhắc thu ở phiếu chốt ca</label>`, ' '));
+  open(d, async () => { const n = val(d, 'name'); if (!n) throw new Error('Nhập tên người nợ.'); await save(n);
+    await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: n, p_no_remind: !!d.querySelector('[name=nr]').checked }); after('Đã thêm người nợ'); });
 }
 // ---- bước 154: ảnh phiếu Fabi chốt ca (nhân viên chụp) — trước ở bước Tiền của Đối soát ca (đã bỏ ở bước 152)
 const phBtn = (c) => html`<button type="button" class="btn sm secondary" data-dsphoto="${c.id}">📷 Ảnh phiếu Fabi</button>`;
@@ -710,30 +792,55 @@ function bookCard(D, book) {
     <div class="stc-g stc-hdr" style="--n:${n}"><span>Ngày</span>${COLS[book].map(([k, l]) => html`<span class="${P.cot === k ? 'hl' : ''}">${l}</span>`)}<span>Tổng ${book}</span></div>
     ${rows.length ? rows : html`<div class="stc-empty">Tháng này chưa có khoản nào.</div>`}`;
 }
+// Quỹ ngoài › Sổ chi: phần mỗi cơ sở chịu (tạm tính theo cách chia); theo tỉ lệ doanh thu thì Chốt tháng tính
+function qnShare(D) {
+  const brs = (D.branches || []).map((b) => b.code); if (!brs.length) return '';
+  const chis = (D.items || []).filter((x) => !x.void && x.book === 'chi' && x.col === 'chi');
+  const share = Object.fromEntries(brs.map((b) => [b, 0])); let byRev = 0, other = 0;
+  chis.forEach((x) => { const c = x.chia || ''; const a = Number(x.amount || 0);
+    if (c.startsWith('Chia đều')) brs.forEach((b) => { share[b] += a / brs.length; });
+    else if (c.startsWith('1 cơ sở: ')) { const b = c.slice(9); if (b in share) share[b] += a; else other += a; }
+    else if (c.startsWith('Theo tỉ lệ')) byRev += a; else other += a; });
+  return html`<section class="card stc-side"><h3>Phần mỗi cơ sở chịu <small class="st-meta">tạm tính</small></h3>
+    ${brs.map((b) => html`<div class="stc-si"><span><b>${b}</b></span><b>${fmt(Math.round(share[b]))}</b></div>`)}
+    ${byRev ? html`<div class="stc-si"><span>Theo tỉ lệ doanh thu tháng<br><span class="st-meta">chia ở Chốt tháng</span></span><b>${fmt(byRev)}</b></div>` : ''}
+    ${other ? html`<div class="stc-si"><span>Không chia / tự nhập / chưa chọn cách chia</span><b>${fmt(other)}</b></div>` : ''}
+    <div class="st-meta stc-note">Tính vào chi phí của cơ sở ở Chốt tháng. Thanh toán kho tổng không chia lại (đã tính theo từng hoá đơn).</div></section>`;
+}
 function bookSide(D, book) {
   const its = D.items.filter((x) => !x.void);
   const card = (title, list, empty, note = '') => html`<section class="card stc-side"><h3>${title}</h3>${list.length ? list : html`<div class="st-meta">${empty}</div>`}${note ? html`<div class="st-meta stc-note">${note}</div>` : ''}</section>`;
   const li = (x, extra = '') => html`<div class="stc-si"><span><b>${x.title}</b> <span class="stc-tag t-${x.pm}">${x.pm === 'tm' ? 'TM' : 'CK'}</span><br><span class="st-meta">${dm(x.date)}${x.from ? ' · nợ từ ' + x.from : ''}${x.status ? ' · ' + x.status : ''}${extra}</span></span><b class="stc-amt ${x.book}">${sg(x.book)}${fmt(x.amount)}</b></div>`;
+  // bước 155: ca thiếu / dư bấm vào là mở phiếu chênh lệch; khoản chưa phân loại chọn nhóm tại chỗ
+  const caOf = (x) => (D.cas || []).find((c) => c.id === x.ca_id);
+  const liGap = (x) => { const ok = !!x.gap && !D.ext && caOf(x)?.recon_money_done && !isFin(D, x.ca_id);
+    return ok ? html`<button type="button" class="stc-si stc-go" data-gap="${x.id}"><span><b>${caOf(x) ? caName(caOf(x)) : dm(x.date)}</b> <span class="stc-tag t-${x.pm}">${x.pm === 'tm' ? 'TM' : 'CK'}</span><br><span class="st-meta">${x.status ? gapStatus(x.status) : ''} · mở phiếu chênh lệch ›</span></span><b class="stc-amt ${x.book}">${sg(x.book)}${fmt(x.amount)}</b></button>` : li(x); };
+  const liTodo = (x) => { const cs = catSelect(D, x); return cs ? html`<div class="stc-si stc-todo"><span><b>${x.title}</b> <span class="stc-tag t-${x.pm}">${x.pm === 'tm' ? 'TM' : 'CK'}</span><br><span class="st-meta">${caOf(x) ? caName(caOf(x)) : dm(x.date)}${x.meta ? ' · ' + x.meta : ''}</span><br>${cs}</span><b class="stc-amt chi">−${fmt(x.amount)}</b></div>` : li(x); };
   if (book === 'thu') {
     const no = its.filter((x) => x.book === 'thu' && x.col === 'no');
     const du = its.filter((x) => x.book === 'thu' && x.col === 'lech');
     const today = vnToday();
     const debts = (D.open_debts || []).map((d) => { const days = Math.max(0, Math.round((new Date(today) - new Date(d.date)) / 864e5)); return html`<div class="stc-si stc-kd"><span><b>${d.who}</b> ${d.no_remind ? html`<span class="pill ok">✓ không nhắc</span>` : ''}<br><span class="st-meta">${d.from} · <span class="${days > 7 ? 'stc-red' : ''}">${days} ngày</span></span></span><span class="stc-r"><b>${fmt(d.left)}</b>${D.ext ? '' : html`<button type="button" class="btn sm secondary stc-col" data-col-debt="${d.id}">Thu nợ</button>`}</span></div>`; });
-    return html`${card(`Thu nợ tháng này · ${fmt(sumItems(no))}`, no.map((x) => li(x)), 'Chưa có khoản thu nợ.')}${card('Ca dư tiền', du.map((x) => li(x)), 'Không có ca dư.')}
+    return html`${card(`Thu nợ tháng này · ${fmt(sumItems(no))}`, no.map((x) => li(x)), 'Chưa có khoản thu nợ.')}${card('Ca dư tiền', du.map(liGap), 'Không có ca dư.', 'Bấm một ca để mở phiếu chênh lệch: gán nợ khách trả, ghép với ca thiếu, hoặc tạo phiếu thu.')}
       ${card('Khách đang nợ', debts, 'Không còn ai nợ.', 'Gồm cả nợ hoá đơn (chưa phải tiền nên không nằm trong sổ). Đỏ khi quá 7 ngày.')}`;
   }
   const th = its.filter((x) => x.book === 'chi' && x.col === 'lech');
   const cn = its.filter((x) => x.book === 'chi' && x.col === 'no');
   const todo = its.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat);
   const cost = its.filter((x) => x.book === 'chi' && x.col === 'chi' && x.cat && !x.no_cost);
-  const groups = [...new Set(cost.map((x) => x.cat))].map((c) => [c, sumItems(cost.filter((x) => x.cat === c))]).sort((a, b) => b[1] - a[1]);
   const totalCost = sumItems(cost);
   const people = (D.people || []).map((p) => html`<label class="stc-si stc-pp"><span><input type="checkbox" data-person="${p.name}" ${p.no_remind ? 'checked' : ''} ${D.ext ? 'disabled' : ''}> <b>${p.name}</b><br>
       <span class="st-meta">${p.n ? `${p.n} khoản còn nợ · ` : ''}${p.no_remind ? '✓ không nhắc ở phiếu chốt ca' : 'phiếu chốt ca nhắc thu'}</span></span><b>${p.open ? fmt(p.open) : ''}</b></label>`);
-  return html`${card('Ca thiếu tiền', th.map((x) => li(x)), 'Không có ca thiếu.')}${card(`Cho nợ tháng này · ${fmt(sumItems(cn))}`, cn.map((x) => li(x)), 'Chưa có khoản cho nợ.')}
+  // Chi theo loại (như bản mẫu): gom theo loại chi phí, có nhóm con
+  const tnames = Object.fromEntries(((FTV && FTV.types) || []).map((t) => [String(t.id), t.name]));
+  const tgroups = [...new Set(cost.map((x) => String(x.cat_type ?? '')))].map((t) => { const xs = cost.filter((x) => String(x.cat_type ?? '') === t);
+    return { t: tnames[t] || (t ? 'Loại khác' : 'Chưa có loại'), v: sumItems(xs), cs: [...new Set(xs.map((x) => x.cat))].map((c) => [c, sumItems(xs.filter((x) => x.cat === c))]).sort((a, b) => b[1] - a[1]) }; }).sort((a, b) => b.v - a.v);
+  const shareCard = D.ext ? qnShare(D) : '';
+  return html`${shareCard}${card('Ca thiếu tiền', th.map(liGap), 'Không có ca thiếu.', 'Bấm một ca để mở phiếu chênh lệch: trừ lương, quán chịu hoặc ghép ca.')}${card(`Cho nợ tháng này · ${fmt(sumItems(cn))}`, cn.map((x) => li(x)), 'Chưa có khoản cho nợ.')}
     ${card('Người nợ', people, 'Chưa có người nợ có tên.', 'Có dấu ✓: phiếu chốt ca không nhắc thu người này (thay "Công nợ gia đình" và "Nợ kho tổng"). Khách luôn được nhắc. Thêm người nợ mới bằng "+ Thêm phiếu" › Cho nợ.')}
-    ${card(`Cần phân loại · ${todo.length} khoản`, todo.map((x) => li(x)), 'Đã phân loại hết.')}
-    ${card(`Chi theo nhóm · ${fmt(totalCost)}`, groups.map(([c, v]) => html`<div class="stc-ty"><span>${c}</span><b>${fmt(v)}</b><i style="width:${totalCost ? Math.round(v / totalCost * 100) : 0}%"></i></div>`), 'Chưa có khoản chi.',
+    ${card(`Cần phân loại · ${todo.length} khoản`, todo.map(liTodo), 'Đã phân loại hết.', 'Chọn nhóm là đối soát luôn.')}
+    ${card(`Chi theo loại · TM + CK · ${fmt(totalCost)}`, tgroups.map((g) => html`<div class="stc-tyg"><div class="stc-tyh"><span>${g.t}</span><b>${fmt(g.v)}</b></div><div class="stc-bar"><i style="width:${totalCost ? Math.round(g.v / totalCost * 100) : 0}%"></i></div>
+      ${g.cs.map(([c, v]) => html`<div class="stc-tyc"><span>${c}</span><b>${fmt(v)}</b></div>`)}</div>`), 'Chưa có khoản chi.',
       `Không cộng ${fmt(sumItems(its.filter((x) => x.book === 'chi' && x.col === 'chi' && x.no_cost)))} của các khoản Không tính chi phí. Chi phí Quỹ ngoài và tiền hàng kho tổng xem ở Chốt tháng.`)}`;
 }
 function bookPage(D, book) {
@@ -743,6 +850,7 @@ function bookPage(D, book) {
     const v = sumItems(its, { book, pm: P.pm, col: k });
     let s = '';
     if (book === 'chi' && k === 'chi') { const nc = sumItems(its.filter((x) => x.no_cost && x.col === 'chi' && x.book === 'chi' && x.pm === P.pm)); if (nc) s = `trong đó ${fmt(nc)} không tính chi phí`; }
+    if (k === 'lech') { const w = its.filter((x) => !x.void && x.book === book && x.pm === P.pm && x.col === 'lech' && /Chờ/.test(x.status || '') && !isFin(D, x.ca_id)).length; if (w) s = `${w} ca chờ xử lý`; }   // bước 155
     return html`<a class="stc-tile ${P.cot === k ? 'on' : ''}" data-col="${k}" href="${q({ cot: P.cot === k ? '' : k })}"><span class="stc-tag t-${k}">${l}</span><b>${fmt(v)}</b><small>${s || (HINT[book] || {})[k] || ''}</small></a>`;
   });
   return html`<div class="stc-pays">${pays}</div>
@@ -1127,6 +1235,19 @@ const STYLE = html`<style>
   .stc-si:last-of-type { border-bottom: 0; }
   .stc-dsl { max-height: 230px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
   @media (max-width: 980px) { .stc-dsl { max-height: 160px; } }
+  .stc-addp { margin: 10px 0; padding: 12px; border: 1.5px dashed var(--line); border-radius: 12px; background: var(--subtle); display: flex; flex-direction: column; gap: 10px; }
+  .stc-ah, .stc-ar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
+  .stc-ah .stc-ak { margin-left: auto; }
+  .stc-af { display: inline-flex; align-items: center; gap: 8px; padding: 4px 6px 4px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card, #fff); margin: 0; min-width: 0; }
+  .stc-af[hidden] { display: none; }
+  .stc-af > span { font-weight: 600; white-space: nowrap; font-size: 14px; }
+  .stc-addp .stc-af .input { width: auto; min-width: 0; height: 36px; min-height: 0; border: 1px solid var(--line-soft); padding: 4px 8px; font-size: 14px; }
+  .stc-aw { flex: 1 1 220px; } .stc-addp .stc-aw .input { flex: 1; width: 100%; }
+  .stc-addp .stc-am .input { width: 130px; }
+  .stc-ac[hidden] { display: none; }
+  .stc-abtn { display: inline-flex; gap: 8px; margin-left: auto; }
+  .stc-addp .stc-err:empty { display: none; }
+  @media (max-width: 720px) { .stc-af, .stc-ah .stc-ak { flex: 1 1 100%; margin-left: 0; } .stc-addp .stc-af .input { flex: 1; width: 100%; } .stc-abtn { flex: 1 1 100%; justify-content: flex-end; } }
   .stc-note { margin-top: 8px; } .stc-red { color: var(--off-ink); font-weight: 700; }
   .stc-ty { position: relative; display: flex; justify-content: space-between; padding: 6px 0 9px; }
   .stc-ty i { position: absolute; left: 0; bottom: 2px; height: 4px; border-radius: 3px; background: var(--primary); }
@@ -1220,6 +1341,13 @@ const STYLE = html`<style>
   #stc-page .stc-layout { grid-template-columns: minmax(0, 1fr) 310px; }
   #stc-page .stc-ch .stc-tools { margin-left: auto; }
   @media (max-width: 720px) { .stc-top { padding: 12px 12px 0; border-radius: 14px 14px 0 0; } .stc-top .stc-tabs a { font-size: 15px; padding: 9px 12px 11px; } #stc-page .stc-layout { grid-template-columns: minmax(0, 1fr); } }
+  .stc-cat { max-width: 220px; font-size: 12.5px; padding: 3px 6px; } .stc-cat.need { border-color: var(--warn-line, #f59e0b); background: var(--warn-bg); }
+  .stc-who { display: inline-flex; align-items: center; gap: 6px; font-size: 12.5px; color: var(--muted); } .stc-who select { font-size: 12.5px; padding: 3px 6px; }
+  .stc-go { width: 100%; text-align: left; background: none; border: 0; border-bottom: 1px solid var(--line); cursor: pointer; font: inherit; color: inherit; } .stc-go:hover { background: var(--subtle); }
+  .stc-tyg { padding: 8px 0; border-bottom: 1px solid var(--line); } .stc-tyg:last-of-type { border-bottom: 0; }
+  .stc-tyh { display: flex; justify-content: space-between; font-weight: 700; gap: 8px; } .stc-bar { height: 6px; background: var(--line-soft, #f2ebe1); border-radius: 4px; margin: 6px 0 4px; overflow: hidden; } .stc-bar i { display: block; height: 100%; background: var(--primary); border-radius: 4px; }
+  .stc-tyc { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); gap: 8px; padding-left: 10px; } .stc-tyc b { font-weight: 500; }
+  .stc-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
   .stc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; } .stc-photos figure { margin: 0; } .stc-photos img { width: 100%; border-radius: 10px; border: 1px solid var(--line, #e5e7eb); display: block; }
   .stc-flt { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line, #e5e7eb); }
   .stc-flt .stc-q { flex: 1 1 220px; min-width: 0; } .stc-flt select { flex: 0 1 auto; max-width: 100%; }

@@ -109,6 +109,7 @@ const TRE = Number(new URLSearchParams(location.search).get('tre') || 2); window
 export async function rpc(name, args = {}) {
   window.__LOG.push(['rpc', name, args]);
   const t0 = performance.now(); await new Promise((ok) => setTimeout(ok, TRE)); window.__RPCT.push([name, t0, performance.now()]);
+  if (name === 'app_tc_check' && CA.__tc_check && CA.__tc_check(args)) return null;   // bước 155: khoản Sổ thu chi giả
   if (CA[name]) return CA[name](args);
   if (name === 'app_me') return ME;
   if (name === 'app_published_weeks') { const ids = new Set((T.schedule_published || []).map((p) => p.week_id)); return (T.weeks || []).filter((w) => ids.has(w.id)).sort((a, b) => (a.start_date < b.start_date ? -1 : 1)).map((w) => ({ ...w })); }   // bước 134

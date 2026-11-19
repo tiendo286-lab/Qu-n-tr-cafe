@@ -308,6 +308,11 @@ export function makeStc(T, me) {
         item: 'am_tien', employee_id: q.employee_id, name: 'NV ' + q.employee_id, amount: Number(q.amount), status: 'tru_luong', reply: null, reason: p_reason || x.title, note: null, move_mkey: p_mkey }));
       x.no_cost = true; x.can_edit = false; return (p_people || []).length;
     },
+    // bước 155: chọn nhóm ngay trên dòng chi của ca (trang thật gọi app_tc_check) — chỉ xử lý khoản của Sổ thu chi giả, còn lại để fin_gia
+    __tc_check({ p_report, p_mkey, p_category, p_excluded }) {
+      const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`); if (!x) return false; finGuard(p_report);
+      x.cat = p_excluded ? null : catName(p_category); x.no_cost = !!p_excluded; return true;
+    },
     app_tc_move_ka_undo({ p_report, p_mkey }) {
       finGuard(p_report); sfs().filter((k) => k.report_id === Number(p_report) && k.move_mkey === p_mkey).forEach((k) => { k.status = 'huy'; });
       const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`); if (x) { x.no_cost = false; x.can_edit = true; }

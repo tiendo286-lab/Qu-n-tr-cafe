@@ -53,6 +53,7 @@ const items = [
   it(D18, 181, 'thu', 'tm', 'no', 200000, { title: 'Anh Hùng', meta: 'Khách trả nợ trong ca', from: 'ca Chiều 07/11', src: 'debt' }),
   it(D18, 181, 'chi', 'tm', 'chi', 50000, { title: 'Mua đá', cat: 'Nguyên liệu' }), it(D18, 181, 'chi', 'tm', 'chi', 300000, { title: 'Chi lương – Minh', meta: 'Lương trả tiền mặt', cat: 'Lương' }),
   it(D18, 181, 'chi', 'tm', 'no', 128000, { title: 'Khách mượn – Chị Hoa', meta: 'Khách mượn tiền két (Nợ TM)' }),
+  it(D18, 181, 'chi', 'ck', 'no', 90000, { id: 'dn:501', title: 'Nợ CK – Anh Dũng', meta: 'Phiếu ca', src: 'debt', can_edit: true }),   // bước 155: cho nợ CK còn mở
   it(D18, 181, 'chi', 'tm', 'lc', 500000, { title: 'Khách chuyển khoản, lấy tiền mặt' }), it(D18, 181, 'thu', 'ck', 'lc', 500000, { title: 'Khách chuyển khoản, lấy tiền mặt' }),
   it(D18, 182, 'chi', 'tm', 'chi', 180000, { title: 'Mua sữa tươi', checked: false }), it(D18, 182, 'chi', 'ck', 'chi', 45000, { title: 'Phí ship nguyên liệu', cat: 'Nguyên liệu' }),
   it(D18, 183, 'chi', 'tm', 'chi', 1000000, { title: 'Quản lý lấy tiền két', cat: 'Không tính', no_cost: true }),
@@ -86,7 +87,7 @@ Object.values(byDate).forEach((list) => {
 });
 { const c = cas.find((x) => x.id === 182); const net = items.filter((x) => x.ca_id === 182 && x.pm === 'tm').reduce((a, x) => a + (x.book === 'thu' ? x.amount : -x.amount), 0); c.real_tm = 1050000 + net; c.nv_counted = c.real_tm; }
 
-items.forEach((x) => { if (x.id.startsWith('m:')) x.can_edit = !!cas.find((c) => c.id === x.ca_id)?.recon_money_done; });
+items.forEach((x) => { if (x.id.startsWith('m:') || x.id.startsWith('dn:')) x.can_edit = !!cas.find((c) => c.id === x.ca_id)?.recon_money_done; });
 const base = {
   branch: { id: 1, code: 'LHP', name: 'Lê Hồng Phong' },
   branches: [{ id: 1, code: 'LHP' }, { id: 2, code: 'ĐK' }, { id: 3, code: 'HS' }, { id: 4, code: 'LL' }, { id: 5, code: 'LLB' }],
@@ -96,6 +97,7 @@ const base = {
     { id: 'd:1', who: 'Bàn 5', kind: 'bill', amount: 50000, left: 50000, date: D16, from: 'ca Tối 16/11', no_remind: false },
     { id: 'd:2', who: 'Cô Lan Anh', kind: 'bill', amount: 20000, left: 20000, date: '2026-11-10', from: 'ca Chiều 10/11', no_remind: false },
     { id: 'd:3', who: 'Kho Tổng', kind: 'ck', amount: 300000, left: 300000, date: D16, from: 'quản lý ghi', no_remind: true },
+    { id: 'd:501', who: 'Anh Dũng', kind: 'ck', amount: 90000, left: 60000, date: D18, from: 'ca Sáng 18/11', no_remind: false },
   ],
   compare: { fund_days: [], gaps: [{ ca_id: 183, pm: 'tm', lech: -30000, state: 'cho_gan' }, { ca_id: 152, pm: 'tm', lech: -40000, state: 'xong' }] },
   people: [{ name: 'Kho Tổng', no_remind: true, open: 300000, n: 1 }, { name: 'Bàn 5', no_remind: false, open: 50000, n: 1 }, { name: 'Cô Lan Anh', no_remind: false, open: 20000, n: 1 }],

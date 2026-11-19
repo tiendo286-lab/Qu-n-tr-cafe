@@ -8,6 +8,8 @@ export default async ({ sleep, out }) => {
   const good = [], bad = []; const ok = (c, m) => (c ? good : bad).push(m);
   const go = async (h, sel = '.stc-pay') => { location.hash = h; await sleep(300); await wait(sel); await sleep(400); };
   const dlg = () => $('dialog[open]');
+  const pan = () => $('.stc-addp');   // khung + Thêm phiếu nằm trong sổ (thay hộp nổi)
+  const setp = (sel, v) => { const el = $(sel, pan()); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const setv = (sel, v) => { const el = $(sel, dlg()); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const openAll = async () => { $('.stc-all')?.click(); await sleep(300); };
   const item = (t) => $$('.stc-it:not(.void):not(.add)').find((i) => txt(i).includes(t));
@@ -41,12 +43,13 @@ export default async ({ sleep, out }) => {
   ok(!item('internet tháng 11') && $$('.stc-it.void').some((i) => txt(i).includes('internet tháng 11') && txt(i).includes('đã xoá') && txt(i).includes('ghi trùng')), '3. xoá → gạch ngang + "Đã xoá · lý do"');
   // 5. thêm phiếu ngoài ca, khoản chi (nhóm bắt buộc)
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm');
-  $('button.stc-add').click(); await wait('dialog[open]', 30); await sleep(200);
-  setv('[name=kind]', 'chi'); setv('[name=note]', 'Mua khăn lau'); setv('[name=amount]', '40.000');
-  $('button[type=submit]', dlg()).click(); await sleep(500);
-  ok(txt($('.stc-err', dlg())).includes('chọn nhóm'), '5. chưa chọn nhóm bị báo');
-  const cs = $('[name=cat]', dlg()); setv('[name=cat]', cs.options[1]?.value || '');
-  $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
+  $('button.stc-add').click(); await wait('.stc-addp', 30); await sleep(200);
+  ok(!dlg(), '5. + Thêm phiếu mở khung ngay trong sổ, không phải hộp nổi');
+  setp('[name=kind]', 'chi'); setp('[name=note]', 'Mua khăn lau'); setp('[name=amount]', '40.000');
+  $('button[type=submit]', pan()).click(); await sleep(500);
+  ok(txt($('.stc-err', pan())).includes('chọn nhóm'), '5. chưa chọn nhóm bị báo');
+  const cs = $('[name=cat]', pan()); setp('[name=cat]', cs.options[1]?.value || '');
+  $('button[type=submit]', pan()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   const kl = item('mua khăn lau'); ok(!!kl && txt(kl).includes('thêm'), '5. khoản mới có nhãn "thêm"');
   // 6. người nợ ✓
   const pr = $$('.stc-pp').find((r) => txt(r).includes('bàn 5'));
@@ -71,11 +74,12 @@ export default async ({ sleep, out }) => {
   ok($$('.stc-it.void').some((i) => txt(i).includes('mua đá')) && txt(item('mua đá')).includes('55.000') && txt(item('mua đá')).includes('phiếu bổ sung'), '9. sửa khoản ca: gạch ngang + phiếu bổ sung 55.000');
   const addCa = $$('button.stc-addca').find((b) => !b.disabled);
   ok(!!addCa && $$('a[href*="tab=doi-soat"][href*="ds="]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã xác nhận bấm được, ca chưa xác nhận có đường dẫn sang Đối soát Fabi');
-  addCa.click(); await wait('dialog[open]', 30); await sleep(200);
-  setv('[name=note]', 'Mua giấy in'); setv('[name=amount]', '25.000'); setv('[name=reason]', '');
-  $('button[type=submit]', dlg()).click(); await sleep(500);
-  ok(txt($('.stc-err', dlg())).includes('ghi lý do'), '11. thêm vào ca thiếu lý do bị báo');
-  setv('[name=reason]', 'NV quên ghi'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
+  addCa.click(); await wait('.stc-addp', 30); await sleep(200);
+  ok(!!$('[name=ca]', pan())?.value, '11. khung chọn sẵn ca');
+  setp('[name=note]', 'Mua giấy in'); setp('[name=amount]', '25.000'); setp('[name=reason]', '');
+  $('button[type=submit]', pan()).click(); await sleep(500);
+  ok(txt($('.stc-err', pan())).includes('ghi lý do'), '11. thêm vào ca thiếu lý do bị báo');
+  setp('[name=reason]', 'NV quên ghi'); $('button[type=submit]', pan()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   ok(!!item('mua giấy in') && txt(item('mua giấy in')).includes('thêm'), '11. khoản thêm vào ca có nhãn thêm');
   // 8. không tràn ngang
   if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
