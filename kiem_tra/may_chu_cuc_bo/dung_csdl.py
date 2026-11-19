@@ -1,6 +1,7 @@
 # Dựng CSDL thử cục bộ: chạy lần lượt supabase/*.sql (bỏ qua lỗi từng tệp, ghi lại)
 import sys, os, re, glob, pgserver, psycopg2
 SP = os.environ.get('PG_DIR') or os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', '_tam', 'pg')
+os.makedirs(SP, exist_ok=True)
 srv = pgserver.get_server(os.path.join(SP, 'data'), cleanup_mode=None)
 uri = srv.get_uri()
 print(uri)

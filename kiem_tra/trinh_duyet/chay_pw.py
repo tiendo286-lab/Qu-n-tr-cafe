@@ -3,7 +3,7 @@
 # Dùng:  kiem_tra/trinh_duyet/chuan_bi.sh <thư mục tạm> [--dao-tao-gia]
 #        <venv>/bin/python kiem_tra/trinh_duyet/chay_pw.py <thư mục tạm> "role=chu&script=flow_ln167" [--phone] [--timeout 180]
 # --phone: mở test/phone.html (khung 390px). In kết quả #ketqua; mã thoát 1 nếu có lỗi (errs) hoặc hết giờ.
-import sys, json, threading, functools, http.server, socketserver, time
+import sys, json, re, threading, functools, http.server, socketserver, time
 from playwright.sync_api import sync_playwright
 
 def main():
@@ -40,6 +40,9 @@ def main():
     except Exception: print(txt); sys.exit(1)
     bad = False
     for o in out:
+        if isinstance(o, str):   # một số bài đẩy thẳng 1 dòng chữ
+            f = bool(re.search(r'FAIL|LỖI|Lỗi|Error|hỏng|không đạt|THẤT BẠI', o)) and not re.search(r'0 hỏng|0 lỗi', o)
+            bad = bad or f; print(('LỖI  ' if f else 'ĐẠT  ') + o[:1500]); continue
         if 'errs' in o or 'route' in o:
             errs = o.get('errs') or []
             print(('LỖI  ' if errs else 'ĐẠT  ') + str(o.get('route')) + ' — ' + str(o.get('title'))[:1500])
