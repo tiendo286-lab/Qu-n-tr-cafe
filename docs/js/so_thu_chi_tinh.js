@@ -141,7 +141,7 @@ export function compareDays(data, summary) {
 // Trạng thái 1 ca ở tab Đối soát Fabi. fin = {by, at} nếu đã Chốt ca; treoOpen = ca còn khoản treo mở.
 export function caStage(ca, checks, fin, treoOpen = false) {
   if (fin) return { k: 'fin', txt: treoOpen ? '🔒 Đã chốt · có khoản treo' : '🔒 Đã chốt ca', cls: 'p-ok' };
-  if (ca.recon_money_done) return { k: 'fab', txt: '🔵 Fabi ✓ · chưa chốt ca', cls: 'p-info' };
+  if (ca.recon_money_done) return { k: 'fab', txt: '🔵 Fabi ✓ · đã xác nhận', cls: 'p-info' };
   const ab = checks.filter((c) => ['mo', 'dt', 'no'].includes(c.k));
   if (ab.some((c) => c.st === 'kt') || ca.kt_wait || !ca.fabi?.has) return { k: 'kt', txt: '⏳ Chờ kế toán', cls: 'p-mute' };
   const reds = ab.filter((c) => c.st === 'red');
