@@ -76,7 +76,7 @@ class Q {
     }).then(res, rej);
   }
 }
-const ME = role === 'chu'
+const meFor = (role) => role === 'chu'
   ? { account_id: 1, employee_id: null, role: 'chu', must_change: false, code: 'admin', name: 'Chủ', perms: new Proxy({}, { get: () => true }) }
   : role === 'kt'
     ? { account_id: 7, employee_id: null, role: 'ke_toan', must_change: false, code: 'ketoan', name: 'Kế toán thử', perms: { ke_toan: true, nhan_viec: true } }
@@ -87,6 +87,20 @@ const ME = role === 'chu'
   : role === 'ql'
     ? { account_id: 5, employee_id: 5, role: 'ql', must_change: false, code: '5', name: 'Quản lý thử', perms: { order_ca: true, xem_lich_minh: true, xem_tat_ca: true, chot_ca: true, nhan_viec: true, dao_tao: true, doi_soat: true } }
     : { account_id: 3, employee_id: 3, role: 'nv', must_change: false, code: 'NV3', name: 'Nhân viên thử', perms: { order_ca: true, xem_lich_minh: true, chot_ca: true, nhan_viec: true } };
+// bước 165: Xem như người khác — role=chu + localStorage test_viewas = nv | ql | qlt | kt | nvkt → app_me trả người đó + view_as; ghi bị chặn (CSDL chỉ đọc)
+const VA_IDS = { ql: 5, nv: 3, qlt: 6, kt: 7, nvkt: 8 };
+const VA_KEY = (id) => Object.keys(VA_IDS).find((k) => VA_IDS[k] === Number(id));
+const vaNow = () => { if (role !== 'chu') return null; const k = localStorage.getItem('test_viewas'); if (!k || !VA_IDS[k]) return null;
+  const until = Number(localStorage.getItem('test_viewas_until') || Date.now() + 1800000);
+  if (Date.now() > until) { localStorage.removeItem('test_viewas'); localStorage.removeItem('test_viewas_until'); return null; }
+  return { k, until }; };
+const VA = vaNow();
+const ME = VA ? { ...meFor(VA.k === 'nvkt' ? 'nv' : VA.k), account_id: VA_IDS[VA.k], ...(VA.k === 'nvkt' ? { name: 'Nhân viên kế toán thử' } : {}),
+  view_as: { account_id: VA_IDS[VA.k], name: VA.k === 'nvkt' ? 'Nhân viên kế toán thử' : meFor(VA.k).name, role: meFor(VA.k).role, branches: VA.k === 'ql' ? ['LHP'] : [], ke_toan: VA.k === 'nvkt', expires_at: new Date(VA.until).toISOString() } } : meFor(role);
+const VA_PEOPLE = [{ account_id: 6, name: 'QL tổng thử', code: 'NV01', role: 'ql_tong', branches: [], ke_toan: false }, { account_id: 5, name: 'Quản lý thử', code: '5', role: 'ql', branches: ['LHP'], ke_toan: false },
+  { account_id: 7, name: 'Kế toán thử', code: 'ketoan', role: 'ke_toan', branches: [], ke_toan: false }, { account_id: 3, name: 'Nhân viên thử', code: 'NV3', role: 'nv', branches: [], ke_toan: false },
+  { account_id: 8, name: 'Nhân viên kế toán thử', code: 'NV8', role: 'nv', branches: [], ke_toan: true }];
+const VA_WRITE = /_(save|set|add|del|delete|mark|seen|ack|create|update|upsert|send|done|confirm|apply|close|open|claim|collect|reopen|submit|edit|move|touch|read|tick)(_|$)/;
 const CA = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(T, ME), ...makeHt(T, ME), ...makeKt(T, ME), ...makeFin(T, ME), ...makeFund(T, ME), ...makeStc(T, ME), ...makeNh(T, ME), ...makeDg(T, ME), ...makeCv(T, ME), ...makeFb(T, ME), ...makePc(T, ME), ...makeHn(T, ME) };
 const authCbs = [];
 export const sb = {
@@ -110,6 +124,11 @@ export async function rpc(name, args = {}) {
   window.__LOG.push(['rpc', name, args]);
   const t0 = performance.now(); await new Promise((ok) => setTimeout(ok, TRE)); window.__RPCT.push([name, t0, performance.now()]);
   if (name === 'app_tc_check' && CA.__tc_check && CA.__tc_check(args)) return null;   // bước 155: khoản Sổ thu chi giả
+  if (name === 'app_view_as_people') { if (role !== 'chu') throw new Error('Chỉ Chủ dùng được Xem như người khác.'); return VA_PEOPLE; }
+  if (name === 'app_view_as_start') { if (role !== 'chu') throw new Error('Chỉ Chủ dùng được Xem như người khác.'); const k = VA_KEY(args.p_account); if (!k) throw new Error('Không xem như tài khoản này.');
+    localStorage.setItem('test_viewas', k); if (!new URLSearchParams(location.search).get('xnexp')) localStorage.setItem('test_viewas_until', String(Date.now() + 1800000)); return null; }
+  if (name === 'app_view_as_stop') { localStorage.removeItem('test_viewas'); localStorage.removeItem('test_viewas_until'); return null; }
+  if (VA && VA_WRITE.test(name)) throw new Error('Đang xem như người khác — chỉ xem, không lưu được.');   // giả CSDL chỉ đọc (sb.js thật đổi lỗi read-only sang câu này)
   if (CA[name]) return CA[name](args);
   if (name === 'app_me') return ME;
   if (name === 'app_published_weeks') { const ids = new Set((T.schedule_published || []).map((p) => p.week_id)); return (T.weeks || []).filter((w) => ids.has(w.id)).sort((a, b) => (a.start_date < b.start_date ? -1 : 1)).map((w) => ({ ...w })); }   // bước 134

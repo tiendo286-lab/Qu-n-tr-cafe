@@ -11,7 +11,7 @@ if [ "${2:-}" = "--dao-tao-gia" ]; then
 else
   python3 -I "$D/dump_web.py" "$D/../../du_lieu/app.sqlite3" "$W/test/data.js"
 fi
-cp "$D/stc_gia.js" "$D/stc_fixture.js" "$D"/flow_stc*.js "$D/flow_cu152.js" "$D/flow_ds156.js" "$D/flow_gio162.js" "$W/test/" 2>/dev/null || true
+cp "$D/stc_gia.js" "$D/stc_fixture.js" "$D"/flow_stc*.js "$D/flow_cu152.js" "$D/flow_ds156.js" "$D/flow_gio162.js" "$D/flow_xn165.js" "$W/test/" 2>/dev/null || true
 cp "$D/flow_dt137.js" "$D/hn_gia.js" "$D/flow_hn138.js" "$D/flow_hd139.js" "$D/flow_nq141.js" "$D/flow_hn142.js" "$W/test/"
 python3 - "$W/index.html" <<'PY'
 import re,sys; p=sys.argv[1]; s=open(p).read()
