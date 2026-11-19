@@ -4,18 +4,18 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.19.13';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.19.14';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.13';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.13';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.19.14';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.19.14';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.13';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.19.14';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -834,7 +834,7 @@ export async function render({ params }) {
   // bước 152: phần tiền bỏ khỏi trang Đối soát ca → thẻ dẫn sang Sổ thu chi › Đối soát Fabi (mở đúng ca). Xác nhận Fabi ghi kết quả tiền nên các mục tiền tự "✓ Xong".
   const mDone = ['tien_mat', 'chuyen_khoan'].every((it) => (R.results || {})[it]);
   const stcHref = `#/quan-ly/so-thu-chi?tab=doi-soat&cn=${R.branch_id}&thang=${String(R.work_date || '').slice(0, 7)}&ds=${R.id}`;
-  const stcCard = isDs ? html`<section class="card stack pc-sec ds-stc-card" style="gap:10px"><div class="pc-sec-head"><h2>Phần tiền</h2><span class="pill ${mDone ? 'ok' : 'warn'}">${mDone ? '✓ Đã xác nhận Fabi' : 'Chưa xác nhận Fabi'}</span></div>
+  const stcCard = isDs ? html`<section class="card stack pc-sec ds-stc-card" style="gap:10px"><div class="pc-sec-head"><h2>Phần tiền · làm ở Sổ thu chi</h2><span class="pill ${mDone ? 'ok' : 'warn'}">${mDone ? '✓ Đã xác nhận Fabi' : 'Chưa xác nhận Fabi'}</span></div>
       <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Xác nhận Fabi xong thì các mục tiền ở đây tự "✓ Xong"; ca xong cả phần việc thì tự Hoàn thành đối soát.</div>
       <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a>
       ${iposPhotos.length ? html`<h3 style="margin:4px 0 0;font-size:15px">Ảnh phiếu Fabi chốt ca</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}</div>` : html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`}</section>` : '';
@@ -880,9 +880,10 @@ const STEP_PART = ['tien', 'tien', 'nhan_su'];
 // Bước 86 (anh Tiến 14/11): đối soát đi từng bước như phiếu chốt ca — mỗi bước "Duyệt & tiếp"; bước cuối xử lý lệch & hoàn thành
 // bước 87: bước "Nghỉ & ca bổ sung (x2)" (QL tổng phân loại, Chủ duyệt) chỉ hiện khi ca có người nghỉ / làm hộ
 // bước 110 (anh Tiến 15/11): phần tiền gộp 1 trang — Phiếu Fabi · Khách nợ · Thu chi · Tiền mặt · Chuyển khoản, bấm 1 lần duyệt & hoàn thành
-const DS_STEPS = ['Ai làm ca', 'Nghỉ & làm thay', 'Bàn giao', 'Tiền'];
-const DS_ITEMS = [['nhan_su'], [], ['ban_giao', 'nhap_hang'], ['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi', 'tien_mat', 'chuyen_khoan']];
-const DS_PART = ['① Phần việc', '① Phần việc', '① Phần việc', '② Phần tiền'];
+// bước 156 (anh Tiến 19/11): bỏ bước "Tiền" — phần tiền làm ở Sổ thu chi › Đối soát Fabi; bước cuối chỉ còn Hoàn thành (trạng thái phần tiền + lịch sử)
+const DS_STEPS = ['Ai làm ca', 'Nghỉ & làm thay', 'Bàn giao', 'Hoàn thành'];
+const DS_ITEMS = [['nhan_su'], [], ['ban_giao', 'nhap_hang'], []];
+const DS_PART = ['① Phần việc', '① Phần việc', '① Phần việc', '② Hoàn thành'];
 const DS_X2 = 1;
 const DS_LAST = DS_STEPS.length - 1;
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]

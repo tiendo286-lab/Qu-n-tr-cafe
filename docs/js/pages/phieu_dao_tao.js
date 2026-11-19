@@ -5,7 +5,7 @@ import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str, once } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.19.13';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.19.14';
 import { STATUS as TASK_STATUS } from './viec.js';
 
 const ITEM_FILTERS = {

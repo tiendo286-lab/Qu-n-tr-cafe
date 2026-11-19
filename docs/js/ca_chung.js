@@ -2,7 +2,7 @@
 import { html } from './ui.js';
 import { fmt } from './tien.js';
 
-export const SHIFT_STEPS = ['Ai làm ca', 'Nghỉ & làm thay', 'Bàn giao', 'Tiền'];
+export const SHIFT_STEPS = ['Ai làm ca', 'Nghỉ & làm thay', 'Bàn giao', 'Hoàn thành'];   // bước 156: bỏ bước Tiền — phần tiền làm ở Sổ thu chi
 export function shiftSteps(active, cover, attr = 'data-shift-step') {
   return html`<nav class="sc-steps" aria-label="Các bước chốt ca và đối soát">${SHIFT_STEPS.map((label, i) => i === 1 && !cover ? '' : html`<button type="button" ${attr === 'data-ds-go' ? html`data-ds-go="${i}"` : html`data-shift-step="${i}"`} class="${i === active ? 'on' : ''}" aria-current="${i === active ? 'step' : 'false'}"><b>${i + 1 - (!cover && i > 1 ? 1 : 0)}</b><span>${label}</span></button>`)}</nav>`;
 }
