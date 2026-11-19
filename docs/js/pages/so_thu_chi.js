@@ -129,7 +129,7 @@ export async function render({ params }) {
         const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen],[data-dsfinal]');
         if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
         const ds = ev.target.closest('[data-dsca]');
-        if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); return; }
+        if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); if (ds.classList.contains('stc-go')) $('.stc-dsp')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
         const t = ev.target.closest('[data-day],[data-ca],.stc-all,.stc-none'); if (!t || !root.contains(t)) return;
         if (t.dataset.day) { OPEN_D.has(t.dataset.day) ? OPEN_D.delete(t.dataset.day) : OPEN_D.add(t.dataset.day); }
         else if (t.dataset.ca) { OPEN_C.has(t.dataset.ca) ? OPEN_C.delete(t.dataset.ca) : OPEN_C.add(t.dataset.ca); }
@@ -998,7 +998,7 @@ function dsBody(D) {
   const tOpen = (D.treo || []).filter((t) => t.status === 'mo');
   const cell = (d, s) => { const a = all.find((x) => x.c.date === d && x.c.shift === s); if (!a) return html`<span class="st-meta">–</span>`;
     return html`<button type="button" class="stc-dsc ${String(a.c.id) === String(DS_SEL) ? 'on' : ''}" data-dsca="${a.c.id}"><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`; };
-  const side = (title, list, empty) => html`<section class="card stc-side"><h3>${title} <small>${list.length}</small></h3>${list.length ? list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>${caName(a.c)}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`) : html`<div class="st-meta">${empty}</div>`}</section>`;
+  const side = (title, list, empty) => html`<section class="card stc-side"><h3>${title} <small>${list.length}</small></h3>${list.length ? html`<div class="stc-dsl">${list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>${caName(a.c)}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`)}</div>` : html`<div class="st-meta">${empty}</div>`}</section>`;   // danh sách dài → cuộn trong khung, không đẩy phần ca xuống
   return html`<div class="stc-tiles">
       <div class="stc-tile"><span>Ca đã chốt</span><b>${cnt('fin')} / ${all.length}</b><small>khoá vĩnh viễn</small></div>
       <div class="stc-tile ${cnt('fab') ? 'warn' : ''}"><span>Fabi ✓ · chưa chốt ca</span><b>${cnt('fab')}</b><small>xử lý thu chi + chênh lệch rồi Chốt ca</small></div>
@@ -1125,6 +1125,8 @@ const STYLE = html`<style>
   .stc-side h3 { margin: 0 0 6px; font-size: 15px; }
   .stc-si { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
   .stc-si:last-of-type { border-bottom: 0; }
+  .stc-dsl { max-height: 230px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+  @media (max-width: 980px) { .stc-dsl { max-height: 160px; } }
   .stc-note { margin-top: 8px; } .stc-red { color: var(--off-ink); font-weight: 700; }
   .stc-ty { position: relative; display: flex; justify-content: space-between; padding: 6px 0 9px; }
   .stc-ty i { position: absolute; left: 0; bottom: 2px; height: 4px; border-radius: 3px; background: var(--primary); }
