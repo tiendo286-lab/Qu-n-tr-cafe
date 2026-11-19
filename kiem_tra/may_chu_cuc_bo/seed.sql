@@ -16,3 +16,4 @@ insert into public.accounts(id, login_name, employee_id, system_role, auth_user_
   (7, 'kt', 7, 'ke_toan', '00000000-0000-0000-0000-000000000007', 0)
 on conflict (employee_id) do update set login_name = excluded.login_name, system_role = excluded.system_role, auth_user_id = excluded.auth_user_id, locked = 0;
 -- đăng nhập trong bài thử: perform set_config('request.jwt.claims', json_build_object('sub', '00000000-0000-0000-0000-00000000000N', 'role', 'authenticated')::text, true);
+insert into public.shifts(id, code, name, sort_order) values (1, 'S', 'Sáng', 1), (2, 'C', 'Chiều', 2), (3, 'T', 'Tối', 3) on conflict (id) do nothing;

@@ -40,9 +40,17 @@ def main():
     except Exception: print(txt); sys.exit(1)
     bad = False
     for o in out:
-        errs = o.get('errs') or []
+        if 'errs' in o or 'route' in o:
+            errs = o.get('errs') or []
+            print(('LỖI  ' if errs else 'ĐẠT  ') + str(o.get('route')) + ' — ' + str(o.get('title'))[:1500])
+        else:   # kiểu {ten: {ok: [...], fail: [...]}} của các bài flow_stc*
+            errs = []
+            for k, v in o.items():
+                if isinstance(v, dict) and ('fail' in v or 'ok' in v):
+                    f = v.get('fail') or []; errs += f
+                    print(('LỖI  ' if f else 'ĐẠT  ') + f'{k} — {len(v.get("ok") or [])} đạt, {len(f)} hỏng')
+                else: print('     ', k, json.dumps(v, ensure_ascii=False)[:1500])
         bad = bad or bool(errs)
-        print(('LỖI  ' if errs else 'ĐẠT  ') + str(o.get('route')) + ' — ' + str(o.get('title'))[:1500])
         for e in errs: print('   ✗', str(e)[:1500])
     if logs: print('Console:', *logs[-10:], sep='\n  ')
     sys.exit(1 if bad else 0)
