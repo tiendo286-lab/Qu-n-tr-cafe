@@ -45,6 +45,8 @@ ok(G.main.find((g) => g.who === 'Kho Tổng').total === 10000, 'khoản Kho Tổ
 ok(G.total === 450000, 'tổng còn nợ 450.000 (bỏ khoản đã trả hết): ' + G.total);
 ok(G.late === 2, 'quá 7 ngày: Bàn 5 (11) và Cô Lan Anh (9) → 2, Kho Tổng ✓ không tính');
 ok(!G.main.some((g) => g.who === 'Anh Dũng'), 'khoản còn 0 thì bỏ');
+const C = debtGroups([{ id: 'a', who: 'Cô Lan', left: 10000, date: '2026-11-18' }, { id: 'b', who: ' cô lan ', left: 5000, date: '2026-11-17' }], today);
+ok(C.main.length === 1 && C.main[0].n === 2 && C.main[0].total === 15000 && C.main[0].who === 'Cô Lan', 'tên khác chữ hoa / dấu cách vẫn là 1 người (hiện tên gặp đầu tiên)');
 const E = debtGroups([], today);
 ok(E.main.length === 0 && E.fam.length === 0 && E.total === 0 && E.late === 0, 'không ai nợ');
 ok(debtGroups(undefined, today).total === 0, 'thiếu danh sách nợ không lỗi');

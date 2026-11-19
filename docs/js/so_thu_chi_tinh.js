@@ -303,7 +303,7 @@ export function debtGroups(debts, today) {
   const map = new Map();
   (debts || []).filter((d) => Number(d.left) > 0).forEach((d) => {
     const days = Math.max(0, Math.round((t0 - new Date(d.date + 'T00:00:00').getTime()) / 864e5));
-    const key = `${d.who}|${d.no_remind ? 1 : 0}`;
+    const key = `${String(d.who || '').trim().toLowerCase()}|${d.no_remind ? 1 : 0}`;   // như máy chủ (lower(trim(tên))), hiện tên gặp đầu tiên
     if (!map.has(key)) map.set(key, { who: d.who, no_remind: !!d.no_remind, total: 0, n: 0, maxDays: 0, ks: [] });
     const g = map.get(key); g.total += Number(d.left); g.n += 1; g.maxDays = Math.max(g.maxDays, days); g.ks.push({ ...d, days });
   });

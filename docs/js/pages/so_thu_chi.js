@@ -1507,6 +1507,10 @@ const STYLE = html`<style>
   .stc-ti:last-child { border-bottom: 0; } .stc-tt { min-width: 0; overflow-wrap: anywhere; }
   .stc-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--warn-line); } .stc-dot.red { background: var(--off-line); }
   .stc-dp { border-bottom: 1px solid var(--line-soft); padding: 6px 0; } .stc-dp:last-child { border-bottom: 0; }
+  details.stc-cmp > summary { list-style: none; }
+  details.stc-cmp > summary::before { content: "›"; display: inline-block; margin-right: 6px; color: var(--muted); transition: transform .15s; }
+  details.stc-cmp[open] > summary::before { transform: rotate(90deg); }
+  .stc-two > :only-child { grid-column: 1 / -1; }
   .stc-dp > summary, .stc-fam > summary { display: flex; justify-content: space-between; align-items: center; gap: 8px; cursor: pointer; list-style: none; }
   .stc-dp > summary::-webkit-details-marker, .stc-fam > summary::-webkit-details-marker, .stc-cmp > summary::-webkit-details-marker { display: none; }
   .stc-dp > summary::after, .stc-fam > summary::after { content: "›"; color: var(--muted); font-size: 18px; transition: transform .15s; }

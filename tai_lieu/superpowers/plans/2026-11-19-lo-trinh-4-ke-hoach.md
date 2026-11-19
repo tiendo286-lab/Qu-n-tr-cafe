@@ -11,7 +11,7 @@ Tệp này là **chỗ duy nhất** ghi thứ tự, số bước, số tệp SQL
 | 2 | **KH3 — Ô Ca theo Ngày** · `plans/2026-11-19-o-ca-theo-ngay.md` | 163 | — | Nhỏ, chỉ giao diện, chỉ sửa `addPanel`. Làm trước KH4 để KH4 xếp lại khung mà giữ nguyên luật mới. |
 | 3 | **KH4 — Sổ thu / Sổ chi gọn** · `plans/2026-11-19-so-thu-chi-gon.md` | 164 | — | Sửa lớn nhất ở `so_thu_chi.js`. Làm sau KH2, KH3 để không phải sửa lại hai việc đó. |
 | 4 | **KH1 — Xem như người khác** · `plans/2026-11-19-xem-nhu-nguoi-khac.md` | 165 | 145 | Rủi ro cao nhất (hàm chạy trước **mọi** lần gọi máy chủ). Tệp riêng, không đụng Sổ thu chi. Xong thì anh dùng nó để xem lại các màn hình mới dưới vai Quản lý / Nhân viên. |
-| 5 | **KH5 — Tab Tổng mẫu B + Ai còn nợ** · thiết kế `specs/2026-11-19-tab-tong-mau-b-design.md` (thêm 19/11 tối) | 166 | — | Chỉ giao diện, chỉ sửa `tongPage` trong `so_thu_chi.js`. Làm sau KH4 (cùng tệp). Kế hoạch từng bước viết lúc chạy. Anh bảo "chạy kế hoạch 5" mới làm. |
+| 5 | **KH5 — Tab Tổng mẫu B + Ai còn nợ** · `plans/2026-11-19-tab-tong-mau-b.md` (thiết kế `specs/2026-11-19-tab-tong-mau-b-design.md`) | 166 | — | **Đã làm 19/11 (web 2026.11.19.23).** Chỉ giao diện, chỉ sửa `tongPage` / `fillCounts` trong `so_thu_chi.js` + 2 hàm thuần. |
 
 Số bước / số tệp là **dự kiến**. Mỗi lượt kiểm lại trước khi dùng: `git log -5`, `select max(file) from app_migrations` (so theo số: `order by split_part(file,'_',1)::int desc`).
 
