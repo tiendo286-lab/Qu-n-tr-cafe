@@ -46,6 +46,12 @@ begin
   exception when others then rep := rep || ' · mở lại xác nhận: ' || sqlerrm; end;
   begin perform public.app_stc_ds_fabi(305, 'dt', null, 'thử'); rep := rep || ' · KHÔNG chặn Lấy số máy Fabi!';
   exception when others then rep := rep || ' · lấy số Fabi: ' || sqlerrm; end;
+  begin perform public.app_stc_move_save(305, null, jsonb_build_object('kind', 'tien_mat', 'amount', -1000, 'note', 'thử thêm'), 'thử'); rep := rep || ' · KHÔNG chặn thêm phiếu vào ca!';
+  exception when others then rep := rep || ' · thêm phiếu vào ca: ' || sqlerrm; end;
+  begin update public.shift_report_recon set updated_at = updated_at where report_id = 305; rep := rep || ' · KHÔNG chặn sửa bản đối soát!';
+  exception when others then rep := rep || ' · sửa bản đối soát: chặn'; end;
+  begin perform public.app_ca_recon(305); rep := rep || ' · mở trang Đối soát ca cũ: được';
+  exception when others then rep := rep || ' · mở trang Đối soát ca cũ: ' || sqlerrm; end;
   v := (select pos_cash from public.shift_reports where id = 305);
   update public.shift_reports set pos_cash = pos_cash + 12345 where id = 305;
   rep := rep || E'\n    cột tiền phiếu: ' || case when (select pos_cash from public.shift_reports where id = 305) = v then 'giữ nguyên' else 'BỊ ĐỔI!' end;

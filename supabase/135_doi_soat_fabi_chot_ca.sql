@@ -75,8 +75,11 @@ begin
     return case when TG_OP = 'DELETE' then OLD else NEW end;
   end if;
 
-  -- bảng hệ thống tự ghi: bỏ qua lặng lẽ (giữ nguyên số của ca đã chốt)
-  if TG_TABLE_NAME in ('shift_reports', 'shift_report_recon', 'shift_report_checks', 'fabi_shifts', 'bank_shift_balances', 'bank_account_balances') then
+  -- hệ thống tự ghi: bỏ qua lặng lẽ (giữ nguyên số của ca đã chốt, không làm hỏng việc tải file Fabi / số dư ngân hàng / mở trang cũ)
+  if TG_TABLE_NAME in ('shift_reports', 'shift_report_checks', 'fabi_shifts', 'bank_shift_balances', 'bank_account_balances') then return null; end if;
+  if TG_TABLE_NAME = 'shift_report_recon' and (TG_OP = 'INSERT'
+       or hit::text in (coalesce(current_setting('app.fabi_report', true), ''), coalesce(current_setting('app.ca_submit_report', true), ''),
+                        coalesce(current_setting('app.ca_self_submit', true), ''))) then
     return null;
   end if;
   raise exception 'Ca này đã CHỐT CA (khoá vĩnh viễn) nên không sửa được.';
@@ -95,7 +98,7 @@ end $$;
 
 -- ---------------------------------------------------------------- Xác nhận Fabi (sửa lỗi đợt 4)
 -- Ca có mục Tiền mặt / Chuyển khoản web đã tự đối soát (khớp, bị khoá tự động) thì "Chốt tiền ca" cũ báo lỗi khoá.
--- Nay: mục đã có kết quả giống hệt thì không ghi lại.
+-- Nay: mục đã có kết quả giống hệt (hoặc đã 'khớp' mà lệch ≤ 5.000 — luật coi như khớp) thì không ghi lại.
 create or replace function public.app_stc_ds_close(p_report bigint) returns jsonb
 language plpgsql security definer set search_path = public as $$
 declare r public.shift_reports; s jsonb; m jsonb; it text; v bigint; res text;
@@ -111,7 +114,8 @@ begin
   foreach it in array array['tien_mat', 'chuyen_khoan'] loop
     v := (m ->> case it when 'tien_mat' then 'tm_left' else 'ck_left' end)::bigint;
     res := case when coalesce(v, 0) = 0 then 'khop' when v < 0 then 'thieu' else 'thua' end;
-    if exists (select 1 from public.shift_report_results x where x.report_id = p_report and x.item = it and x.result = res and coalesce(x.amount, 0) = abs(coalesce(v, 0))) then continue; end if;
+    if exists (select 1 from public.shift_report_results x where x.report_id = p_report and x.item = it
+                 and ((x.result = res and coalesce(x.amount, 0) = abs(coalesce(v, 0))) or (x.result = 'khop' and abs(coalesce(v, 0)) <= 5000))) then continue; end if;
     perform public.app_ca_result_set(p_report, it, res, abs(coalesce(v, 0)), case when res = 'khop' then null else 'Xác nhận Fabi (Sổ thu chi) — lệch xử lý ở phiếu chênh lệch' end, '[]'::jsonb);
   end loop;
   perform public.app_log('stc_chot_tien_ca', 'report=' || p_report);
