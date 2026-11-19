@@ -6,7 +6,8 @@ import { catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
-import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fundSummary, gapMath, gapParts, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
+import { mountBankOuts } from '../phieu_chi_ck.js';
+import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, caChecks, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, locStr, parseLoc, sumItems, treoView } from '../so_thu_chi_tinh.js';
 
 export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
@@ -106,6 +107,16 @@ export async function render({ params }) {
           else if (w.dataset.unc) uncollectDialog(D, D.items.find((x) => x.id === w.dataset.unc));
           else if (w.dataset.colDebt) collectDialog(D, w.dataset.colDebt);
           else addDialog(D, P.tab === 'thu' ? 'thu' : 'chi');
+          return;
+        }
+        // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
+        const kw = ev.target.closest('[data-kaed],[data-kadel],[data-toka],[data-kaundo],[data-bankout]');
+        if (kw && root.contains(kw)) {
+          if (kw.dataset.kaed) kaEditDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kaed));
+          else if (kw.dataset.kadel) kaDelDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kadel));
+          else if (kw.dataset.toka) toKaDialog(D, D.items.find((x) => x.id === kw.dataset.toka));
+          else if (kw.dataset.kaundo) kaUndoDialog(D, D.items.find((x) => x.id === kw.dataset.kaundo));
+          else bankOutDialog(D, Number(kw.dataset.bankout));
           return;
         }
         const rw = ev.target.closest('[data-restore]');
@@ -498,6 +509,11 @@ function itemRow(x, book, D = null) {
   if (book === 'chi' && x.col === 'chi') {
     pills.push(x.cat ? html`<span class="pill mute">${x.cat}</span>` : html`<span class="pill warn">Chưa phân loại</span>`);
     if (x.no_cost) pills.push(html`<span class="pill stc-nc">Không tính chi phí</span>`);
+    if (D && !D.ext && x.src === 'move') {   // bước 153: khoản chi nhân viên ghi → phiếu trừ lương
+      const ka = kaOf(D, x); const ca = (D.cas || []).find((c) => c.id === x.ca_id); const live = !!ca?.recon_money_done && !isFin(D, x.ca_id) && !D.locked;
+      if (ka.length) pills.push(html`<span class="pill warn">Đã chuyển trừ lương · ${ka.map((k) => `${k.name} ${fmt(k.amount)}`).join(', ')}</span>${live ? html`<button type="button" class="btn sm secondary" data-kaundo="${x.id}">Bỏ chuyển</button>` : ''}`);
+      else if (live && x.can_edit) pills.push(html`<button type="button" class="btn sm secondary" data-toka="${x.id}">→ Trừ lương</button>`);
+    }
   }
   if (x.chia) pills.push(html`<span class="pill info">${x.chia}</span>`);
   if (x.can_edit) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
@@ -543,8 +559,60 @@ function addBtn(D, c, book, label) {
   const go = html` <a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý & chốt ca này ở Đối soát Fabi ›</a>`;
   if (ca && isFin(D, ca.id)) return html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>`;
   if (ca && !ca.recon_money_done) return html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
-  return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${P.tab === 'doi-soat' ? '' : go}`
+  const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
+  return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
     : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
+}
+// ---- bước 153: phiếu trừ lương / → Trừ lương / phiếu chi chuyển khoản
+const mkeyOf = (x) => String(x.id).split(':').slice(2).join(':');
+const kaOf = (D, x) => (D.shortfalls || []).filter((k) => k.item === 'am_tien' && k.report_id === x.ca_id && k.move_mkey && k.move_mkey === mkeyOf(x));
+let EMPS = null;
+const emps = async () => (EMPS ||= rpc('app_ca_employees').then((r) => r || []).catch(() => []));
+const empOpts = (list, cur) => list.map((e) => html`<option value="${e.id}" ${Number(cur) === Number(e.id) ? 'selected' : ''}>${e.code ? e.code + ' – ' : ''}${e.name}</option>`);
+async function kaEditDialog(D, k) {
+  if (!k) return; const list = await emps();
+  const d = dialog(form(`Sửa phiếu trừ lương · ca ${k.shift} ${dm(k.date)}`, html`
+    <label class="field"><span>Nhân viên chịu</span><select class="input" name="emp">${empOpts(list, k.employee_id)}</select></label>
+    <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money value="${fmt(k.amount)}"></label>
+    <label class="field"><span>Trạng thái</span><select class="input" name="st">${[['tru_luong', 'Trừ lương'], ['da_bu', 'Đã nộp bù'], ['mien', 'Miễn (ghi lý do)']].map(([v, l]) => html`<option value="${v}" ${k.status === v ? 'selected' : ''}>${l}</option>`)}</select></label>
+    <div class="st-meta">Nhân viên được báo khi đổi người / số tiền / trạng thái.</div>`));
+  d.querySelector('[name=reason]').value = k.note || '';
+  open(d, async () => { await rpc('app_ka_edit', { p_id: k.id, p_employee: Number(val(d, 'emp')), p_amount: money(d, 'amount'), p_status: val(d, 'st'), p_note: val(d, 'reason') || null }); after('Đã sửa phiếu trừ lương'); });
+}
+function kaDelDialog(D, k) {
+  if (!k) return;
+  const d = dialog(form(`Xoá phiếu trừ lương · ${k.name} ${fmt(k.amount)}`, html`<div class="st-meta">Ca ${k.shift} ${dm(k.date)} · ${KA_ITEM[k.item] || k.item}. Nhân viên được báo phiếu đã bỏ. Phần tiền thiếu (nếu có) quay lại dòng chênh lệch của ca.</div>`));
+  open(d, async () => { const r = val(d, 'reason'); if (!r) throw new Error('Ghi lý do.'); await rpc('app_ka_delete', { p_id: k.id, p_note: r }); after('Đã xoá phiếu trừ lương'); });
+}
+async function toKaDialog(D, x) {
+  if (!x) return; const list = await emps(); const amt = Number(x.amount);
+  const row = (i) => html`<div class="stc-tlp" style="display:flex;gap:6px;flex-wrap:wrap"><select class="input" name="emp_${i}" style="flex:1 1 160px;min-width:0"><option value="">— Chọn nhân viên —</option>${empOpts(list, null)}</select>
+    <input class="input" name="amt_${i}" inputmode="numeric" data-money placeholder="Số tiền" value="${i ? '' : fmt(amt)}" style="flex:0 1 120px;min-width:0"></div>`;
+  const d = dialog(form(`→ Trừ lương · ${x.title} ${fmt(amt)}`, html`<div class="st-meta">Khoản chi nhân viên ghi thật ra là tiền nhân viên phải chịu. Khoản vẫn là tiền ra khỏi két nhưng thành <b>Không tính chi phí</b>, và tạo phiếu trừ lương (nhân viên được báo, gửi giải trình được). Tổng phải đúng ${fmt(amt)}.</div>
+    ${[0, 1, 2].map(row)}`));
+  d.querySelector('[name=reason]').value = x.title;
+  open(d, async () => {
+    const ps = [0, 1, 2].map((i) => ({ employee_id: Number(val(d, 'emp_' + i)), amount: money(d, 'amt_' + i) })).filter((p) => p.employee_id && p.amount > 0);
+    if (!ps.length) throw new Error('Chọn nhân viên và số tiền.');
+    const tot = ps.reduce((a, p) => a + p.amount, 0); if (tot !== amt) throw new Error(`Tổng ${fmt(tot)} — phải đúng ${fmt(amt)}.`);
+    await rpc('app_tc_move_to_ka', { p_report: x.ca_id, p_mkey: mkeyOf(x), p_people: ps, p_reason: val(d, 'reason') || null }); after('Đã chuyển thành trừ lương');
+  });
+}
+function kaUndoDialog(D, x) {
+  if (!x) return;
+  const d = dialog(form(`Bỏ chuyển trừ lương · ${x.title}`, html`<div class="st-meta">Phiếu trừ lương của khoản này bị bỏ (nhân viên được báo); khoản chi trở lại chờ chọn nhóm.</div>`));
+  open(d, async () => { await rpc('app_tc_move_ka_undo', { p_report: x.ca_id, p_mkey: mkeyOf(x) }); after('Đã bỏ chuyển trừ lương'); });
+}
+function bankOutDialog(D, caId) {
+  const ca = (D.cas || []).find((c) => c.id === caId);
+  const d = dialog(html`<div class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">Phiếu chi chuyển khoản · ${ca ? caName(ca) : 'ca'}</h2>
+    <div class="st-meta">Tiền đã đi ra khỏi tài khoản trong ca (trả tiền hàng, chủ / quản lý rút…). Xoá được khi ghi nhầm. Tạo / xoá: Chủ, Quản lý tổng, Kế toán.</div>
+    <div id="stc-bo" class="stack" style="gap:8px"><div class="st-meta">Đang tải…</div></div>
+    <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Đóng</button></div></div>`);
+  let changed = false;
+  d.querySelector('[data-x]').addEventListener('click', () => { d.close(); if (changed) after('Đã cập nhật phiếu chi chuyển khoản'); });
+  const load = () => mountBankOuts(d.querySelector('#stc-bo'), caId, () => { changed = true; load(); });
+  load();
 }
 // ---- bước 152: bộ lọc đầy đủ (thay trang Thu chi cũ)
 const SRC_OPTS = [['', 'Mọi nguồn'], ['ca', 'Từ phiếu ca'], ['tay', 'Quản lý tạo (ngoài ca)'], ['bu', 'Nộp bù khoản âm'], ['lech', 'Chênh lệch']];
@@ -571,7 +639,22 @@ async function fillFilter(D, book) {
   ca.innerHTML = str(html`<option value="">Mọi nhóm</option>${cs.map((c) => html`<option value="${c.name}" ${f.cat === c.name ? 'selected' : ''}>${c.name}</option>`)}`);
 }
 // Có lọc: danh sách phẳng theo ngày · ca. "Có trừ lương" lấy cả 2 bảng (phiếu trừ lương không thuộc bảng tiền nào).
+const KA_ITEM = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', am_tien: 'Âm tiền (khoản chi)', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
+// bước 153: mọi phiếu trừ lương của tháng (kể cả loại không gắn dòng chênh lệch) + Sửa / Xoá như trang Thu chi cũ
+function kaList(D, f) {
+  const qq = fold(f.q).trim();
+  const list = (D.shortfalls || []).filter((k) => !qq || fold([k.name, k.reason, k.reply, k.note, KA_ITEM[k.item]].filter(Boolean).join(' · ')).includes(qq));
+  const gapOf = (k) => D.items.find((x) => x.col === 'lech' && x.ca_id === k.report_id && x.gap && x.pm === (k.item === 'chuyen_khoan' ? 'ck' : 'tm'));
+  const rows = list.map((k) => { const live = !isFin(D, k.report_id) && !D.locked; const g = ['tien_mat', 'chuyen_khoan'].includes(k.item) ? gapOf(k) : null;
+    return html`<div class="stc-fr"><div class="st-meta stc-frh">${dm(k.date)} · Ca ${k.shift} · ${KA_ITEM[k.item] || k.item}</div>
+      <div class="stc-tlr"><span><b>${k.name}</b> · ${TL_ST[k.status] || 'Chờ xử lý'}${k.reason ? html`<br><span class="st-meta">Lý do: ${k.reason}</span>` : ''}
+        ${k.reply ? html`<br><span class="st-meta">Giải trình: “${k.reply}”</span>` : ''}${k.note ? html`<br><span class="st-meta">Ghi chú: ${k.note}</span>` : ''}</span><b>${fmt(k.amount)}</b></div>
+      <div class="stc-tlr"><span class="st-meta">${live ? '' : '🔒 Ca đã chốt — không sửa được'}</span><span class="stc-tools">${live ? html`<button type="button" class="btn sm secondary" data-kaed="${k.id}">Sửa</button><button type="button" class="btn sm secondary" data-kadel="${k.id}">Xoá</button>` : ''}${g && live ? html`<button type="button" class="btn sm secondary" data-gap="${g.id}">Mở phiếu chênh lệch</button>` : ''}</span></div></div>`; });
+  return html`<div class="stc-ch"><h2>Phiếu trừ lương · đang lọc <small>${list.length} phiếu · ${fmt(list.reduce((a, k) => a + Number(k.amount || 0), 0))}</small></h2></div>
+    ${rows.length ? html`<div class="stc-its stc-flat">${rows}</div>` : html`<div class="stc-empty">Không có phiếu trừ lương nào khớp bộ lọc.</div>`}`;
+}
 function bookFlat(D, book, f) {
+  if (f.st === 'tl') return kaList(D, f);
   const n = COLS[book].length;
   const base = D.items.filter((x) => x.book === book && (f.st === 'tl' || x.pm === P.pm) && (!P.cot || x.col === P.cot));
   const list = filterItems(base, f, { fin: (id) => isFin(D, id) }).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));

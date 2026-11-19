@@ -6,7 +6,13 @@ import { makeFund } from '../test/fund_gia.js';
 const copy = (o) => JSON.parse(JSON.stringify(o));
 export function makeStc(T, me) {
   const admin = () => ['chu', 'ql_tong'].includes(me.role);
-  let ST = null; const st = () => ST || (ST = copy(MONTH));
+  // khoản của phiếu ca mang mã thật 'm:<ca>:<mkey>' như máy chủ (bước 153: → Trừ lương cần mkey)
+  let ST = null; const st = () => ST || (ST = ((d) => { d.items.forEach((x) => { if (x.src === 'move' && String(x.id).startsWith('z:')) x.id = 'm:' + x.ca_id + ':z' + x.id.slice(2); }); return d; })(copy(MONTH)));
+  // bước 153: mọi phiếu trừ lương của tháng (app_stc_month.shortfalls) — dựng từ gap.tl của dữ liệu giả
+  let SF = null; let SFN = 900;
+  const sfs = () => SF || (SF = st().items.filter((x) => x.gap && (x.gap.tl || []).length).flatMap((x) => x.gap.tl.map((t) => ({ id: t.id, report_id: x.ca_id, date: x.date,
+    shift: (st().cas.find((c) => c.id === x.ca_id) || {}).shift || '', item: x.pm === 'ck' ? 'chuyen_khoan' : 'tien_mat', employee_id: 1, name: t.name, amount: t.amount,
+    status: t.status, reply: t.reply || null, reason: 'Thiếu tiền ca', note: null, move_mkey: null }))));
   let EX = null; const ex = () => EX || (EX = copy(EXT));
   const base = makeFund(T, me);   // đợt 5: hàm Sổ quỹ cũ, giữ T đồng bộ cho trang cũ
   let V = 0, N = 1000;
@@ -65,7 +71,7 @@ export function makeStc(T, me) {
       // bước 152: quản lý cơ sở chỉ được giao cơ sở đầu tiên (giả lập Phân công việc Đối soát ca)
       const mine = (bid) => admin() || (me.role === 'ql' && Number(bid) === st().branches[0].id);
       if (!mine(p_branch)) throw new Error('Bạn không được xem thu chi của cơ sở này.');
-      const d = copy(st()); d.owner = me.role === 'chu'; d.branches = d.branches.filter((x) => mine(x.id));
+      const d = copy(st()); d.owner = me.role === 'chu'; d.branches = d.branches.filter((x) => mine(x.id)); d.shortfalls = copy(sfs().filter((k) => k.status !== 'huy'));
       const b = d.branches.find((x) => x.id === Number(p_branch)) || d.branches[0];
       d.branch = { id: b.id, code: b.code, name: b.code };
       if (p_month !== '2026-11') { Object.assign(d, { month: p_month, from: p_month + '-01', to: p_month + '-28', cas: [], items: [], compare: { fund_days: [], gaps: [] } }); }
@@ -283,6 +289,28 @@ export function makeStc(T, me) {
     app_stc_ds_reopen({ p_report, p_reason }) {
       const c = dsCa(p_report, false); reason(p_reason); c.recon_money_done = false;
       items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
+    },
+    // bước 153: phiếu trừ lương — sửa / xoá; khoản chi → trừ lương / bỏ chuyển
+    app_ka_edit({ p_id, p_employee, p_amount, p_status, p_note }) {
+      const k = sfs().find((x) => x.id === Number(p_id)); if (!k || k.status === 'huy') throw new Error('Không tìm thấy phiếu (có thể đã bị xóa).'); finGuard(k.report_id);
+      if (!['tru_luong', 'da_bu', 'mien'].includes(p_status)) throw new Error('Chọn Trừ lương, Đã bù hoặc Miễn.');
+      if (p_status === 'mien' && !String(p_note || '').trim()) throw new Error('Miễn khoản âm phải ghi lý do.');
+      if (!(Number(p_amount) > 0)) throw new Error('Số tiền phải lớn hơn 0.');
+      Object.assign(k, { employee_id: Number(p_employee), amount: Number(p_amount), status: p_status, note: p_note || null });
+    },
+    app_ka_delete({ p_id, p_note }) {
+      const k = sfs().find((x) => x.id === Number(p_id)); if (!k) throw new Error('Không tìm thấy phiếu.'); finGuard(k.report_id); reason(p_note); k.status = 'huy';
+    },
+    app_tc_move_to_ka({ p_report, p_mkey, p_people, p_reason }) {
+      const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`); if (!x) throw new Error('Khoản này vừa thay đổi. Tải lại trang.'); finGuard(p_report);
+      const tot = (p_people || []).reduce((a, q) => a + Number(q.amount), 0); if (tot !== Number(x.amount)) throw new Error('Tổng người chịu phải bằng số tiền khoản.');
+      (p_people || []).forEach((q) => sfs().push({ id: ++SFN, report_id: Number(p_report), date: x.date, shift: (st().cas.find((c) => c.id === Number(p_report)) || {}).shift || '',
+        item: 'am_tien', employee_id: q.employee_id, name: 'NV ' + q.employee_id, amount: Number(q.amount), status: 'tru_luong', reply: null, reason: p_reason || x.title, note: null, move_mkey: p_mkey }));
+      x.no_cost = true; x.can_edit = false; return (p_people || []).length;
+    },
+    app_tc_move_ka_undo({ p_report, p_mkey }) {
+      finGuard(p_report); sfs().filter((k) => k.report_id === Number(p_report) && k.move_mkey === p_mkey).forEach((k) => { k.status = 'huy'; });
+      const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`); if (x) { x.no_cost = false; x.can_edit = true; }
     },
     app_stc_finals({ p_branch } = {}) {
       if (!(admin() || (me.role === 'ql' && Number(p_branch) === st().branches[0].id))) throw new Error('Bạn không được xem thu chi của cơ sở này.');
