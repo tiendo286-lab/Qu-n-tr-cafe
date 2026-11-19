@@ -73,12 +73,12 @@ export default async ({ sleep, out }) => {
   const hdr = txt($('.stc-wk .stc-hdr'));
   ok(hdr.includes('sáng') && hdr.includes('chiều') && hdr.includes('tối') && !hdr.includes('cuối ngày'), '14. bảng tuần Sáng / Chiều / Tối, không có cột Cuối ngày');
   const cell = (id) => $(`.stc-dsc[data-dsca="${id}"]`);
-  ok(txt(cell(183)).includes('fabi ✓') && txt(cell(182)).includes('tiền mở ca') && txt(cell(172)).includes('chờ kế toán'), '14. ô ghi trạng thái ca (' + [183, 182, 172].map((i) => txt(cell(i))).join(' | ') + ')');
+  ok(txt(cell(183)).includes('còn lệch') &&txt(cell(182)).includes('tiền mở ca') && txt(cell(172)).includes('chờ kế toán'), '14. ô ghi trạng thái ca (' + [183, 182, 172].map((i) => txt(cell(i))).join(' | ') + ')');
   // bước 151: khung ca = A · Fabi + B · Thu chi của ca + Chốt ca
   cell(181).click(); await sleep(400);
-  ok(txt($('.stc-dsp .stc-pa')).includes('đã xác nhận') && $$('.stc-dsp .stc-pa .stc-fsum > div').length === 5, '15. ca đã xác nhận Fabi: phần A thu gọn 5 ô số');
+  ok(!!$('.stc-dsp .stc-pa [data-dsreopen]') &&$$('.stc-dsp .stc-pa .stc-fsum > div').length === 5, '15. ca đã xác nhận Fabi: phần A thu gọn 5 ô số');
   ok(!!$('.stc-dsp .stc-pb [data-dsbook="thu"]') && !!$('.stc-dsp .stc-pb [data-dsbook="chi"]') && !!$('.stc-dsp .stc-glc'), '15. phần B có Sổ thu | Sổ chi và khung Chênh lệch');
-  ok(!!$('.stc-dsp [data-dsfinal]'), '15. có nút Chốt ca');
+  ok(!$('.stc-dsp [data-dsfinal]'), '15. bước 158: không còn nút Chốt ca');
   cell(182).click(); await sleep(400);
   ok(!!$('.stc-dsp [data-dsclose][disabled]') && !!$('.stc-dsp [data-dsfabi]:not([disabled])'), '16. còn ô đỏ: Xác nhận Fabi tắt, Lấy số máy Fabi bấm được');
   ok(txt($('.stc-dsp .stc-pb')).includes('xác nhận fabi ở phần a'), '16. chưa xác nhận Fabi: phần B khoá');

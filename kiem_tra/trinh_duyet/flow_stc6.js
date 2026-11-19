@@ -16,7 +16,9 @@ export default async ({ sleep, out }) => {
     // 1. ca Tối 18/11 (đã xác nhận Fabi, thiếu tiền mặt 30.000 chưa xử lý)
     await open(183);
     ok(txt($('.stc-tabs a.on')) === 'đối soát fabi', '1. tab tên "Đối soát Fabi"');
-    ok(txt($('.stc-dsh')).includes('ca tối 18/11') && txt($('.stc-pa')).includes('đã xác nhận'), '1. mở thẳng ca Tối 18/11, phần A đã xác nhận (thu gọn)');
+    ok(txt($('.stc-dsh')).includes('ca tối 18/11') && txt($('.stc-pa')).includes('còn lệch') && !!$('.stc-pa [data-dsreopen]'), '1. mở thẳng ca Tối 18/11, phần A đã xác nhận (thu gọn) · 🟠 Còn lệch');
+    ok(txt($('.stc-pa .stc-dsnote')).includes('tiền mặt thiếu −30.000 → chưa xử lý'), '1b. bước 161: Ghi chú đối soát "Tiền mặt thiếu −30.000 → chưa xử lý"');
+    ok(txt($('.stc-dsc[data-dsca="183"]')).includes('còn lệch') && txt($('.stc-dsc[data-dsca="183"]')).includes('tm −30k') && $('.stc-dsc[data-dsca="183"]').classList.contains('d-con'), '1b. ô ca Tối 18/11 màu cam "🟠 Còn lệch · TM −30k"');
     ok(!$('.stc-glc .stc-it [data-gap]') && txt($('.stc-glhint')).includes('sổ chi · tiền mặt −30.000'), '2. đang xem Sổ thu · TM: không có dòng thiếu; dòng nhắc "Sổ chi · Tiền mặt −30.000"');
     $('.stc-glhint [data-dsbook]').click(); await sleep(400);
     ok(txt($('.stc-glc h2')).includes('chênh lệch tiền mặt · thiếu') && $$('.stc-glc [data-gap]').length === 1, '2. bấm nhắc → Sổ chi · Tiền mặt: khung Chênh lệch có 1 dòng thiếu');
@@ -32,7 +34,8 @@ export default async ({ sleep, out }) => {
     if (dlg()) { bad.push('4. phiếu trừ lương lỗi: ' + txt($('.stc-err', dlg()))); $('[data-x]', dlg())?.click(); }
     await open(183);
     ok(!!$('[data-dsreopen]') && !!$('.stc-pb [data-addca]'), '5. ca vẫn sửa được: có Mở lại xác nhận + Thêm phiếu');
-    ok(txt($('.stc-dsc[data-dsca="183"]')).includes('đã xác nhận'), '5. ô ca ghi "Fabi ✓ · đã xác nhận"');
+    ok(txt($('.stc-dsc[data-dsca="183"]')).includes('hoàn thành') && txt($('.stc-dsc[data-dsca="183"]')).includes('lệch tm −30k') && $('.stc-dsc[data-dsca="183"]').classList.contains('d-xong'), '5. bước 161: trừ lương xong → ô ca xanh "🟢 Hoàn thành · lệch TM −30k"');
+    ok(txt($('.stc-pa .stc-dsnote')).includes('đã xử lý') && txt($('.stc-pa .stc-dsnote')).includes('trừ lương') && $('.stc-pa .stc-dsnote').classList.contains('ok'), '5. Ghi chú đối soát chuyển xanh: "đã xử lý (trừ lương …)"');
     ok(!txt($('#stc-ds .stc-tiles')).includes('khoản treo') && !txt($('#stc-ds .stc-tiles')).includes('đã chốt'), '5. không còn ô "Ca đã chốt" / "Khoản treo"');
     // 6. Sổ chi chung: ca đã chốt không còn nút
     location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&t=' + Date.now(); await sleep(400); await wait('.stc-pay'); await sleep(300);

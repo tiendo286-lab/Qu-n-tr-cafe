@@ -1,5 +1,5 @@
 // Bài thử hàm tính Đối soát Fabi + Chốt ca + Khoản treo (bước 151). Chạy: jsc -m kiem_tra/so_thu_chi_tinh_dot6.mjs
-import { caStage, finalNeeds, treoView, gapParts } from '../docs/js/so_thu_chi_tinh.js';
+import { caStage, caGaps, gapShort, finalNeeds, treoView, gapParts } from '../docs/js/so_thu_chi_tinh.js';
 
 let n = 0;
 const ok = (cond, msg) => { if (!cond) throw new Error('KIỂM TRA THẤT BẠI: ' + msg); n++; };
@@ -10,7 +10,20 @@ const gap = (pm, kind, remain, extra = {}) => ({ id: `g:7:${pm}`, ca_id: 7, book
 // trạng thái
 ok(caStage(ca(), ok3, { by: 'x' }).k === 'fin', 'đã chốt → fin');
 ok(caStage(ca(), ok3, { by: 'x' }, true).txt.includes('khoản treo'), 'đã chốt có khoản treo');
-ok(caStage(ca(), ok3, null).k === 'fab', 'đã xác nhận Fabi → fab');
+ok(caStage(ca(), ok3, null).k === 'xong', 'đã xác nhận Fabi, không lệch → Hoàn thành');
+// bước 161: còn lệch → 🟠, xử lý xong → 🟢 (vẫn ghi lại số lệch)
+const lr = (pm, book, amt, status, g = {}) => ({ id: `g:7:${pm}`, ca_id: 7, book, pm, col: 'lech', amount: amt, status, gap: g });
+const g2 = caGaps([lr('ck', 'chi', 40000, 'Chờ tiền về'), lr('tm', 'thu', 20000, 'Chờ xử lý (dư)'), { ca_id: 7, book: 'thu', pm: 'tm', col: 'dt', amount: 9 }, lr('tm', 'chi', 1, 'x', null)].map((x, i) => (i === 3 ? { ...x, ca_id: 8 } : x)), 7);
+ok(g2.length === 2 && g2[0].pm === 'tm' && g2[0].amt === 20000 && g2[1].amt === -40000, 'caGaps: chỉ dòng Chênh lệch của ca, TM trước');
+const s2 = caStage(ca(), ok3, null, false, g2);
+ok(s2.k === 'con' && s2.txt === '🟠 Còn lệch' && s2.note === 'TM +20k · CK −40k', 'còn lệch → 🟠 + ghi chú');
+const g3 = caGaps([lr('tm', 'thu', 20000, 'Đã xử lý'), { ...lr('ck', 'chi', 30000, 'Đã xử lý'), gross: 40000 }], 7);
+const s3 = caStage(ca(), ok3, null, false, g3);
+ok(s3.k === 'xong' && s3.note === 'lệch TM +20k · CK −40k', 'xử lý xong → 🟢, giữ số lệch gốc (trước ghép)');
+ok(caStage(ca(), ok3, null, false, caGaps([lr('tm', 'chi', 15000, 'Đã xử lý · ⏳ chờ Chủ duyệt')], 7)).txt === '🟠 Chờ Chủ duyệt', 'chờ Chủ duyệt → chưa xong');
+ok(caStage(ca(), ok3, null, false, caGaps([lr('tm', 'chi', 4000, 'Lệch nhỏ ≤ 5.000 (coi như khớp)', null)], 7)).k === 'xong', 'lệch nhỏ ≤ 5.000 → Hoàn thành');
+ok(caStage(ca({ recon_money_done: false }), ok3, null, false, g2).k === 'cho', 'chưa xác nhận: còn lệch vẫn là chờ xác nhận');
+ok(gapShort([{ pm: 'tm', amt: -2500 }]) === 'TM −2.500', 'số lẻ không ghi k');
 ok(caStage(ca({ recon_money_done: false }), ok3, null).k === 'cho', 'chưa xác nhận, khớp → chờ xác nhận');
 ok(caStage(ca({ recon_money_done: false }), [{ k: 'mo', st: 'red', name: 'Tiền mở ca' }, ...ok3.slice(1)], null).k === 'lech', 'ô đỏ → lech');
 ok(caStage(ca({ recon_money_done: false, fabi: { has: false } }), ok3, null).k === 'kt', 'chưa có file Fabi → chờ kế toán');

@@ -139,15 +139,31 @@ export function compareDays(data, summary) {
 
 // ---------------- Đối soát Fabi + Chốt ca + Khoản treo (bước 151) ----------------
 // Trạng thái 1 ca ở tab Đối soát Fabi. fin = {by, at} nếu đã Chốt ca; treoOpen = ca còn khoản treo mở.
-export function caStage(ca, checks, fin, treoOpen = false) {
+// bước 161: gaps = caGaps(items, ca.id). Đã xác nhận Fabi: còn dòng Chênh lệch chưa xử lý → 🟠 Còn lệch, hết → 🟢 Hoàn thành.
+export function caStage(ca, checks, fin, treoOpen = false, gaps = []) {
   if (fin) return { k: 'fin', txt: treoOpen ? '🔒 Đã chốt · có khoản treo' : '🔒 Đã chốt ca', cls: 'p-ok' };
-  if (ca.recon_money_done) return { k: 'fab', txt: '🔵 Fabi ✓ · đã xác nhận', cls: 'p-info' };
+  if (ca.recon_money_done) {
+    const pend = gaps.filter((g) => !g.done);
+    if (pend.length) return { k: 'con', txt: pend.every((g) => g.wait) ? '🟠 Chờ Chủ duyệt' : '🟠 Còn lệch', cls: 'p-warn', note: gapShort(pend) };
+    return { k: 'xong', txt: '🟢 Hoàn thành', cls: 'p-ok', note: gaps.length ? 'lệch ' + gapShort(gaps) : '' };
+  }
   const ab = checks.filter((c) => ['mo', 'dt', 'no'].includes(c.k));
   if (ab.some((c) => c.st === 'kt') || ca.kt_wait || !ca.fabi?.has) return { k: 'kt', txt: '⏳ Chờ kế toán', cls: 'p-mute' };
   const reds = ab.filter((c) => c.st === 'red');
   if (reds.length) return { k: 'lech', txt: '🔴 ' + reds.map((c) => c.name).join(', '), cls: 'p-off' };
-  return { k: 'cho', txt: '🟡 Chờ xác nhận Fabi', cls: 'p-warn' };
+  return { k: 'cho', txt: '🟡 Chờ xác nhận Fabi', cls: 'p-yel' };
 }
+// bước 161: tiền lệch của ca (mỗi dòng Chênh lệch TM / CK một mục). amt: + dư, − thiếu (trước ghép).
+// done theo chữ trạng thái máy chủ: "Đã xử lý" / "Lệch nhỏ ≤ 5.000" là xong; "Chờ …" / "⏳ chờ Chủ duyệt" là chưa.
+export function caGaps(items, caId) {
+  return live(items).filter((x) => x.col === 'lech' && x.ca_id === caId).map((x) => {
+    const st = String(x.status || '');
+    return { pm: x.pm, amt: (x.book === 'thu' ? 1 : -1) * Number(x.gross ?? x.amount ?? 0), done: x.status ? !/chờ/i.test(st) : !x.gap,
+      wait: /chờ Chủ duyệt/i.test(st), small: /Lệch nhỏ/.test(st), x };
+  }).filter((g) => g.amt !== 0).sort((a, b) => (a.pm === b.pm ? 0 : a.pm === 'tm' ? -1 : 1));
+}
+const kTxt = (v) => (v % 1000 === 0 ? v / 1000 + 'k' : fmt(v));
+export const gapShort = (gs) => gs.map((g) => `${g.pm === 'tm' ? 'TM' : 'CK'} ${g.amt > 0 ? '+' : '−'}${kTxt(Math.abs(g.amt))}`).join(' · ');
 // Điều kiện Chốt ca (cùng luật với máy chủ app_stc_ca_final) + khoản nào sẽ thành Khoản treo.
 export function finalNeeds(ca, items) {
   const need = [], treo = [];
