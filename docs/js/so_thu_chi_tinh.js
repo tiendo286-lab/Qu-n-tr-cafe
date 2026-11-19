@@ -45,7 +45,7 @@ export function tileInfo(D, book, pm, k) {
     if (todo) { sub = `${todo} khoản cần phân loại`; warn = true; }
     else { const nc = sumItems(its.filter((x) => x.no_cost), { book: 'chi', pm, col: 'chi' }); if (nc) sub = `trong đó ${fmt(nc)} không tính chi phí`; }
   } else if (book === 'chi' && k === 'no') { const c = (D.people || []).filter((p) => Number(p.open) > 0).length; if (c) sub = `${c} người nợ`; }
-  return { v, sub, warn, zero: !v };
+  return { v, sub, warn, zero: !v && !sub };   // ô còn việc (vd khách còn nợ) không coi là ô 0 → không bị ẩn trên điện thoại
 }
 // dòng "Đang lọc:" — mỗi điều kiện một nút ✕ (thứ tự q, src, type, cat, st)
 export function locChips(f, names = {}) {

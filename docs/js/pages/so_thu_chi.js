@@ -626,6 +626,7 @@ function addBtn(D, c, book, label, { noLock = false } = {}) {
   const ca = (D.cas || []).find((x) => x.id === c.caId);
   const go = html` <a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a>`;
   if (ca && isFin(D, ca.id)) return html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>`;
+  if (noLock && D.locked) return '';   // duyệt mã: ghi chú "Tháng đã chốt" đã có ở đầu ca
   if (ca && !ca.recon_money_done) return noLock ? '' : html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
@@ -679,10 +680,11 @@ function addPersonDialog(onSave) {
 // bước 164: cửa sổ 👥 Người nợ (Sổ chi) — chỉ gom việc đã có: danh sách, ✓ không nhắc, thêm người
 function peopleDialog(D) {
   const d = dialog(html`<div class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">👥 Người nợ</h2>${peopleBox(D)}
-    <div class="toolbar" style="justify-content:space-between"><button type="button" class="btn sm secondary" data-padd>+ Thêm người nợ</button><button type="button" class="btn sm" data-x>Đóng</button></div></div>`);
+    <div class="toolbar" style="justify-content:space-between"><button type="button" class="btn sm secondary" data-padd title="Ghi một khoản Cho nợ với tên người mới">+ Thêm người nợ</button><button type="button" class="btn sm" data-x>Đóng</button></div></div>`);
   d.querySelector('[data-x]').addEventListener('click', () => d.close());
   d.addEventListener('change', (ev) => { const c = ev.target.closest('[data-person]'); if (c) { d.close(); personMark(D, c.dataset.person, c.checked); } });
-  d.querySelector('[data-padd]').addEventListener('click', () => { d.close(); addPersonDialog(async (n, nr) => { await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: n, p_no_remind: nr }); after('Đã thêm người nợ'); }); });
+  d.querySelector('[data-padd]').addEventListener('click', () => {   // duyệt mã: người nợ chỉ có khi có khoản Cho nợ → mở + Thêm phiếu loại Cho nợ
+    d.close(); const b = document.querySelector('#stc-book .stc-ch .stc-add'); if (b) addPanel(D, b, 'chi', { preset: 'no' }); });
 }
 // ---- bước 154: ảnh phiếu Fabi chốt ca (nhân viên chụp) — trước ở bước Tiền của Đối soát ca (đã bỏ ở bước 152)
 const phBtn = (c) => html`<button type="button" class="btn sm secondary" data-dsphoto="${c.id}">📷 Ảnh phiếu Fabi</button>`;
@@ -1341,7 +1343,7 @@ const STYLE = html`<style>
   .stc-fbtn { display: none !important; }
   .stc-locrow { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line-soft); background: var(--subtle); font-size: 13px; }
   .stc-lcl { font-weight: 700; } .stc-lcn { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
-  .stc-chip { border: 1px solid var(--primary); border-radius: 999px; padding: 2px 10px; background: var(--card); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
+  .stc-chip { border: 1px solid var(--primary); border-radius: 999px; padding: 2px 10px; background: var(--card); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; max-width: 100%; overflow-wrap: anywhere; text-align: left; }
   .stc-dh { padding: 10px 4px 2px; font-weight: 800; } .stc-dh small { color: var(--muted); font-weight: 500; }
   .stc-calock { padding: 6px 10px; margin: 4px 0; border-left: 3px solid var(--warn-line); background: var(--warn-bg); border-radius: 6px; }
   .stc-cst { font-size: 11px; margin-left: 4px; white-space: nowrap; }

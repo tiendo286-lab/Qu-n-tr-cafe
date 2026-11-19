@@ -27,6 +27,7 @@ ok(chi.sub === '2 khoản cần phân loại' && chi.warn === true && chi.v === 
 ok(tileInfo(D, 'chi', 'tm', 'no').sub === '1 người nợ', 'ô Cho nợ: 1 người nợ (chỉ người còn nợ)');
 ok(tileInfo({ items: [it('chi', 'tm', 'chi', 20000, { cat: 'X', no_cost: true })], people: [] }, 'chi', 'tm', 'chi').sub === 'trong đó 20.000 không tính chi phí', 'không tính chi phí');
 ok(tileInfo({ items: [], people: [] }, 'thu', 'tm', 'no').sub === '', 'không có khách nợ (open_debts thiếu)');
+ok(tileInfo({ items: [], open_debts: [{ id: 'd1' }] }, 'thu', 'tm', 'no').zero === false, 'duyệt mã I1: ô Thu nợ = 0 nhưng còn khách nợ → không coi là ô 0 (không ẩn trên điện thoại)');
 
 const names = { src: [['', 'Mọi nguồn'], ['ca', 'Từ phiếu ca']], st: [['', 'Mọi trạng thái'], ['cho', 'Chờ xử lý']], type: { 7: 'Nguyên liệu' } };
 ok(locChips({ q: 'bàn', src: 'ca', type: '', cat: '', st: '' }, names).map((c) => c.label).join('|') === 'Tìm "bàn"|Nguồn: Từ phiếu ca', 'dòng Đang lọc: Tìm + Nguồn');

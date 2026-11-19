@@ -13,6 +13,14 @@ export default async ({ sleep, out }) => {
   const go = async (tab, extra = '') => { location.hash = `#/quan-ly/so-thu-chi?tab=${tab}&cn=1&thang=2026-11${extra}&t=${Date.now()}`; await wait('#stc-book'); await sleep(500); };
   const hdrCols = () => $$('#stc-book .stc-hdr > span').length;
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
+  if (new URLSearchParams(location.search).get('stclock')) {   // duyệt mã I3: tháng đã chốt (&stclock=1)
+    try { await go('chi'); $('.stc-ch .stc-all')?.click(); await sleep(500);
+      const c171 = $('.stc-ca [data-ca="171"]')?.closest('.stc-ca');
+      ok(!!c171 && txt(c171.querySelector('.stc-crow')).includes('tháng đã chốt') && txt($('.stc-calock', c171)).includes('tháng đã chốt'), '9. tháng đã chốt: dòng ca + ghi chú "Tháng đã chốt"');
+      ok(!!c171 && !c171.querySelector('[data-addca]'), '9. tháng đã chốt: không còn nút "+ Thêm phiếu … vào ca" trái với ghi chú');
+    } catch (e) { bad.push('LỖI CHẠY: ' + (e.message || e)); }
+    out.push({ stc12: { ok: good, fail: bad } }); return;
+  }
   try {
     // ===== Task 2: phần đầu + bảng ngày
     await go('thu');
@@ -65,6 +73,9 @@ export default async ({ sleep, out }) => {
     if (pd) { if (phone) ok(pd.scrollWidth <= window.innerWidth + 1, '4. cửa sổ Người nợ vừa khung điện thoại');
       const k0 = (window.__LOG || []).length; const cb = $('[data-person]', pd); cb.click(); await sleep(900);
       ok(calls('app_stc_person_mark', k0).length === 1, '4. bấm ✓ → gọi app_stc_person_mark 1 lần'); $('dialog[open]')?.close(); await sleep(300); }
+    await go('chi'); $('#stc-book [data-people]')?.click(); await wait('dialog[open] [data-padd]', 40); await sleep(200);
+    $('dialog[open] [data-padd]')?.click(); await wait('.stc-addp [name=kind]', 40); await sleep(200);
+    ok(!$('dialog[open]') && $('.stc-addp [name=kind]')?.value === 'no', '4. duyệt mã I2: "+ Thêm người nợ" mở + Thêm phiếu loại Cho nợ (ghi được người nợ thật)');
     await go('chi', '&cot=chi');
     const fq = $('.stc-flt [data-lf="q"]'); setv(fq, 'mua'); await sleep(700);
     const srcSel = $('.stc-flt select[data-lf="src"]'); setv(srcSel, 'ca'); await sleep(500);
