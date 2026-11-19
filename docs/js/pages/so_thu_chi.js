@@ -249,20 +249,20 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   const pmOpt = (name) => html`<select class="input" name="${name}"><option value="tien_mat" ${pm !== 'ck' ? 'selected' : ''}>Tiền mặt</option><option value="chuyen_khoan" ${pm === 'ck' ? 'selected' : ''}>Chuyển khoản</option></select>`;
   const f = (label, ctl, show = '', cls = '') => html`<label class="stc-af ${cls}" data-show="${show}"><span>${label}</span>${ctl}</label>`;
   const box = document.createElement('form'); box.className = 'stc-addp'; box.noValidate = true;
-  box.innerHTML = str(html`<div class="stc-ah"><b>+ Thêm phiếu ${book}</b> <span class="st-meta">phiếu bổ sung của quản lý · Chủ, Quản lý tổng, Quản lý cơ sở đều thêm được</span>
-      ${f('Loại', html`<select class="input" name="kind">${kinds.map(([k, l]) => html`<option value="${k}" ${k === preset ? 'selected' : ''}>${l}</option>`)}</select>`, '', 'stc-ak')}</div>
+  box.innerHTML = str(html`<div class="stc-ah"><b>+ Thêm phiếu ${book}</b> <span class="st-meta">phiếu bổ sung của quản lý · Chủ, Quản lý tổng, Quản lý cơ sở đều thêm được</span></div>
     <div class="stc-ar">
+      ${f('Loại', html`<select class="input" name="kind">${kinds.map(([k, l]) => html`<option value="${k}" ${k === preset ? 'selected' : ''}>${l}</option>`)}</select>`, '', 'stc-ak')}
       ${f('Tiền', pmOpt('pay'), 'chi khac no-chi')}
       ${f('Chiều', html`<select class="input" name="dir"><option value="tm_tk">Tiền mặt → Tài khoản</option><option value="tk_tm">Tài khoản → Tiền mặt</option></select>`, 'lc')}
       ${f('Tiền', pmOpt('pay2'), 'no-thu')}
       ${f('Ngày', html`<input class="input" type="date" name="date" value="${day0}">`)}
       ${f('Ca', html`<select class="input" name="ca"><option value="">Ngoài ca</option></select><small class="st-meta stc-canote" hidden></small>`)}
+      ${f('Số tiền', html`<input class="input money" name="amount" inputmode="numeric">`, '', 'stc-am')}
+    </div>
+    <div class="stc-ar">
       ${f('Nội dung', html`<input class="input" name="note" placeholder="${book === 'chi' ? 'vd: Mua đá' : 'vd: Bán vỏ thùng'}">`, 'chi khac lc', 'stc-aw')}
       ${f('Người nợ', html`<input class="input" name="name" list="stc-people" placeholder="Khách"><datalist id="stc-people">${(D.people || []).map((p) => html`<option value="${p.name}"></option>`)}</datalist>`, 'no-chi', 'stc-aw')}
       ${f('Khách trả nợ', html`<select class="input" name="debt"><option value="">— Chọn khách đang nợ —</option>${debts.map((x) => html`<option value="${x.id}">${x.who} · còn nợ ${fmt(x.left)} · từ ${x.from}</option>`)}</select>`, 'no-thu', 'stc-aw')}
-    </div>
-    <div class="stc-ar">
-      ${f('Số tiền', html`<input class="input money" name="amount" inputmode="numeric">`, '', 'stc-am')}
       ${cs.length === 1 ? html`<span class="pill mute stc-ac" data-show="chi khac">Nhóm: ${cs[0].name}<input type="hidden" name="cat" value="${cs[0].id}"></span>`
         : f('Nhóm', html`<select class="input" name="cat"><option value="">— Chọn nhóm —</option>${cs.map((c) => html`<option value="${c.id}">${c.name}</option>`)}</select>`, 'chi khac')}
       ${f('Lý do', html`<input class="input" name="reason">`, '', 'stc-aw')}
@@ -547,7 +547,7 @@ function gapDialog(D, x) {
 }
 
 // ---------------- Sổ thu / Sổ chi ----------------
-function itemRow(x, book, D = null) {
+function itemRow(x, book, D = null, { quiet = false } = {}) {
   const pills = [];
   if (x.void) {
     const v = x.void_info || {};
@@ -586,7 +586,7 @@ function itemRow(x, book, D = null) {
   if (D && !D.ext && x.book === 'chi' && x.col === 'no' && String(x.id).startsWith('dn:')) pills.push(debtPills(D, x));   // bước 155
   if (x.can_edit) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
     : html`<button type="button" class="btn sm secondary stc-ed" data-ed="${x.id}">Sửa / Xoá</button>`);
-  else if (!['dt', 'lech'].includes(x.col) && !x.to_qn) {
+  else if (!quiet && !['dt', 'lech'].includes(x.col) && !x.to_qn) {   // bước 164: ca đang khoá đã có 1 dòng ghi chú
     const ca = x.ca_id ? (D?.cas || []).find((c) => c.id === x.ca_id) : null;
     const why = ca && isFin(D, ca.id) ? 'Ca đã chốt — không sửa được nữa' : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
     pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="${why}">Sửa / Xoá</button><span class="st-meta">🔒 ${why}</span>`);
@@ -620,13 +620,13 @@ async function restoreDialog(D, x) {
     after('Đã khôi phục phiếu');
   });
 }
-function addBtn(D, c, book, label) {
+function addBtn(D, c, book, label, { noLock = false } = {}) {
   if (D.ext) return D.locked ? off(`+ Thêm khoản ngoài`, 'btn sm secondary') : html`<button type="button" class="btn sm secondary stc-xadd">+ Thêm khoản ngoài</button>`;
   if (String(c.caId).startsWith('o:')) return html`<button type="button" class="btn sm secondary stc-add">+ Thêm phiếu ${book} ngoài ca</button>`;
   const ca = (D.cas || []).find((x) => x.id === c.caId);
   const go = html` <a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a>`;
   if (ca && isFin(D, ca.id)) return html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>`;
-  if (ca && !ca.recon_money_done) return html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
+  if (ca && !ca.recon_money_done) return noLock ? '' : html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
     : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
@@ -825,6 +825,10 @@ function bookFlat(D, book, f) {
 }
 // bước 164: cột nhìn thấy của bảng ngày (ẩn cột cả tháng bằng 0 theo bảng tiền đang xem, trừ cột đang chọn)
 const hiddenCols = (D, book) => (SHOW_ZERO ? [] : zeroCols(D.items || [], book, P.pm, P.cot || ''));
+// bước 164: trạng thái của ca ghi một lần ở dòng ca; ca không thêm / sửa được → 1 dòng ghi chú đầu danh sách khoản
+const caPill = (D, cx) => (!cx ? '' : D.locked ? html`<span class="pill mute stc-cst">🔒 Tháng đã chốt</span>` : cx.recon_money_done ? html`<span class="pill ok stc-cst">Đã xác nhận Fabi</span>` : html`<span class="pill info stc-cst">⏳ Chưa xác nhận Fabi</span>`);
+const caLock = (D, cx) => (!cx ? null : D.locked ? { t: '🔒 Tháng đã chốt: không thêm / sửa được', why: 'Tháng đã Chốt tháng — Chủ mở lại tháng mới sửa được' }
+  : !cx.recon_money_done ? { t: '⏳ Chưa xác nhận Fabi: chưa thêm / sửa được', why: 'Xác nhận Fabi ở tab Đối soát Fabi mới thêm / sửa được khoản của ca' } : null);
 const visCols = (D, book) => { const h = hiddenCols(D, book); return COLS[book].filter(([k]) => !h.includes(k)); };
 function bookCard(D, book) {
   const lf = parseLoc(P.loc); if (locStr(lf)) return bookFlat(D, book, lf);
@@ -837,10 +841,10 @@ function bookCard(D, book) {
     const cas = [...d.cas, ...(d.outside.items.length ? [{ caId: 'o:' + d.date, shift: 'Ngoài ca', staff: 'Quản lý ghi', total: d.outside.total, byCol: d.outside.byCol, items: d.outside.items }] : [])];
     return html`<div class="stc-day ${o ? 'open' : ''}"><button type="button" class="stc-drow stc-g" style="--n:${n}" data-day="${d.date}" aria-expanded="${o}">
         <span class="stc-lab"><span class="stc-chev">›</span>${dm(d.date)} <small>${wd(d.date)}</small></span>${cells(d.byCol, book, d.total, cols)}</button>
-      ${o ? html`<div class="stc-cas">${cas.map((c) => { const co = OPEN_C.has(String(c.caId)); return html`<div class="stc-ca ${co ? 'open' : ''}">
-          <button type="button" class="stc-crow stc-g" style="--n:${n}" data-ca="${c.caId}" aria-expanded="${co}"><span class="stc-lab"><span class="stc-chev">›</span>${caLabel(c)} <small>${c.staff || ''}</small></span>${cells(c.byCol, book, c.total, cols)}</button>
-          ${co ? html`<div class="stc-its">${c.items.length ? c.items.map((x) => itemRow(x, book, D)) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
-            <div class="stc-it add">${addBtn(D, c, book, caLabel(c))}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
+      ${o ? html`<div class="stc-cas">${cas.map((c) => { const co = OPEN_C.has(String(c.caId)); const cx = (D.cas || []).find((x) => x.id === c.caId); const lk = D.ext ? null : caLock(D, cx); return html`<div class="stc-ca ${co ? 'open' : ''}">
+          <button type="button" class="stc-crow stc-g" style="--n:${n}" data-ca="${c.caId}" aria-expanded="${co}"><span class="stc-lab"><span class="stc-chev">›</span>${caLabel(c)} <small>${c.staff || ''}</small>${D.ext ? '' : caPill(D, cx)}</span>${cells(c.byCol, book, c.total, cols)}</button>
+          ${co ? html`<div class="stc-its">${lk ? html`<div class="st-meta stc-calock" title="${lk.why}">${lk.t} · <a href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a></div>` : ''}${c.items.length ? c.items.map((x) => itemRow(x, book, D, { quiet: !!lk })) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
+            <div class="stc-it add">${addBtn(D, c, book, caLabel(c), { noLock: !!lk })}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
   });
   return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} <small>${P.cot ? `chỉ hiện ${colName(book, P.cot)}` : 'theo ngày · bấm ngày để xem từng ca'}</small></h2>
       <span class="stc-tools">${P.cot ? html`<a class="btn sm secondary" href="${q({ cot: '' })}">Bỏ lọc</a>` : ''}<button type="button" class="btn sm secondary stc-all">Mở hết</button><button type="button" class="btn sm secondary stc-none">Thu gọn</button>${peopleBtn(D, book)}${D.ext ? off('+ Thêm phiếu', 'btn sm') : html`<button type="button" class="btn sm stc-add">+ Thêm phiếu</button>`}</span></div>
@@ -1148,7 +1152,7 @@ function partB(D, a) {
     <div class="stc-tiles">${cols.map(([k, l]) => html`<div class="stc-tile"><span class="stc-tag t-${k}">${l}</span><b>${fmt(byCol[k])}</b></div>`)}<div class="stc-tile tot"><span>Tổng ${book} · ${PM[pm]}</span><b>${fmt(tot)}</b><small>${caName(c)}</small></div></div>
     ${m ? html`<div class="stc-mt stc-box">${r('Tiền của ca', 'Tiền mặt', 'Chuyển khoản', 'hd')}${r('Phải có / phải nhận', fmt(m.tm.must), fmt(m.ck.must))}${r('Thực tế (đã xác nhận ở phần A)', fmt(m.tm.real), kt ? '⏳' : fmt(m.ck.real))}${r('Lệch → dòng Chênh lệch trong sổ', gapB(m.tm.gap), kt ? '–' : gapB(m.ck.gap), 't')}</div>` : ''}
     ${nb || debts.length ? html`<div class="stc-mt stc-box">${r('Nợ bill của ca (chưa phải tiền · không vào Sổ thu / Sổ chi)', '', 'Số tiền', 'hd')}${r('Phiếu nhân viên khai nợ hoá đơn', '', fmt(c.nv?.debt ?? 0))}${r('Máy Fabi', '', fmt(c.fabi?.debt ?? 0), 't')}
-      ${debts.map((x) => r(html`→ Khách đang nợ: <b>${x.who}</b>`, '', fmt(x.left)))}<div class="st-meta">Khoản nợ nằm ở "Khách đang nợ" (Sổ thu, khung bên phải). Khách trả thì ghi Thu nợ ở ca nhận tiền.</div></div>` : ''}
+      ${debts.map((x) => r(html`→ Khách đang nợ: <b>${x.who}</b>`, '', fmt(x.left)))}<div class="st-meta">Khoản nợ nằm ở Sổ thu › bấm ô Thu nợ › Khách còn nợ. Khách trả thì ghi Thu nợ ở ca nhận tiền.</div></div>` : ''}
     <section class="card stc-book stc-cab"><div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[pm]} <small>${caName(c)}</small></h2>${fin ? '' : html`<span class="stc-tools"><button type="button" class="btn sm stc-addca" data-addca="${c.id}" data-book="${book}">+ Thêm phiếu</button></span>`}</div>
       <div class="stc-g stc-hdr" style="--n:${n}"><span>Ca</span>${cols.map(([, l]) => html`<span>${l}</span>`)}<span>Tổng ${book}</span></div>
       <div class="stc-ca open"><div class="stc-crow stc-g" style="--n:${n}"><span class="stc-lab">${caName(c)} <small>${c.staff || ''}</small></span>${cells(byCol, book, tot)}</div>
@@ -1339,6 +1343,11 @@ const STYLE = html`<style>
   .stc-lcl { font-weight: 700; } .stc-lcn { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
   .stc-chip { border: 1px solid var(--primary); border-radius: 999px; padding: 2px 10px; background: var(--card); color: var(--ink); font: inherit; font-size: 12.5px; cursor: pointer; }
   .stc-dh { padding: 10px 4px 2px; font-weight: 800; } .stc-dh small { color: var(--muted); font-weight: 500; }
+  .stc-calock { padding: 6px 10px; margin: 4px 0; border-left: 3px solid var(--warn-line); background: var(--warn-bg); border-radius: 6px; }
+  .stc-cst { font-size: 11px; margin-left: 4px; white-space: nowrap; }
+  .stc-cas > .stc-ca { border-left: 3px solid var(--caramel, #c79a6b); margin-left: 10px; }
+  .stc-ca > .stc-its { border-left: 2px dashed var(--line); margin-left: 22px; padding-left: 4px; }
+  .stc-day.open > .stc-drow { background: var(--caramel-soft); }
   .stc-sech { padding: 10px 4px 2px; font-weight: 700; font-size: 13px; color: var(--muted); }
   .stc-sum { display: flex; justify-content: space-between; padding: 10px 14px; border-top: 2px solid var(--line); font-weight: 800; font-variant-numeric: tabular-nums; }
   .stc-si { display: flex; justify-content: space-between; gap: 10px; padding: 7px 0; border-bottom: 1px solid var(--line-soft); }
