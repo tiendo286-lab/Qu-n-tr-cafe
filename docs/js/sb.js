@@ -12,6 +12,7 @@ export const sb = createClient(SUPABASE_URL, SUPABASE_KEY, {
 // Lỗi tiếng Anh từ Supabase → tiếng Việt dễ hiểu
 export function viError(err) {
   const m = String(err?.message || err || '');
+  if (/read-only transaction/i.test(m)) return 'Đang xem như người khác — chỉ xem, không lưu được.';   // bước 165: CSDL chỉ đọc khi Chủ đang xem như
   if (/Invalid login credentials/i.test(m)) return 'Mã nhân viên hoặc mật khẩu không đúng.';
   if (/JWT|not authenticated|permission denied/i.test(m)) return 'Phiên đăng nhập đã hết hoặc bạn không có quyền. Hãy tải lại trang.';
   if (/Failed to fetch|NetworkError|Load failed/i.test(m)) return 'Không kết nối được máy chủ. Kiểm tra mạng rồi thử lại.';

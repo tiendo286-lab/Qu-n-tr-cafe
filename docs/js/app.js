@@ -26,13 +26,14 @@ export const HUBS = [
   ['Cài đặt', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Giờ order', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
     ['Tài khoản ngân hàng', '/cai-dat/tai-khoan', 'ke_toan'], ['Nhóm món Fabi', '/cai-dat/nhom-mon', 'ke_toan'], ['Loại & nhóm thu chi', '/cai-dat/thu-chi', ['doi_soat', 'chot_thang']]], null, 'Hệ thống'],
-  ['Dữ liệu & LOG', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'], ['LOG hệ thống', '/quan-ly/log', 'phan_quyen']], null, 'Hệ thống'],
+  ['Dữ liệu & LOG', [['Dữ liệu & sao lưu', '/quan-ly/du-lieu', 'du_lieu'], ['LOG hệ thống', '/quan-ly/log', 'phan_quyen'], ['👁 Xem như người khác', '/he-thong/xem-nhu', 'phan_quyen']], null, 'Hệ thống'],
   ['Hỗ trợ', [['Yêu cầu hỗ trợ', '/ho-tro', null]], null, 'Hệ thống'],
   ['Của tôi', [['Order ca', '/order', 'order_ca'], ['Lịch của tôi', '/lich', 'xem_lich_minh'], ['Phiếu đào tạo', '/cua-toi/dao-tao', null], ['Công của tôi', '/cua-toi/cong', null], ['Điểm đánh giá', '/cua-toi/danh-gia', null], ['Khoản âm của tôi', '/cua-toi/khoan-am', null]], null, null],
 ];
 
 // Trang đã làm ở bản mới: đường dẫn → file trong js/pages
 const PAGES = {
+  '/he-thong/xem-nhu': 'xem_nhu',   // bước 165
   '/dang-nhap': 'dang_nhap',
   '/doi-mat-khau': 'doi_mat_khau',
   '/': 'tong_quan',
@@ -114,6 +115,43 @@ export async function loadMe() {
   }
   if (!state.me) await sb.auth.signOut();
   return state.me;
+}
+
+// ---- bước 165: Xem như người khác — dải vàng (ngoài #root, không bị menu theo vai làm ẩn), khung điện thoại 390px,
+// chặn tải / xoá ảnh ở web (kho ảnh không đi qua hàm chạy trước của máy chủ), tự tải lại thành Chủ khi hết hạn.
+const VA_FRAME = new URLSearchParams(location.search).get('vaframe') === '1';
+const VA_MSG = 'Đang xem như người khác — chỉ xem, không lưu được.';
+let vaTimer = null; let vaPatched = false;
+const vaMode = () => { try { return localStorage.getItem('vaMode') === 'phone' ? 'phone' : 'desk'; } catch (_) { return 'desk'; } };
+function vaSetup() {
+  const v = state.me?.view_as;
+  if (!v) { document.getElementById('va-bar')?.remove(); return; }
+  if (!vaPatched && sb.storage && typeof sb.storage.from === 'function') {
+    vaPatched = true; const st = sb.storage; const orig = st.from.bind(st);
+    st.from = (bucket) => { const o = orig(bucket); const no = async () => ({ data: null, error: { message: VA_MSG } });
+      return new Proxy(o, { get: (t, k) => (['upload', 'remove', 'update', 'move', 'copy'].includes(k) ? no : (typeof t[k] === 'function' ? t[k].bind(t) : t[k])) }); };
+  }
+  if (VA_FRAME) return;
+  if (!vaTimer) { vaTimer = setTimeout(() => location.reload(), Math.max(0, (Date.parse(v.expires_at) || 0) - Date.now()) + 800); setInterval(vaBar, 20000); }
+  vaBar();
+}
+function vaBar() {
+  const v = state.me?.view_as; if (!v || VA_FRAME) return;
+  let bar = document.getElementById('va-bar');
+  if (!bar) {
+    bar = document.createElement('div'); bar.id = 'va-bar'; document.body.insertBefore(bar, document.body.firstChild);
+    bar.addEventListener('click', async (ev) => {
+      const b = ev.target.closest('[data-va]'); if (!b) return; const k = b.dataset.va;
+      if (k === 'desk' || k === 'phone') { try { localStorage.setItem('vaMode', k); } catch (_) { /* bỏ qua */ } vaBar(); render(); }
+      else if (k === 'swap') (await import(`./pages/xem_nhu.js?v=${ASSET_VERSION}`)).pickPerson();
+      else if (k === 'exit') { try { await rpc('app_view_as_stop'); } catch (e) { alert(viError(e)); return; } location.hash = '#/hom-nay'; location.reload(); }
+    });
+  }
+  const min = Math.max(0, Math.ceil(((Date.parse(v.expires_at) || 0) - Date.now()) / 60000));
+  const who = [v.name, (ROLE_LABELS[v.role] || v.role) + (v.ke_toan ? ' + Kế toán' : ''), (v.branches || []).join(', ')].filter(Boolean).join(' · ');
+  const m = vaMode();
+  bar.innerHTML = str(html`<span class="va-t">👁 Đang xem như <b>${who}</b> — chỉ xem · còn ${min} phút</span>
+    <span class="va-b"><button type="button" class="${m === 'desk' ? 'on' : ''}" data-va="desk">Máy tính</button><button type="button" class="${m === 'phone' ? 'on' : ''}" data-va="phone">Điện thoại</button><button type="button" data-va="swap">Đổi người</button><button type="button" data-va="exit">Thoát</button></span>`);
 }
 
 export async function logout() {
@@ -293,6 +331,7 @@ export async function render() {
   const seq = ++renderSeq;
   const { path, params } = parseHash();
   const me = state.me;
+  vaSetup();   // bước 165
   if (!me && path !== '/dang-nhap') {   // UI-24: nhớ trang đang mở để đăng nhập xong quay lại đúng trang
     if (path !== '/') { try { sessionStorage.setItem('after_login', location.hash.slice(1)); } catch (_) { /* bỏ qua */ } }
     return go('/dang-nhap');
@@ -313,6 +352,11 @@ export async function render() {
   if (path === '/quan-ly/giao-hang') return go((params.nhan ? '/hang-hoa/nhan' : params.ds || params.xem || can('doi_soat') ? '/hang-hoa/doi-soat' : '/hang-hoa/nhan') + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
   if (path === '/ke-toan/hoa-don') return go('/hang-hoa/phieu-xuat' + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
   if (cleanup) { try { cleanup(); } catch (_) { /* bỏ qua */ } cleanup = null; }
+  if (me?.view_as && !VA_FRAME && vaMode() === 'phone') {   // bước 165: khung điện thoại 390px (trang chạy trong khung, cùng phiên đăng nhập)
+    document.title = 'Xem như · điện thoại · Quản trị cafe';
+    root().innerHTML = str(html`<div class="va-phone"><iframe id="va-frame" title="Màn hình điện thoại 390px" src="${location.pathname}?vaframe=1${location.hash}"></iframe></div>`);
+    return;
+  }
   if (me) await refreshBadges();
 
   let page;

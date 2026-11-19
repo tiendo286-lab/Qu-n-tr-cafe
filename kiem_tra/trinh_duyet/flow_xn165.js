@@ -9,6 +9,7 @@ export default async ({ sleep, out }) => {
   const role = new URLSearchParams(location.search).get('role') || 'chu';
   const step = localStorage.getItem('xn_step') || '0';
   const calls = (name) => (window.__LOG || []).filter((x) => x[0] === 'rpc' && x[1] === name);
+  const hubHas = async (href) => { location.hash = '#/quan-ly/log?t=' + Date.now(); await sleep(900); return !!document.querySelector(`.hub-tabs a[href="#${href}"]`); };
   const done = () => { out.push({ xn165: { ok: good, fail: bad } }); };
   const next = (s) => { localStorage.setItem('xn_step', s); };
   const keep = () => { try { const o = JSON.parse(localStorage.getItem('xn_res') || '{"ok":[],"fail":[]}'); good.unshift(...o.ok); bad.unshift(...o.fail); } catch (_) { /* bỏ qua */ } };
@@ -16,22 +17,21 @@ export default async ({ sleep, out }) => {
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1000);
   try {
     if (role !== 'chu') {
-      ok(!$('a[href="#/he-thong/xem-nhu"]'), 'Q. người không phải Chủ: không có mục Xem như');
+      ok(!(await hubHas('/he-thong/xem-nhu')), 'Q. người không phải Chủ: không có mục Xem như');
       location.hash = '#/he-thong/xem-nhu'; await sleep(1200);
       ok(/không có quyền/i.test(txt($('#root'))), 'Q. vào thẳng trang Xem như → báo không có quyền');
       return done();
     }
     if (new URLSearchParams(location.search).get('xnexp')) {   // hết hạn giữa chừng
       if (step === '0') { localStorage.setItem('test_viewas', 'ql'); localStorage.setItem('test_viewas_until', String(Date.now() + 3000)); next('exp'); location.reload(); await sleep(60000); return; }
-      keep(); ok(!!$('#va-bar'), 'E. đang xem như: có dải vàng');
-      for (let i = 0; i < 80 && $('#va-bar'); i++) await sleep(100);
-      await sleep(1500); await wait('#root .page-head, #root h1, #root .appbar', 100);
+      if (step === 'exp') { ok(!!$('#va-bar'), 'E. đang xem như: có dải vàng'); save(); next('exp2'); await sleep(60000); return; }   // chờ trang tự tải lại khi hết hạn
+      keep();
       ok(!$('#va-bar') && !localStorage.getItem('test_viewas'), 'E. hết hạn → trang tự tải lại thành Chủ');
       localStorage.removeItem('xn_step'); localStorage.removeItem('xn_res'); return done();
     }
     if (step === '0') {
       localStorage.removeItem('test_viewas'); localStorage.removeItem('xn_res');
-      ok(!!$('a[href="#/he-thong/xem-nhu"]'), '1. Chủ: menu có mục Xem như người khác');
+      ok(await hubHas('/he-thong/xem-nhu'), '1. Chủ: nhóm Dữ liệu & LOG có tab Xem như người khác');
       location.hash = '#/he-thong/xem-nhu'; await wait('[data-vapick]', 60); await sleep(300);
       ok($$('[data-vapick]').length >= 5 && $$('.va-group').length >= 3, '1. trang Xem như: danh sách chia theo vai');
       const q = $('.va-q'); q.value = 'quan ly'; q.dispatchEvent(new Event('input', { bubbles: true })); await sleep(300);
@@ -43,16 +43,15 @@ export default async ({ sleep, out }) => {
     keep();
     if (step === '1') {
       ok(txt($('#va-bar')).includes('Đang xem như Quản lý thử · Quản lý · LHP — chỉ xem'), '2. dải vàng: "Đang xem như Quản lý thử · Quản lý · LHP — chỉ xem" (' + txt($('#va-bar')).slice(0, 80) + ')');
-      ok(!$('a[href="#/quan-ly/log"]') && !$('a[href="#/he-thong/xem-nhu"]'), '2. menu của Quản lý: không có LOG hệ thống, không có Xem như');
+      location.hash = '#/quan-ly/log?t=' + Date.now(); await sleep(900);
+      ok(/không có quyền/i.test(txt($('#root'))) && !document.querySelector('.hub-tabs a[href="#/he-thong/xem-nhu"]'), '2. như Quản lý: không vào được LOG hệ thống, không có Xem như');
       const sb = await import('../js/sb.js'); let msg = '';
       try { await sb.rpc('app_stc_entry_save', { p_id: null, p: {}, p_reason: null }); } catch (e) { msg = e.message || String(e); }
       ok(msg === 'Đang xem như người khác — chỉ xem, không lưu được.', '3. bấm lưu → "Đang xem như người khác — chỉ xem, không lưu được." (' + msg + ')');
-      let up = '';
-      try { await sb.sb.storage.from('phieu-ca').upload('x/y.jpg', new Blob(['a'])); } catch (e) { up = e.message || String(e); }
-      ok(up.includes('chỉ xem'), '3. tải ảnh bị chặn ở web (' + up + ')');
-      let rm = '';
-      try { await sb.sb.storage.from('phieu-ca').remove(['x/y.jpg']); } catch (e) { rm = e.message || String(e); }
-      ok(rm.includes('chỉ xem'), '3. xoá ảnh bị chặn ở web');
+      const u = await sb.sb.storage.from('phieu-ca').upload('x/y.jpg', new Blob(['a'])).catch((e) => ({ error: e }));
+      ok(String(u?.error?.message || '').includes('chỉ xem'), '3. tải ảnh bị chặn ở web (' + (u?.error?.message || 'không chặn') + ')');
+      const r = await sb.sb.storage.from('phieu-ca').remove(['x/y.jpg']).catch((e) => ({ error: e }));
+      ok(String(r?.error?.message || '').includes('chỉ xem'), '3. xoá ảnh bị chặn ở web');
       if (window.innerWidth > 400) {
         $('#va-bar [data-va="phone"]').click(); await sleep(800);
         const fr = $('#va-frame');
@@ -70,7 +69,7 @@ export default async ({ sleep, out }) => {
       $('#va-bar [data-va="exit"]').click(); await sleep(60000); return;
     }
     if (step === '3') {
-      ok(!$('#va-bar') && !!$('a[href="#/quan-ly/log"]'), '6. Thoát → về Chủ, menu lại có LOG hệ thống');
+      ok(!$('#va-bar') && (await hubHas('/he-thong/xem-nhu')), '6. Thoát → về Chủ, lại có LOG hệ thống + Xem như');
       localStorage.removeItem('xn_step'); localStorage.removeItem('xn_res'); return done();
     }
   } catch (e) { bad.push('LỖI CHẠY: ' + (e.message || e)); }
