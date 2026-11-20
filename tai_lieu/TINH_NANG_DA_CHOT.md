@@ -604,10 +604,11 @@ Két gối đầu: ca sau nhận nguyên két của ca trước, cuối ngày m�
 
 ## 5r29b. Hàng hoá — bộ lọc ngày ở Đối soát · Phiếu xuất · Kiểm soát — anh Tiến giao 19/11/2026, ĐÃ LÀM (bước 167, máy chủ `146_hang_hoa_loc_ngay.sql`, chờ chạy)
 - Thay nút chuyển tháng ‹ › bằng: **ô loại ngày** (Ngày giao · Ngày nhận · Ngày đối soát) + **khoảng từ–đến** + nút nhanh **Hôm nay · 7 ngày · Tháng này · Tháng trước** (Tháng này / Tháng trước = cả tháng). Mặc định Tháng này, Ngày giao. Dùng cùng lọc cơ sở như cũ.
-- **Loại ngày không áp dụng thì ẩn**: Chưa nhận chỉ có Ngày giao; Chờ đối soát không có Ngày đối soát. Loại đã chọn bị ẩn thì tạm dùng Ngày giao (không mất lựa chọn đã nhớ).
+- **Đối soát › Chờ đối soát LUÔN hiện tất cả** lần giao chưa đối soát (không có thanh lọc ngày), cũ nhất lên trước theo ngày nhận — anh Tiến chốt 20/11/2026. (Phiếu xuất › Chờ đối soát vẫn có lọc ngày như các tab khác.)
+- **Loại ngày không áp dụng thì ẩn**: Chưa nhận chỉ có Ngày giao; Phiếu xuất › Chờ đối soát không có Ngày đối soát. Loại đã chọn bị ẩn thì tạm dùng Ngày giao (không mất lựa chọn đã nhớ).
 - **Xếp theo loại ngày đang lọc, mới nhất trên; riêng Chờ đối soát cũ nhất lên trước.** Phiếu xuất nhóm theo ngày của loại đang lọc.
 - **Nhớ lựa chọn** theo từng trang trên máy (localStorage); nút nhanh nhớ theo tên (mai mở "Hôm nay" vẫn là hôm nay). Đường dẫn cũ `?thang=YYYY-MM` vẫn mở đúng tháng.
-- **Mục còn chờ nằm ngoài khoảng ngày** (Chờ đối soát, Chưa nhận, các mục chờ ở Kiểm soát): hiện dòng "Còn N … ngoài khoảng ngày đang lọc" + nút **Hiện cả** (mở rộng khoảng ngày để thấy hết) — để không sót việc cũ.
+- **Mục còn chờ nằm ngoài khoảng ngày** (Chưa nhận, các mục chờ ở Kiểm soát): hiện dòng "Còn N … ngoài khoảng ngày đang lọc" + nút **Hiện cả** (mở rộng khoảng ngày để thấy hết) — để không sót việc cũ.
 - **Kiểm soát**: lọc chỉ áp cho danh sách; **tiền tháng vẫn tính cả tháng** (tháng của ngày "đến"), ghi rõ "Tính cả tháng". Mục "Thiếu hoá đơn giao" (chưa đối soát) khi lọc Ngày đối soát vẫn hiện.
 - Máy chủ: `app_nh_list` và `app_gh_control` thêm 3 tham số có mặc định (`p_from`, `p_to`, `p_kind`); gọi kiểu cũ chạy như trước. Mục Kiểm soát có thêm ngày nhận / ngày đối soát. **Web mới cần chạy tệp 146 trước.**
 

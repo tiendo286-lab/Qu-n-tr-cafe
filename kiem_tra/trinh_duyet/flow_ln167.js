@@ -24,20 +24,15 @@ export default async ({ sleep, out }) => {
     const order = () => $$('.ql-t').map((x) => (x.textContent.match(/LN-[A-E]/) || [''])[0]).filter(Boolean).join(',');
 
     if (role !== 'kt') {
-      // ---- Đối soát: Chờ đối soát — chỉ Ngày giao / Ngày nhận, cũ nhất trên, mục ngoài khoảng có "Hiện cả"
-      await go('#/hang-hoa/doi-soat?cn=1&tt=cho&nhanh=7_ngay&loai=giao', '[data-loc]');
+      // ---- Đối soát: Chờ đối soát — anh Tiến chốt 20/11: luôn hiện tất cả (không có thanh lọc ngày), cũ nhất trên theo ngày nhận
+      await go('#/hang-hoa/doi-soat?cn=1&tt=cho&nhanh=7_ngay&loai=giao', '.gh-tabs');
       if ($('.gh-mon')) throw new Error('Đối soát: vẫn còn nút chuyển tháng');
-      if (kinds() !== 'giao,nhan') throw new Error('Chờ đối soát: loại ngày phải là Ngày giao, Ngày nhận — có ' + kinds());
-      if (order() !== 'LN-C,LN-B') throw new Error('Chờ đối soát (7 ngày): phải C rồi B (cũ nhất trên) — có ' + order());
-      if (!$('#gh-hidden') || !/Còn\s*1\s*lần giao/.test($('#gh-hidden').textContent)) throw new Error('Chờ đối soát: thiếu dòng báo 1 lần giao ngoài khoảng ngày');
-      $('#gh-hidden a').click(); await sleep(900); await wait('[data-loc]');
-      if (order() !== 'LN-A,LN-C,LN-B') throw new Error('Bấm Hiện cả: phải A,C,B — có ' + order());
-      if ($('#gh-hidden')) throw new Error('Bấm Hiện cả xong vẫn còn dòng báo');
-      res.push('Chờ đối soát: Ngày giao/Ngày nhận, cũ nhất trên, Hiện cả');
+      if ($('[data-loc]')) throw new Error('Chờ đối soát: không được có thanh lọc ngày');
+      if (!$('#gh-all')) throw new Error('Chờ đối soát: thiếu dòng ghi "luôn hiện tất cả"');
+      if (order() !== 'LN-A,LN-C,LN-B') throw new Error('Chờ đối soát: phải hiện tất cả A,C,B (cũ nhất trên) dù link có 7 ngày — có ' + order());
+      if ($('#gh-hidden')) throw new Error('Chờ đối soát: không được có dòng "Còn N… ngoài khoảng ngày"');
+      res.push('Chờ đối soát: luôn hiện tất cả, cũ nhất trên, không thanh lọc');
       wide();
-      // Ngày nhận + Hôm nay → chỉ B
-      await go('#/hang-hoa/doi-soat?cn=1&tt=cho&nhanh=hom_nay&loai=nhan', '[data-loc]');
-      if (order() !== 'LN-B') throw new Error('Ngày nhận hôm nay: phải chỉ B — có ' + order());
       // Chưa nhận: chỉ Ngày giao (không có ô chọn loại)
       await go('#/hang-hoa/doi-soat?cn=1&tt=dang', '[data-loc]');
       if ($('[data-loc-kind]') || !/Ngày giao/.test(kinds())) throw new Error('Chưa nhận: chỉ được có Ngày giao — có ' + kinds());
