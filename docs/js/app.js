@@ -5,7 +5,7 @@ import { ROLE_LABELS, dialog, esc, go, html, str, takeFlash } from './ui.js';
 
 // Đổi số này mỗi lần phát hành để trình duyệt lấy lại các trang JavaScript mới,
 // thay vì giữ bản cũ tối đa 10 phút theo bộ nhớ đệm của GitHub Pages.
-const ASSET_VERSION = '2026.11.20.2';
+const ASSET_VERSION = '2026.11.20.3';
 
 // Menu quản lý (phương án C, 11/11/2026): các mục chia theo nhóm có tiêu đề (Vận hành · Tiền · Nhân sự · Hệ thống).
 // [nhãn mục, [[tên tab, đường dẫn, quyền cần (null = ai cũng có; mảng = có 1 trong các quyền)], ...], tham số giữ lại khi chuyển tab, nhóm]
