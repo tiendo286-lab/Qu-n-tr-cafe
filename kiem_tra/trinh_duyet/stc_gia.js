@@ -440,6 +440,23 @@ export function makeStc(T, me) {
       Object.assign(old, { name: nm, phone: p.phone || null, grp: p.grp, active: act, no_remind: p.grp !== 'khach' });
       return old.id;
     },
+    // bước 172: quản lý xếp một khoản nợ mới của ca vào đúng người + nhóm công nợ (giống app_stc_debt_sort ở tệp 151)
+    app_stc_debt_sort({ p_debt, p_person, p_grp }) {
+      need(); const d = (st().ca_debts || []).find((x) => x.t === 'moi' && Number(x.id) === Number(p_debt));
+      if (!d) throw new Error('Không tìm thấy khoản nợ.');
+      if (!(Number(d.left) > 0)) throw new Error('Khoản nợ đã thu — không đổi được.');
+      const p = st().people.find((x) => x.id === Number(p_person) && x.active !== 0);
+      if (!p) throw new Error('Chọn người nợ trong danh sách.');
+      if (!['khach', 'kho', 'khac'].includes(p_grp)) throw new Error('Chọn nhóm công nợ.');
+      if ((st().cas.find((c) => c.id === Number(d.report_id)) || {}).done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
+      if (d.who.toLowerCase() !== p.name.toLowerCase()) d.content = d.content || d.who;
+      Object.assign(d, { who: p.name, person_id: p.id, grp: p_grp, sorted: true });
+    },
+    // CHỈ DÙNG TRONG BÀI THỬ (không có trên máy chủ thật): thêm một khoản nợ mới còn tiền vào một ca, như nhân viên gõ tên trên phiếu chốt ca
+    app__thu_them_no_ca({ p_report, p_who, p_amount }) {
+      const id = ++N; st().ca_debts.push({ report_id: Number(p_report), t: 'moi', id, who: p_who, kind: 'muon', amount: Number(p_amount), left: Number(p_amount), pm: null, from: null, sorted: false });
+      return id;
+    },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;
       st().open_debts.filter((d) => d.who.toLowerCase() === String(p_name).toLowerCase()).forEach((d) => { d.no_remind = !!p_no_remind; });
