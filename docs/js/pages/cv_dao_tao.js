@@ -29,7 +29,7 @@ export async function render({ params }) {
             href="#/cong-viec/dao-tao?muc=${key}" aria-current="${program === key ? 'page' : 'false'}">${label}</a>`)}
         </nav>
         ${D.accounts ? html`<form id="dt-reviewer" class="card stack" style="gap:8px">
-          <label class="stack" style="gap:4px">Người kiểm tra, nhắc hạn và nhận xét cuối
+          <label class="stack" style="gap:4px">Người phụ trách chính đào tạo (giao hạng mục, đổi người hướng dẫn chính, xác nhận đạt, nhắc hạn, nhận xét cuối)
             <select class="input" name="reviewer" required>
               <option value="">Chọn tài khoản</option>
               ${D.accounts.map((a) => html`<option value="${a.id}" ${a.id === D.reviewer_id ? 'selected' : ''}>${a.name}</option>`)}
@@ -37,7 +37,7 @@ export async function render({ params }) {
           </label><div><button class="btn secondary">Lưu người phụ trách</button></div>
           <div id="dt-reviewer-error" role="alert"></div>
         </form>` : ''}
-        ${D.reviewer ? html`<div class="sub">Người nhận xét cuối: ${D.reviewer}</div>` : ''}
+        ${D.reviewer ? html`<div class="sub">Người phụ trách chính: ${D.reviewer}</div>` : ''}
         ${cards.length ? cards : html`<div class="card">${program === 'pha_che' ? 'Chưa có phiếu đào tạo Pha chế.' : 'Chưa có phiếu đào tạo Chạy bàn.'}</div>`}
       </div>`,
     mount(root) {

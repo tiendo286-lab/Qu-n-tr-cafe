@@ -19,7 +19,6 @@ export async function openCreateDialog(emp) {
     <label class="stack" style="gap:4px">Cơ sở<select class="input" name="branch"><option value="">—</option>${opt.branches.map((x) => html`<option value="${x.id}" ${String(x.id) === String(brId) ? 'selected' : ''}>${x.code}</option>`)}</select></label>
     <label class="stack" style="gap:4px">Ngày bắt đầu<input class="input" type="date" name="start" value="${vnToday()}" required></label>
     <label class="stack" style="gap:4px">Người hướng dẫn chính (Quản lý)<input class="input" name="hd" list="dt-emps" placeholder="Gõ mã hoặc tên quản lý" required><datalist id="dt-emps">${mgrs.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist></label>
-    <label class="stack" style="gap:4px">Quản lý phụ trách<select class="input" name="ql"><option value="">—</option>${opt.managers.map((m) => html`<option value="${m.id}">${m.name}</option>`)}</select></label>
     <div id="dt-err"></div>
     <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn secondary" id="dt-cancel">Hủy</button><button class="btn" type="submit">Tạo phiếu</button></div></form>`);
   const err = (m) => { const box = d.querySelector('#dt-err'); box.innerHTML = ''; box.append(Object.assign(document.createElement('div'), { className: 'alert error', textContent: m })); };
@@ -31,7 +30,7 @@ export async function openCreateDialog(emp) {
     if (!q) { err('Chọn người hướng dẫn chính (nhân viên cấp Quản lý).'); return; }
     if (!hd) { err('Người hướng dẫn chính phải là nhân viên cấp Quản lý. Chọn trong danh sách gợi ý.'); return; }
     try {
-      const id = await rpc('app_dt_create', { p_employee: emp.id, p: { branch_id: f.branch.value || null, start_date: f.start.value, instructor_id: hd?.id || null, manager_id: f.ql.value || null } });
+      const id = await rpc('app_dt_create', { p_employee: emp.id, p: { branch_id: f.branch.value || null, start_date: f.start.value, instructor_id: hd?.id || null } });   // bước 169: bỏ ô Quản lý phụ trách (cột manager_id vẫn giữ trong CSDL)
       d.close(); go(`/dao-tao/phieu?id=${id}`);
     } catch (e) { err(e.message); }
   });

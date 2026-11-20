@@ -24,10 +24,11 @@ export default async ({ visit, sleep, out }) => {
     const form = root.querySelector('#dt-reviewer');
     form.querySelector('select').value = '1';
     form.requestSubmit();
-    await waitFor(() => root.innerText.includes('Người nhận xét cuối: Người nhận xét thử'), 'Chưa lưu người nhận xét.');
+    await waitFor(() => root.innerText.includes('Người phụ trách chính: Người nhận xét thử'), 'Chưa lưu người nhận xét.');
     assert(fits(), 'Danh sách tràn ngang.');
     root = await visit('#/viec');
-    assert(root.querySelector('#pc-body [data-training-work="1"]')?.textContent.includes('Quản lý phụ trách'), 'Thiếu việc đào tạo trong Việc của tôi.');
+    // bước 169: bỏ "Quản lý phụ trách" — Chủ vừa chọn mình làm người phụ trách chính nên phiếu hiện với vai "Kiểm tra và nhận xét"
+    assert(root.querySelector('#pc-body [data-training-work="1"]')?.textContent.includes('Kiểm tra và nhận xét'), 'Thiếu việc đào tạo trong Việc của tôi.');
     assert(root.querySelector('[data-training-work="1"] a')?.getAttribute('href') === '#/dao-tao/phieu?id=1', 'Việc đào tạo mở sai phiếu.');
     assert(fits(), 'Việc của tôi bị tràn ngang.');
     root = await visit('#/dao-tao/phieu?id=1');

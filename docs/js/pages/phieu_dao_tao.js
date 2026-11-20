@@ -13,6 +13,7 @@ const ITEM_FILTERS = {
   new: 'Chưa giới thiệu',
   introduced: 'Đã giới thiệu · chưa hoàn thành',
   phase2: 'Giai đoạn 2',
+  check: 'Chờ kiểm tra',   // bước 169: Cấp 1 đã ghi mức đạt, chờ HD chính / người phụ trách chính xác nhận
   done: 'Hoàn thành',
   // bước 140: lọc theo mức thực hành hiện tại của hạng mục
   lv_tb: 'Thực hành · Trung bình',
@@ -37,6 +38,9 @@ export async function render({ params }) {
     return !T.workflow_review_at && (ed || (assignment?.mine && (!assignment.is_extra || !assignment.finished_at)));
   };
   const adm = !!T.can_admin;
+  // bước 169: người phụ trách chính hoặc Chủ (anh chốt 20/11 — người có quyền Đào tạo không còn đổi được) chọn / đổi người hướng dẫn chính — danh sách Quản lý có tài khoản đang hoạt động
+  const pickHdc = !!T.can_pick_hdc && T.status !== 'hoan_thanh';
+  const hdcList = T.hdc_choices || [];
   const canAssign = T.can_assign && T.status !== 'hoan_thanh';
   const days = T.program.days;
   const items = T.items;
@@ -48,7 +52,8 @@ export async function render({ params }) {
     const edit = canMark(i.no);
     const extra = followups.get(i.no);
     const pending = extra?.is_extra && !extra.finished_at;
-    return html`<div class="dt-item ${i.level ? 'done' : ''}" data-no="${i.no}" data-phase-two="${pending ? '1' : '0'}">
+    const chk = !!i.pending;   // bước 169: Chờ kiểm tra — chưa tính đạt
+    return html`<div class="dt-item ${i.level && !chk ? 'done' : ''} ${chk ? 'dt-chk' : ''}" data-no="${i.no}" data-phase-two="${pending ? '1' : '0'}" data-check="${chk ? '1' : '0'}">
     <div class="dt-it-title">${hasGuide.has(i.no) ? html`<button type="button" class="it-guide" data-no="${i.no}" title="Mở hướng dẫn trong sổ tay"><strong>${i.no}.</strong> ${i.title} <span class="it-book">📖 Hướng dẫn</span></button>`
       : html`<strong>${i.no}.</strong> ${i.title}`} <span class="st-meta">Tr. ${i.page}</span></div>
     <div class="toolbar" style="gap:6px">
@@ -58,9 +63,11 @@ export async function render({ params }) {
       ${canAssign && T.helpers?.length ? html`<button type="button" class="btn sm secondary" data-dt-guide-person="${i.no}" data-dt-phase="2"
         ${pending || needsMorePractice(i.level) ? '' : 'hidden'}>${pending ? 'Giao lại giai đoạn 2' : 'Giao giai đoạn 2'}</button>` : ''}
     </div>
-    ${extra?.is_extra ? html`<div class="st-meta" style="overflow-wrap:anywhere">
+    ${extra?.is_extra || extra?.phase2_done_at ? html`<div class="st-meta" style="overflow-wrap:anywhere">
       <strong>${pending ? 'Đang luyện giai đoạn 2' : 'Đã đánh giá giai đoạn 2'}</strong>${extra.note ? ' · ' + extra.note : ''}
     </div>` : ''}
+    ${chk ? html`<div class="dt-chkbox"><span class="pill warn">⏳ Chờ kiểm tra</span> <span class="st-meta">${i.pending_by || ''} ghi mức <b>${LEVEL[i.level] || i.level}</b>${i.pending_at ? ' · ' + dt(i.pending_at) : ''} — chưa tính đạt</span>
+      ${T.can_check && !T.workflow_review_at ? html`<span class="dt-chkact"><select class="input sm it-chk-lv" aria-label="Mức xác nhận hạng mục ${i.no}">${Object.entries(LEVEL).map(([k, l]) => html`<option value="${k}" ${i.level === k ? 'selected' : ''}>${l}</option>`)}</select><button type="button" class="btn sm it-check" data-no="${i.no}">Xác nhận đạt</button></span>` : ''}</div>` : ''}
     <div class="dt-it-ctl">
       <label><input type="checkbox" class="check it-intro" ${i.introduced ? 'checked' : ''} ${edit ? '' : 'disabled'}> Giới thiệu</label>
       <label><input type="checkbox" class="check it-prac" ${i.practiced ? 'checked' : ''} ${edit && i.introduced ? '' : 'disabled'}> Thực hành</label>
@@ -78,7 +85,7 @@ export async function render({ params }) {
 
   const daySec = (dd) => {
     const its = items.filter((i) => i.day === dd.day);
-    const ok = its.filter((i) => i.level).length; const l = dlog(dd.day);
+    const ok = its.filter((i) => i.level && !i.pending).length; const l = dlog(dd.day);
     const tb = items.filter((i) => i.level === 'tb').map((i) => i.no);
     return html`<details class="card dt-day" data-day="${dd.day}">
       <summary><span class="dt-day-t">Ngày ${dd.day} – ${dd.title}</span>
@@ -109,11 +116,11 @@ export async function render({ params }) {
           <div class="pc-grid">
             ${!T.due ? html`<label class="pc-f"><span>Cơ sở</span>${adm ? html`<select class="input info-f" data-f="branch_id"><option value="">—</option>${opt.branches.map((b) => html`<option value="${b.id}" ${b.id === T.branch_id ? 'selected' : ''}>${b.code}</option>`)}</select>` : html`<div class="pc-fixed">${T.branch || '—'}</div>`}</label>` : ''}
             <label class="pc-f"><span>Ngày bắt đầu</span>${adm ? html`<input class="input info-f" type="date" data-f="start_date" value="${T.start_date}">` : html`<div class="pc-fixed">${dmy(T.start_date)}</div>`}</label>
-            <label class="pc-f"><span>Người hướng dẫn chính</span>${adm ? html`<input class="input emp-f" data-f="instructor_id" list="dt-mgrs" value="${empName(T.instructor_id)}" placeholder="Gõ mã hoặc tên quản lý">` : html`<div class="pc-fixed">${T.instructor || '—'}</div>`}</label>
-            <label class="pc-f"><span>Quản lý phụ trách</span>${adm ? html`<select class="input info-f" data-f="manager_id"><option value="">—</option>${opt.managers.map((m) => html`<option value="${m.id}" ${m.id === T.manager_id ? 'selected' : ''}>${m.name}</option>`)}</select>` : html`<div class="pc-fixed">${T.manager || '—'}</div>`}</label>
+            <label class="pc-f"><span>Người hướng dẫn chính</span>${pickHdc ? html`<select class="input" id="dt-hdc" aria-label="Người hướng dẫn chính"><option value="" ${T.instructor_id ? '' : 'selected'} disabled>— Chọn quản lý —</option>${hdcList.map((e) => html`<option value="${e.id}" ${e.id === T.instructor_id ? 'selected' : ''}>${e.code} – ${e.name}</option>`)}</select>` : html`<div class="pc-fixed">${T.instructor || '—'}</div>`}</label>
+            <label class="pc-f"><span>Người phụ trách chính</span><div class="pc-fixed">${T.ptc || 'Chủ chưa chọn'}</div></label>
           </div>
-          ${adm ? html`<datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>
-            <datalist id="dt-mgrs">${opt.employees.filter((e) => e.rank === 'Quản lý').map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>` : ''}
+          ${adm ? html`<datalist id="dt-emps">${opt.employees.map((e) => html`<option value="${e.code} – ${e.name}"></option>`)}</datalist>` : ''}
+          <div class="st-meta">Giao hạng mục: chỉ người hướng dẫn chính của phiếu, người phụ trách chính hoặc Chủ. Nhân viên cấp 1 ghi mức đạt → <b>Chờ kiểm tra</b>, người hướng dẫn chính hoặc người phụ trách chính bấm <b>Xác nhận đạt</b> mới tính đạt.</div>
           <div class="st-meta">Mỗi hạng mục đi đủ 3 bước: Đã giới thiệu → Đã thực hành có giám sát → Mức đạt (Trung bình / Khá / Tốt — cả 3 mức đều tính là đạt). Hệ thống ghi người và ngày xác nhận thay cho chữ ký.</div>
           ${T.tasks.length ? html`<div><span class="pc-sub">NHIỆM VỤ ĐÀO TẠO ĐƯỢC GIAO (TAB CÔNG VIỆC)</span>${T.tasks.map((k) => html`<div class="st-meta">• ${k.content} — ${k.assignee || 'chưa giao'} · <span class="pill ${TASK_STATUS[k.status][1]}">${TASK_STATUS[k.status][0]}</span>${k.due_date ? ' · hạn ' + dmy(k.due_date) : ''}</div>`)}</div>` : ''}
         </section>
@@ -176,7 +183,7 @@ export async function render({ params }) {
         daySections.forEach((day) => {
           let matches = 0;
           $$('.dt-item', day).forEach((row) => {
-            const stage = row.dataset.phaseTwo === '1' ? 'phase2' : row.classList.contains('done') ? 'done' : $('.it-intro', row).checked ? 'introduced' : 'new';
+            const stage = row.dataset.check === '1' ? 'check' : row.dataset.phaseTwo === '1' ? 'phase2' : row.classList.contains('done') ? 'done' : $('.it-intro', row).checked ? 'introduced' : 'new';
             const f = filter.value;
             row.hidden = f.startsWith('lv_') ? $('.it-level', row).value !== f.slice(3) : f !== 'all' && f !== stage;
             if (!row.hidden) matches++;
@@ -204,6 +211,16 @@ export async function render({ params }) {
         if (q && !e) { showSaved(main ? 'Người hướng dẫn chính phải là nhân viên cấp Quản lý. Chọn trong danh sách gợi ý.' : 'Không tìm thấy nhân viên. Chọn trong danh sách gợi ý.', true); return; }
         await saveInfo({ [el.dataset.f]: e ? e.id : null });
       }));
+      $('#dt-hdc')?.addEventListener('change', async (ev) => {
+        const sel = ev.target; sel.disabled = true;
+        try { await rpc('app_dt_instructor_save', { p_id: T.id, p_employee: Number(sel.value) }); flash('Đã đổi người hướng dẫn chính.'); rerender(); }
+        catch (e) { showSaved(e.message, true); sel.disabled = false; sel.value = String(T.instructor_id || ''); }
+      });
+      $$('.it-check').forEach((b) => b.addEventListener('click', once(async () => {
+        const lv = b.closest('.dt-chkbox')?.querySelector('.it-chk-lv')?.value || null;
+        try { await rpc('app_dt_check_ok', { p_id: T.id, p_no: Number(b.dataset.no), p_level: lv }); flash('Đã xác nhận đạt.'); rerender(); }
+        catch (e) { showSaved(e.message, true); }
+      })));
       $('#cont-ok')?.addEventListener('change', (ev) => saveInfo({ cont_result: ev.target.checked ? 'dat' : null }));
       $$('.day-cmt').forEach((el) => el.addEventListener('change', async () => {
         try { await rpc('app_dt_day_comment', { p_id: T.id, p_day: Number(el.dataset.day), p_comment: el.value }); showSaved('Đã lưu · ' + hhmm()); } catch (e) { showSaved(e.message, true); }
@@ -224,7 +241,7 @@ export async function render({ params }) {
           intro.disabled = pending;
           prac.disabled = pending || !intro.checked;
           lv.disabled = pending || !(intro.checked && prac.checked);
-          row.classList.toggle('done', !!lv.value);
+          row.classList.toggle('done', !!lv.value && row.dataset.check !== '1');
           if (phaseButton) {
             phaseButton.disabled = pending;
             phaseButton.hidden = row.dataset.phaseTwo !== '1' && !needsMorePractice(lv.value);
@@ -242,7 +259,7 @@ export async function render({ params }) {
             const ach = $('#dt-ach');
             ach.textContent = r.achieved;
             $('#dt-bar').style.width = `${Math.round(r.achieved / T.total * 100)}%`;
-            if (r.status !== T.status || (p.level && row.dataset.phaseTwo === '1')) {
+            if (r.status !== T.status || (p.level && row.dataset.phaseTwo === '1') || !!r.pending !== (row.dataset.check === '1')) {   // bước 169: vào / ra Chờ kiểm tra → vẽ lại
               rerender();
               return;
             }
@@ -326,6 +343,8 @@ export async function render({ params }) {
 
 const STYLE = html`<style>
   .dt-item[hidden], .dt-day[hidden], [data-dt-phase][hidden] { display: none; }
+  .dt-chkbox { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 6px 8px; margin: 4px 0; border: 1px dashed #d99a3a; border-radius: 8px; background: #fff7e6; overflow-wrap: anywhere; }
+  .dt-chkact { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; } .dt-chkact .btn, .dt-chkact select { width: auto; }
   .pill.info { background: var(--info-bg); color: var(--info-ink); }
   .dt-prog { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
   .dt-bar { flex: 1 1 200px; height: 10px; background: var(--line-soft); border-radius: 6px; overflow: hidden; }

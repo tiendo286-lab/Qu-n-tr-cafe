@@ -76,10 +76,11 @@ export function everyoneWork(pcAll, training, me, helpers) {
   const items = [];
   for (const i of W.items) {
     if (i.key.startsWith('dt:')) {
-      const t = rows.find((r) => 'dt:' + r.id === i.key); const p = pByName.get(t.manager);
+      // bước 169: phiếu đào tạo tính theo người hướng dẫn chính (bỏ Quản lý phụ trách)
+      const t = rows.find((r) => 'dt:' + r.id === i.key); const p = pByName.get(t.instructor);
       if (p && p.id === me) continue;
-      const text = t.manager || short(t.instructor) || 'Chưa có người nhận';
-      items.push({ ...i, waitingFor: null, who: { text, mine: false, none: !t.manager && !t.instructor }, roles: p ? [roleOfPerson(p)] : t.instructor ? ['Quản lý'] : ['Việc khác'] });
+      const text = short(t.instructor) || 'Chưa có người nhận';
+      items.push({ ...i, waitingFor: null, who: { text, mine: false, none: !t.instructor }, roles: p ? [roleOfPerson(p)] : t.instructor ? ['Quản lý'] : ['Việc khác'] });
       continue;
     }
     const ids = holders.get(i.key) || [];
