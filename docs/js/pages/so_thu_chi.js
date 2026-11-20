@@ -604,7 +604,7 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
   }
   if (x.chia) pills.push(html`<span class="pill info">${x.chia}</span>`);
   if (D && !D.ext && x.book === 'chi' && x.col === 'no' && String(x.id).startsWith('dn:')) pills.push(debtPills(D, x));   // bước 155
-  const caDone = !!x.ca_id && isDone(D, x.ca_id);
+  const caDone = String(x.id).startsWith('m:') && !!x.ca_id && isDone(D, x.ca_id);   // bước 171: chỉ khoá phiếu thu chi của ca; khoản sinh ra khi xử lý chênh lệch (gán nợ…) vẫn huỷ được sau khi ca đã hoàn thành
   if (x.can_edit && !caDone) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
     : html`<button type="button" class="btn sm secondary stc-ed" data-ed="${x.id}">Sửa / Xoá</button>`);
   else if (!quiet && !['dt', 'lech'].includes(x.col) && !x.to_qn) {   // bước 164: ca đang khoá đã có 1 dòng ghi chú
