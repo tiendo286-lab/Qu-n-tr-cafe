@@ -168,7 +168,8 @@ const WSTYLE = html`<style>
   .cw-st { font-size: 14px; font-weight: 800; } .cw-m { display: flex; flex-direction: column; font-size: 13px; font-weight: 700; color: var(--ink-2); font-variant-numeric: tabular-nums; line-height: 1.3; }
   .cw-m .neg, .cw-h .neg { color: #b91c1c; } .cw-m .pos { color: var(--ok-ink); }
   .cw-lg { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; } .cw-lg .cw-c { width: auto; height: auto; min-height: 0; padding: 2px 8px; font-size: 12px; font-weight: 700; cursor: default; }
-  @media (max-width: 560px) { .cw-t { border-spacing: 3px; } .cw-c { padding: 6px 7px; } .cw-t thead th:first-child { width: 42px; } }
+  /* rà soát 20/11: điện thoại thấy đủ 3 ca, không phải vuốt ngang */
+  @media (max-width: 560px) { .cw-t { border-spacing: 3px; min-width: 0; } .cw-c { padding: 6px 5px; overflow-wrap: anywhere; } .cw-t thead th:first-child { width: 42px; } .cw-st { font-size: 12.5px; } .cw-m { font-size: 11.5px; } }
 </style>`;
 
 export const STYLE = html`<style>

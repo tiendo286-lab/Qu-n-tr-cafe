@@ -1,5 +1,5 @@
 // Bài thử hàm gom Việc của tôi (bước 138). Chạy: jsc -m kiem_tra/hom_nay_viec_138.mjs
-import { collectWork, GROUP_LABEL } from '../docs/js/hom_nay_viec.js';
+import { collectWork, dueText, GROUP_LABEL } from '../docs/js/hom_nay_viec.js';
 
 const helpers = {
   jobName: (j) => ({ 1: 'Đối soát ca', 24: 'Giao việc riêng' }[j] || 'Việc'),
@@ -80,7 +80,16 @@ ok(g('nq').cat === 'ns' && g('ck').cat === 'ns' && g('nqf:33:2').kind === 'nqf',
 ok(g('todo:thieu_nh').cat === 'vh' && g('todo:nghi_thay').cat === 'ns' && g('todo:sao_luu').cat === 'kh' && g('todo:la_moi').cat === 'kh', 'hồ sơ tồn theo bảng luật, khoá lạ → Khác');
 ok(!r3.failedMore && collectWork({ now, pc: pc2, training: null, ka, todo: todo2, today, more: null }, H2).failedMore, 'app_today_more lỗi chỉ báo riêng');
 // Review Focus 2: người làm nhiều người có mình → "Bạn + …" và ghi chú làm trước
-ok(g('pc:21').who.text === 'Bạn + QL tổng D (ai làm trước cũng được)', 'nhãn người làm việc 2 người');
+ok(g('pc:21').who.text === 'Bạn + QL tổng D (ai làm cũng được)', 'nhãn người làm việc 2 người');
 ok(g('dt:3') === undefined && collectWork({ now, pc: null, training, ka: null, todo: null }, H2).items.every((i) => i.cat === 'ns' && i.who.mine), 'phiếu đào tạo của mình → Nhân sự, người làm là Bạn');
+// Rà soát 20/11 (việc 4): hạn ghi theo kiểu còn bao lâu / trễ bao lâu. now = 18/11 13:00
+const dt = (d) => dueText(d, now);
+ok(dt('2026-11-18 16:00:00') === 'còn 3 giờ' && dt('2026-11-18 16:59:00') === 'còn 3 giờ', 'hạn trong hôm nay: còn mấy giờ (làm tròn xuống)');
+ok(dt('2026-11-18 13:40:00') === 'còn 40 phút' && dt('2026-11-18 13:00:30') === 'còn 1 phút', 'hạn dưới 1 giờ: còn mấy phút');
+ok(dt('2026-11-18 11:00:00') === 'trễ 2 giờ' && dt('2026-11-18 12:35:00') === 'trễ 25 phút' && dt('2026-11-15 13:00:00') === 'trễ 3 ngày', 'quá hạn: trễ mấy phút / giờ / ngày');
+ok(dt('2026-11-18 23:59:59') === 'hôm nay' && dt('2026-11-19 23:59:59') === 'ngày mai' && dt('2026-11-21 23:59:59') === '21/11', 'hạn chỉ có ngày: hôm nay / ngày mai / ngày tháng');
+ok(dt('2026-11-19 12:41:00') === 'ngày mai 12:41' && dt('2026-11-21 12:41:00') === '21/11 12:41', 'hạn có giờ ở ngày khác: ngày + giờ, bỏ năm');
+ok(dt('2026-11-19 00:00:00') === 'hết hôm nay' && dt('2026-11-20 00:00:00') === '20/11 00:00', 'hạn 00:00 ngày mai ghi là hết hôm nay');
+ok(dt('2026-11-17 23:59:59') === 'trễ 13 giờ' && dt(null) === '' && dt('') === '', 'hạn ngày hôm qua: trễ theo giờ; không có hạn thì trống');
 out.push(`ĐẠT ${n} kiểm tra`);
 print(out.join('\n'));
