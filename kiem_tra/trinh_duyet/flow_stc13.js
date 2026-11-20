@@ -65,6 +65,7 @@ export default async ({ sleep, out }) => {
     ok(hT <= 341 && sc.scrollHeight > sc.clientHeight, `4. 30 việc: khung cao ${Math.round(hT)}px ≤ 340, cuộn bên trong`);
     ok(phone || Math.abs(hT - hD) <= 1, `4. máy tính: 2 khung cao bằng nhau (${Math.round(hT)} / ${Math.round(hD)})`);
     wide('4. tab Tổng');
+    { const cut = $$('.stc-dg span').filter((x) => getComputedStyle(x).display !== 'none' && x.scrollWidth > x.clientWidth + 1).map((x) => x.textContent.trim()); ok($$('.stc-dg.stc-dd').length > 0 && !cut.length, 'Tồn quỹ theo ngày: không ô nào bị cắt chữ' + (cut.length ? ' — bị cắt: ' + cut.slice(0, 3).join(' | ') : '')); }
     // 5. Kiểm quỹ
     await wait('#stc-kqbox .stc-kqr, #stc-kqbox .st-meta', 40); await sleep(400);
     ok(txt($('.stc-kqlast')).startsWith('lần cuối:') && !txt($('.stc-kqlast')).includes('đang tải'), '5. khung Kiểm quỹ có dòng "Lần cuối: …" (' + txt($('.stc-kqlast')) + ')');

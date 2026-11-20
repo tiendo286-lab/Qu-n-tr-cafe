@@ -61,8 +61,12 @@ export default async ({ sleep, out }) => {
   await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11&cot=no');
   const kd = $$('.stc-kd').find((r) => txt(r).includes('cô lan anh'));
   $('button.stc-col', kd).click(); await wait('dialog[open]', 30); await sleep(200);
+  // bước 159: khách đưa thiếu → web hỏi "Khách đưa thiếu … Đồng ý?" rồi mới ghi (phần thiếu thành nợ mới). Bài thử trả lời Đồng ý và kiểm là web có hỏi.
+  const asked = []; const oldConfirm = window.confirm; window.confirm = (m) => { asked.push(String(m)); return true; };
   setv('[name=amount]', '15.000'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
-  ok(!!item('cô lan anh') && txt($$('.stc-kd').find((r) => txt(r).includes('cô lan anh'))).includes('5.000'), '7. thu nợ một phần: có khoản thu nợ, còn nợ 5.000');
+  window.confirm = oldConfirm;
+  ok(asked.length === 1 && asked[0].includes('đưa thiếu 5.000'), '7. thu nợ thiếu: web hỏi "Khách đưa thiếu 5.000 … Đồng ý?" (' + (asked[0] || 'không hỏi').slice(0, 60) + ')');
+  ok(!dlg() && !!item('cô lan anh') && txt($$('.stc-kd').find((r) => txt(r).includes('cô lan anh'))).includes('5.000'), '7. thu nợ một phần: có khoản thu nợ, còn nợ 5.000');
   // 9–11. đợt 2b: khoản của ca đã chốt tiền sửa được; ca chưa chốt khoá; thêm vào ca bắt lý do
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm'); await openAll();
   const da = item('mua đá');
