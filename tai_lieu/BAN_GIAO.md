@@ -15,10 +15,15 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
 | 1. Cấu hình làm một mình | `dem1911/p1-lam-mot-minh` | ✅ Xong | — | JSON đọc được |
 | 2. Hàng hoá: bộ lọc ngày (bước 167) | `dem1911/p2-loc-ngay-hang-hoa` | ✅ Xong | `146_hang_hoa_loc_ngay.sql` (chạy TRƯỚC khi gộp) | `flow_ln167` chu/qlt/kt ×2 khung; `hang_hoa_loc_ngay_146.sql` 12/12; `loc_ngay_167.mjs` 25/25; bài Hàng hoá cũ đạt |
 | 3. Đối soát Fabi: giao diện (bước 168) | `dem1911/p3-doi-soat-fabi-giao-dien` | ✅ Xong (nút "Chốt ca" đã bỏ từ bước 158 → xem "Cần anh quyết" trong PR) | `147_thu_no_truoc_ca.sql` | `flow_ql_tu_ds`, `flow_stc6`, `flow_stc7` (chu/qlt/ql ×2 khung), `flow_ds168`, `so_thu_chi_tinh_dot11.mjs`, `thu_no_truoc_ca_147.sql` 9/9 |
-| 4. Đào tạo: quy tắc phân công (bước 169) | `dem1911/p4-dao-tao-phan-cong` | ✅ Xong | `148_dao_tao_phan_cong.sql` (chạy TRƯỚC khi gộp) | `flow_dt169` 5 vai ×2 khung; `dao_tao_phan_cong_148.sql` 24/24 (hỏng trên bản cũ); `flow_dt137`, `flow_hn142`, `flow_hn138` đạt |
+| 4. Đào tạo: quy tắc phân công (bước 169) | `dem1911/p4-dao-tao-phan-cong` | ✅ Xong | `148_dao_tao_phan_cong.sql` (chạy TRƯỚC khi gộp) | `flow_dt169` 5 vai ×2 khung; `dao_tao_phan_cong_148.sql` 28/28 (hỏng trên bản cũ); `flow_dt137`, `flow_hn142`, `flow_hn138` đạt |
 | 5. Đào tạo: tab Phân công (bước 170) | `dem1911/p5-dao-tao-tab-phan-cong` (nằm trên nhánh 4) | ✅ Xong — **gộp SAU phần 4** | `149_dao_tao_tab_phan_cong.sql` (sau 148) | `flow_dt170` 5 vai ×2 khung; `dao_tao_tab_phan_cong_149.sql` 16/16 |
 | Bàn giao | `dem1911/ban-giao` | tệp này | — | — |
 
+- **Anh Tiến chốt sáng 20/11 (đã sửa trên các nhánh, đã đẩy, bài thử chạy lại đạt):**
+  - Phần 2: Đối soát › **Chờ đối soát luôn hiện tất cả** (không thanh lọc ngày, cũ nhất lên trước).
+  - Phần 3: nút Xác nhận Fabi đổi tên **"🔒 Hoàn thành đối soát ca"** ở thanh cuối màn hình (điều kiện giữ nguyên, vẫn gọi `app_stc_ds_close`). `flow_stc1`, `flow_stc4` trên điện thoại bấm "‹ Chọn ca khác" trước khi chọn ca.
+  - Phần 4: Quản lý được giao rồi ghi mức → tính đạt ngay (giữ). **Đổi HD chính chỉ người phụ trách chính + Chủ**: tệp 148 thêm trigger `dt_hdc_guard` (chặn cả đường `app_dt_update`); bài 148 nay 28/28. Nhánh 5 đã gộp nhánh 4 mới.
+  - Phần 5: Giao giai đoạn 2 tự xác nhận mức hiện tại (giữ).
 - **Thứ tự chạy SQL:** 146 → 147 → 148 → 149 (đã thử trên CSDL cục bộ: mỗi tệp chạy 2 lần không lỗi, 4 bài thử máy chủ đạt). **Thứ tự gộp:** 1, 2, 3, 4 rồi 5 (bàn giao lúc nào cũng được). Chạy SQL của phần nào trước khi gộp phần đó.
 - **Chưa tăng `docs/version.json` / chưa ghi `app_releases`** trên nhánh nào — làm khi lên web.
 - **Bài thử hỏng sẵn trên `main` (không do đêm nay):** `flow_stc2` (bước 7 thu nợ một phần, bước 9), `flow_stc3` (bước 7b gán nợ). Đã so trên bản `main` chưa sửa: hỏng y hệt.
