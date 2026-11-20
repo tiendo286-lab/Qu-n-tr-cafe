@@ -156,17 +156,25 @@ language sql security definer set search_path = public as $$
 $$;
 revoke all on function public.app__stc_untick(bigint, text[]) from public, anon, authenticated;
 
+-- Danh sách khoản thu (p_thu) hoặc chi của bản đối soát, rút về đúng 3 thứ có nghĩa (hình thức, số tiền, nội dung) và xếp thứ tự cố định —
+-- để chỉ coi là "đổi phiếu" khi nội dung đổi thật, không phải khi cùng nội dung được ghi lại theo cách viết khác (thêm khoá rỗng, đổi thứ tự khoá).
+create or replace function public.app__stc_moves_key(p_moves jsonb, p_thu boolean) returns jsonb
+language sql immutable as $$
+  select coalesce(jsonb_agg(k order by k::text), '[]'::jsonb)
+    from (select jsonb_build_array(x ->> 'kind', coalesce((x ->> 'amount')::numeric, 0), coalesce(x ->> 'note', '')) k
+            from jsonb_array_elements(case when jsonb_typeof(p_moves) = 'array' then p_moves else '[]'::jsonb end) x
+           where (coalesce((x ->> 'amount')::numeric, 0) > 0) = p_thu) q
+$$;
+revoke all on function public.app__stc_moves_key(jsonb, boolean) from public, anon, authenticated;
+
 -- bản đối soát của ca: danh sách khoản thu chi (moves) đổi → bỏ tích phần thu / phần chi; số đếm két đổi → bỏ tích gối đầu
 create or replace function public.app__stc_recon_tick() returns trigger
 language plpgsql security definer set search_path = public as $$
-declare o jsonb := case when tg_op = 'UPDATE' then coalesce(old.data -> 'moves', '[]'::jsonb) else '[]'::jsonb end;
-  n jsonb := coalesce(new.data -> 'moves', '[]'::jsonb); thu boolean; chi boolean; cnt boolean;
+declare thu boolean; chi boolean; cnt boolean;
 begin
   if tg_op = 'INSERT' then return new; end if;   -- bản chụp đầu tiên từ phiếu nhân viên: chưa có gì đổi
-  thu := (select coalesce(jsonb_agg(x order by x::text), '[]') from jsonb_array_elements(o) x where coalesce((x ->> 'amount')::numeric, 0) > 0)
-         is distinct from (select coalesce(jsonb_agg(x order by x::text), '[]') from jsonb_array_elements(n) x where coalesce((x ->> 'amount')::numeric, 0) > 0);
-  chi := (select coalesce(jsonb_agg(x order by x::text), '[]') from jsonb_array_elements(o) x where coalesce((x ->> 'amount')::numeric, 0) <= 0)
-         is distinct from (select coalesce(jsonb_agg(x order by x::text), '[]') from jsonb_array_elements(n) x where coalesce((x ->> 'amount')::numeric, 0) <= 0);
+  thu := public.app__stc_moves_key(old.data -> 'moves', true) is distinct from public.app__stc_moves_key(new.data -> 'moves', true);
+  chi := public.app__stc_moves_key(old.data -> 'moves', false) is distinct from public.app__stc_moves_key(new.data -> 'moves', false);
   cnt := (old.data ->> 'cash_counted') is distinct from (new.data ->> 'cash_counted');
   if (thu or chi) and exists (select 1 from public.stc_ca_done where report_id = new.report_id) then
     raise exception 'Ca đã hoàn thành đối soát — bấm Mở lại trước.';

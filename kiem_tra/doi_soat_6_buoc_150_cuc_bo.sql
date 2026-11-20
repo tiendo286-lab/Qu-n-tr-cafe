@@ -116,6 +116,30 @@ begin
   rep := rep || E'\n' || case when (j -> 'fabi' ->> 'edited_bills')::int = 1 and array_to_string(miss, '|') like '%hoá đơn bị sửa%' then 'ĐẠT' else 'HỎNG' end
     || ' (12c) ca có hoá đơn sửa → phải tích mục hoá đơn: ' || array_to_string(miss, ' · ');
 
+  -- (14) phiếu thu chi của ca (đường thật app_stc_move_save): ca chưa Hoàn thành → thêm được, mục liên quan tự bỏ tích; ca đã Hoàn thành → khoá
+  foreach it in array array['that', 'sot', 'anh'] loop perform public.app_stc_tick(A, it, true); end loop;
+  begin
+    perform public.app_stc_move_save(A, null, jsonb_build_object('kind', 'tien_mat', 'amount', -1000, 'note', 'thử chi 150'), 'thử');
+    rep := rep || E'\n' || case when (select array_agg(item order by item) from public.stc_ca_ticks where report_id = A) = array['anh', 'sot'] then 'ĐẠT' else 'HỎNG' end
+      || ' (14) thêm phiếu chi → bỏ tích "khoản chi có thật", giữ ảnh + không sót: ' || coalesce((select string_agg(item, ',' order by item) from public.stc_ca_ticks where report_id = A), '');
+    perform public.app_stc_move_save(A, null, jsonb_build_object('kind', 'tien_mat', 'amount', 2000, 'note', 'thử thu 150'), 'thử');
+    rep := rep || E'\n' || case when (select array_agg(item order by item) from public.stc_ca_ticks where report_id = A) = array['anh'] then 'ĐẠT' else 'HỎNG' end
+      || ' (14b) thêm phiếu thu → bỏ tích "không sót khoản thu", giữ ảnh: ' || coalesce((select string_agg(item, ',' order by item) from public.stc_ca_ticks where report_id = A), '');
+  exception when others then rep := rep || E'\nHỎNG (14) thêm phiếu vào ca chưa Hoàn thành lỗi: ' || sqlerrm; end;
+  -- ghi lại bản đối soát y nguyên nội dung (chỉ khác cách viết: thêm khoá rỗng) → không coi là đổi phiếu
+  foreach it in array array['that', 'sot'] loop perform public.app_stc_tick(A, it, true); end loop;
+  update public.shift_report_recon set data = jsonb_set(data, '{moves}', (select jsonb_agg(x || '{"exchange_key": null}'::jsonb) from jsonb_array_elements(data -> 'moves') x)) where report_id = A;
+  rep := rep || E'\n' || case when (select count(*) from public.stc_ca_ticks where report_id = A and item in ('that', 'sot')) = 2 then 'ĐẠT' else 'HỎNG' end
+    || ' (14c) ghi lại bản đối soát cùng nội dung (khác cách viết) → không bỏ tích: ' || coalesce((select string_agg(item, ',' order by item) from public.stc_ca_ticks where report_id = A), '');
+  insert into public.stc_ca_done(report_id, by_account) values (A, chu.id);
+  begin
+    perform public.app_stc_move_save(A, null, jsonb_build_object('kind', 'tien_mat', 'amount', -3000, 'note', 'thử khoá 150'), 'thử');
+    rep := rep || E'\nHỎNG (14d) ca đã Hoàn thành vẫn thêm được phiếu';
+  exception when others then rep := rep || E'\n' || case when sqlerrm like '%Mở lại trước%' then 'ĐẠT' else 'HỎNG' end || ' (14d) ca đã Hoàn thành, thêm phiếu: ' || sqlerrm; end;
+  update public.shift_report_recon set data = jsonb_set(data, '{moves}', (select jsonb_agg(x - 'exchange_key') from jsonb_array_elements(data -> 'moves') x)) where report_id = A;
+  rep := rep || E'\n' || case when exists (select 1 from public.stc_ca_done where report_id = A) then 'ĐẠT' else 'HỎNG' end || ' (14e) ca đã Hoàn thành, ghi lại bản đối soát cùng nội dung → không bị chặn, giữ dấu';
+  delete from public.stc_ca_done where report_id = A;
+
   -- (13) kết quả Chuyển khoản bị gỡ (mọi kiểu mở lại) → dấu Hoàn thành tự mất; sổ tháng không trả done khi ca chưa xác nhận Fabi
   insert into public.stc_ca_done(report_id, by_account) values (A, chu.id);
   perform set_config('app.ca_auto', '1', true);
