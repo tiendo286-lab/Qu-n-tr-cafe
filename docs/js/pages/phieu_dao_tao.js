@@ -38,7 +38,7 @@ export async function render({ params }) {
     return !T.workflow_review_at && (ed || (assignment?.mine && (!assignment.is_extra || !assignment.finished_at)));
   };
   const adm = !!T.can_admin;
-  // bước 169: người phụ trách chính (hoặc người có quyền Đào tạo) chọn / đổi người hướng dẫn chính — danh sách Quản lý có tài khoản đang hoạt động
+  // bước 169: người phụ trách chính hoặc Chủ (anh chốt 20/11 — người có quyền Đào tạo không còn đổi được) chọn / đổi người hướng dẫn chính — danh sách Quản lý có tài khoản đang hoạt động
   const pickHdc = !!T.can_pick_hdc && T.status !== 'hoan_thanh';
   const hdcList = T.hdc_choices || [];
   const canAssign = T.can_assign && T.status !== 'hoan_thanh';

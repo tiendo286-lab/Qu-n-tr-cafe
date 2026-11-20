@@ -17,6 +17,7 @@ export default async ({ visit, sleep, out }) => {
     const assignBtns = all('[data-dt-guide-person]').length;
     if (role === 'chu') {
       ok(assignBtns > 0, '3. Chủ giao được hạng mục (có nút Đổi phân công)');
+      ok(!!$('#dt-hdc'), '2. Chủ có ô chọn Người hướng dẫn chính (anh chốt 20/11)');
       ok(!(await fails(() => rpc('app_dt_followup_save', { p_id: 1, p_no: 5, p_employee: 7, p_note: null, p_extra: false, p_branch: null }))), '3. Chủ gọi giao hạng mục được');
       const { openCreateDialog } = await import('../js/pages/dao_tao.js');
       openCreateDialog({ id: 7, name: 'Thử', branch: 'TEST' }); await sleep(600);
@@ -25,6 +26,7 @@ export default async ({ visit, sleep, out }) => {
     }
     if (role === 'ql') {   // HD chính của phiếu
       ok(assignBtns > 0, '3. HD chính giao được hạng mục (có nút Đổi phân công)');
+      ok(!$('#dt-hdc') && await fails(() => rpc('app_dt_instructor_save', { p_id: 1, p_employee: 8 })) && await fails(() => rpc('app_dt_update', { p_id: 1, p: { instructor_id: 8 } })), '2. Quản lý có quyền Đào tạo (không phải người phụ trách chính / Chủ) không đổi được HD chính (anh chốt 20/11)');
       await rpc('app__test_dt_pending', { p_no: 3, p_level: 'kha' });
       root = await visit('#/dao-tao/phieu?id=1&t=' + Date.now()); const a0 = ach();
       ok(!!row(3)?.querySelector('.dt-chkbox') && row(3).textContent.includes('Chờ kiểm tra') && !row(3).classList.contains('done'), '4. hạng mục Cấp 1 ghi → "Chờ kiểm tra", chưa tính đạt');
