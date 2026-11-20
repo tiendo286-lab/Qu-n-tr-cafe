@@ -6,6 +6,13 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
+## 20/11/2026 sáng — ĐÃ LÊN WEB bản 2026.11.20.1 (bước 167–170)
+- Máy chủ: tệp **146, 147, 148, 149 đã chạy thật** (chạy thử tự hoàn tác trước; bài thử trên máy chủ thật: 146 12/12, 147 9/9, 148 28/28, 149 16/16). Sổ tệp đã chạy: mới nhất là `149_dao_tao_tab_phan_cong.sql` → tệp mới bắt đầu từ **150**.
+- Web: gộp cả 5 nhánh `dem1911/*` + bàn giao vào `main`, phiên bản **2026.11.20.1** (đổi mọi `?v=` trong `docs/` sang số mới), đã ghi `app_releases`.
+- **Claude không đẩy lên `main` được nữa**: `.claude/settings.json` (phần 1) cấm `git push *main*` và `rm`. Anh Tiến tự chạy `git push origin main` trong Terminal. Tệp cấu hình cũ trên máy đổi tên thành `.claude/settings.json.cu`.
+- Bài `flow_ql_tu_ds` phải chuẩn bị **không kèm** `--dao-tao-gia` (kèm thì lỗi "reading 'filter'" — do dữ liệu giả, không phải lỗi web).
+- Mục bên dưới (đêm 19→20/11) giữ lại để tra cứu; các dòng "chưa chạy / chưa gộp" trong đó nay đã xong.
+
 ## Đêm 19→20/11/2026 — làm một mình (bước 167–170), CHƯA lên web, CHƯA chạy SQL thật
 
 5 phần làm trên **nhánh riêng**, đã đẩy lên GitHub, **chưa mở PR** (máy không có `gh`, không lấy được mã GitHub). Nội dung PR viết sẵn ở `work/pr_dem_1911/p1.md … p5.md` (tệp cục bộ) — mỗi tệp có link "Mở PR" để anh bấm, dán nội dung. Gộp thử cả 5 nhánh cùng lúc: **không xung đột**.
