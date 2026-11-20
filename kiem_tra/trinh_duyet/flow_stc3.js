@@ -86,7 +86,9 @@ export default async ({ sleep, out }) => {
   ok(!$('[name=debt]', dlg()) && txt(dlg()).includes('két dư đủ cả khoản'), '7b. nợ 20.000 lớn hơn tiền dư 10.000 → không có khoản nào để gán, ghi rõ lý do');
   dlg().close(); await sleep(200);
   // thêm 1 khoản nợ 10.000 ghi ngày 12/11 (trước ca, vừa bằng tiền dư) rồi thử đường gán đủ cả khoản
-  { const { rpc } = await import('../js/sb.js'); await rpc('app_stc_debt_save', { p_id: null, p: { name: 'Chị Hoa', kind: 'tm', amount: 10000, date: '2026-11-12' }, p_reason: 'Chuẩn bị bài thử' }); }
+  { const { rpc } = await import('../js/sb.js');   // bước 172: nợ ngoài ca chỉ nhận người có trong danh sách → thêm "Chị Hoa" trước
+    await rpc('app_stc_person_save', { p_id: null, p: { branch_id: 1, name: 'Chị Hoa', grp: 'khach' } });
+    await rpc('app_stc_debt_save', { p_id: null, p: { name: 'Chị Hoa', kind: 'tm', amount: 10000, date: '2026-11-12' }, p_reason: 'Chuẩn bị bài thử' }); }
   await go(THU.replace('2026-11', '2026-10')); await go(THU);   // trang nhớ dữ liệu tháng 60 giây → sang tháng khác rồi quay lại để tải mới
   await openGap('g:143:tm'); act('no').click(); await sleep(100);
   const dsel = txt($('[name=debt]', dlg()));
