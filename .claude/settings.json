@@ -1,0 +1,40 @@
+{
+  "enabledPlugins": {
+    "superpowers@anthropic-plugin-directory": true
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git log *)",
+      "Bash(git diff *)",
+      "Bash(git show *)",
+      "Bash(git branch --list *)",
+      "Bash(git branch --show-current)",
+      "Bash(git rev-parse *)",
+      "Bash(git ls-files *)",
+      "Bash(git blame *)",
+      "Bash(git grep *)",
+      "Bash(git fetch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git checkout *)",
+      "Bash(git switch *)",
+      "Bash(node *)",
+      "Bash(npm test *)",
+      "Bash(npm run test *)",
+      "Bash(kiem_tra/trinh_duyet/chuan_bi.sh *)",
+      "Bash(bash kiem_tra/*)",
+      "Bash(python3 kiem_tra/*)",
+      "Bash(python3 -I kiem_tra/*)",
+      "Bash(/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m kiem_tra/*)"
+    ],
+    "deny": [
+      "Bash(git push *main*)",
+      "Bash(git push --force*)",
+      "Bash(git push -f*)",
+      "Bash(rm)",
+      "Bash(rm *)",
+      "Bash(curl *api.supabase.com*)"
+    ]
+  }
+}
