@@ -48,7 +48,11 @@ export default async ({ sleep, out }) => {
   ok(!!kt && !!$('.stc-nc', kt) && txt($('.stc-nc', kt)).includes('không tính chi phí'), '4. khoản "Không tính" có nhãn Không tính chi phí');
   ok(!$$('.stc-ty').some((t) => txt(t).includes('không tính')), '4. Chi theo loại không có khoản Không tính');
   // 5. không có nút sửa bấm được
-  ok($$('.stc-act').length > 0 && $$('.stc-act').every((b) => b.disabled), '5. nút sửa / thêm đều tắt');
+  // bước 171: ca đã Hoàn thành đối soát / chưa xác nhận Fabi khoá bằng 1 dòng ghi chú đầu ca, từng dòng không lặp nút tắt; nút tắt (nếu có) không bấm được
+  { const caThat = $$('#stc-book .stc-ca').filter((c) => !String(c.querySelector('[data-ca]')?.dataset.ca || '').startsWith('o:'));   // bỏ nhóm "Ngoài ca"
+    ok(caThat.length > 0 && $$('.stc-act').every((b) => b.disabled) && caThat.every((c) => !c.querySelector('button.stc-ed:not([disabled])'))
+      && $$('.stc-calock').some((n) => txt(n).includes('đã hoàn thành đối soát')),
+      '5. khoản của ca không có nút sửa bấm được; ca khoá có ghi chú đầu ca (đã hoàn thành đối soát) — ' + caThat.length + ' ca, ' + $$('.stc-calock').length + ' ghi chú'); }
   ok(!txt($('#root')).includes('đang chạy thử'), '5. không còn chữ Đang chạy thử (bước 152: Sổ thu chi là chỗ làm chính)');
   // 6. tháng chưa có dữ liệu
   await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-12', '.stc-pay');
