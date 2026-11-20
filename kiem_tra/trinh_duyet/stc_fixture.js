@@ -2,9 +2,12 @@
 import { fundSummary } from '../js/so_thu_chi_tinh.js';
 
 let k = 0;
-const ca = (id, date, shift, o = {}) => ({ id, date, shift, staff: 'Lan, Minh', cash_mode: 'ngay', ql_counted: null, nv_counted: null, start_tm: 1000000, real_tm: null,
+// bước 171: ca đã xác nhận Fabi từ trước coi như đã bấm Hoàn thành đối soát ca (done), như phần chạy bù của tệp 150
+const ca = (id, date, shift, o = {}) => { const c = { id, date, shift, staff: 'Lan, Minh', cash_mode: 'ngay', ql_counted: null, nv_counted: null, start_tm: 1000000, real_tm: null,
   nv: { opening: 1000000, revenue: 0, debt: 0 }, fabi: { has: true, opening: 1000000, revenue: 0, tm: 0, ck: 0, debt: 0, edited_bills: 0 },
-  bank_ck: 0, kt_wait: false, kt_missing: [], recon_money_done: true, ...o });
+  bank_ck: 0, kt_wait: false, kt_missing: [], recon_money_done: true, ticks: [], ...o };
+  if (c.done === undefined) c.done = c.recon_money_done ? { by: '', at: 'trước bước 171' } : null;
+  return c; };
 const it = (date, caId, book, pm, col, amount, o = {}) => ({ id: 'z:' + (++k), date, ca_id: caId, book, pm, col, amount, title: col, meta: 'Phiếu ca', cat: null,
   cat_type: null, checked: true, no_cost: false, status: null, status_cls: null, from: null, who: null, to_qn: false, recv: null, src: 'move', ...o });
 // chi tiết lệch (đợt 3) — cùng dạng gap của app_stc_month

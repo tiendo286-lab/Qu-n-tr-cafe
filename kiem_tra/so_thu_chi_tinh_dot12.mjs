@@ -1,6 +1,6 @@
 // Bài thử bước 171 đợt A (Đối soát thu chi 6 bước): mục quản lý phải kiểm tra + trạng thái ca. Chạy: jsc -m kiem_tra/so_thu_chi_tinh_dot12.mjs
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-20-doi-soat-thu-chi-6-buoc-design.md (mục 6, 10)
-import { dsChecks, dsLeft, caStage, BIG, DS_STEPS, TICKS } from '../docs/js/so_thu_chi_tinh.js';
+import { dsChecks, dsLeft, dsCtx, caStage, BIG, DS_STEPS, TICKS } from '../docs/js/so_thu_chi_tinh.js';
 let n = 0;
 const ok = (c, m) => { if (!c) throw new Error('KIỂM TRA THẤT BẠI: ' + m); n++; };
 const okc = [{ k: 'mo', st: 'ok' }, { k: 'dt', st: 'ok' }, { k: 'no', st: 'ok' }];
@@ -66,4 +66,20 @@ ok(st(base()).k === 'xn' && /Đã xác nhận Fabi/.test(st(base()).txt), 'đã 
 ok(st(base(), [gap()]).k === 'xn', 'chưa Hoàn thành thì còn lệch cũng vẫn là xn');
 ok(st(base({ done: { by: 'x', at: 'y' } }), [gap()]).k === 'con', 'đã Hoàn thành + còn lệch → 🟠');
 ok(st(base({ done: { by: 'x', at: 'y' } }), [gap({ done: true })]).k === 'xong', 'đã Hoàn thành + hết lệch → 🟢');
+// dsCtx: gom dữ liệu của 1 ca từ sổ tháng (giao diện và bộ giả lập dùng chung)
+const fb = (o = {}) => ({ has: true, opening: 1000000, revenue: 0, debt: 0, ...o });
+const mk = (id, shift, o = {}) => ({ id, date: '2026-11-18', shift, cash_mode: 'ngay', ql_counted: null, start_tm: 1000000, real_tm: null, nv: { opening: 1000000, revenue: 0, debt: 0 }, fabi: fb(), bank_ck: 0, recon_money_done: true, ticks: [], ...o });
+// ca Sáng thiếu 30.000 (thu cuối ngày) → két để lại 970.000 → ca Chiều mở ca 970.000 là khớp
+const D = { cas: [mk(1, 'Sáng'), mk(2, 'Chiều', { fabi: fb({ opening: 970000 }), nv: { opening: 970000, revenue: 0, debt: 0 } }), { ...mk(9, 'Sáng'), date: '2026-11-19' }],
+  items: [{ id: 'g', ca_id: 1, book: 'chi', pm: 'tm', col: 'lech', amount: 30000, status: 'Chờ xử lý (thiếu)', gap: {} }, { id: 'x', ca_id: 2, book: 'chi', pm: 'tm', col: 'chi', amount: 400000, cat: null }] };
+let c = dsCtx(D, D.cas[0]);
+ok(c.last === false && c.next && c.next.sent === true && c.next.moOk === true, 'ca Sáng: có ca sau đã gửi phiếu, tiền mở ca sau khớp');
+ok(c.gaps.length === 1 && c.gaps[0].amt === -30000 && c.checks.length === 5 && c.items === D.items, 'ca Sáng: lấy đúng dòng chênh lệch và 5 ô kiểm');
+ok(ks(dsChecks(D.cas[0], c)[1]) === 'ck,ket,fabi' && ks(dsChecks(D.cas[0], c)[4]) === 'tm,ck5,ld', 'dsCtx nối thẳng vào dsChecks');
+c = dsCtx(D, D.cas[1]);
+ok(c.last === true && c.next === null && c.gaps.length === 0, 'ca Chiều là ca cuối ngày');
+ok(ks(dsChecks(D.cas[1], c)[3]) === 'cat,that,lon', 'ca Chiều: khoản chi 400.000 chưa nhóm');
+ok(dsCtx(D, D.cas[2]).last === true, 'ca ngày khác không tính là ca sau');
+const D2 = { cas: [mk(1, 'Sáng'), mk(2, 'Chiều', { fabi: fb({ opening: 950000 }), nv: { opening: 950000, revenue: 0, debt: 0 } })], items: [] };
+ok(dsCtx(D2, D2.cas[0]).next.moOk === false, 'ca sau mở ca lệch tiền ca này để lại → moOk false');
 print('ĐẠT ' + n + ' kiểm tra');

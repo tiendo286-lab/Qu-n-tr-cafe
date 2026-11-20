@@ -376,3 +376,10 @@ export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, 
   return [b1, b2, b3, b4, b5];
 }
 export const dsLeft = (steps) => steps.map((st) => st.filter((x) => !x.ok).length);
+// Gom dữ liệu của 1 ca từ sổ tháng (D = kết quả app_stc_month) để đưa vào dsChecks. Giao diện và bộ giả lập bài thử dùng chung.
+export function dsCtx(D, ca) {
+  const link = dayChain(D, ca.date).get(ca.id);
+  const nx = (D.cas || []).filter((o) => o.date === ca.date && shiftRank(o.shift) > shiftRank(ca.shift)).sort((a, b) => shiftRank(a.shift) - shiftRank(b.shift))[0] || null;
+  const moOk = (o) => !!o.fabi?.has && (caChecks(o, dayChain(D, o.date).get(o.id)).find((k) => k.k === 'mo') || {}).st === 'ok';
+  return { link, checks: caChecks(ca, link), items: D.items || [], gaps: caGaps(D.items || [], ca.id), next: nx ? { sent: true, moOk: moOk(nx) } : null, last: !nx };
+}

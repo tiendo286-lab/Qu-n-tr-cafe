@@ -3,6 +3,7 @@
 import { EXT, MONTH } from '../test/stc_fixture.js';
 import { makeFund } from '../test/fund_gia.js';
 import { gioCheck } from '../js/gio_chot_tinh.js';
+import { dsChecks, dsCtx, TICKS } from '../js/so_thu_chi_tinh.js';
 
 const copy = (o) => JSON.parse(JSON.stringify(o));
 export function makeStc(T, me) {
@@ -49,6 +50,7 @@ export function makeStc(T, me) {
   const expOpen = (c) => { const i = SH.indexOf(c.shift); if (i <= 0) return { exp: 1000000, prev: null };
     const prev = st().cas.find((x) => x.date === c.date && x.shift === SH[i - 1]); if (!prev) return { exp: null, prev: null };
     return { exp: prev.cash_mode === 'ca' ? 1000000 : Number(prev.real_tm ?? 0), prev }; };
+  const untick = (c, ks) => { c.ticks = (c.ticks || []).filter((k) => !ks.includes(k)); };   // bước 171: dữ liệu đổi → bỏ tích mục liên quan
   const gapAll = () => items().filter((x) => x.gap && !x.void);
   const gapIt = (rid, kind) => {
     if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Bạn không được xử lý lệch tiền của cơ sở này.');
@@ -172,7 +174,9 @@ export function makeStc(T, me) {
     app_stc_move_save({ p_report, p_mkey, p, p_reason }) {
       need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
       if (!ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');
+      if (ca.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');   // bước 171 (tệp 150)
       const id = p_mkey ? `m:${p_report}:${p_mkey}` : null; const x = id ? items().find((i) => i.id === id) : null;
+      untick(ca, (x ? x.book === 'chi' : !p.delete && p.amount < 0) ? ['that', 'lon', 'ld', 'sau_tm', 'sau_ck'] : ['tn', 'sot', 'ld', 'sau_tm', 'sau_ck']);
       if (p.delete) { items().push(voidOf(x, 'xoa', r)); items().splice(items().indexOf(x), 1); return null; }
       amountOk(Math.abs(p.amount)); if (!String(p.note || x?.title || '').trim()) throw new Error('Ghi nội dung khoản.');
       const nk = 'n' + (++N);
@@ -317,6 +321,7 @@ export function makeStc(T, me) {
     },
     app_stc_ds_cash({ p_report, p_mode, p_counted }) {
       const c = dsCa(p_report, true); if (!['ca', 'ngay'].includes(p_mode)) throw new Error('Chọn thu theo ca hay theo ngày.');
+      untick(c, ['goi', 'ld', 'sau_tm']);
       c.cash_mode = p_mode; if (p_mode === 'ca') c.ql_counted = p_counted ?? null; else { c.ql_counted = null; if (p_counted != null) c.real_tm = p_counted; }
     },
     app_stc_ds_close({ p_report }) {
@@ -328,8 +333,22 @@ export function makeStc(T, me) {
       c.recon_money_done = true; items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:') && !x.void) x.can_edit = true; });
       return { tm: 0, ck: 0 };
     },
+    // bước 171 (tệp 150): mục quản lý tự tích, Hoàn thành đối soát ca, Mở lại
+    app_stc_tick({ p_report, p_item, p_on }) {
+      const c = dsCa(p_report, false); if (!TICKS.includes(p_item)) throw new Error('Mục kiểm tra không hợp lệ.');
+      if (c.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
+      c.ticks = (c.ticks || []).filter((k) => k !== p_item); if (p_on) c.ticks.push(p_item);
+    },
+    app_stc_ds_done({ p_report }) {
+      const c = dsCa(p_report, false); if (c.done) return;
+      if (!c.recon_money_done) throw new Error('Còn mục chưa kiểm tra: Chưa Xác nhận Fabi');
+      const left = dsChecks(c, dsCtx(st(), c)).flat().filter((x) => !x.ok).map((x) => x.k);
+      if (left.length) throw new Error('Còn mục chưa kiểm tra: ' + left.join(' · '));
+      c.done = { by: by(), at: 'vừa xong' };
+    },
+    app_stc_ds_undone({ p_report }) { const c = dsCa(p_report, false); c.done = null; },
     app_stc_ds_reopen({ p_report, p_reason }) {
-      const c = dsCa(p_report, false); c.recon_money_done = false;   // bước 160 (tệp 143): không bắt lý do
+      const c = dsCa(p_report, false); c.recon_money_done = false; c.done = null;   // bước 160 (tệp 143): không bắt lý do · bước 171: bỏ luôn dấu Hoàn thành
       items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
     },
     // bước 153: phiếu trừ lương — sửa / xoá; khoản chi → trừ lương / bỏ chuyển
