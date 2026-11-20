@@ -8,8 +8,9 @@ export default async ({ sleep, out }) => {
   const dlg = () => $('dialog[open]');
   const setv = (sel, v) => { const el = $(sel, dlg() || document); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const pick = async () => { await wait('[data-dsca="182"]'); $('[data-dsca="182"]').click(); await sleep(400); await wait('.stc-dsp'); };
-  const go = async () => { location.hash = DS; await sleep(300); await wait('.stc-dsp'); await sleep(400); await pick(); };
+  // bước 168: điện thoại chọn ca thì lịch thu thành nút "‹ Chọn ca khác" → bấm nút đó trước khi chọn lại ca
+  const pick = async () => { const pk = $('[data-dspick]'); if (pk) { pk.click(); await sleep(300); } await wait('[data-dsca="182"]'); $('[data-dsca="182"]').click(); await sleep(400); await wait('.stc-dsp'); };
+  const go = async () => { location.hash = DS; await sleep(300); await wait('.stc-dsp, .stc-wk'); await sleep(400); await pick(); };
   const box = (k) => $(`.stc-dsp .stc-c4[data-k="${k}"]`);
   const act = async (sel, reason, extra) => { $(sel).click(); await wait('dialog[open]', 30); await sleep(200); if (extra) extra(); if (reason != null) setv('[name=reason]', reason);
     $('button[type=submit]', dlg()).click(); await sleep(900); };

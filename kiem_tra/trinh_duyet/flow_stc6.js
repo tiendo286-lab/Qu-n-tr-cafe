@@ -10,6 +10,9 @@ export default async ({ sleep, out }) => {
   const wide = (m) => { if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `${m}: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const open = async (id) => { location.hash = DS + '&ds=' + id + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
+  // bước 168: điện thoại đang mở ca thì lịch thu gọn thành "‹ Chọn ca khác" — bấm để xem ô lịch rồi chọn lại ca
+  const calCell = async (id) => { const pk = $('[data-dspick]'); if (pk) { pk.click(); await sleep(300); } const c = $(`.stc-dsc[data-dsca="${id}"]`); const r = { t: txt(c), on: (k) => !!c && c.classList.contains(k) };
+    if (pk && c) { c.click(); await sleep(400); } return r; };
   const submit = async () => { $('button[type=submit]', dlg()).click(); await sleep(1000); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
@@ -18,7 +21,7 @@ export default async ({ sleep, out }) => {
     ok(txt($('.stc-tabs a.on')) === 'đối soát fabi', '1. tab tên "Đối soát Fabi"');
     ok(txt($('.stc-dsh')).includes('ca tối 18/11') && txt($('.stc-pa')).includes('còn lệch') && !!$('.stc-pa [data-dsreopen]'), '1. mở thẳng ca Tối 18/11, phần A đã xác nhận (thu gọn) · 🟠 Còn lệch');
     ok(txt($('.stc-pa .stc-dsnote')).includes('tiền mặt thiếu −30.000 → chưa xử lý'), '1b. bước 161: Ghi chú đối soát "Tiền mặt thiếu −30.000 → chưa xử lý"');
-    ok(txt($('.stc-dsc[data-dsca="183"]')).includes('còn lệch') && txt($('.stc-dsc[data-dsca="183"]')).includes('tm −30k') && $('.stc-dsc[data-dsca="183"]').classList.contains('d-con'), '1b. ô ca Tối 18/11 màu cam "🟠 Còn lệch · TM −30k"');
+    { const c = await calCell(183); ok(c.t.includes('còn lệch') && c.t.includes('tm −30k') && c.on('d-con'), '1b. ô ca Tối 18/11 màu cam "🟠 Còn lệch · TM −30k"'); }
     ok(!$('.stc-glc .stc-it [data-gap]') && txt($('.stc-glhint')).includes('sổ chi · tiền mặt −30.000'), '2. đang xem Sổ thu · TM: không có dòng thiếu; dòng nhắc "Sổ chi · Tiền mặt −30.000"');
     $('.stc-glhint [data-dsbook]').click(); await sleep(400);
     ok(txt($('.stc-glc h2')).includes('chênh lệch tiền mặt · thiếu') && $$('.stc-glc [data-gap]').length === 1, '2. bấm nhắc → Sổ chi · Tiền mặt: khung Chênh lệch có 1 dòng thiếu');
@@ -34,7 +37,7 @@ export default async ({ sleep, out }) => {
     if (dlg()) { bad.push('4. phiếu trừ lương lỗi: ' + txt($('.stc-err', dlg()))); $('[data-x]', dlg())?.click(); }
     await open(183);
     ok(!!$('[data-dsreopen]') && !!$('.stc-pb [data-addca]'), '5. ca vẫn sửa được: có Mở lại xác nhận + Thêm phiếu');
-    ok(txt($('.stc-dsc[data-dsca="183"]')).includes('hoàn thành') && txt($('.stc-dsc[data-dsca="183"]')).includes('lệch tm −30k') && $('.stc-dsc[data-dsca="183"]').classList.contains('d-xong'), '5. bước 161: trừ lương xong → ô ca xanh "🟢 Hoàn thành · lệch TM −30k"');
+    { const c = await calCell(183); ok(c.t.includes('hoàn thành') && c.t.includes('lệch tm −30k') && c.on('d-xong'), '5. bước 161: trừ lương xong → ô ca xanh "🟢 Hoàn thành · lệch TM −30k"'); }
     ok(txt($('.stc-pa .stc-dsnote')).includes('đã xử lý') && txt($('.stc-pa .stc-dsnote')).includes('trừ lương') && $('.stc-pa .stc-dsnote').classList.contains('ok'), '5. Ghi chú đối soát chuyển xanh: "đã xử lý (trừ lương …)"');
     ok(!txt($('#stc-ds .stc-tiles')).includes('khoản treo') && !txt($('#stc-ds .stc-tiles')).includes('đã chốt'), '5. không còn ô "Ca đã chốt" / "Khoản treo"');
     // 6. Sổ chi chung: ca đã chốt không còn nút
