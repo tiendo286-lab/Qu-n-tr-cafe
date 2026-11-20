@@ -113,7 +113,10 @@ const base = {
     { report_id: 181, t: 'moi', id: 705, who: 'Bàn 9', kind: 'bill', amount: 100000, left: 0, pm: null, from: null },
   ],
   compare: { fund_days: [], gaps: [{ ca_id: 183, pm: 'tm', lech: -30000, state: 'cho_gan' }, { ca_id: 152, pm: 'tm', lech: -40000, state: 'xong' }] },
-  people: [{ name: 'Kho Tổng', no_remind: true, open: 300000, n: 1 }, { name: 'Bàn 5', no_remind: false, open: 50000, n: 1 }, { name: 'Cô Lan Anh', no_remind: false, open: 20000, n: 1 }],
+  // bước 172: người nợ là danh sách thật (id, SĐT, nhóm công nợ, còn dùng) — app_stc_people trả các dòng này; no_remind giữ cho sổ tháng kiểu cũ
+  people: [{ id: 1, name: 'Kho Tổng', phone: null, grp: 'kho', active: 1, no_remind: true, open: 300000, n: 1 },
+    { id: 2, name: 'Bàn 5', phone: null, grp: 'khach', active: 1, no_remind: false, open: 50000, n: 1 },
+    { id: 3, name: 'Cô Lan Anh', phone: '0903000003', grp: 'khach', active: 1, no_remind: false, open: 20000, n: 1 }],
 };
 const F = fundSummary(base);
 const end = (pm, d) => F.daily[pm].find((x) => x.date === d).end;

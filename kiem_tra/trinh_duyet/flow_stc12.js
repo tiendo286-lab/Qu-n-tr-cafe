@@ -55,7 +55,7 @@ export default async ({ sleep, out }) => {
     ok(bx.includes('chi theo loại') && bx.includes('cần phân loại') && bx.includes('đã phân loại') && bx.indexOf('cần phân loại') < bx.indexOf('đã phân loại'), '3. ô Các khoản chi: Chi theo loại + Cần phân loại trước Đã phân loại');
     ok(!!$('#stc-book [data-catx]'), '3. khoản cần phân loại có ô chọn nhóm trên dòng');
     await go('chi', '&cot=no');
-    ok(!!$('#stc-book [data-person]') && txt($('#stc-book')).includes('người nợ'), '3. ô Cho nợ: khung Người nợ có ô ✓');
+    ok(!!$('#stc-book [data-prow]') && txt($('#stc-book')).includes('người nợ') && txt($('#stc-book')).includes('nợ kho tổng') && !$('#stc-book [data-person]'), '3. ô Cho nợ: khung Người nợ liệt kê từng người kèm nhóm công nợ (bước 172 thay ô ✓)');
     await go('chi', '&cot=lech');
     ok($$('#stc-book .stc-fr').length > 0 && $$('#stc-book .stc-fr').some((r) => r.querySelector('[data-gap]')), '3. ô Chênh lệch: dòng có nút Phiếu chênh lệch');
     let zc = null;
@@ -67,15 +67,18 @@ export default async ({ sleep, out }) => {
     // ===== Task 4: 👥 Người nợ + bộ lọc dễ đọc
     await go('chi');
     ok(!!$('#stc-book [data-people]'), '4. Sổ chi có nút 👥 Người nợ');
-    $('#stc-book [data-people]')?.click(); await wait('dialog[open] [data-person]', 40); await sleep(200);
+    // bước 172: người nợ là danh sách thật — từng người có nút Sửa (tên, SĐT, nhóm công nợ) thay cho ô ✓ không nhắc
+    $('#stc-book [data-people]')?.click(); await wait('dialog[open] [data-prow]', 40); await sleep(200);
     const pd = $('dialog[open]');
-    ok(!!pd && !!$('[data-person]', pd) && txt(pd).includes('+ thêm người nợ'), '4. cửa sổ Người nợ có ô ✓ + "+ Thêm người nợ"');
+    ok(!!pd && !!$('[data-prow]', pd) && !!$('[data-pedit]', pd) && txt(pd).includes('+ thêm người nợ'), '4. cửa sổ Người nợ: từng người có nút Sửa + "+ Thêm người nợ"');
     if (pd) { if (phone) ok(pd.scrollWidth <= window.innerWidth + 1, '4. cửa sổ Người nợ vừa khung điện thoại');
-      const k0 = (window.__LOG || []).length; const cb = $('[data-person]', pd); cb.click(); await sleep(900);
-      ok(calls('app_stc_person_mark', k0).length === 1, '4. bấm ✓ → gọi app_stc_person_mark 1 lần'); $('dialog[open]')?.close(); await sleep(300); }
+      const k0 = (window.__LOG || []).length; $('[data-pedit]', pd).click(); await wait('dialog[open] [name=pgrp]', 40); await sleep(200);
+      $('dialog[open] button[type=submit]')?.click(); await sleep(900);
+      ok(calls('app_stc_person_save', k0).length === 1, '4. Sửa một người rồi Lưu → gọi app_stc_person_save 1 lần'); $('dialog[open]')?.close(); await sleep(300); }
     await go('chi'); $('#stc-book [data-people]')?.click(); await wait('dialog[open] [data-padd]', 40); await sleep(200);
-    $('dialog[open] [data-padd]')?.click(); await wait('.stc-addp [name=kind]', 40); await sleep(200);
-    ok(!$('dialog[open]') && $('.stc-addp [name=kind]')?.value === 'no', '4. duyệt mã I2: "+ Thêm người nợ" mở + Thêm phiếu loại Cho nợ (ghi được người nợ thật)');
+    $('dialog[open] [data-padd]')?.click(); await wait('dialog[open] [name=pname]', 40); await sleep(200);
+    ok(!!$('dialog[open] [name=pname]') && !!$('dialog[open] [name=pgrp]') && !$('.stc-addp [name=kind]'), '4. "+ Thêm người nợ" mở khung thêm người thật (tên, SĐT, nhóm) — bước 172 thay cho mở phiếu Cho nợ');
+    $('dialog[open] [data-x]')?.click(); await sleep(300);
     await go('chi', '&cot=chi');
     const fq = $('.stc-flt [data-lf="q"]'); setv(fq, 'mua'); await sleep(700);
     const srcSel = $('.stc-flt select[data-lf="src"]'); setv(srcSel, 'ca'); await sleep(500);
@@ -107,7 +110,7 @@ export default async ({ sleep, out }) => {
     if (role === 'chu') {
       location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11&cot=chi&t=' + Date.now(); await wait('#stc-book'); await sleep(500);
       ok(txt($('#stc-book')).includes('phần mỗi cơ sở chịu'), '3. Quỹ ngoài · ô Các khoản chi: có "Phần mỗi cơ sở chịu"');
-      ok($$('#stc-book [data-person]').every((c) => c.disabled), '3. Quỹ ngoài: ô ✓ người nợ không bấm được');
+      ok(!$('#stc-book [data-pedit]') && !$('#stc-book [data-person]'), '3. Quỹ ngoài: khung Người nợ không có nút sửa');
     }
   } catch (e) { bad.push('LỖI CHẠY: ' + (e.message || e)); }
   out.push({ stc12: { ok: good, fail: bad } });

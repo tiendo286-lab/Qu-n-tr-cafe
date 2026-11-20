@@ -41,7 +41,12 @@ async function load(cn, month) {
     (D.items || []).forEach((x) => { if (String(x.id).startsWith('x:') && !x.void && !D.locked) x.can_edit = true; });
   } else {
     // bước 158: đã bỏ Chốt ca vĩnh viễn + Khoản treo (khoá cuối cùng là Chốt tháng) — không còn ca nào bị khoá riêng
-    D = await rpc('app_stc_month', { p_branch: Number(cn), p_month: month }); D.finals = {}; D.treo = [];
+    // bước 172: người nợ là danh sách thật (app_stc_people), gọi song song với sổ tháng; người chỉ xem được sổ thì dùng danh sách suy từ tên như cũ (không có nút sửa)
+    const [M, PP] = await Promise.all([rpc('app_stc_month', { p_branch: Number(cn), p_month: month }), rpc('app_stc_people', { p_branch: Number(cn) }).catch(() => null)]);
+    D = M; D.finals = {}; D.treo = [];
+    D.people_real = Array.isArray(PP);
+    D.people = D.people_real ? PP.map((p) => ({ ...p, no_remind: p.grp !== 'khach' }))
+      : (D.people || []).map((p) => ({ id: null, phone: null, active: 1, grp: p.no_remind ? 'khac' : 'khach', ...p }));
   }
   CACHE = { key, at: Date.now(), D };
   return D;
@@ -111,6 +116,8 @@ export async function render({ params }) {
         // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
         const pp = ev.target.closest('[data-people]');
         if (pp && root.contains(pp)) { peopleDialog(D); return; }
+        const pe = ev.target.closest('[data-pedit]');   // bước 172: sửa một người nợ ngay ở khung Người nợ của ô Cho nợ
+        if (pe && root.contains(pe)) { const p = (D.people || []).find((q) => String(q.id) === pe.dataset.pedit); if (p) personDialog(D, p); return; }
         const pw = ev.target.closest('[data-dsphoto]');
         if (pw && root.contains(pw)) { photoDialog(D, Number(pw.dataset.dsphoto)); return; }
         const kw = ev.target.closest('[data-kaed],[data-kadel],[data-toka],[data-kaundo],[data-bankout]');
@@ -149,7 +156,6 @@ export async function render({ params }) {
         else { OPEN_D.clear(); OPEN_C.clear(); }
         const b = $('#stc-book'); if (b && (P.tab === 'thu' || P.tab === 'chi')) b.innerHTML = str(bookCard(D, P.tab));
       });
-      root.addEventListener('change', (ev) => { const c = ev.target.closest('[data-person]'); if (c && root.contains(c)) personMark(D, c.dataset.person, c.checked); });
       root.addEventListener('change', async (ev) => {   // bước 155: chọn nhóm / người nợ ngay trên dòng
         const cx = ev.target.closest('[data-catx]'); const wx = ev.target.closest('[data-whox]');
         if (cx) { const it = D.items.find((x) => x.id === cx.dataset.catx); if (!it) return; cx.disabled = true; try { await setCat(D, it, cx.value); } catch (e) { showSaved(e.message || e, true); cx.disabled = false; } }
@@ -353,10 +359,6 @@ function collectDialog(D, debtId) {
 function uncollectDialog(D, x) {
   const d = dialog(form(`Huỷ thu nợ · ${x.title}`, html`<div class="st-meta">Dòng thu nợ ${fmt(x.amount)} sẽ gạch ngang, khoản nợ mở lại.</div>`, ' '));
   open(d, async () => { await rpc('app_stc_uncollect', { p_debt: idNum(x.id), p_reason: val(d, 'reason') }); after('Đã huỷ thu nợ'); });
-}
-async function personMark(D, name, on) {
-  try { await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: name, p_no_remind: on }); after(on ? `${name}: không nhắc ở phiếu chốt ca` : `${name}: phiếu chốt ca sẽ nhắc thu`); }
-  catch (e) { showSaved(e.message, true); }
 }
 
 // ---------------- Tab Tổng + Quỹ ngoài (đợt 5) — dùng lại hàm Sổ quỹ cũ ----------------
@@ -691,22 +693,40 @@ async function setWho(D, x, v, sel) {
   const save = async (name) => rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name, amount: Number(x.amount), kind: x.pm === 'ck' ? 'ck' : 'muon', date: x.date }, p_reason: 'Đổi người nợ: ' + name });
   if (v !== '__add') { try { await save(v); after('Đã đổi người nợ'); } catch (e) { showSaved(e.message || e, true); sel.value = debtName(x); } return; }
   sel.value = debtName(x);
-  addPersonDialog(async (n, nr) => { await save(n); await rpc('app_stc_person_mark', { p_branch: D.branch.id, p_name: n, p_no_remind: nr }); after('Đã thêm người nợ'); });
+  personDialog(D, null, async (r) => { await save(r.name); after('Đã thêm người nợ'); });
 }
-// bước 164: hộp Thêm người nợ dùng chung (đổi người nợ trên dòng Cho nợ + cửa sổ 👥 Người nợ)
-function addPersonDialog(onSave) {
-  const d = dialog(form('Thêm người nợ', html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" placeholder="vd: Kho Tổng"></label>
-    <label class="stc-chk"><input type="checkbox" name="nr" checked> ✓ Không cần nhắc thu ở phiếu chốt ca</label>`, ' '));
-  open(d, async () => { const n = val(d, 'name'); if (!n) throw new Error('Nhập tên người nợ.'); await onSave(n, !!d.querySelector('[name=nr]').checked); });
+// bước 172: người nợ là danh sách thật của cơ sở — thêm / sửa (tên, SĐT, nhóm công nợ) / ngừng dùng. "Kho tổng" luôn có: không đổi tên, không ngừng dùng.
+const GRP_NO = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', khac: 'Nợ khác' };
+const isKhoTong = (p) => String(p?.name || '').trim().toLowerCase() === 'kho tổng';
+function personDialog(D, p, onDone) {
+  const kho = !!p && isKhoTong(p);
+  const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${p ? 'Sửa người nợ' : 'Thêm người nợ'}</h2>
+    <label class="field"><span>Tên người nợ</span><input class="input" name="pname" autocomplete="off" value="${p?.name || ''}" ${kho ? 'disabled' : ''} placeholder="vd: Anh Thắng xe ôm"></label>
+    <label class="field"><span>Số điện thoại (không bắt buộc)</span><input class="input" name="pphone" inputmode="tel" autocomplete="off" value="${p?.phone || ''}"></label>
+    <label class="field"><span>Nhóm công nợ</span><select class="input" name="pgrp" ${kho ? 'disabled' : ''}>${Object.entries(GRP_NO).map(([k, l]) => html`<option value="${k}" ${(p?.grp || 'khach') === k ? 'selected' : ''}>${l}</option>`)}</select></label>
+    <div class="st-meta">Nợ khách hàng: phiếu chốt ca nhắc thu. Nợ kho tổng / Nợ khác: không nhắc.</div>
+    <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end">${p && !kho ? html`<button type="button" class="btn sm secondary" data-poff style="margin-right:auto">${p.active ? 'Ngừng dùng' : 'Dùng lại'}</button>` : ''}<button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+  const save = async (active) => {
+    const name = val(d, 'pname') || p?.name || ''; const grp = d.querySelector('[name=pgrp]').value;
+    if (!name) throw new Error('Nhập tên người nợ.');
+    const id = await rpc('app_stc_person_save', { p_id: p?.id || null, p: { branch_id: D.branch.id, name, phone: val(d, 'pphone'), grp, active } });
+    return { id, name, grp };
+  };
+  open(d, async () => { const r = await save(p ? (p.active ? 1 : 0) : 1); if (onDone) await onDone(r); else after('Đã lưu người nợ'); });
+  d.querySelector('[data-poff]')?.addEventListener('click', async () => {
+    try { await save(p.active ? 0 : 1); d.close(); after(p.active ? 'Đã ngừng dùng người nợ này' : 'Đã dùng lại người nợ này'); } catch (e) { err(d, e); }
+  });
 }
-// bước 164: cửa sổ 👥 Người nợ (Sổ chi) — chỉ gom việc đã có: danh sách, ✓ không nhắc, thêm người
+// cửa sổ 👥 Người nợ (Sổ chi): danh sách thật + thêm / sửa
 function peopleDialog(D) {
   const d = dialog(html`<div class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">👥 Người nợ</h2>${peopleBox(D)}
-    <div class="toolbar" style="justify-content:space-between"><button type="button" class="btn sm secondary" data-padd title="Ghi một khoản Cho nợ với tên người mới">+ Thêm người nợ</button><button type="button" class="btn sm" data-x>Đóng</button></div></div>`);
+    <div class="toolbar" style="justify-content:space-between">${D.people_real && !D.ext ? html`<button type="button" class="btn sm secondary" data-padd>+ Thêm người nợ</button>` : html`<span></span>`}<button type="button" class="btn sm" data-x>Đóng</button></div></div>`);
   d.querySelector('[data-x]').addEventListener('click', () => d.close());
-  d.addEventListener('change', (ev) => { const c = ev.target.closest('[data-person]'); if (c) { d.close(); personMark(D, c.dataset.person, c.checked); } });
-  d.querySelector('[data-padd]').addEventListener('click', () => {   // duyệt mã: người nợ chỉ có khi có khoản Cho nợ → mở + Thêm phiếu loại Cho nợ
-    d.close(); const b = document.querySelector('#stc-book .stc-ch .stc-add'); if (b) addPanel(D, b, 'chi', { preset: 'no' }); });
+  d.addEventListener('click', (ev) => {
+    const e = ev.target.closest('[data-pedit]');
+    if (e) { const p = (D.people || []).find((q) => String(q.id) === e.dataset.pedit); if (p) { d.close(); personDialog(D, p); } }
+  });
+  d.querySelector('[data-padd]')?.addEventListener('click', () => { d.close(); personDialog(D, null); });
 }
 // ---- bước 154: ảnh phiếu Fabi chốt ca (nhân viên chụp) — trước ở bước Tiền của Đối soát ca (đã bỏ ở bước 152)
 const phBtn = (c) => html`<button type="button" class="btn sm secondary" data-dsphoto="${c.id}">📷 Ảnh phiếu Fabi</button>`;
@@ -900,9 +920,14 @@ function debtBox(D) {
   return sbox(`Khách còn nợ · ${rows.length}`, rows.length ? rows : html`<div class="st-meta">Không còn ai nợ.</div>`, 'Gồm cả nợ hoá đơn (chưa phải tiền nên không nằm trong sổ). Đỏ khi quá 7 ngày.');
 }
 function peopleBox(D) {
-  const rows = (D.people || []).map((p) => html`<label class="stc-si stc-pp"><span><input type="checkbox" data-person="${p.name}" ${p.no_remind ? 'checked' : ''} ${D.ext ? 'disabled' : ''}> <b>${p.name}</b><br>
-      <span class="st-meta">${p.n ? `${p.n} khoản còn nợ · ` : ''}${p.no_remind ? '✓ không nhắc ở phiếu chốt ca' : 'phiếu chốt ca nhắc thu'}</span></span><b>${p.open ? fmt(p.open) : ''}</b></label>`);
-  return sbox('Người nợ', rows.length ? rows : html`<div class="st-meta">Chưa có người nợ có tên.</div>`, 'Có dấu ✓: phiếu chốt ca không nhắc thu người này. Khách luôn được nhắc.');
+  // bước 172: mỗi người một dòng — tên, nhóm công nợ, SĐT, còn nợ bao nhiêu, nút Sửa; người ngừng dùng xếp cuối, chữ mờ
+  const grpOf = (p) => p.grp || (p.no_remind ? 'khac' : 'khach');
+  const list = [...(D.people || [])].sort((a, b) => (b.active ?? 1) - (a.active ?? 1));
+  const rows = list.map((p) => { const off = p.active === 0; const g = grpOf(p);
+    return html`<div class="stc-si stc-pp ${off ? 'off' : ''}" data-prow="${p.id ?? p.name}"><span><b>${p.name}</b> <span class="pill ${g === 'khach' ? 'info' : 'mute'}">${GRP_NO[g]}</span>${off ? html` <span class="pill mute">ngừng dùng</span>` : ''}<br>
+      <span class="st-meta">${p.phone ? p.phone + ' · ' : ''}${p.n ? `${p.n} khoản còn nợ` : 'không còn nợ'}</span></span>
+      <span class="stc-r"><b>${p.open ? fmt(p.open) : ''}</b>${D.people_real && !D.ext && p.id != null ? html`<button type="button" class="btn sm secondary" data-pedit="${p.id}">Sửa</button>` : ''}</span></div>`; });
+  return sbox('Người nợ', rows.length ? rows : html`<div class="st-meta">Chưa có người nợ có tên.</div>`, 'Nợ khách hàng: phiếu chốt ca nhắc thu. Nợ kho tổng / Nợ khác: không nhắc.');
 }
 function catBox(D) {
   const its = D.items.filter((x) => !x.void && x.book === 'chi' && x.col === 'chi');
@@ -1484,7 +1509,7 @@ const STYLE = html`<style>
   .stc-it.void { background: var(--subtle); }
   .stc-it.void .stc-itt, .stc-it.void .stc-amt { text-decoration: line-through; text-decoration-thickness: 2px; color: var(--muted); }
   .stc-r { display: flex; flex-direction: column; align-items: flex-end; gap: 4px; }
-  .stc-pp { cursor: pointer; } .stc-pp input { width: 16px; height: 16px; vertical-align: -2px; }
+  .stc-pp { align-items: center; } .stc-pp.off { opacity: .55; } .stc-pp > span:first-child { min-width: 0; }
   .stc-empty { padding: 16px 14px; color: var(--muted); }
   .stc-aside { display: flex; flex-direction: column; gap: 12px; }
   .stc-side h3 { margin: 0 0 6px; font-size: 15px; }

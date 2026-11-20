@@ -420,6 +420,24 @@ export function makeStc(T, me) {
       t.status = 'xong'; t.done_kind = p_kind; t.done_note = p_kind === 'tru' ? 'trừ tiền nhân viên' : p_kind === 'qc' ? 'quán chịu' : 'ghi Thu khác';
       return 'ok';
     },
+    // bước 172: danh sách người nợ thật + thêm / sửa / ngừng dùng (giống supabase/151_nguoi_no.sql)
+    app_stc_people() {
+      need(); const rk = { khach: 0, kho: 1, khac: 2 };
+      return copy(st().people).sort((a, b) => (b.active ?? 1) - (a.active ?? 1) || (rk[a.grp] ?? 0) - (rk[b.grp] ?? 0) || a.name.localeCompare(b.name, 'vi'));
+    },
+    app_stc_person_save({ p_id, p }) {
+      need(); const nm = String(p.name || '').trim(); const act = p.active === 0 || p.active === false || p.active === '0' ? 0 : 1;
+      if (!nm) throw new Error('Nhập tên người nợ.');
+      if (!['khach', 'kho', 'khac'].includes(p.grp)) throw new Error('Chọn nhóm công nợ.');
+      const old = p_id ? st().people.find((x) => x.id === Number(p_id)) : null;
+      if (p_id && !old) throw new Error('Không tìm thấy người nợ.');
+      if (old && old.name.toLowerCase() === 'kho tổng' && (nm.toLowerCase() !== 'kho tổng' || act === 0 || p.grp !== 'kho')) throw new Error('Kho tổng luôn có — không đổi tên / ngừng dùng được.');
+      if (st().people.some((x) => x !== old && x.name.toLowerCase() === nm.toLowerCase())) throw new Error('Đã có người nợ tên này.');
+      if (!old) { const id = ++N; st().people.push({ id, name: nm, phone: p.phone || null, grp: p.grp, active: act, no_remind: p.grp !== 'khach', open: 0, n: 0 }); return id; }
+      st().open_debts.filter((d) => d.who.toLowerCase() === old.name.toLowerCase()).forEach((d) => { d.who = nm; d.no_remind = p.grp !== 'khach'; });
+      Object.assign(old, { name: nm, phone: p.phone || null, grp: p.grp, active: act, no_remind: p.grp !== 'khach' });
+      return old.id;
+    },
     app_stc_person_mark({ p_name, p_no_remind }) {
       need(); const pe = st().people.find((x) => x.name.toLowerCase() === String(p_name).toLowerCase()); if (pe) pe.no_remind = !!p_no_remind;
       st().open_debts.filter((d) => d.who.toLowerCase() === String(p_name).toLowerCase()).forEach((d) => { d.no_remind = !!p_no_remind; });
