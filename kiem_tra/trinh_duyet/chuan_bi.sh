@@ -19,5 +19,5 @@ import re,sys; p=sys.argv[1]; s=open(p).read()
 s=re.sub(r'(<script type="module" src="js/app\.js(?:\?v=[^"]+)?"></script>)',r'<script src="test/catch.js"></script>\n\1\n<script type="module" src="test/driver.js"></script>',s,count=1)
 open(p,'w').write(s)
 PY
-cp "$D/flow_dt169.js" "$W/test/"
+cp "$D/flow_dt169.js" "$D/flow_dt170.js" "$W/test/"
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"

@@ -25,6 +25,15 @@ export function makeDt(T, me) {
   const status = (t) => (workflow && part(t).some((f) => f.is_extra && !f.finished_at) ? 'dao_tao_bo_sung'
     : ach(t) >= total ? workflow && !t.workflow_review_at ? 'cho_nhan_xet' : 'hoan_thanh' : today >= dayFromStart(t, 8) || t.cont_trainer_kind ? 'dao_tao_tiep' : 'dang_dao_tao');
   const emp = (id) => T.employees.find((e) => e.id === id);
+  // bước 170: bài flow_dt170 — lịch đã công bố quanh hôm nay (NV mới 3; Cấp 1 NV07 trùng 2 ca; NV09 Cấp 1 cơ sở 1 không trùng ca)
+  if (params.get('script') === 'flow_dt170') {
+    if (!T.employees.some((e) => e.id === 9)) T.employees.push({ id: 9, code: 'NV09', name: 'Cấp 1 cơ sở thử', rank: 'Cấp 1', status: 'Đang làm' });
+    T.employee_branches = T.employee_branches || []; T.employee_branches.push({ employee_id: 9, branch_id: 1 });
+    T.weeks = T.weeks || []; const wid = 9170; T.weeks.push({ id: wid, start_date: today, end_date: today });
+    T.schedule_published = T.schedule_published || [];
+    [[3, 0, 'Sáng', 1], [3, 1, 'Sáng', 1], [3, 2, 'Chiều', 1], [3, 3, 'Sáng', 2], [7, 1, 'Sáng', 1], [7, 2, 'Chiều', 1], [9, 4, 'Tối', 1]]
+      .forEach(([e, d, sh, b]) => T.schedule_published.push({ week_id: wid, employee_id: e, weekday: d, shift: sh, branch_id: b, role: 'phuc_vu', published_at: now() }));
+  }
   // tệp 122: người hướng dẫn chính phải là nhân viên cấp Quản lý đang làm
   const mainGuide = (id) => { if (!id) throw new Error('Chọn người hướng dẫn chính (nhân viên cấp Quản lý).'); const e = emp(Number(id)); if (!e || e.rank !== 'Quản lý' || e.status !== 'Đang làm') throw new Error('Người hướng dẫn chính phải là nhân viên cấp Quản lý đang làm.'); };
   const canEdit = (t) => !!me.perms.dao_tao || [t.instructor_id, t.cont_trainer_id].includes(me.employee_id);
@@ -94,6 +103,50 @@ export function makeDt(T, me) {
       if (!m || !m.cho_kiem_tra || !m.level) throw new Error('Hạng mục này không chờ kiểm tra.');
       Object.assign(m, { level: p_level || m.level, cho_kiem_tra: false, checked_by: me.account_id, checked_at: now() });
       return { achieved: ach(t), status: status(t), level: m.level };
+    },
+    // bước 170 (tệp 149): tab Phân công + Chờ kiểm tra
+    app_dt_assign_board({ p_program }) {
+      const allOpen = me.role === 'chu' || isPtc();
+      const vis = T.trainings.filter((t) => status(t) !== 'hoan_thanh' && (allOpen || isHdc(t)));
+      if (!allOpen && !vis.length) return { can_board: false, rows: [] };
+      if (p_program === 'pha_che') return { can_board: true, all: allOpen, rows: [] };
+      const addD = (d, n) => new Date(Date.parse(d) + n * 864e5).toISOString().slice(0, 10);
+      const pubOf = (eid) => (T.schedule_published || []).filter((s) => s.employee_id === eid).map((s) => { const w = (T.weeks || []).find((x) => x.id === s.week_id); return w ? { date: addD(w.start_date, s.weekday), branch_id: s.branch_id, shift: s.shift } : null; }).filter(Boolean);
+      const bcode = (id) => (T.branches.find((b) => b.id === id) || {}).code || null;
+      const nm = (e) => `${e.code} – ${e.name}`;
+      return { can_board: true, all: allOpen, today, rows: vis.map((t) => {
+        const ss = pubOf(t.employee_id).filter((x) => x.date >= t.start_date && x.date <= due(t)).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0));
+        const cnt = {}; ss.forEach((x) => { cnt[x.branch_id] = (cnt[x.branch_id] || 0) + 1; });
+        const best = Number(Object.keys(cnt).sort((a, b) => cnt[b] - cnt[a] || a - b)[0]) || t.branch_id;
+        const keys = new Set(ss.map((x) => `${x.date}|${x.branch_id}|${x.shift}`));
+        const okP = T.employees.filter((e) => e.status === 'Đang làm' && e.id !== t.employee_id && (e.id === t.instructor_id || ['Cấp 1', 'Quản lý'].includes(e.rank)));
+        const same = okP.filter((e) => e.rank === 'Cấp 1').map((e) => ({ id: e.id, name: nm(e), n: pubOf(e.id).filter((x) => keys.has(`${x.date}|${x.branch_id}|${x.shift}`)).length })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+        const brc = okP.filter((e) => e.rank === 'Cấp 1' && !same.some((x) => x.id === e.id) && (T.employee_branches || []).some((x) => x.employee_id === e.id && x.branch_id === best)).map((e) => ({ id: e.id, name: nm(e) }));
+        const other = okP.filter((e) => !same.some((x) => x.id === e.id) && !brc.some((x) => x.id === e.id)).map((e) => ({ id: e.id, name: nm(e), hdc: e.id === t.instructor_id }));
+        const items = PROG.items.filter((i) => { const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === i.no); return !m || !m.level || m.cho_kiem_tra; }).map((i) => {
+          const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === i.no) || {}; const f = part(t).find((x) => x.no === i.no) || {};
+          const kt = !!(m.cho_kiem_tra && m.level); const fe = f.employee_id || null; const who = emp(fe || t.instructor_id);
+          return { no: i.no, day: i.day, title: i.title, level: m.level || null, state: kt ? 'cho_kt' : fe && fe !== t.instructor_id ? 'dang_giao' : 'chua_giao',
+            who_id: fe || t.instructor_id, who: who ? nm(who) : null, who_rank: who?.rank || null, branch_id: f.branch_id || t.branch_id, branch: bcode(f.branch_id || t.branch_id),
+            phase2: !!(f.is_extra && !f.finished_at), pending_by: kt ? accName(m.cho_by) : null, pending_at: kt ? m.cho_at : null };
+        });
+        return { id: t.id, employee: nm(emp(t.employee_id)), start_date: t.start_date, due: due(t), branch_id: t.branch_id, branch: bcode(t.branch_id), instructor_id: t.instructor_id,
+          instructor: emp(t.instructor_id) ? nm(emp(t.instructor_id)) : null, achieved: ach(t), total, sched: ss.map((x) => ({ ...x, branch: bcode(x.branch_id) })), best_branch: best,
+          same, br_c1: brc, other, items, n_chua: items.filter((x) => x.state === 'chua_giao').length, n_kt: items.filter((x) => x.state === 'cho_kt').length,
+          n_dang: items.filter((x) => x.state === 'dang_giao').length, can_check: canCheck(t) };
+      }) };
+    },
+    app_dt_assign_bulk({ p_id, p_items, p_employee, p_branch, p_note }) {
+      const t = tr(p_id); if (!canAssign(t)) throw new Error('Chỉ người hướng dẫn chính của phiếu, người phụ trách chính đào tạo hoặc Chủ được giao hạng mục.');
+      if (!p_items?.length) throw new Error('Chọn ít nhất 1 hạng mục.');
+      let changed = 0;
+      [...new Set(p_items)].forEach((no) => { const cur = part(t).find((f) => f.no === no); const before = cur?.employee_id || t.instructor_id;
+        const nx = { training_id: t.id, no, employee_id: p_employee, name: emp(p_employee)?.name, note: p_note || cur?.note || null, is_extra: !!(cur?.is_extra && !cur?.finished_at), finished_at: null, branch_id: p_employee ? p_branch : null };
+        nx.branch = T.branches.find((b) => b.id === nx.branch_id)?.code;
+        if (cur) Object.assign(cur, nx); else extras.push(nx);
+        if ((p_employee || t.instructor_id) !== before) changed += 1; });
+      window.__DT_BULK = (window.__DT_BULK || []).concat([{ p_id, p_items, p_employee, p_branch, p_note }]);   // bài thử đếm số lần gọi (1 lần lưu)
+      return { n: new Set(p_items).size, changed };
     },
     app_dt_get({ p_id }) {
       const t = tr(p_id);

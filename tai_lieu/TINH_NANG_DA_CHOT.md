@@ -803,6 +803,12 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
   6. **Bỏ ô "Quản lý phụ trách"** ở hộp tạo phiếu và trên phiếu; bỏ quyền / thông báo / Việc của tôi / Việc hôm nay dựa trên nó (đổi sang HDC). Cột `manager_id` vẫn giữ trong CSDL.
   7. Hạng mục Cấp 1 ghi trước đây: giữ là đạt.
   - Sửa thêm: chỉ báo "được giao hướng dẫn" khi thật sự đổi người (đổi cơ sở / ghi chú thì không báo); "Đổi phân công" không làm mất dấu "Đã đánh giá giai đoạn 2".
+- **Tab Phân công + Chờ kiểm tra — bước 170 (máy chủ `149_dao_tao_tab_phan_cong.sql`, chạy SAU 148; nhánh gộp SAU bước 169)**:
+  - Công việc › Đào tạo có tab **Phiếu | Phân công (số chưa giao) | Chờ kiểm tra (số chờ)**; giữ nút Chạy bàn / Pha chế. Chủ + người phụ trách chính thấy mọi phiếu mở; HD chính thấy phiếu của mình; người khác không thấy 2 tab mới.
+  - **Phân công** theo phiếu: khối thu gọn (tên NV mới, cơ sở, HD chính, x/tổng, hạn, số chưa giao / chờ kiểm tra, 1 dòng lịch "thứ · cơ sở · ca" hoặc "Chưa xếp lịch"). Mở khối: hạng mục CHƯA ĐẠT theo Ngày 1…8 (người đang dạy, cơ sở, trạng thái Chưa giao · Đang giao Cấp 1 · Chờ kiểm tra). Lọc theo trạng thái + người hướng dẫn.
+  - **Giao hàng loạt**: tích hạng mục / "Chọn cả ngày" → thanh "Đã chọn N" → chọn người (đúng danh sách được phép), cơ sở, ghi chú → lưu 1 lần; mỗi người được giao nhận MỘT thông báo gộp. Nút **"Trả về HD chính"**. Dùng chung kiểm tra quyền với giao từng hạng mục (HD chính / người phụ trách chính / Chủ).
+  - **Chờ kiểm tra**: gom theo phiếu; mỗi dòng Xác nhận đạt · đổi mức rồi xác nhận · Giao giai đoạn 2 (mức Trung bình / Khá: xác nhận mức rồi mở hộp giao người luyện thêm). KHÔNG có xác nhận hàng loạt.
+  - **Gợi ý theo lịch** (máy chủ tính, trả kèm dữ liệu bảng trong 1 lần gọi `app_dt_assign_board`): chỉ lịch ĐÃ CÔNG BỐ (`schedule_published`) từ ngày bắt đầu → hạn 12 ngày. Ô cơ sở chọn sẵn nơi NV mới có nhiều ca nhất. Ô người chia nhóm "Cùng ca" (Cấp 1 cùng cơ sở + ngày + đúng ca, "trùng N ca", N giảm dần) → "Cấp 1 cơ sở <mã>" (`employee_branches`) → "Khác". Gợi ý chỉ sắp xếp, không đổi quyền.
 
 ## Việc hôm nay — đợt 1 (18/11/2026, bước 138)
 
