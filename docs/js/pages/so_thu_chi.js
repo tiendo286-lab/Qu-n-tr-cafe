@@ -96,6 +96,20 @@ export async function render({ params }) {
         const ps = ev.target.closest('[data-dperson]'); const g = ps?.selectedOptions?.[0]?.dataset?.grp;
         if (ps && g) ps.closest('[data-dsort]').querySelector('[data-dgrp]').value = g;
       });
+      root.addEventListener('click', async (ev) => {   // bước 173: máy Fabi ghi sai — sửa số / bỏ / duyệt / từ chối
+        const b = ev.target.closest('[data-dsfix],[data-dsfixcancel],[data-dsfixok],[data-dsfixno],[data-dsfixfabi]');
+        if (!b || !root.contains(b)) return;
+        const run = async (p, msg) => { b.disabled = true; try { await p; after(msg); } catch (e) { b.disabled = false; showSaved(e.message || e, true); } };
+        if (b.dataset.dsfix) { const c = (D.cas || []).find((x) => String(x.id) === b.dataset.ca); if (c) fixDialog(D, c, b.dataset.dsfix); }
+        else if (b.dataset.dsfixcancel) run(rpc('app_stc_fix_cancel', { p_req: Number(b.dataset.dsfixcancel) }), 'Đã bỏ số sửa');
+        else if (b.dataset.dsfixok) run(rpc('app_stc_fix_decide', { p_req: Number(b.dataset.dsfixok), p_ok: true, p_note: null }), 'Đã duyệt số sửa');
+        else if (b.dataset.dsfixno) {
+          const d = dialog(form('Từ chối số sửa', html`<label class="field"><span>Lý do từ chối (quản lý sẽ thấy)</span><input class="input" name="fnote" placeholder="vd: xem lại camera"></label>`, ' '));
+          d.querySelector('[name=reason]')?.closest('.field')?.remove();
+          open(d, async () => { await rpc('app_stc_fix_decide', { p_req: Number(b.dataset.dsfixno), p_ok: false, p_note: val(d, 'fnote') }); after('Đã từ chối số sửa'); });
+        } else if (b.dataset.dsfixfabi) run((async () => { await rpc('app_stc_fix_cancel', { p_req: Number(b.dataset.dsfixfabi) });
+          await rpc('app_stc_ds_fabi', { p_report: Number(b.dataset.ca), p_field: b.dataset.k, p_name: null, p_reason: 'Bỏ sửa, lấy số máy Fabi' }); })(), 'Đã lấy số máy Fabi');
+      });
       root.addEventListener('click', (ev) => {   // thiết kế sua-no-cua-ca: Sửa / Xoá một khoản nợ của ca · + Thêm khoản nợ quên ghi
         const de = ev.target.closest('[data-dedit],[data-dadd]');
         if (!de || !root.contains(de)) return;
@@ -1226,6 +1240,26 @@ function debtList(D, c) {
     ${canSort ? html`<div class="stc-tools"><button type="button" class="btn sm secondary" data-dadd="${c.id}">+ Thêm khoản nợ quên ghi</button></div>` : ''}
     ${tra.length ? html`<div class="stc-cdh">Khách trả nợ cũ trong ca</div>${tra.map(rowTra)}` : ''}</div>`;
 }
+// bước 173: hộp "Sai, sửa số" — máy Fabi ghi sai, gửi số đúng + lý do cho Chủ duyệt (Chủ gửi thì duyệt ngay)
+function fixDialog(D, c, k) {
+  const f = c.fabi || {}, nv = c.nv || {};
+  const name = { mo: 'Tiền mở ca', dt: 'Doanh thu', no: 'Nợ bill' }[k];
+  const body = k === 'dt'
+    ? html`<label class="field"><span>Bán tiền mặt đúng là</span><input class="input" name="ftm" inputmode="numeric" data-money value="${fmt(f.tm ?? 0)}"></label>
+      <label class="field"><span>Bán chuyển khoản đúng là</span><input class="input" name="fck" inputmode="numeric" data-money value="${fmt(f.ck ?? 0)}"></label>
+      <div class="st-meta">Doanh thu = tiền mặt + chuyển khoản + nợ bill.</div>`
+    : html`<label class="field"><span>${name} đúng là</span><input class="input" name="fval" inputmode="numeric" data-money value="${fmt((k === 'mo' ? nv.opening : nv.debt) ?? 0)}"></label>`;
+  const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">Máy Fabi ghi sai · ${name}</h2>
+    <div class="st-meta">Máy ghi ${fmt((k === 'mo' ? f.opening : k === 'dt' ? f.revenue : f.debt) ?? 0)}. ${D.owner ? 'Chủ gửi thì duyệt ngay.' : 'Số sửa phải chờ Chủ duyệt; chưa duyệt thì chưa Xác nhận Fabi được.'}</div>
+    ${body}<label class="field"><span>Lý do (bắt buộc)</span><input class="input" name="reason" placeholder="vd: máy không ghi hoá đơn bàn 4"></label>
+    <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">${D.owner ? 'Lưu (Chủ duyệt)' : 'Gửi Chủ duyệt'}</button></div></form>`);
+  open(d, async () => {
+    if (!val(d, 'reason')) throw new Error('Ghi lý do.');
+    const p = k === 'dt' ? { tm: money(d, 'ftm'), ck: money(d, 'fck') } : { val: money(d, 'fval') };
+    await rpc('app_stc_fix_request', { p_report: c.id, p_field: k, p, p_reason: val(d, 'reason') });
+    after(D.owner ? 'Đã sửa số (Chủ duyệt)' : 'Đã gửi Chủ duyệt');
+  });
+}
 // thiết kế sua-no-cua-ca (tệp 152): hộp sửa / xoá / đổi Luân chuyển một khoản nợ TM, CK của ca; hộp thêm khoản nợ quên ghi
 function caDebtDialog(D, c, x) {
   const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">Sửa khoản nợ · ${x.who || ''}</h2>
@@ -1284,11 +1318,25 @@ function partA(D, a, part = 1, mk = () => '') {
   const raw = { mo: [nv.opening, f.opening], dt: [nv.revenue, f.revenue], no: [nv.debt, f.debt] };
   const pv = (D.cas || []).find((o) => o.date === c.date && SHIFT_ORDER.indexOf(o.shift) === SHIFT_ORDER.indexOf(c.shift) - 1);
   const prevFin = !!pv && isFin(D, pv.id);   // máy chủ cũng chặn
+  // bước 173: máy Fabi ghi sai → "Sai, sửa số" (quản lý gửi số đúng + lý do), Chủ duyệt / từ chối; Chủ gửi = duyệt ngay
+  const fxNum = (k, q) => (k === 'dt' ? `TM ${fmt(q.new?.tm ?? 0)} + CK ${fmt(q.new?.ck ?? 0)}` : fmt(q.new?.val ?? 0));
+  const fixUi = (x, fbT) => { const q = x.fx; if (D.ext || !f.has) return '';
+    const by = q ? html` · ${q.by || ''}${q.reason ? ' · lý do: ' + q.reason : ''}` : '';
+    if (q?.status === 'cho') return html`<div class="stc-fxq cho">🟡 Sửa thành <b>${fxNum(x.k, q)}</b> · chờ Chủ duyệt${by}</div>
+      <span class="stc-tools">${D.owner ? html`<button type="button" class="btn sm" data-dsfixok="${q.id}">Duyệt</button><button type="button" class="btn sm secondary" data-dsfixno="${q.id}">Từ chối</button>` : ''}<button type="button" class="btn sm secondary" data-dsfixcancel="${q.id}">Bỏ sửa</button></span>`;
+    if (q?.status === 'tu_choi') return html`<div class="stc-fxq no">✗ Chủ từ chối số ${fxNum(x.k, q)}${q.note ? ' · ' + q.note : ''}${by}</div>
+      <span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}">Sửa lại số</button><button type="button" class="btn sm secondary" data-dsfixfabi="${q.id}" data-k="${x.k}" data-ca="${c.id}">Bỏ sửa, lấy số máy Fabi</button></span>`;
+    if (q?.status === 'duyet') return html`<div class="stc-fxq ok">✓ Chủ đã duyệt số ${fxNum(x.k, q)} (máy ghi ${fmt(fbT)})${by}</div>
+      ${D.owner && !c.recon_money_done ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfixcancel="${q.id}">Bỏ số đã duyệt</button></span>` : ''}`;
+    if (c.recon_money_done) return '';
+    return x.st === 'red' ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}" title="Máy Fabi cũng ghi sai: gửi số đúng cho Chủ duyệt">Sai, sửa số</button></span>`
+      : html`<span class="stc-tools"><button type="button" class="stc-lk" data-dsfix="${x.k}" data-ca="${c.id}">Máy ghi sai? Sửa số</button></span>`; };
   const box = (x) => { const [a1, b1] = raw[x.k]; const nvT = Number(a1 ?? 0), fbT = Number(b1 ?? 0);
+    const held = x.fx && ['cho', 'tu_choi'].includes(x.fx.status);   // đang chờ / bị từ chối: ẩn "Lấy số máy Fabi" (bấm Bỏ sửa trước)
     const txt = x.st === 'red' && x.fix === 'fabi' ? `🔴 Nhân viên ghi ${nvT > fbT ? 'thừa' : 'thiếu'} ${fmt(nvT - fbT)} so với máy` : x.txt;
     return html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name} ${mk(x.k)}</b><span class="stc-ln">Phiếu nhân viên ghi: <b>${fmt(nvT)}</b></span><span class="stc-ln">Máy Fabi ghi: <b>${f.has ? fmt(fbT) : 'chưa có'}</b></span>
       ${x.k === 'mo' ? html`<span class="st-meta">${x.b}</span>` : ''}<span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${txt}</span>${effect[x.k](x)}
-      ${D.ext ? '' : x.fix === 'fabi' ? html`<span class="stc-tools"><button type="button" class="btn sm" data-dsfabi="${x.k}">Lấy số máy Fabi${x.k === 'no' && Number(f.debt) > Number(nv.debt) ? ` (thêm báo nợ ${fmt(Number(f.debt) - Number(nv.debt))})` : ''}</button></span>`
+      ${fixUi(x, fbT)}${D.ext ? '' : x.fix === 'fabi' && !held ? html`<span class="stc-tools"><button type="button" class="btn sm" data-dsfabi="${x.k}">Lấy số máy Fabi${x.k === 'no' && Number(f.debt) > Number(nv.debt) ? ` (thêm báo nợ ${fmt(Number(f.debt) - Number(nv.debt))})` : ''}</button></span>`
         : x.fix === 'blame' ? html`<span class="st-meta">Ca nào ghi sai thì ca đó chịu tiền lệch:</span><span class="stc-tools">${prevFin ? html`<span class="st-meta">Ca trước đã chốt ca — không chọn "Ca trước ghi sai" được.</span>` : html`<button type="button" class="btn sm secondary" data-dsblame="truoc">Ca trước ghi sai</button>`}<button type="button" class="btn sm secondary" data-dsblame="nay">Ca này ghi sai</button></span>`
         : x.blame ? html`<span class="stc-tools"><span class="st-meta">${x.blame.by || ''}${x.blame.reason ? ' · ' + x.blame.reason : ''}</span><button type="button" class="btn sm secondary" data-dsunblame="1">Huỷ chọn</button></span>` : ''}</div>`; };
   const s1 = cs.filter((x) => ['mo', 'dt', 'no'].includes(x.k));
@@ -1778,6 +1826,8 @@ const STYLE = html`<style>
   .stc-cdr { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 8px; align-items: center; padding: 6px 0; border-top: 1px dashed var(--line); }
   .stc-cdh + .stc-cdr { border-top: 0; }
   .stc-cdr .stc-amt { white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .stc-fxq { border-radius: 8px; padding: 6px 8px; font-size: 13px; margin-top: 4px; } .stc-fxq.cho { background: var(--warn-bg); color: var(--warn-ink); }
+  .stc-fxq.no { background: var(--err-bg, #fde8e8); color: var(--err-ink, #9b1c1c); } .stc-fxq.ok { background: var(--ok-bg, #e7f6ec); color: var(--ok-ink, #1e6b3a); }
   .stc-cdr.stc-gone { opacity: .6; } .stc-cdr.stc-gone s { text-decoration-thickness: 1px; }
   .stc-dso { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; align-items: center; } .stc-dso select { flex: 1 1 130px; min-width: 0; max-width: 100%; }
   .stc-dtag { font-size: 11px; font-weight: 700; padding: 2px 6px; border-radius: 6px; color: #fff; min-width: 32px; text-align: center; }

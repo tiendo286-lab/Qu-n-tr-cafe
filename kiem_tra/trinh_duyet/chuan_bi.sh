@@ -5,7 +5,7 @@ set -e
 D="$(cd "$(dirname "$0")" && pwd)"; GOC="$D/../../docs"; W="${1:?cần thư mục tạm}"
 mkdir -p "$W"; rsync -a --exclude test "$GOC/" "$W/"; mkdir -p "$W/test"
 cp "$D/sb_gia.js" "$W/js/sb.js"; cp "$D"/{ca_gia.js,viec_gia.js,tl_gia.js,flow_tl.js,dt_gia.js,dt_program.json,flow_dt.js,ht_gia.js,flow_ht.js,flow_viec.js,kt_gia.js,flow_kt.js,fin_gia.js,fund_gia.js,nh_gia.js,flow_ct.js,flow_ft.js,flow_tk.js,flow_sl.js,flow_nl.js,flow_nh.js,flow_dsdt.js,dg_gia.js,flow_dg.js,flow_dlg.js,cv_gia.js,flow_cv.js,flow_pq.js,flow_cm.js,fb_gia.js,flow_fb.js,flow_den.js,flow_cv46.js,flow_od48.js,flow_hl49.js,flow_cv50.js,flow_auto51.js,flow_pc54.js,flow_no55.js,flow_sua56.js,flow_ca57.js,flow_ck59.js,flow_ds60.js,flow_fabi61.js,flow_ck62.js,flow_nhw.js,flow_hh104.js,flow_hh106.js,flow_hhnv.js,flow_ghs.js,flow_hn62.js,flow_sua67.js,flow_fix74.js,flow_cw76.js,flow_cm84.js,flow_ds86.js,flow_ds93.js,flow_cn95.js,pc_gia.js,flow_pc109.js,flow_pcshot.js,flow_unified98.js,flow_tg113.js,flow_ck117.js,flow_kt118.js,flow_audit_ck_box.js,flow_audit_bg.js,flow_audit_ghi_chu.js,flow_dsshot.js,catch.js,driver.js,fuzz.js,flow.js,flow2.js,login.js,wide.js,phone.html} "$W/test/"
-cp "$D/flow_ds168.js" "$D/flow_ds171.js" "$D/flow_ds172.js" "$W/test/"
+cp "$D/flow_ds168.js" "$D/flow_ds171.js" "$D/flow_ds172.js" "$D/flow_ds173.js" "$W/test/"
 cp "$D/flow_px105.js" "$D/flow_ql_tu_ds.js" "$D/flow_vt106.js" "$D/flow_vt107.js" "$D/flow_gh4.js" "$D/flow_bn133.js" "$D/flow_tocdo.js" "$D/flow_ck135.js" "$D/flow_fb136.js" "$W/test/"
 if [ "${2:-}" = "--dao-tao-gia" ]; then
   cp "$D/dt_fixture.js" "$W/test/data.js"

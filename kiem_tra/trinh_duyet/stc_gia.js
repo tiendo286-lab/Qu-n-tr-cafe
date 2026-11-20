@@ -47,6 +47,14 @@ export function makeStc(T, me) {
     finGuard(rid);
     if (open && c.recon_money_done) throw new Error('Ca đã chốt tiền — bấm "Mở lại chốt" trước khi sửa.'); return c;
   };
+  // tệp 153: tìm yêu cầu sửa số theo mã; ghi số đã duyệt vào phiếu; ô coi là khớp theo số đã duyệt
+  const fixFind = (id) => { for (const c of st().cas) for (const [k, q] of Object.entries(c.fixes || {})) if (q.id === Number(id)) return { c, k, q }; throw new Error('Không tìm thấy yêu cầu sửa số.'); };
+  const fixApply = (c, k, q) => {
+    if (k === 'mo') { c.nv.opening = q.new.val; c.start_tm = q.new.val; }
+    else if (k === 'no') c.nv.debt = q.new.val;
+    else { q.new.total = q.new.tm + q.new.ck + Number(c.nv.debt || 0); c.nv.revenue = q.new.total; }
+  };
+  const fixOk = (c, k, v) => c.fixes?.[k]?.status === 'duyet' && Number(v) === Number(k === 'dt' ? c.fixes[k].new.total : c.fixes[k].new.val);
   // tệp 152: khoản nợ của ca sửa / xoá / đổi được (của đúng ca, TM hoặc CK, khách chưa trả đồng nào); xoá / đổi thì để lại dòng t = 'xoa'
   const caDebtPick = (rid, did) => {
     const d = (st().ca_debts || []).find((x) => x.t === 'moi' && Number(x.report_id) === Number(rid) && Number(x.id) === Number(did));
@@ -321,6 +329,37 @@ export function makeStc(T, me) {
         if (diff > 0 && String(p_name || '').trim()) st().open_debts.push({ id: 'd:' + (++N), who: p_name.trim(), kind: 'bill', amount: diff, left: diff, date: c.date, from: `ca ${c.shift} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`, no_remind: false }); }
       else throw new Error('Ô cần sửa không hợp lệ.');
     },
+    // bước 173 (tệp 153): máy Fabi ghi sai — gửi số sửa, Chủ duyệt / từ chối (Chủ gửi = duyệt ngay); duyệt thì ghi số vào phiếu
+    app_stc_fix_request({ p_report, p_field, p, p_reason }) {
+      const c = dsCa(p_report, true); const r = reason(p_reason);
+      if (!c.fabi?.has) throw new Error('Chưa có file Fabi của ca này — chờ kế toán tải lên.');
+      if (!['mo', 'dt', 'no'].includes(p_field)) throw new Error('Ô cần sửa không hợp lệ.');
+      c.fixes = c.fixes || {}; const cur = c.fixes[p_field]; const chu = me.role === 'chu';
+      if (cur?.status === 'cho') throw new Error('Ô này đang chờ Chủ duyệt — bấm Bỏ sửa trước khi gửi lại.');
+      if (cur?.status === 'duyet' && !chu) throw new Error('Chủ đã duyệt số cho ô này — chỉ Chủ bỏ được.');
+      const nw = p_field === 'dt' ? { tm: Number(p.tm), ck: Number(p.ck) } : { val: Number(p.val) };
+      if (Object.values(nw).some((v) => !(v >= 0))) throw new Error('Nhập số đúng (số không âm).');
+      const q = { id: ++N, status: chu ? 'duyet' : 'cho', new: nw, reason: r, by: by(), at: 'vừa xong' }; c.fixes[p_field] = q;
+      if (chu) fixApply(c, p_field, q);
+      return q.id;
+    },
+    app_stc_fix_cancel({ p_req }) {
+      const { c, k, q } = fixFind(p_req); dsCa(c.id, true);
+      if (q.status === 'duyet' && me.role !== 'chu') throw new Error('Chỉ Chủ bỏ được số Chủ đã duyệt.');
+      delete c.fixes[k];
+    },
+    app_stc_fix_decide({ p_req, p_ok, p_note }) {
+      if (me.role !== 'chu') throw new Error('Chỉ Chủ duyệt / từ chối số sửa.');
+      const { c, k, q } = fixFind(p_req); dsCa(c.id, true);
+      if (q.status !== 'cho') throw new Error('Yêu cầu này không còn chờ duyệt.');
+      Object.assign(q, { status: p_ok ? 'duyet' : 'tu_choi', note: p_note || null, decided_by: by() });
+      if (p_ok) fixApply(c, k, q);
+    },
+    // CHỈ DÙNG TRONG BÀI THỬ: tạo sẵn một số sửa đang chờ Chủ duyệt (như quản lý vừa gửi)
+    app__thu_fix_cho({ p_report, p_field, p }) {
+      const c = st().cas.find((x) => x.id === Number(p_report)); c.fixes = c.fixes || {};
+      c.fixes[p_field] = { id: ++N, status: 'cho', new: p_field === 'dt' ? { tm: Number(p.tm), ck: Number(p.ck) } : { val: Number(p.val) }, reason: 'thử', by: 'Quản lý thử', at: 'vừa xong' };
+    },
     app_stc_ds_blame({ p_report, p_who, p_reason }) {
       const c = dsCa(p_report, true); const r = reason(p_reason); if (c.blame) throw new Error('Đã chọn ca chịu lệch mở ca — huỷ trước khi chọn lại.');
       const { exp, prev } = expOpen(c); const diff = Number(c.fabi.opening) - exp; if (!diff) throw new Error('Tiền mở ca đã đúng — không cần chọn.');
@@ -343,7 +382,12 @@ export function makeStc(T, me) {
       const c = dsCa(p_report, true);
       if (c.kt_wait || c.bank_ck == null || !c.fabi?.has) throw new Error('Chờ kế toán (file Fabi / số ngân hàng) rồi mới chốt.');
       const { exp } = expOpen(c); const f = c.fabi;
-      if (c.nv.opening !== f.opening || (!c.blame && exp != null && f.opening !== exp) || c.nv.revenue !== f.revenue || c.nv.debt !== f.debt) throw new Error('Còn ô đỏ ở bước ① (tiền mở ca / doanh thu / nợ) — sửa xong mới chốt.');
+      const fx = Object.values(c.fixes || {});   // tệp 153
+      if (fx.some((q) => q.status === 'cho')) throw new Error('Còn số sửa chờ Chủ duyệt — Chủ duyệt xong mới xác nhận.');
+      if (fx.some((q) => q.status === 'tu_choi')) throw new Error('Chủ đã từ chối số sửa — sửa lại số hoặc bấm "Bỏ sửa, lấy số máy Fabi" rồi mới xác nhận.');
+      const moOpen = fixOk(c, 'mo', c.nv.opening) ? c.nv.opening : f.opening;
+      if ((c.nv.opening !== f.opening && !fixOk(c, 'mo', c.nv.opening)) || (!c.blame && exp != null && moOpen !== exp)
+        || (c.nv.revenue !== f.revenue && !fixOk(c, 'dt', c.nv.revenue)) || (c.nv.debt !== f.debt && !fixOk(c, 'no', c.nv.debt))) throw new Error('Còn ô đỏ ở bước ① (tiền mở ca / doanh thu / nợ) — sửa xong mới chốt.');
       if (c.cash_mode === 'ca' && c.ql_counted == null) throw new Error('Nhập tiền mặt thực nhận ở bước ② trước.');
       c.recon_money_done = true; items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:') && !x.void) x.can_edit = true; });
       return { tm: 0, ck: 0 };
