@@ -1,9 +1,9 @@
 // Bước 109 — Việc của tôi: việc tự tạo theo Bảng phân công + Giao việc riêng, chia theo từng hạng mục; khách nợ ưu tiên đầu trang.
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.20.6';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.21.1';
 import { $, html, str } from '../ui.js';
-import { GROUP, JOBS, ORDER, STYLE, bindActions, fd, gvCard, gvDue, jobName, learnJobs, money, ms, dur, pcCard, pcDue, rstate, toast, tone } from '../cv_chung.js?v=2026.11.20.6';
+import { GROUP, JOBS, ORDER, STYLE, bindActions, fd, gvCard, gvDue, jobName, learnJobs, money, ms, dur, pcCard, pcDue, rstate, toast, tone } from '../cv_chung.js?v=2026.11.21.1';
 
 export const perm = 'nhan_viec';
 let CAT = '';
