@@ -12,7 +12,7 @@ export default async ({ sleep, out }) => {
   const role = new URLSearchParams(location.search).get('role') || 'chu';
   const phone = window.innerWidth <= 400;
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const openDs = async (id) => { location.hash = DS + '&ds=' + id + '&t=' + Date.now(); await wait('.stc-dsp'); await wait('.stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(200); };
+  const openDs = async (id) => { location.hash = DS + '&ds=' + id + '&b=1&t=' + Date.now(); await wait('.stc-dsp'); await wait('.stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(200); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // 1. ca 181: file Fabi vô lý → hiện "không hợp lệ, sửa tay" + nút sửa

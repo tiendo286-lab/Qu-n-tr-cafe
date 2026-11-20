@@ -646,6 +646,7 @@ function addBtn(D, c, book, label, { noLock = false } = {}) {
   const go = html` <a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a>`;
   if (ca && isFin(D, ca.id)) return html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>`;
   if (noLock && D.locked) return '';   // duyệt mã: ghi chú "Tháng đã chốt" đã có ở đầu ca
+  if (ca && ca.done && !D.locked) return html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới thêm / sửa được. </span>${P.tab === 'doi-soat' ? '' : go}`;   // bước 171
   if (ca && !ca.recon_money_done) return noLock ? '' : html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`

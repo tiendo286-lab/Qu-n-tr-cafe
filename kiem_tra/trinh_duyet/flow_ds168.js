@@ -12,6 +12,7 @@ export default async ({ sleep, out }) => {
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const wide = (m) => ok(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, m + ': không tràn ngang');
   const open = async (id) => { location.hash = DS + '&ds=' + id + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
+  const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // ---- a. chưa chọn ca
@@ -35,24 +36,26 @@ export default async ({ sleep, out }) => {
     await open(182);
     const bar = $('.stc-dsp .stc-dsbar');
     ok(!!bar && getComputedStyle(bar).position === 'sticky', 'b. có thanh cố định cuối màn hình');
-    ok(txt(bar).includes('hoàn thành đối soát ca') && !!$('[data-dsclose]', bar) && $('[data-dsclose]', bar).disabled, 'b. thanh "Hoàn thành đối soát ca" + nút Xác nhận Fabi đang khoá');
-    ok(txt($('[data-dsclose]', bar)).includes('hoàn thành đối soát ca'), 'b. nút ở thanh cuối tên "🔒 Hoàn thành đối soát ca" (anh Tiến chốt 20/11)');
-    ok(!$('.stc-pa [data-dsclose]') && $$('[data-dsclose]').length === 1, 'b. nút Xác nhận Fabi chỉ còn ở thanh cuối (chuyển vị trí, không thêm nút)');
-    const chip = $$('.stc-jump', bar).find((b) => txt(b).includes('ô đỏ'));
-    ok(!!chip, 'b. ghi rõ còn thiếu: "còn ô đỏ ở ①"');
-    if (chip) { chip.click(); await sleep(300); ok(!!$('#ds-s1 .stc-flash, #ds-s1.stc-flash'), 'b. bấm "còn ô đỏ" → nhảy tới ô đỏ ở ①'); }
+    ok(!!$('[data-dsprev]', bar) && !!$('[data-dsnext]', bar) && /bước này còn \d+ mục/.test(txt(bar)), 'b. bước 171: thanh cuối = Quay lại · bước này còn N mục · Tiếp');
+    await st(1);
+    const cl = $('.stc-dsp .stc-pa [data-dsclose]');
+    ok(!!cl && cl.disabled && txt(cl).includes('xác nhận fabi') && $$('[data-dsclose]').length === 1 && !$('[data-dsclose]', $('.stc-dsbar')), 'b. bước 171: nút tên "Xác nhận Fabi", nằm cuối bước 2 (không còn ở thanh cuối), đang khoá');
+    ok(txt($('.stc-dsp .stc-a-end')).includes('còn ô đỏ'), 'b. ghi rõ còn thiếu: "còn ô đỏ ở ①"');
+    await st(5); $('.stc-dsp .stc-sum [data-dsstep="0"]').click(); await sleep(350);
+    ok($('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep === '0' && !!$('#ds-s1 .stc-c4.red'), 'b. bước 6: bấm dòng "Số máy Fabi còn N mục" → tới bước 1 có ô đỏ');
     wide('b. ca 182');
     // ca 172: chờ kế toán
-    await open(172);
-    ok($$('.stc-dsbar .stc-jump').some((b) => txt(b).includes('chờ kế toán')) && $('.stc-dsbar [data-dsclose]').disabled, 'b. ca chờ kế toán: ghi "chờ kế toán", nút khoá');
-    // ca 183: đã xác nhận, thiếu tiền mặt 30.000
+    await open(172); await st(1);
+    ok(txt($('.stc-dsp .stc-a-end')).includes('chờ kế toán') && $('.stc-dsp [data-dsclose]').disabled, 'b. ca chờ kế toán: ghi "chờ kế toán", nút khoá');
+    // ca 183: đã xác nhận + đã hoàn thành, thiếu tiền mặt 30.000
     await open(183);
-    ok(!$('.stc-dsbar [data-dsclose]') && txt($('.stc-dsbar')).includes('còn 1 chênh lệch'), 'b. đã xác nhận còn lệch: thanh ghi "còn 1 chênh lệch", không còn nút Xác nhận');
-    const gj = $$('.stc-dsbar .stc-jump').find((b) => txt(b).includes('tiền mặt thiếu 30.000'));
-    ok(!!gj, 'b. chênh lệch ghi rõ "Tiền mặt thiếu 30.000 chưa xử lý"');
-    if (gj) { gj.click(); await sleep(400); ok(txt($('.stc-glc h2')).includes('chênh lệch tiền mặt') && txt($('.stc-glc h2')).includes('thiếu'), 'b. bấm → mở bảng Chênh lệch tiền mặt (Sổ chi) ở phần B'); }
+    ok(!$('.stc-dsp [data-dsclose]') && txt($('.stc-dsp .stc-step')).includes('còn 1 chênh lệch') && txt($('.stc-dsp .stc-dsh')).includes('🟠'), 'b. đã hoàn thành còn lệch: bước 6 ghi "còn 1 chênh lệch", ca 🟠, không còn nút Xác nhận');
+    await st(4);
+    { const gtm = $$('.stc-step .stc-glc')[0];
+      ok(!!gtm && txt($('h2', gtm)).includes('tiền mặt') && txt(gtm).includes('30.000') && !!$('[data-gap]', gtm), 'b. bước 5: khung Tiền mặt có dòng thiếu 30.000 + nút Phiếu chênh lệch'); }
+    await st(5); $('.stc-dsp [data-dsundone]')?.click(); await sleep(800);   // bước 171: ca đã hoàn thành phải Mở lại mới thêm phiếu được
     // ---- c. + Thêm phiếu trong ca 183 → Ngày + Ca điền sẵn
-    $('[data-dsbook="chi"]')?.click(); await sleep(300);
+    await st(3);
     const add = $('.stc-pb .stc-addca[data-addca="183"]'); ok(!!add, 'c. có nút + Thêm phiếu trong ca');
     if (add) {
       add.click(); await sleep(500); const box = $('.stc-addp');
@@ -65,7 +68,7 @@ export default async ({ sleep, out }) => {
       box.querySelector('[data-x]').click(); await sleep(200);
     }
     // ---- d. Thu nợ ngoài ca: chỉ nợ ghi từ ngày phiếu trở về trước
-    $('[data-dsbook="thu"]')?.click(); await sleep(300);
+    await st(2);
     const add2 = $('.stc-pb .stc-addca[data-addca="183"]');
     if (add2) {
       add2.click(); await sleep(500); const box = $('.stc-addp'); const k = box.querySelector('[name=kind]'); k.value = 'no'; k.dispatchEvent(new Event('change')); await sleep(150);

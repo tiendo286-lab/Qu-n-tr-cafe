@@ -76,16 +76,22 @@ export default async ({ sleep, out }) => {
   const cell = (id) => $(`.stc-dsc[data-dsca="${id}"]`);
   // bước 168: điện thoại chọn ca thì lịch thu thành nút "‹ Chọn ca khác" → bấm nút đó trước khi chọn ca khác
   const pick = async (id) => { const pk = $('[data-dspick]'); if (pk) { pk.click(); await sleep(300); } cell(id).click(); await sleep(400); };
+  const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
   ok(txt(cell(183)).includes('còn lệch') &&txt(cell(182)).includes('tiền mở ca') && txt(cell(172)).includes('chờ kế toán'), '14. ô ghi trạng thái ca (' + [183, 182, 172].map((i) => txt(cell(i))).join(' | ') + ')');
-  // bước 151: khung ca = A · Fabi + B · Thu chi của ca + Chốt ca
+  // bước 171: khung ca = 6 bước (① Số máy Fabi ② Tiền thực nhận ③ Khoản thu ④ Khoản chi ⑤ Chênh lệch ⑥ Hoàn thành)
   await pick(181);
-  ok(!!$('.stc-dsp .stc-pa [data-dsreopen]') &&$$('.stc-dsp .stc-pa .stc-fsum > div').length === 5, '15. ca đã xác nhận Fabi: phần A thu gọn 5 ô số');
-  ok(!!$('.stc-dsp .stc-pb [data-dsbook="thu"]') && !!$('.stc-dsp .stc-pb [data-dsbook="chi"]') && !!$('.stc-dsp .stc-glc'), '15. phần B có Sổ thu | Sổ chi và khung Chênh lệch');
+  ok($$('.stc-dsp .stc-steps [data-dsstep]').length === 6 && !!$('.stc-dsp [data-dsundone]'), '15. ca đã hoàn thành: thanh 6 bước, mở ở bước 6 có nút Mở lại');
+  await st(0); const n1 = $$('.stc-dsp .stc-pa .stc-fsum > div').length; await st(1);
+  ok(!!$('.stc-dsp .stc-pa [data-dsreopen]') && n1 === 3 && $$('.stc-dsp .stc-pa .stc-fsum > div').length === 2, '15. ca đã xác nhận Fabi: bước 1 thu gọn 3 ô số máy, bước 2 có 2 ô tiền thực nhận + Mở lại xác nhận');
+  await st(2); const coThu = !!$('.stc-dsp .stc-pb .stc-cab') && txt($('.stc-dsp .stc-pb')).includes('khoản thu của ca'); await st(3); const coChi = txt($('.stc-dsp .stc-pb')).includes('khoản chi của ca'); await st(4);
+  ok(coThu && coChi && $$('.stc-dsp .stc-glc').length === 2, '15. bước 3 Khoản thu, bước 4 Khoản chi, bước 5 có 2 khung Chênh lệch (tiền mặt, chuyển khoản)');
   ok(!$('.stc-dsp [data-dsfinal]'), '15. bước 158: không còn nút Chốt ca');
   await pick(182);
-  ok(!!$('.stc-dsp [data-dsclose][disabled]') && !!$('.stc-dsp [data-dsfabi]:not([disabled])'), '16. còn ô đỏ: Xác nhận Fabi tắt, Lấy số máy Fabi bấm được');
-  ok(txt($('.stc-dsp .stc-pb')).includes('xác nhận fabi ở phần a'), '16. chưa xác nhận Fabi: phần B khoá');
-  await pick(172);
+  { const fb = !!$('.stc-dsp [data-dsfabi]:not([disabled])'); await st(1);
+    ok(!!$('.stc-dsp [data-dsclose][disabled]') && fb, '16. còn ô đỏ: Xác nhận Fabi tắt (bước 2), Lấy số máy Fabi bấm được (bước 1)'); }
+  await st(2);
+  ok(txt($('.stc-dsp .stc-lockp')).includes('xác nhận fabi'), '16. chưa xác nhận Fabi: bước 3 khoá');
+  await pick(172); await st(1);
   ok(txt($('.stc-dsp .stc-pa')).includes('chờ kế toán') && !!$('.stc-dsp [data-dsclose][disabled]'), '17. ca chờ kế toán: ② ghi chờ kế toán, Xác nhận Fabi tắt');
   if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. đối soát: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
   // 12. Quỹ ngoài (Chủ)
