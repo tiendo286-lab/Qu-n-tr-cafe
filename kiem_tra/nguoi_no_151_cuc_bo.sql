@@ -179,6 +179,24 @@ begin
   rep := rep || E'\n' || case when j ? 'grp' and j ? 'person_id' and j ? 'sorted' and j ? 'content' and (j ->> 'sorted')::boolean and (j ->> 'person_id')::bigint = px
         and j ->> 'content' = 'tên khác 151' and j ->> 'who' = 'Anh Tí 151' then 'ĐẠT' else 'HỎNG' end || ' (19) sổ tháng › ca_debts: ' || coalesce(j::text, 'không thấy dòng');
 
+  -- (20) tab Công nợ › đổi tên / nhóm cho cả các khoản của một người (app_cn_person_save) vẫn làm được như trước bước 172:
+  --      tên mới chưa có → người đang gắn với các khoản được đổi tên theo (giữ nguyên mã người), cả khoản đã thu lẫn chưa thu
+  px := public.app_stc_person_save(null, jsonb_build_object('branch_id', 1, 'name', 'Chú Ba 151', 'grp', 'khac'));
+  d1 := public.app_cn_debt_save(null, jsonb_build_object('branch_id', 1, 'name', 'Chú Ba 151', 'amount', 11000, 'kind', 'muon', 'grp', 'khac'));
+  d2 := public.app_cn_debt_save(null, jsonb_build_object('branch_id', 1, 'name', 'Chú Ba 151', 'amount', 12000, 'kind', 'muon', 'grp', 'khac'));
+  update public.shift_debts set closed_at = public.vn_now_text(), closed_by = chu.id where id = d2;
+  begin n := public.app_cn_person_save(array[d1, d2], 'Chú Ba Sáu 151', '0977151', 'khac'); t := 'đổi được ' || n || ' khoản';
+  exception when others then t := 'BỊ CHẶN: ' || sqlerrm; end;
+  select count(*) into n2 from public.debt_people where branch_id = 1 and name = 'Chú Ba Sáu 151' and id = px and phone = '0977151';
+  select count(*) into n from public.shift_debts where id in (d1, d2) and table_name = 'Chú Ba Sáu 151' and person_id = px;
+  rep := rep || E'\n' || case when t = 'đổi được 2 khoản' and n2 = 1 and n = 2 and not exists (select 1 from public.debt_people where branch_id = 1 and name = 'Chú Ba 151') then 'ĐẠT' else 'HỎNG' end
+      || format(' (20) Công nợ đổi tên người: %s · người cũ được đổi tên (giữ mã) %s · 2 khoản mang tên mới, đúng người %s', t, n2, n);
+  -- (20b) đổi sang tên một người đã có → các khoản về người đó (gộp), nhóm theo lựa chọn
+  begin n := public.app_cn_person_save(array[d1], 'Anh Tí 151', '', 'khach'); t := 'đổi được';
+  exception when others then t := 'BỊ CHẶN: ' || sqlerrm; end;
+  select (person_id = (select id from public.debt_people where branch_id = 1 and name = 'Anh Tí 151')) and grp = 'khach' into ok from public.shift_debts where id = d1;
+  rep := rep || E'\n' || case when t = 'đổi được' and ok then 'ĐẠT' else 'HỎNG' end || format(' (20b) Công nợ đổi sang tên người đã có: %s · khoản về đúng người + nhóm %s', t, ok);
+
   -- (10) nhân viên không vào được Sổ thu chi: xem / sửa danh sách đều bị từ chối
   perform set_config('request.jwt.claims', json_build_object('sub', nv.auth_user_id, 'role', 'authenticated')::text, true);
   begin perform public.app_stc_people(1); t := 'XEM ĐƯỢC';

@@ -292,6 +292,44 @@ begin
   end if;
 end $$;
 
+-- ---- Tab Công nợ › đổi tên / nhóm cho cả các khoản của một người (app_cn_person_save) phải làm được như trước bước 172:
+--   đồng bộ danh sách người nợ TRƯỚC khi đổi tên các khoản (trigger gác tên chỉ nhận tên có trong danh sách).
+--   tên mới đã có → dùng người đó (bật lại nếu đang ngừng dùng, cập nhật nhóm / SĐT); chưa có → đổi tên đúng người đang gắn với các khoản
+--   (giữ mã người), hoặc thêm người mới nếu các khoản thuộc nhiều người / thuộc "Kho tổng".
+create or replace function public.app__debt_people_sync_rename(p_branch bigint, p_ids bigint[], p_name text, p_phone text, p_grp text) returns void
+language plpgsql security definer set search_path = public as $$
+declare nm text := btrim(coalesce(p_name, '')); ph text := nullif(btrim(coalesce(p_phone, '')), ''); pids bigint[]; tgt public.debt_people;
+begin
+  if nm = '' then return; end if;
+  select * into tgt from public.debt_people where branch_id = p_branch and lower(btrim(name)) = lower(nm);
+  if tgt.id is not null then
+    if lower(btrim(tgt.name)) <> 'kho tổng' then
+      update public.debt_people set grp = p_grp, phone = coalesce(ph, phone), active = 1 where id = tgt.id;
+    end if;
+    return;
+  end if;
+  select array_agg(distinct d.person_id) into pids from public.shift_debts d where d.id = any(p_ids) and d.person_id is not null;
+  if coalesce(array_length(pids, 1), 0) = 1
+     and not exists (select 1 from public.debt_people x where x.id = pids[1] and lower(btrim(x.name)) = 'kho tổng') then
+    update public.debt_people set name = nm, phone = ph, grp = p_grp, active = 1 where id = pids[1];
+  else
+    insert into public.debt_people(branch_id, name, phone, grp) values (p_branch, nm, ph, p_grp);
+  end if;
+end $$;
+revoke all on function public.app__debt_people_sync_rename(bigint, bigint[], text, text, text) from public, anon, authenticated;
+
+do $$
+declare d text; anchor text;
+begin
+  d := pg_get_functiondef('public.app_cn_person_save(bigint[],text,text,text)'::regprocedure);
+  if position('app__debt_people_sync_rename' in d) = 0 then
+    anchor := $q$if coalesce(p_grp, '') not in ('khach', 'kho', 'khac') then raise exception 'Chọn nhóm nợ.'; end if;$q$;
+    if position(anchor in d) = 0 then raise exception 'app_cn_person_save: không thấy chỗ vá.'; end if;
+    execute replace(d, anchor, anchor || $q$
+  perform public.app__debt_people_sync_rename(br, p_ids, nm, p_phone, p_grp);   -- bước 172: danh sách người nợ đi trước$q$);
+  end if;
+end $$;
+
 -- ---- Chạy bù MỘT LẦN khi phát hành.
 do $$
 begin

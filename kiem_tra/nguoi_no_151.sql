@@ -63,6 +63,13 @@ begin
   perform public.app_stc_person_save(pid, jsonb_build_object('branch_id', br, 'name', 'Người thử 151 xyz', 'grp', 'khac', 'active', 1));
   rep := rep || E'\n' || case when t like '%chưa có trong danh sách%' then 'ĐẠT' else 'HỎNG' end || ' (5) ngừng dùng rồi ghi nợ mới: ' || left(t, 70);
 
+  -- (5b) tab Công nợ › đổi tên cho các khoản của một người sang tên mới vẫn làm được (người được đổi tên theo, giữ mã)
+  begin n := public.app_cn_person_save(array[did], 'Người thử 151 xyz đổi', '', 'khac'); t := 'đổi được ' || n || ' khoản';
+  exception when others then t := 'BỊ CHẶN: ' || sqlerrm; end;
+  select (select name from public.debt_people where id = pid) = 'Người thử 151 xyz đổi' and d.person_id = pid and d.table_name = 'Người thử 151 xyz đổi' into ok from public.shift_debts d where d.id = did;
+  rep := rep || E'\n' || case when t = 'đổi được 1 khoản' and ok then 'ĐẠT' else 'HỎNG' end || format(' (5b) Công nợ đổi tên người: %s · người + khoản mang tên mới, giữ mã %s', t, ok);
+  perform public.app_stc_person_save(pid, jsonb_build_object('branch_id', br, 'name', 'Người thử 151 xyz', 'grp', 'khac', 'active', 1));
+
   -- (6) xếp nợ ở một ca thật đã Xác nhận Fabi, kế toán đã nhập đủ, tháng chưa chốt (gỡ tạm dấu Hoàn thành nếu có — tự hoàn tác)
   select x.* into r from public.shift_reports x
    where x.branch_id = br and x.status = 'hoan_thanh' and left(x.work_date, 7) = to_char(public.vn_now(), 'YYYY-MM')
