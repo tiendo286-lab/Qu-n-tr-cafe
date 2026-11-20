@@ -2,7 +2,7 @@
 -- Dùng dữ liệu thật của tháng đang mở; REPORT>> tự hoàn tác, không đổi dữ liệu thật. Mỗi dòng bắt đầu bằng ĐẠT hoặc HỎNG.
 do $$
 declare chu public.accounts; nv public.accounts; rep text := ''; r public.shift_reports; j jsonb; n int; n2 int; n3 int; t text; g text; pid bigint; did bigint; d1 bigint; ok boolean;
-  br bigint; s public.shift_debts; miss text[];
+  br bigint; s public.shift_debts; miss text[]; r2 record; a0 jsonb; b0 jsonb;
 begin
   select * into chu from public.accounts where system_role = 'chu' and auth_user_id is not null order by id limit 1;
   select * into nv from public.accounts where system_role = 'nv' and auth_user_id is not null and coalesce(locked, 0) = 0 order by id limit 1;
@@ -10,13 +10,21 @@ begin
 
   -- (0) so cũ / mới: sổ tháng giống hệt, trừ 4 khoá mới của tệp 151 (grp, person_id, sorted, content) và khoá 'edit' của tệp 152 ở các dòng nợ mới của ca
   if to_regclass('pg_temp.t151_truoc') is not null then
-    select count(*), count(*) filter (where
-        (t0.j - 'ca_debts') = (m.j - 'ca_debts')
-        and (select coalesce(jsonb_agg(c - 'grp' - 'person_id' - 'sorted' - 'content' - 'edit' order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(m.j -> 'ca_debts') c)
-          = (select coalesce(jsonb_agg(c order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(t0.j -> 'ca_debts') c))
-      into n, n2
-      from pg_temp.t151_truoc t0, lateral (select public.app_stc_month(t0.branch_id, to_char(public.vn_now(), 'YYYY-MM')) j) m;
-    rep := rep || E'\n' || case when n > 0 and n = n2 then 'ĐẠT' else 'HỎNG' end || format(' (0) sổ tháng cũ = mới ở %s / %s cơ sở (chỉ thêm 4 khoá ở nợ mới của ca)', n2, n);
+    -- so từng cơ sở, từng khoá; khác thì ghi rõ cơ sở + khoá + phần tử khác đầu tiên
+    n := 0; n2 := 0; t := '';
+    for r2 in select t0.branch_id, t0.j o, public.app_stc_month(t0.branch_id, to_char(public.vn_now(), 'YYYY-MM')) nw from pg_temp.t151_truoc t0 order by 1 loop
+      n := n + 1; ok := true;
+      for g in select jsonb_object_keys(r2.o) union select jsonb_object_keys(r2.nw) loop
+        a0 := r2.o -> g; b0 := r2.nw -> g;
+        if g = 'ca_debts' then
+          a0 := (select coalesce(jsonb_agg(c order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(a0) c);
+          b0 := (select coalesce(jsonb_agg(c - 'grp' - 'person_id' - 'sorted' - 'content' - 'edit' order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(b0) c);
+        end if;
+        if a0 is distinct from b0 then ok := false; t := t || format(E'\n    cơ sở %s · khoá %s khác: trước %s · sau %s', r2.branch_id, g, left(coalesce(a0::text, 'null'), 300), left(coalesce(b0::text, 'null'), 300)); end if;
+      end loop;
+      if ok then n2 := n2 + 1; end if;
+    end loop;
+    rep := rep || E'\n' || case when n > 0 and n = n2 then 'ĐẠT' else 'HỎNG' end || format(' (0) sổ tháng cũ = mới ở %s / %s cơ sở (chỉ thêm 4 khoá ở nợ mới của ca)', n2, n) || t;
   else
     rep := rep || E'\n    (0) không có bản chụp trước (chưa gửi nguoi_no_151_truoc.sql) — bỏ qua phần so cũ / mới';
   end if;
