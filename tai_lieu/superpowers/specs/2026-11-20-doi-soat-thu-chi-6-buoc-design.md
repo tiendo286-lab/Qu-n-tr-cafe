@@ -301,10 +301,14 @@ Mỗi đợt: một nhánh, một tệp SQL, bài thử riêng, một lần phá
 
 | Đợt | Nội dung | Đụng vùng khoá |
 |---|---|---|
-| 1 | Người nợ: danh sách thật, chỉ chọn tên có sẵn, Nợ khách (chung), ô Nội dung trên phiếu nhân viên (mục 8.1–8.5) | không |
-| 2 | 6 bước + mục kiểm tra + nhãn ai ghi + khoản lớn + Thu cuối ngày tự so + phân loại nợ ở bước 1 + nút Hoàn thành bắt tích đủ (mục 5, 6, 8.6, 10) | có: `app_stc_ds_close`, `app__ca_auto_finish`, `app_stc_ds_blame` |
-| 3 | Sửa số máy Fabi + Chủ duyệt / từ chối (mục 7) | có: đổi cách tính tiền theo số đã duyệt |
-| 4 | Thêm phiếu trong ca: khoá ngày, ca; Cho nợ / Thu nợ / Luân chuyển tính vào ca (mục 9) | có: tiền của ca |
+| **A** (đang làm, nhánh `dot-a/doi-soat-6-buoc`, tệp 150) | 6 bước + mục kiểm tra + nhãn ai ghi + khoản lớn + Thu cuối ngày tự so + "sai thì sửa ở đâu" + nút Hoàn thành bắt tích đủ (mục 5, 6, 10) | có: `app_stc_ds_close`, `app__ca_auto_finish`, `app_stc_ds_reopen` |
+| B | Người nợ: danh sách thật, chỉ chọn tên có sẵn, Nợ khách (chung), ô Nội dung trên phiếu nhân viên; quản lý phân loại nợ ở bước 1 (mục 8) | không |
+| C | Sửa số máy Fabi + Chủ duyệt / từ chối (mục 7); "Ca trước ghi sai" khi ca trước Thu theo ca (mục 5, bước 1) | có: đổi cách tính tiền theo số đã duyệt, `app_stc_ds_blame` |
+| D | Thêm phiếu trong ca: khoá ngày, ca; Cho nợ / Thu nợ / Luân chuyển tính vào ca (mục 9) | có: tiền của ca |
+
+Thứ tự này thay thứ tự cũ (người nợ làm trước): 20/11 anh Tiến yêu cầu đưa phần đối soát tiền của quản lý lên web trước. Kế hoạch đợt A: `tai_lieu/superpowers/plans/2026-11-20-doi-soat-6-buoc-dot-a.md`.
+
+Khác thiết kế ở đợt A (đã ghi trong sổ làm việc): mục `cash` chỉ bắt khi Thu theo ca (ca cuối ngày của Thu cuối ngày chỉ có mục gối đầu), để không đổi điều kiện Xác nhận Fabi đang có; bước 3 / 4 giữ nút chuyển bảng Tiền mặt | Chuyển khoản; nhãn Nhân viên ghi / Quản lý ghi suy ra từ ghi chú sửa đang có của phiếu.
 
 Mỗi lần phát hành: chạy SQL lên Supabase trước (thử rồi chạy thật) → tăng `docs/version.json` → anh Tiến đẩy `main` → ghi `app_releases` → cập nhật `TINH_NANG_DA_CHOT.md` (mục Sổ thu chi, bước 171) và `BAN_GIAO.md`.
 

@@ -6,6 +6,17 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
 3. Tệp này: tình trạng hiện tại và việc còn mở.
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
+## 20/11/2026 chiều tối — bước 171 đợt A (Đối soát thu chi 6 bước): XONG MÃ + BÀI THỬ, CHƯA chạy SQL thật, CHƯA lên web
+- Nhánh **`dot-a/doi-soat-6-buoc`** (từ `main` 756f19c), chưa gộp. Thiết kế + kế hoạch: `tai_lieu/superpowers/specs|plans/2026-11-20-doi-soat-*`. Sổ làm việc (các quyết định `Ruling:`): `.superpowers/sdd/2026-11-20-doi-soat-6-buoc-dot-a/progress.md` (không lưu git).
+- **Còn phải làm để lên web (theo đúng thứ tự):**
+  1. Chạy thử trên máy chủ thật, tự hoàn tác, gửi CÙNG MỘT LẦN: `kiem_tra/doi_soat_6_buoc_150_truoc.sql` → `supabase/150_doi_soat_6_buoc.sql` (2 lần) → `kiem_tra/doi_soat_6_buoc_150.sql`. Phải ra `REPORT>>` toàn dòng ĐẠT (dòng (0) so sổ tháng cũ = mới, (1) chạy bù). **Bài này CHƯA chạy lần nào trên dữ liệu thật** — Postgres cục bộ không có ca thật nên mới kiểm được cú pháp, chạy lại 2 lần, 3 chỗ vá và quyền. Cần mã `sbp_` anh Tiến cấp (Claude bị chặn tự lấy mã từ lịch sử).
+  2. Chạy thật tệp 150; kiểm `select max(file) from app_migrations` và `select count(*) from stc_ca_done`.
+  3. Tăng `docs/version.json` + `?v=`, gộp nhánh vào `main`, đẩy, ghi `app_releases`.
+- **Vùng khoá đã đụng (đã báo anh Tiến):** `app_stc_ds_close` (bỏ tự hoàn thành), `app__ca_auto_finish` (chỉ hoàn thành khi có `stc_ca_done`), `app_stc_ds_reopen` (xoá `stc_ca_done`). Vá bằng thay chuỗi trên bản đang chạy. Ai định nghĩa lại 3 hàm này hoặc `app_stc_month` phải giữ các đoạn "bước 171" / `stc_ca_done` / `'ticks'`.
+- **Bài thử:** `sh kiem_tra/chay_tinh.sh` (mọi bài tính thuần, có `so_thu_chi_tinh_dot12.mjs` mới); `flow_ds171` (mới, chu / qlt / ql × 2 khung); đã sửa `flow_stc1`, `flow_stc4`, `flow_stc6`, `flow_stc10`, `flow_ds168`, `flow_gio162` theo giao diện mới (thêm bấm sang đúng bước, không bỏ khẳng định về tiền / quyền).
+- **Lưu ý dữ liệu giả:** ca 183 đã xác nhận nhưng ô Tiền mở ca đỏ (không hoàn thành lại được) — bài thử dùng ca 181 để thử Hoàn thành.
+- **Đợt sau:** B người nợ + phân loại nợ · C sửa số máy Fabi + Chủ duyệt + "Ca trước ghi sai" khi ca trước Thu theo ca · D phiếu tạo trong ca tính vào ca. Phiếu chốt ca nhân viên 8 bước: mới có bản mẫu `work/proposals/chot-ca-nhan-vien-mau.html`, anh Tiến chưa chốt.
+
 ## 20/11/2026 sáng — ĐÃ LÊN WEB bản 2026.11.20.1 (bước 167–170)
 - **20/11 trưa — web 2026.11.20.2 (đã gộp vào `main`):** bảng Tồn quỹ theo ngày (tab Tổng) trên điện thoại hết cắt số (`flow_stc13` kiểm thêm); sửa bài thử `flow_stc2`, `flow_stc3`. Lưu ý bài thử: trang Sổ thu chi nhớ dữ liệu tháng 60 giây — bài thử gọi thẳng máy chủ giả xong phải sang tháng khác rồi quay lại mới thấy dữ liệu mới.
 - Máy chủ: tệp **146, 147, 148, 149 đã chạy thật** (chạy thử tự hoàn tác trước; bài thử trên máy chủ thật: 146 12/12, 147 9/9, 148 28/28, 149 16/16). Sổ tệp đã chạy: mới nhất là `149_dao_tao_tab_phan_cong.sql` → tệp mới bắt đầu từ **150**.

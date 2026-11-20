@@ -837,7 +837,7 @@ export async function render({ params }) {
   const stcHref = `#/quan-ly/so-thu-chi?tab=doi-soat&cn=${R.branch_id}&thang=${String(R.work_date || '').slice(0, 7)}&ds=${R.id}`;
   const stcCard = isDs ? html`<section class="card stack pc-sec ds-stc-card" style="gap:10px"><div class="pc-sec-head"><h2>Phần tiền · làm ở Sổ thu chi</h2><span class="pill ${mDone ? 'ok' : 'warn'}">${mDone ? '✓ Đã xác nhận Fabi' : 'Chưa xác nhận Fabi'}</span></div>
       <div class="stc-gio" data-gio-ca="${R.id}"></div>
-      <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Xác nhận Fabi xong thì các mục tiền ở đây tự "✓ Xong"; ca xong cả phần việc thì tự Hoàn thành đối soát.</div>
+      <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Ở đó đi <b>6 bước</b>: Xác nhận Fabi ở bước 2 thì các mục tiền ở đây tự "✓ Xong"; tích đủ mục kiểm tra rồi bấm <b>🔒 Hoàn thành đối soát ca</b> ở bước 6 (và xong cả phần việc ở đây) thì ca mới thành Đã đối soát.</div>
       <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a>
       ${iposPhotos.length ? html`<h3 style="margin:4px 0 0;font-size:15px">Ảnh phiếu Fabi chốt ca</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}</div>` : html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`}</section>` : '';
   const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
