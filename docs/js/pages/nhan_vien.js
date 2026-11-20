@@ -125,6 +125,9 @@ export async function render({ params, me }) {
       $$('.dt-chip').forEach((c) => c.addEventListener('click', () => { const f = $('#ef-dt'); f.value = f.value === c.dataset.st ? '' : c.dataset.st; apply(); }));
       $$('.new-dt').forEach((b) => b.addEventListener('click', () => openCreateDialog({ id: Number(b.dataset.id), name: b.dataset.name, branch: b.dataset.b }).catch((e) => showSaved(e.message, true))));
       $$('.rank-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
+        // rà soát 20/11: hỏi lại trước khi lưu — chạm nhầm trên điện thoại là đổi cấp bậc ngay
+        const who = (s.getAttribute('aria-label') || '').replace('Cấp bậc của ', '') || 'nhân viên này';
+        if (!confirm(`Đổi cấp bậc của ${who} từ "${last}" sang "${s.value}"?`)) { s.value = last; return; }
         try {
           await rpc('app_set_rank', { p_id: Number(s.dataset.id), p_rank: s.value }); last = s.value;
           // Cập nhật ngay trên trang: dòng (để lọc theo cấp bậc đúng) + ô đếm cấp bậc phía trên

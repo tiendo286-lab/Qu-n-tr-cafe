@@ -391,7 +391,7 @@ export async function render() {
   root().innerHTML = str(layout(path, html`${tabsBar}${page.html}`, takeFlash()));
   const nav = document.querySelector('details.navd');
   if (nav && window.matchMedia('(max-width: 900px)').matches) nav.open = false;
-  document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', logout));
+  document.querySelectorAll('[data-logout]').forEach((b) => b.addEventListener('click', () => { if (confirm('Đăng xuất khỏi web?')) logout(); }));   // rà soát 20/11: hỏi lại, tránh chạm nhầm
   document.querySelectorAll('[data-ktmode]').forEach((b) => b.addEventListener('click', () => { const on = b.dataset.ktmode === '1'; setKtMode(on); go('/hom-nay'); }));
   if (page.mount) {
     try { const c = await page.mount(root()); if (typeof c === 'function') cleanup = c; } catch (e) { console.error(e); alert(viError(e)); }
