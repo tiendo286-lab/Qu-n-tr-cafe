@@ -1930,6 +1930,11 @@ const STYLE = html`<style>
   }
   @media (max-width: 720px) {
     .stc-hdr { display: none; }
+    /* rà soát 20/11: lưới ngày × ca của Đối soát Fabi vừa màn hình điện thoại (đủ 3 ca), có hàng tên ca */
+    .stc-wk { padding: 8px; overflow-x: visible; } .stc-wr { grid-template-columns: 44px repeat(var(--k), minmax(0, 1fr)); gap: 4px; min-width: 0; }
+    .stc-wr.stc-hdr { display: grid; padding: 2px 0 4px; font-size: 11px; } .stc-wr.stc-hdr span:not(:first-child) { text-align: center; }
+    .stc-wr .stc-lab { display: flex; flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.15; font-size: 13px; }
+    .stc-dsc { padding: 4px; min-width: 0; } .stc-dsc .pill { font-size: 10.5px; padding: 2px 5px; letter-spacing: 0; overflow-wrap: anywhere; } .stc-dsc small { font-size: 10.5px; overflow-wrap: anywhere; }
     .stc-g { display: flex; flex-wrap: wrap; align-items: baseline; gap: 3px 8px; }
     .stc-g .stc-c:not(.tot) { display: none; } .stc-c.tot { margin-left: auto; }
     .stc-lab { flex: 1 1 auto; }
