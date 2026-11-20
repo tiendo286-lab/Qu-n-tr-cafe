@@ -188,7 +188,7 @@ export function makeDt(T, me) {
       d[p_who === 'nv' ? 'trainee_at' : 'instructor_at'] = p_on ? now() : null;
     },
     app_dt_delete({ p_id }) { T.trainings = T.trainings.filter((t) => t.id !== p_id); },
-    app_dt_mine: () => T.trainings.filter((t) => [t.employee_id, t.instructor_id].includes(me.employee_id) || t.manager_id === me.account_id)
-      .map((t) => ({ ...sum(t), employee: `${emp(t.employee_id).code} – ${emp(t.employee_id).name}`, role: t.employee_id === me.employee_id ? 'hoc' : t.manager_id === me.account_id ? 'quan_ly' : 'huong_dan' })),
+    app_dt_mine: () => T.trainings.filter((t) => me.employee_id && [t.employee_id, t.instructor_id, t.cont_trainer_id].includes(me.employee_id))   // bước 174 (tệp 155): bỏ Quản lý phụ trách cũ
+      .map((t) => ({ ...sum(t), employee: `${emp(t.employee_id).code} – ${emp(t.employee_id).name}`, role: t.employee_id === me.employee_id ? 'hoc' : 'huong_dan' })),
   };
 }
