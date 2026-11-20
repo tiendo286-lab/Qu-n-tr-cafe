@@ -82,11 +82,18 @@ export default async ({ sleep, out }) => {
   // 7b. gán nợ khách trả (chỉ nợ ghi trước ca) → hết dư; Huỷ thu ở dòng thu nợ → dư trở lại
   ok(!!act('no') && !act('no').disabled, '7b. Gán nợ khách trả bấm được');
   act('no').click(); await sleep(100);
+  // bước 159 (khách trả một lần, đủ cả khoản): ca dư 10.000 mà Cô Lan Anh nợ 20.000 → không đưa ra để gán (không gán một phần)
+  ok(!$('[name=debt]', dlg()) && txt(dlg()).includes('két dư đủ cả khoản'), '7b. nợ 20.000 lớn hơn tiền dư 10.000 → không có khoản nào để gán, ghi rõ lý do');
+  dlg().close(); await sleep(200);
+  // thêm 1 khoản nợ 10.000 ghi ngày 12/11 (trước ca, vừa bằng tiền dư) rồi thử đường gán đủ cả khoản
+  { const { rpc } = await import('../js/sb.js'); await rpc('app_stc_debt_save', { p_id: null, p: { name: 'Chị Hoa', kind: 'tm', amount: 10000, date: '2026-11-12' }, p_reason: 'Chuẩn bị bài thử' }); }
+  await go(THU.replace('2026-11', '2026-10')); await go(THU);   // trang nhớ dữ liệu tháng 60 giây → sang tháng khác rồi quay lại để tải mới
+  await openGap('g:143:tm'); act('no').click(); await sleep(100);
   const dsel = txt($('[name=debt]', dlg()));
-  ok(dsel.includes('cô lan anh') && !dsel.includes('bàn 5'), '7b. chỉ chọn được nợ ghi trước ca (' + dsel + ')');
-  ok($('[name=debt_amount]', dlg())?.value === '10.000', '7b. số gán mặc định = phần dư 10.000');
+  ok(dsel.includes('chị hoa') && !dsel.includes('cô lan anh') && !dsel.includes('bàn 5'), '7b. chỉ chọn được nợ ghi trước ca mà két dư đủ cả khoản — không có nợ 20.000, không có nợ ghi sau ca (' + dsel + ')');
+  ok($('[name=debt_amount]', dlg())?.value === '10.000' && $('[name=debt_amount]', dlg()).readOnly, '7b. số gán = cả khoản nợ 10.000, không sửa được');
   setv('[name=reason]', 'Cô Lan Anh trả nợ'); await save(); await settle(THU);
-  const gn = () => $$('.stc-it:not(.void)').find((i) => txt(i).includes('cô lan anh') && txt(i).includes('gán nợ khách trả'));
+  const gn = () => $$('.stc-it:not(.void)').find((i) => txt(i).includes('chị hoa') && txt(i).includes('gán nợ khách trả'));
   ok(!row('g:143:tm') && !!gn(), '7b. gán hết → không còn dư, có dòng thu nợ "Gán nợ khách trả"');
   $('button.stc-unc', gn()).click(); await wait('dialog[open]', 30); await sleep(200);
   setv('[name=reason]', 'Gán nhầm'); await save(); await settle(THU);
