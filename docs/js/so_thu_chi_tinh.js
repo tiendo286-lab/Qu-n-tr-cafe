@@ -25,6 +25,10 @@ export function fabiNeeds(ca, checks) {
   if ((checks || []).filter((x) => ['mo', 'dt', 'no'].includes(x.k)).some((x) => x.st === 'red')) need.push({ k: 'red', txt: 'còn ô đỏ ở ①' });
   if (kt || !f.has) need.push({ k: 'kt', txt: 'chờ kế toán' });
   if (byCa && ca.ql_counted == null) need.push({ k: 'cash', txt: 'chưa nhập tiền mặt thực nhận' });
+  // bước 173: số sửa (máy Fabi ghi sai) đang chờ Chủ duyệt / bị từ chối → máy chủ chặn Xác nhận Fabi
+  const fx = Object.values(ca.fixes || {});
+  if (fx.some((q) => q?.status === 'cho')) need.push({ k: 'fix', txt: 'số sửa chờ Chủ duyệt' });
+  if (fx.some((q) => q?.status === 'tu_choi')) need.push({ k: 'fix', txt: 'Chủ từ chối số sửa' });
   return need;
 }
 // bước 168: việc còn lại để hoàn thành đối soát 1 ca (thanh "Hoàn thành đối soát ca" cuối màn hình điện thoại / máy tính)
@@ -140,18 +144,25 @@ export function dayChain(data, date) {
 
 export function caChecks(ca, link) {
   const f = ca.fabi || {}, nv = ca.nv || {}, has = !!f.has;
-  const open = has ? Number(f.opening ?? 0) : Number(nv.opening ?? 0);
+  // bước 173: máy Fabi ghi sai → số Chủ đã duyệt thay số máy (phiếu đã được ghi theo số đó); fx = yêu cầu sửa mới nhất của ô
+  const fx = ca.fixes || {};
+  const okFix = (k, v) => fx[k]?.status === 'duyet' && Number(v ?? 0) === Number((k === 'dt' ? fx[k].new?.total : fx[k].new?.val) ?? NaN);
+  const moFix = has && okFix('mo', nv.opening);
+  const open = has && !moFix ? Number(f.opening ?? 0) : Number(nv.opening ?? 0);
   const exp = link ? link.expOpen : open;
   const cmp = (k, name, a, b, x, y) => ({ k, name, a, b, ...(x === y ? { st: 'ok', txt: '✓ Khớp' } : { st: 'red', txt: `🔴 Lệch ${signed(x - y)}`, fix: 'fabi' }) });
   const mo = { k: 'mo', name: 'Tiền mở ca', a: `NV ghi ${fmt(nv.opening ?? 0)} · Fabi ${has ? fmt(f.opening ?? 0) : 'chưa có'}`, b: `Phải là ${fmt(exp)}`,
     // đợt 4: 2 tầng — NV ghi ↔ Fabi (Sửa theo Fabi), rồi Fabi ↔ phải là (ca nào ghi sai ca đó chịu)
-    ...(has && Number(nv.opening ?? 0) !== Number(f.opening ?? 0) ? { st: 'red', txt: `🔴 NV ghi khác Fabi ${signed(Number(nv.opening ?? 0) - Number(f.opening ?? 0))}`, fix: 'fabi' }
+    ...(has && !moFix && Number(nv.opening ?? 0) !== Number(f.opening ?? 0) ? { st: 'red', txt: `🔴 NV ghi khác Fabi ${signed(Number(nv.opening ?? 0) - Number(f.opening ?? 0))}`, fix: 'fabi' }
       : ca.blame ? { st: 'ok', txt: `✓ ${ca.blame.who === 'nay' ? 'Ca này chịu' : 'Ca trước chịu'} ${signed(Number(ca.blame.diff))}`, blame: ca.blame }
-      : open === exp ? { st: 'ok', txt: '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca`, fix: 'blame' }) };
-  const dt = has ? cmp('dt', 'Doanh thu', `NV báo ${fmt(nv.revenue ?? 0)}`, `Fabi ${fmt(f.revenue ?? 0)}`, Number(nv.revenue ?? 0), Number(f.revenue ?? 0))
-    : { k: 'dt', name: 'Doanh thu', a: `NV báo ${fmt(nv.revenue ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' };
-  const no = has ? cmp('no', 'Nợ', `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, `Fabi ${fmt(f.debt ?? 0)}`, Number(nv.debt ?? 0), Number(f.debt ?? 0))
-    : { k: 'no', name: 'Nợ', a: `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' };
+      : open === exp ? { st: 'ok', txt: moFix ? `✓ Chủ đã duyệt số ${fmt(open)}` : '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca`, fix: 'blame' }), fx: fx.mo || null };
+  const approved = (k) => ({ st: 'ok', txt: `✓ Chủ đã duyệt số ${fmt(k === 'dt' ? nv.revenue : nv.debt)}` });
+  const dt = { ...(has ? { ...cmp('dt', 'Doanh thu', `NV báo ${fmt(nv.revenue ?? 0)}`, `Fabi ${fmt(f.revenue ?? 0)}`, Number(nv.revenue ?? 0), Number(f.revenue ?? 0)), ...(okFix('dt', nv.revenue) ? approved('dt') : {}) }
+    : { k: 'dt', name: 'Doanh thu', a: `NV báo ${fmt(nv.revenue ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.dt || null };
+  if (dt.st === 'ok') delete dt.fix;
+  const no = { ...(has ? { ...cmp('no', 'Nợ', `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, `Fabi ${fmt(f.debt ?? 0)}`, Number(nv.debt ?? 0), Number(f.debt ?? 0)), ...(okFix('no', nv.debt) ? approved('no') : {}) }
+    : { k: 'no', name: 'Nợ', a: `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.no || null };
+  if (no.st === 'ok') delete no.fix;
   const mm = link ? link.money : caMoney([], ca.id, open);
   const money = (pm, name, a, b) => {
     const r = mm[pm];
@@ -217,6 +228,9 @@ export function caStage(ca, checks, fin, treoOpen = false, gaps = []) {
   }
   const ab = checks.filter((c) => ['mo', 'dt', 'no'].includes(c.k));
   if (ab.some((c) => c.st === 'kt') || ca.kt_wait || !ca.fabi?.has) return { k: 'kt', txt: '⏳ Chờ kế toán', cls: 'p-mute' };
+  const fx = Object.values(ca.fixes || {});   // bước 173
+  if (fx.some((q) => q?.status === 'cho')) return { k: 'fix', txt: '🟠 Chờ Chủ duyệt số sửa', cls: 'p-warn' };
+  if (fx.some((q) => q?.status === 'tu_choi')) return { k: 'fix', txt: '🟠 Chủ từ chối số sửa', cls: 'p-warn' };
   const reds = ab.filter((c) => c.st === 'red');
   if (reds.length) return { k: 'lech', txt: '🔴 ' + reds.map((c) => c.name).join(', '), cls: 'p-off' };
   return { k: 'cho', txt: '🟡 Chờ xác nhận Fabi', cls: 'p-yel' };
