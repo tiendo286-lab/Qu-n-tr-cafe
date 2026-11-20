@@ -10,7 +10,7 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
 - **20/11 trưa — web 2026.11.20.2 (đã gộp vào `main`):** bảng Tồn quỹ theo ngày (tab Tổng) trên điện thoại hết cắt số (`flow_stc13` kiểm thêm); sửa bài thử `flow_stc2`, `flow_stc3`. Lưu ý bài thử: trang Sổ thu chi nhớ dữ liệu tháng 60 giây — bài thử gọi thẳng máy chủ giả xong phải sang tháng khác rồi quay lại mới thấy dữ liệu mới.
 - Máy chủ: tệp **146, 147, 148, 149 đã chạy thật** (chạy thử tự hoàn tác trước; bài thử trên máy chủ thật: 146 12/12, 147 9/9, 148 28/28, 149 16/16). Sổ tệp đã chạy: mới nhất là `149_dao_tao_tab_phan_cong.sql` → tệp mới bắt đầu từ **150**.
 - Web: gộp cả 5 nhánh `dem1911/*` + bàn giao vào `main`, phiên bản **2026.11.20.1** (đổi mọi `?v=` trong `docs/` sang số mới), đã ghi `app_releases`.
-- **Claude không đẩy lên `main` được nữa**: `.claude/settings.json` (phần 1) cấm `git push *main*` và `rm`. Anh Tiến tự chạy `git push origin main` trong Terminal. Tệp cấu hình cũ trên máy đổi tên thành `.claude/settings.json.cu`.
+- **Quyền của Claude (`.claude/settings.json`)**: cấm `rm`, `git push --force`, `curl` tới Supabase. Luật cấm `git push *main*` anh Tiến đã gỡ trưa 20/11 — Claude đẩy lên `main` được, chỉ khi anh bảo "đưa lên web". Claude không tự sửa tệp quyền này (ghi bản nháp, anh chép đè). Tệp cấu hình cũ trên máy đổi tên thành `.claude/settings.json.cu`.
 - Bài `flow_ql_tu_ds` phải chuẩn bị **không kèm** `--dao-tao-gia` (kèm thì lỗi "reading 'filter'" — do dữ liệu giả, không phải lỗi web).
 - Mục bên dưới (đêm 19→20/11) giữ lại để tra cứu; các dòng "chưa chạy / chưa gộp" trong đó nay đã xong.
 

@@ -29,7 +29,6 @@
       "Bash(/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m kiem_tra/*)"
     ],
     "deny": [
-      "Bash(git push *main*)",
       "Bash(git push --force*)",
       "Bash(git push -f*)",
       "Bash(rm)",
