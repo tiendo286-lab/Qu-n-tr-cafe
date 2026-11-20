@@ -30,6 +30,14 @@ begin
       into n, n2
       from pg_temp.t150_truoc t, lateral (select public.app_stc_month(t.branch_id, to_char(public.vn_now(), 'YYYY-MM')) j) m;
     rep := rep || E'\n' || case when n > 0 and n = n2 then 'ĐẠT' else 'HỎNG' end || format(' (0) sổ tháng cũ = mới ở %s / %s cơ sở (chỉ thêm ticks, done)', n2, n);
+    if n <> n2 then   -- nói rõ cơ sở nào, phần nào của sổ tháng khác đi
+      rep := rep || coalesce((select string_agg(format(E'\n      cơ sở %s khác ở: %s', t.branch_id,
+          (select coalesce(string_agg(k, ', '), 'cas') from jsonb_object_keys(m.j) k where k <> 'cas' and (m.j -> k) is distinct from (t.j -> k))), '')
+        from pg_temp.t150_truoc t, lateral (select public.app_stc_month(t.branch_id, to_char(public.vn_now(), 'YYYY-MM')) j) m
+        where not ((t.j - 'cas') = (m.j - 'cas')
+          and (select coalesce(jsonb_agg(c - 'ticks' - 'done' order by c ->> 'id'), '[]') from jsonb_array_elements(m.j -> 'cas') c)
+            = (select coalesce(jsonb_agg(c order by c ->> 'id'), '[]') from jsonb_array_elements(t.j -> 'cas') c))), '');
+    end if;
   else rep := rep || E'\nHỎNG (0) thiếu bản chụp trước (chưa gửi kèm doi_soat_6_buoc_150_truoc.sql)';
   end if;
 
@@ -61,14 +69,22 @@ begin
       and (select recon_status from public.shift_reports where id = r.id) <> 'hoan_thanh' then 'ĐẠT' else 'HỎNG' end
     || ' (4) Mở lại → đối soát ' || (select recon_status from public.shift_reports where id = r.id) || ', vẫn đã xác nhận Fabi';
 
-  -- (4b) hai đường khác từng tự đặt "Đã đối soát": nút Hoàn thành ở trang Đối soát ca bị chặn (báo rõ làm ở Sổ thu chi); web tự hoàn thành không còn tự đặt
-  begin perform public.app_ca_recon_finish(r.id); rep := rep || E'\nHỎNG (4b) app_ca_recon_finish vẫn hoàn thành được khi chưa có dấu → ' || (select recon_status from public.shift_reports where id = r.id);
-  exception when others then rep := rep || E'\n' || case when sqlerrm like '%Sổ thu chi%' then 'ĐẠT' else 'HỎNG' end || ' (4b) app_ca_recon_finish: ' || sqlerrm; end;
+  -- (4b) hai đường khác từng tự đặt "Đã đối soát": nút Hoàn thành ở trang Đối soát ca bị chặn (báo rõ làm ở Sổ thu chi); web tự hoàn thành không còn tự đặt.
+  --      Mỗi phép thử chạy trong khối con rồi tự hoàn tác (ném lỗi HOAN_TAC) để không xáo trộn các bước sau; kết quả giữ trong biến st.
+  begin
+    perform public.app_ca_recon_finish(r.id);
+    st := 'KHÔNG chặn → đối soát ' || (select recon_status from public.shift_reports where id = r.id);
+    raise exception 'HOAN_TAC';
+  exception when others then if sqlerrm <> 'HOAN_TAC' then st := sqlerrm; end if;
+  end;
+  rep := rep || E'\n' || case when st like '%Sổ thu chi%' then 'ĐẠT' else 'HỎNG' end || ' (4b) app_ca_recon_finish khi chưa có dấu: ' || st;
   begin
     st := public.app__ca_auto_green(r.id);
-    rep := rep || E'\n' || case when (select recon_status from public.shift_reports where id = r.id) <> 'hoan_thanh' then 'ĐẠT' else 'HỎNG' end
-      || ' (4c) app__ca_auto_green trả "' || coalesce(st, '') || '" → đối soát ' || (select recon_status from public.shift_reports where id = r.id);
-  exception when others then rep := rep || E'\n    (4c) app__ca_auto_green lỗi: ' || sqlerrm; end;
+    st := 'trả "' || coalesce(st, '') || '" → đối soát ' || (select recon_status from public.shift_reports where id = r.id);
+    raise exception 'HOAN_TAC';
+  exception when others then if sqlerrm <> 'HOAN_TAC' then st := 'LỖI ' || sqlerrm; end if;
+  end;
+  rep := rep || E'\n' || case when st not like 'LỖI %' and st not like '%→ đối soát hoan_thanh' then 'ĐẠT' else 'HỎNG' end || ' (4c) app__ca_auto_green khi chưa có dấu: ' || st;
 
   -- (5) tích mã lạ bị chặn; tích / bỏ tích đúng
   begin perform public.app_stc_tick(r.id, 'la', true); rep := rep || E'\nHỎNG (5) tích được mã lạ';
