@@ -7,6 +7,7 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 
 ## 20/11/2026 sáng — ĐÃ LÊN WEB bản 2026.11.20.1 (bước 167–170)
+- **20/11 trưa (nhánh `sua2011/ton-quy-dt-va-bai-thu`, chưa lên web):** bảng Tồn quỹ theo ngày (tab Tổng) trên điện thoại hết cắt số (`flow_stc13` kiểm thêm); sửa bài thử `flow_stc2`, `flow_stc3`. Lưu ý bài thử: trang Sổ thu chi nhớ dữ liệu tháng 60 giây — bài thử gọi thẳng máy chủ giả xong phải sang tháng khác rồi quay lại mới thấy dữ liệu mới.
 - Máy chủ: tệp **146, 147, 148, 149 đã chạy thật** (chạy thử tự hoàn tác trước; bài thử trên máy chủ thật: 146 12/12, 147 9/9, 148 28/28, 149 16/16). Sổ tệp đã chạy: mới nhất là `149_dao_tao_tab_phan_cong.sql` → tệp mới bắt đầu từ **150**.
 - Web: gộp cả 5 nhánh `dem1911/*` + bàn giao vào `main`, phiên bản **2026.11.20.1** (đổi mọi `?v=` trong `docs/` sang số mới), đã ghi `app_releases`.
 - **Claude không đẩy lên `main` được nữa**: `.claude/settings.json` (phần 1) cấm `git push *main*` và `rm`. Anh Tiến tự chạy `git push origin main` trong Terminal. Tệp cấu hình cũ trên máy đổi tên thành `.claude/settings.json.cu`.
@@ -33,7 +34,7 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
   - Phần 5: Giao giai đoạn 2 tự xác nhận mức hiện tại (giữ).
 - **Thứ tự chạy SQL:** 146 → 147 → 148 → 149 (đã thử trên CSDL cục bộ: mỗi tệp chạy 2 lần không lỗi, 4 bài thử máy chủ đạt). **Thứ tự gộp:** 1, 2, 3, 4 rồi 5 (bàn giao lúc nào cũng được). Chạy SQL của phần nào trước khi gộp phần đó.
 - **Chưa tăng `docs/version.json` / chưa ghi `app_releases`** trên nhánh nào — làm khi lên web.
-- **Bài thử hỏng sẵn trên `main` (không do đêm nay):** `flow_stc2` (bước 7 thu nợ một phần, bước 9), `flow_stc3` (bước 7b gán nợ). Đã so trên bản `main` chưa sửa: hỏng y hệt.
+- **Bài thử từng hỏng sẵn `flow_stc2` / `flow_stc3`: ĐÃ SỬA 20/11** — web không lỗi, bài thử lỗi thời so với luật bước 159 (khách trả nợ một lần: đưa thiếu thì web hỏi; chỉ gán nợ khi két dư đủ cả khoản). `flow_ds110` đã xoá từ bước 152 (màn hình cũ không còn). `flow_stc5` phải chạy kèm `confirm=1`.
 - **Công cụ mới** (có trên nhánh 2–5, giống hệt nhau):
   - `kiem_tra/trinh_duyet/chay_pw.py`: chạy 1 bài thử Chrome bằng Playwright, thời gian thật, in ĐẠT / LỖI.
   - `kiem_tra/may_chu_cuc_bo/`: dựng Postgres ngay trên máy từ mọi `supabase/*.sql` (gói `pgserver`, cần Python 3.9 hệ thống) để chạy thử tệp SQL mới + bài `kiem_tra/*.sql` **không cần mã sbp_**. Ngày 19/11 nạp 145 tệp: 0 lỗi.
@@ -107,9 +108,7 @@ Cập nhật: 20/11/2026 sáng (đêm 19→20/11 làm một mình bước 167–
 ## Việc còn mở
 | Việc | Ghi chú |
 |---|---|
-| Bảng "Tồn quỹ theo ngày" (tab Tổng) trên điện thoại cắt số | Có từ trước bước 166: ở 390px các cột + Thu / − Chi hiện "+5.710…." (`.stc-dg` 4 cột hẹp). Nên cho chữ nhỏ hơn hoặc bỏ dấu +/− khi hẹp. Chưa làm. |
 | Lưu số dư cuối tháng đã chốt (Sổ quỹ / Chốt tháng) | Làm **sau khi chốt tháng 11**. Hiện `app__fund_rows` vẫn dựng sổ từ ngày bắt đầu quỹ (01/11), nên chậm dần theo số ngày. Tháng đã chốt bị khoá, có thể lưu số dư cuối tháng; khi Chủ mở lại tháng thì xoá số đã lưu. |
-| Bài thử `flow_ds110` lỗi thời | Không còn nút `#add-rut2` (Khách CK rút tiền mặt) ở bước Tiền. Lỗi có từ trước bước 134. Cần viết lại theo giao diện hiện tại. |
 | Trang còn hơn 0,5 giây phía máy chủ | Chốt tháng ~1,5s, Dữ liệu & sao lưu ~1,2s (tải 2,9 MB, ít dùng), Sổ quỹ ~0,8s. Còn lại < 0,4s. |
 | File ca Fabi: mảng `fixed` cộng dồn | `app__fabi_apply` ghi nối `fixed` mỗi lần tải file, nên ca từng được web sửa theo Fabi vẫn hiện "Cần quản lý xem" mãi (bước 136 chỉ hiện rõ lý do). Nếu anh muốn ca tự hết báo sau khi quản lý xem, cần thêm nút "Đã xem" hoặc xoá `fixed` khi số đã khớp. |
 | Mở web lần đầu | Giữ cách cũ (số trên menu lấy xong mới vẽ trang), vì Thông báo / Tổng quan / Việc hôm nay đọc `state.unread`, `state.warn` lúc vẽ. Muốn vẽ song song thì phải sửa 3 trang đó trước. |
