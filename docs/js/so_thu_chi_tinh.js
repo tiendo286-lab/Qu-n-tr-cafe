@@ -142,6 +142,19 @@ export function dayChain(data, date) {
   return out;
 }
 
+// Lệch tiền mở ca đã chọn ai chịu: phần ca trước / ca này (âm = thiếu). Tệp 154: "Hai ca cùng chịu" chia đôi, ca này chịu phần lẻ.
+// Dòng cũ (trước tệp 154) không có prev_amt: ca trước chịu cả khi chọn "Ca trước ghi sai".
+export function blameShare(b) {
+  if (!b) return { prev: 0, nay: 0 };
+  const diff = Number(b.diff || 0);
+  const prev = b.prev_amt != null ? Number(b.prev_amt) : b.who === 'truoc' ? diff : 0;
+  return { prev, nay: diff - prev };
+}
+export function blameText(b) {
+  const s = blameShare(b);
+  return b.who === 'doi' ? `Hai ca cùng chịu: ca trước ${signed(s.prev)} · ca này ${signed(s.nay)}` : `${b.who === 'nay' ? 'Ca này chịu' : 'Ca trước chịu'} ${signed(Number(b.diff))}`;
+}
+
 export function caChecks(ca, link) {
   const f = ca.fabi || {}, nv = ca.nv || {}, has = !!f.has;
   // bước 173: máy Fabi ghi sai → số Chủ đã duyệt thay số máy (phiếu đã được ghi theo số đó); fx = yêu cầu sửa mới nhất của ô
@@ -154,8 +167,8 @@ export function caChecks(ca, link) {
   const mo = { k: 'mo', name: 'Tiền mở ca', a: `NV ghi ${fmt(nv.opening ?? 0)} · Fabi ${has ? fmt(f.opening ?? 0) : 'chưa có'}`, b: `Phải là ${fmt(exp)}`,
     // đợt 4: 2 tầng — NV ghi ↔ Fabi (Sửa theo Fabi), rồi Fabi ↔ phải là (ca nào ghi sai ca đó chịu)
     ...(has && !moFix && Number(nv.opening ?? 0) !== Number(f.opening ?? 0) ? { st: 'red', txt: `🔴 NV ghi khác Fabi ${signed(Number(nv.opening ?? 0) - Number(f.opening ?? 0))}`, fix: 'fabi' }
-      : ca.blame ? { st: 'ok', txt: `✓ ${ca.blame.who === 'nay' ? 'Ca này chịu' : 'Ca trước chịu'} ${signed(Number(ca.blame.diff))}`, blame: ca.blame }
-      : open === exp ? { st: 'ok', txt: moFix ? `✓ Chủ đã duyệt số ${fmt(open)}` : '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca`, fix: 'blame' }), fx: fx.mo || null };
+      : ca.blame ? { st: 'ok', txt: `✓ ${blameText(ca.blame)}`, blame: ca.blame }
+      : open === exp ? { st: 'ok', txt: moFix ? `✓ Chủ đã duyệt số ${fmt(open)}` : '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca`, fix: 'blame', short: open < exp }), fx: fx.mo || null };
   const approved = (k) => ({ st: 'ok', txt: `✓ Chủ đã duyệt số ${fmt(k === 'dt' ? nv.revenue : nv.debt)}` });
   const dt = { ...(has ? { ...cmp('dt', 'Doanh thu', `NV báo ${fmt(nv.revenue ?? 0)}`, `Fabi ${fmt(f.revenue ?? 0)}`, Number(nv.revenue ?? 0), Number(f.revenue ?? 0)), ...(okFix('dt', nv.revenue) ? approved('dt') : {}) }
     : { k: 'dt', name: 'Doanh thu', a: `NV báo ${fmt(nv.revenue ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.dt || null };
@@ -275,9 +288,10 @@ export function treoView(t) {
 export function gapParts(ca, cas, pm, signedGap) {
   if (pm !== 'tm') return [];
   const parts = [];
-  if (ca.blame && ca.blame.who === 'nay' && Number(ca.blame.diff)) parts.push({ label: 'Lệch tiền mở ca (ca này ghi sai)', amount: Number(ca.blame.diff) });
-  (cas || []).filter((o) => o.blame && o.blame.who === 'truoc' && Number(o.blame.prev_report) === Number(ca.id) && Number(o.blame.diff))
-    .forEach((o) => parts.push({ label: `Lệch tiền mở ca của ca ${o.shift} sau (ca này ghi sai, để lại khác số)`, amount: Number(o.blame.diff) }));
+  const nay = ca.blame ? blameShare(ca.blame).nay : 0;
+  if (nay) parts.push({ label: ca.blame.who === 'doi' ? 'Lệch tiền mở ca (hai ca cùng chịu — phần ca này)' : 'Lệch tiền mở ca (ca này ghi sai)', amount: nay });
+  (cas || []).filter((o) => o.blame && Number(o.blame.prev_report) === Number(ca.id) && blameShare(o.blame).prev)
+    .forEach((o) => parts.push({ label: o.blame.who === 'doi' ? `Lệch tiền mở ca của ca ${o.shift} sau (hai ca cùng chịu — phần ca này)` : `Lệch tiền mở ca của ca ${o.shift} sau (ca này ghi sai, để lại khác số)`, amount: blameShare(o.blame).prev }));
   if (!parts.length) return [];
   const rest = signedGap - parts.reduce((a, p) => a + p.amount, 0);
   if (rest) parts.push({ label: 'Lệch đếm két / do sửa thu chi', amount: rest });

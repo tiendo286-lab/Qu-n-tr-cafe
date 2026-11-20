@@ -3,6 +3,12 @@
 --   • Giữ "Ca trước ghi sai" / "Ca này ghi sai". Ca trước THU THEO CA cũng chọn được ca trước / chia đôi (thiết kế 6 bước mục 5, bước 1).
 --   • Ca trước Thu theo ca: tiền thực nhận = số quản lý đếm + phần ca trước chịu (app__stc_handover_adj) — số quản lý đếm và tiền đã nộp quỹ giữ nguyên;
 --     phần thiếu thành dòng Chênh lệch tiền mặt của ca trước (bước 5). Ca trước Thu cuối ngày: như cũ (sửa số đếm két ca trước trong bản đối soát).
+-- Thống nhất hai cách tính (21/11): app__ca_money (Xác nhận Fabi) có sẵn cơ chế giao nhận két cũ — ca sau đếm két lúc nhận lệch thì tự cộng
+--   phần lệch vào ca trước (handover_gap). Khi ca sau đã chọn ai chịu ở bước 1 theo cách mới (dòng stc_open_blame có prev_amt), phần ca trước chịu
+--   đã nằm trong tiền thực nhận / số đếm két của ca trước → bỏ handover_gap để không trừ 2 lần, khớp sổ tháng (real_tm − start_tm − thu chi).
+--   Dòng chọn cũ (trước tệp này, prev_amt trống) và ca chưa chọn: giữ nguyên cách cũ, không đổi số của ca nào đã có.
+-- Sửa kèm: "Ca trước ghi sai" khi ca trước (Thu cuối ngày) chưa có bản đối soát → trước chỉ ghi mỗi số đếm két nên tiền ca trước ra trống;
+--   nay chép đủ phiếu rồi mới thay số đếm.
 -- VÙNG KHOÁ (đã báo anh Tiến ở thiết kế mục 12): app_stc_ds_blame, app_stc_ds_blame_undo; cách tính tiền thực nhận ca Thu theo ca (app__stc_real_tm,
 -- app__ca_money, app_stc_month). Bài thử: kiem_tra/giao_ca_154_cuc_bo.sql. Chạy lại nhiều lần không sao.
 
@@ -11,9 +17,9 @@ alter table public.stc_open_blame add column if not exists prev_amt bigint;   --
 -- phần lệch giao ca mà ca này (ca trước của ca sau) phải chịu khi ca này Thu theo ca
 create or replace function public.app__stc_handover_adj(p_report bigint) returns bigint
 language sql stable security definer set search_path = public as $$
-  select coalesce(sum(coalesce(b.prev_amt, case when b.who = 'truoc' then b.diff else 0 end)), 0)::bigint
+  select coalesce(sum(b.prev_amt), 0)::bigint   -- chỉ dòng chọn từ tệp 154 (có prev_amt): dòng cũ không đổi số của ca nào
     from public.stc_open_blame b join public.shift_reports pr on pr.id = b.prev_report
-   where b.prev_report = p_report and pr.cash_mode = 'ca'
+   where b.prev_report = p_report and pr.cash_mode = 'ca' and b.prev_amt is not null
 $$;
 revoke all on function public.app__stc_handover_adj(bigint) from public, anon, authenticated;
 
@@ -47,7 +53,7 @@ begin
       -- ca trước Thu cuối ngày: sửa thẳng số đếm két của ca trước trong bản đối soát (không mở lại mục đã duyệt), ghi nhật ký
       select data into d from public.shift_report_recon where report_id = p.id;
       if d is null then
-        insert into public.shift_report_recon(report_id, data, updated_by, updated_at) values (p.id, jsonb_build_object('cash_counted', public.app__stc_real_tm(p.id) + pa), a.id, public.vn_now_text());
+        insert into public.shift_report_recon(report_id, data, updated_by, updated_at) values (p.id, coalesce(public.app__recon_snapshot(p.id), '{}'::jsonb) || jsonb_build_object('cash_counted', public.app__stc_real_tm(p.id) + pa), a.id, public.vn_now_text());
       else
         update public.shift_report_recon set data = d || jsonb_build_object('cash_counted', public.app__stc_real_tm(p.id) + pa), updated_by = a.id, updated_at = public.vn_now_text() where report_id = p.id;
       end if;
@@ -99,6 +105,13 @@ begin
   b1 := $q$cc := case when r.cash_mode = 'ca' and r.ql_counted is not null then r.ql_counted + public.app__stc_handover_adj(r.id) else$q$;
   if position('app__stc_handover_adj' in d) = 0 then
     if length(d) - length(replace(d, a1, '')) <> length(a1) then raise exception 'app__ca_money: không thấy đúng một chỗ vá (giao ca).'; end if;
+    d := replace(d, a1, b1);
+    -- ca sau đã chọn ai chịu lệch giao ca ở bước 1 (dòng mới, có prev_amt) → phần ca này chịu đã nằm trong tiền thực nhận / số đếm két,
+    -- KHÔNG cộng thêm lệch giao két tự tính kiểu cũ (handover_gap), kẻo trừ 2 lần. Dòng cũ (prev_amt trống) giữ nguyên cách cũ.
+    a1 := $q$if nx.id is not null then nh := public.app__ca_hand(nx.id); hg := coalesce((nh ->> 'gap_eff')::bigint, 0); end if;$q$;
+    b1 := $q$if nx.id is not null then nh := public.app__ca_hand(nx.id); hg := coalesce((nh ->> 'gap_eff')::bigint, 0);
+      if exists (select 1 from public.stc_open_blame ob where ob.report_id = nx.id and ob.prev_amt is not null) then hg := 0; end if; end if;$q$;
+    if length(d) - length(replace(d, a1, '')) <> length(a1) then raise exception 'app__ca_money: không thấy đúng một chỗ vá (giao két cũ).'; end if;
     execute replace(d, a1, b1);
   end if;
   d := pg_get_functiondef('public.app_stc_month(bigint,text)'::regprocedure);

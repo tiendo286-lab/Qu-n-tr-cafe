@@ -25,10 +25,11 @@ export default async ({ sleep, out }) => {
     ok(!!$('[data-dsfabi="mo"]', box('mo')) && txt(box('mo')).includes('so với máy'), '2. tiền mở ca: nhân viên ghi khác máy → có Lấy số máy Fabi');
     await act('[data-dsfabi="mo"]', ''); await settle();
     ok(!!$('[data-dsblame="nay"]', box('mo')) && !!$('[data-dsblame="truoc"]', box('mo')), '2. sửa xong → còn lệch số phải là → chọn Ca trước / Ca này ghi sai');
-    // 3. ca trước thu theo ca → không chọn được "ca trước"; chọn "ca này"
-    await act('[data-dsblame="truoc"]', 'thử');
-    ok(!!dlg() && txt($('.stc-err', dlg())).includes('thu theo ca'), '3. ca trước thu theo ca → báo chọn "Ca này ghi sai"');
-    $('[data-x]', dlg()).click(); await sleep(200);
+    // 3. tệp 154 (anh Tiến chốt 20/11): ca trước thu theo ca CŨNG chọn được "Ca trước ghi sai"; thừa tiền → không có "Hai ca cùng chịu"
+    ok(!$('[data-dsblame="doi"]', box('mo')), '3. thừa khi giao ca → không có nút "Hai ca cùng chịu"');
+    await act('[data-dsblame="truoc"]', 'thử'); await settle();
+    ok(box('mo').classList.contains('ok') && txt(box('mo')).includes('ca trước chịu'), '3. ca trước thu theo ca vẫn chọn được "Ca trước ghi sai"');
+    await act('[data-dsunblame]', 'chọn lại'); await settle();
     await act('[data-dsblame="nay"]', ''); ok(!!dlg() && txt($('.stc-err', dlg())).includes('lý do'), '3. chọn ca chịu bắt lý do');
     setv('[name=reason]', 'NV ca chiều đếm nhầm'); $('button[type=submit]', dlg()).click(); await sleep(900); await settle();
     ok(box('mo').classList.contains('ok') && txt(box('mo')).includes('ca này chịu'), '3. mở ca xanh: "Ca này chịu"');

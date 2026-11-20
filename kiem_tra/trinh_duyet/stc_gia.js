@@ -360,17 +360,26 @@ export function makeStc(T, me) {
       const c = st().cas.find((x) => x.id === Number(p_report)); c.fixes = c.fixes || {};
       c.fixes[p_field] = { id: ++N, status: 'cho', new: p_field === 'dt' ? { tm: Number(p.tm), ck: Number(p.ck) } : { val: Number(p.val) }, reason: 'thử', by: 'Quản lý thử', at: 'vừa xong' };
     },
+    // CHỈ DÙNG TRONG BÀI THỬ: đặt tiền mở ca (phiếu NV = máy Fabi = tiền đầu ca thật) để thử thiếu / thừa khi giao ca
+    app__thu_mo_ca({ p_report, p_val }) {
+      const c = st().cas.find((x) => x.id === Number(p_report)); const v = Number(p_val);
+      c.nv = { ...c.nv, opening: v }; c.nv_raw = { ...(c.nv_raw || {}), opening: v }; c.fabi = { ...c.fabi, opening: v }; c.start_tm = v;
+    },
     app_stc_ds_blame({ p_report, p_who, p_reason }) {
       const c = dsCa(p_report, true); const r = reason(p_reason); if (c.blame) throw new Error('Đã chọn ca chịu lệch mở ca — huỷ trước khi chọn lại.');
       const { exp, prev } = expOpen(c); const diff = Number(c.fabi.opening) - exp; if (!diff) throw new Error('Tiền mở ca đã đúng — không cần chọn.');
-      if (p_who === 'truoc') { if (!prev) throw new Error('Ca đầu ngày không có ca trước — chọn "Ca này ghi sai".');
-        if (prev.cash_mode === 'ca') throw new Error('Ca trước thu theo ca (đã giao lại 1.000.000) — chọn "Ca này ghi sai".'); prev.real_tm = Number(prev.real_tm || 0) + diff; }
-      else c.start_tm = exp;
-      c.blame = { who: p_who, diff, reason: r, by: by() };
+      if (!['nay', 'truoc', 'doi'].includes(p_who)) throw new Error('Chọn ca chịu lệch: ca trước, ca này hoặc hai ca cùng chịu.');
+      if (p_who === 'doi' && diff > 0) throw new Error('Hai ca cùng chịu chỉ dùng khi thiếu tiền lúc giao ca — thừa thì chọn một ca.');
+      const pa = p_who === 'truoc' ? diff : p_who === 'doi' ? Math.trunc(diff / 2) : 0;   // tệp 154: chia đôi, ca này chịu phần lẻ
+      if (p_who !== 'nay') { if (!prev) throw new Error('Ca đầu ngày không có ca trước — chọn "Ca này ghi sai".'); prev.real_tm = Number(prev.real_tm || 0) + pa; }
+      if (p_who !== 'truoc') c.start_tm = exp + pa;
+      c.blame = { who: p_who, diff, prev_amt: pa, prev_report: prev ? prev.id : null, reason: r, by: by() };
     },
     app_stc_ds_blame_undo({ p_report, p_reason }) {
       const c = dsCa(p_report, true); reason(p_reason); if (!c.blame) throw new Error('Chưa chọn ca chịu lệch mở ca.');
-      if (c.blame.who === 'nay') c.start_tm = Number(c.start_tm) + c.blame.diff; else { const { prev } = expOpen(c); prev.real_tm -= c.blame.diff; }
+      const b = c.blame, pa = b.prev_amt ?? (b.who === 'truoc' ? b.diff : 0);
+      if (b.who !== 'truoc') c.start_tm = Number(c.start_tm) + b.diff - pa;
+      if (b.who !== 'nay') { const { prev } = expOpen(c); prev.real_tm -= pa; }
       c.blame = null;
     },
     app_stc_ds_cash({ p_report, p_mode, p_counted }) {
