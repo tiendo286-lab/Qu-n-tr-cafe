@@ -49,7 +49,8 @@ begin
     raise exception 'Người nợ "%" chưa có trong danh sách. Thêm ở Sổ thu chi › Sổ chi › 👥 Người nợ trước.', nm;
   end if;
   -- tên đổi sang NGƯỜI KHÁC (hoặc về tên gõ tay) mà lần sửa này không tự đặt dấu đã xếp → coi như chưa xếp
-  if tg_op = 'UPDATE' and new.person_id is distinct from old.person_id and new.sorted_at is not distinct from old.sorted_at then
+  if tg_op = 'UPDATE' and new.person_id is distinct from old.person_id and new.sorted_at is not distinct from old.sorted_at
+     and coalesce(current_setting('app.debt_sort', true), '') <> '1' then   -- '1' = đang ở trong app_stc_debt_sort (quản lý xếp)
     new.sorted_at := null; new.sorted_by := null;
   end if;
   return new;
@@ -161,6 +162,135 @@ revoke all on function public.app_stc_people(bigint) from public, anon;
 revoke all on function public.app_stc_person_save(bigint, jsonb) from public, anon;
 grant execute on function public.app_stc_people(bigint) to authenticated;
 grant execute on function public.app_stc_person_save(bigint, jsonb) to authenticated;
+
+-- ---- Quản lý xếp một khoản nợ vào đúng người + nhóm công nợ (bước 1 của Đối soát Fabi; cũng dùng được cho nợ ngoài ca).
+create or replace function public.app_stc_debt_sort(p_debt bigint, p_person bigint, p_grp text) returns void
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts := public.app_account(); d public.shift_debts; p public.debt_people; r public.shift_reports; typed text; open_n int;
+begin
+  select * into d from public.shift_debts where id = p_debt for update;
+  if d.id is null then raise exception 'Không tìm thấy khoản nợ.'; end if;
+  if d.report_id is not null then r := public.app__stc_ds_need(d.report_id, false);
+  else perform public.app__stc_need(d.branch_id); end if;
+  if d.split_from is not null then raise exception 'Xếp ở khoản nợ gốc của khoản này.'; end if;
+  with recursive tree as (
+    select g.id, g.closed_at from public.shift_debts g where g.id = d.id
+    union all
+    select c.id, c.closed_at from public.shift_debts c join tree t on c.split_from = t.id)
+  select count(*) into open_n from tree where closed_at is null;
+  if open_n = 0 then raise exception 'Khoản nợ đã thu — không đổi được.'; end if;
+  select * into p from public.debt_people where id = p_person and branch_id = d.branch_id and active = 1;
+  if p.id is null then raise exception 'Chọn người nợ trong danh sách.'; end if;
+  if coalesce(p_grp, '') not in ('khach', 'kho', 'khac') then raise exception 'Chọn nhóm công nợ.'; end if;
+  if d.report_id is not null and exists (select 1 from public.stc_ca_done c where c.report_id = d.report_id) then
+    raise exception 'Ca đã hoàn thành đối soát — bấm Mở lại trước.';
+  end if;
+  if public.app__fin_locked(d.branch_id, coalesce(r.work_date, left(d.created_at, 10))) then raise exception 'Tháng này đã CHỐT — không đổi được.'; end if;
+  typed := btrim(coalesce(d.table_name, ''));
+  perform set_config('app.debt_sort', '1', true);
+  update public.shift_debts x set table_name = p.name, person_id = p.id, grp = p_grp, sorted_by = a.id, sorted_at = public.vn_now_text(),
+         content = case when typed <> '' and lower(typed) <> lower(btrim(p.name)) then typed else x.content end   -- giữ lại chữ nhân viên gõ
+   where x.id = d.id;
+  -- khoản con chưa thu của nợ tách kiểu cũ nhận theo
+  with recursive tree as (
+    select c.id from public.shift_debts c where c.split_from = d.id
+    union all
+    select c.id from public.shift_debts c join tree t on c.split_from = t.id)
+  update public.shift_debts x set table_name = p.name, person_id = p.id, grp = p_grp, sorted_by = a.id, sorted_at = public.vn_now_text()
+   where x.id in (select id from tree) and x.closed_at is null;
+  perform set_config('app.debt_sort', '', true);
+  if d.report_id is not null then
+    insert into public.shift_recon_log(report_id, action, field, before, after, reason, by_account)
+    values (d.report_id, 'xep_no', null, jsonb_build_object('table_name', typed, 'grp', d.grp),
+            jsonb_build_object('id', d.id, 'table_name', p.name, 'grp', p_grp), 'Xếp người + nhóm công nợ', a.id);
+  end if;
+  perform public.app_log('stc_xep_no', 'debt=' || d.id || ' → ' || p.name || ' · ' || p_grp);
+end $$;
+revoke all on function public.app_stc_debt_sort(bigint, bigint, text) from public, anon;
+grant execute on function public.app_stc_debt_sort(bigint, bigint, text) to authenticated;
+
+-- ---- Những mục còn thiếu để Hoàn thành đối soát ca: bản của tệp 150 + mục "nợ mới của ca đã xếp người + nhóm công nợ" (bước 172).
+-- Giống hàm dsChecks ở docs/js/so_thu_chi_tinh.js. Xếp nợ KHÔNG chặn Xác nhận Fabi (hàm này chỉ dùng cho nút Hoàn thành ở bước 6).
+create or replace function public.app__stc_ds_missing(p_report bigint) returns text[]
+language plpgsql security definer set search_path = public as $$
+declare r public.shift_reports; s jsonb; m jsonb; ca jsonb; its jsonb; out text[] := '{}'; tk text[]; last_ca boolean; nx public.shift_reports; ns jsonb;
+  chi_n int; chi_nocat int; chi_big int; thu_no int; pm text; pend int; big_gap int; n_sort int;
+begin
+  select * into r from public.shift_reports where id = p_report;
+  s := public.app__stc_ds_state(p_report);
+  if not coalesce((s ->> 'done')::boolean, false) then return array['Chưa Xác nhận Fabi']; end if;
+  m := public.app_stc_month(r.branch_id, left(r.work_date, 7));
+  select c into ca from jsonb_array_elements(m -> 'cas') c where (c ->> 'id')::bigint = p_report;
+  select coalesce(jsonb_agg(i), '[]') into its from jsonb_array_elements(m -> 'items') i
+   where (i ->> 'ca_id')::bigint = p_report and not coalesce((i ->> 'void')::boolean, false);
+  select coalesce(array_agg(item), '{}') into tk from public.stc_ca_ticks where report_id = p_report;
+  -- bước 1
+  if not ((s ->> 'mo1')::boolean and (s ->> 'mo2')::boolean) then out := array_append(out, 'Tiền mở ca chưa khớp'::text); end if;
+  if not (s ->> 'dt')::boolean then out := array_append(out, 'Doanh thu chưa khớp máy Fabi'::text); end if;
+  if not (s ->> 'no')::boolean then out := array_append(out, 'Nợ bill chưa khớp máy Fabi'::text); end if;
+  -- bước 172: nợ mới của ca còn tiền chưa thu mà chưa xếp người + nhóm công nợ (tính cả nợ tách kiểu cũ: gốc đã thu, con chưa thu)
+  with recursive tree as (
+    select g.id root, g.id, g.closed_at from public.shift_debts g
+     where g.report_id = p_report and g.split_from is null and g.amount > 0 and g.sorted_at is null
+    union all
+    select t.root, c.id, c.closed_at from public.shift_debts c join tree t on c.split_from = t.id)
+  select count(distinct t.root) into n_sort from tree t where t.closed_at is null;
+  if n_sort > 0 then out := array_append(out, format('Còn %s khoản nợ mới chưa xếp người + nhóm công nợ', n_sort)); end if;
+  if coalesce((ca -> 'fabi' ->> 'edited_bills')::int, 0) > 0 and not ('hd' = any(tk)) then out := array_append(out, 'Chưa tích: đã hỏi về hoá đơn bị sửa / xoá'::text); end if;
+  if not ('anh' = any(tk)) then out := array_append(out, 'Chưa tích: ảnh phiếu Fabi đúng với số máy'::text); end if;
+  -- bước 2
+  select o.* into nx from public.shift_reports o
+   where o.branch_id = r.branch_id and o.work_date = r.work_date and o.status = 'hoan_thanh'
+     and array_position(public.app__shifts(), o.shift) > array_position(public.app__shifts(), r.shift)
+   order by array_position(public.app__shifts(), o.shift) limit 1;
+  last_ca := nx.id is null;
+  if coalesce(r.cash_mode, 'ngay') = 'ca' and r.ql_counted is null then out := array_append(out, 'Chưa nhập tiền mặt quản lý đếm két'::text); end if;
+  if coalesce(r.cash_mode, 'ngay') = 'ca' or last_ca then
+    if not ('goi' = any(tk)) then out := array_append(out, 'Chưa tích: két để lại đúng 1.000.000 cho ca sau'::text); end if;
+  else
+    ns := public.app__stc_ds_state(nx.id);
+    if not ((ns ->> 'mo1')::boolean and (ns ->> 'mo2')::boolean) then out := array_append(out, 'Tiền đóng ca này chưa bằng tiền mở ca sau'::text); end if;
+  end if;
+  if ca ->> 'bank_ck' is null or coalesce((ca ->> 'kt_wait')::boolean, false) then out := array_append(out, 'Chuyển khoản chưa có số ngân hàng'::text); end if;
+  -- bước 3
+  select count(*) into thu_no from jsonb_array_elements(its) i where i ->> 'book' = 'thu' and i ->> 'col' = 'no';
+  if thu_no > 0 and not ('tn' = any(tk)) then out := array_append(out, 'Chưa tích: thu nợ đúng khách'::text); end if;
+  if not ('sot' = any(tk)) then out := array_append(out, 'Chưa tích: không sót khoản thu'::text); end if;
+  -- bước 4
+  select count(*), count(*) filter (where coalesce(i ->> 'cat', '') = ''), count(*) filter (where (i ->> 'amount')::numeric >= 300000)
+    into chi_n, chi_nocat, chi_big from jsonb_array_elements(its) i where i ->> 'book' = 'chi' and i ->> 'col' = 'chi';
+  if chi_nocat > 0 then out := array_append(out, format('Còn %s khoản chi chưa chọn nhóm', chi_nocat)); end if;
+  if chi_n > 0 and not ('that' = any(tk)) then out := array_append(out, 'Chưa tích: khoản chi có thật'::text); end if;
+  if chi_big > 0 and not ('lon' = any(tk)) then out := array_append(out, 'Chưa tích: đã xem khoản từ 300.000'::text); end if;
+  -- bước 5: dòng Chênh lệch — xong khi chữ trạng thái không còn "chờ", hoặc đang chờ Chủ duyệt, hoặc đã bấm Để sau
+  foreach pm in array array['tm', 'ck'] loop
+    select count(*) into pend from jsonb_array_elements(its) i
+     where i ->> 'col' = 'lech' and i ->> 'pm' = pm and coalesce((i ->> 'gross')::numeric, (i ->> 'amount')::numeric, 0) <> 0
+       and case when coalesce(i ->> 'status', '') <> '' then (i ->> 'status') ~* 'chờ' and not (i ->> 'status') ~* 'chờ Chủ duyệt'
+                else i -> 'gap' is not null and jsonb_typeof(i -> 'gap') <> 'null' end;
+    if pend > 0 and not (('sau_' || pm) = any(tk)) then
+      out := array_append(out, case pm when 'tm' then 'Tiền mặt' else 'Chuyển khoản' end || ' lệch chưa chọn cách xử lý');
+    end if;
+  end loop;
+  select count(*) into big_gap from jsonb_array_elements(its) i
+   where i ->> 'col' = 'lech' and coalesce((i ->> 'gross')::numeric, (i ->> 'amount')::numeric, 0) <> 0 and not coalesce(i ->> 'status', '') ~ 'Lệch nhỏ';
+  if big_gap > 0 and not ('ld' = any(tk)) then out := array_append(out, 'Chưa tích: đã hỏi lý do thiếu / thừa'::text); end if;
+  return out;
+end $$;
+revoke all on function public.app__stc_ds_missing(bigint) from public, anon, authenticated;
+
+-- ---- app_stc_month: dòng "nợ mới" của ca (ca_debts, t = 'moi') trả thêm nhóm, người, đã xếp chưa, chữ nhân viên gõ. Vá đúng 1 dòng, giữ mọi phần khác.
+do $$
+declare d text; anchor text;
+begin
+  d := pg_get_functiondef('public.app_stc_month(bigint,text)'::regprocedure);
+  if position($q$'sorted', g.sorted_at is not null$q$ in d) = 0 then
+    anchor := $q$'amount', s.amt, 'left', s.lft, 'pm', null, 'from', null) z, g.report_id rid, 'moi' t$q$;
+    if position(anchor in d) = 0 then raise exception 'app_stc_month: không thấy chỗ chèn (ca_debts · nợ mới).'; end if;
+    execute replace(d, anchor,
+      $q$'amount', s.amt, 'left', s.lft, 'pm', null, 'from', null, 'grp', g.grp, 'person_id', g.person_id, 'sorted', g.sorted_at is not null, 'content', g.content) z, g.report_id rid, 'moi' t$q$);
+  end if;
+end $$;
 
 -- ---- Chạy bù MỘT LẦN khi phát hành.
 do $$
