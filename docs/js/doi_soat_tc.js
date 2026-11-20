@@ -90,6 +90,7 @@ export async function toDebtDlg(r, onDone = () => {}) {
     <div><strong>${r.note || '(không ghi nội dung)'}</strong> · chi ${PAY[r.pay] || ''} <b>${fmt(r.amount)}đ</b></div>
     <div class="pc-line" role="radiogroup" aria-label="Nhóm">${Object.entries(GRP_NO).map(([k, l]) => html`<label class="radio-pill"><input type="radio" name="grp" value="${k}" ${k === g0 ? 'checked' : ''}> ${l}</label>`)}</div>
     <label class="field"><span>Người nợ</span><input class="input" name="name" list="dt-no-names" autocomplete="off" value="${g0 === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Kho tổng, Anh Huy"><datalist id="dt-no-names"></datalist></label>
+    <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>
     <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>
     <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" value="${r.note || ''}"></label>
     <div class="st-meta">Khoản chi này <b>không tính chi phí</b>, số tiền của ca không đổi; khoản nợ vào tab Công nợ (${r.pay === 'chuyen_khoan' ? 'Nợ CK' : 'Nợ TM'} ${fmt(r.amount)}đ). Chỉ một phần là nợ: tách thành 2 dòng ở mục <b>Sửa / thêm khoản thu chi</b> rồi đổi dòng nợ.</div>

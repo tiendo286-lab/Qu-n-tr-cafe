@@ -132,7 +132,8 @@ export async function render(ctx) {
     const dl = dialog(html`<form class="stack cn-dlg" style="gap:12px"><h2 style="margin:0">${p ? `Ghi thêm nợ — ${p.name}` : `Ghi nợ — ${BR.code}`}</h2>
       ${p ? '' : html`<div class="pc-line" role="radiogroup" aria-label="Nhóm">${Object.entries(GRP_SHORT).map(([k, l]) => html`<label class="radio-pill"><input type="radio" name="grp" value="${k}" ${k === g ? 'checked' : ''}> ${l}</label>`)}</div>`}
       ${p ? '' : html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" list="cn-names" autocomplete="off" value="${g === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Anh Thắng, Bàn 5"><datalist id="cn-names"></datalist></label>
-        <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>`}
+        <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>
+        <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>`}
       <div class="pc-line" role="radiogroup" aria-label="Loại nợ">${[['bill', 'Nợ HĐ', 'khách chưa trả hoá đơn'], ['muon', 'Nợ TM', 'cầm tiền mặt của quán'], ['ck', 'Nợ CK', 'quán chuyển khoản cho']].map(([k, l, t]) => html`<label class="radio-pill" title="${t}"><input type="radio" name="kind" value="${k}" ${k === kind0 ? 'checked' : ''}> ${l}</label>`)}</div>
       <label class="field"><span>Số tiền nợ</span><input class="input money" name="amount" inputmode="numeric" autocomplete="off"></label>
       <label class="field"><span>Ngày nợ</span><input class="input" type="date" name="date" value="${today}" max="${today}"></label>

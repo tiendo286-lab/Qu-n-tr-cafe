@@ -1553,7 +1553,8 @@ function mount(R, ed, C0, ctx = {}) {
     const d = dialog(html`<form class="stack" style="gap:12px;max-width:460px"><h2 style="margin:0">Ghi nhận nợ · ca ${R.shift} ${dmy(R.work_date)}</h2>
       <div class="st-meta">Khách nợ nhưng nhân viên đã bấm thanh toán trên Fabi. Số tiền của ca <b>không đổi</b> (ca hiện thiếu khoản này — tab Lệch tiền ca ghi "Chờ khách trả nợ"). Khoản nợ vào Công nợ và nhắc ở các ca sau; khách trả ở ca sau thì web tự bù cho ca này.</div>
       <div class="pc-line" role="radiogroup" aria-label="Nhân viên đã bấm"><label class="radio-pill"><input type="radio" name="it" value="chuyen_khoan" checked> NV bấm Chuyển khoản</label><label class="radio-pill"><input type="radio" name="it" value="tien_mat"> NV bấm Tiền mặt</label></div>
-      <label class="field"><span>Tên / bàn khách</span><input class="input" name="nm" autocomplete="off" placeholder="vd: Bàn 5, chị Hoa"></label>
+      <label class="field"><span>Tên người nợ</span><input class="input" name="nm" autocomplete="off" placeholder="vd: Chị Hoa (tên đã có trong danh sách người nợ)"></label>
+      <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>
       <label class="field"><span>Số điện thoại</span><input class="input" name="ph" inputmode="tel" autocomplete="off"></label>
       <label class="field"><span>Số tiền nợ</span><input class="input money" name="amt" inputmode="numeric" autocomplete="off"></label>
       <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" placeholder="vd: hẹn trả cuối tuần"></label>
