@@ -36,6 +36,7 @@ export default async ({ sleep, out }) => {
     const bar = $('.stc-dsp .stc-dsbar');
     ok(!!bar && getComputedStyle(bar).position === 'sticky', 'b. có thanh cố định cuối màn hình');
     ok(txt(bar).includes('hoàn thành đối soát ca') && !!$('[data-dsclose]', bar) && $('[data-dsclose]', bar).disabled, 'b. thanh "Hoàn thành đối soát ca" + nút Xác nhận Fabi đang khoá');
+    ok(txt($('[data-dsclose]', bar)).includes('hoàn thành đối soát ca'), 'b. nút ở thanh cuối tên "🔒 Hoàn thành đối soát ca" (anh Tiến chốt 20/11)');
     ok(!$('.stc-pa [data-dsclose]') && $$('[data-dsclose]').length === 1, 'b. nút Xác nhận Fabi chỉ còn ở thanh cuối (chuyển vị trí, không thêm nút)');
     const chip = $$('.stc-jump', bar).find((b) => txt(b).includes('ô đỏ'));
     ok(!!chip, 'b. ghi rõ còn thiếu: "còn ô đỏ ở ①"');

@@ -1046,7 +1046,7 @@ function dsAct(D, b) {
     const v = parseMoney(document.querySelector('.stc-dsp [name=ds_tm]')?.value || ''); if (v == null) { showSaved('Nhập tiền mặt thực nhận.', true); return; }
     run(() => rpc('app_stc_ds_cash', { p_report: c.id, p_mode: c.cash_mode === 'ca' ? 'ca' : 'ngay', p_counted: v }), 'Đã lưu tiền mặt thực nhận');
   } else if (b.dataset.dsclose) {
-    run(() => rpc('app_stc_ds_close', { p_report: c.id }), 'Đã xác nhận Fabi — phần B đã mở');
+    run(() => rpc('app_stc_ds_close', { p_report: c.id }), 'Đã hoàn thành đối soát ca (xác nhận Fabi) — phần B đã mở');
   } else if (b.dataset.dsreopen) {
     ask('Mở lại xác nhận Fabi', html`<div class="st-meta">Mở lại để sửa số Fabi / nhân viên ghi / tiền thực nhận. Thu chi của ca khoá sửa tới khi xác nhận lại.</div>`, false,   // bước 160: không bắt ghi lý do
       (d) => rpc('app_stc_ds_reopen', { p_report: c.id, p_reason: val(d, 'reason') || null }), 'Đã mở lại xác nhận');
@@ -1126,7 +1126,7 @@ function partA(D, a) {
           <input class="input money" name="ds_tm" inputmode="numeric" value="${byCa && c.ql_counted != null ? fmt(c.ql_counted) : ''}"></label><button type="button" class="btn sm" data-dscash="1">Lưu</button></div>`
         : html`<div class="st-meta">Thu theo ngày: ca này không nhập, két chuyển sang ca sau; tiền mặt thực nhận nhập ở ca cuối ngày.</div>`}
       <div class="st-meta">Chuyển khoản luôn lấy số ngân hàng kế toán nhập.</div></div>
-    <div class="stc-tools stc-a-end"><span class="st-meta">${need.length ? '🔒 ' + need.map((n) => n.txt).join(' · ') : gaps.length ? html`Còn lệch <b>${gapShort(gaps)}</b> — vẫn xác nhận được: web tự ghi chú số lệch, ca hiện 🟠 tới khi xử lý xong ở phần B.` : 'Xác nhận xong mở phần B để xử lý thu chi và chênh lệch của ca.'} Nút <b>Xác nhận Fabi</b> ở thanh cuối màn hình.</span></div></div>`;
+    <div class="stc-tools stc-a-end"><span class="st-meta">${need.length ? '🔒 ' + need.map((n) => n.txt).join(' · ') : gaps.length ? html`Còn lệch <b>${gapShort(gaps)}</b> — vẫn xác nhận được: web tự ghi chú số lệch, ca hiện 🟠 tới khi xử lý xong ở phần B.` : 'Xác nhận xong mở phần B để xử lý thu chi và chênh lệch của ca.'} Nút <b>🔒 Hoàn thành đối soát ca</b> (= xác nhận Fabi) ở thanh cuối màn hình.</span></div></div>`;
 }
 const signedFmt = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v));
 // bước 161: ghi chú đối soát — số lệch tiền mặt / chuyển khoản của ca và đã xử lý ra sao (tự lấy từ dòng Chênh lệch)
@@ -1209,15 +1209,16 @@ function dsPanel(D, a) {
   return html`<div class="stc-dsp stc-full"><div class="stc-dsh"><b>${caName(a.c)}</b> <span class="st-meta">${a.c.staff || ''}</span> <span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></div>
     ${partA(D, a)}${partB(D, a)}${dsBar(D, a)}</div>`;
 }
-// bước 168: thanh cố định cuối màn hình khi mở 1 ca — "Hoàn thành đối soát ca": việc còn thiếu (bấm để nhảy tới chỗ xử lý) + nút Xác nhận Fabi.
-//  Chỉ đổi vị trí nút; điều kiện bấm giữ nguyên (fabiNeeds = luật cũ của phần A). Chốt ca vĩnh viễn đã bỏ từ bước 158 nên không có nút chốt riêng.
+// bước 168: thanh cố định cuối màn hình khi mở 1 ca: việc còn thiếu (bấm để nhảy tới chỗ xử lý) + nút "🔒 Hoàn thành đối soát ca".
+//  Anh Tiến chốt 20/11: nút Xác nhận Fabi đổi tên thành "🔒 Hoàn thành đối soát ca" (Chốt ca vĩnh viễn đã bỏ từ bước 158).
+//  Chỉ đổi tên + vị trí; điều kiện bấm giữ nguyên (fabiNeeds = luật cũ của phần A), vẫn gọi app_stc_ds_close.
 function dsBar(D, a) {
   if (D.ext) return '';
   const t = dsTodo(a.c, a.cs, a.gaps);
   const chip = (n) => html`<button type="button" class="stc-jump" data-dsjump="${n.k}" data-jpm="${n.pm || ''}" data-jbook="${n.book || ''}">${n.txt} ›</button>`;
-  const head = t.step === 'xong' ? '🟢 Đã hoàn thành đối soát ca' : t.step === 'lech' ? `🟠 Hoàn thành đối soát ca — còn ${t.need.length} chênh lệch` : `🔒 Hoàn thành đối soát ca — bước 1: Xác nhận Fabi`;
-  return html`<div class="stc-dsbar" role="region" aria-label="Hoàn thành đối soát ca"><div class="stc-dbh"><b>${head}</b>${t.step === 'fabi' ? html`<button type="button" class="btn sm" data-dsclose="1" ${t.need.length ? 'disabled' : ''}>Xác nhận Fabi</button>` : ''}</div>
-    ${t.need.length ? html`<div class="stc-dbn"><span class="st-meta">${t.step === 'fabi' ? 'Còn thiếu:' : 'Xử lý ở phần B:'}</span>${t.need.map(chip)}</div>` : t.step === 'fabi' ? html`<div class="stc-dbn st-meta">Đủ điều kiện — bấm Xác nhận Fabi.</div>` : ''}</div>`;
+  const head = t.step === 'xong' ? '🟢 Đã hoàn thành đối soát ca' : t.step === 'lech' ? `🟠 Đã hoàn thành đối soát ca — còn ${t.need.length} chênh lệch` : '⏳ Chưa hoàn thành đối soát ca';
+  return html`<div class="stc-dsbar" role="region" aria-label="Hoàn thành đối soát ca"><div class="stc-dbh"><b>${head}</b>${t.step === 'fabi' ? html`<button type="button" class="btn sm" data-dsclose="1" ${t.need.length ? 'disabled' : ''}>🔒 Hoàn thành đối soát ca</button>` : ''}</div>
+    ${t.need.length ? html`<div class="stc-dbn"><span class="st-meta">${t.step === 'fabi' ? 'Còn thiếu:' : 'Xử lý ở phần B:'}</span>${t.need.map(chip)}</div>` : t.step === 'fabi' ? html`<div class="stc-dbn st-meta">Đủ điều kiện — bấm 🔒 Hoàn thành đối soát ca (xác nhận số Fabi, mở phần B).</div>` : ''}</div>`;
 }
 const isPhone = () => { try { return matchMedia('(max-width: 600px)').matches; } catch (_) { return false; } };
 // nhảy tới chỗ cần xử lý từ thanh cuối màn hình
@@ -1242,7 +1243,7 @@ function dsBody(D) {
     return html`<button type="button" class="stc-dsc d-${a.st.k} ${String(a.c.id) === String(DS_SEL) ? 'on' : ''}" data-dsca="${a.c.id}"><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span>${a.st.note ? html`<small>${a.st.note}</small>` : ''}</button>`; };
   const side = (title, list, empty) => ph ? html`<details class="card stc-side stc-sidep"><summary><b>${title}</b> <small>${list.length}</small></summary>${list.length ? html`<div class="stc-dsl">${list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>${caName(a.c)}${a.st.note ? html`<br><span class="st-meta">${a.st.note}</span>` : ''}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`)}</div>` : html`<div class="st-meta">${empty}</div>`}</details>`
     : html`<section class="card stc-side"><h3>${title} <small>${list.length}</small></h3>${list.length ? html`<div class="stc-dsl">${list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>${caName(a.c)}${a.st.note ? html`<br><span class="st-meta">${a.st.note}</span>` : ''}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`)}</div>` : html`<div class="st-meta">${empty}</div>`}</section>`;   // danh sách dài → cuộn trong khung, không đẩy phần ca xuống
-  const how = html`Mỗi ca: <b>A · Fabi</b> (so phiếu nhân viên với máy Fabi · tiền mặt / chuyển khoản thực nhận) → <b>Xác nhận Fabi</b> (còn lệch tiền vẫn xác nhận được → 🟠) → <b>B · Thu chi của ca</b> (sửa thu chi, xử lý chênh lệch → 🟢 Hoàn thành). Khoá cuối cùng là <b>Chốt tháng</b> (chỉ Chủ mở lại).`;
+  const how = html`Mỗi ca: <b>A · Fabi</b> (so phiếu nhân viên với máy Fabi · tiền mặt / chuyển khoản thực nhận) → <b>🔒 Hoàn thành đối soát ca</b> (= xác nhận Fabi; còn lệch tiền vẫn bấm được → 🟠) → <b>B · Thu chi của ca</b> (sửa thu chi, xử lý chênh lệch → 🟢 Hoàn thành). Khoá cuối cùng là <b>Chốt tháng</b> (chỉ Chủ mở lại).`;
   const top = ph ? html`<div class="stc-dsmini"><span>🟢 ${cnt('xong')}/${all.length}</span><span class="${cnt('con') ? 'w' : ''}">🟠 Còn lệch ${cnt('con')}</span><span class="${cnt('cho') ? 'w' : ''}">Chờ xác nhận ${cnt('cho')}</span><span class="${cnt('lech') ? 'w' : ''}">Ô đỏ ${cnt('lech')}</span><span class="${cnt('kt') ? 'w' : ''}">Chờ KT ${cnt('kt')}</span></div>
     <details class="stc-how"><summary>ⓘ Cách làm</summary><div class="st-meta">${how}</div></details>` : '';
   return ph ? html`${top}<div class="stc-layout"><section class="card stc-book">
