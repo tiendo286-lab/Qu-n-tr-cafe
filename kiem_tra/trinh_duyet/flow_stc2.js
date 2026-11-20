@@ -18,6 +18,13 @@ export default async ({ sleep, out }) => {
 
   // 1. nút Sửa / Xoá: khoản ngoài ca bấm được, khoản ca tắt
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
+  // bước 171: ca đã Hoàn thành đối soát (ca Sáng 18/11) → Sổ chi khoá sửa / thêm, ghi chú đầu ca dẫn sang Đối soát Fabi; quản lý bấm Mở lại ở bước 6 rồi mới sửa được
+  { const d0 = item('chi lương – minh'); const c0 = d0 && d0.closest('.stc-ca');
+    ok(!!c0 && !$('button.stc-ed:not([disabled])', c0) && txt($('.stc-calock', c0)).includes('đã hoàn thành đối soát') && !!$('.stc-calock a[href*="ds=181"]', c0) && !$('button.stc-addca:not([disabled])', c0) && !$('[data-toka]', c0),
+      '0. bước 171: ca đã Hoàn thành đối soát → không có Sửa / Xoá, thêm phiếu, → Trừ lương; ghi chú đầu ca dẫn sang Đối soát Fabi'); }
+  location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=181&t=' + Date.now(); await wait('.stc-dsp [data-dsundone]', 60); await sleep(300);
+  $('.stc-dsp [data-dsundone]')?.click(); await sleep(900);
+  await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
   const td = item('tiền điện tháng 10');
   ok(!!td && !!$('button.stc-ed:not([disabled])', td), '1. khoản ngoài ca có nút Sửa / Xoá bấm được');
   const kt = item('chi lương – minh');

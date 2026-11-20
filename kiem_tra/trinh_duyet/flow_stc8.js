@@ -33,6 +33,9 @@ export default async ({ sleep, out }) => {
     await go(BASE + '&loc=st:tl');
     ok(!!minh && !rows().some((r) => txt(r).includes('minh')), '3. xoá phiếu của Minh → không còn trong danh sách');
     // 4. → Trừ lương trên khoản chi "Mua đá" của ca Sáng 18/11 (đã xác nhận Fabi, chưa chốt)
+    // bước 171: → Trừ lương / Phiếu chi chuyển khoản chỉ có ở ca chưa Hoàn thành đối soát → quản lý bấm Mở lại ca Sáng 18/11 ở bước 6 trước
+    location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=181&t=' + Date.now(); await wait('.stc-dsp [data-dsundone]', 60); await sleep(300);
+    $('.stc-dsp [data-dsundone]')?.click(); await sleep(900);
     await go(BASE); $('.stc-all')?.click(); await sleep(500);
     const md = () => $$('#stc-book .stc-it').find((i) => txt(i).includes('mua đá') && i.querySelector('[data-toka]'));
     const row = md();

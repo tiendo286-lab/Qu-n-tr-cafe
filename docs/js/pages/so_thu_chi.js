@@ -597,18 +597,19 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
     pills.push(cs || (x.cat ? html`<span class="pill mute">${x.cat}</span>` : html`<span class="pill warn">Chưa phân loại</span>`));
     if (x.no_cost) pills.push(html`<span class="pill stc-nc">Không tính chi phí</span>`);
     if (D && !D.ext && x.src === 'move') {   // bước 153: khoản chi nhân viên ghi → phiếu trừ lương
-      const ka = kaOf(D, x); const ca = (D.cas || []).find((c) => c.id === x.ca_id); const live = !!ca?.recon_money_done && !isFin(D, x.ca_id) && !D.locked;
+      const ka = kaOf(D, x); const ca = (D.cas || []).find((c) => c.id === x.ca_id); const live = !!ca?.recon_money_done && !ca.done && !isFin(D, x.ca_id) && !D.locked;
       if (ka.length) pills.push(html`<span class="pill warn">Đã chuyển trừ lương · ${ka.map((k) => `${k.name} ${fmt(k.amount)}`).join(', ')}</span>${live ? html`<button type="button" class="btn sm secondary" data-kaundo="${x.id}">Bỏ chuyển</button>` : ''}`);
       else if (live && x.can_edit) pills.push(html`<button type="button" class="btn sm secondary" data-toka="${x.id}">→ Trừ lương</button>`);
     }
   }
   if (x.chia) pills.push(html`<span class="pill info">${x.chia}</span>`);
   if (D && !D.ext && x.book === 'chi' && x.col === 'no' && String(x.id).startsWith('dn:')) pills.push(debtPills(D, x));   // bước 155
-  if (x.can_edit) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
+  const caDone = !!x.ca_id && isDone(D, x.ca_id);
+  if (x.can_edit && !caDone) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
     : html`<button type="button" class="btn sm secondary stc-ed" data-ed="${x.id}">Sửa / Xoá</button>`);
   else if (!quiet && !['dt', 'lech'].includes(x.col) && !x.to_qn) {   // bước 164: ca đang khoá đã có 1 dòng ghi chú
     const ca = x.ca_id ? (D?.cas || []).find((c) => c.id === x.ca_id) : null;
-    const why = ca && isFin(D, ca.id) ? 'Ca đã chốt — không sửa được nữa' : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
+    const why = ca && isFin(D, ca.id) ? 'Ca đã chốt — không sửa được nữa' : caDone ? 'Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới sửa được' : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
     pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="${why}">Sửa / Xoá</button><span class="st-meta">🔒 ${why}</span>`);
   }
   return html`<div class="stc-it"><span class="stc-tag t-${x.col}">${colName(book, x.col)}</span>
@@ -647,7 +648,7 @@ function addBtn(D, c, book, label, { noLock = false } = {}) {
   const go = html` <a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a>`;
   if (ca && isFin(D, ca.id)) return html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>`;
   if (noLock && D.locked) return '';   // duyệt mã: ghi chú "Tháng đã chốt" đã có ở đầu ca
-  if (ca && ca.done && !D.locked) return html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới thêm / sửa được. </span>${P.tab === 'doi-soat' ? '' : go}`;   // bước 171
+  if (ca && ca.done && !D.locked) return noLock ? '' : html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới thêm / sửa được. </span>${P.tab === 'doi-soat' ? '' : go}`;   // bước 171
   if (ca && !ca.recon_money_done) return noLock ? '' : html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
@@ -658,7 +659,7 @@ function catSelect(D, x) {
   if (D.ext || !FTV || D.locked || x.void) return null;
   const isMove = String(x.id).startsWith('m:');
   // khoản của ca: chọn nhóm được khi ca chưa chốt (không đổi tiền; máy chủ chặn ca đã chốt); khoản ngoài ca: như nút Sửa
-  if (isMove ? (x.src !== 'move' || isFin(D, x.ca_id) || kaOf(D, x).length) : !(String(x.id).startsWith('e:') && x.can_edit)) return null;
+  if (isMove ? (x.src !== 'move' || isFin(D, x.ca_id) || isDone(D, x.ca_id) || kaOf(D, x).length) : !(String(x.id).startsWith('e:') && x.can_edit)) return null;
   const types = (FTV.types || []).filter((t) => t.kind === 'chi' && t.active !== false);
   const cats = (FTV.cats || []).filter((c) => c.kind === 'chi' && c.active !== false);
   const opt = (c) => html`<option value="${c.id}" ${x.cat === c.name ? 'selected' : ''}>${c.name}</option>`;
@@ -851,7 +852,8 @@ const hiddenCols = (D, book) => (SHOW_ZERO ? [] : zeroCols(D.items || [], book, 
 // bước 164: trạng thái của ca ghi một lần ở dòng ca; ca không thêm / sửa được → 1 dòng ghi chú đầu danh sách khoản
 const caPill = (D, cx) => (!cx ? '' : D.locked ? html`<span class="pill mute stc-cst">🔒 Tháng đã chốt</span>` : cx.recon_money_done ? html`<span class="pill ok stc-cst">Đã xác nhận Fabi</span>` : html`<span class="pill info stc-cst">⏳ Chưa xác nhận Fabi</span>`);
 const caLock = (D, cx) => (!cx ? null : D.locked ? { t: '🔒 Tháng đã chốt: không thêm / sửa được', why: 'Tháng đã Chốt tháng — Chủ mở lại tháng mới sửa được' }
-  : !cx.recon_money_done ? { t: '⏳ Chưa xác nhận Fabi: chưa thêm / sửa được', why: 'Xác nhận Fabi ở tab Đối soát Fabi mới thêm / sửa được khoản của ca' } : null);
+  : !cx.recon_money_done ? { t: '⏳ Chưa xác nhận Fabi: chưa thêm / sửa được', why: 'Xác nhận Fabi ở tab Đối soát Fabi mới thêm / sửa được khoản của ca' }
+  : cx.done ? { t: '🔒 Ca đã hoàn thành đối soát: Mở lại ở bước 6 mới thêm / sửa được', why: 'Vào Đối soát Fabi, bước 6 của ca, bấm Mở lại rồi mới thêm / sửa / xoá phiếu của ca' } : null);   // bước 171
 const visCols = (D, book) => { const h = hiddenCols(D, book); return COLS[book].filter(([k]) => !h.includes(k)); };
 function bookCard(D, book) {
   const lf = parseLoc(P.loc); if (locStr(lf)) return bookFlat(D, book, lf);
@@ -1022,6 +1024,7 @@ let DS_B = null;   // bước 171: bước mở theo đường dẫn b=1..6 (dù
 let DS_PARAM = '';   // tham số ds= đã dùng (không ép lại sau mỗi lần vẽ)
 const DSB = { book: 'thu', pm: 'tm', step: 0, stepFor: null };   // sổ / bảng đang xem ở phần B
 const isFin = (D, id) => !!(D.finals && D.finals[id]);
+const isDone = (D, id) => !!(D && (D.cas || []).find((c) => c.id === id)?.done);   // bước 171: ca đã bấm Hoàn thành đối soát → khoá phiếu của ca tới khi Mở lại
 const caName = (c) => `Ca ${c.shift} ${dm(c.date)}`;
 const treoOf = (D, id) => (D.treo || []).filter((t) => Number(t.report_id) === Number(id));
 // phần A: các nút của Fabi + tiền thực nhận (gọi app_stc_ds_* — máy chủ kiểm quyền và luật)
@@ -1206,7 +1209,7 @@ function partB(D, a, bk = null, mk = () => '') {
     <section class="card stc-book stc-cab"><div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[pm]} <small>${caName(c)}</small></h2>${lk || D.locked ? '' : html`<span class="stc-tools"><button type="button" class="btn sm stc-addca" data-addca="${c.id}" data-book="${book}">+ Thêm phiếu</button></span>`}</div>
       <div class="stc-g stc-hdr" style="--n:${n}"><span>Ca</span>${cols.map(([, l]) => html`<span>${l}</span>`)}<span>Tổng ${book}</span></div>
       <div class="stc-ca open"><div class="stc-crow stc-g" style="--n:${n}"><span class="stc-lab">${caName(c)} <small>${c.staff || ''}</small></span>${cells(byCol, book, tot)}</div>
-        <div class="stc-its">${its.length ? its.map((x) => itemRow(x, book, D, { who: true })) : html`<div class="st-meta stc-empty">Không có khoản ${book} ${PM[pm].toLowerCase()}.</div>`}
+        <div class="stc-its">${its.length ? its.map((x) => itemRow(x, book, D, { who: true, quiet: done })) : html`<div class="st-meta stc-empty">Không có khoản ${book} ${PM[pm].toLowerCase()}.</div>`}
           <div class="stc-it add">${fin ? html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>` : done ? html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở bước 6 để thêm / sửa</span>` : addBtn(D, { caId: c.id }, book, 'ca ' + c.shift)}</div></div></div></section>
     <div class="st-meta"><span class="stc-who">Nhân viên ghi</span> là phiếu trên phiếu chốt ca · <span class="stc-who ql">Quản lý ghi</span> là phiếu quản lý thêm hoặc sửa khi đối soát, kèm lý do.</div></div>`;
 }
