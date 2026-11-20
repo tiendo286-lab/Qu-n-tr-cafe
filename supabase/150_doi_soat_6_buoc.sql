@@ -5,6 +5,9 @@
 --   • Ca chỉ thành "Đã đối soát" (app__ca_auto_finish) khi đã bấm "Hoàn thành đối soát ca" (bảng stc_ca_done) — áp dụng cho MỌI đường
 --     đang gọi app__ca_auto_finish (xong phần việc, web tự đối soát theo Fabi, quản lý tự chốt…): ca đó hiện 🔵 ở Đối soát Fabi, quản lý vào tích đủ rồi bấm.
 --   • Mở lại xác nhận Fabi (app_stc_ds_reopen) bỏ luôn dấu Hoàn thành.
+--   • Hai đường khác cũng tự đặt "Đã đối soát" được bịt cùng luật: nút Hoàn thành ở trang Đối soát ca (app_ca_recon_finish — báo rõ phải làm ở
+--     Sổ thu chi) và web tự hoàn thành khi mọi mục khớp file Fabi + ngân hàng (app__ca_auto_green).
+--   • Dấu Hoàn thành tự mất khi: kết quả Tiền mặt / Chuyển khoản của ca bị gỡ (mọi kiểu mở lại), hoặc số trong file Fabi của ca đổi (kế toán tải lại).
 -- Không đổi cách tính tiền, không đổi app_can / role_permissions / app__stc_can / app__stc_need.
 -- Chưa làm ở đợt này (đợt sau): "Ca trước ghi sai" khi ca trước Thu theo ca; quản lý sửa số máy Fabi + Chủ duyệt; người nợ; phiếu tạo trong ca.
 -- Bài thử: kiem_tra/doi_soat_6_buoc_150.sql. Chạy lại nhiều lần không sao.
@@ -62,35 +65,35 @@ begin
    where (i ->> 'ca_id')::bigint = p_report and not coalesce((i ->> 'void')::boolean, false);
   select coalesce(array_agg(item), '{}') into tk from public.stc_ca_ticks where report_id = p_report;
   -- bước 1
-  if not ((s ->> 'mo1')::boolean and (s ->> 'mo2')::boolean) then out := out || 'Tiền mở ca chưa khớp'; end if;
-  if not (s ->> 'dt')::boolean then out := out || 'Doanh thu chưa khớp máy Fabi'; end if;
-  if not (s ->> 'no')::boolean then out := out || 'Nợ bill chưa khớp máy Fabi'; end if;
-  if coalesce((ca -> 'fabi' ->> 'edited_bills')::int, 0) > 0 and not ('hd' = any(tk)) then out := out || 'Chưa tích: đã hỏi về hoá đơn bị sửa / xoá'; end if;
-  if not ('anh' = any(tk)) then out := out || 'Chưa tích: ảnh phiếu Fabi đúng với số máy'; end if;
+  if not ((s ->> 'mo1')::boolean and (s ->> 'mo2')::boolean) then out := array_append(out, 'Tiền mở ca chưa khớp'::text); end if;
+  if not (s ->> 'dt')::boolean then out := array_append(out, 'Doanh thu chưa khớp máy Fabi'::text); end if;
+  if not (s ->> 'no')::boolean then out := array_append(out, 'Nợ bill chưa khớp máy Fabi'::text); end if;
+  if coalesce((ca -> 'fabi' ->> 'edited_bills')::int, 0) > 0 and not ('hd' = any(tk)) then out := array_append(out, 'Chưa tích: đã hỏi về hoá đơn bị sửa / xoá'::text); end if;
+  if not ('anh' = any(tk)) then out := array_append(out, 'Chưa tích: ảnh phiếu Fabi đúng với số máy'::text); end if;
   -- bước 2
   select o.* into nx from public.shift_reports o
    where o.branch_id = r.branch_id and o.work_date = r.work_date and o.status = 'hoan_thanh'
      and array_position(public.app__shifts(), o.shift) > array_position(public.app__shifts(), r.shift)
    order by array_position(public.app__shifts(), o.shift) limit 1;
   last_ca := nx.id is null;
-  if coalesce(r.cash_mode, 'ngay') = 'ca' and r.ql_counted is null then out := out || 'Chưa nhập tiền mặt quản lý đếm két'; end if;
+  if coalesce(r.cash_mode, 'ngay') = 'ca' and r.ql_counted is null then out := array_append(out, 'Chưa nhập tiền mặt quản lý đếm két'::text); end if;
   if coalesce(r.cash_mode, 'ngay') = 'ca' or last_ca then
-    if not ('goi' = any(tk)) then out := out || 'Chưa tích: két để lại đúng 1.000.000 cho ca sau'; end if;
+    if not ('goi' = any(tk)) then out := array_append(out, 'Chưa tích: két để lại đúng 1.000.000 cho ca sau'::text); end if;
   else
     ns := public.app__stc_ds_state(nx.id);
-    if not ((ns ->> 'mo1')::boolean and (ns ->> 'mo2')::boolean) then out := out || 'Tiền đóng ca này chưa bằng tiền mở ca sau'; end if;
+    if not ((ns ->> 'mo1')::boolean and (ns ->> 'mo2')::boolean) then out := array_append(out, 'Tiền đóng ca này chưa bằng tiền mở ca sau'::text); end if;
   end if;
-  if ca ->> 'bank_ck' is null or coalesce((ca ->> 'kt_wait')::boolean, false) then out := out || 'Chuyển khoản chưa có số ngân hàng'; end if;
+  if ca ->> 'bank_ck' is null or coalesce((ca ->> 'kt_wait')::boolean, false) then out := array_append(out, 'Chuyển khoản chưa có số ngân hàng'::text); end if;
   -- bước 3
   select count(*) into thu_no from jsonb_array_elements(its) i where i ->> 'book' = 'thu' and i ->> 'col' = 'no';
-  if thu_no > 0 and not ('tn' = any(tk)) then out := out || 'Chưa tích: thu nợ đúng khách'; end if;
-  if not ('sot' = any(tk)) then out := out || 'Chưa tích: không sót khoản thu'; end if;
+  if thu_no > 0 and not ('tn' = any(tk)) then out := array_append(out, 'Chưa tích: thu nợ đúng khách'::text); end if;
+  if not ('sot' = any(tk)) then out := array_append(out, 'Chưa tích: không sót khoản thu'::text); end if;
   -- bước 4
   select count(*), count(*) filter (where coalesce(i ->> 'cat', '') = ''), count(*) filter (where (i ->> 'amount')::numeric >= 300000)
     into chi_n, chi_nocat, chi_big from jsonb_array_elements(its) i where i ->> 'book' = 'chi' and i ->> 'col' = 'chi';
-  if chi_nocat > 0 then out := out || format('Còn %s khoản chi chưa chọn nhóm', chi_nocat); end if;
-  if chi_n > 0 and not ('that' = any(tk)) then out := out || 'Chưa tích: khoản chi có thật'; end if;
-  if chi_big > 0 and not ('lon' = any(tk)) then out := out || 'Chưa tích: đã xem khoản từ 300.000'; end if;
+  if chi_nocat > 0 then out := array_append(out, format('Còn %s khoản chi chưa chọn nhóm', chi_nocat)); end if;
+  if chi_n > 0 and not ('that' = any(tk)) then out := array_append(out, 'Chưa tích: khoản chi có thật'::text); end if;
+  if chi_big > 0 and not ('lon' = any(tk)) then out := array_append(out, 'Chưa tích: đã xem khoản từ 300.000'::text); end if;
   -- bước 5: dòng Chênh lệch — xong khi chữ trạng thái không còn "chờ", hoặc đang chờ Chủ duyệt, hoặc đã bấm Để sau
   foreach pm in array array['tm', 'ck'] loop
     select count(*) into pend from jsonb_array_elements(its) i
@@ -98,12 +101,12 @@ begin
        and case when coalesce(i ->> 'status', '') <> '' then (i ->> 'status') ~* 'chờ' and not (i ->> 'status') ~* 'chờ Chủ duyệt'
                 else i -> 'gap' is not null and jsonb_typeof(i -> 'gap') <> 'null' end;
     if pend > 0 and not (('sau_' || pm) = any(tk)) then
-      out := out || (case pm when 'tm' then 'Tiền mặt' else 'Chuyển khoản' end || ' lệch chưa chọn cách xử lý');
+      out := array_append(out, case pm when 'tm' then 'Tiền mặt' else 'Chuyển khoản' end || ' lệch chưa chọn cách xử lý');
     end if;
   end loop;
   select count(*) into big_gap from jsonb_array_elements(its) i
    where i ->> 'col' = 'lech' and coalesce((i ->> 'gross')::numeric, (i ->> 'amount')::numeric, 0) <> 0 and not coalesce(i ->> 'status', '') ~ 'Lệch nhỏ';
-  if big_gap > 0 and not ('ld' = any(tk)) then out := out || 'Chưa tích: đã hỏi lý do thiếu / thừa'; end if;
+  if big_gap > 0 and not ('ld' = any(tk)) then out := array_append(out, 'Chưa tích: đã hỏi lý do thiếu / thừa'::text); end if;
   return out;
 end $$;
 
@@ -191,18 +194,43 @@ drop trigger if exists stc_cash_tick on public.shift_reports;
 create trigger stc_cash_tick after update of ql_counted, cash_mode on public.shift_reports
   for each row execute function public.app__stc_cash_tick();
 
--- kế toán tải lại file Fabi của ca
+-- Bỏ dấu Hoàn thành do hệ thống (không phải người bấm Mở lại): chỉ gỡ dấu; trạng thái đối soát của ca do đường gọi tự lo (vd app__fabi_apply tự mở lại).
+create or replace function public.app__stc_undone_sys(p_report bigint) returns void
+language sql security definer set search_path = public as $$
+  delete from public.stc_ca_done where report_id = p_report
+$$;
+revoke all on function public.app__stc_undone_sys(bigint) from public, anon, authenticated;
+
+-- kế toán tải lại file Fabi của ca: chỉ khi SỐ hoặc danh sách hoá đơn sửa / xoá đổi thật (không tính cập nhật số cốc, ghép phiếu, ghi chú sửa)
+--   → bỏ tích ảnh + hoá đơn, và bỏ dấu Hoàn thành (ca phải được xem lại rồi bấm Hoàn thành lại)
 create or replace function public.app__stc_fabi_tick() returns trigger
 language plpgsql security definer set search_path = public as $$
+declare rid bigint;
 begin
-  perform public.app__stc_untick(r.id, array['hd', 'anh'])
-     from public.shift_reports r
-    where r.id = new.report_id or (new.report_id is null and r.branch_id = new.branch_id and r.work_date = new.work_date and r.shift = new.shift);
+  if tg_op = 'UPDATE' and (new.dau, new.net, new.tm, new.ck, new.no, new.tong, new.sua) is not distinct from (old.dau, old.net, old.tm, old.ck, old.no, old.tong, old.sua) then
+    return new;
+  end if;
+  for rid in select r.id from public.shift_reports r
+              where r.id = new.report_id or (new.report_id is null and r.branch_id = new.branch_id and r.work_date = new.work_date and r.shift = new.shift) loop
+    perform public.app__stc_untick(rid, array['hd', 'anh']);
+    perform public.app__stc_undone_sys(rid);
+  end loop;
   return new;
 end $$;
 drop trigger if exists stc_fabi_tick on public.fabi_shifts;
 create trigger stc_fabi_tick after insert or update on public.fabi_shifts
   for each row execute function public.app__stc_fabi_tick();
+
+-- kết quả Tiền mặt / Chuyển khoản của ca bị gỡ (Mở lại xác nhận, mở lại một mục, web bỏ khoá mục tự duyệt…) → ca không còn "đã xác nhận Fabi" → bỏ dấu Hoàn thành
+create or replace function public.app__stc_result_done() returns trigger
+language plpgsql security definer set search_path = public as $$
+begin
+  if old.item in ('tien_mat', 'chuyen_khoan') then perform public.app__stc_undone_sys(old.report_id); end if;
+  return old;
+end $$;
+drop trigger if exists stc_result_done on public.shift_report_results;
+create trigger stc_result_done after delete on public.shift_report_results
+  for each row execute function public.app__stc_result_done();
 
 -- khách trả nợ trong ca (ghi / bỏ)
 create or replace function public.app__stc_debt_tick() returns trigger
@@ -218,7 +246,13 @@ drop trigger if exists stc_debt_tick on public.shift_debts;
 create trigger stc_debt_tick after update of closed_at, closed_report_id on public.shift_debts
   for each row execute function public.app__stc_debt_tick();
 
--- ---- Vá 3 hàm vùng khoá + app_stc_month bằng thay chuỗi (giữ nguyên mọi phần khác, kể cả các bản vá trước)
+revoke all on function public.app__stc_recon_tick() from public, anon, authenticated;
+revoke all on function public.app__stc_cash_tick() from public, anon, authenticated;
+revoke all on function public.app__stc_fabi_tick() from public, anon, authenticated;
+revoke all on function public.app__stc_debt_tick() from public, anon, authenticated;
+revoke all on function public.app__stc_result_done() from public, anon, authenticated;
+
+-- ---- Vá 5 hàm (3 hàm vùng khoá + 2 đường khác tự đặt "Đã đối soát") + app_stc_month bằng thay chuỗi (giữ nguyên mọi phần khác, kể cả các bản vá trước)
 do $$
 declare d text; anchor text; add text;
 begin
@@ -245,6 +279,25 @@ begin
     execute replace(d, anchor, anchor || E'\n  delete from public.stc_ca_done where report_id = p_report;   -- bước 171');
   end if;
 
+  -- 3b. Nút "Hoàn thành" ở trang Đối soát ca: chưa bấm Hoàn thành đối soát ca ở Sổ thu chi thì chặn, báo rõ phải làm ở đâu
+  d := pg_get_functiondef('public.app_ca_recon_finish(bigint)'::regprocedure);
+  if position('stc_ca_done' in d) = 0 then
+    anchor := $q$if r.recon_status = 'hoan_thanh' then return; end if;$q$;
+    if position(anchor in d) = 0 then raise exception 'app_ca_recon_finish: không thấy chỗ vá.'; end if;
+    execute replace(d, anchor, anchor || $q$
+  if not exists (select 1 from public.stc_ca_done dn where dn.report_id = p_id) then   -- bước 171
+    raise exception 'Phần tiền chưa Hoàn thành: vào Sổ thu chi › Đối soát Fabi, tích đủ mục kiểm tra rồi bấm "Hoàn thành đối soát ca" ở bước 6.';
+  end if;$q$);
+  end if;
+
+  -- 3c. Web tự hoàn thành khi mọi mục khớp: cũng phải có dấu Hoàn thành (mục vẫn tự duyệt như cũ, chỉ không tự đặt "Đã đối soát")
+  d := pg_get_functiondef('public.app__ca_auto_green(bigint)'::regprocedure);
+  if position('stc_ca_done' in d) = 0 then
+    anchor := $q$if r.recon_status in ('chua', 'mo_lai') and$q$;
+    if position(anchor in d) = 0 then raise exception 'app__ca_auto_green: không thấy chỗ vá.'; end if;
+    execute replace(d, anchor, anchor || $q$ exists (select 1 from public.stc_ca_done dn where dn.report_id = p_id) and$q$);
+  end if;
+
   -- 4. app_stc_month: mỗi ca trả thêm mục đã tích + dấu hoàn thành
   d := pg_get_functiondef('public.app_stc_month(bigint,text)'::regprocedure);
   if position($q$'ticks', $q$ in d) = 0 then
@@ -252,7 +305,7 @@ begin
     if position(anchor in d) = 0 then raise exception 'app_stc_month: không thấy chỗ chèn (cas).'; end if;
     add := $q$'recon_money_done', r.mdone,
         'ticks', coalesce((select jsonb_agg(tk.item order by tk.item) from public.stc_ca_ticks tk where tk.report_id = r.id), '[]'::jsonb),
-        'done', (select jsonb_build_object('by', coalesce(public.app__acc_name(dn.by_account), ''), 'at', dn.at) from public.stc_ca_done dn where dn.report_id = r.id))$q$;
+        'done', case when r.mdone then (select jsonb_build_object('by', coalesce(public.app__acc_name(dn.by_account), ''), 'at', dn.at) from public.stc_ca_done dn where dn.report_id = r.id) end)$q$;
     execute replace(d, anchor, add);
   end if;
 end $$;

@@ -223,6 +223,7 @@ Không thêm quyền mới vào `role_permissions`.
 | Hàm duyệt số sửa chỉ Chủ gọi được | mục 7 | hàm mới |
 | `app__ca_auto_finish` chỉ cho ca thành "Đã đối soát" khi đã bấm Hoàn thành ở bước 6 | mục tiêu 4 | Bảng tuần Đối soát, Việc hôm nay, thẻ Phần tiền thấy ca "chưa xong" lâu hơn |
 | `app_stc_ds_blame`: bỏ chặn "ca trước Thu theo ca", cho chọn Ca trước ghi sai | mục 5, bước 1 | **Đổi luật tiền giao ca**: ca trước Thu theo ca có thể bị ghi thiếu / dư sau khi quản lý đã đếm |
+| `app_ca_recon_finish` (nút Hoàn thành ở trang Đối soát ca) và `app__ca_auto_green` (web tự hoàn thành khi mọi mục khớp) cũng phải có dấu Hoàn thành mới đặt "Đã đối soát"; dấu tự mất khi kết quả tiền bị gỡ hoặc file Fabi của ca đổi số (tìm ra khi rà mã đợt A, 20/11) | mục tiêu 4 | Ca web tự đối soát không còn tự thành "Đã đối soát"; kế toán tải lại file Fabi đổi số thì ca về 🔵 |
 | Cho nợ / Thu nợ / Luân chuyển tạo trong ca được tính vào tiền của ca | mục 9.3 | **Đổi cách tính tiền của ca** với phiếu mới; phải giữ khoá thứ tự thu nợ (tệp 147) và trả nợ một lần (tệp 142) |
 
 Không sửa: `app_can`, `role_permissions`, `app__stc_can` / `app__stc_need`, `app__ca_auto_ok`, `app_ca_recon_apply`, `app_ca_auto_locks`, `app__ca_locked_items`, `app__ca_locked_fields`.

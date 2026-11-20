@@ -15,8 +15,7 @@ begin
 end $f$;
 
 do $$
-declare chu public.accounts; nv public.accounts; rep text := ''; r public.shift_reports; r2 public.shift_reports; miss text[]; j jsonb; n int; n2 int; err text; tk text;
-  procedure_ok boolean;
+declare chu public.accounts; nv public.accounts; rep text := ''; r public.shift_reports; r2 public.shift_reports; miss text[]; j jsonb; n int; n2 int; tk text; st text;
 begin
   select * into chu from public.accounts where system_role = 'chu' and auth_user_id is not null order by id limit 1;
   select * into nv from public.accounts where system_role = 'nv' and auth_user_id is not null and coalesce(locked, 0) = 0 order by id limit 1;
@@ -61,6 +60,15 @@ begin
   rep := rep || E'\n' || case when not exists (select 1 from public.stc_ca_done where report_id = r.id) and (public.app__stc_ds_state(r.id) ->> 'done')::boolean
       and (select recon_status from public.shift_reports where id = r.id) <> 'hoan_thanh' then 'ĐẠT' else 'HỎNG' end
     || ' (4) Mở lại → đối soát ' || (select recon_status from public.shift_reports where id = r.id) || ', vẫn đã xác nhận Fabi';
+
+  -- (4b) hai đường khác từng tự đặt "Đã đối soát": nút Hoàn thành ở trang Đối soát ca bị chặn (báo rõ làm ở Sổ thu chi); web tự hoàn thành không còn tự đặt
+  begin perform public.app_ca_recon_finish(r.id); rep := rep || E'\nHỎNG (4b) app_ca_recon_finish vẫn hoàn thành được khi chưa có dấu → ' || (select recon_status from public.shift_reports where id = r.id);
+  exception when others then rep := rep || E'\n' || case when sqlerrm like '%Sổ thu chi%' then 'ĐẠT' else 'HỎNG' end || ' (4b) app_ca_recon_finish: ' || sqlerrm; end;
+  begin
+    st := public.app__ca_auto_green(r.id);
+    rep := rep || E'\n' || case when (select recon_status from public.shift_reports where id = r.id) <> 'hoan_thanh' then 'ĐẠT' else 'HỎNG' end
+      || ' (4c) app__ca_auto_green trả "' || coalesce(st, '') || '" → đối soát ' || (select recon_status from public.shift_reports where id = r.id);
+  exception when others then rep := rep || E'\n    (4c) app__ca_auto_green lỗi: ' || sqlerrm; end;
 
   -- (5) tích mã lạ bị chặn; tích / bỏ tích đúng
   begin perform public.app_stc_tick(r.id, 'la', true); rep := rep || E'\nHỎNG (5) tích được mã lạ';
