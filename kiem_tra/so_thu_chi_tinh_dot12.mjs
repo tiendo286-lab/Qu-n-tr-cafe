@@ -1,6 +1,6 @@
 // Bài thử bước 171 đợt A (Đối soát thu chi 6 bước): mục quản lý phải kiểm tra + trạng thái ca. Chạy: jsc -m kiem_tra/so_thu_chi_tinh_dot12.mjs
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-20-doi-soat-thu-chi-6-buoc-design.md (mục 6, 10)
-import { dsChecks, dsLeft, dsCtx, caStage, todoItems, BIG, DS_STEPS, TICKS } from '../docs/js/so_thu_chi_tinh.js';
+import { dsChecks, dsLeft, dsCtx, caStage, todoItems, caChoices, BIG, DS_STEPS, TICKS } from '../docs/js/so_thu_chi_tinh.js';
 let n = 0;
 const ok = (c, m) => { if (!c) throw new Error('KIỂM TRA THẤT BẠI: ' + m); n++; };
 const okc = [{ k: 'mo', st: 'ok' }, { k: 'dt', st: 'ok' }, { k: 'no', st: 'ok' }];
@@ -86,4 +86,10 @@ ok(dsCtx(D2, D2.cas[0]).next.moOk === false, 'ca sau mở ca lệch tiền ca n�
 const td = todoItems({ cas: [base({ id: 1, date: '2026-11-18', shift: 'Sáng' }), base({ id: 2, date: '2026-11-18', shift: 'Chiều', done: { by: 'x' } }), base({ id: 3, date: '2026-11-18', shift: 'Tối', recon_money_done: false })], items: [] });
 ok(td.filter((t) => t.kind === 'xn').length === 1 && td.find((t) => t.kind === 'xn').ref.id === 1 && /Ca Sáng 18\/11 đã xác nhận Fabi, chưa hoàn thành/.test(td.find((t) => t.kind === 'xn').text), 'Việc cần làm có ca đã xác nhận chưa hoàn thành');
 ok(td.filter((t) => t.kind === 'fabi').length === 1 && td[0].kind === 'fabi', 'ca chưa xác nhận Fabi vẫn đứng đầu (đỏ)');
+// khung + Thêm phiếu: ca đã Hoàn thành đối soát không chọn được (phải Mở lại trước)
+const cc = caChoices([{ id: 1, date: '2026-11-17', shift: 'Sáng', recon_money_done: true, done: { by: 'x' } }, { id: 2, date: '2026-11-17', shift: 'Chiều', recon_money_done: true }, { id: 3, date: '2026-11-17', shift: 'Tối', recon_money_done: false }], '2026-11-17');
+ok(!cc[0].ok && cc[0].done === true && /đã hoàn thành đối soát/.test(cc[0].why), 'ca đã Hoàn thành: mờ, ghi lý do');
+ok(cc[1].ok && !cc[1].why && !cc[1].done, 'ca đã xác nhận Fabi, chưa hoàn thành: chọn được');
+ok(!cc[2].ok && cc[2].why === 'chưa xác nhận Fabi' && !cc[2].done, 'ca chưa xác nhận Fabi: như cũ');
+ok(caChoices([{ id: 1, date: '2026-11-17', shift: 'Sáng', recon_money_done: true, done: { by: 'x' } }], '2026-11-17', { locked: true })[0].why === 'tháng đã chốt', 'tháng đã chốt vẫn ưu tiên lý do tháng đã chốt');
 print('ĐẠT ' + n + ' kiểm tra');

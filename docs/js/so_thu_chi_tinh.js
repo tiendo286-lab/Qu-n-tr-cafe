@@ -11,8 +11,10 @@ export function caChoices(cas, date, { locked = false } = {}) {
   if (!date) return [];
   const pos = (s) => { const i = SHIFT_ORDER.indexOf(s); return i < 0 ? 99 : i; };
   return (cas || []).filter((c) => c.date === date).sort((a, b) => pos(a.shift) - pos(b.shift)).map((c) => {
-    const why = locked ? 'tháng đã chốt' : !c.recon_money_done ? 'chưa xác nhận Fabi' : null;
-    return { id: c.id, label: `Ca ${c.shift}` + (c.staff ? ` · ${c.staff}` : ''), ok: !why, why };
+    // bước 171: ca đã bấm Hoàn thành đối soát thì khoá thêm phiếu — phải Mở lại ở bước 6 trước
+    const done = !locked && !!c.recon_money_done && !!c.done;
+    const why = locked ? 'tháng đã chốt' : !c.recon_money_done ? 'chưa xác nhận Fabi' : done ? 'đã hoàn thành đối soát, Mở lại mới thêm được' : null;
+    return { id: c.id, label: `Ca ${c.shift}` + (c.staff ? ` · ${c.staff}` : ''), ok: !why, why, done };
   });
 }
 // bước 168: điều kiện nút "Xác nhận Fabi" (phần A) — GIỮ ĐÚNG luật cũ của partA, chỉ gom về 1 chỗ để thanh cuối màn hình dùng chung.

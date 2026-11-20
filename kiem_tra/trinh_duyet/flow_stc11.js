@@ -21,6 +21,8 @@ export default async ({ sleep, out }) => {
       ok(txt($('.stc-canote', P())).includes('tháng đã chốt'), '9. dòng nhắc ghi "tháng đã chốt"');
       out.push({ stc11: { ok: good, fail: bad } }); return;
     }
+    // bước 171: ca đã Hoàn thành đối soát thì khoá thêm phiếu → Mở lại ca Sáng 17/11 và ca Sáng 16/11 trước (như quản lý bấm Mở lại ở bước 6); ca Tối 17/11 để nguyên đã hoàn thành
+    { const sb = (await import('/js/sb.js')).sb; for (const id of [171, 161]) await sb.rpc('app_stc_ds_undone', { p_report: id }); }
     // 1. Ngày 17/11: Ngoài ca + Sáng → Chiều → Tối, không có ca ngày khác
     await openAdd();
     setv(el('date'), '2026-11-17'); await sleep(150);
@@ -28,6 +30,8 @@ export default async ({ sleep, out }) => {
     ok(o.length === 4 && o[0].v === '' && o[0].t === 'ngoài ca' && ['171', '172', '173'].every((id, i) => o[i + 1].v === id), '1. ngày 17/11: Ngoài ca + Sáng → Chiều → Tối (' + o.map((x) => x.v || 'ngoài').join(',') + ')');
     ok(o[1].t.startsWith('ca sáng · ') && !o[1].d, '1. "Ca Sáng · <người làm>", chọn được');
     ok(o[2].d && o[2].t.includes('chưa xác nhận fabi'), '2. ca chưa xác nhận Fabi mờ, ghi "chưa xác nhận Fabi"');
+    ok(o[3].d && o[3].t.includes('đã hoàn thành đối soát'), '2. bước 171: ca đã Hoàn thành đối soát mờ, ghi "đã hoàn thành đối soát, Mở lại mới thêm được"');
+    { const js = $$('.stc-cajump a', P()); ok(js.some((a) => a.getAttribute('href').includes('ds=173') && a.getAttribute('href').includes('b=6') && txt(a).includes('mở lại')), '2. bước 171: có nút nhảy tới bước 6 của ca đã hoàn thành để Mở lại'); }
     ok(!$('.stc-canote', P()) || $('.stc-canote', P()).hidden || !txt($('.stc-canote', P())), '2. ngày có ca chọn được thì không hiện dòng nhắc');
     // 3. ngày không có ca
     setv(el('date'), '2026-11-05'); await sleep(150);
@@ -42,6 +46,9 @@ export default async ({ sleep, out }) => {
     ok(el('ca').disabled, '5. Loại Cho nợ → ô Ca khoá');
     setv(el('kind'), 'chi'); await sleep(100);
     ok(!el('ca').disabled && opts().every((x) => !x.v || ['161', '162', '163'].includes(x.v)), '5. đổi lại Khoản chi → ô Ca mở, vẫn là ca của 16/11');
+    setv(el('date'), '2026-11-15'); await sleep(150);
+    ok(opts().slice(1).every((x) => x.d) && txt($('.stc-canote', P())).includes('đã hoàn thành đối soát'), '5. bước 171: ngày mọi ca đã hoàn thành → dòng nhắc "đã hoàn thành đối soát — Mở lại…"');
+    setv(el('date'), '2026-11-16'); await sleep(150);
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `5. khung Thêm phiếu không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
     // 6. Lưu sau khi chọn ca rồi đổi ngày → ghi NGOÀI ca (không gửi app_stc_move_save)
     setv(el('date'), '2026-11-17'); await sleep(100); setv(el('ca'), '171'); await sleep(100); setv(el('date'), '2026-11-16'); await sleep(100);

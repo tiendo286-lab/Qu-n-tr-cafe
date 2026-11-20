@@ -286,12 +286,13 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     el('ca').innerHTML = str(html`<option value="">Ngoài ca</option>${list.map((x) => html`<option value="${x.id}" ${x.ok ? '' : 'disabled'}>${x.label}${x.why ? ' — ' + x.why : ''}</option>`)}`);
     el('ca').value = list.some((x) => x.ok && String(x.id) === String(keep ?? '')) ? String(keep) : '';
     const msg = !dv ? '' : other ? `Ngày ${dm(dv)} thuộc tháng khác — mở sổ tháng đó để thêm vào ca`
-      : D.locked ? `Ngày ${dm(dv)} — tháng đã chốt, chỉ ghi được ngoài ca` : !list.some((x) => x.ok) ? `Ngày ${dm(dv)} chưa có ca nào xác nhận Fabi` : '';
+      : D.locked ? `Ngày ${dm(dv)} — tháng đã chốt, chỉ ghi được ngoài ca` : list.some((x) => x.ok) ? ''
+        : list.some((x) => x.done) ? `Ca ngày ${dm(dv)} đã hoàn thành đối soát — Mở lại ở Đối soát Fabi (bước 6) mới thêm vào ca được` : `Ngày ${dm(dv)} chưa có ca nào xác nhận Fabi`;
     const note = box.querySelector('.stc-canote'); note.hidden = !msg; note.textContent = msg;
     // bước 168: ca chưa xác nhận Fabi → nút nhảy tới Xác nhận Fabi của ca đó (vẫn giữ luật: phải xác nhận Fabi mới thêm vào ca được)
-    const jw = box.querySelector('.stc-cajump'); const bad = D.locked ? [] : list.filter((x) => !x.ok && x.why === 'chưa xác nhận Fabi');
+    const jw = box.querySelector('.stc-cajump'); const bad = D.locked ? [] : list.filter((x) => !x.ok && (x.why === 'chưa xác nhận Fabi' || x.done));
     jw.hidden = !bad.length;
-    jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '', loc: '' })}&ds=${x.id}">${x.label.split(' · ')[0]}: Xác nhận Fabi ›</a>`)}`);
+    jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '', loc: '' })}&ds=${x.id}${x.done ? '&b=6' : ''}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở Đối soát Fabi' : 'Xác nhận Fabi'} ›</a>`)}`);
   };
   // bước 168: Thu nợ ngoài ca — chỉ nợ phát sinh từ ngày của phiếu trở về trước (máy chủ tệp 147 chặn lại)
   const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => debtBefore(x, { date: dv }));
