@@ -1343,16 +1343,17 @@ function dsBody(D) {
   const side = (title, list, empty) => ph ? html`<details class="card stc-side stc-sidep"><summary><b>${title}</b> <small>${list.length}</small></summary>${list.length ? html`<div class="stc-dsl">${list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>${caName(a.c)}${a.st.note ? html`<br><span class="st-meta">${a.st.note}</span>` : ''}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`)}</div>` : html`<div class="st-meta">${empty}</div>`}</details>`
     : html`<section class="card stc-side"><h3>${title} <small>${list.length}</small></h3>${list.length ? html`<div class="stc-dsl">${list.map((a) => html`<button type="button" class="stc-si stc-go" data-dsca="${a.c.id}"><span>${caName(a.c)}${a.st.note ? html`<br><span class="st-meta">${a.st.note}</span>` : ''}</span><span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></button>`)}</div>` : html`<div class="st-meta">${empty}</div>`}</section>`;   // danh sách dài → cuộn trong khung, không đẩy phần ca xuống
   const how = html`Mỗi ca: <b>A · Fabi</b> (so phiếu nhân viên với máy Fabi · tiền mặt / chuyển khoản thực nhận) → đi <b>6 bước</b>: ① Số máy Fabi → ② Tiền thực nhận, <b>Xác nhận Fabi</b> → ③ Khoản thu → ④ Khoản chi → ⑤ Chênh lệch → ⑥ <b>🔒 Hoàn thành đối soát ca</b> (phải tích đủ mục kiểm tra; còn lệch chưa xử lý → 🟠, hết lệch → 🟢). Khoá cuối cùng là <b>Chốt tháng</b> (chỉ Chủ mở lại).`;
-  const top = ph ? html`<div class="stc-dsmini"><span>🟢 ${cnt('xong')}/${all.length}</span><span class="${cnt('con') ? 'w' : ''}">🟠 Còn lệch ${cnt('con')}</span><span class="${cnt('cho') ? 'w' : ''}">Chờ xác nhận ${cnt('cho')}</span><span class="${cnt('lech') ? 'w' : ''}">Ô đỏ ${cnt('lech')}</span><span class="${cnt('kt') ? 'w' : ''}">Chờ KT ${cnt('kt')}</span></div>
+  const top = ph ? html`<div class="stc-dsmini"><span>🟢 ${cnt('xong')}/${all.length}</span><span class="${cnt('xn') ? 'w' : ''}">🔵 Chưa hoàn thành ${cnt('xn')}</span><span class="${cnt('con') ? 'w' : ''}">🟠 Còn lệch ${cnt('con')}</span><span class="${cnt('cho') ? 'w' : ''}">Chờ xác nhận ${cnt('cho')}</span><span class="${cnt('lech') ? 'w' : ''}">Ô đỏ ${cnt('lech')}</span><span class="${cnt('kt') ? 'w' : ''}">Chờ KT ${cnt('kt')}</span></div>
     <details class="stc-how"><summary>ⓘ Cách làm</summary><div class="st-meta">${how}</div></details>` : '';
   return ph ? html`${top}<div class="stc-layout"><section class="card stc-book">
         <div class="stc-wk"><div class="stc-wr stc-hdr" style="--k:${cols.length}"><span>Ngày</span>${cols.map((s) => html`<span>${s}</span>`)}</div>
           ${[...dates].reverse().map((d) => html`<div class="stc-wr" style="--k:${cols.length}"><span class="stc-lab">${dm(d)} <small>${wd(d)}</small></span>${cols.map((s) => cell(d, s))}</div>`)}</div></section>
       <aside class="stc-aside">${side('Chờ xác nhận Fabi', all.filter((a) => ['cho', 'lech'].includes(a.st.k)), 'Không có.')}${side('🔵 Đã xác nhận, chưa hoàn thành', all.filter((a) => a.st.k === 'xn'), 'Không có.')}${side('🟠 Còn lệch', all.filter((a) => a.st.k === 'con'), 'Không có.')}${side('🟢 Hoàn thành', all.filter((a) => a.st.k === 'xong'), 'Chưa có.')}${side('Chờ kế toán', all.filter((a) => a.st.k === 'kt'), 'Không có.')}</aside></div>`
     : html`<div class="stc-tiles">
-      <div class="stc-tile"><span>🟢 Hoàn thành</span><b>${cnt('xong')} / ${all.length}</b><small>đã xác nhận Fabi, hết tiền lệch cần xử lý</small></div>
-      <div class="stc-tile ${cnt('con') ? 'warn' : ''}"><span>🟠 Còn lệch</span><b>${cnt('con')}</b><small>đã xác nhận, còn chênh lệch chưa xử lý ở phần B</small></div>
-      <div class="stc-tile ${cnt('cho') ? 'warn' : ''}"><span>Chờ xác nhận Fabi</span><b>${cnt('cho')}</b><small>phần A đã khớp</small></div>
+      <div class="stc-tile"><span>🟢 Hoàn thành</span><b>${cnt('xong')} / ${all.length}</b><small>đã bấm Hoàn thành đối soát ca, hết tiền lệch cần xử lý</small></div>
+      <div class="stc-tile ${cnt('xn') ? 'warn' : ''}"><span>🔵 Chưa hoàn thành</span><b>${cnt('xn')}</b><small>đã xác nhận Fabi, chưa bấm Hoàn thành đối soát ca</small></div>
+      <div class="stc-tile ${cnt('con') ? 'warn' : ''}"><span>🟠 Còn lệch</span><b>${cnt('con')}</b><small>đã hoàn thành, còn chênh lệch chờ xử lý ở bước 5</small></div>
+      <div class="stc-tile ${cnt('cho') ? 'warn' : ''}"><span>Chờ xác nhận Fabi</span><b>${cnt('cho')}</b><small>bước 1 đã khớp</small></div>
       <div class="stc-tile ${cnt('lech') ? 'warn' : ''}"><span>Còn ô đỏ Fabi</span><b>${cnt('lech')}</b><small>tiền mở ca / doanh thu / nợ</small></div>
       <div class="stc-tile ${cnt('kt') ? 'warn' : ''}"><span>Chờ kế toán</span><b>${cnt('kt')}</b><small>thiếu file Fabi / ngân hàng</small></div></div>
     <div class="st-meta stc-formula">${how}</div>
@@ -1552,7 +1553,7 @@ const STYLE = html`<style>
   .stc-wr.stc-hdr { padding: 6px 0; border: 0; }
   .stc-dsc { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 5px; text-align: left; cursor: pointer; font: inherit; }
   .stc-dsc .pill { white-space: normal; } .stc-dsc small { display: block; font-size: 11px; color: var(--muted); margin-top: 3px; }
-  .stc-dsc.d-xong { background: var(--ok-bg); border-color: var(--ok-line); } .stc-dsc.d-con { background: #fff7ed; border-color: #fdba74; }
+  .stc-dsc.d-xong { background: var(--ok-bg); border-color: var(--ok-line); } .stc-dsc.d-con { background: #fff7ed; border-color: #fdba74; } .stc-dsc.d-xn { background: var(--info-bg); border-color: var(--info-line); }
   .pill.yel { background: var(--warn-bg); color: var(--warn-ink); }
   .stc-dsnote { border-radius: 10px; padding: 8px 10px; margin-top: 8px; display: flex; flex-direction: column; gap: 3px; background: #fff7ed; border: 1px solid #fdba74; }
   .stc-dsnote.ok { background: var(--ok-bg); border-color: var(--ok-line); } .stc-dsc.on { border-color: var(--primary); box-shadow: inset 0 0 0 1px var(--primary); }

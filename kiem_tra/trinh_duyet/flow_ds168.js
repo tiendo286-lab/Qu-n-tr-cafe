@@ -19,7 +19,7 @@ export default async ({ sleep, out }) => {
     location.hash = DS + '&t=' + Date.now(); await sleep(500); await wait('#stc-ds'); await sleep(500);
     if (phone) {
       ok(!$('.stc-dsp'), 'a. điện thoại chưa chọn ca: không tự mở ca');
-      ok(!!$('.stc-dsmini') && !$('#stc-ds .stc-tiles'), 'a. 5 ô số thành 1 hàng nhãn nhỏ');
+      ok(!!$('.stc-dsmini') && !$('#stc-ds .stc-tiles') && txt($('.stc-dsmini')).includes('🔵 chưa hoàn thành'), 'a. các ô số thành 1 hàng nhãn nhỏ, có nhãn "🔵 Chưa hoàn thành" (bước 171)');
       ok(!!$('details.stc-how') && !$('details.stc-how').open && txt($('details.stc-how summary')).includes('cách làm'), 'a. dòng giải thích gập vào "ⓘ Cách làm"');
       ok($$('details.stc-sidep').length >= 3 && $$('details.stc-sidep').every((d) => !d.open && /\d/.test(txt(d.querySelector('summary')))), 'a. danh sách bên gập lại (tên + số đếm)');
       ok($$('.stc-wk .stc-wr').length >= 6, 'a. lịch vẫn cả tháng');
@@ -30,7 +30,8 @@ export default async ({ sleep, out }) => {
       $('.stc-pick').click(); await sleep(400);
       ok(!$('.stc-dsp') && !!$('.stc-wk'), 'a. bấm "‹ Chọn ca khác" → về lịch thu');
     } else {
-      ok(!!$('.stc-dsp') && $$('#stc-ds > .stc-tiles > .stc-tile').length === 5 && !$('.stc-dsmini') && !$('.stc-pick'), 'a. máy tính giữ nguyên (tự chọn ca, 5 ô số, lịch + danh sách bên)');
+      ok(!!$('.stc-dsp') && $$('#stc-ds > .stc-tiles > .stc-tile').length === 6 && !$('.stc-dsmini') && !$('.stc-pick'), 'a. máy tính: tự chọn ca, 6 ô số (bước 171 thêm ô 🔵), lịch + danh sách bên');
+      ok($$('#stc-ds > .stc-tiles > .stc-tile').some((t) => txt(t).includes('🔵 chưa hoàn thành') && txt(t).includes('chưa bấm hoàn thành')), 'a. bước 171: có ô "🔵 Chưa hoàn thành" đếm ca đã xác nhận Fabi mà chưa bấm Hoàn thành');
     }
     // ---- b. ca 182: chưa xác nhận Fabi, còn ô đỏ
     await open(182);
@@ -63,7 +64,8 @@ export default async ({ sleep, out }) => {
       const dt = box.querySelector('[name=date]'); dt.value = '2026-11-17'; dt.dispatchEvent(new Event('change')); await sleep(200);
       const opt = [...box.querySelectorAll('[name=ca] option')].find((o) => o.value === '172');
       ok(opt && opt.disabled && txt(opt).includes('chưa xác nhận fabi'), 'c. ca chưa xác nhận Fabi: mờ + ghi lý do trong danh sách');
-      const j = box.querySelector('.stc-cajump a'); ok(!!j && !box.querySelector('.stc-cajump').hidden && j.getAttribute('href').includes('ds=172') && txt(j).includes('xác nhận fabi'), 'c. có nút nhảy tới Xác nhận Fabi của ca đó');
+      const j = [...box.querySelectorAll('.stc-cajump a')].find((x) => x.getAttribute('href').includes('ds=172'));   // bước 171: hàng nút nhảy có thêm nút "Mở lại" của ca đã hoàn thành
+      ok(!!j && !box.querySelector('.stc-cajump').hidden && txt(j).includes('xác nhận fabi'), 'c. có nút nhảy tới Xác nhận Fabi của ca đó');
       wide('c. khung thêm phiếu');
       box.querySelector('[data-x]').click(); await sleep(200);
     }
