@@ -204,6 +204,10 @@ export default async ({ sleep, out }) => {
     await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&cot=no');
     const km2 = $$('#stc-book .stc-it').find((x) => txt(x).includes('khách mượn – chị hoa'));
     ok(!!km2 && txt(km2).includes('đối soát fabi › bước 1'), 'e. Sổ chi: dòng Khách mượn ghi "sửa ở Đối soát Fabi › bước 1"');
+    // dòng khoá "Lương trả tiền mặt" chỉ sang trang Đối soát ca › Ai làm ca (nơi sửa ô Đã trả lương tiền mặt), có liên kết mở đúng ca
+    await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&cot=chi');
+    const lg = $$('#stc-book .stc-it').find((x) => txt(x).includes('chi lương – minh'));
+    ok(!!lg && txt(lg).includes('lương tiền mặt — sửa ở đối soát ca › ai làm ca') && !!lg.querySelector('a[href*="#/quan-ly/doi-soat/ca?id=181"]'), 'e. dòng Lương tiền mặt: "sửa ở Đối soát ca › Ai làm ca" + liên kết mở đúng ca');
   } catch (e) { bad.push('LỖI CHẠY: ' + (e?.message || e)); }
   out.push({ ds172: { ok: good, fail: bad } });
 };

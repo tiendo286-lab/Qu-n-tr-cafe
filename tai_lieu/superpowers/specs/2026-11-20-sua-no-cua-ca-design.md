@@ -1,6 +1,6 @@
 # Sửa khoản nợ của ca ở bước 1 (Đối soát Fabi) — thiết kế ngắn
 
-Ngày: 20/11/2026 · Gộp vào bước 172 đợt B (nhánh `dot-b/nguoi-no`) · Trạng thái: **anh Tiến duyệt 20/11** — làm sau khi phiên đang làm đợt B xong Task 6 (mục 10)
+Ngày: 20/11/2026 · Gộp vào bước 172 đợt B (nhánh `dot-b/nguoi-no`) · Trạng thái: **anh Tiến duyệt 20/11** — **ĐÃ LÀM 20/11 khuya** trên nhánh `dot-b/nguoi-no` (máy chủ `supabase/152_sua_no_cua_ca.sql`, giao diện `docs/js/pages/so_thu_chi.js`), chưa chạy SQL thật, chưa lên web — xem mục 12
 
 ## 1. Vì sao
 
@@ -109,3 +109,13 @@ Khung Nợ của ca cũng là chỗ Task 6 của kế hoạch đợt B sửa (`d
 3. Khoản quên ghi thêm ngay ở bước 1, người nợ bắt buộc chọn từ danh sách.
 4. Khoản đã xoá vẫn hiện gạch ngang kèm ai xoá + lý do.
 5. Tệp máy chủ riêng 152, không sửa tệp 151.
+
+## 12. Đã làm (20/11 khuya) — khác thiết kế / người làm tự quyết
+
+- Máy chủ `supabase/152_sua_no_cua_ca.sql`: `app_stc_ca_debt_save` (thêm / sửa), `app_stc_ca_debt_delete`, `app_stc_ca_debt_to_exchange`, hai hàm kiểm chung `app__stc_ca_debt_gate`, `app__stc_ca_debt_pick`; `app_stc_month.ca_debts` vá thêm `edit` cho nợ mới và dòng `t = 'xoa'` (gồm khoản đã đổi Luân chuyển, `edit.action = 'doi'`). Bài thử cục bộ `kiem_tra/sua_no_ca_152_cuc_bo.sql` (18 dòng), dữ liệu thật `kiem_tra/sua_no_ca_152.sql`.
+- Giao diện: nút **Sửa / Xoá** trên khoản TM / CK chưa trả, **+ Thêm khoản nợ quên ghi**, dòng "Quản lý sửa · số cũ → số mới · ai · lý do" / "Quản lý ghi", dòng đã xoá gạch ngang, dòng khoá cho nợ hoá đơn và khoản đã trả; dòng Khách mượn / Nợ CK ở bước 4 có chữ "bước 1" bấm được, ở Sổ chi ghi "Đối soát Fabi › bước 1". Bài thử `flow_ds172` phần e.
+- **Người làm tự quyết (anh xem, sai thì sửa):**
+  1. Giống `app_stc_move_save`, các hàm mới **không** gọi `app__ca_gap_mark` / `app__ca_direct_guard` như hàm cũ của trang Đối soát ca: phiếu chênh lệch đã có giữ nguyên, số lệch tự tính lại theo nợ mới.
+  2. Phiếu đang **chờ kế toán** thì sửa nợ bị trigger sẵn có `ca_source_guard` chặn (báo "Phiếu chờ kế toán…") như mọi chỗ sửa nợ khác — không mở lối riêng.
+  3. Mục kiểm tra tay tự bỏ tích khi sửa nợ: lý do lệch (`ld`) và hai dấu "Để sau" (`sau_tm`, `sau_ck`); đổi thành Luân chuyển còn bỏ thêm các mục của khoản thu / chi (do trigger bản đối soát của tệp 150).
+  4. Khoản quản lý thêm: tên theo danh sách, **Nội dung** lưu ở ô ghi chú của khoản nợ, coi như đã xếp người + nhóm.

@@ -642,9 +642,14 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
     const ca = x.ca_id ? (D?.cas || []).find((c) => c.id === x.ca_id) : null;
     // thiết kế sua-no-cua-ca: dòng khách mượn / nợ CK của ca sửa ở bước 1 (khung Nợ của ca) — trong Đối soát Fabi chữ "bước 1" bấm được
     const debtOfCa = !!ca && x.col === 'no' && (x.meta === 'Khách mượn tiền két (Nợ TM)' || (x.src === 'debt' && !String(x.id).startsWith('dn:')));
+    // lương trả tiền mặt lấy từ ô "Đã trả lương tiền mặt" ở phần nhân sự của ca → sửa ở trang Đối soát ca › Ai làm ca (anh Tiến giải thích 20/11)
+    const luong = !!ca && x.meta === 'Lương trả tiền mặt';
     const why = ca && isFin(D, ca.id) ? 'Ca đã chốt — không sửa được nữa' : caDone ? 'Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới sửa được'
-      : debtOfCa ? 'Khách mượn / nợ CK của ca — sửa ở bước 1 · Nợ của ca' : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
-    const whyUi = debtOfCa && !caDone && !isFin(D, ca.id) ? html`${x.pm === 'ck' ? 'Nợ CK' : 'Khách mượn'} — sửa ở ${who ? html`<button type="button" class="stc-lk" data-dsstep="0">bước 1</button>` : 'Đối soát Fabi › bước 1'} · Nợ của ca` : why;
+      : debtOfCa ? 'Khách mượn / nợ CK của ca — sửa ở bước 1 · Nợ của ca' : luong ? 'Lương tiền mặt — sửa ở Đối soát ca › Ai làm ca'
+        : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
+    const open1 = !caDone && !(ca && isFin(D, ca.id));
+    const whyUi = debtOfCa && open1 ? html`${x.pm === 'ck' ? 'Nợ CK' : 'Khách mượn'} — sửa ở ${who ? html`<button type="button" class="stc-lk" data-dsstep="0">bước 1</button>` : 'Đối soát Fabi › bước 1'} · Nợ của ca`
+      : luong && open1 ? html`Lương tiền mặt — sửa ở <a href="#/quan-ly/doi-soat/ca?id=${ca.id}">Đối soát ca › Ai làm ca</a>` : why;
     pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="${why}">Sửa / Xoá</button><span class="st-meta">🔒 ${whyUi}</span>`);
   }
   return html`<div class="stc-it"><span class="stc-tag t-${x.col}">${colName(book, x.col)}</span>
