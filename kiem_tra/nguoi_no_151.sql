@@ -8,11 +8,11 @@ begin
   select * into nv from public.accounts where system_role = 'nv' and auth_user_id is not null and coalesce(locked, 0) = 0 order by id limit 1;
   perform set_config('request.jwt.claims', json_build_object('sub', chu.auth_user_id, 'role', 'authenticated')::text, true);
 
-  -- (0) so cũ / mới: sổ tháng giống hệt, trừ 4 khoá mới (grp, person_id, sorted, content) ở các dòng nợ mới của ca
+  -- (0) so cũ / mới: sổ tháng giống hệt, trừ 4 khoá mới của tệp 151 (grp, person_id, sorted, content) và khoá 'edit' của tệp 152 ở các dòng nợ mới của ca
   if to_regclass('pg_temp.t151_truoc') is not null then
     select count(*), count(*) filter (where
         (t0.j - 'ca_debts') = (m.j - 'ca_debts')
-        and (select coalesce(jsonb_agg(c - 'grp' - 'person_id' - 'sorted' - 'content' order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(m.j -> 'ca_debts') c)
+        and (select coalesce(jsonb_agg(c - 'grp' - 'person_id' - 'sorted' - 'content' - 'edit' order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(m.j -> 'ca_debts') c)
           = (select coalesce(jsonb_agg(c order by c ->> 't', c ->> 'id'), '[]') from jsonb_array_elements(t0.j -> 'ca_debts') c))
       into n, n2
       from pg_temp.t151_truoc t0, lateral (select public.app_stc_month(t0.branch_id, to_char(public.vn_now(), 'YYYY-MM')) j) m;
