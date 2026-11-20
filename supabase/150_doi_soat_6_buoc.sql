@@ -160,10 +160,11 @@ revoke all on function public.app__stc_untick(bigint, text[]) from public, anon,
 -- để chỉ coi là "đổi phiếu" khi nội dung đổi thật, không phải khi cùng nội dung được ghi lại theo cách viết khác (thêm khoá rỗng, đổi thứ tự khoá).
 create or replace function public.app__stc_moves_key(p_moves jsonb, p_thu boolean) returns jsonb
 language sql immutable as $$
-  select coalesce(jsonb_agg(k order by k::text), '[]'::jsonb)
-    from (select jsonb_build_array(x ->> 'kind', coalesce((x ->> 'amount')::numeric, 0), coalesce(x ->> 'note', '')) k
-            from jsonb_array_elements(case when jsonb_typeof(p_moves) = 'array' then p_moves else '[]'::jsonb end) x
-           where (coalesce((x ->> 'amount')::numeric, 0) > 0) = p_thu) q
+  select coalesce(jsonb_agg(jsonb_build_array(q.kind, q.amt, q.note) order by q.kind, q.amt, q.note), '[]'::jsonb)
+    from (select coalesce(x ->> 'kind', '') kind, coalesce(x ->> 'note', '') note,
+                 case when (x ->> 'amount') ~ '^-?[0-9]+(\.[0-9]+)?$' then (x ->> 'amount')::numeric else 0 end amt   -- số tiền viết lạ thì coi là 0, không để trigger làm hỏng việc lưu
+            from jsonb_array_elements(case when jsonb_typeof(p_moves) = 'array' then p_moves else '[]'::jsonb end) x) q
+   where (q.amt > 0) = p_thu
 $$;
 revoke all on function public.app__stc_moves_key(jsonb, boolean) from public, anon, authenticated;
 
