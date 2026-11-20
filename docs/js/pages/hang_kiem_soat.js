@@ -9,7 +9,7 @@ import { rpc } from '../sb.js';
 import { dmy, fmt } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { uploadFiles } from './ke_toan_hoa_don.js';
-import { KINDS, LOC_CSS, coverRange, dateOf, hasLocParams, locBar, locLabel, locLoad, locQuery, locSave, locToSave, readLoc, wireLoc } from '../loc_ngay.js';
+import { KINDS, LOC_CSS, coverRange, dateOf, locBar, locLabel, locQuery, locRemember, locTooLong, wireLoc } from '../loc_ngay.js';
 
 export const perm = ['ke_toan', 'doi_soat'];
 const LS_BR = 'ckBranch';
@@ -23,14 +23,17 @@ export async function render({ params }) {
   const today = vnToday();
   // bước 167: lọc loại ngày + khoảng ngày chỉ áp cho DANH SÁCH; tiền tháng vẫn tính cả tháng (tháng của ngày "đến", hoặc ?thang= cũ)
   const KD = ['giao', 'nhan', 'ds'];
-  if (hasLocParams(params)) locSave('ks', locToSave(readLoc({ params, saved: locLoad('ks'), kinds: KD, today })));
-  const L = readLoc({ params, saved: locLoad('ks'), kinds: KD, today });
+  const L = locRemember('ks', { params, kinds: KD, today });
   const month = L.month || L.to.slice(0, 7);
   const cat = await catalog();
   const brs = (cat.activeBranches || []).map((b) => ({ id: b.id, code: b.display_code || b.code }));
   const has = (v) => brs.some((b) => String(b.id) === String(v));
   const br = has(params.cn) ? Number(params.cn) : has(lsGet()) ? lsGet() : brs[0]?.id; if (br) lsSet(br);
   const BR = brs.find((b) => b.id === br) || {};
+  const q = (o) => '#/hang-hoa/kiem-soat?' + Object.entries({ cn: br, ...locQuery(L), ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
+  // bước 174: khoảng ngày quá 400 ngày → không gọi máy chủ, hiện thanh lọc để chọn lại
+  if (L.tooLong) return { title: 'Kiểm soát hàng hoá', html: html`${KS_CSS}${LOC_CSS}<div class="ks-wrap"><div class="page-head"><div><h1>Kiểm soát hàng hoá</h1></div></div>${locTooLong(L, KD, (o) => q(locQuery(o)))}</div>`,
+    mount() { wireLoc($('.ks-wrap'), L, (o) => q(locQuery(o))); } };
   const [All, C] = await Promise.all([rpc('app_gh_control', { p_branch: null, p_month: month }), rpc('app_gh_control', { p_branch: br, p_month: month, p_from: L.from, p_to: L.to, p_kind: L.kind })]);
   const nOpen = (id) => (All.open || []).filter((f) => f.branch_id === id).length + (All.need_bu || []).filter((x) => x.branch_id === id).length;
   // mục chưa có ngày theo loại: thiếu hoá đơn giao (chưa đối soát) khi lọc Ngày đối soát → vẫn hiện; máy chủ cũ chưa trả ngày nhận / đối soát → vẫn hiện
@@ -41,7 +44,6 @@ export async function render({ params }) {
   const hidden = [...nbAll.filter((x) => !nb.includes(x)), ...openAll.filter((f) => !openF.includes(f))];
   const cover = hidden.length ? coverRange(hidden, L) : null;
   const done = (C.done || []).filter((f) => inF(f)); const M = C.money; const kt = !!C.kt;
-  const q = (o) => '#/hang-hoa/kiem-soat?' + Object.entries({ cn: br, ...locQuery(L), ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
   const from = (f) => html`<span class="st-meta">${f.doc_no ? `phiếu ${f.doc_no}` : 'lần giao'}${f.work_date ? ` · ${dmy(f.work_date).slice(0, 5)}` : ''}${f.days > 0 ? html` · <b class="${f.days >= 7 ? 'ks-old' : ''}">chờ ${f.days} ngày</b>` : ''}</span>`;
   const item = (f, btn) => html`<div class="ks-row" data-f="${f.id}"><div class="grow"><b>${f.name}</b>${f.extra ? html` <span class="pill off">ngoài phiếu</span>` : ''} · ${f.kind === 'bu' ? 'thiếu' : f.extra ? 'nhận' : 'thừa'} <b>${q3(f.qty)} ${f.unit || ''}</b>${f.extra ? html` · <b class="ks-old">chưa có giá</b>` : f.amount != null ? html` · <span class="st-meta">tạm tính ${money(f.amount)}</span>` : ''}<br>${from(f)}${f.note ? html`<span class="st-meta"> · ${f.note}</span>` : ''}</div>
       ${kt ? html`<span class="ks-act">${btn}<button type="button" class="btn sm secondary ks-cancel">Huỷ…</button></span>` : ''}</div>`;
