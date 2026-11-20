@@ -75,6 +75,14 @@ create or replace function public.app__stc_fix_label(p_field text) returns text 
   select case p_field when 'mo' then 'Tiền mở ca' when 'dt' then 'Doanh thu' else 'Nợ bill' end
 $$;
 
+-- cột của bản đối soát thuộc ô nào có số Chủ đã duyệt → kế toán tải lại file Fabi không ghi đè (thiết kế mục 15)
+create or replace function public.app__stc_fix_locks(p_report bigint, p_col text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.stc_fix_requests q where q.report_id = p_report and q.status = 'duyet'
+    and q.field = case when p_col in ('opening_cash', 'ipos_opening') then 'mo' when p_col in ('total_revenue', 'pos_cash', 'pos_transfer') then 'dt'
+                       when p_col = 'pos_debt' then 'no' end)
+$$;
+revoke all on function public.app__stc_fix_locks(bigint, text) from public, anon, authenticated;
 revoke all on function public.app__stc_fix_cur(bigint, text) from public, anon, authenticated;
 revoke all on function public.app__stc_fix_ok(bigint, text, jsonb) from public, anon, authenticated;
 revoke all on function public.app__stc_fix_json(bigint) from public, anon, authenticated;
@@ -210,6 +218,16 @@ begin
   if exists (select 1 from (select distinct on (q.field) q.status from public.stc_fix_requests q where q.report_id = p_report order by q.field, q.id desc) z where z.status = 'tu_choi') then
     raise exception 'Chủ đã từ chối số sửa — sửa lại số hoặc bấm "Bỏ sửa, lấy số máy Fabi" rồi mới xác nhận.';
   end if;$q$);
+  end if;
+
+  -- app__fabi_apply (kế toán tải file Fabi): "bản đối soát phải theo Fabi" — bỏ qua cột thuộc ô có số Chủ đã duyệt; giữ mọi đoạn khác (bước 151, 162…)
+  d := pg_get_functiondef('public.app__fabi_apply(text)'::regprocedure);
+  if position('app__stc_fix_locks' in d) = 0 then
+    if length(d) - length(replace(d, $q$if fv is not null and fv is distinct from ev then$q$, '')) <> length($q$if fv is not null and fv is distinct from ev then$q$) then
+      raise exception 'app__fabi_apply: không thấy đúng một chỗ vá (số Chủ đã duyệt).';
+    end if;
+    execute replace(d, $q$if fv is not null and fv is distinct from ev then$q$,
+      $q$if fv is not null and fv is distinct from ev and not public.app__stc_fix_locks(r.id, k) then   -- bước 173: giữ số Chủ đã duyệt$q$);
   end if;
 
   d := pg_get_functiondef('public.app_stc_month(bigint,text)'::regprocedure);

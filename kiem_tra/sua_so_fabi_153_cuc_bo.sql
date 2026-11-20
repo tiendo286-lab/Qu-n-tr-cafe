@@ -77,6 +77,13 @@ begin
   begin perform public.app_stc_fix_cancel(q3); t := 'BỎ ĐƯỢC'; exception when others then t := sqlerrm; end;
   rep := rep || E'\n' || case when t like '%Chỉ Chủ%' then 'ĐẠT' else 'HỎNG' end || ' (8) quản lý bỏ số Chủ đã duyệt: ' || t;
 
+  -- (16) kế toán tải lại file Fabi (máy vẫn ghi 500.000) → số Chủ đã duyệt trên phiếu giữ nguyên, ô vẫn xanh
+  perform set_config('request.jwt.claims', json_build_object('sub', chu.auth_user_id, 'role', 'authenticated')::text, true);
+  perform public.app__fabi_apply('thu-153-F');
+  e := public.app__ca_eff(F); s := public.app__stc_ds_state(F);
+  rep := rep || E'\n' || case when (e ->> 'total_revenue')::bigint = 520000 and (e ->> 'pos_cash')::bigint = 320000 and (s ->> 'dt')::boolean then 'ĐẠT' else 'HỎNG' end
+      || format(' (16) tải lại file Fabi: doanh thu phiếu %s · TM %s · ô doanh thu %s', e ->> 'total_revenue', e ->> 'pos_cash', s ->> 'dt');
+
   -- (9) Chủ tự gửi ô Tiền mở ca (ca G: 950.000) → duyệt ngay; ô tiền mở ca xanh theo số đã duyệt
   perform set_config('request.jwt.claims', json_build_object('sub', chu.auth_user_id, 'role', 'authenticated')::text, true);
   q1 := public.app_stc_fix_request(G, 'mo', jsonb_build_object('val', 950000), 'Máy nhập nhầm tiền đầu ca');
