@@ -1581,7 +1581,10 @@ const STYLE = html`<style>
     .stc-full { margin: 10px -6px 0; padding: 8px; } .stc-part { padding: 8px; } .stc-glc .stc-its { margin: 0 4px 8px !important; }
     .stc-bigs { grid-template-columns: 1fr 1fr; } .stc-big:first-child { grid-column: 1 / -1; }
     .stc-tfs { grid-template-columns: minmax(0, 1fr); }
-    .stc-dg { grid-template-columns: minmax(70px, 1fr) repeat(3, minmax(0, 1fr)); font-size: 12.5px; }
+    .stc-dg { grid-template-columns: minmax(50px, .62fr) repeat(3, minmax(0, 1fr)); gap: 4px; padding: 9px 8px; font-size: 12.5px; }
+    #stc-page .stc-dg .stc-c { font-size: 12px; letter-spacing: -.2px; }   /* điện thoại: số tiền 8 chữ số (−10.450.000) không bị cắt */
+    .stc-dg .stc-lab { flex-direction: column; align-items: flex-start; gap: 0; line-height: 1.15; }   /* thứ xuống dưới ngày */
+    @media (max-width: 380px) { #stc-page .stc-dg .stc-c { font-size: 11px; } .stc-dg { grid-template-columns: minmax(44px, .5fr) repeat(3, minmax(0, 1fr)); } }
     .stc-dg span:nth-child(2), .stc-dg span:nth-child(5) { display: none; }
     .stc-cmpr { grid-template-columns: minmax(0, 1fr) auto; } .stc-cmpr span:nth-child(2) { grid-column: 1 / -1; order: 3; color: var(--muted); font-size: 12px; }
   }
