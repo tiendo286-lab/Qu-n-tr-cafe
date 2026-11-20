@@ -22,7 +22,9 @@ begin
   insert into public.bank_accounts(id, branch_id, account_no, active) values (990001, 1, 'thu-150', 1);
   insert into public.fabi_shifts(ma_ca, store_name, branch_id, work_date, shift, dau, net, tm, ck, no, report_id)
   values ('thu-150-A', 'Cửa hàng thử 150', 1, '2026-11-25', 'Tối', 1000000, 500000, 300000, 200000, 0, A);
-  insert into public.bank_account_balances(report_id, account_id, opening, closing) values (A, 990001, 0, 200000);
+  -- nhập đủ số dư cho MỌI tài khoản đang dùng của cơ sở (CSDL thử có thể đã có tài khoản khác) → ca không rơi vào "chờ kế toán"
+  insert into public.bank_account_balances(report_id, account_id, opening, closing)
+  select A, k.id, 0, case when k.id = 990001 then 200000 else 0 end from public.bank_accounts k where k.branch_id = 1 and k.active = 1;
   j := public.app__ca_kt_state(A);
   rep := rep || E'\n    ca thử A: cần file Fabi=' || (j ->> 'need') || ' · đủ file=' || (j ->> 'ready') || ' · web tự duyệt: ' || coalesce((select string_agg(item, ',' order by item) from public.shift_report_checks where report_id = A), 'chưa mục nào');
   update public.shift_reports set recon_status = 'chua', recon_by = null, recon_at = null where id = A and recon_status = 'hoan_thanh';   -- nếu web vừa tự hoàn thành (bản chưa vá)
