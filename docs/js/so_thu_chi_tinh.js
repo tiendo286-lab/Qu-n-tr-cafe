@@ -207,6 +207,8 @@ export function compareDays(data, summary) {
 export function caStage(ca, checks, fin, treoOpen = false, gaps = []) {
   if (fin) return { k: 'fin', txt: treoOpen ? '🔒 Đã chốt · có khoản treo' : '🔒 Đã chốt ca', cls: 'p-ok' };
   if (ca.recon_money_done) {
+    // bước 171: ca chỉ 🟠 / 🟢 sau khi bấm "Hoàn thành đối soát ca" (ca.done); trước đó là 🔵 Đã xác nhận Fabi
+    if (!ca.done) return { k: 'xn', txt: '🔵 Đã xác nhận Fabi', cls: 'p-info', note: 'chưa hoàn thành' };
     const pend = gaps.filter((g) => !g.done);
     if (pend.length) return { k: 'con', txt: pend.every((g) => g.wait) ? '🟠 Chờ Chủ duyệt' : '🟠 Còn lệch', cls: 'p-warn', note: gapShort(pend) };
     return { k: 'xong', txt: '🟢 Hoàn thành', cls: 'p-ok', note: gaps.length ? 'lệch ' + gapShort(gaps) : '' };
@@ -339,3 +341,38 @@ export function debtGroups(debts, today) {
   const main = gs.filter((g) => !g.no_remind).sort(order), fam = gs.filter((g) => g.no_remind).sort(order);
   return { main, fam, total: gs.reduce((s, g) => s + g.total, 0), late: main.filter((g) => g.maxDays > 7).length };
 }
+
+// ---- bước 171 (đợt A): Đối soát thu chi 6 bước — mục quản lý phải kiểm tra
+// Thiết kế: tai_lieu/superpowers/specs/2026-11-20-doi-soat-thu-chi-6-buoc-design.md (mục 6). Bài thử: kiem_tra/so_thu_chi_tinh_dot12.mjs
+export const BIG = 300000;   // khoản chi từ mức này web đánh dấu "Khoản lớn"
+export const DS_STEPS = ['Số máy Fabi', 'Tiền thực nhận', 'Khoản thu', 'Khoản chi', 'Chênh lệch', 'Hoàn thành'];
+export const TICKS = ['hd', 'anh', 'goi', 'tn', 'sot', 'that', 'lon', 'ld', 'sau_tm', 'sau_ck'];   // mục quản lý tự tích + dấu "Để sau" của lệch
+// Trả 5 mảng (bước 1–5). Mỗi mục: k, auto (web tự tích), ok, wait (đang chờ ca sau gửi phiếu). Mục chỉ có mặt khi có việc để kiểm.
+//  checks = caChecks(ca, link); gaps = caGaps(items, ca.id); next = { sent, moOk } của ca sau cùng ngày (null = chưa gửi phiếu); last = ca cuối ngày.
+export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, last = true } = {}) {
+  const ticks = new Set(ca.ticks || []);
+  const a = (k, ok, x = {}) => ({ k, auto: true, ok: !!ok, ...x });
+  const m = (k) => ({ k, auto: false, ok: ticks.has(k) });
+  const box = (k) => (checks.find((c) => c.k === k) || {}).st === 'ok';
+  const mine = live(items).filter((x) => x.ca_id === ca.id);
+  const chi = mine.filter((x) => x.book === 'chi' && x.col === 'chi');
+  const count = ca.cash_mode === 'ca' || last;   // ca này có đếm két không
+  const kt = !!ca.kt_wait || ca.bank_ck == null;
+  const gapOk = (pm) => gaps.filter((g) => g.pm === pm).every((g) => g.small || g.done || g.wait) || ticks.has('sau_' + pm);
+  const b1 = [a('mo', box('mo')), a('dt', box('dt')), a('no', box('no'))];
+  if (Number(ca.fabi?.edited_bills || 0) > 0) b1.push(m('hd'));
+  b1.push(m('anh'));
+  const b2 = count ? [a('cash', ca.ql_counted != null), a('ck', !kt), m('goi')]
+    : [a('ck', !kt), a('ket', !!next && next.sent && next.moOk, { wait: !next || !next.sent })];
+  b2.push(a('fabi', ca.recon_money_done));
+  const b3 = [];
+  if (mine.some((x) => x.book === 'thu' && x.col === 'no')) b3.push(m('tn'));
+  b3.push(m('sot'));
+  const b4 = [a('cat', chi.every((x) => x.cat))];
+  if (chi.length) b4.push(m('that'));
+  if (chi.some((x) => Number(x.amount || 0) >= BIG)) b4.push(m('lon'));
+  const b5 = [a('tm', gapOk('tm')), a('ck5', gapOk('ck'))];
+  if (gaps.some((g) => !g.small)) b5.push(m('ld'));
+  return [b1, b2, b3, b4, b5];
+}
+export const dsLeft = (steps) => steps.map((st) => st.filter((x) => !x.ok).length);

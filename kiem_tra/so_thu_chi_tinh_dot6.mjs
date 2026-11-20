@@ -4,7 +4,8 @@ import { caStage, caGaps, gapShort, finalNeeds, treoView, gapParts } from '../do
 let n = 0;
 const ok = (cond, msg) => { if (!cond) throw new Error('KIỂM TRA THẤT BẠI: ' + msg); n++; };
 const ok3 = [{ k: 'mo', st: 'ok' }, { k: 'dt', st: 'ok' }, { k: 'no', st: 'ok' }];
-const ca = (o = {}) => ({ id: 7, shift: 'Tối', recon_money_done: true, fabi: { has: true }, ...o });
+// bước 171: 🟠 / 🟢 chỉ có sau khi bấm Hoàn thành đối soát ca → ca thử mặc định đã bấm (done); ca chưa bấm thử ở so_thu_chi_tinh_dot12.mjs
+const ca = (o = {}) => ({ id: 7, shift: 'Tối', recon_money_done: true, done: { by: 'x' }, fabi: { has: true }, ...o });
 const gap = (pm, kind, remain, extra = {}) => ({ id: `g:7:${pm}`, ca_id: 7, book: kind === 'thieu' ? 'chi' : 'thu', pm, col: 'lech', amount: remain, gap: { kind, remain, ...extra } });
 
 // trạng thái
