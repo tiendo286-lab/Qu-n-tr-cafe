@@ -352,7 +352,7 @@ export const DS_STEPS = ['Số máy Fabi', 'Tiền thực nhận', 'Khoản thu'
 export const TICKS = ['hd', 'anh', 'goi', 'tn', 'sot', 'that', 'lon', 'ld', 'sau_tm', 'sau_ck'];   // mục quản lý tự tích + dấu "Để sau" của lệch
 // Trả 5 mảng (bước 1–5). Mỗi mục: k, auto (web tự tích), ok, wait (đang chờ ca sau gửi phiếu). Mục chỉ có mặt khi có việc để kiểm.
 //  checks = caChecks(ca, link); gaps = caGaps(items, ca.id); next = { sent, moOk } của ca sau cùng ngày (null = chưa gửi phiếu); last = ca cuối ngày.
-export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, last = true } = {}) {
+export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, last = true, debts = [] } = {}) {
   const ticks = new Set(ca.ticks || []);
   const a = (k, ok, x = {}) => ({ k, auto: true, ok: !!ok, ...x });
   const m = (k) => ({ k, auto: false, ok: ticks.has(k) });
@@ -363,6 +363,9 @@ export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, 
   const kt = !!ca.kt_wait || ca.bank_ck == null;
   const gapOk = (pm) => gaps.filter((g) => g.pm === pm).every((g) => g.small || g.done || g.wait) || ticks.has('sau_' + pm);
   const b1 = [a('mo', box('mo')), a('dt', box('dt')), a('no', box('no'))];
+  // bước 172: nợ mới của ca còn tiền chưa thu phải được xếp đúng người + nhóm công nợ (khoản đã trả hết thì không cần) — giống app__stc_ds_missing
+  const owe = debts.filter((x) => x.t === 'moi' && Number(x.left) > 0);
+  if (owe.length) { const left = owe.filter((x) => !x.sorted).length; b1.push(a('phanloai', left === 0, { n: left })); }
   if (Number(ca.fabi?.edited_bills || 0) > 0) b1.push(m('hd'));
   b1.push(m('anh'));
   // cash: chỉ bắt quản lý nhập khi Thu theo ca (đúng điều kiện Xác nhận Fabi đang có); gối đầu: ca có để két lại (thu theo ca, hoặc ca cuối ngày)
@@ -387,5 +390,6 @@ export function dsCtx(D, ca) {
   const link = dayChain(D, ca.date).get(ca.id);
   const nx = (D.cas || []).filter((o) => o.date === ca.date && shiftRank(o.shift) > shiftRank(ca.shift)).sort((a, b) => shiftRank(a.shift) - shiftRank(b.shift))[0] || null;
   const moOk = (o) => !!o.fabi?.has && (caChecks(o, dayChain(D, o.date).get(o.id)).find((k) => k.k === 'mo') || {}).st === 'ok';
-  return { link, checks: caChecks(ca, link), items: D.items || [], gaps: caGaps(D.items || [], ca.id), next: nx ? { sent: true, moOk: moOk(nx) } : null, last: !nx };
+  const debts = (D.ca_debts || []).filter((x) => Number(x.report_id) === Number(ca.id) && x.t === 'moi');   // bước 172: nợ mới của ca (để xét mục phanloai)
+  return { link, checks: caChecks(ca, link), items: D.items || [], gaps: caGaps(D.items || [], ca.id), next: nx ? { sent: true, moOk: moOk(nx) } : null, last: !nx, debts };
 }
