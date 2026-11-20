@@ -6,7 +6,7 @@ const ok = (cond, msg) => { if (!cond) throw new Error('KIỂM TRA THẤT BẠI:
 
 // ----- todoItems
 const D = {
-  cas: [{ id: 2, date: '2026-11-18', shift: 'Tối', recon_money_done: false }, { id: 1, date: '2026-11-17', shift: 'Sáng', recon_money_done: false }, { id: 3, date: '2026-11-16', shift: 'Sáng', recon_money_done: true }],
+  cas: [{ id: 2, date: '2026-11-18', shift: 'Tối', recon_money_done: false }, { id: 1, date: '2026-11-17', shift: 'Sáng', recon_money_done: false }, { id: 3, date: '2026-11-16', shift: 'Sáng', recon_money_done: true, done: { by: 'x' } }],   // bước 171: ca 3 đã bấm Hoàn thành (ca chưa bấm thử ở dot12)
   items: [
     { id: 'g:1', date: '2026-11-15', book: 'thu', pm: 'tm', col: 'lech', amount: 30000, status: 'Chờ xử lý (dư)', title: 'Chênh lệch ca Chiều' },
     { id: 'g:2', date: '2026-11-14', book: 'chi', pm: 'tm', col: 'lech', amount: 20000, status: 'Xong', title: 'x' },

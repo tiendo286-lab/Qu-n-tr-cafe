@@ -320,6 +320,7 @@ export function todoItems(D, waitQN = []) {
   const its = (D?.items || []).filter((x) => !x.void);
   const out = [
     ...(D?.cas || []).filter((c) => !c.recon_money_done).map((c) => ({ kind: 'fabi', red: true, date: c.date, text: `Ca ${c.shift} ${dmShort(c.date)} chưa xác nhận Fabi`, amount: null, ref: c })),
+    ...(D?.cas || []).filter((c) => c.recon_money_done && !c.done).map((c) => ({ kind: 'xn', red: false, date: c.date, text: `Ca ${c.shift} ${dmShort(c.date)} đã xác nhận Fabi, chưa hoàn thành`, amount: null, ref: c })),   // bước 171
     ...its.filter((x) => x.col === 'lech' && /Chờ/.test(x.status || '')).map((x) => ({ kind: 'lech', red: false, date: x.date, text: `${x.title} · ${dmShort(x.date)}`, sub: x.status, amount: Number(x.amount || 0), ref: x })),
     ...its.filter((x) => x.book === 'chi' && x.col === 'chi' && !x.cat).map((x) => ({ kind: 'cat', red: false, date: x.date, text: `Chưa phân loại · ${x.title} · ${dmShort(x.date)}`, amount: Number(x.amount || 0), ref: x })),
     ...(waitQN || []).map((x) => ({ kind: 'qn', red: false, date: x.date, text: `Chuyển về Quỹ ngoài ${dmShort(x.date)} · chờ Chủ nhận`, amount: Number(x.amount || 0), ref: x })),
@@ -356,14 +357,17 @@ export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, 
   const box = (k) => (checks.find((c) => c.k === k) || {}).st === 'ok';
   const mine = live(items).filter((x) => x.ca_id === ca.id);
   const chi = mine.filter((x) => x.book === 'chi' && x.col === 'chi');
-  const count = ca.cash_mode === 'ca' || last;   // ca này có đếm két không
+  const byCa = ca.cash_mode === 'ca';
   const kt = !!ca.kt_wait || ca.bank_ck == null;
   const gapOk = (pm) => gaps.filter((g) => g.pm === pm).every((g) => g.small || g.done || g.wait) || ticks.has('sau_' + pm);
   const b1 = [a('mo', box('mo')), a('dt', box('dt')), a('no', box('no'))];
   if (Number(ca.fabi?.edited_bills || 0) > 0) b1.push(m('hd'));
   b1.push(m('anh'));
-  const b2 = count ? [a('cash', ca.ql_counted != null), a('ck', !kt), m('goi')]
-    : [a('ck', !kt), a('ket', !!next && next.sent && next.moOk, { wait: !next || !next.sent })];
+  // cash: chỉ bắt quản lý nhập khi Thu theo ca (đúng điều kiện Xác nhận Fabi đang có); gối đầu: ca có để két lại (thu theo ca, hoặc ca cuối ngày)
+  const b2 = [];
+  if (byCa) b2.push(a('cash', ca.ql_counted != null));
+  b2.push(a('ck', !kt));
+  if (byCa || last) b2.push(m('goi')); else b2.push(a('ket', !!next && next.sent && next.moOk, { wait: !next || !next.sent }));
   b2.push(a('fabi', ca.recon_money_done));
   const b3 = [];
   if (mine.some((x) => x.book === 'thu' && x.col === 'no')) b3.push(m('tn'));

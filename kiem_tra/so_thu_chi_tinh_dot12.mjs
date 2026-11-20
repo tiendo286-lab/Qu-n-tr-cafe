@@ -1,6 +1,6 @@
 // Bài thử bước 171 đợt A (Đối soát thu chi 6 bước): mục quản lý phải kiểm tra + trạng thái ca. Chạy: jsc -m kiem_tra/so_thu_chi_tinh_dot12.mjs
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-20-doi-soat-thu-chi-6-buoc-design.md (mục 6, 10)
-import { dsChecks, dsLeft, dsCtx, caStage, BIG, DS_STEPS, TICKS } from '../docs/js/so_thu_chi_tinh.js';
+import { dsChecks, dsLeft, dsCtx, caStage, todoItems, BIG, DS_STEPS, TICKS } from '../docs/js/so_thu_chi_tinh.js';
 let n = 0;
 const ok = (c, m) => { if (!c) throw new Error('KIỂM TRA THẤT BẠI: ' + m); n++; };
 const okc = [{ k: 'mo', st: 'ok' }, { k: 'dt', st: 'ok' }, { k: 'no', st: 'ok' }];
@@ -32,7 +32,7 @@ ok(get(run(ngay, { last: false, next: { sent: true, moOk: true } }), 'ket').ok, 
 ok(!get(run(ngay, { last: false, next: { sent: true, moOk: false } }), 'ket').ok && !get(run(ngay, { last: false, next: { sent: true, moOk: false } }), 'ket').wait, 'ca sau mở ca lệch → ket chưa xong, không phải chờ');
 const cho = get(run(ngay, { last: false, next: null }), 'ket');
 ok(!cho.ok && cho.wait === true, 'ca sau chưa gửi phiếu → ket chờ, chưa xong');
-ok(ks(run(ngay, { last: true })[1]) === 'cash,ck,goi,fabi', 'thu cuối ngày, ca cuối ngày: đếm két + gối đầu');
+ok(ks(run(ngay, { last: true })[1]) === 'ck,goi,fabi', 'thu cuối ngày, ca cuối ngày: có gối đầu; không bắt quản lý nhập tiền mặt (giống điều kiện Xác nhận Fabi đang có)');
 // bước 3
 ok(ks(run(base())[2]) === 'sot', 'không có thu nợ → chỉ có sot');
 ok(ks(run(base(), { items: [thuNo] })[2]) === 'tn,sot', 'có thu nợ → có tn');
@@ -82,4 +82,8 @@ ok(ks(dsChecks(D.cas[1], c)[3]) === 'cat,that,lon', 'ca Chiều: khoản chi 400
 ok(dsCtx(D, D.cas[2]).last === true, 'ca ngày khác không tính là ca sau');
 const D2 = { cas: [mk(1, 'Sáng'), mk(2, 'Chiều', { fabi: fb({ opening: 950000 }), nv: { opening: 950000, revenue: 0, debt: 0 } })], items: [] };
 ok(dsCtx(D2, D2.cas[0]).next.moOk === false, 'ca sau mở ca lệch tiền ca này để lại → moOk false');
+// Việc cần làm: ca đã xác nhận Fabi mà chưa bấm Hoàn thành
+const td = todoItems({ cas: [base({ id: 1, date: '2026-11-18', shift: 'Sáng' }), base({ id: 2, date: '2026-11-18', shift: 'Chiều', done: { by: 'x' } }), base({ id: 3, date: '2026-11-18', shift: 'Tối', recon_money_done: false })], items: [] });
+ok(td.filter((t) => t.kind === 'xn').length === 1 && td.find((t) => t.kind === 'xn').ref.id === 1 && /Ca Sáng 18\/11 đã xác nhận Fabi, chưa hoàn thành/.test(td.find((t) => t.kind === 'xn').text), 'Việc cần làm có ca đã xác nhận chưa hoàn thành');
+ok(td.filter((t) => t.kind === 'fabi').length === 1 && td[0].kind === 'fabi', 'ca chưa xác nhận Fabi vẫn đứng đầu (đỏ)');
 print('ĐẠT ' + n + ' kiểm tra');

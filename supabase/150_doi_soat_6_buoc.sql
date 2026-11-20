@@ -73,8 +73,8 @@ begin
      and array_position(public.app__shifts(), o.shift) > array_position(public.app__shifts(), r.shift)
    order by array_position(public.app__shifts(), o.shift) limit 1;
   last_ca := nx.id is null;
+  if coalesce(r.cash_mode, 'ngay') = 'ca' and r.ql_counted is null then out := out || 'Chưa nhập tiền mặt quản lý đếm két'; end if;
   if coalesce(r.cash_mode, 'ngay') = 'ca' or last_ca then
-    if r.ql_counted is null then out := out || 'Chưa nhập tiền mặt quản lý đếm két'; end if;
     if not ('goi' = any(tk)) then out := out || 'Chưa tích: két để lại đúng 1.000.000 cho ca sau'; end if;
   else
     ns := public.app__stc_ds_state(nx.id);
