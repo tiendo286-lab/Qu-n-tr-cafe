@@ -101,6 +101,17 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', c1.auth_user_id, 'role', 'authenticated')::text, true);
   begin perform public.app_dt_instructor_save(tid, hdc.employee_id); raise exception 'KHÔNG CHẶN';
   exception when others then e := sqlerrm; if e = 'KHÔNG CHẶN' then raise exception 'SAI 17: Cấp 1 đổi được HDC'; end if; end; n := n + 1;
+  -- anh chốt 20/11: HDC (Quản lý, kể cả có quyền Đào tạo) không đổi được HDC — cả 2 đường (instructor_save, app_dt_update)
+  perform set_config('request.jwt.claims', json_build_object('sub', qlk.auth_user_id, 'role', 'authenticated')::text, true);
+  begin perform public.app_dt_instructor_save(tid, hdc.employee_id); raise exception 'KHÔNG CHẶN';
+  exception when others then e := sqlerrm; if e = 'KHÔNG CHẶN' then raise exception 'SAI 17b: Quản lý (không phải PTC / Chủ) đổi được HDC'; end if; end; n := n + 1;
+  begin perform public.app_dt_update(tid, jsonb_build_object('instructor_id', hdc.employee_id)); raise exception 'KHÔNG CHẶN';
+  exception when others then e := sqlerrm; if e = 'KHÔNG CHẶN' then raise exception 'SAI 17c: Quản lý đổi được HDC qua app_dt_update'; end if; end; n := n + 1;
+  if (select instructor_id from public.trainings where id = tid) <> qlk.employee_id then raise exception 'SAI 17d: HDC bị đổi dù đã chặn'; end if; n := n + 1;
+  -- Chủ đổi được
+  perform set_config('request.jwt.claims', json_build_object('sub', chu.auth_user_id, 'role', 'authenticated')::text, true);
+  perform public.app_dt_instructor_save(tid, hdc.employee_id);
+  if (select instructor_id from public.trainings where id = tid) <> hdc.employee_id then raise exception 'SAI 17e: Chủ không đổi được HDC'; end if; n := n + 1;
   -- HDC phải có tài khoản đang hoạt động
   insert into public.employees(code, name, rank, status) values ('T148Q', 'Quản lý thử 148', 'Quản lý', 'Đang làm') returning id into nomgr;
   update public.accounts set locked = 1 where employee_id = nomgr;

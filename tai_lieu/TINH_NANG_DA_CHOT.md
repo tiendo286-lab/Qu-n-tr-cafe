@@ -786,7 +786,7 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 - Phiếu đang mở hiện ở Công việc → Việc của tôi của người học, người hướng dẫn được giao, quản lý phụ trách và người nhận xét. Khi có phân công mới hoặc đến lượt nhận xét, thông báo mở đúng phiếu.
 - **Quy tắc phân công — anh Tiến giao 19/11/2026 đêm (bước 169, máy chủ `148_dao_tao_phan_cong.sql` chờ chạy, nhánh riêng chờ gộp)** — thay các điểm cũ ở trên khi khác nhau:
   1. **Người phụ trách chính (PTC)** = tài khoản Chủ chọn ở Công việc › Đào tạo (trước gọi là "người nhận xét"). Không gắn cứng tên.
-  2. PTC (và người có quyền Đào tạo) **chọn / đổi Người hướng dẫn chính (HDC)** ngay trên phiếu. HDC phải là Quản lý đang làm **và có tài khoản đang hoạt động**.
+  2. **Chỉ PTC và Chủ** (anh Tiến chốt 20/11 — người có quyền Đào tạo không còn đổi được, máy chủ chặn cả đường sửa thông tin phiếu) **chọn / đổi Người hướng dẫn chính (HDC)** ngay trên phiếu. Lúc tạo phiếu vẫn chọn HDC như cũ. HDC phải là Quản lý đang làm **và có tài khoản đang hoạt động**.
   3. **Giao từng hạng mục (cả giai đoạn 2): chỉ HDC của phiếu + PTC + Chủ.** Quản lý khác, Quản lý tổng hết quyền giao (vẫn xem phiếu, vẫn ghi hạng mục nếu có quyền Đào tạo như cũ).
   4. **Nhân viên Cấp 1** ghi mức đạt (Giới thiệu + Thực hành + mức) → hạng mục **"Chờ kiểm tra"**, CHƯA tính đạt; báo HDC + PTC (mỗi người 1 thông báo chưa đọc cho mỗi phiếu, không dồn).
   5. HDC hoặc PTC bấm **"Xác nhận đạt"** (giữ hoặc sửa mức) mới tính đạt. HDC / PTC tự ghi thì khỏi kiểm. Phiếu chỉ sang Chờ nhận xét / Hoàn thành khi không còn "Chờ kiểm tra". Việc của tôi của HDC / PTC có dòng "Chờ bạn kiểm tra N hạng mục".

@@ -94,7 +94,7 @@ export function makeDt(T, me) {
       const id = Math.max(0, ...T.trainings.map((t) => t.id)) + 1; T.trainings.push({ id, employee_id: p_employee, program_id: 1, branch_id: Number(p.branch_id) || null, start_date: p.start_date, instructor_id: p.instructor_id, manager_id: Number(p.manager_id) || null }); return id;
     },
     app_dt_instructor_save({ p_id, p_employee }) {
-      const t = tr(p_id); if (!isPtc() && !me.perms.dao_tao) throw new Error('Chỉ người phụ trách chính đào tạo được đổi người hướng dẫn chính.');
+      const t = tr(p_id); if (!isPtc() && me.role !== 'chu') throw new Error('Chỉ người phụ trách chính đào tạo hoặc Chủ được đổi người hướng dẫn chính.');
       mainGuide(p_employee); t.instructor_id = Number(p_employee);
     },
     app_dt_check_ok({ p_id, p_no, p_level }) {
@@ -153,14 +153,14 @@ export function makeDt(T, me) {
       return { ...t, ...sum(t), program: { name: 'Nhân viên chạy bàn 8 ngày', days: PROG.days }, employee: { code: emp(t.employee_id).code, name: emp(t.employee_id).name, rank: emp(t.employee_id).rank },
         items: PROG.items.map((i) => { const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === i.no) || {}; return { ...i, introduced: !!m.introduced, practiced: !!m.practiced, level: m.level || null, by: m.at ? (accName(m.by_account) || 'admin – Chủ') : null, at: m.at || null,
           pending: !!(m.cho_kiem_tra && m.level), pending_by: m.cho_kiem_tra ? accName(m.cho_by) : null, pending_at: m.cho_kiem_tra ? m.cho_at : null }; }),
-        can_check: canCheck(t), is_ptc: isPtc(), is_hdc: isHdc(t), ptc: reviewer ? accName(reviewer) : null, can_pick_hdc: isPtc() || !!me.perms.dao_tao,
+        can_check: canCheck(t), is_ptc: isPtc(), is_hdc: isHdc(t), ptc: reviewer ? accName(reviewer) : null, can_pick_hdc: isPtc() || me.role === 'chu',
         hdc_choices: isPtc() || me.perms.dao_tao ? T.employees.filter((e) => e.rank === 'Quản lý' && e.status === 'Đang làm' && e.id !== t.employee_id).map(({ id, code, name }) => ({ id, code, name })) : null,
         days_log: Object.fromEntries(T.training_days.filter((d) => d.training_id === t.id).map((d) => [d.day, d])), tasks: [],
         ...(workflow ? { due: due(t), today, review_from: dayFromStart(t, 8), followups: part(t).map((f) => ({ ...f, mine: f.employee_id != null && f.employee_id === me.employee_id })), can_review: me.account_id === reviewer,
           can_assign: canAssign(t), item_branches: canAssign(t) ? T.branches : null, helpers: canAssign(t) ? T.employees.filter((e) => e.id !== t.employee_id && (e.id === t.instructor_id || ['Cấp 1', 'Quản lý'].includes(e.rank))).map((e) => ({ id: e.id, name: `${e.code} – ${e.name}` })) : null } : {}),
         can_edit: canEdit(t), can_admin: !!me.perms.dao_tao, is_trainee: me.employee_id === t.employee_id };
     },
-    app_dt_update({ p_id, p }) { const t = tr(p_id); if (!canEdit(t)) throw new Error('Bạn không có quyền.'); if ('instructor_id' in p && p.instructor_id !== t.instructor_id) mainGuide(p.instructor_id); Object.assign(t, p); },
+    app_dt_update({ p_id, p }) { const t = tr(p_id); if (!canEdit(t)) throw new Error('Bạn không có quyền.'); if ('instructor_id' in p && p.instructor_id !== t.instructor_id) { if (!isPtc() && me.role !== 'chu') throw new Error('Chỉ người phụ trách chính đào tạo hoặc Chủ được đổi người hướng dẫn chính.'); mainGuide(p.instructor_id); } Object.assign(t, p); },
     app_dt_mark({ p_id, p_no, p }) {
       const t = tr(p_id);
       const mine = part(t).find((f) => f.no === p_no && f.employee_id === me.employee_id && (!f.is_extra || !f.finished_at));

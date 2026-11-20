@@ -1,6 +1,6 @@
 -- 148 (bước 169, anh Tiến giao 19/11/2026): ĐÀO TẠO — QUY TẮC PHÂN CÔNG.
 --  1. Người phụ trách chính (PTC) = tài khoản Chủ chọn ở "người nhận xét" (app__dt_reviewer). Không gắn cứng tên.
---  2. PTC được chọn / đổi Người hướng dẫn chính (HDC) trên phiếu (hàm mới app_dt_instructor_save).
+--  2. PTC + Chủ được chọn / đổi Người hướng dẫn chính (HDC) trên phiếu (hàm mới app_dt_instructor_save). Anh chốt 20/11: người có quyền Đào tạo KHÔNG còn đổi được.
 --  3. Giao từng hạng mục (cả giai đoạn 2): CHỈ HDC của phiếu + PTC + Chủ. Quản lý khác, Quản lý tổng: hết quyền giao.
 --  4. Nhân viên Cấp 1 ghi mức đạt → hạng mục "Chờ kiểm tra", CHƯA tính đạt; báo HDC + PTC.
 --  5. HDC hoặc PTC bấm "Xác nhận đạt" (giữ / sửa mức) mới tính đạt (hàm mới app_dt_check_ok). HDC / PTC tự ghi thì khỏi kiểm.
@@ -107,7 +107,7 @@ language sql stable set search_path = public as $$
   select x.id from public.accounts x where x.employee_id = t.instructor_id and x.locked = 0 order by x.id limit 1
 $$;
 
--- ---------------------------------------------------------------- 2. PTC (hoặc người có quyền Đào tạo) đổi HDC trên phiếu
+-- ---------------------------------------------------------------- 2. PTC hoặc Chủ đổi HDC trên phiếu (anh chốt 20/11)
 create or replace function public.app_dt_instructor_save(p_id bigint, p_employee bigint) returns void
 language plpgsql security definer set search_path = public as $$
 declare a public.accounts; t public.trainings;
@@ -115,8 +115,8 @@ begin
   a := public.app__need(null);
   select * into t from public.trainings where id = p_id for update;
   if not found then raise exception 'Không tìm thấy phiếu đào tạo.'; end if;
-  if not (public.app__dt_is_ptc(a) or coalesce(public.app_can('dao_tao'), false)) then
-    raise exception 'Chỉ người phụ trách chính đào tạo được đổi người hướng dẫn chính.';
+  if not (public.app__dt_is_ptc(a) or coalesce(a.system_role = 'chu', false)) then
+    raise exception 'Chỉ người phụ trách chính đào tạo hoặc Chủ được đổi người hướng dẫn chính.';
   end if;
   if public.app__dt_status(t) = 'hoan_thanh' then raise exception 'Phiếu đã hoàn thành.'; end if;
   if p_employee is null then raise exception 'Chọn người hướng dẫn chính (nhân viên cấp Quản lý).'; end if;
@@ -124,6 +124,24 @@ begin
   update public.trainings set instructor_id = p_employee, updated_at = public.vn_now_text() where id = p_id;   -- trigger kiểm Quản lý + tài khoản, tự báo người mới
   perform public.app_log('dao_tao_doi_hd_chinh', format('training=%s employee=%s', p_id, p_employee));
 end $$;
+
+-- Anh Tiến chốt 20/11: đổi HD chính CHỈ người phụ trách chính + Chủ. app_dt_update (tệp 09) trước cho người có quyền Đào tạo đổi instructor_id → chặn đường này.
+--  Chặn bằng trigger nên mọi đường sửa đều bị kiểm. Tạo phiếu (INSERT) không bị ảnh hưởng; bỏ trống HDC (vd xoá nhân viên) vẫn được.
+create or replace function public.app__dt_hdc_guard() returns trigger
+language plpgsql security definer set search_path = public as $$
+declare a public.accounts;
+begin
+  if new.instructor_id is not distinct from old.instructor_id then return new; end if;
+  if new.instructor_id is null then return new; end if;
+  if coalesce(auth.uid()::text, '') = '' then return new; end if;   -- việc nội bộ máy chủ (không có người gọi)
+  select * into a from public.accounts where auth_user_id = auth.uid() and locked = 0 limit 1;
+  if a.id is not null and (coalesce(a.system_role = 'chu', false) or public.app__dt_is_ptc(a)) then return new; end if;
+  raise exception 'Chỉ người phụ trách chính đào tạo hoặc Chủ được đổi người hướng dẫn chính.';
+end $$;
+drop trigger if exists dt_hdc_guard on public.trainings;
+create trigger dt_hdc_guard before update of instructor_id on public.trainings
+for each row execute function public.app__dt_hdc_guard();
+revoke execute on function public.app__dt_hdc_guard() from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- 3 + sửa thêm: giao từng hạng mục
 create or replace function public.app_dt_followup_save(
@@ -300,7 +318,7 @@ begin
           or exists (select 1 from public.training_followups f where f.training_id = t.id and f.employee_id = me_emp)) then
     raise exception 'Bạn không xem được phiếu đào tạo này.';
   end if;
-  can_pick := public.app__dt_is_ptc(a) or coalesce(public.app_can('dao_tao'), false);
+  can_pick := public.app__dt_is_ptc(a) or coalesce(a.system_role = 'chu', false);
   select * into pr from public.training_programs where id = t.program_id;
   return to_jsonb(t) || public.app__dt_summary(t) || jsonb_build_object(
     'program', jsonb_build_object('code', pr.code, 'name', pr.name, 'days', pr.days),
