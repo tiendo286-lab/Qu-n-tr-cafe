@@ -1581,7 +1581,7 @@ const STYLE = html`<style>
   .stc-st.todo i { border-color: var(--warn-line); background: var(--warn-bg); }
   .stc-st.on { color: var(--ink); } .stc-st.on i { background: var(--header); border-color: var(--header); color: #fff; } .stc-st.on span { font-weight: 700; }
   .stc-step { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
-  .stc-chk { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; color: var(--warn-ink); }
+  section.stc-chk { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; color: var(--warn-ink); }
   .stc-chk h3 { margin: 0; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .stc-chk h3 em { font-style: normal; margin-left: auto; font-size: 12.5px; background: var(--card); border-radius: 99px; padding: 1px 9px; }
   .stc-ci { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: start; background: var(--card); border-radius: 9px; padding: 7px 10px; color: var(--ink); border: 0; text-align: left; width: 100%; font: inherit; }
@@ -1673,7 +1673,7 @@ const STYLE = html`<style>
   .stc-tyg { padding: 8px 0; border-bottom: 1px solid var(--line); } .stc-tyg:last-of-type { border-bottom: 0; }
   .stc-tyh { display: flex; justify-content: space-between; font-weight: 700; gap: 8px; } .stc-bar { height: 6px; background: var(--line-soft, #f2ebe1); border-radius: 4px; margin: 6px 0 4px; overflow: hidden; } .stc-bar i { display: block; height: 100%; background: var(--primary); border-radius: 4px; }
   .stc-tyc { display: flex; justify-content: space-between; font-size: 12.5px; color: var(--ink-2); gap: 8px; padding-left: 10px; } .stc-tyc b { font-weight: 500; }
-  .stc-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
+  label.stc-chk { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; }
   .stc-photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 8px; } .stc-photos figure { margin: 0; } .stc-photos img { width: 100%; border-radius: 10px; border: 1px solid var(--line, #e5e7eb); display: block; }
   .stc-flt { display: flex; flex-wrap: wrap; gap: 6px; padding: 10px 12px; border-bottom: 1px solid var(--line, #e5e7eb); }
   .stc-flt .stc-q { flex: 1 1 220px; min-width: 0; } .stc-flt select { flex: 0 1 auto; max-width: 100%; }
