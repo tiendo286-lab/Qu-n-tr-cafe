@@ -36,7 +36,7 @@ export default async ({ sleep, out }) => {
     ok(!!$('[data-dsblame="nay"]', box('mo')), '3. huỷ chọn → hỏi lại');
     await act('[data-dsblame="nay"]', 'NV ca chiều đếm nhầm'); await settle();
     // 4. nợ: Fabi nhiều hơn → thêm báo nợ phần chênh
-    await act('[data-dsfabi="no"]', '', () => { ok(!!$('[name=name]', dlg()), '4. nợ Fabi nhiều hơn → hỏi tên người nợ phần chênh'); setv('[name=name]', 'Khách bàn 3'); }); await settle();
+    await act('[data-dsfabi="no"]', '', () => { ok(!!$('select[name=name]', dlg()) && !$('input[name=name]', dlg()), '4. nợ Fabi nhiều hơn → hỏi người nợ phần chênh bằng ô chọn (bước 172: chỉ chọn người có sẵn)'); setv('[name=name]', 'Bàn 5'); }); await settle();
     ok(box('no').classList.contains('ok'), '4. nợ xanh sau Sửa theo Fabi');
     // 5. tiền thực nhận thu theo ca
     await st(1); $('[data-dsmode="ca"]').click(); await sleep(900); await settle();

@@ -64,6 +64,31 @@ export default async ({ sleep, out }) => {
     ok(!!f && $('[name=pname]', f)?.disabled === true && !$('[data-poff]', f), 'a. Kho Tổng: ô tên khoá, không có nút Ngừng dùng');
     wide('a. khung sửa người');
     $('[data-x]', dlg())?.click(); await sleep(300); $('dialog[open] [data-x]')?.click(); await sleep(200);
+
+    // ---- b. + Thêm phiếu › Cho nợ: chỉ chọn người có sẵn trong danh sách (không gõ tên)
+    const addNo = async () => { await go(CHI); $('button.stc-add')?.click(); await wait('.stc-addp [name=kind]', 40); await sleep(200); type($('.stc-addp [name=kind]'), 'no'); await sleep(250); return $('.stc-addp'); };
+    let box = await addNo();
+    let ps = $('select[name=name]', box);
+    ok(!!ps && !$('input[name=name]', box), 'b. Cho nợ: ô Người nợ là ô chọn, không còn ô gõ tên');
+    ok(!!ps && $$('option', ps).some((o) => o.value === 'Kho Tổng') && $$('option', ps).some((o) => o.value === 'Bàn 5'), 'b. ô chọn có những người đang dùng');
+    ok(!!ps && !$$('option', ps).some((o) => o.value === 'Anh Thắng xe ôm'), 'b. người đã ngừng dùng không còn trong ô chọn');
+    ok(!!ps && $$('optgroup', ps).length >= 2 && !!$('option[value="__add"]', ps), 'b. chia theo nhóm công nợ, cuối danh sách có "+ Thêm người nợ…"');
+    wide('b. khung Thêm phiếu › Cho nợ');
+    if (ps) {
+      type($('[name=amount]', box), '70.000'); $('[type=submit]', box).click(); await sleep(600);
+      ok(txt($('.stc-addp .stc-err')).includes('chọn người nợ'), 'b. chưa chọn người → báo "Chọn người nợ."');
+      let k1 = (window.__LOG || []).length; type(ps, 'Kho Tổng'); $('[type=submit]', box).click(); await gone('.stc-addp', 40); await sleep(700);
+      const c1 = calls('app_stc_debt_save', k1);
+      ok(c1.length === 1 && c1[0].args?.p?.name === 'Kho Tổng' && c1[0].args?.p?.grp === 'kho', 'b. chọn Kho Tổng → lưu Cho nợ với đúng tên + nhóm của người đó');
+      // + Thêm người nợ… ngay trong ô chọn → thêm xong người mới được chọn sẵn, khung Thêm phiếu vẫn mở
+      box = await addNo(); ps = $('select[name=name]', box);
+      type(ps, '__add'); await wait('dialog[open] [name=pname]', 40); await sleep(200);
+      ok(!!$('dialog[open] [name=pname]'), 'b. chọn "+ Thêm người nợ…" → mở khung thêm người');
+      type($('dialog[open] [name=pname]'), 'Chị Hoa rau'); $('dialog[open] button[type=submit]')?.click(); await gone('dialog[open] [name=pname]', 40); await sleep(500);
+      ps = $('.stc-addp select[name=name]');
+      ok(!!$('.stc-addp') && ps?.value === 'Chị Hoa rau', 'b. thêm xong: khung Thêm phiếu vẫn mở, người mới được chọn sẵn');
+      $('.stc-addp [data-x]')?.click(); await sleep(200);
+    }
   } catch (e) { bad.push('LỖI CHẠY: ' + (e?.message || e)); }
   out.push({ ds172: { ok: good, fail: bad } });
 };

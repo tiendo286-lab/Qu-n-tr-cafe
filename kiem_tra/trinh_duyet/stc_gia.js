@@ -147,6 +147,8 @@ export function makeStc(T, me) {
     },
     app_stc_debt_save({ p_id, p, p_reason }) {
       need(); amountOk(p.amount); if (!String(p.name || '').trim()) throw new Error('Ghi tên người nợ.');
+      // bước 172 (trigger gác tên của tệp 151): nợ ngoài ca chỉ nhận người ĐANG DÙNG trong danh sách
+      if (!st().people.some((x) => x.active !== 0 && x.name.toLowerCase() === String(p.name).trim().toLowerCase())) throw new Error(`Người nợ "${String(p.name).trim()}" chưa có trong danh sách. Thêm ở Sổ thu chi › Sổ chi › 👥 Người nợ trước.`);
       const id = p_id || ++N; const pm = p.kind === 'ck' ? 'ck' : 'tm';
       const it = { id: 'dn:' + id, date: p.date, ca_id: null, book: 'chi', pm, col: 'no', amount: Number(p.amount), title: (pm === 'ck' ? 'Nợ CK: ' : 'Nợ TM: ') + p.name,
         meta: 'Quản lý ghi, tiền đưa từ quỹ', src: 'debt', can_edit: true, edit: edit('them', p_reason) };

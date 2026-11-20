@@ -242,9 +242,11 @@ async function editDialog(D, x) {
   } else if (x.id.startsWith('x:')) { return extDialog(D, x);
   } else if (x.id.startsWith('dn:')) {
     const name = x.title.replace(/^Nợ (TM|CK): /, '');
-    const d = dialog(form(`Sửa cho nợ · ${dm(x.date)}`, html`<label class="field"><span>Người nợ</span><input class="input" name="name" value="${name}"></label>
+    const d = dialog(form(`Sửa cho nợ · ${dm(x.date)}`, html`<label class="field"><span>Người nợ</span>${personSelect(D, { cur: name })}</label>
       <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money value="${fmt(x.amount)}"></label>${pmSel('pay', x.pm)}`, del));
-    open(d, async () => { await rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name: val(d, 'name'), amount: money(d, 'amount'), kind: val(d, 'pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: x.date }, p_reason: val(d, 'reason') }); after('Đã sửa khoản cho nợ'); },
+    bindPersonSelect(D, d);
+    open(d, async () => { if (!val(d, 'name')) throw new Error('Chọn người nợ.');
+      await rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name: val(d, 'name'), grp: grpOfSel(d.querySelector('[name=name]')), amount: money(d, 'amount'), kind: val(d, 'pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: x.date }, p_reason: val(d, 'reason') }); after('Đã sửa khoản cho nợ'); },
       async () => { await rpc('app_stc_debt_delete', { p_id: idNum(x.id), p_reason: val(d, 'reason') }); after('Đã xoá khoản cho nợ'); });
   }
 }
@@ -275,7 +277,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     </div>
     <div class="stc-ar">
       ${f('Nội dung', html`<input class="input" name="note" placeholder="${book === 'chi' ? 'vd: Mua đá' : 'vd: Bán vỏ thùng'}">`, 'chi khac lc', 'stc-aw')}
-      ${f('Người nợ', html`<input class="input" name="name" list="stc-people" placeholder="Khách"><datalist id="stc-people">${(D.people || []).map((p) => html`<option value="${p.name}"></option>`)}</datalist>`, 'no-chi', 'stc-aw')}
+      ${f('Người nợ', personSelect(D), 'no-chi', 'stc-aw')}
       ${f('Khách trả nợ', html`<select class="input" name="debt"><option value="">— Chọn khách đang nợ —</option></select>`, 'no-thu', 'stc-aw')}
       ${cs.length === 1 ? html`<span class="pill mute stc-ac" data-show="chi khac">Nhóm: ${cs[0].name}<input type="hidden" name="cat" value="${cs[0].id}"></span>`
         : f('Nhóm', html`<select class="input" name="cat"><option value="">— Chọn nhóm —</option>${cs.map((c) => html`<option value="${c.id}">${c.name}</option>`)}</select>`, 'chi khac')}
@@ -316,6 +318,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   el('date').addEventListener('change', () => { fillCa(el('ca').value); fillDebt(); sync(); });
   el('kind').addEventListener('change', () => { if (!el('ca').value) fillCa(''); sync(); }); el('ca').addEventListener('change', sync); fillCa(caId); fillDebt(); sync();
   box.querySelector('[data-x]').addEventListener('click', () => box.remove());
+  bindPersonSelect(D, box);   // bước 172: Cho nợ chỉ chọn người có sẵn
   box.addEventListener('submit', async (ev) => {
     ev.preventDefault(); const sb = box.querySelector('[type=submit]');
     const v = (n) => (el(n)?.value || '').trim(); const amount = parseMoney(v('amount')) || 0; const reason = v('reason') || null;
@@ -334,7 +337,8 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
       } else if (k === 'lc') {
         await rpc('app_stc_transfer_save', { p_id: null, p: { branch_id: br, date: v('date'), direction: v('dir'), amount, note: v('note') }, p_reason: reason });
       } else if (book === 'chi') {
-        await rpc('app_stc_debt_save', { p_id: null, p: { branch_id: br, name: v('name'), amount, kind: v('pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: v('date') }, p_reason: reason });
+        if (!v('name')) throw new Error('Chọn người nợ.');
+        await rpc('app_stc_debt_save', { p_id: null, p: { branch_id: br, name: v('name'), grp: grpOfSel(el('name')), amount, kind: v('pay') === 'chuyen_khoan' ? 'ck' : 'muon', date: v('date') }, p_reason: reason });
       } else {
         if (!v('debt')) throw new Error('Chọn khách đang nợ.');
         const od = (D.open_debts || []).find((o) => o.id === v('debt'));
@@ -685,12 +689,12 @@ function debtPills(D, x) {
   const od = (D.open_debts || []).find((o) => o.id === 'd:' + idNum(x.id));
   const pd = D.debt_paid?.[idNum(x.id)];
   const st = !od ? html`<span class="pill ok">Đã thu${pd ? ' · ' + paidTxt(pd) : ' hết'}</span>` : html`<span class="pill mute">Còn nợ ${fmt(od.left)}</span>`;
-  const names = [...new Set([name, ...(D.people || []).map((q) => q.name)])].filter(Boolean);
+  const names = [...new Set([name, ...(D.people || []).filter((q) => q.active !== 0).map((q) => q.name)])].filter(Boolean);   // bước 172: chỉ người đang dùng (+ tên hiện tại của khoản)
   const sel = x.can_edit ? html`<label class="stc-who">Người nợ <select class="input sm" data-whox="${x.id}" aria-label="Người nợ">${names.map((n) => html`<option value="${n}" ${n === name ? 'selected' : ''}>${n}${(D.people || []).find((q) => q.name === n)?.no_remind ? ' ✓' : ''}</option>`)}<option value="__add">+ Thêm người nợ…</option></select></label>` : '';
   return html`${sel}${pp?.no_remind ? html`<span class="pill ok">✓ Không nhắc thu ở phiếu chốt ca</span>` : html`<span class="pill info">Phiếu chốt ca sẽ nhắc thu</span>`}${st}`;
 }
 async function setWho(D, x, v, sel) {
-  const save = async (name) => rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name, amount: Number(x.amount), kind: x.pm === 'ck' ? 'ck' : 'muon', date: x.date }, p_reason: 'Đổi người nợ: ' + name });
+  const save = async (name) => rpc('app_stc_debt_save', { p_id: idNum(x.id), p: { name, grp: (D.people || []).find((q) => q.name === name)?.grp, amount: Number(x.amount), kind: x.pm === 'ck' ? 'ck' : 'muon', date: x.date }, p_reason: 'Đổi người nợ: ' + name });
   if (v !== '__add') { try { await save(v); after('Đã đổi người nợ'); } catch (e) { showSaved(e.message || e, true); sel.value = debtName(x); } return; }
   sel.value = debtName(x);
   personDialog(D, null, async (r) => { await save(r.name); after('Đã thêm người nợ'); });
@@ -698,6 +702,36 @@ async function setWho(D, x, v, sel) {
 // bước 172: người nợ là danh sách thật của cơ sở — thêm / sửa (tên, SĐT, nhóm công nợ) / ngừng dùng. "Kho tổng" luôn có: không đổi tên, không ngừng dùng.
 const GRP_NO = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', khac: 'Nợ khác' };
 const isKhoTong = (p) => String(p?.name || '').trim().toLowerCase() === 'kho tổng';
+// Ô chọn người nợ: chỉ người ĐANG DÙNG trong danh sách, chia theo nhóm công nợ; value là TÊN người (các hàm lưu nợ nhận tên). Quá 8 người thì có ô tìm không dấu.
+function personOpts(D, cur = '', add = true, q = '') {
+  const act = (D.people || []).filter((p) => p.active !== 0 && (!q || fold(p.name).includes(q) || p.name === cur));
+  const known = !cur || (D.people || []).some((p) => p.active !== 0 && p.name === cur);
+  return html`<option value="">— Chọn người nợ —</option>${known ? '' : html`<option value="${cur}" selected>${cur} (tên cũ, chưa có trong danh sách)</option>`}
+    ${Object.entries(GRP_NO).map(([g, l]) => { const xs = act.filter((p) => (p.grp || 'khach') === g);
+      return xs.length ? html`<optgroup label="${l}">${xs.map((p) => html`<option value="${p.name}" data-grp="${g}" ${p.name === cur ? 'selected' : ''}>${p.name}</option>`)}</optgroup>` : ''; })}
+    ${add && D.people_real && !D.ext ? html`<option value="__add">+ Thêm người nợ…</option>` : ''}`;
+}
+function personSelect(D, { cur = '', name = 'name', add = true } = {}) {
+  const many = (D.people || []).filter((p) => p.active !== 0).length > 8;
+  return html`${many ? html`<input class="input sm stc-pfind" data-pfind="${name}" placeholder="Tìm tên…" autocomplete="off" aria-label="Tìm người nợ">` : ''}<select class="input" name="${name}" data-psel="${add ? 1 : 0}" aria-label="Người nợ">${personOpts(D, cur, add)}</select>`;
+}
+// Gắn ô tìm + lựa chọn "+ Thêm người nợ…" cho mọi ô chọn người nợ nằm trong `root` (thêm xong thì người mới được chọn sẵn, khung đang mở giữ nguyên)
+function bindPersonSelect(D, root) {
+  root.querySelectorAll('select[data-psel]').forEach((sel) => {
+    let last = sel.value;
+    const refill = (cur, q = '') => { sel.innerHTML = str(personOpts(D, cur, sel.dataset.psel === '1', q)); sel.value = cur; };
+    root.querySelector(`[data-pfind="${sel.name}"]`)?.addEventListener('input', (ev) => refill(sel.value === '__add' ? '' : sel.value, fold(ev.target.value.trim())));
+    sel.addEventListener('change', () => {
+      if (sel.value !== '__add') { last = sel.value; return; }
+      sel.value = last;
+      personDialog(D, null, (r) => {
+        CACHE = null; D.people.push({ id: r.id, name: r.name, phone: null, grp: r.grp, active: 1, open: 0, n: 0, no_remind: r.grp !== 'khach' });
+        refill(r.name); last = r.name; sel.dispatchEvent(new Event('change', { bubbles: true }));
+      });
+    });
+  });
+}
+const grpOfSel = (sel) => sel?.selectedOptions?.[0]?.dataset?.grp || undefined;
 function personDialog(D, p, onDone) {
   const kho = !!p && isKhoTong(p);
   const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${p ? 'Sửa người nợ' : 'Thêm người nợ'}</h2>
@@ -1060,6 +1094,7 @@ function dsAct(D, b) {
     const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${h} · ${title}</h2>${body}
       <label class="field"><span>Lý do${needReason ? ' (bắt buộc)' : ' (không bắt buộc)'}</span><input class="input" name="reason"></label>
       <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
+    bindPersonSelect(D, d);
     open(d, async () => { if (needReason && !val(d, 'reason')) throw new Error('Ghi lý do.'); await fn(d); after(msg); });
   };
   const run = async (fn, msg) => { try { await fn(); after(msg); } catch (e) { showSaved(e.message, true); } };
@@ -1069,7 +1104,7 @@ function dsAct(D, b) {
     const more = k === 'no' && Number(f.debt) > Number(nv.debt);
     ask('Lấy số máy Fabi', html`<div class="st-meta">${L[0]}: phiếu nhân viên ghi ${fmt(L[1] ?? 0)} → máy Fabi ${fmt(L[2] ?? 0)}. Web sửa số trên phiếu nhân viên theo máy, lưu số cũ → mới và người sửa.</div>
       ${k === 'dt' ? html`<div class="st-meta">Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi.</div>` : k === 'mo' ? html`<div class="st-meta">Chỉ sửa số trên phiếu nhân viên, không tạo phiếu thu / chi.</div>` : ''}
-      ${more ? html`<label class="field"><span>Người nợ phần chênh ${fmt(Number(f.debt) - Number(nv.debt))} (thêm khách nợ ở Công nợ — không tạo phiếu chi; để trống nếu không thêm)</span><input class="input" name="name" list="stc-people"><datalist id="stc-people">${(D.people || []).map((p) => html`<option value="${p.name}"></option>`)}</datalist></label>` : ''}`,
+      ${more ? html`<label class="field"><span>Người nợ phần chênh ${fmt(Number(f.debt) - Number(nv.debt))} (thêm khách nợ ở Công nợ — không tạo phiếu chi; không chọn ai thì không thêm)</span>${personSelect(D)}</label>` : ''}`,
       false, (d) => rpc('app_stc_ds_fabi', { p_report: c.id, p_field: k, p_name: more ? val(d, 'name') || null : null, p_reason: val(d, 'reason') || null }), 'Đã lấy số máy Fabi');
   } else if (b.dataset.dsblame) {
     const who = b.dataset.dsblame;

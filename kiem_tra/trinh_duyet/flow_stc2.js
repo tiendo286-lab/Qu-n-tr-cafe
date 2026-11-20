@@ -58,12 +58,13 @@ export default async ({ sleep, out }) => {
   const cs = $('[name=cat]', pan()); setp('[name=cat]', cs.options[1]?.value || '');
   $('button[type=submit]', pan()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   const kl = item('mua khăn lau'); ok(!!kl && txt(kl).includes('thêm'), '5. khoản mới có nhãn "thêm"');
-  // 6. người nợ ✓ (bước 164: khung Người nợ hiện khi bấm ô Cho nợ)
+  // 6. người nợ (bước 164: khung Người nợ hiện khi bấm ô Cho nợ; bước 172: danh sách thật — đổi NHÓM công nợ thay cho ô ✓ không nhắc)
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm&cot=no');
   const pr =$$('.stc-pp').find((r) => txt(r).includes('bàn 5'));
-  ok(!!pr && txt(pr).includes('phiếu chốt ca nhắc thu'), '6. Bàn 5 đang được nhắc');
-  $('input[type=checkbox]', pr).click(); await sleep(900); await wait('.stc-pay');
-  ok(txt($$('.stc-pp').find((r) => txt(r).includes('bàn 5'))).includes('không nhắc'), '6. bấm ✓ → không nhắc ở phiếu chốt ca');
+  ok(!!pr && txt(pr).includes('nợ khách hàng'), '6. Bàn 5 thuộc nhóm Nợ khách hàng (phiếu chốt ca nhắc thu)');
+  $('[data-pedit]', pr).click(); await wait('dialog[open] [name=pgrp]', 30); await sleep(200);
+  setv('[name=pgrp]', 'khac'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay');
+  ok(txt($$('.stc-pp').find((r) => txt(r).includes('bàn 5'))).includes('nợ khác'), '6. đổi sang nhóm Nợ khác → phiếu chốt ca không nhắc người này nữa');
   // 7. khách đang nợ → thu nợ một phần (bước 164: khung Khách còn nợ hiện khi bấm ô Thu nợ)
   await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11&cot=no');
   const kd = $$('.stc-kd').find((r) => txt(r).includes('cô lan anh'));
