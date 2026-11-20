@@ -47,6 +47,19 @@ export function makeStc(T, me) {
     finGuard(rid);
     if (open && c.recon_money_done) throw new Error('Ca đã chốt tiền — bấm "Mở lại chốt" trước khi sửa.'); return c;
   };
+  // tệp 152: khoản nợ của ca sửa / xoá / đổi được (của đúng ca, TM hoặc CK, khách chưa trả đồng nào); xoá / đổi thì để lại dòng t = 'xoa'
+  const caDebtPick = (rid, did) => {
+    const d = (st().ca_debts || []).find((x) => x.t === 'moi' && Number(x.report_id) === Number(rid) && Number(x.id) === Number(did));
+    if (!d) throw new Error('Không tìm thấy khoản nợ của ca này.');
+    if (!['muon', 'ck'].includes(d.kind)) throw new Error('Nợ hoá đơn không sửa ở đây — số tiền đi theo ô Nợ bill.');
+    if (Number(d.left) < Number(d.amount)) throw new Error('Khách đã trả khoản này — Huỷ thu ở Sổ thu trước rồi mới sửa.');
+    return d;
+  };
+  const caDebtGone = (d, action, reason) => {
+    st().ca_debts = st().ca_debts.filter((x) => x !== d);
+    st().ca_debts.push({ report_id: d.report_id, t: 'xoa', id: d.id, who: d.who, kind: d.kind, amount: d.amount, left: 0, pm: null, from: null,
+      edit: { action, by: by(), at: 'vừa xong', reason: String(reason).trim() } });
+  };
   const expOpen = (c) => { const i = SH.indexOf(c.shift); if (i <= 0) return { exp: 1000000, prev: null };
     const prev = st().cas.find((x) => x.date === c.date && x.shift === SH[i - 1]); if (!prev) return { exp: null, prev: null };
     return { exp: prev.cash_mode === 'ca' ? 1000000 : Number(prev.real_tm ?? 0), prev }; };
@@ -451,6 +464,38 @@ export function makeStc(T, me) {
       if ((st().cas.find((c) => c.id === Number(d.report_id)) || {}).done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
       if (d.who.toLowerCase() !== p.name.toLowerCase()) d.content = d.content || d.who;
       Object.assign(d, { who: p.name, person_id: p.id, grp: p_grp, sorted: true });
+    },
+    // thiết kế sua-no-cua-ca (tệp 152): sửa / xoá / đổi Luân chuyển / thêm khoản nợ TM, CK của ca ở bước 1 — giống luật máy chủ, không tính lại tiền
+    app_stc_ca_debt_save({ p_report, p_debt, p, p_reason }) {
+      const c = dsCa(p_report, false); if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa / xoá.');
+      if (c.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
+      const pick = p_debt != null ? caDebtPick(p_report, p_debt) : null;
+      if (!['muon', 'ck'].includes(p?.kind)) throw new Error('Chọn tiền mặt hay chuyển khoản.');
+      const amt = Number(p?.amount); if (!(amt > 0)) throw new Error('Nhập số tiền nợ lớn hơn 0.');
+      const now = { by: by(), at: 'vừa xong', reason: String(p_reason).trim() };
+      if (pick) {
+        if (pick.kind === p.kind && Number(pick.amount) === amt) throw new Error('Chưa đổi gì.');
+        Object.assign(pick, { edit: { action: 'sua', ...now, old_amount: Number(pick.amount), old_kind: pick.kind }, kind: p.kind, amount: amt, left: amt });
+        return pick.id;
+      }
+      const pe = st().people.find((x) => x.id === Number(p?.person_id) && x.active !== 0);
+      if (!pe) throw new Error('Chọn người nợ trong danh sách.');
+      if (!['khach', 'kho', 'khac'].includes(p?.grp)) throw new Error('Chọn nhóm công nợ.');
+      const id = ++N; st().ca_debts.push({ report_id: Number(p_report), t: 'moi', id, who: pe.name, kind: p.kind, amount: amt, left: amt, pm: null, from: null,
+        sorted: true, person_id: pe.id, grp: p.grp, content: null, edit: { action: 'them', ...now } });
+      return id;
+    },
+    app_stc_ca_debt_delete({ p_report, p_debt, p_reason }) {
+      const c = dsCa(p_report, false); if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa / xoá.');
+      if (c.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
+      const d = caDebtPick(p_report, p_debt); caDebtGone(d, 'xoa', p_reason);
+    },
+    app_stc_ca_debt_to_exchange({ p_report, p_debt, p_reason }) {
+      const c = dsCa(p_report, false); if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa / xoá.');
+      if (c.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
+      const d = caDebtPick(p_report, p_debt);
+      if (d.kind !== 'muon') throw new Error('Chỉ khoản nợ tiền mặt (khách mượn) mới đổi thành Luân chuyển TM – CK.');
+      caDebtGone(d, 'doi', p_reason);
     },
     // CHỈ DÙNG TRONG BÀI THỬ (không có trên máy chủ thật): thêm một khoản nợ mới còn tiền vào một ca, như nhân viên gõ tên trên phiếu chốt ca
     app__thu_them_no_ca({ p_report, p_who, p_amount }) {

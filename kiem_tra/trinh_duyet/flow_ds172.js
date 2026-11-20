@@ -142,6 +142,68 @@ export default async ({ sleep, out }) => {
     const e2 = await tryRpc('app_stc_ds_done', { p_report: 181 });
     ok(!e2.includes('phanloai'), 'd. xếp xong thì mục xếp nợ không còn chặn Hoàn thành' + (e2 ? ' (còn thiếu mục khác: ' + e2.slice(0, 60) + ')' : ''));
     if (!e2) await tryRpc('app_stc_ds_undone', { p_report: 181 });
+
+    // ---- e. sửa khoản nợ của ca ở bước 1 (thiết kế sua-no-cua-ca): ca 182 — Cô Lan Anh (TM 85.000, chưa trả), Bàn 5 (HĐ), Chị Lan (CK, đã trả)
+    await openCa(182, 1);
+    r = rows().find((x) => txt(x).includes('cô lan anh'));
+    ok(!!r?.querySelector('[data-dedit]'), 'e. khoản nợ tiền mặt chưa trả có nút Sửa / Xoá');
+    ok(!!rowOf('bàn 5') && !rowOf('bàn 5').querySelector('[data-dedit]') && txt(rowOf('bàn 5')).includes('nợ hoá đơn'), 'e. nợ hoá đơn không có nút, ghi rõ "Nợ hoá đơn — số tiền theo ô Nợ bill"');
+    ok(!!rowOf('chị lan') && !rowOf('chị lan').querySelector('[data-dedit]') && txt(rowOf('chị lan')).includes('khách đã trả'), 'e. khoản khách đã trả không có nút, ghi rõ phải Huỷ thu trước');
+    ok(!!$('.stc-dsp [data-dadd="182"]'), 'e. có nút "+ Thêm khoản nợ quên ghi"');
+    // sửa số tiền: thiếu lý do → báo; có lý do → gửi đúng
+    r?.querySelector('[data-dedit]')?.click(); await wait('dialog[open] [name=damt]', 40); await sleep(200);
+    let dg = dlg();
+    ok(!!dg && $('[name=damt]', dg)?.value === '85.000' && $('[name=dkind]', dg)?.value === 'muon' && !!$('.stc-del', dg) && !!$('[data-dexch]', dg), 'e. hộp Sửa: số tiền, loại TM / CK, nút Xoá khoản nợ, nút Đổi thành Luân chuyển');
+    wide('e. hộp sửa khoản nợ');
+    let k3 = (window.__LOG || []).length;
+    type($('[name=damt]', dg), '80.000'); $('button[type=submit]', dg).click(); await sleep(600);
+    ok(calls('app_stc_ca_debt_save', k3).length === 1 && txt($('.stc-err', dlg())).includes('ghi lý do'), 'e. chưa ghi lý do → máy chủ từ chối, hộp báo "Ghi lý do"');
+    k3 = (window.__LOG || []).length;
+    type($('[name=reason]', dlg()), 'NV ghi nhầm số'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] [name=damt]', 40); await redraw();
+    let c3 = calls('app_stc_ca_debt_save', k3);
+    ok(c3.length === 1 && Number(c3[0].args?.p_report) === 182 && Number(c3[0].args?.p_debt) === 702 && c3[0].args?.p?.kind === 'muon' && Number(c3[0].args?.p?.amount) === 80000 && c3[0].args?.p_reason === 'NV ghi nhầm số', 'e. Lưu → gửi đúng ca, đúng khoản, 80.000, lý do');
+    r = rows().find((x) => txt(x).includes('cô lan anh'));
+    ok(!!r && txt(r).includes('80.000') && txt(r).includes('quản lý sửa') && txt(r).includes('85.000 → 80.000') && txt(r).includes('nv ghi nhầm số'), 'e. dòng hiện số mới + "Quản lý sửa · 85.000 → 80.000 · … lý do"');
+    // đổi TM → CK
+    r?.querySelector('[data-dedit]')?.click(); await wait('dialog[open] [name=dkind]', 40); await sleep(200);
+    k3 = (window.__LOG || []).length; type($('[name=dkind]', dlg()), 'ck'); type($('[name=reason]', dlg()), 'Khách hứa chuyển khoản'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] [name=damt]', 40); await redraw();
+    ok(calls('app_stc_ca_debt_save', k3)[0]?.args?.p?.kind === 'ck', 'e. đổi Tiền mặt → Chuyển khoản');
+    // xoá
+    r = rows().find((x) => txt(x).includes('cô lan anh'));
+    r?.querySelector('[data-dedit]')?.click(); await wait('dialog[open] .stc-del', 40); await sleep(200);
+    ok(!$('[data-dexch]', dlg()), 'e. khoản chuyển khoản không có nút Đổi thành Luân chuyển');
+    k3 = (window.__LOG || []).length; type($('[name=reason]', dlg()), 'Không phải nợ'); $('.stc-del', dlg()).click(); await gone('dialog[open] .stc-del', 40); await redraw();
+    ok(calls('app_stc_ca_debt_delete', k3).length === 1 && !rows().some((x) => txt(x).includes('cô lan anh')), 'e. Xoá khoản nợ → gửi xoá, dòng không còn trong Nợ mới');
+    const gone1 = $$('.stc-dsp .stc-cdr[data-t="xoa"]').find((x) => txt(x).includes('cô lan anh'));
+    ok(!!gone1 && txt(gone1).includes('đã xoá') && txt(gone1).includes('không phải nợ'), 'e. khoản đã xoá hiện dòng gạch ngang "Đã xoá · … lý do"');
+    // thêm khoản quên ghi
+    $('.stc-dsp [data-dadd="182"]')?.click(); await wait('dialog[open] [name=dperson]', 40); await sleep(200); dg = dlg();
+    ok(!!dg && !!$('select[name=dperson]', dg) && !!$('[name=dgrp]', dg) && !!$('[name=dnote]', dg), 'e. hộp Thêm: loại, người nợ (ô chọn), nhóm, số tiền, nội dung, lý do');
+    type($('[name=dperson]', dg), 'Kho Tổng'); await sleep(100);
+    ok($('[name=dgrp]', dg)?.value === 'kho', 'e. chọn Kho Tổng → nhóm tự là Nợ kho tổng');
+    k3 = (window.__LOG || []).length;
+    type($('[name=damt]', dg), '30.000'); type($('[name=dnote]', dg), 'mượn tiền lẻ'); type($('[name=reason]', dg), 'NV quên ghi'); $('button[type=submit]', dg).click(); await gone('dialog[open] [name=dperson]', 40); await redraw();
+    c3 = calls('app_stc_ca_debt_save', k3);
+    ok(c3.length === 1 && c3[0].args?.p_debt == null && Number(c3[0].args?.p?.person_id) === 1 && c3[0].args?.p?.grp === 'kho' && Number(c3[0].args?.p?.amount) === 30000 && c3[0].args?.p?.note === 'mượn tiền lẻ', 'e. Thêm → gửi đúng người, nhóm, số tiền, nội dung');
+    r = rows().find((x) => txt(x).includes('kho tổng'));
+    ok(!!r && txt(r).includes('quản lý ghi') && txt(r).includes('30.000'), 'e. khoản vừa thêm hiện với nhãn "Quản lý ghi"');
+    // đổi thành Luân chuyển (khoản TM vừa thêm)
+    r?.querySelector('[data-dedit]')?.click(); await wait('dialog[open] [data-dexch]', 40); await sleep(200);
+    const oldConfirm = window.confirm; window.confirm = () => true;
+    k3 = (window.__LOG || []).length; type($('[name=reason]', dlg()), 'Khách CK rồi rút tiền'); $('[data-dexch]', dlg()).click(); await gone('dialog[open] [data-dexch]', 40); await redraw();
+    window.confirm = oldConfirm;
+    ok(calls('app_stc_ca_debt_to_exchange', k3).length === 1 && !rows().some((x) => txt(x).includes('kho tổng')), 'e. Đổi thành Luân chuyển → gửi đổi, khoản nợ không còn');
+    ok($$('.stc-dsp .stc-cdr[data-t="xoa"]').some((x) => txt(x).includes('kho tổng') && txt(x).includes('luân chuyển')), 'e. hiện dòng "Đã đổi thành Luân chuyển TM – CK"');
+    wide('e. khung nợ sau khi sửa');
+    // dòng khoá "Khách mượn" ở bước 4 chỉ về bước 1 (ca 181 đã xác nhận, đang mở)
+    await openCa(181, 4);
+    const km = $$('.stc-dsp .stc-it').find((x) => txt(x).includes('khách mượn – chị hoa'));
+    ok(!!km && txt(km).includes('sửa ở bước 1') && !!km.querySelector('button[data-dsstep="0"]'), 'e. bước 4: dòng Khách mượn ghi "sửa ở bước 1 · Nợ của ca", chữ "bước 1" bấm được');
+    km?.querySelector('button[data-dsstep="0"]')?.click(); await sleep(400);
+    ok($('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep === '0', 'e. bấm "bước 1" → về bước 1');
+    await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&cot=no');
+    const km2 = $$('#stc-book .stc-it').find((x) => txt(x).includes('khách mượn – chị hoa'));
+    ok(!!km2 && txt(km2).includes('đối soát fabi › bước 1'), 'e. Sổ chi: dòng Khách mượn ghi "sửa ở Đối soát Fabi › bước 1"');
   } catch (e) { bad.push('LỖI CHẠY: ' + (e?.message || e)); }
   out.push({ ds172: { ok: good, fail: bad } });
 };
