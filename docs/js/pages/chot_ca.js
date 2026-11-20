@@ -46,7 +46,7 @@ export function debtSection(DEBT, reps) {
         <span class="nd-n"><b>${d.name}</b> <span class="st-meta">${noKind(d.kind)}</span></span>
         <span class="nd-a">${nf(d.amount)}</span>
         <span class="nd-s">${d.collect_kind === 'gia_dinh' ? '→ Chuyển công nợ gia đình' : d.paid ? `✓ Đã trả ${pk(d.collect_kind)} · ca ${d.paid_shift || ''} ${dmS(d.paid_date)}` : `Chưa trả · ${days(d.day)} ngày`}</span></a>`)}</div>` : ''}
-    <div class="st-meta">Khoản nợ còn từ các tuần trước xem ở Thu chi › Công nợ.</div></section>`;
+    <div class="st-meta">Khoản nợ còn từ các tuần trước: quản lý xem ở Quản lý ca › Công nợ.</div></section>`;
 }
 export const ND_CSS = html`<style>
   .nl { display: block; font-size: 12.5px; font-weight: 700; border-radius: 6px; padding: 2px 6px; margin-top: 3px; line-height: 1.4; overflow-wrap: anywhere; }

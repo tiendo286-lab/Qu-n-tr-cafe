@@ -26,7 +26,7 @@ function caBlock(T, can) {
       return html`<div class="hn-ca">
         <div class="grow"><strong>Ca ${c.shift} · ${c.branch}</strong>
           <div class="sub">${c.start ? `${c.start}–${c.end || ''}` : 'Chưa cài giờ'}${c.role ? ' · ' + c.role : ''} · ${st}</div></div>
-        ${can('chot_ca') ? html`<a class="btn sm" style="white-space:nowrap" href="#/ca">Mở ca</a>` : ''}</div>`;
+        ${can('chot_ca') ? html`<a class="btn sm" style="white-space:nowrap" href="#/ca">${!c.report_id ? 'Chốt ca' : c.report_status === 'hoan_thanh' ? 'Xem phiếu' : 'Chốt tiếp'}</a>` : ''}</div>`;
     });
   }
   return html`<section id="hn-ca" class="card stack" style="gap:8px"><h2 style="margin:0">Ca của tôi hôm nay</h2>${body}</section>`;

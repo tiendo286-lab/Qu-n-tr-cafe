@@ -16,7 +16,7 @@ export default async ({ visit, settle, sleep, out }) => {
     await step('NV bấm Tôi đã đọc', async () => { $('.read-btn').click(); await sleep(400); await settle(); return txt('.doc-card summary') + ' | ' + txt('.doc-card .alert'); });
     await step('NV xem quy trình, training và đánh giá', async () => {
       await go('#/quy-trinh'); const group = txt('.procedure-card'); $('.procedure-card').click(); await sleep(400); await settle();
-      if (!txt('.qt-my-status').includes('Training chạy bàn') || !txt('.qt-my-status').includes('Đánh giá chạy bàn')) throw new Error('Thiếu trạng thái training / đánh giá');
+      if (!txt('.qt-my-status').includes('Đào tạo chạy bàn') || !txt('.qt-my-status').includes('Đánh giá chạy bàn')) throw new Error('Thiếu trạng thái training / đánh giá');
       if (!$('.qt-index-link') || !$('.qt-doc-card')) throw new Error('Thiếu mục lục hoặc bài quy trình');
       return group + ' | ' + txt('.qt-my-status') + ' | nút sửa: ' + $$('a[href^="#/tai-lieu/soan"]').length;
     });

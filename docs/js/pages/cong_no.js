@@ -109,7 +109,7 @@ export async function render(ctx) {
         ${lateP.length ? html`<a class="cn-latebox ${onlyLate ? 'on' : ''}" href="${q({ qua: onlyLate ? '' : '1' })}">⚠ Khách nợ quá ${LATE} ngày: <b>${lateP.length} khách · ${fmt(lateP.reduce((t, p) => t + p.open.filter(late).reduce((s, r) => s + Number(r.amount), 0), 0))}</b> ${onlyLate ? '— bấm để xem tất cả' : '— bấm để lọc'}</a>` : html`<div class="st-meta">Không có khách nợ quá ${LATE} ngày.</div>`}
         <input class="input" id="cn-find" type="search" placeholder="Tìm tên / số điện thoại…" autocomplete="off"></section>
       ${['khach', 'kho', 'khac'].filter((g) => !gOn || g === gOn).map(group)}
-      <div class="st-meta">Khách trả trong ca: nhân viên chọn ở phiếu chốt ca (chỉ Nợ khách hàng). Trả ngoài ca: bấm vào người → <b>Đã thu</b> (Sổ quỹ cộng vào). Khoản chi của ca thành nợ: Đối soát ca › Thu chi › <b>Thành nợ</b>.</div></div>`,
+      <div class="st-meta">Khách trả trong ca: nhân viên chọn ở phiếu chốt ca (chỉ Nợ khách hàng). Trả ngoài ca: bấm vào người → <b>Đã thu</b> (Sổ thu chi cộng vào). Khoản chi của ca thành nợ: Đối soát ca › Thu chi › <b>Thành nợ</b>.</div></div>`,
     mount() {
       $('#cn-find').addEventListener('input', (e) => { const s = e.target.value.trim().toLowerCase();
         $$('.cn-p').forEach((x) => { x.hidden = !!s && !x.dataset.s.includes(s); }); });
@@ -122,7 +122,7 @@ export async function render(ctx) {
   function namesOf(g) { return [...new Set(P.filter((p) => p.grp === g).map((p) => p.name))]; }
   function bindUnthu() {
     $$('.cn-unthu').forEach((b) => b.addEventListener('click', async () => {
-      if (!confirm('Bỏ lần thu này? Khoản nợ quay lại "chưa trả", Sổ quỹ bỏ khoản thu.')) return;
+      if (!confirm('Bỏ lần thu này? Khoản nợ quay lại "chưa trả", Sổ thu chi bỏ khoản thu.')) return;
       b.disabled = true;
       try { await rpc('app_cn_debt_uncollect', { p_id: Number(b.dataset.id) }); flash('Đã bỏ lần thu.'); rerender(); } catch (e) { b.disabled = false; alert(e.message); }
     }));
@@ -138,7 +138,7 @@ export async function render(ctx) {
       <label class="field"><span>Số tiền nợ</span><input class="input money" name="amount" inputmode="numeric" autocomplete="off"></label>
       <label class="field"><span>Ngày nợ</span><input class="input" type="date" name="date" value="${today}" max="${today}"></label>
       <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" placeholder="vd: trả hộ tiền sữa, hẹn trả cuối tuần"></label>
-      <label class="cn-fo"><input type="checkbox" name="fund_out"> <span>Tiền đưa từ <b>quỹ</b> (Nợ TM / Nợ CK) — Sổ quỹ trừ ra</span></label>
+      <label class="cn-fo"><input type="checkbox" name="fund_out"> <span>Tiền đưa từ <b>quỹ</b> (Nợ TM / Nợ CK) — Sổ thu chi trừ ra</span></label>
       <div class="cn-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Ghi nợ</button></div></form>`);
     bindMoneyInputs(dl); const f = dl.querySelector('form');
@@ -159,7 +159,7 @@ export async function render(ctx) {
   function collect(p) {
     const dl = dialog(html`<form class="stack cn-dlg" style="gap:12px"><h2 style="margin:0">Đã thu — ${p.name}</h2>
       <div>Còn nợ <b>${vnd(p.owe)}</b> · ${p.open.length} khoản</div>
-      <div class="st-meta">Web trừ dần từ <b>khoản cũ nhất</b>, mỗi khoản trả đủ một lần. Đưa thiếu thì khoản cuối ghi trả đủ, phần còn thiếu thành <b>nợ mới</b> (tiền đưa từ quỹ). Sổ quỹ cộng khoản thu vào.</div>
+      <div class="st-meta">Web trừ dần từ <b>khoản cũ nhất</b>, mỗi khoản trả đủ một lần. Đưa thiếu thì khoản cuối ghi trả đủ, phần còn thiếu thành <b>nợ mới</b> (tiền đưa từ quỹ). Sổ thu chi cộng khoản thu vào.</div>
       <label class="field"><span>Số tiền người đó trả</span><input class="input money" name="amount" inputmode="numeric" autocomplete="off" value="${fmt(p.owe)}"></label>
       <div class="pc-line" role="radiogroup" aria-label="Hình thức"><label class="radio-pill"><input type="radio" name="pay" value="tien_mat" checked> Tiền mặt</label><label class="radio-pill"><input type="radio" name="pay" value="chuyen_khoan"> Chuyển khoản</label></div>
       <label class="field"><span>Ngày thu</span><input class="input" type="date" name="date" value="${today}" max="${today}"></label>

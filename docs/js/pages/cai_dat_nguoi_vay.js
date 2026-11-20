@@ -27,7 +27,7 @@ export async function render() {
         ${ed ? html`<section class="card stack" style="gap:8px"><h2 style="margin:0">Thêm người vay</h2>
           <div class="lp-add"><input class="input sm" id="lp-nn" placeholder="Tên người vay" autocomplete="off"><input class="input sm" id="lp-np" placeholder="Số điện thoại" autocomplete="off">
             <input class="input sm" id="lp-nt" placeholder="Ghi chú (vd: nhà cung cấp đá)" autocomplete="off"><button type="button" class="btn sm" id="lp-add">+ Thêm</button></div>
-          <label class="lp-fam"><input type="checkbox" id="lp-nf"> <span><b>Công nợ gia đình</b> <span class="st-meta">— cuối tháng mới thu, không nhắc khi chốt ca. Quản lý chuyển được Nợ TM / Nợ HĐ của ca sang người này (Thu chi › Công nợ).</span></span></label></section>` : ''}
+          <label class="lp-fam"><input type="checkbox" id="lp-nf"> <span><b>Công nợ gia đình</b> <span class="st-meta">— cuối tháng mới thu, không nhắc khi chốt ca. Quản lý chuyển được Nợ TM / Nợ HĐ của ca sang người này (Quản lý ca › Công nợ).</span></span></label></section>` : ''}
         <section class="card stack" style="gap:4px"><h2 style="margin:0">Danh sách (${D.people.length})</h2>
           ${D.people.length ? D.people.map(row) : html`<div class="st-meta">Chưa có người vay nào.</div>`}
           ${ed && D.people.length ? html`<div style="margin-top:8px"><button type="button" class="btn" id="lp-save">Lưu thay đổi</button></div>` : ''}</section>
