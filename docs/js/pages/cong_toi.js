@@ -3,7 +3,7 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, flash, go, html, showSaved } from '../ui.js';
-import { KA_STYLE, bindKa, kaCard } from './khoan_am_toi.js?v=2026.11.21.4';
+import { KA_STYLE, bindKa, kaCard } from './khoan_am_toi.js?v=2026.11.21.5';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
 
