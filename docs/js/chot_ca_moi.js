@@ -1,12 +1,12 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
 import { render as rerender, can } from './app.js';
-import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.20.6';
+import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.21.2';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, raw, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from './ca_chung.js?v=2026.11.20.6';
+import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from './ca_chung.js?v=2026.11.21.2';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -317,7 +317,7 @@ export async function renderNew(R0, P, SH) {
     const c = money();
     return html`${[['tien_mat', 'Tiền mặt', c.tmLeft], ['chuyen_khoan', 'Chuyển khoản', c.ckLeft]].filter(([, , g]) => g != null && g !== 0).map(([item, label, gap]) => {
       const choice = V.gaps[item]?.expected === gap ? V.gaps[item].action : 'sau';
-      return html`<section class="sc-block"><h2>Xử lý lệch · ${label}</h2><strong>${signed(gap)}đ</strong><label>Cách xử lý<select class="input" data-gap-action="${item}">${[['sau','Để sau — theo dõi tại Lệch tiền ca'],['qc',gap < 0 ? 'Quán chịu (Chủ / Quản lý tổng)' : 'Ghi thu khác (quán giữ)'],...(gap < 0 ? [['chia','Chia đều tất cả người có làm ca — trừ lương']] : [])].map(([k,label]) => html`<option value="${k}" ${choice === k ? 'selected' : ''}>${label}</option>`)}</select></label><span class="st-meta">${choice === 'chia' ? 'Khoản thiếu sẽ chia cho: ' + V.staff.filter(s => s.worked).map(s => s.name).join(', ') + '. Mỗi người được báo khoản trừ lương khi gửi.' : 'Ca vẫn hoàn thành đối soát; khoản để sau được giữ riêng để xử lý.'}</span></section>`;
+      return html`<section class="sc-block"><h2>Xử lý lệch · ${label}</h2><strong>${signed(gap)}đ</strong><label>Cách xử lý<select class="input" data-gap-action="${item}">${[['sau','Để sau — xử lý ở Sổ thu chi › Đối soát Fabi'],['qc',gap < 0 ? 'Quán chịu (Chủ / Quản lý tổng)' : 'Ghi thu khác (quán giữ)'],...(gap < 0 ? [['chia','Chia đều tất cả người có làm ca — trừ lương']] : [])].map(([k,label]) => html`<option value="${k}" ${choice === k ? 'selected' : ''}>${label}</option>`)}</select></label><span class="st-meta">${choice === 'chia' ? 'Khoản thiếu sẽ chia cho: ' + V.staff.filter(s => s.worked).map(s => s.name).join(', ') + '. Mỗi người được báo khoản trừ lương khi gửi.' : 'Ca vẫn hoàn thành đối soát; khoản để sau được giữ riêng để xử lý.'}</span></section>`;
     })}`;
   }
   B[10] = () => html`<section class="sc-block"><h2>Nghỉ & làm thay</h2>${V.staff.filter((s) => !s.worked || s.source !== 'lich').map((s) => html`<div class="cm-person"><strong>${s.code} – ${s.name}</strong><span>${s.worked ? 'Làm hộ / hỗ trợ' : 'Nghỉ: ' + (s.absent_reason || 'chưa ghi lý do')}</span>${s.worked ? html`<span>${s.time_in || '—'} → ${s.time_out || '—'}</span>` : ''}</div>`)}<div class="alert info">Quản lý tổng phân loại và Chủ duyệt trong Công việc.${managerClose ? ' Việc này không chặn hoàn thành ca do quản lý tự chốt.' : ''}</div>${CV_CSS}<section class="stack" id="cm-cv" hidden></section></section>`;

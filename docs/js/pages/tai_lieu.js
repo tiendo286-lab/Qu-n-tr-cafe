@@ -18,7 +18,7 @@ const articleSearch = (d) => {
 
 const TRAINING_LABEL = {
   hoan_thanh: ['Đã hoàn thành', 'ok'],
-  dang_dao_tao: ['Đang training', 'info'],
+  dang_dao_tao: ['Đang đào tạo', 'info'],
   dao_tao_tiep: ['Đào tạo tiếp', 'warn'],
   dao_tao_bo_sung: ['Đang đào tạo giai đoạn 2', 'warn'],
   cho_nhan_xet: ['Chờ nhận xét cuối', 'info'],
@@ -52,10 +52,10 @@ export async function render({ params, me }) {
   const isWaitstaff = !!training || evaluation?.set_code === 'cb';
   const latestEval = evaluation?.marks?.slice().sort((a, b) => String(b.date).localeCompare(String(a.date)))[0] || null;
   const evalRating = evaluation?.set_code === 'cb' && evaluation.score !== null ? rating(evaluation.score) : null;
-  const personalStatus = (isProcedure ? isWaitstaff : me.employee_id) ? html`<section class="qt-my-status card" aria-label="Trạng thái training và đánh giá của tôi">
+  const personalStatus = (isProcedure ? isWaitstaff : me.employee_id) ? html`<section class="qt-my-status card" aria-label="Trạng thái đào tạo và đánh giá của tôi">
       <div class="qt-status-title">TRẠNG THÁI CỦA TÔI</div>
-      <div class="qt-status-item"><span class="qt-status-icon" aria-hidden="true">◇</span><div><strong>${isProcedure ? 'Training chạy bàn' : 'Training công việc'}</strong><small>${training ? `${training.achieved}/${training.total} hạng mục đạt` : 'Chưa có phiếu đào tạo'}</small></div>
-        ${training ? html`<span class="pill ${TRAINING_LABEL[training.status]?.[1] || 'mute'}">${TRAINING_LABEL[training.status]?.[0] || 'Chưa bắt đầu'}</span>` : html`<span class="pill mute">Chưa training</span>`}</div>
+      <div class="qt-status-item"><span class="qt-status-icon" aria-hidden="true">◇</span><div><strong>${isProcedure ? 'Đào tạo chạy bàn' : 'Đào tạo công việc'}</strong><small>${training ? `${training.achieved}/${training.total} hạng mục đạt` : 'Chưa có phiếu đào tạo'}</small></div>
+        ${training ? html`<span class="pill ${TRAINING_LABEL[training.status]?.[1] || 'mute'}">${TRAINING_LABEL[training.status]?.[0] || 'Chưa bắt đầu'}</span>` : html`<span class="pill mute">Chưa đào tạo</span>`}</div>
       <div class="qt-status-item"><span class="qt-status-icon" aria-hidden="true">✓</span><div><strong>${isProcedure ? 'Đánh giá chạy bàn tháng này' : 'Đánh giá công việc tháng này'}</strong><small>${latestEval ? `Gần nhất ${dmy(latestEval.date)}` : 'Chưa có lần trừ điểm hoặc nhắc nhở'}</small></div>
         ${evalRating ? html`<span class="pill ${evalRating[2]}">${evaluation.score}/100 · ${evalRating[1]}</span>` : html`<span class="pill mute">Chưa đánh giá</span>`}</div>
       <div class="qt-status-links">${training ? html`<a href="#/dao-tao/phieu?id=${training.id}">Xem phiếu đào tạo →</a>` : ''}${evaluation?.set_code === 'cb' ? html`<a href="#/cua-toi/danh-gia">Xem điểm đánh giá →</a>` : ''}</div>

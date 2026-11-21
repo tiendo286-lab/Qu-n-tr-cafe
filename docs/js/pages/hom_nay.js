@@ -5,9 +5,9 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, $$, ROLE_LABELS, html, raw, str } from '../ui.js';
-import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.20.6';
-import { collectWork } from '../hom_nay_viec.js?v=2026.11.20.6';
-import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.20.6';
+import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.21.2';
+import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.21.2';
+import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.21.2';
 import { KA_STATUS } from './phieu_ca.js';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
@@ -26,7 +26,7 @@ function caBlock(T, can) {
       return html`<div class="hn-ca">
         <div class="grow"><strong>Ca ${c.shift} · ${c.branch}</strong>
           <div class="sub">${c.start ? `${c.start}–${c.end || ''}` : 'Chưa cài giờ'}${c.role ? ' · ' + c.role : ''} · ${st}</div></div>
-        ${can('chot_ca') ? html`<a class="btn sm" style="white-space:nowrap" href="#/ca">Mở ca</a>` : ''}</div>`;
+        ${can('chot_ca') ? html`<a class="btn sm" style="white-space:nowrap" href="#/ca">${!c.report_id ? 'Chốt ca' : c.report_status === 'hoan_thanh' ? 'Xem phiếu' : 'Chốt tiếp'}</a>` : ''}</div>`;
     });
   }
   return html`<section id="hn-ca" class="card stack" style="gap:8px"><h2 style="margin:0">Ca của tôi hôm nay</h2>${body}</section>`;
@@ -43,7 +43,9 @@ function saveOpen(me, o) { try { localStorage.setItem(openKey(me), JSON.stringif
 
 const flagsHtml = (c) => html`<span class="hn-flags">${c.review ? html`<span class="pill hn-p-review">${c.review} cần kiểm tra</span>` : ''}${c.redo ? html`<span class="pill hn-p-redo">${c.redo} làm lại</span>` : ''}${c.gap ? html`<span class="pill hn-p-gap">${c.gap} gấp</span>` : ''}${c.late ? html`<span class="pill hn-p-late">${c.late} quá hạn</span>` : ''}${c.today ? html`<span class="pill hn-p-today">${c.today} hôm nay</span>` : ''}${!c.review && !c.late && !c.today && c.waiting ? html`<span class="pill mute">${c.waiting} đang chờ</span>` : ''}</span>`;
 const whoHtml = (w) => html`<span class="hn-who ${w.none ? 'none' : w.mine ? '' : 'other'}">Người làm: ${w.text}</span>`;
-const dueHtml = (d) => (d ? html`<span class="hn-due">${dmy(d.slice(0, 10))} ${d.slice(11, 16) === '23:59' ? '' : d.slice(11, 16)}</span>` : '');
+let NOW = '';   // giờ máy chủ lúc tải trang — để ghi hạn theo kiểu còn bao lâu / trễ bao lâu (rà soát 20/11)
+const dueFull = (d) => `${dmy(d.slice(0, 10))} ${d.slice(11, 16) === '23:59' ? '' : d.slice(11, 16)}`.trim();
+const dueHtml = (d) => (d ? html`<span class="hn-due" title="Hạn ${dueFull(d)}">${dueText(d, NOW) || dueFull(d)}</span>` : '');
 const rowCls = (i) => (i.review ? 'review' : i.redo ? 'redo' : i.group);
 const tagHtml = (tag, title) => (tag && !String(title || '').startsWith(tag) ? html`<span class="hn-tag">${tag}</span>` : '');   // nhãn trùng tên việc thì bỏ
 function rowHtml(i) {
@@ -54,7 +56,7 @@ function rowHtml(i) {
     ${dueHtml(i.due)}<i>›</i></a>`;
 }
 function bundleWho(kids) {
-  const names = [...new Set(kids.flatMap((k) => k.who.text.replace(' (ai làm trước cũng được)', '').split(' + ')))];
+  const names = [...new Set(kids.flatMap((k) => k.who.text.replace(' (ai làm cũng được)', '').split(' + ')))];
   return { text: names.length > 3 ? names.slice(0, 3).join(', ') + ` +${names.length - 3}` : names.join(', '), mine: kids.some((k) => k.who.mine), none: kids.every((k) => k.who.none) };
 }
 function bundleHtml(b, key, open) {
@@ -163,6 +165,7 @@ export async function render({ me, can }) {
   if (pcAll) learnJobs(pcAll.tasks);
   const H = { jobName, pcDue, gvDue, rstate, curStep };
   const now = T?.now || pc?.now || new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 19).replace('T', ' ');
+  NOW = now;
   const W = collectWork({ now, pc, training, ka, todo: todo ? todo.items || [] : null, today: T, more }, H);
   const today0 = T?.today || now.slice(0, 10);
   const V = { W, E: isChu ? everyoneWork(pcAll, dtAll, me.account_id, H) : null, done: more ? doneRows(more.done_today, today0, me.account_id) : null, isChu, me };
@@ -179,6 +182,9 @@ export async function render({ me, can }) {
         .hn-row.late { border-left-color: #dc2626; } .hn-row.today { border-left-color: #f59e0b; } .hn-row.soon { border-left-color: #2563eb; } .hn-row.waiting { border-left-color: #94a3b8; }
         .hn-row .grow, .hn-ca .grow { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; } .hn-row i { font-style: normal; color: var(--muted); font-size: 20px; }
         .hn-due { font-size: 13px; color: var(--ink-2); white-space: nowrap; } .hn-row.late .hn-due { color: #b91c1c; font-weight: 600; }
+        /* rà soát 20/11: trên điện thoại hạn xuống dòng dưới, tên việc chiếm hết bề ngang */
+        @media (max-width: 600px) { .hn-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; column-gap: 8px; row-gap: 2px; } .hn-row > .grow { grid-column: 1; grid-row: 1; } .hn-row > i { grid-column: 2; grid-row: 1 / span 2; } .hn-row > .hn-due { grid-column: 1; grid-row: 2; }
+          .hn-row.hn-bh { grid-template-columns: auto minmax(0, 1fr); } .hn-row.hn-bh > .hn-chev { grid-column: 1; grid-row: 1; } .hn-row.hn-bh > .grow { grid-column: 2; } .hn-row.hn-bh > .hn-due { grid-column: 2; } }
         .hn-top { display: flex; gap: 8px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
         .hn-link { border: 0; background: none; color: var(--primary); font-weight: 600; font-size: 13px; cursor: pointer; padding: 4px 2px; font-family: inherit; }
         .hn-grp { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: var(--card); }

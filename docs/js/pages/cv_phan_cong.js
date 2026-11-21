@@ -1,8 +1,8 @@
 // Bước 109 — Bảng phân công: mỗi việc × mỗi cơ sở ai làm, hạn bao lâu, mấy bước, mức phạt. Chỉ tài khoản Chủ sửa; Quản lý tổng xem.
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, str } from '../ui.js';
-import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.20.6';
-import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.20.6';
+import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.21.2';
+import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.21.2';
 
 export const perm = 'phan_cong';
 const FROM = {
@@ -74,7 +74,7 @@ export async function render() {
           ${CU.length ? '' : html`<tr><td colspan="${D.branches.length + 3}" class="pc-sub">Chưa có việc tự thêm.</td></tr>`}</tbody></table></div>
       <div class="pb-mcs">${mcards}<div class="pc-sec pc-cat">Việc tự thêm</div>${cuCards}${CU.length ? '' : html`<div class="pc-sub">Chưa có việc tự thêm.</div>`}</div>
       <div class="pv-addbar">${ed ? html`<button type="button" class="btn" id="pv-add">+ Thêm việc</button>` : ''}<span class="pc-sub">Việc lặp lại anh tự đặt: vệ sinh máy, kiểm kho, lau kính… Mỗi cơ sở chọn người làm, ngày làm, hạn, mức phạt riêng.</span></div>
-      <div class="pb-set"><div class="card"><h3 style="margin:0">Không tạo việc (để biết)</h3><div class="pc-sub" style="line-height:1.7">5 · Phiếu chi chuyển khoản — làm luôn trong Đối soát ca.<br>6 · Kiểm đếm tiền mặt cuối ngày — không hạn; lệch chuyển sang Lệch tiền ca (đợt 3).<br>9 · Khách nợ — luôn hiện đầu "Việc của tôi" cho người đối soát ca, tới khi khách trả.<br>15, 21, 22 · Bỏ / giữ như hiện nay.</div></div>
+      <div class="pb-set"><div class="card"><h3 style="margin:0">Không tạo việc (để biết)</h3><div class="pc-sub" style="line-height:1.7">5 · Phiếu chi chuyển khoản — làm luôn trong Đối soát ca.<br>6 · Kiểm đếm tiền mặt cuối ngày — không hạn; lệch xử lý ở Sổ thu chi › Đối soát Fabi.<br>9 · Khách nợ — luôn hiện đầu "Việc của tôi" cho người đối soát ca, tới khi khách trả.<br>15, 21, 22 · Bỏ / giữ như hiện nay.</div></div>
         <div class="card"><h3 style="margin:0">Đợt sau</h3><div class="pc-sub" style="line-height:1.7"><b>Đợt 2:</b> quản lý chỉ thấy cơ sở mình được phân công (máy chủ chặn), Quản lý tổng thấy hết.<br><b>Đợt 3:</b> 16 Xếp lịch tuần · 17 Bảng công · 18 Đào tạo · 19 Nội quy · 20 Cam kết · 23 Hỗ trợ nhân viên.</div></div></div>`;
   };
   return {

@@ -6,7 +6,7 @@ import { $, html } from './ui.js';
 const EXTENSION = 'jeipbpnccocfgojbjdfabkbdeiknfeba';
 export function syncPanel() {
   return html`<section class="card fb-sync" aria-labelledby="fb-sync-title">
-    <div class="fb-sync-head"><div><div class="fb-eyebrow">TỰ LẤY FILE C02</div><h2 id="fb-sync-title">Đồng bộ từ Fabi</h2>
+    <div class="fb-sync-head"><div><div class="fb-eyebrow">TỰ LẤY FILE CA TỪ FABI</div><h2 id="fb-sync-title">Đồng bộ từ Fabi</h2>
       <p class="st-meta">Hôm qua · ${dmy(addDays(vnToday(), -1))} · cả 4 cơ sở</p></div><span class="pill mute" id="fb-sync-badge">Đang kết nối…</span></div>
     <p id="fb-sync-state" role="status">Đang kiểm tra tiện ích trên Chrome này…</p>
     <div id="fb-sync-progress" class="fb-progress" hidden><progress max="1" value="0"></progress><span></span></div>

@@ -4,19 +4,19 @@ import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.20.6';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.21.2';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.20.6';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.20.6';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.21.2';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.21.2';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.20.6';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.21.2';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -560,7 +560,7 @@ export async function render({ params }) {
   const caTime = isDs ? html`<section class="card stack pc-sec" style="gap:6px"><div class="ca-time">Giờ doanh thu <strong>${hm(R.rev_start)} → ${hm(R.rev_end)}</strong> ${(R.checks || {}).thoi_gian ? html`<span class="pill ok">✓ đã đối soát</span>` : timeOk ? html`<span class="pill ok">✓</span>` : html`<span class="pill off">chưa đúng — sửa ở mục 1 bên dưới</span>`}</div>
     <div class="st-meta">So số nhân viên ghi với phiếu Fabi (ảnh, file Fabi kế toán tải). Sai thì sửa ngay ở các ô dưới — ghi lý do ở cuối trang.</div></section>` : '';
   const secTc = isDs ? html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Thu chi của ca</h2><div class="rc-chips">${chip('thu_chi')}</div></div>
-    <div class="st-meta">Chọn <b>nhóm</b> cho từng khoản (vào Sổ quỹ / báo cáo); khoản quản lý rút thì chọn "Không tính". Chi lương tiền mặt chọn nhóm Lương, <b>gán cho nhân viên</b> nếu muốn Bảng công ghi đã trả.</div>
+    <div class="st-meta">Chọn <b>nhóm</b> cho từng khoản (vào Sổ thu chi / báo cáo); khoản quản lý rút thì chọn "Không tính". Chi lương tiền mặt chọn nhóm Lương, <b>gán cho nhân viên</b> nếu muốn Bảng công ghi đã trả.</div>
     <div id="ds-tc"><div class="st-meta">Đang tải…</div></div></section>` : '';
   const secThuc = isDs ? html`<section class="card stack pc-sec ca-sec" style="gap:10px"><div class="pc-sec-head"><h2>Tiền thực nhận</h2><div class="rc-chips">${chip('tien_mat')}${chip('chuyen_khoan')}</div></div>
     <div class="st-meta">So <b>tiền phải có</b> với <b>tiền thực nhận</b>: chuyển khoản theo sao kê ngân hàng (kế toán nhập), tiền mặt theo số đếm. Lệch thì xử lý ở bước cuối.</div>
@@ -1426,9 +1426,9 @@ function mount(R, ed, C0, ctx = {}) {
         <label class="pc-f"><span>Lý do (bắt buộc)</span><input class="input" name="why" value="${cur?.reason || ''}" placeholder="vd: thiếu tiền két, chưa rõ nguyên nhân" autocomplete="off"></label>
       </div>
       ${MONEY_DEFER ? html`<div class="rs-who" ${sug === 'thieu' ? '' : 'hidden'}><div class="pc-line" role="radiogroup" aria-label="Xử lý khoản thiếu">
-          <label class="radio-pill"><input type="radio" name="who" value="tab" ${had.length ? '' : 'checked'}> ${item === 'chuyen_khoan' ? 'Chờ tiền về' : 'Để tab Lệch tiền ca xử lý'}</label>
+          <label class="radio-pill"><input type="radio" name="who" value="tab" ${had.length ? '' : 'checked'}> ${item === 'chuyen_khoan' ? 'Chờ tiền về' : 'Để Đối soát Fabi xử lý'}</label>
           <label class="radio-pill"><input type="radio" name="who" value="now" ${had.length ? 'checked' : ''}> Chọn người chịu ngay</label></div>
-        <div class="st-meta">${item === 'chuyen_khoan' ? 'Khách chuyển khoản có thể về hôm sau: ca vẫn hoàn thành đối soát, chưa báo nhân viên. Xử lý (ghép tiền về / trừ lương / quán chịu) ở Quản lý ca › Lệch tiền ca.' : 'Ca vẫn hoàn thành đối soát, chưa báo nhân viên. Chọn người chịu / quán chịu ở Quản lý ca › Lệch tiền ca.'}</div></div>` : ''}
+        <div class="st-meta">${item === 'chuyen_khoan' ? 'Khách chuyển khoản có thể về hôm sau: ca vẫn hoàn thành đối soát, chưa báo nhân viên. Xử lý (ghép tiền về / trừ lương / quán chịu) ở Sổ thu chi › Đối soát Fabi.' : 'Ca vẫn hoàn thành đối soát, chưa báo nhân viên. Chọn người chịu / quán chịu ở Sổ thu chi › Đối soát Fabi.'}</div></div>` : ''}
       <div class="rs-people" ${sug === 'thieu' && (!MONEY_DEFER || had.length) ? '' : 'hidden'}>
         <div class="pc-sub">NHÂN VIÊN CHỊU KHOẢN THIẾU <span class="st-meta">— web chia đều cho người được tích (sửa được số từng người); mặc định ghi <strong>TRỪ LƯƠNG</strong>, mỗi người nhận thông báo</span></div>
         ${staff.length ? staff.map((p) => { const h = had.find((k) => k.employee_id === p.id); return html`<div class="pc-line rs-p" data-emp="${p.id}"><label class="grow" style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${h ? 'checked' : ''}> ${p.name}</label>
@@ -1551,7 +1551,7 @@ function mount(R, ed, C0, ctx = {}) {
   // bước 74: Ghi nhận nợ ở đối soát — số tiền ca không đổi; nợ vào Công nợ; khách trả ở ca sau thì tự bù ca này
   $('#rd-add')?.addEventListener('click', () => {
     const d = dialog(html`<form class="stack" style="gap:12px;max-width:460px"><h2 style="margin:0">Ghi nhận nợ · ca ${R.shift} ${dmy(R.work_date)}</h2>
-      <div class="st-meta">Khách nợ nhưng nhân viên đã bấm thanh toán trên Fabi. Số tiền của ca <b>không đổi</b> (ca hiện thiếu khoản này — tab Lệch tiền ca ghi "Chờ khách trả nợ"). Khoản nợ vào Công nợ và nhắc ở các ca sau; khách trả ở ca sau thì web tự bù cho ca này.</div>
+      <div class="st-meta">Khách nợ nhưng nhân viên đã bấm thanh toán trên Fabi. Số tiền của ca <b>không đổi</b> (ca hiện thiếu khoản này — Đối soát Fabi ghi ca còn lệch, chờ khách trả nợ). Khoản nợ vào Công nợ và nhắc ở các ca sau; khách trả ở ca sau thì web tự bù cho ca này.</div>
       <div class="pc-line" role="radiogroup" aria-label="Nhân viên đã bấm"><label class="radio-pill"><input type="radio" name="it" value="chuyen_khoan" checked> NV bấm Chuyển khoản</label><label class="radio-pill"><input type="radio" name="it" value="tien_mat"> NV bấm Tiền mặt</label></div>
       <label class="field"><span>Tên người nợ</span><input class="input" name="nm" autocomplete="off" placeholder="vd: Chị Hoa (tên đã có trong danh sách người nợ)"></label>
       <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>

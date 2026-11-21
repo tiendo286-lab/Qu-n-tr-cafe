@@ -79,7 +79,7 @@ export async function render({ me, params }) {
         }
         const lines = changes.flatMap((n) => (n.body || '').split('\n').filter(Boolean));
         if (unread.length && !state.me?.view_as) rpc('app_notifications_read_link', { p_link: link }).catch(() => {});   // bước 165: đang xem như thì không đánh dấu đã đọc hộ
-        body = html`${weeknav('/lich?tab=cua-toi&', week, prev, next, editing ? 'Đang chỉnh sửa · bản đã chốt gần nhất' : `Đã chốt · ${rows.length} ca`)}
+        body = html`${weeknav('/lich?tab=cua-toi&', week, prev, next, editing ? 'Lịch đã chốt · quản lý đang sửa lại' : `Đã chốt · ${rows.length} ca`)}
           ${changes.length ? html`<div class="upd-banner" role="status">Lịch tuần này vừa được cập nhật ${when(changes[changes.length - 1].created_at).toLowerCase()}: <strong>${lines.length} thay đổi</strong>, ca bị đổi hoặc thêm được đánh dấu “Mới cập nhật” bên dưới.
             ${lines.map((l) => html`<div class="bl">${l}</div>`)}</div>` : ''}
           ${weekDays(week.start_date).map((d) => html`<section class="dcard ${d.iso === vnToday() ? 'today' : ''} ${d.index === focusDay ? 'sel' : ''}"><div class="dl">${d.name} · ${d.date}${d.iso === vnToday() ? html` <span class="chip-today">Hôm nay</span>` : ''}</div>
@@ -111,7 +111,7 @@ export async function render({ me, params }) {
           .sort((a, b) => (roleOrder.get(a.role) ?? 99) - (roleOrder.get(b.role) ?? 99) || RANKS.indexOf(b.e.rank) - RANKS.indexOf(a.e.rank) || String(a.e.name).localeCompare(String(b.e.name), 'vi')),
       }));
       const base = `/lich?tab=co-so&cn=${branch.id}&ngay=${ngay}&`;
-      body = html`${weeknav(base, week, prev, next, editing ? 'Đang chỉnh sửa · bản đã chốt gần nhất' : 'Đã chốt')}
+      body = html`${weeknav(base, week, prev, next, editing ? 'Lịch đã chốt · quản lý đang sửa lại' : 'Đã chốt')}
         <div class="grid4 grid-cn" role="group" aria-label="Chi nhánh">${branches.map((b) => html`<a class="pick ${b.id === branch.id ? 'on' : ''}" href="#/lich?tab=co-so&tuan=${week.start_date}&cn=${b.id}&ngay=${ngay}">${b.code}</a>`)}</div>
         <div class="grid7" role="group" aria-label="Ngày">${WD_SHORT.map((w, i) => html`<a class="dpick ${i === ngay ? 'on' : ''}" href="#/lich?tab=co-so&tuan=${week.start_date}&cn=${branch.id}&ngay=${i}"><b>${w}</b><span>${dm(addDays(week.start_date, i))}</span></a>`)}</div>
         <div style="font-size:16px;font-weight:700">${branch.code} – ${branch.name} · ${WEEKDAYS[ngay]} ${dm(addDays(week.start_date, ngay))}</div>

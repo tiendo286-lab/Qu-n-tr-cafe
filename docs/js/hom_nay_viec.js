@@ -34,6 +34,25 @@ function groupOf(item, now) {
   if (item.due.slice(0, 10) === now.slice(0, 10)) return 'today';
   return ms(item.due) - ms(now) <= SOON_MS ? 'soon' : 'later';
 }
+// Rà soát 20/11: hạn ghi theo kiểu "còn 3 giờ" / "trễ 2 giờ" cho đỡ nhẩm. Hạn chỉ có ngày (23:59) → hôm nay / ngày mai / ngày tháng.
+export function dueText(due, now) {
+  if (!due || !now) return '';
+  const full = due.length <= 10 ? due + ' 23:59:59' : due;
+  const hm = full.slice(11, 16), dayOnly = hm === '23:59';
+  const diff = ms(full) - ms(now);
+  if (diff < 0) {
+    const m = Math.floor(-diff / 6e4);
+    return m < 60 ? `trễ ${Math.max(m, 1)} phút` : m < 1440 ? `trễ ${Math.floor(m / 60)} giờ` : `trễ ${Math.floor(m / 1440)} ngày`;
+  }
+  const days = Math.round((ms(full.slice(0, 10) + ' 00:00:00') - ms(now.slice(0, 10) + ' 00:00:00')) / 864e5);
+  if (days === 0) {
+    if (dayOnly) return 'hôm nay';
+    const m = Math.ceil(diff / 6e4);
+    return m < 60 ? `còn ${Math.max(m, 1)} phút` : `còn ${Math.floor(m / 60)} giờ`;
+  }
+  if (days === 1) return dayOnly ? 'ngày mai' : hm === '00:00' ? 'hết hôm nay' : `ngày mai ${hm}`;   // hạn 00:00 ngày mai = nửa đêm nay
+  return dm(full) + (dayOnly ? '' : ' ' + hm);
+}
 
 // src: { now, pc, training, ka, todo, today, more } — nguồn nào lỗi thì truyền null (today = app_today_me, more = app_today_more).
 // helpers: { jobName, pcDue, gvDue, rstate, curStep } từ cv_chung.js.
@@ -47,7 +66,7 @@ export function collectWork({ now, pc, training, ka, todo, today, more }, helper
   for (const t of pc?.tasks || []) {
     const name = helpers.jobName(t.job); const step = helpers.curStep ? helpers.curStep(t) : null;
     add({ key: 'pc:' + t.id, title: name + (t.code ? ' · ' + t.code : ''), due: helpers.pcDue(t), link: '/viec', ...jobCat(t.job, name),
-      kind: 'pc:' + t.job, kindLabel: name, who: step ? whoOf(step.accounts, step.names, me, ' (ai làm trước cũng được)') : YOU });
+      kind: 'pc:' + t.job, kindLabel: name, who: step ? whoOf(step.accounts, step.names, me, ' (ai làm cũng được)') : YOU });
   }
   // Giao việc riêng (cả việc sinh từ Bàn giao ca). sent = việc mình đã báo xong (app_today_more), luôn là đang chờ.
   const addGv = (k, sent) => {

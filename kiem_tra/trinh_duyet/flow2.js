@@ -30,5 +30,5 @@ export default async ({ visit, settle, sleep, out }) => {
       return res.join(' ; ');
     });
   }
-  await step('Đăng xuất', async () => { await fresh('#/'); document.querySelector('[data-logout]').click(); await sleep(500); await settle(); return location.hash + ' ' + document.title; });
+  await step('Đăng xuất', async () => { await fresh('#/'); const hoi = window.confirm; let cau = ''; window.confirm = (m) => { cau = m; return true; }; document.querySelector('[data-logout]').click(); window.confirm = hoi; if (!cau.includes('Đăng xuất')) throw new Error('Bấm Đăng xuất phải hỏi lại trước'); await sleep(500); await settle(); return location.hash + ' ' + document.title; });
 };
