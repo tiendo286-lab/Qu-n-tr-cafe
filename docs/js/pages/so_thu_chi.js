@@ -178,6 +178,8 @@ export async function render({ params }) {
         if (sw && root.contains(sw) && !sw.disabled) { DSB.step = sw.dataset.dsstep != null ? Number(sw.dataset.dsstep) : Math.max(0, Math.min(5, DSB.step + (sw.dataset.dsnext ? 1 : -1)));
           if (DSB.step === 2) DSB.book = 'thu'; if (DSB.step === 3) DSB.book = 'chi';
           const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); $('.stc-dsp')?.scrollIntoView({ block: 'start' }); return; }
+        const fw = ev.target.closest('[data-dsfocus]');   // chặng 2: "Còn thiếu" → tới ô cần nhập (cùng bước)
+        if (fw && root.contains(fw)) { const inp = root.querySelector(`.stc-dsp [name="${fw.dataset.dsfocus}"]`); if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); } return; }
         const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen],[data-dsfinal],[data-dsdone],[data-dsundone],[data-tick],[data-dssau]');
         if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
         const jw = ev.target.closest('[data-dsjump]');   // bước 168: thanh cuối màn hình → nhảy tới chỗ cần xử lý
@@ -354,8 +356,13 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     const ca = caById(el('ca').value);
     el('reason').placeholder = ca ? 'bắt buộc khi thêm vào ca' : 'không bắt buộc';
   };
-  el('date').addEventListener('change', () => { fillCa(el('ca').value); fillDebt(); sync(); });
-  el('kind').addEventListener('change', () => { if (!el('ca').value) fillCa(''); sync(); }); el('ca').addEventListener('change', sync); fillCa(caId); fillDebt(); sync();
+  // chặng 2 (21/11): nhớ ca đã chọn — đổi Loại sang Cho nợ / Thu nợ / Luân chuyển (khoá ô Ca) rồi đổi lại thì ca cũ quay lại, không về "Ngoài ca"
+  let lastCa = '';
+  const caPick = () => (el('ca').disabled ? lastCa : el('ca').value);
+  el('date').addEventListener('change', () => { fillCa(caPick()); lastCa = el('ca').value; fillDebt(); sync(); });
+  el('kind').addEventListener('change', () => { fillCa(caPick()); lastCa = el('ca').value; sync(); });
+  el('ca').addEventListener('change', () => { lastCa = el('ca').value; sync(); });
+  fillCa(caId); lastCa = el('ca').value; fillDebt(); sync();
   box.querySelector('[data-x]').addEventListener('click', () => box.remove());
   bindPersonSelect(D, box);   // bước 172: Cho nợ chỉ chọn người có sẵn
   box.addEventListener('submit', async (ev) => {
@@ -1359,8 +1366,11 @@ function partA(D, a, part = 1, mk = () => '') {
       ${keep}<div class="st-meta">Chuyển khoản luôn lấy số ngân hàng kế toán nhập.</div></div>
     ${fixHelp(c)}
     <div class="stc-tools stc-a-end">${ro ? '' : html`<button type="button" class="btn" data-dsclose="1" ${need.length ? 'disabled' : ''}>Xác nhận Fabi</button>`} ${mk('fabi')}
-      <span class="st-meta">${need.length ? '🔒 Còn thiếu: ' + need.map((n) => n.txt).join(' · ') : gaps.length ? html`Còn lệch <b>${gapShort(gaps)}</b> — vẫn xác nhận được, lệch xử lý ở bước 5.` : 'Đủ điều kiện. Xác nhận xong thì bước 3, 4, 5 mở.'}</span></div></div>`;
+      <span class="st-meta">${need.length ? html`🔒 Còn thiếu: ${need.map((n, i) => html`${i ? ' · ' : ''}${needLink(n)}`)}` : gaps.length ? html`Còn lệch <b>${gapShort(gaps)}</b> — vẫn xác nhận được, lệch xử lý ở bước 5.` : 'Đủ điều kiện. Xác nhận xong thì bước 3, 4, 5 mở.'}</span></div></div>`;
 }
+// chặng 2 (21/11): mỗi điều "Còn thiếu" của Xác nhận Fabi bấm được — ô đỏ / số sửa → về bước 1; chưa nhập tiền mặt → tới ô nhập; chờ kế toán: chỉ chữ
+const needLink = (n) => (n.k === 'red' || n.k === 'fix' ? html`<button type="button" class="stc-lk" data-dsstep="0">${n.txt}</button>`
+  : n.k === 'cash' ? html`<button type="button" class="stc-lk" data-dsfocus="ds_tm">${n.txt}</button>` : html`<span>${n.txt}</span>`);
 const signedFmt = (v) => (v > 0 ? '+' : v < 0 ? '−' : '') + fmt(Math.abs(v));
 // bước 161: ghi chú đối soát — số lệch tiền mặt / chuyển khoản của ca và đã xử lý ra sao (tự lấy từ dòng Chênh lệch)
 const GAP_DC = { quan_chiu: 'quán chịu', thu_khac: 'ghi Thu khác', treo: 'khoản treo' };
