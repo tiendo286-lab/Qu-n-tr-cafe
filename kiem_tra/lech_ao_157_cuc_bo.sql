@@ -30,10 +30,10 @@ begin
   rep := rep || E'\n' || case when (m ->> 'handover_gap')::bigint = -30000 then 'ĐẠT' else 'HỎNG' end
         || format(' (1b) trang Xác nhận Fabi của ca trước: lệch giao két %s', m ->> 'handover_gap');
 
-  -- (2) ca trước thu theo ca, ca sau mở đúng gối đầu → khớp, không lệch
+  -- (2) ca trước thu theo ca, ca sau mở đúng gối đầu → không lệch, giữ y như cũ ("rút quỹ" phần quản lý thu = 300.000; sổ quỹ cũ dùng số này)
   h := public.app__ca_hand(B2);
-  rep := rep || E'\n' || case when (h ->> 'gap_eff')::bigint = 0 and h ->> 'state' = 'khop' then 'ĐẠT' else 'HỎNG' end
-        || format(' (2) ca trước thu theo ca, ca sau mở đúng gối đầu: lệch %s (trạng thái %s)', h ->> 'gap_eff', h ->> 'state');
+  rep := rep || E'\n' || case when (h ->> 'gap_eff')::bigint = 0 and h ->> 'state' = 'rut_quy' and (h ->> 'rut')::bigint = 300000 then 'ĐẠT' else 'HỎNG' end
+        || format(' (2) ca trước thu theo ca, ca sau mở đúng gối đầu: lệch %s (trạng thái %s, rút %s — như cũ)', h ->> 'gap_eff', h ->> 'state', h ->> 'rut');
 
   -- (3) ca trước thu cuối ngày: so với két ca trước như cũ → thiếu 30.000
   h := public.app__ca_hand(C2);
@@ -45,5 +45,12 @@ begin
   rep := rep || E'\n' || case when h ->> 'state' = 'rut_quy' and (h ->> 'gap_eff')::bigint = 0 and (h ->> 'rut')::bigint = 300000 then 'ĐẠT' else 'HỎNG' end
         || format(' (4) ca trước thu cuối ngày, mở bằng gối đầu: trạng thái %s · rút %s (như cũ)', h ->> 'state', h ->> 'rut');
 
+  -- (5) ca trước thu theo ca, ca sau đếm thiếu 2.000 so với gối đầu. Mức cho phép khi giao két đang là app__ca_tol() (tệp 41: 0 — không cho lệch)
+  --     → lệch đúng −2.000 so với gối đầu (cách cũ: −302.000 so với cả két ca trước); trong mức cho phép thì như "rút quỹ"
+  update public.shift_reports set opening_cash = fl - 2000, ipos_opening = fl - 2000, cash_counted = fl - 2000 where id = B2;
+  h := public.app__ca_hand(B2);
+  rep := rep || E'\n' || case when public.app__ca_tol() >= 2000 then case when (h ->> 'gap_eff')::bigint = 0 and h ->> 'state' = 'rut_quy' then 'ĐẠT' else 'HỎNG' end
+                              else case when (h ->> 'gap_eff')::bigint = -2000 and h ->> 'state' in ('lech', 'can_dem_lai') then 'ĐẠT' else 'HỎNG' end end
+        || format(' (5) ca trước thu theo ca, ca sau thiếu 2.000 (mức cho phép %s): lệch %s (trạng thái %s, rút %s)', public.app__ca_tol(), h ->> 'gap_eff', h ->> 'state', h ->> 'rut');
   raise exception 'REPORT>> %', rep;
 end $$;
