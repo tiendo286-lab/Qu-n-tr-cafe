@@ -170,11 +170,18 @@ export function caChecks(ca, link) {
       : ca.blame ? { st: 'ok', txt: `✓ ${blameText(ca.blame)}`, blame: ca.blame }
       : open === exp ? { st: 'ok', txt: moFix ? `✓ Chủ đã duyệt số ${fmt(open)}` : '✓ Đúng' } : { st: 'red', txt: `🔴 ${open > exp ? 'Thừa' : 'Thiếu'} ${fmt(open - exp)} khi giao ca`, fix: 'blame', short: open < exp }), fx: fx.mo || null };
   const approved = (k) => ({ st: 'ok', txt: `✓ Chủ đã duyệt số ${fmt(k === 'dt' ? nv.revenue : nv.debt)}` });
-  const dt = { ...(has ? { ...cmp('dt', 'Doanh thu', `NV báo ${fmt(nv.revenue ?? 0)}`, `Fabi ${fmt(f.revenue ?? 0)}`, Number(nv.revenue ?? 0), Number(f.revenue ?? 0)), ...(okFix('dt', nv.revenue) ? approved('dt') : {}) }
+  // chặng 2 (anh Tiến chốt 21/11): tệp Fabi có nhưng KHÔNG có số doanh thu → không coi là 0; ô vẫn chặn tới khi quản lý ghi số theo phiếu máy in
+  // ("Sai, sửa số") và Chủ duyệt; không có "Lấy số máy Fabi" (máy chủ tệp 156 cũng chặn)
+  const dtEmpty = has && f.revenue == null;
+  const dt = { ...(has ? dtEmpty
+      ? { k: 'dt', name: 'Doanh thu', a: `NV báo ${fmt(nv.revenue ?? 0)}`, b: 'Fabi không có số doanh thu', st: 'red', empty: true,
+          txt: '🔴 Fabi không có số doanh thu — ghi số theo phiếu máy in để Chủ duyệt', ...(okFix('dt', nv.revenue) ? approved('dt') : {}) }
+      : { ...cmp('dt', 'Doanh thu', `NV báo ${fmt(nv.revenue ?? 0)}`, `Fabi ${fmt(f.revenue ?? 0)}`, Number(nv.revenue ?? 0), Number(f.revenue ?? 0)), ...(okFix('dt', nv.revenue) ? approved('dt') : {}) }
     : { k: 'dt', name: 'Doanh thu', a: `NV báo ${fmt(nv.revenue ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.dt || null };
   if (dt.st === 'ok') delete dt.fix;
   const no = { ...(has ? { ...cmp('no', 'Nợ', `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, `Fabi ${fmt(f.debt ?? 0)}`, Number(nv.debt ?? 0), Number(f.debt ?? 0)), ...(okFix('no', nv.debt) ? approved('no') : {}) }
-    : { k: 'no', name: 'Nợ', a: `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.no || null };
+    : { k: 'no', name: 'Nợ', a: `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.no || null,
+    ...(dtEmpty ? { note: 'Tệp Fabi ca này thiếu số — nợ máy ghi chưa chắc đúng. Nợ thật khác thì bấm "Máy ghi sai? Sửa số".' } : {}) };
   if (no.st === 'ok') delete no.fix;
   const mm = link ? link.money : caMoney([], ca.id, open);
   const money = (pm, name, a, b) => {

@@ -1245,13 +1245,14 @@ function debtList(D, c) {
 function fixDialog(D, c, k) {
   const f = c.fabi || {}, nv = c.nv || {};
   const name = { mo: 'Tiền mở ca', dt: 'Doanh thu', no: 'Nợ bill' }[k];
+  const dtEmpty = k === 'dt' && f.revenue == null;   // chặng 2: máy Fabi không có số doanh thu → ô để trống, ghi theo phiếu máy in
   const body = k === 'dt'
-    ? html`<label class="field"><span>Bán tiền mặt đúng là</span><input class="input" name="ftm" inputmode="numeric" data-money value="${fmt(f.tm ?? 0)}"></label>
-      <label class="field"><span>Bán chuyển khoản đúng là</span><input class="input" name="fck" inputmode="numeric" data-money value="${fmt(f.ck ?? 0)}"></label>
+    ? html`<label class="field"><span>Bán tiền mặt đúng là</span><input class="input" name="ftm" inputmode="numeric" data-money value="${dtEmpty ? '' : fmt(f.tm ?? 0)}"></label>
+      <label class="field"><span>Bán chuyển khoản đúng là</span><input class="input" name="fck" inputmode="numeric" data-money value="${dtEmpty ? '' : fmt(f.ck ?? 0)}"></label>
       <div class="st-meta">Doanh thu = tiền mặt + chuyển khoản + nợ bill.</div>`
     : html`<label class="field"><span>${name} đúng là</span><input class="input" name="fval" inputmode="numeric" data-money value="${fmt((k === 'mo' ? nv.opening : nv.debt) ?? 0)}"></label>`;
-  const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">Máy Fabi ghi sai · ${name}</h2>
-    <div class="st-meta">Máy ghi ${fmt((k === 'mo' ? f.opening : k === 'dt' ? f.revenue : f.debt) ?? 0)}. ${D.owner ? 'Chủ gửi thì duyệt ngay.' : 'Số sửa phải chờ Chủ duyệt; chưa duyệt thì chưa Xác nhận Fabi được.'}</div>
+  const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${dtEmpty ? 'Máy Fabi không có số' : 'Máy Fabi ghi sai'} · ${name}</h2>
+    <div class="st-meta">${dtEmpty ? 'Tệp Fabi của ca này không có số doanh thu — ghi số theo phiếu máy in.' : `Máy ghi ${fmt((k === 'mo' ? f.opening : k === 'dt' ? f.revenue : f.debt) ?? 0)}.`} ${D.owner ? 'Chủ gửi thì duyệt ngay.' : 'Số sửa phải chờ Chủ duyệt; chưa duyệt thì chưa Xác nhận Fabi được.'}</div>
     ${body}<label class="field"><span>Lý do (bắt buộc)</span><input class="input" name="reason" placeholder="vd: máy không ghi hoá đơn bàn 4"></label>
     <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">${D.owner ? 'Lưu (Chủ duyệt)' : 'Gửi Chủ duyệt'}</button></div></form>`);
   open(d, async () => {
@@ -1315,7 +1316,8 @@ function partA(D, a, part = 1, mk = () => '') {
   }
   const effect = { mo: (x) => (x.blame ? html`<span class="st-meta">→ <b>Có vào sổ:</b> ${x.blame.who === 'doi' ? `dòng Chênh lệch tiền mặt ${signedFmt(blameShare(x.blame).prev)} của ca trước và ${signedFmt(blameShare(x.blame).nay)} của ca này`
       : `dòng Chênh lệch tiền mặt ${signedFmt(Number(x.blame.diff))} của ${x.blame.who === 'nay' ? 'ca này' : 'ca trước'}`}.</span>` : x.fix === 'fabi' ? html`<span class="st-meta">→ Lấy số máy: chỉ sửa số trên phiếu nhân viên, không tạo phiếu.</span>` : ''),
-    dt: (x) => (x.st === 'red' ? html`<span class="st-meta">→ Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi; thiếu tiền thật thì hiện ở dòng Chênh lệch.</span>` : ''),
+    dt: (x) => (x.st === 'red' && x.empty ? html`<span class="st-meta">→ Bấm "Sai, sửa số": ghi bán tiền mặt + bán chuyển khoản theo phiếu máy in (doanh thu = tiền mặt + chuyển khoản + nợ bill — nợ sai thì sửa ô Nợ bill trước). Chủ duyệt xong ô thành xanh.</span>`
+      : x.st === 'red' ? html`<span class="st-meta">→ Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi; thiếu tiền thật thì hiện ở dòng Chênh lệch.</span>` : ''),
     no: (x) => (x.st === 'red' && Number(f.debt) > Number(nv.debt) ? html`<span class="st-meta">→ Không tạo phiếu chi: thêm khách nợ ${fmt(Number(f.debt) - Number(nv.debt))} ở Công nợ (bill nợ chưa phải tiền).</span>` : '') };
   const raw = { mo: [nv.opening, f.opening], dt: [nv.revenue, f.revenue], no: [nv.debt, f.debt] };
   const pv = (D.cas || []).find((o) => o.date === c.date && SHIFT_ORDER.indexOf(o.shift) === SHIFT_ORDER.indexOf(c.shift) - 1);
@@ -1328,7 +1330,7 @@ function partA(D, a, part = 1, mk = () => '') {
       <span class="stc-tools">${D.owner ? html`<button type="button" class="btn sm" data-dsfixok="${q.id}">Duyệt</button><button type="button" class="btn sm secondary" data-dsfixno="${q.id}">Từ chối</button>` : ''}<button type="button" class="btn sm secondary" data-dsfixcancel="${q.id}">Bỏ sửa</button></span>`;
     if (q?.status === 'tu_choi') return html`<div class="stc-fxq no">✗ Chủ từ chối số ${fxNum(x.k, q)}${q.note ? ' · ' + q.note : ''}${by}</div>
       <span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}">Sửa lại số</button><button type="button" class="btn sm secondary" data-dsfixfabi="${q.id}" data-k="${x.k}" data-ca="${c.id}">Bỏ sửa, lấy số máy Fabi</button></span>`;
-    if (q?.status === 'duyet') return html`<div class="stc-fxq ok">✓ Chủ đã duyệt số ${fxNum(x.k, q)} (máy ghi ${fmt(fbT)})${by}</div>
+    if (q?.status === 'duyet') return html`<div class="stc-fxq ok">✓ Chủ đã duyệt số ${fxNum(x.k, q)} (${x.empty ? 'máy không có số' : 'máy ghi ' + fmt(fbT)})${by}</div>
       ${D.owner && !c.recon_money_done ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfixcancel="${q.id}">Bỏ số đã duyệt</button></span>` : ''}`;
     if (c.recon_money_done) return '';
     return x.st === 'red' ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}" title="Máy Fabi cũng ghi sai: gửi số đúng cho Chủ duyệt">Sai, sửa số</button></span>`
@@ -1336,8 +1338,8 @@ function partA(D, a, part = 1, mk = () => '') {
   const box = (x) => { const [a1, b1] = raw[x.k]; const nvT = Number(a1 ?? 0), fbT = Number(b1 ?? 0);
     const held = x.fx && ['cho', 'tu_choi'].includes(x.fx.status);   // đang chờ / bị từ chối: ẩn "Lấy số máy Fabi" (bấm Bỏ sửa trước)
     const txt = x.st === 'red' && x.fix === 'fabi' ? `🔴 Nhân viên ghi ${nvT > fbT ? 'thừa' : 'thiếu'} ${fmt(nvT - fbT)} so với máy` : x.txt;
-    return html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name} ${mk(x.k)}</b><span class="stc-ln">Phiếu nhân viên ghi: <b>${fmt(nvT)}</b></span><span class="stc-ln">Máy Fabi ghi: <b>${f.has ? fmt(fbT) : 'chưa có'}</b></span>
-      ${x.k === 'mo' ? html`<span class="st-meta">${x.b}</span>` : ''}<span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${txt}</span>${effect[x.k](x)}
+    return html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name} ${mk(x.k)}</b><span class="stc-ln">Phiếu nhân viên ghi: <b>${fmt(nvT)}</b></span><span class="stc-ln">Máy Fabi ghi: <b>${!f.has ? 'chưa có' : x.empty ? 'không có số' : fmt(fbT)}</b></span>
+      ${x.k === 'mo' ? html`<span class="st-meta">${x.b}</span>` : ''}<span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${txt}</span>${effect[x.k](x)}${x.note ? html`<span class="st-meta">⚠ ${x.note}</span>` : ''}
       ${fixUi(x, fbT)}${D.ext ? '' : x.fix === 'fabi' && !held ? html`<span class="stc-tools"><button type="button" class="btn sm" data-dsfabi="${x.k}">Lấy số máy Fabi${x.k === 'no' && Number(f.debt) > Number(nv.debt) ? ` (thêm báo nợ ${fmt(Number(f.debt) - Number(nv.debt))})` : ''}</button></span>`
         : x.fix === 'blame' ? html`<span class="st-meta">Ca nào ghi sai thì ca đó chịu tiền lệch:</span><span class="stc-tools">${prevFin ? html`<span class="st-meta">Ca trước đã chốt ca — không chọn "Ca trước ghi sai" được.</span>` : html`<button type="button" class="btn sm secondary" data-dsblame="truoc">Ca trước ghi sai</button>${x.short ? html`<button type="button" class="btn sm secondary" data-dsblame="doi" title="Không rõ ai sai: chia đôi tiền thiếu, số lẻ ca này chịu">Hai ca cùng chịu</button>` : ''}`}<button type="button" class="btn sm secondary" data-dsblame="nay">Ca này ghi sai</button></span>`
         : x.blame ? html`<span class="stc-tools"><span class="st-meta">${x.blame.by || ''}${x.blame.reason ? ' · ' + x.blame.reason : ''}</span><button type="button" class="btn sm secondary" data-dsunblame="1">Huỷ chọn</button></span>` : ''}</div>`; };

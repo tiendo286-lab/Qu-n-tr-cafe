@@ -323,6 +323,9 @@ export function makeStc(T, me) {
     app_stc_ds_fabi({ p_report, p_field, p_name }) {
       const c = dsCa(p_report, true); const f = c.fabi;
       if (!f?.has) throw new Error('Chưa có file Fabi của ca này — chờ kế toán tải lên.');
+      // tệp 156: máy Fabi không có số ở ô này → chặn (trước đây ghi số trên phiếu thành trống)
+      if (p_field === 'dt' && f.revenue == null) throw new Error('Máy Fabi không có số doanh thu ở ca này — bấm "Sai, sửa số", ghi số theo phiếu máy in để Chủ duyệt.');
+      if (p_field === 'mo' && f.opening == null) throw new Error('Máy Fabi không có số tiền đầu ca ở ca này — bấm "Sai, sửa số" để Chủ duyệt.');
       if (p_field === 'mo') { c.nv.opening = f.opening; c.start_tm = f.opening; }
       else if (p_field === 'dt') c.nv.revenue = f.revenue;
       else if (p_field === 'no') { const diff = f.debt - c.nv.debt; c.nv.debt = f.debt;
@@ -359,6 +362,10 @@ export function makeStc(T, me) {
     app__thu_fix_cho({ p_report, p_field, p }) {
       const c = st().cas.find((x) => x.id === Number(p_report)); c.fixes = c.fixes || {};
       c.fixes[p_field] = { id: ++N, status: 'cho', new: p_field === 'dt' ? { tm: Number(p.tm), ck: Number(p.ck) } : { val: Number(p.val) }, reason: 'thử', by: 'Quản lý thử', at: 'vừa xong' };
+    },
+    // CHỈ DÙNG TRONG BÀI THỬ: tệp Fabi của ca có nhưng KHÔNG có số doanh thu (như 4 ca thật: net / tm / ck trống) — chặng 2
+    app__thu_fabi_trong({ p_report }) {
+      const c = st().cas.find((x) => x.id === Number(p_report)); c.fabi = { ...c.fabi, revenue: null, tm: null, ck: null };
     },
     // CHỈ DÙNG TRONG BÀI THỬ: đặt tiền mở ca (phiếu NV = máy Fabi = tiền đầu ca thật) để thử thiếu / thừa khi giao ca
     app__thu_mo_ca({ p_report, p_val }) {
