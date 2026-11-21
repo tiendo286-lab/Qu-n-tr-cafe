@@ -127,6 +127,7 @@ export function makeNh(T, me) {
       const all = T.delivery_invoices.filter((i) => !p_branch || i.branch_id === p_branch).map((i) => json(i));
       // bước 167 (tệp 146): khoảng ngày theo loại ngày
       const dk = (i) => (p_kind === 'nhan' ? i.received_date || (i.received_at || '').slice(0, 10) || null : p_kind === 'ds' ? (i.recon_at || '').slice(0, 10) || null : i.work_date);
+      if (p_from && p_to && (Date.parse(p_to) - Date.parse(p_from)) / 864e5 > 400) throw new Error('Chọn khoảng ngày tối đa 400 ngày.');   // như app__nh_loc_check (tệp 146)
       if (p_from || p_to) { if (!/^\d{4}-\d{2}-\d{2}$/.test(p_from || '') || !/^\d{4}-\d{2}-\d{2}$/.test(p_to || '') || p_to < p_from) throw new Error('Khoảng ngày không hợp lệ.'); if (p_kind && !['giao', 'nhan', 'ds'].includes(p_kind)) throw new Error('Loại ngày không hợp lệ.'); }
       const rng = !!(p_from && p_to); p_month = p_month || (rng ? p_to.slice(0, 7) : p_month);
       return { rows: all.filter((i) => (rng ? dk(i) && dk(i) >= p_from && dk(i) <= p_to : i.work_date.startsWith(p_month))).sort((a, b) => ((rng ? dk(a) < dk(b) : a.work_date < b.work_date) ? 1 : -1)), open: all.filter((i) => i.missing.length),
@@ -255,6 +256,7 @@ export function makeNh(T, me) {
       const nb = T.delivery_invoices.filter((i) => (!p_branch || i.branch_id === p_branch) && !i.recon_at && i.state !== 'dang_chuyen' && !i.deliv_path && !i.bu_path)
         .map((i) => ({ id: i.id, branch_id: i.branch_id, doc_no: i.doc_no || null, kind: i.kind, work_date: i.work_date, received_at: i.received_at, received_by: name(i.received_by), deliv_note: i.deliv_note || null }));
       const rng = !!(p_from && p_to);   // bước 167 (tệp 146): khoảng ngày chỉ lọc "Đã xử lý"; tiền tháng theo p_month
+      if (rng && (Date.parse(p_to) - Date.parse(p_from)) / 864e5 > 400) throw new Error('Chọn khoảng ngày tối đa 400 ngày.');   // như app__nh_loc_check (tệp 146)
       const fd = (f) => { const j = fuJson(f); return p_kind === 'nhan' ? j.received_date : p_kind === 'ds' ? j.recon_date : j.work_date; };
       return { need_bu: nb.map((x) => ({ ...x, received_date: (x.received_at || '').slice(0, 10) || null })), open: F.filter((f) => f.status === 'cho').map(fuJson),
         done: F.filter((f) => f.status !== 'cho' && (rng ? fd(f) && fd(f) >= p_from && fd(f) <= p_to : String(f.resolved_at || f.created_at).startsWith(p_month))).map(fuJson),

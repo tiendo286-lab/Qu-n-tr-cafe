@@ -20,4 +20,5 @@ s=re.sub(r'(<script type="module" src="js/app\.js(?:\?v=[^"]+)?"></script>)',r'<
 open(p,'w').write(s)
 PY
 cp "$D/flow_dt169.js" "$D/flow_dt170.js" "$W/test/"
+cp "$D/flow_ln174.js" "$W/test/"
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"

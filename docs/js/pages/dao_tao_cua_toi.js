@@ -1,4 +1,4 @@
-// Phiếu đào tạo của tôi: phiếu tôi đang học, hoặc tôi hướng dẫn / phụ trách
+// Phiếu đào tạo của tôi: phiếu tôi đang học, hoặc tôi hướng dẫn (bước 174, tệp 155: không còn "Quản lý phụ trách" cũ; nhãn quan_ly giữ cho máy chủ chưa cập nhật)
 import { isManager } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';

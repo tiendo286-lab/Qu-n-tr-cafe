@@ -9,7 +9,7 @@ import { rpc, sb } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { BUCKET, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
-import { KINDS, LOC_CSS, coverRange, hasLocParams, inLoc, locBar, locLabel, locLoad, locQuery, locSave, locToSave, readLoc, sortLoc, wireLoc } from '../loc_ngay.js';
+import { KINDS, LOC_CSS, coverRange, inLoc, locBar, locLabel, locQuery, locRemember, locTooLong, sortLoc, wireLoc } from '../loc_ngay.js';
 const MAX_PER_PHOTO = 4;   // bước 132: mỗi ảnh nhận hàng tối đa 4 món (máy chủ cũng chặn)
 
 export const perm = ['chot_ca', 'doi_soat', 'ke_toan'];
@@ -320,13 +320,18 @@ async function listPage(params, can) {
   // bước 167: lọc theo loại ngày + khoảng ngày (thay nút chuyển tháng). Loại không áp dụng thì ẩn: Chưa nhận chỉ có ngày giao.
   // Anh Tiến chốt 20/11: tab Chờ đối soát LUÔN hiện tất cả (không lọc ngày, không có thanh lọc), cũ nhất lên trước theo ngày nhận.
   const KOF = { cho: ['giao', 'nhan'], dang: ['giao'], xong: ['giao', 'nhan', 'ds'] };
-  if (hasLocParams(params)) locSave('ds', locToSave(readLoc({ params, saved: locLoad('ds'), kinds: KOF.xong, today })));
-  const L = readLoc({ params, saved: locLoad('ds'), kinds: KOF[tab], today });
+  const L = locRemember('ds', { params, kinds: KOF.xong, kindsShown: KOF[tab], today });
   const Lof = (t) => ({ ...L, kind: KOF[t].includes(L.wantKind) ? L.wantKind : KOF[t][0] });
   const G = await rpc('app_gh_inbox', { p_branch: null });
   const cat = await catalog().catch(() => ({ activeBranches: [] }));
   const brs = (cat.activeBranches || []).map((b) => ({ id: b.id, code: b.display_code || b.code }));
   const br = brs.some((b) => String(b.id) === String(params.cn)) ? Number(params.cn) : null;   // null = tất cả cơ sở
+  const q = (o) => qs(DS, { cn: br ?? '', tt: tab, ...locQuery(L), ...o });
+  // bước 174: khoảng ngày quá 400 ngày (mục có thanh lọc) → không lọc / không gọi máy chủ, hiện thanh lọc để chọn lại. Chờ đối soát không lọc ngày nên vẫn hiện bình thường.
+  if (L.tooLong && tab !== 'cho') return { title: 'Đối soát hàng', html: html`${GH_CSS}${LOC_CSS}<div class="gh-wrap gh-wide"><div class="page-head"><div><h1>Đối soát hàng kho tổng</h1></div></div>
+      <nav class="gh-tabs" aria-label="Lọc"><a href="${q({ tt: 'cho' })}">✔ Chờ đối soát</a><a class="${tab === 'dang' ? 'on' : ''}" href="${q({ tt: 'dang' })}">🚚 Chưa nhận</a><a class="${tab === 'xong' ? 'on' : ''}" href="${q({ tt: 'xong' })}">✓ Đã xong</a></nav>
+      ${locTooLong(L, KOF[tab], (o) => q(locQuery(o)))}</div>`,
+    mount() { wireLoc($('.gh-wrap'), L, (o) => q(locQuery(o))); } };
   const open = (G.rows || []).filter((d) => br === null || d.branch_id === br);
   const choAll = open.filter((d) => d.state !== 'dang_chuyen'); const dangAll = open.filter((d) => d.state === 'dang_chuyen');
   const cho = sortLoc(choAll, 'nhan', true);   // Chờ đối soát: tất cả, cũ nhất lên trước
@@ -339,7 +344,6 @@ async function listPage(params, can) {
   const hidden = tab === 'dang' ? dangAll.filter((d) => !dang.includes(d)) : [];
   const cover = hidden.length ? coverRange(hidden, L) : null;
   const nCho = (id) => (G.rows || []).filter((d) => (id === null || d.branch_id === id) && d.state !== 'dang_chuyen').length;
-  const q = (o) => qs(DS, { cn: br ?? '', tt: tab, ...locQuery(L), ...o });
   const days = (d) => (d.received_date ? Math.round((Date.parse(today) - Date.parse(d.received_date)) / 864e5) : 0);
   const thumbs = (d) => html`<div class="ql-th">${(d.photos || []).slice(0, 3).map((p) => html`<img data-path="${p.path}" alt="">`)}</div>`;
   const cnts = (d) => { const doc = !!d.doc_no; const L = d.lines || [];

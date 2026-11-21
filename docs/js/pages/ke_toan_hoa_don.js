@@ -5,7 +5,7 @@ import { rpc, sb } from '../sb.js';
 import { compressImage, dmy, dt, fmt } from '../tien.js';
 import { $, $$, dialog, flash, html, showSaved, str } from '../ui.js';
 import { DOW } from './ke_toan_ck.js';
-import { KINDS, LOC_CSS, dateOf, hasLocParams, inLoc, locBar, locLabel, locLoad, locQuery, locSave, locToSave, readLoc, sortLoc, wireLoc } from '../loc_ngay.js';
+import { KINDS, LOC_CSS, dateOf, inLoc, locBar, locLabel, locQuery, locRemember, locTooLong, sortLoc, wireLoc } from '../loc_ngay.js';
 
 export const perm = ['ke_toan', 'doi_soat'];   // quản lý xem được (chỉ kế toán tải / ghép / xóa hóa đơn)
 export const BUCKET = 'hoa-don';
@@ -87,8 +87,11 @@ export async function render({ params, can }) {
   const tt = ['dang', 'cho', 'xong'].includes(params.tt) ? params.tt : '';
   // bước 167: lọc loại ngày + khoảng ngày (thay nút chuyển tháng); Chưa nhận chỉ có ngày giao, Chờ đối soát chưa có ngày đối soát
   const KOF = { '': ['giao', 'nhan', 'ds'], dang: ['giao'], cho: ['giao', 'nhan'], xong: ['giao', 'nhan', 'ds'] };
-  if (hasLocParams(params)) locSave('px', locToSave(readLoc({ params, saved: locLoad('px'), kinds: KOF[''], today })));
-  const L = readLoc({ params, saved: locLoad('px'), kinds: KOF[tt], today });
+  const L = locRemember('px', { params, kinds: KOF[''], kindsShown: KOF[tt], today });
+  const q = (o) => '#/hang-hoa/phieu-xuat?' + Object.entries({ cn: br ?? '', tt, ...locQuery(L), ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
+  // bước 174: khoảng ngày quá 400 ngày → không gọi máy chủ (máy chủ từ chối, trước đây trang chỉ còn ô báo lỗi), hiện thanh lọc để chọn lại
+  if (L.tooLong) return { title: 'Phiếu xuất kho tổng', html: html`${HD_CSS}${PX_CSS}${LOC_CSS}<div class="px-wrap"><div class="page-head"><div><h1>Phiếu xuất kho tổng</h1></div></div>${locTooLong(L, KOF[tt], (o) => q(locQuery(o)))}</div>`,
+    mount() { wireLoc($('.px-wrap'), L, (o) => q(locQuery(o))); } };
   const [D, ME] = await Promise.all([rpc('app_nh_list', { p_month: null, p_branch: br, p_from: L.from, p_to: L.to, p_kind: L.kind }), rpc('app_me')]);
   const kt = !!D.kt; const owner = ME?.role === 'chu'; const money = !!D.money;
   const seen = new Set(); const all = [];
@@ -100,7 +103,6 @@ export async function render({ params, can }) {
   const cnt = (k) => rows.filter((d) => grp(d) === k).length;
   const list = sortLoc(rows.filter((d) => !tt || grp(d) === tt), L.kind);   // xếp theo ngày đang lọc, mới nhất trên
   const days = [...new Set(list.map((d) => dateOf(d, L.kind)))];
-  const q = (o) => '#/hang-hoa/phieu-xuat?' + Object.entries({ cn: br ?? '', tt, ...locQuery(L), ...o }).filter(([, v]) => v !== '' && v != null).map(([k, v]) => `${k}=${v}`).join('&');
   const dname = (d) => DOW[new Date(d + 'T00:00:00Z').getUTCDay()];
   const lechN = (d) => (d.lines || []).filter((l) => (l.qty_invoice == null ? Number(l.qty_checked ?? l.qty_received ?? 0) > 0 : Number(l.qty_checked ?? l.qty_received ?? 0) !== Number(l.qty_invoice))).length;
   const stPills = (d) => { const g = grp(d); const n = g === 'dang' ? 0 : lechN(d);

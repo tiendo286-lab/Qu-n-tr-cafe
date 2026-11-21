@@ -9,6 +9,9 @@ export const KINDS = { giao: 'Ngày giao', nhan: 'Ngày nhận', ds: 'Ngày đ�
 export const PRESETS = [['hom_nay', 'Hôm nay'], ['7_ngay', '7 ngày'], ['thang_nay', 'Tháng này'], ['thang_truoc', 'Tháng trước']];
 const isD = (s) => /^\d{4}-\d{2}-\d{2}$/.test(String(s || ''));
 const isM = (s) => /^\d{4}-\d{2}$/.test(String(s || ''));
+// bước 174: máy chủ (tệp 146) từ chối khoảng dài hơn 400 ngày → web tự nhận ra trước, không gọi máy chủ, không nhớ khoảng đó
+export const MAX_DAYS = 400;
+const daysBetween = (a, b) => Math.round((Date.parse(b + 'T00:00:00Z') - Date.parse(a + 'T00:00:00Z')) / 864e5);
 
 export function addDays(d, n) { const t = new Date(d + 'T00:00:00Z'); t.setUTCDate(t.getUTCDate() + n); return t.toISOString().slice(0, 10); }
 export function monthRange(m) { const [y, mo] = m.split('-').map(Number); return { from: `${m}-01`, to: new Date(Date.UTC(y, mo, 0)).toISOString().slice(0, 10) }; }
@@ -25,28 +28,38 @@ export function presetRange(k, today) {
 // kinds = các loại ngày áp dụng cho danh sách đang xem; loại đã chọn không áp dụng thì dùng loại đầu tiên (không ghi đè lựa chọn đã nhớ).
 export function readLoc({ params = {}, saved = {}, kinds = ['giao'], today }) {
   const presetOk = (k) => PRESETS.some(([p]) => p === k);
-  let want = { ...saved };
+  let want = { ...saved }; let typed = false;   // typed = khoảng từ–đến lấy từ đường dẫn (người dùng vừa chọn)
   if (isM(params.thang)) want = { ...want, nhanh: null, ...monthRange(params.thang), thang: params.thang };
   else if (presetOk(params.nhanh)) want = { ...want, nhanh: params.nhanh };
-  else if (isD(params.tu) || isD(params.den)) want = { ...want, nhanh: null, from: isD(params.tu) ? params.tu : params.den, to: isD(params.den) ? params.den : params.tu };
+  else if (isD(params.tu) || isD(params.den)) { typed = true; want = { ...want, nhanh: null, from: isD(params.tu) ? params.tu : params.den, to: isD(params.den) ? params.den : params.tu }; }
   if (params.loai && KINDS[params.loai]) want.kind = params.loai;
   let r;
   if (presetOk(want.nhanh)) r = { preset: want.nhanh, ...presetRange(want.nhanh, today) };
   else if (isD(want.from) && isD(want.to)) r = { preset: null, from: want.from, to: want.to };
   else r = { preset: 'thang_nay', ...presetRange('thang_nay', today) };
   if (r.from > r.to) r = { ...r, from: r.to, to: r.from };
+  // bước 174: khoảng quá dài — vừa chọn thì báo (tooLong, trang hiện thanh lọc + lời nhắc); đã lỡ nhớ từ trước thì bỏ, về Tháng này
+  let tooLong = daysBetween(r.from, r.to) > MAX_DAYS;
+  if (tooLong && !typed) { r = { preset: 'thang_nay', ...presetRange('thang_nay', today) }; tooLong = false; }
   const kind = kinds.includes(want.kind) ? want.kind : kinds[0];
-  return { kind, from: r.from, to: r.to, preset: r.preset, wantKind: want.kind || kind, month: want.thang || null };
+  return { kind, from: r.from, to: r.to, preset: r.preset, wantKind: want.kind || kind, month: want.thang || null, tooLong };
+}
+// Đọc lựa chọn của một trang + nhớ lại nếu người dùng vừa chọn (có tham số trên đường dẫn). kinds = mọi loại ngày của trang;
+// kindsShown = loại áp dụng cho mục đang xem. Khoảng quá dài KHÔNG được nhớ (bước 174 — trước đây nhớ luôn nên mở lại trang vẫn kẹt).
+export function locRemember(key, { params = {}, kinds = ['giao'], kindsShown, today }) {
+  if (hasLocParams(params)) { const full = readLoc({ params, saved: locLoad(key), kinds, today }); if (!full.tooLong) locSave(key, locToSave(full)); }
+  return readLoc({ params, saved: locLoad(key), kinds: kindsShown || kinds, today });
 }
 // phần cần nhớ (chỉ khi người dùng chọn — có tham số trên đường dẫn)
 export function locToSave(L) { return L.preset ? { kind: L.wantKind, nhanh: L.preset } : { kind: L.wantKind, from: L.from, to: L.to }; }
-export const hasLocParams = (p = {}) => ['loai', 'nhanh', 'tu', 'den', 'thang'].some((k) => p[k]);
+export function hasLocParams(p = {}) { return ['loai', 'nhanh', 'tu', 'den', 'thang'].some((k) => p[k]); }
 export function locLoad(key) { try { return JSON.parse(localStorage.getItem('locNgay:' + key) || '{}') || {}; } catch (_) { return {}; } }
 export function locSave(key, v) { try { localStorage.setItem('locNgay:' + key, JSON.stringify(v)); } catch (_) { /* bỏ qua */ } }
 
-// tham số đường dẫn cho một lựa chọn (xoá các khoá cũ không dùng)
+// tham số đường dẫn cho một lựa chọn (xoá các khoá cũ không dùng).
+// bước 174: mang loại ngày ĐÃ CHỌN (wantKind) chứ không phải loại đang bị ép ở mục chỉ có Ngày giao — nếu không, đi qua mục Chưa nhận là mất loại đã chọn.
 export function locQuery(o) {
-  const q = { loai: o.kind || '', nhanh: '', tu: '', den: '', thang: '' };
+  const q = { loai: o.wantKind || o.kind || '', nhanh: '', tu: '', den: '', thang: '' };
   if (o.preset) q.nhanh = o.preset; else { q.tu = o.from || ''; q.den = o.to || ''; }
   return q;
 }
@@ -69,7 +82,7 @@ export function sortLoc(rows, kind, asc = false) {
 export function coverRange(hidden, L) {
   const ds = hidden.map((r) => dateOf(r, L.kind)).filter(Boolean);
   if (!ds.length) return null;
-  return { kind: L.kind, preset: null, from: [L.from, ...ds].sort()[0], to: [L.to, ...ds].sort().slice(-1)[0] };
+  return { kind: L.kind, wantKind: L.wantKind, preset: null, from: [L.from, ...ds].sort()[0], to: [L.to, ...ds].sort().slice(-1)[0] };
 }
 const dm = (d) => `${d.slice(8, 10)}/${d.slice(5, 7)}`;
 export function locLabel(L) {
@@ -85,15 +98,20 @@ export function locBar(L, kinds, href) {
       ? html`<select class="input sm loc-k" data-loc-kind aria-label="Loại ngày">${kinds.map((k) => html`<option value="${k}" ${k === L.kind ? 'selected' : ''}>${KINDS[k]}</option>`)}</select>`
       : html`<span class="loc-k1">${KINDS[kinds[0]]}</span>`}
     <span class="loc-r"><input class="input sm" type="date" data-loc-from value="${L.from}" aria-label="Từ ngày"><span>–</span><input class="input sm" type="date" data-loc-to value="${L.to}" aria-label="Đến ngày"></span>
-    <span class="loc-q">${PRESETS.map(([k, t]) => html`<a class="loc-p ${L.preset === k ? 'on' : ''}" data-nhanh="${k}" href="${href({ kind: L.kind, preset: k })}">${t}</a>`)}</span></div>`;
+    <span class="loc-q">${PRESETS.map(([k, t]) => html`<a class="loc-p ${L.preset === k ? 'on' : ''}" data-nhanh="${k}" href="${href({ kind: L.kind, wantKind: L.wantKind, preset: k })}">${t}</a>`)}</span></div>`;
 }
 // đổi loại ngày / ngày → chuyển trang (go nhận đường dẫn mới)
 export function wireLoc(root, L, href, go = (u) => { location.hash = u; }) {
   const box = root?.querySelector('[data-loc]'); if (!box) return;
   const k = box.querySelector('[data-loc-kind]'); const f = box.querySelector('[data-loc-from]'); const t = box.querySelector('[data-loc-to]');
-  k?.addEventListener('change', () => go(href({ ...L, kind: k.value })));
-  const dates = () => { const a = f.value; const b = t.value; if (!isD(a) || !isD(b)) return; go(href({ kind: L.kind, preset: null, from: a <= b ? a : b, to: a <= b ? b : a })); };
+  k?.addEventListener('change', () => go(href({ ...L, kind: k.value, wantKind: k.value })));   // tự tay đổi loại → theo loại mới
+  const dates = () => { const a = f.value; const b = t.value; if (!isD(a) || !isD(b)) return; go(href({ kind: L.kind, wantKind: L.wantKind, preset: null, from: a <= b ? a : b, to: a <= b ? b : a })); };
   f?.addEventListener('change', dates); t?.addEventListener('change', dates);
+}
+// bước 174: khoảng ngày quá dài → trang chỉ hiện thanh lọc + lời nhắc (không gọi máy chủ), để chọn lại ngay
+export function locTooLong(L, kinds, href) {
+  return html`<section class="card stack loc-long" style="gap:10px">${locBar(L, kinds, href)}
+    <div class="alert error" id="loc-qua-dai">Khoảng ngày đang chọn dài quá ${MAX_DAYS} ngày nên web không tải được. Chọn lại khoảng ngắn hơn, hoặc bấm một nút nhanh ở trên.</div></section>`;
 }
 
 export const LOC_CSS = html`<style>
