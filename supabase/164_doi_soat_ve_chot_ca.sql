@@ -76,4 +76,30 @@ end $$;
 revoke all on function public.app_ca_ds_tuan(bigint, date, date), public.app_ca_ds_con(bigint) from public, anon;
 grant execute on function public.app_ca_ds_tuan(bigint, date, date), public.app_ca_ds_con(bigint) to authenticated;
 
+-- Chữ báo lỗi còn chỉ chỗ cũ ("Sổ thu chi › Đối soát Fabi", "bước 6" — tab đã bỏ) → trang đối soát của ca trong Chốt ca (tab ② Phần tiền / ③ Hoàn thành).
+-- CHỈ đổi chữ trong câu báo lỗi, không đổi điều kiện nào. Bản đang chạy không có chuỗi cũ (đã vá / khác bản) thì bỏ qua hàm đó — không dừng tệp.
+--   app_ca_recon_finish (tệp 150: Hoàn thành đối soát lại sau khi mở lại phiếu) · app_fin_close (tệp 159: Chốt tháng) · app_stc_move_exchange (tệp 160: đổi luân chuyển trong ca)
+do $$
+declare d text; i int;
+  fns text[] := array['public.app_ca_recon_finish(bigint)', 'public.app_fin_close(bigint,text,text)',
+                      'public.app_stc_move_exchange(bigint,text,text)', 'public.app_stc_move_exchange(bigint,text,text)'];
+  olds text[] := array[
+    'vào Sổ thu chi › Đối soát Fabi, tích đủ mục kiểm tra rồi bấm "Hoàn thành đối soát ca" ở bước 6.',
+    'Xử lý ở Sổ thu chi › Đối soát Fabi (bước Chênh lệch)',
+    'xác nhận ở Đối soát Fabi trước rồi mới đổi khoản.',
+    'Mở lại ở bước 6 mới đổi được.'];
+  news text[] := array[
+    'vào trang đối soát của ca ở Chốt ca: tab ② Phần tiền tích đủ mục kiểm tra rồi bấm "Hoàn thành đối soát ca" ở tab ③.',
+    'Xử lý ở trang đối soát của ca trong Chốt ca (tab ② Phần tiền, bước Chênh lệch)',
+    'xác nhận ở trang đối soát của ca (tab ② Phần tiền) trước rồi mới đổi khoản.',
+    'Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới đổi được.'];
+begin
+  for i in 1 .. array_length(fns, 1) loop
+    if to_regprocedure(fns[i]) is null then continue; end if;
+    d := pg_get_functiondef(fns[i]::regprocedure);
+    if position(olds[i] in d) = 0 then continue; end if;
+    execute replace(d, olds[i], news[i]);
+  end loop;
+end $$;
+
 insert into public.app_migrations(file) values ('164_doi_soat_ve_chot_ca.sql') on conflict (file) do nothing;

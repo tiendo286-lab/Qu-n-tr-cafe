@@ -99,5 +99,15 @@ begin
   perform set_config('request.jwt.claims', json_build_object('sub', nv.auth_user_id, 'role', 'authenticated')::text, true);
   begin t := public.app_ca_ds_tuan(1, '2026-11-09', '2026-11-15'); e := jsonb_array_length(t)::text; exception when others then e := 'lỗi: ' || sqlerrm; end;
   rep := rep || E'\n' || case when e = '0' then 'ĐẠT' else 'HỎNG' end || ' (9c) nhân viên → ' || e || ' dòng';
+
+  -- (12) chữ báo lỗi ở máy chủ không còn chỉ "Sổ thu chi › Đối soát Fabi" / "bước 6" (tab cũ đã bỏ) → trang đối soát của ca (tab ② / ③); chỉ đổi chữ
+  rep := rep || E'\n' || case when position('Sổ thu chi › Đối soát Fabi' in pg_get_functiondef('public.app_ca_recon_finish(bigint)'::regprocedure)) = 0
+                                   and position('tab ③' in pg_get_functiondef('public.app_ca_recon_finish(bigint)'::regprocedure)) > 0
+                                   and position('Sổ thu chi › Đối soát Fabi' in pg_get_functiondef('public.app_fin_close(bigint,text,text)'::regprocedure)) = 0
+                                   and position('trang đối soát của ca trong Chốt ca' in pg_get_functiondef('public.app_fin_close(bigint,text,text)'::regprocedure)) > 0
+                                   and position('bước 6' in pg_get_functiondef('public.app_stc_move_exchange(bigint,text,text)'::regprocedure)) = 0
+                                   and position('xác nhận ở Đối soát Fabi' in pg_get_functiondef('public.app_stc_move_exchange(bigint,text,text)'::regprocedure)) = 0
+                                   and position('tab ③ Hoàn thành' in pg_get_functiondef('public.app_stc_move_exchange(bigint,text,text)'::regprocedure)) > 0 then 'ĐẠT' else 'HỎNG' end
+        || ' (12) chữ báo lỗi (Hoàn thành lại, Chốt tháng, đổi luân chuyển) chỉ trang đối soát của ca, không còn "Sổ thu chi › Đối soát Fabi" / "bước 6"';
   raise exception 'REPORT>> %', rep;
 end $$;

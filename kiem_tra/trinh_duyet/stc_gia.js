@@ -263,7 +263,7 @@ export function makeStc(T, me) {
     app_stc_move_exchange({ p_report, p_mkey, p_reason }) {
       need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
       if (!ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới đổi khoản.');
-      if (ca.done) throw new Error('Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới đổi được.');
+      if (ca.done) throw new Error('Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới đổi được.');
       const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`);
       if (!x || x.col === 'lc') throw new Error('Khoản này vừa thay đổi. Tải lại trang rồi làm lại.');
       untick(ca, ['that', 'lon', 'ld', 'sau_tm', 'sau_ck', 'tn', 'sot']);
