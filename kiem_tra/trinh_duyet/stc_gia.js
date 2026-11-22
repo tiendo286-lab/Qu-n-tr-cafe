@@ -171,8 +171,11 @@ export function makeStc(T, me) {
     },
     // → Trừ lương (anh Tiến chốt 22/11: người làm ca có ô tích): gắn p_n nhân viên đang làm vào ca (đã làm) — app_ca_get trả về như phiếu thật
     app__test_ca_staff({ p_id, p_n = 2 }) {
-      const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || [];
-      const es = (T.employees || []).filter((e) => e.status === 'Đang làm').slice(0, p_n);
+      const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || []; T.employees = T.employees || [];
+      // nhân viên GIẢ (không dùng tên thật trong dữ liệu chép về máy thử)
+      const FAKE = [[9901, 'NVA', 'Nhân viên A (thử)'], [9902, 'NVB', 'Nhân viên B (thử)'], [9903, 'NVC', 'Nhân viên C (thử)']].slice(0, p_n);
+      FAKE.forEach(([id, code, name]) => { if (!T.employees.some((e) => e.id === id)) T.employees.push({ id, code, name, status: 'Đang làm', rank: 'NV', pay_cash: 0 }); });
+      const es = FAKE.map(([id]) => T.employees.find((e) => e.id === id));
       es.forEach((e) => { if (!T.shift_report_staff.some((s) => s.report_id === rid && s.employee_id === e.id)) T.shift_report_staff.push({ report_id: rid, employee_id: e.id, worked: 1, source: 'lich', time_in: '06:45', time_out: '12:30' }); });
       return es.map((e) => e.id);
     },

@@ -553,14 +553,14 @@ const gapStatus = (s) => String(s || '').replace('Chờ xử lý (dư)', 'Chờ 
 // Trừ tiền nhân viên (anh Tiến chốt 22/11): người làm ca có ô tích — mặc định không ai được tích; tích / bỏ tích là web chia đều lại số tiền cho
 // người được tích (làm tròn nghìn, phần lẻ cho người tích đầu tiên), sau đó sửa tay được từng người. Dùng ở Phiếu chênh lệch → Trừ lương và → Trừ lương ở khoản chi.
 const splitEven = (total, n) => { const b = Math.floor(total / n / 1000) * 1000; return Array.from({ length: n }, (_, i) => (i === 0 ? total - b * (n - 1) : b)); };
-const tlPick = (people, total, pre) => html`<div class="stc-tlpick" data-total="${total}" data-pre="${pre}">${people.map((p) => html`<div class="stc-tlr">
-  <label class="stc-tlc"><input type="checkbox" data-tlc="${p.id}"><span>${p.name}</span></label>
+const tlPick = (people, total, pre) => html`<div class="stc-tkp" data-total="${total}" data-pre="${pre}">${people.map((p) => html`<div class="stc-tkr">
+  <label class="stc-tkc"><input type="checkbox" data-tlc="${p.id}"><span>${p.name}</span></label>
   <input class="input" name="${pre}_${p.id}" inputmode="numeric" data-money value="" disabled placeholder="—" aria-label="Số tiền trừ ${p.name}"></div>`)}</div>`;
 function bindTlPick(d) {
-  const box = d.querySelector('.stc-tlpick'); if (!box) return;
+  const box = d.querySelector('.stc-tkp'); if (!box) return;
   box.addEventListener('change', (ev) => {
     if (!ev.target.matches('[data-tlc]')) return;
-    const rows = [...box.querySelectorAll('.stc-tlr')]; const on = rows.filter((r) => r.querySelector('[data-tlc]').checked);
+    const rows = [...box.querySelectorAll('.stc-tkr')]; const on = rows.filter((r) => r.querySelector('[data-tlc]').checked);
     const parts = on.length ? splitEven(Number(box.dataset.total) || 0, on.length) : [];
     rows.forEach((r) => { const inp = r.querySelector('input.input'); const k = on.indexOf(r); inp.disabled = k < 0; inp.value = k < 0 ? '' : fmt(parts[k]); });
   });
@@ -1874,9 +1874,9 @@ const STYLE = html`<style>
   .stc-how { font-size: 13px; margin-bottom: 6px; } .stc-how summary { cursor: pointer; color: var(--primary); font-weight: 700; }
   .stc-sidep summary { cursor: pointer; display: flex; gap: 6px; align-items: center; } .stc-sidep[open] summary { margin-bottom: 6px; }
   .stc-cajump { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .stc-cajump .btn { width: auto; }
-  .stc-tlpick { display: grid; gap: 6px; } .stc-tlr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px); gap: 8px; align-items: center; }
-  .stc-tlc { display: flex; gap: 8px; align-items: center; min-width: 0; font-weight: 600; cursor: pointer; } .stc-tlc input { width: 20px; height: 20px; flex: 0 0 auto; }
-  .stc-tlr input.input:disabled { background: var(--subtle, #f7f2ea); }
+  .stc-tkp { display: grid; gap: 6px; } .stc-tkr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px); gap: 8px; align-items: center; }   /* ô tích người trừ tiền (22/11) */
+  .stc-tkc { display: flex; gap: 8px; align-items: center; min-width: 0; font-weight: 600; cursor: pointer; overflow-wrap: anywhere; } .stc-tkc input { width: 20px; height: 20px; flex: 0 0 auto; }
+  .stc-tkr input.input:disabled { background: var(--subtle, #f7f2ea); }
   .stc-dsp { margin: 6px 12px 14px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--subtle); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .stc-dsh { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   /* bước 171: 6 bước đối soát + mục quản lý phải kiểm tra */
