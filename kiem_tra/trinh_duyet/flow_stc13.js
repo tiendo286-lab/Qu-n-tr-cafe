@@ -4,6 +4,7 @@
 import { MONTH } from './stc_fixture.js';
 import { todoItems, debtGroups, fundSummary } from '../js/so_thu_chi_tinh.js';
 
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): khối tiền một ca ở trang đối soát ca #/ca/doi-soat?id= (bước 1–5 = tab ②, bước 6 = tab ③). Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 150) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -34,7 +35,7 @@ export default async ({ sleep, out }) => {
     ok(firstNotRed === -1 || rows.slice(firstNotRed).every((r) => !r.querySelector('.stc-dot.red')), '2. việc đỏ đứng trước');
     const f0 = T.find((t) => t.kind === 'fabi');
     const fr = rows.find((r) => r.dataset.kind === 'fabi');
-    ok(!!f0 && !!fr && txt(fr).includes('chưa xác nhận fabi') && ($('a', fr)?.getAttribute('href') || '').includes(`tab=doi-soat`) && ($('a', fr)?.getAttribute('href') || '').includes(`ds=${f0.ref.id}`), `2. ca chưa xác nhận Fabi có "Mở ›" sang Đối soát Fabi đúng ca ${f0?.ref.id}`);
+    ok(!!f0 && !!fr && txt(fr).includes('chưa xác nhận fabi') && ($('a', fr)?.getAttribute('href') || '').includes(`#/ca/doi-soat?id=${f0.ref.id}&`), `2. ca chưa xác nhận Fabi có "Mở ›" sang trang đối soát đúng ca ${f0?.ref.id}`);
     const lr = rows.find((r) => r.dataset.kind === 'lech');
     ok(!lr || (($('a', lr)?.getAttribute('href') || '').includes('cot=lech')), '2. lệch chờ xử lý dẫn tới sổ lọc Chênh lệch');
     const cr = rows.find((r) => r.dataset.kind === 'cat');

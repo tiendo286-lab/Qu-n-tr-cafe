@@ -1,5 +1,7 @@
 // Bài thử bước 156: trang Đối soát ca bỏ bước "Tiền" — thanh bước là Ai làm ca · (Nghỉ & làm thay) · Bàn giao · Hoàn thành;
 // bước cuối không còn hạng mục tiền phải duyệt, chỉ có thẻ "Phần tiền · làm ở Sổ thu chi". Chạy: role=chu|ql, confirm=1, script=flow_ds156 (+ test/phone.html).
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): trang đối soát ca 3 tab — ① Phần việc (Ai làm ca · (Nghỉ & làm thay) · Bàn giao), ② Phần tiền
+//   (khối tiền một ca), ③ Hoàn thành → thanh bước phần việc không còn "Tiền" lẫn "Hoàn thành"; thẻ "làm ở Sổ thu chi" đã bỏ. Ý kiểm giữ: không có bảng / ô sửa tiền cũ.
 export default async ({ sleep, out }) => {
   const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
   const wait = async (sel, n = 600) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -19,13 +21,13 @@ export default async ({ sleep, out }) => {
       cash_counted: 5300000, ipos_opening: 1000000, opening_cash: 1000000, pos_debt: 0, pos_diff: -200000, cups: 50, goods: [], handover: [], staff, debts: [], moves: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/a.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1'; await wait('.ds-pane'); await sleep(1800);
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=' + id; await wait('.ds-pane'); await sleep(1800);
     const bar = txt($('#ds-parts'));
-    ok(bar.includes('hoàn thành') && !/\btiền\b/.test(bar), `thanh bước không còn "Tiền", có "Hoàn thành" (${bar.slice(0, 80)})`);
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await sleep(1500);
-    const pane = $('.ds-pane[data-ds="3"]');
-    ok(!!pane && !pane.querySelector('#ds-money-table, .lx-box, #total_revenue, #moves'), 'bước cuối không còn bảng tiền / xử lý lệch / ô sửa tiền');
-    ok(!!pane && txt(pane.querySelector('.ds-stc-card h2')).includes('làm ở sổ thu chi') && !!pane.querySelector('a.ds-stc'), 'bước cuối chỉ có thẻ "Phần tiền · làm ở Sổ thu chi" + đường dẫn');
+    ok(bar.includes('ai làm ca') && bar.includes('bàn giao') && !/\btiền\b/.test(bar) && !bar.includes('hoàn thành'), `thanh bước phần việc không còn "Tiền" / "Hoàn thành" (${bar.slice(0, 80)})`);
+    ok($$('.ds-ptabs .ds-pt').map((x) => x.dataset.ptab).join() === 'viec,tien,xong', 'trang có 3 tab ① Phần việc · ② Phần tiền · ③ Hoàn thành');
+    const form = $('#pc-form');
+    ok(!!form && !form.querySelector('#ds-money-table, .lx-box, #total_revenue, #moves, .ds-stc-card, a.ds-stc'), 'phần việc không còn bảng tiền / xử lý lệch / ô sửa tiền / thẻ "làm ở Sổ thu chi"');
+    ok(!!$('#stc-page.stc-one[data-ds="' + id + '"]'), 'phần tiền là khối tiền của đúng ca này (tab ②)');
     ok(!$$('.ds-hd').some((h) => /còn \d+\/\d+ hạng mục/.test(txt(h)) && txt(h).includes('tiền')), 'không còn đếm hạng mục tiền trong các bước');
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, 'không tràn ngang');
   } catch (err) { bad.push('LỖI: ' + (err && err.message || err)); }

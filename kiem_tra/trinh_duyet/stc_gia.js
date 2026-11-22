@@ -19,6 +19,7 @@ export function makeStc(T, me) {
     if (T.shift_reports.some((r) => r.id === c.id)) return;
     T.shift_reports.push({ id: c.id, branch_id: 1, work_date: c.date, shift: c.shift, status: 'hoan_thanh', recon_status: 'chua', cash_mode: c.cash_mode || 'ngay',
       opening_cash: c.nv?.opening ?? 1000000, total_revenue: c.nv?.revenue ?? 0, pos_debt: c.nv?.debt ?? 0,
+      pos_cash: c.fabi?.tm ?? 0, pos_transfer: c.fabi?.ck ?? 0, reported_transfer: c.fabi?.ck ?? 0, cash_counted: (c.nv?.opening ?? 1000000) + (c.fabi?.tm ?? 0),   // ô TM / CK ở bảng tuần ≈ 0 như phiếu thật
       created_by: 1, completed_by: 1, completed_at: c.date + ' 12:00:00', updated_at: c.date + ' 12:00:00', updated_by: 1 });
   });
   T.__stcKt = (id) => { const c = st().cas.find((x) => x.id === Number(id)); if (!c) return null;

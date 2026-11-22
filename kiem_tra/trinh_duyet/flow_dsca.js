@@ -50,8 +50,25 @@ export default async ({ sleep, out }) => {
       ok($('.ds-pt[data-ptab="viec"]')?.getAttribute('aria-selected') === 'true' && $('[data-tab-pane="tien"]')?.hidden && !$('.ds-tab-viec')?.hidden, '(c) ca chưa làm phần việc → mở tab ①');
       ok($$('[data-tab-pane="tien"] .stc-steps [data-dsstep]').length === 5 && !!$('[data-tab-pane="tien"] .stc-dsp'), '(c) tab ② là khối 6 bước cũ, thanh bước chỉ 5 bước tiền');
       ok(/#\/ca\/phieu\?id=182(&|$)/.test($('.ds-top a.ds-staff')?.getAttribute('href') || ''), '(c) đầu trang có "Xem phiếu nhân viên"');
+      // (n) tab ①: chỉ một hàng bước phần việc (không còn bước "Hoàn thành" cũ, không lặp thanh 4 bước của phiếu nhân viên); đèn mục tiền bấm "Xử lý" → tab ②
+      ok(!$('.pc-unified-steps') && !!$('#ds-parts .sc-steps') && !/hoàn thành|\btiền\b/.test(txt($('#ds-parts'))), '(n) tab ① chỉ có hàng bước phần việc: ' + txt($('#ds-parts')) + (document.querySelector('.pc-unified-steps') ? ' + thanh 4 bước phiếu nhân viên' : ''));
+      await wait('#ds-lights .den-row [data-ds-go="3"]', 40);
+      { const xl = $('#ds-lights .den-row [data-ds-go="3"]');
+        if (xl) { xl.click(); await sleep(400); ok(!$('[data-tab-pane="tien"]').hidden && $('.ds-pt[data-ptab="tien"]')?.getAttribute('aria-selected') === 'true', '(n) đèn mục tiền bấm "Xử lý" → sang tab ② Phần tiền'); }
+        else bad.push('(n) không thấy nút "Xử lý" của mục tiền ở đèn đối soát (ca 182)'); }
       $('.ds-pt[data-ptab="tien"]').click(); await sleep(300);
       ok(!$('[data-tab-pane="tien"]').hidden && $('.ds-tab-viec').hidden && /tab=tien/.test(location.hash), '(c) bấm tab ② → hiện phần tiền, đường dẫn nhớ tab');
+      // (m) bước đang mở của khối tiền: mở lại cùng ca bằng đường dẫn có t= mới → về đúng bước b= (như đường cũ của Đối soát Fabi);
+      //     đổi tab ③ → ② rồi trang vẽ lại (như sau một thao tác) → vẫn ở bước đang làm, không nhảy về bước đầu
+      const curStep = () => $('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep;
+      await go('#/ca/doi-soat?id=182&tab=tien&b=3&t=1', '.stc-dsp');
+      $('.stc-dsp .stc-steps [data-dsstep="0"]')?.click(); await sleep(300);
+      await go('#/ca/doi-soat?id=182&tab=tien&b=3&t=2', '.stc-dsp');
+      ok(curStep() === '2', '(m) mở lại cùng ca với t= mới → về đúng bước b=3 (thấy bước ' + (Number(curStep()) + 1) + ')');
+      $('.stc-dsp .stc-steps [data-dsstep="1"]')?.click(); await sleep(300);
+      $('.ds-pt[data-ptab="xong"]')?.click(); await sleep(200); $('.ds-pt[data-ptab="tien"]')?.click(); await sleep(200);
+      window.dispatchEvent(new HashChangeEvent('hashchange')); await sleep(900); await wait('.stc-dsp'); await sleep(300);
+      ok(curStep() === '1' && /tab=tien/.test(location.hash), '(m) đổi tab rồi trang vẽ lại → vẫn ở bước đang làm (bước 2), thấy bước ' + (Number(curStep()) + 1));
       // (d) ③ khoá khi còn phần việc; xong phần việc thì mở
       const { TICKS } = await import('../js/so_thu_chi_tinh.js');
       await rpc('app__test_stc_ca', { p_id: 161, p: { ticks: TICKS, done: null } });

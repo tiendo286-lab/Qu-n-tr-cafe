@@ -31,7 +31,7 @@ export default async ({ sleep, out }) => {
     ok(o[1].t.startsWith('ca sáng · ') && !o[1].d, '1. "Ca Sáng · <người làm>", chọn được');
     ok(o[2].d && o[2].t.includes('chưa xác nhận fabi'), '2. ca chưa xác nhận Fabi mờ, ghi "chưa xác nhận Fabi"');
     ok(o[3].d && o[3].t.includes('đã hoàn thành đối soát'), '2. bước 171: ca đã Hoàn thành đối soát mờ, ghi "đã hoàn thành đối soát, Mở lại mới thêm được"');
-    { const js = $$('.stc-cajump a', P()); ok(js.some((a) => a.getAttribute('href').includes('ds=173') && a.getAttribute('href').includes('b=6') && txt(a).includes('mở lại')), '2. bước 171: có nút nhảy tới bước 6 của ca đã hoàn thành để Mở lại'); }
+    { const js = $$('.stc-cajump a', P()); ok(js.some((a) => a.getAttribute('href').includes('#/ca/doi-soat?id=173&') && a.getAttribute('href').includes('tab=xong') && txt(a).includes('mở lại')), '2. bước 171: có nút nhảy tới bước 6 (22/11: tab ③ Hoàn thành của trang đối soát ca) của ca đã hoàn thành để Mở lại'); }
     ok(!$('.stc-canote', P()) || $('.stc-canote', P()).hidden || !txt($('.stc-canote', P())), '2. ngày có ca chọn được thì không hiện dòng nhắc');
     // 3. ngày không có ca
     setv(el('date'), '2026-11-05'); await sleep(150);

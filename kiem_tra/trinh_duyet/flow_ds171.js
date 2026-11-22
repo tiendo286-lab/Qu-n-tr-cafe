@@ -3,6 +3,8 @@
 //  b. ca 181 (đã hoàn thành từ trước): 🟢 / 🟠, phiếu khoá, Mở lại → 🔵 Đã xác nhận Fabi
 //  c. chưa tích đủ thì không Hoàn thành được; tích đủ + chọn nhóm + Để sau → Hoàn thành
 //  d. Mở lại rồi thêm phiếu chi → mục "khoản chi có thật" tự bỏ tích
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): 6 bước nay ở trang đối soát ca — bước 1–5 = tab ② Phần tiền (thanh 5 bước), bước 6 = tab ③ Hoàn thành.
+//   Đường cũ ?tab=doi-soat&ds=&b= tự chuyển sang. Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -14,12 +16,13 @@ export default async ({ sleep, out }) => {
   const step = async (i) => { $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`)?.click(); await sleep(350); };
   const cur = () => $('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep;
   const pill = () => txt($('.stc-dsp .stc-dsh .pill'));
+  const X = '[data-tab-pane="xong"]';   // bước 6 (Hoàn thành) = tab ③
   const sb = (await import('/js/sb.js')).sb;
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // ---- a. ca 182: chưa xác nhận Fabi
     await open(182);
-    ok($$('.stc-dsp .stc-steps [data-dsstep]').length === 6, 'a. thanh 6 bước');
+    ok($$('.stc-dsp .stc-steps [data-dsstep]').length === 5 && !!$(X + ' [data-dsdone]'), 'a. 6 bước: thanh 5 bước tiền ở tab ②, bước 6 Hoàn thành ở tab ③');
     ok(cur() === '0' && !!$('.stc-dsp .stc-step[data-step="0"]'), 'a. mở ca chưa xác nhận → bước 1');
     const chk = $('.stc-dsp .stc-chk');
     ok(!!chk && txt(chk).includes('quản lý cần kiểm tra') && $$('.stc-ci', chk).length >= 4, 'a. bước 1 có khung "Quản lý cần kiểm tra"');
@@ -38,22 +41,23 @@ export default async ({ sleep, out }) => {
     ok(!!cl && cl.disabled && txt(cl).includes('xác nhận fabi') && !txt(cl).includes('hoàn thành') && $$('[data-dsclose]').length === 1, 'a. nút "Xác nhận Fabi" ở cuối bước 2, đang khoá vì còn ô đỏ');
     ok(txt($('.stc-dsp .stc-fixhelp')).includes('sai thì sửa ở đâu') && txt($('.stc-dsp .stc-fixhelp')).includes('kế toán'), 'a. bước 2 có khung "sai thì sửa ở đâu"');
     for (const i of [2, 3, 4]) { await step(i); ok(!!$('.stc-dsp .stc-lockp') && txt($('.stc-dsp .stc-lockp')).includes('xác nhận fabi'), `a. bước ${i + 1} khoá tới khi Xác nhận Fabi`); }
-    await step(5);
-    ok(!!$('.stc-dsp [data-dsdone]') && $('.stc-dsp [data-dsdone]').disabled, 'a. bước 6: nút Hoàn thành đối soát ca đang khoá');
+    ok(!!$(X + ' [data-dsdone]') && $(X + ' [data-dsdone]').disabled, 'a. bước 6 (tab ③): nút Hoàn thành đối soát ca đang khoá');
     wide('a. ca chưa xác nhận');
 
     // ---- b. ca 181: đã hoàn thành từ trước bước 171
     await open(181);
     ok(/🟢|🟠/.test(pill()), 'b. ca đã xác nhận Fabi từ trước coi như đã Hoàn thành (🟢 / 🟠)');
-    ok(cur() === '5' && !!$('.stc-dsp [data-dsundone]') && !$('.stc-dsp [data-dsdone]'), 'b. mở ca đã hoàn thành → bước 6, có nút Mở lại');
+    ok(cur() === '4' && !!$(X + ' [data-dsundone]') && !$(X + ' [data-dsdone]'), 'b. mở ca đã hoàn thành → bước cuối tab ②, tab ③ có nút Mở lại');
     await step(3);
     ok(!$('.stc-dsp .stc-step [data-addca]') && txt($('.stc-dsp .stc-step')).includes('mở lại'), 'b. ca đã hoàn thành: không có nút + Thêm phiếu, có dòng nhắc Mở lại');
-    await step(5); $('.stc-dsp [data-dsundone]').click(); await sleep(700);
+    $(X + ' [data-dsundone]').click(); await sleep(700);
     ok(pill().includes('đã xác nhận fabi') && pill().includes('🔵'), 'b. Mở lại → 🔵 Đã xác nhận Fabi');
-    ok(!!$('.stc-dsp [data-dsdone]') && $('.stc-dsp [data-dsdone]').disabled && /còn \d+ mục/.test(txt($('.stc-dsp .stc-step'))), 'b. chưa tích đủ → nút Hoàn thành khoá, ghi còn N mục');
-    ok($$('.stc-dsp .stc-sum [data-dsstep]').length === 5, 'b. bước 6 có tóm tắt 5 bước, bấm để tới');
+    ok(!!$(X + ' [data-dsdone]') && $(X + ' [data-dsdone]').disabled && /còn \d+ mục/.test(txt($(X + ' #stc-done'))), 'b. chưa tích đủ → nút Hoàn thành khoá, ghi còn N mục');
+    ok($$(X + ' .stc-sum [data-dsstep]').length === 5, 'b. bước 6 (tab ③) có tóm tắt 5 bước, bấm để tới');
 
     // ---- c. tích đủ từng bước rồi Hoàn thành
+    // 22/11: nút Hoàn thành (tab ③) cần xong cả phần việc (tab ①) — ca 181 trong dữ liệu thử chưa duyệt phần việc → duyệt bằng lệnh trước
+    for (const it of ['nhan_su', 'ban_giao', 'nhap_hang']) await sb.rpc('app_ca_check', { p_id: 181, p_item: it, p_on: true });
     for (const i of [0, 1, 2, 3, 4]) {
       await step(i);
       for (let g = 0; g < 8 && $('.stc-dsp .stc-step select.stc-cat.need'); g++) { const s = $('.stc-dsp .stc-step select.stc-cat.need'); s.value = [...s.options].find((o) => o.value)?.value || ''; s.dispatchEvent(new Event('change', { bubbles: true })); await sleep(500); }
@@ -64,15 +68,15 @@ export default async ({ sleep, out }) => {
     await step(2); ok(!!$('.stc-dsp .stc-step [data-addca]') && $('.stc-dsp .stc-step [data-addca]').dataset.book === 'thu', 'c. bước 3 Khoản thu: có + Thêm phiếu thu');
     await step(3); ok($('.stc-dsp .stc-step [data-addca]')?.dataset.book === 'chi' && !$('.stc-dsp .stc-step [data-dsbook]'), 'c. bước 4 Khoản chi: + Thêm phiếu chi, không còn nút đổi Sổ thu / Sổ chi');
     await step(4); ok(txt($('.stc-dsp .stc-step')).includes('thực nhận − phải có'), 'c. bước 5 ghi rõ phép tính lệch');
-    await step(5);
-    const dn = $('.stc-dsp [data-dsdone]');
+    window.dispatchEvent(new HashChangeEvent('hashchange')); await sleep(900); await wait('.stc-dsp'); await sleep(300);   // vẽ lại để trang đọc phần việc vừa duyệt
+    const dn = $(X + ' [data-dsdone]');
     ok(!!dn && !dn.disabled && txt(dn).includes('hoàn thành đối soát ca'), 'c. tích đủ → nút "🔒 Hoàn thành đối soát ca" bấm được');
     dn.click(); await sleep(800);
-    ok(/🟢|🟠/.test(pill()) && !!$('.stc-dsp [data-dsundone]'), 'c. bấm Hoàn thành → 🟢 / 🟠');
+    ok(/🟢|🟠/.test(pill()) && !!$(X + ' [data-dsundone]'), 'c. bấm Hoàn thành → 🟢 / 🟠');
     wide('c. bước 6');
 
     // ---- d. Mở lại, thêm phiếu chi → mục khoản chi tự bỏ tích
-    $('.stc-dsp [data-dsundone]').click(); await sleep(700);
+    $(X + ' [data-dsundone]').click(); await sleep(700);
     const rs = await sb.rpc('app_stc_move_save', { p_report: 181, p_mkey: null, p: { kind: 'tien_mat', amount: -40000, note: 'Thử 171' }, p_reason: 'thử' });
     ok(!rs?.error, 'd. Mở lại rồi thì thêm phiếu chi vào ca được' + (rs?.error ? ': ' + rs.error.message : ''));
     // phiếu vừa thêm bằng lệnh gọi thẳng → bấm bỏ tích rồi tích lại 1 mục để trang tải lại số mới (như mọi thao tác trên trang)

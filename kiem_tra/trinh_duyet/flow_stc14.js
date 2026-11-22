@@ -1,5 +1,6 @@
 // Bước 173 đợt C phần 2 (tệp 154): thiếu tiền khi giao ca → "Hai ca cùng chịu" (chia đôi, ca này chịu phần lẻ). Chạy role chu / qlt / ql, index.html và test/phone.html.
 //  Ca 182 (Chiều 18/11, chưa xác nhận Fabi), ca trước 181 thu theo ca → phải mở 1.000.000. Bài đặt mở ca 975.001 (thiếu 24.999).
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): đường cũ ?tab=doi-soat&ds=&b=&t= tự chuyển sang trang đối soát ca (tab ② Phần tiền, giữ b= / t=); chỉ đổi cách tải lại sổ tháng.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s);
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -9,7 +10,7 @@ export default async ({ sleep, out }) => {
   const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && x[1] === fn).map((x) => x[2]);
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const open = async () => { location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-10&t=' + Date.now(); await sleep(500);
+  const open = async () => { location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = DS + '&ds=182&b=1&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
   const box = () => $('.stc-dsp .stc-c4[data-k="mo"]');
   const dlg = () => $('dialog[open]');

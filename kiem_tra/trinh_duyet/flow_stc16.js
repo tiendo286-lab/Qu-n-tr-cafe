@@ -2,6 +2,7 @@
 //  A. "+ Thêm phiếu": ô Ca đã chọn KHÔNG bị về "Ngoài ca" khi đổi Loại qua lại (Khoản chi → Cho nợ → Khoản chi).
 //  B. Khung Xác nhận Fabi (bước 2): dòng "Còn thiếu" bấm được, nhảy tới chỗ cần làm (ô đỏ ở ① → bước 1).
 // Chạy role chu / qlt / ql, index.html và test/phone.html. Dữ liệu giả: 17/11 Sáng 171 (Mở lại trước), ca 182 chưa xác nhận Fabi, ô Nợ bill đỏ.
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): đường cũ ?tab=doi-soat&ds=&b=&t= tự chuyển sang trang đối soát ca (tab ② Phần tiền, giữ b= / t=); chỉ đổi cách tải lại sổ tháng.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s);
   const wait = async (sel, n = 120) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -30,7 +31,7 @@ export default async ({ sleep, out }) => {
     wide('hộp thêm phiếu');
     $('[data-x]', P()).click(); await sleep(200);
     // B. "Còn thiếu" bấm được
-    location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-10&t=' + Date.now(); await sleep(500);
+    location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = DS + '&ds=182&b=2&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500);
     const lk = [...document.querySelectorAll('.stc-dsp .stc-a-end button.stc-lk')].find((b) => txt(b).includes('ô đỏ'));
     ok(!!lk, 'B1. dòng "Còn thiếu" có nút bấm "còn ô đỏ ở ①"');

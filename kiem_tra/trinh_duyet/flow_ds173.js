@@ -1,6 +1,7 @@
 // Bước 173 (đợt C): máy Fabi ghi sai — "Sai, sửa số" ở bước 1, chờ Chủ duyệt, Chủ duyệt / từ chối. Chạy role chu / qlt / ql, index.html và test/phone.html.
 //  Ca 182 (chưa xác nhận Fabi): ô Nợ bill đỏ (máy ghi 150.000, phiếu = danh sách khách nợ hoá đơn 120.000).
 //  Chặng 4 (anh Tiến chốt 22/11 "Báo đỏ và chặn", tệp 162): số duyệt phải bằng danh sách khách nợ → thử bằng 120.000; duyệt số khác danh sách thì vẫn đỏ.
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): đường cũ ?tab=doi-soat&ds=&b=&t= tự chuyển sang trang đối soát ca (tab ② Phần tiền, giữ b= / t=); chỉ đổi cách tải lại sổ tháng.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -13,7 +14,7 @@ export default async ({ sleep, out }) => {
   const role = new URLSearchParams(location.search).get('role');
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   // trang giữ sổ tháng 60 giây → mở tháng khác trước để lấy dữ liệu mới (sau khi bộ thử tự sửa dữ liệu giả)
-  const open = async (b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-10&t=' + Date.now(); await sleep(500);
+  const open = async (b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = DS + '&ds=182&b=' + b + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
   const box = () => $('.stc-dsp .stc-c4[data-k="no"]');
   const dlg = () => $('dialog[open]');

@@ -1,5 +1,6 @@
 // Bài thử bước 164: Sổ thu / Sổ chi gọn (phần đầu 1 nút chuyển + ô số, bỏ cột phải, bấm ô → danh sách một loại, 👥 Người nợ, bộ lọc "Đang lọc", mở ngày gọn).
 // Chạy: index.html?auto=1&role=chu&confirm=1&script=flow_stc12 (role chu / qlt / ql) và test/phone.html. Kết quả: out[].stc12 = { ok, fail }.
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): khối tiền một ca ở trang đối soát ca #/ca/doi-soat?id= (bước 1–5 = tab ②, bước 6 = tab ③). Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 120) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -99,13 +100,13 @@ export default async ({ sleep, out }) => {
     const c172 = $('.stc-ca [data-ca="172"]')?.closest('.stc-ca');
     ok(!!c172 && txt(c172.querySelector('.stc-crow')).includes('chưa xác nhận fabi'), '5. dòng ca ghi trạng thái "⏳ Chưa xác nhận Fabi"');
     ok(!!c172 && c172.querySelectorAll('.stc-calock').length === 1 && !c172.querySelector('button.stc-act[disabled]') && !txt(c172).includes('🔒 xác nhận fabi'), '5. ca chưa xác nhận Fabi: 1 dòng ghi chú, từng khoản không lặp nút mờ / dòng 🔒');
-    ok(!!c172 && !!c172.querySelector('.stc-calock a[href*="tab=doi-soat"]'), '5. dòng ghi chú có "Xử lý ca này ở Đối soát Fabi ›"');
+    ok(!!c172 && !!c172.querySelector('.stc-calock a[href*="#/ca/doi-soat?id=172"]'), '5. dòng ghi chú có "Xử lý ca này ở trang đối soát ca ›"');
     ok($$('.stc-ca').some((c) => !c.querySelector('.stc-calock') && c.querySelector('.stc-ed')) || $$('.stc-ca').some((c) => !c.querySelector('.stc-calock') && txt(c.querySelector('.stc-crow')).includes('đã xác nhận fabi')), '5. ca đã xác nhận Fabi: không có ghi chú khoá, khoản sửa được giữ nút');
     $('.stc-ch .stc-add')?.click(); await wait('.stc-addp [name=ca]', 40);
     const ap = $('.stc-addp');
     ok(!!ap && ['kind', 'pay', 'date', 'ca', 'amount', 'note', 'reason'].every((nm) => ap.querySelector(`[name=${nm}]`)) && ap.querySelectorAll('.stc-ar').length === 2 && !!ap.querySelector('.stc-ar [name=kind]') && !!ap.querySelector('.stc-ar [name=amount]'), '5. Thêm phiếu: đủ ô cũ, xếp 2 hàng (Loại · Tiền · Ngày · Ca · Số tiền / Nội dung · Lý do)');
     wide('5. mở ngày + Thêm phiếu');
-    location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=181&t=' + Date.now(); await wait('.stc-dsp'); await sleep(600);
+    location.hash = '#/ca/doi-soat?id=181&tab=tien'; await wait('.stc-dsp'); await sleep(600);
     ok(!txt($('#stc-ds')).includes('khung bên phải'), '5. Đối soát Fabi không còn nhắc "khung bên phải"');
     if (role === 'chu') {
       location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11&cot=chi&t=' + Date.now(); await wait('#stc-book'); await sleep(500);

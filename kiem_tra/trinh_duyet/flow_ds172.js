@@ -1,5 +1,6 @@
 // Bước 172 (đợt B, phần quản lý): người nợ thật + xếp người / nhóm công nợ cho nợ mới của ca. Chạy role chu / qlt / ql, index.html và test/phone.html.
 //  a. Sổ chi › 👥 Người nợ: danh sách thật (tên, SĐT, nhóm công nợ) — thêm, trùng tên, sửa nhóm, ngừng dùng; Kho Tổng không ngừng dùng được
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): khối tiền một ca ở trang đối soát ca #/ca/doi-soat?id= (bước 1–5 = tab ②, bước 6 = tab ③); đường cũ ?tab=doi-soat tự chuyển. Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -131,11 +132,11 @@ export default async ({ sleep, out }) => {
     const tryRpc = async (fn, args) => { try { const x = await sb.rpc(fn, args); return x?.error?.message || ''; } catch (e) { return e?.message || String(e); } };
     await tryRpc('app__thu_them_no_ca', { p_report: 181, p_who: 'Bàn 12 chưa trả', p_amount: 45000 });
     await openCa(181, 6);
-    $('.stc-dsp [data-dsundone]')?.click(); await redraw();   // Mở lại bằng nút trên màn hình (màn hình tải lại số mới, thấy khoản nợ vừa thêm)
+    $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await redraw();   // Mở lại bằng nút trên màn hình (màn hình tải lại số mới, thấy khoản nợ vừa thêm)
     const e1 = await tryRpc('app_stc_ds_done', { p_report: 181 });
     ok(e1.includes('phanloai'), 'd. máy chủ từ chối Hoàn thành khi còn nợ mới chưa xếp: ' + e1.slice(0, 80));
     await openCa(181, 6);
-    ok($('.stc-dsp [data-dsdone]')?.disabled === true, 'd. bước 6: nút Hoàn thành đang khoá');
+    ok($('[data-tab-pane="xong"] [data-dsdone]')?.disabled === true, 'd. bước 6 (tab ③): nút Hoàn thành đang khoá');
     await openCa(181, 1);
     r = rowOf('bàn 12');
     if (r?.querySelector('select[data-dperson]')) { type(r.querySelector('select[data-dperson]'), 'Bàn 5'); r.querySelector('[data-dsortok]').click(); await redraw(); }
@@ -203,11 +204,11 @@ export default async ({ sleep, out }) => {
     ok($('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep === '0', 'e. bấm "bước 1" → về bước 1');
     await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&cot=no');
     const km2 = $$('#stc-book .stc-it').find((x) => txt(x).includes('khách mượn – chị hoa'));
-    ok(!!km2 && txt(km2).includes('đối soát fabi › bước 1'), 'e. Sổ chi: dòng Khách mượn ghi "sửa ở Đối soát Fabi › bước 1"');
+    ok(!!km2 && txt(km2).includes('đối soát ca › bước 1') && !!km2.querySelector('a[href*="#/ca/doi-soat?id="][href*="b=1"]'), 'e. Sổ chi: dòng Khách mượn ghi "sửa ở trang đối soát ca › bước 1" (bấm mở đúng bước 1 của ca)');
     // dòng khoá "Lương trả tiền mặt" chỉ sang trang Đối soát ca › Ai làm ca (nơi sửa ô Đã trả lương tiền mặt), có liên kết mở đúng ca
     await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&cot=chi');
     const lg = $$('#stc-book .stc-it').find((x) => txt(x).includes('chi lương – minh'));
-    ok(!!lg && txt(lg).includes('lương tiền mặt — sửa ở đối soát ca › ai làm ca') && !!lg.querySelector('a[href*="#/quan-ly/doi-soat/ca?id=181"]'), 'e. dòng Lương tiền mặt: "sửa ở Đối soát ca › Ai làm ca" + liên kết mở đúng ca');
+    ok(!!lg && txt(lg).includes('lương tiền mặt — sửa ở đối soát ca › ai làm ca') && !!lg.querySelector('a[href*="#/ca/doi-soat?id=181&tab=viec"]'), 'e. dòng Lương tiền mặt: "sửa ở Đối soát ca › Ai làm ca" + liên kết mở đúng ca (tab ① trang đối soát ca)');
   } catch (e) { bad.push('LỖI CHẠY: ' + (e?.message || e)); }
   out.push({ ds172: { ok: good, fail: bad } });
 };

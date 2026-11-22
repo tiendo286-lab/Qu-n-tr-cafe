@@ -73,18 +73,20 @@ export default async ({ sleep, out }) => {
   // 13. chuyển về Quỹ ngoài chờ Chủ nhận, nút tắt
   const qn = $$('.stc-qnl');
   ok(qn.some((r) => txt(r).includes('chờ chủ nhận') && $('button[data-qnok]:not([disabled])', r)), '13. khoản chờ Chủ nhận: Chủ có nút Đã nhận tiền (đợt 5)');
-  // 14–17. Tab Đối soát Fabi
-  await go('#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11', '.stc-wk');
-  const hdr = txt($('.stc-wk .stc-hdr'));
+  // 14–17. Đối soát Fabi — 22/11 (anh Tiến duyệt) về lại Chốt ca: bảng tuần ở Chốt ca (ô ca hai dòng Việc · Tiền, trạng thái đọc ở ô + chú thích khi rê chuột),
+  //   trang đối soát của ca: tab ② Phần tiền = bước 1–5, tab ③ Hoàn thành = bước 6 cũ; ca chờ kế toán: trang báo Chờ kế toán (luật 17/11). Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
+  await go('#/ca?cn=1&tuan=2026-11-16', '.cw-c[data-id="182"]');
+  const hdr = txt($('.cw-t thead'));
   ok(hdr.includes('sáng') && hdr.includes('chiều') && hdr.includes('tối') && !hdr.includes('cuối ngày'), '14. bảng tuần Sáng / Chiều / Tối, không có cột Cuối ngày');
-  const cell = (id) => $(`.stc-dsc[data-dsca="${id}"]`);
-  // bước 168: điện thoại chọn ca thì lịch thu thành nút "‹ Chọn ca khác" → bấm nút đó trước khi chọn ca khác
-  const pick = async (id) => { const pk = $('[data-dspick]'); if (pk) { pk.click(); await sleep(300); } cell(id).click(); await sleep(400); };
+  const cell = (id) => $(`.cw-c[data-id="${id}"]`); const tip = (id) => (cell(id)?.getAttribute('title') || '').toLowerCase();
+  const pick = async (id) => { await go(`#/ca/doi-soat?id=${id}&tab=tien`, '#root .card'); await wait('.stc-dsp, #ds-nextca2', 100); await sleep(300); };
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
-  ok(txt(cell(183)).includes('còn lệch') &&txt(cell(182)).includes('tiền mở ca') && txt(cell(172)).includes('chờ kế toán'), '14. ô ghi trạng thái ca (' + [183, 182, 172].map((i) => txt(cell(i))).join(' | ') + ')');
-  // bước 171: khung ca = 6 bước (① Số máy Fabi ② Tiền thực nhận ③ Khoản thu ④ Khoản chi ⑤ Chênh lệch ⑥ Hoàn thành)
+  // ca 183 đã bấm Hoàn thành (còn lệch tiền mặt xử lý sau) → dòng Tiền ✓ như thiết kế 22/11 (⏳ · 🔴 · 🔵 · 🟡 · ✓; ô cam "Còn lệch" của lịch cũ không còn)
+  ok(txt(cell(183)?.querySelector('.cw-dt')).includes('✓') && tip(183).includes('tiền: xong') && txt(cell(182)?.querySelector('.cw-dt')).includes('🔴') && tip(182).includes('mở ca')
+    && txt(cell(172)?.querySelector('.cw-dt')).includes('⏳') && tip(172).includes('chờ kế toán'), '14. ô ghi trạng thái ca (' + [183, 182, 172].map((i) => txt(cell(i)) + ' / ' + tip(i)).join(' | ') + ')');
+  // bước 171: khung ca = 6 bước (① Số máy Fabi ② Tiền thực nhận ③ Khoản thu ④ Khoản chi ⑤ Chênh lệch ⑥ Hoàn thành) — nay ①–⑤ ở tab ②, ⑥ ở tab ③
   await pick(181);
-  ok($$('.stc-dsp .stc-steps [data-dsstep]').length === 6 && !!$('.stc-dsp [data-dsundone]'), '15. ca đã hoàn thành: thanh 6 bước, mở ở bước 6 có nút Mở lại');
+  ok($$('.stc-dsp .stc-steps [data-dsstep]').length === 5 && !!$('[data-tab-pane="xong"] [data-dsundone]'), '15. ca đã hoàn thành: tab ② thanh 5 bước tiền, tab ③ Hoàn thành có nút Mở lại');
   await st(0); const n1 = $$('.stc-dsp .stc-pa .stc-fsum > div').length; await st(1);
   ok(!!$('.stc-dsp .stc-pa [data-dsreopen]') && n1 === 3 && $$('.stc-dsp .stc-pa .stc-fsum > div').length === 2, '15. ca đã xác nhận Fabi: bước 1 thu gọn 3 ô số máy, bước 2 có 2 ô tiền thực nhận + Mở lại xác nhận');
   await st(2); const coThu = !!$('.stc-dsp .stc-pb .stc-cab') && txt($('.stc-dsp .stc-pb')).includes('khoản thu của ca'); await st(3); const coChi = txt($('.stc-dsp .stc-pb')).includes('khoản chi của ca'); await st(4);
@@ -95,8 +97,8 @@ export default async ({ sleep, out }) => {
     ok(!!$('.stc-dsp [data-dsclose][disabled]') && fb, '16. còn ô đỏ: Xác nhận Fabi tắt (bước 2), Lấy số máy Fabi bấm được (bước 1)'); }
   await st(2);
   ok(txt($('.stc-dsp .stc-lockp')).includes('xác nhận fabi'), '16. chưa xác nhận Fabi: bước 3 khoá');
-  await pick(172); await st(1);
-  ok(txt($('.stc-dsp .stc-pa')).includes('chờ kế toán') && !!$('.stc-dsp [data-dsclose][disabled]'), '17. ca chờ kế toán: ② ghi chờ kế toán, Xác nhận Fabi tắt');
+  await pick(172);
+  ok(txt($('#root')).includes('chờ kế toán') && !$('.stc-dsp') && !$('[data-dsclose]:not([disabled])'), '17. ca chờ kế toán: trang báo Chờ kế toán, không có chỗ Xác nhận Fabi (luật 17/11)');
   if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. đối soát: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
   // 12. Quỹ ngoài (Chủ)
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11', '.stc-pay');

@@ -1,5 +1,6 @@
 // Bài thử Sổ thu chi mới đợt 2a: sửa / thêm / xoá khoản ngoài ca (gạch ngang + phiếu bổ sung), người nợ ✓, Thu nợ.
 // Chạy: index.html?auto=1&role=chu&script=flow_stc2 và test/phone.html?... Kết quả: out[].stc2 = { ok, fail }.
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): khối tiền một ca ở trang đối soát ca #/ca/doi-soat?id= (bước 1–5 = tab ②, bước 6 = tab ③). Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 200) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -20,10 +21,10 @@ export default async ({ sleep, out }) => {
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
   // bước 171: ca đã Hoàn thành đối soát (ca Sáng 18/11) → Sổ chi khoá sửa / thêm, ghi chú đầu ca dẫn sang Đối soát Fabi; quản lý bấm Mở lại ở bước 6 rồi mới sửa được
   { const d0 = item('chi lương – minh'); const c0 = d0 && d0.closest('.stc-ca');
-    ok(!!c0 && !$('button.stc-ed:not([disabled])', c0) && txt($('.stc-calock', c0)).includes('đã hoàn thành đối soát') && !!$('.stc-calock a[href*="ds=181"]', c0) && !$('button.stc-addca:not([disabled])', c0) && !$('[data-toka]', c0),
+    ok(!!c0 && !$('button.stc-ed:not([disabled])', c0) && txt($('.stc-calock', c0)).includes('đã hoàn thành đối soát') && !!$('.stc-calock a[href*="doi-soat?id=181"]', c0) && !$('button.stc-addca:not([disabled])', c0) && !$('[data-toka]', c0),
       '0. bước 171: ca đã Hoàn thành đối soát → không có Sửa / Xoá, thêm phiếu, → Trừ lương; ghi chú đầu ca dẫn sang Đối soát Fabi'); }
-  location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=181&t=' + Date.now(); await wait('.stc-dsp [data-dsundone]', 60); await sleep(300);
-  $('.stc-dsp [data-dsundone]')?.click(); await sleep(900);
+  location.hash = '#/ca/doi-soat?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
+  $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await sleep(900);
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
   const td = item('tiền điện tháng 10');
   ok(!!td && !!$('button.stc-ed:not([disabled])', td), '1. khoản ngoài ca có nút Sửa / Xoá bấm được');
@@ -87,7 +88,7 @@ export default async ({ sleep, out }) => {
   $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   ok($$('.stc-it.void').some((i) => txt(i).includes('mua đá')) && txt(item('mua đá')).includes('55.000') && txt(item('mua đá')).includes('phiếu bổ sung'), '9. sửa khoản ca: gạch ngang + phiếu bổ sung 55.000');
   const addCa = $$('button.stc-addca').find((b) => !b.disabled);
-  ok(!!addCa && $$('a[href*="tab=doi-soat"][href*="ds="]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã xác nhận bấm được, ca chưa xác nhận có đường dẫn sang Đối soát Fabi');
+  ok(!!addCa && $$('a[href*="#/ca/doi-soat?id="]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã xác nhận bấm được, ca chưa xác nhận có đường dẫn sang Đối soát Fabi');
   addCa.click(); await wait('.stc-addp', 30); await sleep(200);
   ok(!!$('[name=ca]', pan())?.value, '11. khung chọn sẵn ca');
   setp('[name=note]', 'Mua giấy in'); setp('[name=amount]', '25.000'); setp('[name=reason]', '');

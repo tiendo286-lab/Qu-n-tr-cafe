@@ -1,5 +1,6 @@
 // Bài thử bước 153: (1) lọc "Có trừ lương" hiện MỌI phiếu trừ lương + Sửa / Xoá; (2) "→ Trừ lương" / "Bỏ chuyển" trên khoản chi của ca;
 // (3) nút "Phiếu chi chuyển khoản" của ca ở Sổ chi · bảng Chuyển khoản. Chạy: index.html?auto=1&role=chu|qlt|ql&confirm=1&script=flow_stc8 (+ test/phone.html).
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): khối tiền một ca ở trang đối soát ca #/ca/doi-soat?id= (bước 1–5 = tab ②, bước 6 = tab ③). Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 200) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -34,8 +35,8 @@ export default async ({ sleep, out }) => {
     ok(!!minh && !rows().some((r) => txt(r).includes('minh')), '3. xoá phiếu của Minh → không còn trong danh sách');
     // 4. → Trừ lương trên khoản chi "Mua đá" của ca Sáng 18/11 (đã xác nhận Fabi, chưa chốt)
     // bước 171: → Trừ lương / Phiếu chi chuyển khoản chỉ có ở ca chưa Hoàn thành đối soát → quản lý bấm Mở lại ca Sáng 18/11 ở bước 6 trước
-    location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=181&t=' + Date.now(); await wait('.stc-dsp [data-dsundone]', 60); await sleep(300);
-    $('.stc-dsp [data-dsundone]')?.click(); await sleep(900);
+    location.hash = '#/ca/doi-soat?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
+    $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await sleep(900);
     await go(BASE); $('.stc-all')?.click(); await sleep(500);
     const md = () => $$('#stc-book .stc-it').find((i) => txt(i).includes('mua đá') && i.querySelector('[data-toka]'));
     const row = md();
@@ -65,7 +66,7 @@ export default async ({ sleep, out }) => {
     ok(!$('#stc-book [data-bankout]'), '6. bảng Tiền mặt không có nút phiếu chi chuyển khoản');
     wide('6. Sổ chi');
     // 7. bước 154: ảnh phiếu Fabi chốt ca xem ở Đối soát Fabi (phần A)
-    location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=182&t=' + Date.now(); await sleep(500); await wait('.stc-dsp'); await sleep(500);
+    location.hash = '#/ca/doi-soat?id=182&tab=tien'; await sleep(500); await wait('.stc-dsp'); await sleep(500);
     const pb = $('.stc-pa [data-dsphoto]'); ok(!!pb, '7. phần A có nút 📷 Ảnh phiếu Fabi');
     if (pb) { pb.click(); await wait('dialog[open] #stc-ph', 40); await sleep(1200); ok(!!$('dialog[open] #stc-ph') && !!$('dialog[open] a[href*="#/ca/phieu?id=182"]'), '7. mở hộp ảnh phiếu Fabi + đường dẫn phiếu chốt ca'); $('dialog[open] [data-x]')?.click(); await sleep(300); }
   } catch (e) { bad.push('LỖI: ' + e.message); }

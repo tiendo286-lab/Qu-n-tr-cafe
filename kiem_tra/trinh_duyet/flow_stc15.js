@@ -1,6 +1,7 @@
 // Chặng 2 (anh Tiến chốt 21/11): tệp Fabi có nhưng KHÔNG có số doanh thu → ô Doanh thu ghi "Fabi không có số doanh thu", vẫn chặn,
 // không có "Lấy số máy Fabi"; quản lý ghi số theo phiếu máy in bằng "Sai, sửa số" → Chủ duyệt. Ô Nợ có lời nhắc tệp thiếu số.
 // Chạy role chu / qlt / ql, index.html và test/phone.html. Ca 182 (chưa xác nhận Fabi), đặt máy không có số bằng app__thu_fabi_trong.
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): đường cũ ?tab=doi-soat&ds=&b=&t= tự chuyển sang trang đối soát ca (tab ② Phần tiền, giữ b= / t=); chỉ đổi cách tải lại sổ tháng.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s);
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -12,7 +13,7 @@ export default async ({ sleep, out }) => {
   const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && x[1] === fn).map((x) => x[2]);
   const role = new URLSearchParams(location.search).get('role');
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const open = async (b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-10&t=' + Date.now(); await sleep(500);
+  const open = async (b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = DS + '&ds=182&b=' + b + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
   const dt = () => $('.stc-dsp .stc-c4[data-k="dt"]');
   const no = () => $('.stc-dsp .stc-c4[data-k="no"]');

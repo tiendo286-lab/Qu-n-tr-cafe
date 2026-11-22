@@ -50,33 +50,16 @@ export default async ({ sleep, out }) => {
     await openDs(183);
     ok(!!$('.stc-pa .stc-gio [data-gio]'), '5. ca không có file Fabi → có nút ✎ Sửa giờ chốt (' + role + ')');
     if (phone) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `5. Đối soát Fabi không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
-    // 6. trang Đối soát ca (phiếu thật trong dữ liệu giả): dòng giờ ở thẻ "Phần tiền · làm ở Sổ thu chi"
+    // 6. trang đối soát ca — 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): thẻ "Phần tiền · làm ở Sổ thu chi" đã bỏ, khối tiền nằm ngay tab ② của trang
+    //   → dòng giờ + nút sửa ở bước 1 của tab ② (ca 183 không có file Fabi: vai nào được giao cũng có nút). Mục 1–5 ở trên mở bằng đường cũ (tự chuyển sang trang này).
     if (role === 'chu' || role === 'ql') {
-      const { rpc } = await import('../js/sb.js');
-      const day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
-      const ov = await rpc('app_ca_overview', { p_date: day });
-      const mk = async (o) => {
-        const id = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift });
-        for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
-        const R = await rpc('app_ca_get', { p_id: id });
-        const e = (await rpc('app_ca_employees'))[0];
-        const staff = (R.staff || []).length ? R.staff.map((s) => ({ ...s, worked: true, time_in: '06:45', time_out: '12:39' })) : [{ employee_id: e.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' }];
-        await rpc('app_ca_save', { p_id: id, p: { rev_start: R.rev_start || day + ' 06:45', rev_end: day + ' 12:39', reported_transfer: 0, total_revenue: 1000000, pos_cash: 1000000, pos_transfer: 0,
-          cash_counted: 2000000, ipos_opening: 1000000, opening_cash: 1000000, pos_debt: 0, pos_diff: 0, cups: 10, goods: [], handover: [], staff, debts: [], moves: [] } });
-        await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/a.jpg', p_kind: 'ipos' });
-        for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
-        return id;
-      };
-      const openCa = async (id) => { location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await wait('.ds-stc-card .stc-gio[data-gio-state]', 60); await sleep(300); };
-      const o1 = ov.find((x) => x.branch_code === 'LLB');   // LLB: dữ liệu giả không bắt chờ kế toán (như flow_ql_tu_ds)
-      if (o1) {
-        const id1 = await mk(o1); await openCa(id1);
-        const g = $('.ds-stc-card .stc-gio');
-        ok(txt(g).includes('giờ doanh thu') && txt(g).includes('→ 12:39') && !!$('[data-gio]', g), '6. Đối soát ca: thẻ Phần tiền có dòng giờ + nút sửa (' + role + ', cơ sở được giao)'
-          + (g ? '' : ` [thẻ=${!!$('.ds-stc-card')} ô=${!!$('.stc-gio')} trạng thái=${$('.stc-gio')?.dataset.gioState} trang="${txt($('#root .page-head, #root h1')).slice(0, 120)}"]`));
-        if (role === 'chu' && $('[data-gio]', g)) { $('[data-gio]', g).click(); await wait('dialog[open] [name=end]', 40); ok(!!dlg() && txt(dlg()).includes('sửa giờ chốt'), '6. nút ở Đối soát ca mở cùng ô sửa'); dlg()?.close(); await sleep(200); }
-        if (phone) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, '6. Đối soát ca không tràn ngang');
-      } else bad.push('6. dữ liệu giả không có ca LLB hôm nay');
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=183&tab=tien&b=1';
+      await wait('.ds-ptabs'); await wait('[data-tab-pane="tien"] .stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(300);
+      const g = $('[data-tab-pane="tien"] .stc-pa .stc-gio');
+      ok(!!g && txt(g).includes('giờ doanh thu') && !!$('[data-gio]', g) && !$('[data-tab-pane="tien"]').hidden, '6. Đối soát ca: tab ② Phần tiền có dòng giờ + nút sửa (' + role + ', cơ sở được giao)'
+        + (g ? '' : ` [ô=${!!$('.stc-gio')} trang="${txt($('#root .page-head, #root h1')).slice(0, 120)}"]`));
+      if (role === 'chu' && g && $('[data-gio]', g)) { $('[data-gio]', g).click(); await wait('dialog[open] [name=end]', 40); ok(!!dlg() && txt(dlg()).includes('sửa giờ chốt'), '6. nút ở Đối soát ca mở cùng ô sửa'); dlg()?.close(); await sleep(200); }
+      if (phone) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, '6. Đối soát ca không tràn ngang');
     }
   } catch (e) { bad.push('LỖI CHẠY: ' + (e.message || e)); }
   out.push({ gio162: { ok: good, fail: bad } });

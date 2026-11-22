@@ -62,7 +62,7 @@ export async function render({ params }) {
   ONE = null;
   if (params.tab === 'doi-soat') {   // Đối soát về Chốt ca: tab cũ (thông báo, dấu trang, nút cũ) → trang đối soát của ca / bảng tuần Chốt ca
     const b = /^[1-6]$/.test(params.b || '') ? params.b : '';
-    if (params.ds) go(`/ca/doi-soat?id=${params.ds}&tab=${b === '6' ? 'xong' : 'tien'}${b && b !== '6' ? '&b=' + b : ''}`);
+    if (params.ds) go(`/ca/doi-soat?id=${params.ds}&tab=${b === '6' ? 'xong' : 'tien'}${b && b !== '6' ? '&b=' + b : ''}${params.t ? '&t=' + encodeURIComponent(params.t) : ''}`);
     else go(`/ca?${params.cn && params.cn !== 'ngoai' ? 'cn=' + params.cn + '&' : ''}tuan=${weekStart((/^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7)) + '-01')}`);
     return { title: 'Đang chuyển', html: html`<div class="card">Đối soát từng ca nay làm ở Chốt ca — đang chuyển…</div>` };
   }
@@ -89,7 +89,7 @@ export async function render({ params }) {
       <div class="stc-toprow"><div class="stc-month"><a class="stc-mb" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a><strong>${monthLabel(month)}</strong><a class="stc-mb" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
         <nav class="branch-tabs" aria-label="Cơ sở">${(D.branches || []).map((b) => html`<a class="${String(cn) === String(b.id) ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}</a>`)}
           ${D.owner ? html`<a class="stc-qn ${isExt ? 'on' : ''}" href="${q({ cn: 'ngoai', tab })}">Quỹ ngoài</a>` : ''}</nav></div>
-      <div class="stc-sub"><b>Sổ thu chi · ${D.branch.code}</b> · số liệu từ ${dmy(D.from)} · thu chi, đối soát Fabi và quỹ ở một chỗ</div>
+      <div class="stc-sub"><b>Sổ thu chi · ${D.branch.code}</b> · số liệu từ ${dmy(D.from)} · thu chi và quỹ ở một chỗ · đối soát từng ca ở Chốt ca</div>
       <nav class="stc-tabs" aria-label="Chọn sổ">${TABS.map(([k, l]) => html`<a class="${tab === k ? 'on' : ''}" href="${q({ tab: k, cot: '' })}">${l}</a>`)}</nav>
     </header>`;
   const body = tab === 'thu' || tab === 'chi' ? bookPage(D, tab) : tongPage(D);
@@ -359,12 +359,12 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     el('ca').value = list.some((x) => x.ok && String(x.id) === String(keep ?? '')) ? String(keep) : '';
     const msg = !dv ? '' : other ? `Ngày ${dm(dv)} thuộc tháng khác — mở sổ tháng đó để thêm vào ca`
       : D.locked ? `Ngày ${dm(dv)} — tháng đã chốt, chỉ ghi được ngoài ca` : list.some((x) => x.ok) ? ''
-        : list.some((x) => x.done) ? `Ca ngày ${dm(dv)} đã hoàn thành đối soát — Mở lại ở Đối soát Fabi (bước 6) mới thêm vào ca được` : `Ngày ${dm(dv)} chưa có ca nào xác nhận Fabi`;
+        : list.some((x) => x.done) ? `Ca ngày ${dm(dv)} đã hoàn thành đối soát — Mở lại ở trang đối soát ca (tab ③ Hoàn thành) mới thêm vào ca được` : `Ngày ${dm(dv)} chưa có ca nào xác nhận Fabi`;
     const note = box.querySelector('.stc-canote'); note.hidden = !msg; note.textContent = msg;
     // bước 168: ca chưa xác nhận Fabi → nút nhảy tới Xác nhận Fabi của ca đó (vẫn giữ luật: phải xác nhận Fabi mới thêm vào ca được)
     const jw = box.querySelector('.stc-cajump'); const bad = D.locked ? [] : list.filter((x) => !x.ok && (x.why === 'chưa xác nhận Fabi' || x.done));
     jw.hidden = !bad.length;
-    jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${caHref(x.id, x.done ? 'xong' : 'tien')}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở Đối soát Fabi' : 'Xác nhận Fabi'} ›</a>`)}`);
+    jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${caHref(x.id, x.done ? 'xong' : 'tien')}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở trang đối soát ca' : 'Xác nhận Fabi'} ›</a>`)}`);
   };
   // bước 168: Thu nợ ngoài ca — chỉ nợ phát sinh từ ngày của phiếu trở về trước (máy chủ tệp 147 chặn lại)
   const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => debtBefore(x, { date: dv }));
@@ -665,7 +665,7 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
     const tr = isFin(D, x.ca_id) ? treoOf(D, x.ca_id).filter((t) => t.pm === x.pm) : [];
     pills.push(isFin(D, x.ca_id) ? html`<span class="pill ok">🔒 Ca đã chốt</span>${tr.map((t) => html`<span class="pill ${treoView(t).cls}">Khoản treo · ${treoView(t).label}</span>`)}`
       : ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-gapb" data-gap="${x.id}">Phiếu chênh lệch</button>`
-      : html`<button type="button" class="btn sm secondary stc-act" data-gap="${x.id}" disabled>Phiếu chênh lệch</button><span class="st-meta">🔒 Xác nhận Fabi ở tab Đối soát Fabi mới xử lý được</span>`);
+      : html`<button type="button" class="btn sm secondary stc-act" data-gap="${x.id}" disabled>Phiếu chênh lệch</button><span class="st-meta">🔒 Xác nhận Fabi ở trang đối soát ca (tab ② Phần tiền) mới xử lý được</span>`);
   }
   if (book === 'chi' && x.col === 'chi') {
     const cs = D ? catSelect(D, x) : null;   // bước 155: chọn nhóm ngay trên dòng (như bản mẫu 18/11)
@@ -688,11 +688,11 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
     const debtOfCa = !!ca && x.col === 'no' && (x.meta === 'Khách mượn tiền két (Nợ TM)' || (x.src === 'debt' && !String(x.id).startsWith('dn:')));
     // lương trả tiền mặt lấy từ ô "Đã trả lương tiền mặt" ở phần nhân sự của ca → sửa ở trang Đối soát ca › Ai làm ca (anh Tiến giải thích 20/11)
     const luong = !!ca && x.meta === 'Lương trả tiền mặt';
-    const why = ca && isFin(D, ca.id) ? 'Ca đã chốt — không sửa được nữa' : caDone ? 'Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới sửa được'
+    const why = ca && isFin(D, ca.id) ? 'Ca đã chốt — không sửa được nữa' : caDone ? 'Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành (trang đối soát ca) mới sửa được'
       : debtOfCa ? 'Khách mượn / nợ CK của ca — sửa ở bước 1 · Nợ của ca' : luong ? 'Lương tiền mặt — sửa ở Đối soát ca › Ai làm ca'
-        : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
+        : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở trang đối soát ca (tab ② Phần tiền) mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
     const open1 = !caDone && !(ca && isFin(D, ca.id));
-    const whyUi = debtOfCa && open1 ? html`${x.pm === 'ck' ? 'Nợ CK' : 'Khách mượn'} — sửa ở ${who ? html`<button type="button" class="stc-lk" data-dsstep="0">bước 1</button>` : 'Đối soát Fabi › bước 1'} · Nợ của ca`
+    const whyUi = debtOfCa && open1 ? html`${x.pm === 'ck' ? 'Nợ CK' : 'Khách mượn'} — sửa ở ${who ? html`<button type="button" class="stc-lk" data-dsstep="0">bước 1</button>` : html`<a href="${caHref(ca.id, 'tien', 1)}">trang đối soát ca › bước 1</a>`} · Nợ của ca`
       : luong && open1 ? html`Lương tiền mặt — sửa ở <a href="${caHref(ca.id, 'viec')}">Đối soát ca › Ai làm ca</a>` : why;
     pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="${why}">Sửa / Xoá</button><span class="st-meta">🔒 ${whyUi}</span>`);
   }
@@ -984,7 +984,7 @@ const hiddenCols = (D, book) => (SHOW_ZERO ? [] : zeroCols(D.items || [], book, 
 // bước 164: trạng thái của ca ghi một lần ở dòng ca; ca không thêm / sửa được → 1 dòng ghi chú đầu danh sách khoản
 const caPill = (D, cx) => (!cx ? '' : D.locked ? html`<span class="pill mute stc-cst">🔒 Tháng đã chốt</span>` : cx.recon_money_done ? html`<span class="pill ok stc-cst">Đã xác nhận Fabi</span>` : html`<span class="pill info stc-cst">⏳ Chưa xác nhận Fabi</span>`);
 const caLock = (D, cx) => (!cx ? null : D.locked ? { t: '🔒 Tháng đã chốt: không thêm / sửa được', why: 'Tháng đã Chốt tháng — Chủ mở lại tháng mới sửa được' }
-  : !cx.recon_money_done ? { t: '⏳ Chưa xác nhận Fabi: chưa thêm / sửa được', why: 'Xác nhận Fabi ở tab Đối soát Fabi mới thêm / sửa được khoản của ca' }
+  : !cx.recon_money_done ? { t: '⏳ Chưa xác nhận Fabi: chưa thêm / sửa được', why: 'Xác nhận Fabi ở trang đối soát ca (tab ② Phần tiền) mới thêm / sửa được khoản của ca' }
   : cx.done ? { t: '🔒 Ca đã hoàn thành đối soát: Mở lại ở bước 6 mới thêm / sửa được', why: 'Vào Đối soát Fabi, bước 6 của ca, bấm Mở lại rồi mới thêm / sửa / xoá phiếu của ca' } : null);   // bước 171
 const visCols = (D, book) => { const h = hiddenCols(D, book); return COLS[book].filter(([k]) => !h.includes(k)); };
 function bookCard(D, book) {
@@ -1447,7 +1447,7 @@ function partB(D, a, bk = null, mk = () => '') {
   const glRow = (x) => { const parts = gapParts(c, D.cas, x.pm, (x.book === 'thu' ? 1 : -1) * Number(x.gross ?? x.amount));
     return html`${itemRow(x, x.book, D)}${parts.length ? html`<div class="stc-it stc-gparts"><span class="st-meta">Gồm:</span><div class="stc-itb">${parts.map((p) => html`<div class="stc-gpr"><span>${p.label}</span><b>${signedFmt(p.amount)}</b></div>`)}</div><span></span></div>` : ''}`; };
   return html`<div class="stc-part stc-pb"><div class="h">${book === 'thu' ? 'Khoản thu của ca' : 'Khoản chi của ca'} ${mk(book === 'thu' ? 'sot' : 'that')} <span class="st-meta">giống ${book === 'thu' ? 'Sổ thu' : 'Sổ chi'}, chỉ lọc ca này</span>${fin ? html`<span class="pill ok">🔒 khoá</span>` : ''}</div>
-    ${done ? html`<div class="stc-warnbox">🔒 Ca đã hoàn thành đối soát nên phiếu đang khoá. Muốn thêm / sửa / xoá phiếu: bấm <b>Mở lại</b> ở bước 6.</div>` : ''}
+    ${done ? html`<div class="stc-warnbox">🔒 Ca đã hoàn thành đối soát nên phiếu đang khoá. Muốn thêm / sửa / xoá phiếu: bấm <b>Mở lại</b> ở tab ③ Hoàn thành.</div>` : ''}
     <div class="stc-pays" style="margin-top:0">${['tm', 'ck'].map((p) => html`<button type="button" class="stc-pay ${pm === p ? 'on' : ''}" data-dspm="${p}"><span class="k">Bảng ${PM[p]}</span><span class="v">${sg(book)}${fmt(sumItems(D.items, { book, pm: p, caId: c.id }))}</span><span class="s">Tổng ${book} ${caName(c).toLowerCase()}</span></button>`)}</div>
     <div class="st-meta stc-formula"><b>Tổng ${book}</b> = ${cols.filter(([k]) => k !== 'lech').map(([, l], i) => html`${i ? ' + ' : ''}<b>${l}</b>`)} <span class="st-meta">· chênh lệch xem ở bước 5</span></div>
     <div class="stc-tiles">${cols.filter(([k]) => k !== 'lech').map(([k, l]) => html`<div class="stc-tile"><span class="stc-tag t-${k}">${l}${k === 'no' && book === 'thu' ? html` ${mk('tn')}` : ''}${k === 'chi' ? html` ${mk('cat')} ${mk('lon')}` : ''}</span><b>${fmt(byCol[k])}</b></div>`)}</div>
@@ -1457,7 +1457,7 @@ function partB(D, a, bk = null, mk = () => '') {
       <div class="stc-g stc-hdr" style="--n:${n}"><span>Ca</span>${cols.map(([, l]) => html`<span>${l}</span>`)}<span>Tổng ${book}</span></div>
       <div class="stc-ca open"><div class="stc-crow stc-g" style="--n:${n}"><span class="stc-lab">${caName(c)} <small>${c.staff || ''}</small></span>${cells(byCol, book, tot)}</div>
         <div class="stc-its">${its.length ? its.map((x) => itemRow(x, book, D, { who: true, quiet: done })) : html`<div class="st-meta stc-empty">Không có khoản ${book} ${PM[pm].toLowerCase()}.</div>`}
-          <div class="stc-it add">${fin ? html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>` : done ? html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở bước 6 để thêm / sửa</span>` : addBtn(D, { caId: c.id }, book, 'ca ' + c.shift)}</div></div></div></section>
+          <div class="stc-it add">${fin ? html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>` : done ? html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành để thêm / sửa</span>` : addBtn(D, { caId: c.id }, book, 'ca ' + c.shift)}</div></div></div></section>
     <div class="st-meta"><span class="stc-who">Nhân viên ghi</span> là phiếu trên phiếu chốt ca · <span class="stc-who ql">Quản lý ghi</span> là phiếu quản lý thêm hoặc sửa khi đối soát, kèm lý do.</div></div>`;
 }
 // ---- 🔒 Chốt ca
@@ -1625,10 +1625,11 @@ function dsPage(D) { return html`<div id="stc-ds">${dsBody(D)}</div>`; }
 // Đối soát về Chốt ca (thiết kế 22/11): khối tiền của MỘT ca cho trang đối soát ca (#/ca/doi-soat?id=):
 // tab ② = bước 1–5 (#stc-ds), tab ③ = bước 6 (#stc-done) kèm tóm tắt phần việc (workSum). Cùng mọi nút, hộp thoại, phép tính của 6 bước cũ.
 // workLeft: nhãn phần việc còn thiếu (khoá nút Hoàn thành, trừ "Chờ Chủ duyệt x2"). Trang ca nghe sự kiện 'stc-one-tab' để đổi tab.
-export async function caMoney({ cn, thang, ds, b = null, workLeft = [], workSum = '' }) {
+// Bước đang mở giữ qua các lần vẽ lại; đường dẫn đổi ca / b= / t= (như ds= + t= của tab cũ) thì mở lại theo b= (không có → bước đầu còn thiếu).
+export async function caMoney({ cn, thang, ds, b = null, t = '', workLeft = [], workSum = '' }) {
   P = { tab: 'doi-soat', cn: String(cn), thang, pm: 'tm', cot: '', loc: '' };
   ONE = { workLeft: workLeft || [] };
-  const key = String(ds) + '|one|' + (b || '');
+  const key = String(ds) + '|one|' + (b || '') + '|' + (t || '');
   if (key !== DS_PARAM) { DS_SEL = String(ds); DS_PARAM = key; DS_B = /^[1-6]$/.test(String(b || '')) ? Number(b) - 1 : null; DSB.stepFor = null; }
   // không mở được / không có số liệu: vẫn ghi rõ khối tiền của ca nào (#stc-page.stc-one[data-ds]) để trang ca và bài thử vùng khoá nhận đúng ca
   const msg = (m) => ({ html: str(html`<div id="stc-page" class="stc-one" data-ds="${ds}"><section class="ds-tpane" data-tab-pane="tien">${m}</section><section class="ds-tpane" data-tab-pane="xong">${raw(workSum)}${m}</section></div>`), mount() {} });

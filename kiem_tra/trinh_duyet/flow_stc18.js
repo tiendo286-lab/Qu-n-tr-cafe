@@ -4,6 +4,7 @@
 //  (Dữ liệu thử chung stc_fixture để ca 181 khớp danh sách — flow_ds171 cần Hoàn thành được ca này.)
 // Chạy role chu / qlt / ql, index.html và test/phone.html, confirm=1. Kết quả: out[].stc18 = { ok, fail }.
 import { rpc } from '../js/sb.js';
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): đường cũ ?tab=doi-soat&ds=&b=&t= tự chuyển sang trang đối soát ca (tab ② Phần tiền, giữ b= / t=); chỉ đổi cách tải lại sổ tháng.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s);
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -12,7 +13,7 @@ export default async ({ sleep, out }) => {
   const gone = async (s, n = 60) => { for (let i = 0; i < n && $(s); i++) await sleep(100); return !$(s); };
   const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const open = async (ca, b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-10&t=' + Date.now(); await sleep(500);
+  const open = async (ca, b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = DS + '&ds=' + ca + '&b=' + b + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
   const box = () => $('.stc-dsp .stc-c4[data-k="no"]');
   const dlg = () => $('dialog[open]');

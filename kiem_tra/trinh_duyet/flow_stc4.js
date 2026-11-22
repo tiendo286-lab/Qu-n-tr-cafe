@@ -1,5 +1,6 @@
 // Bài thử Sổ thu chi mới đợt 4: tab Đối soát tiền 3 bước (Sửa theo Fabi, ca nào ghi sai mở ca ca đó chịu, tiền thực nhận, Chốt tiền ca / Mở lại chốt).
 // Chạy: index.html?auto=1&role=chu&script=flow_stc4 và test/phone.html?... Kết quả: out[].stc4 = { ok, fail }.
+// 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): khối tiền một ca ở trang đối soát ca #/ca/doi-soat?id= (bước 1–5 = tab ②, bước 6 = tab ③). Chỉ đổi chỗ trỏ, ý kiểm giữ nguyên.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 200) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -7,10 +8,8 @@ export default async ({ sleep, out }) => {
   const good = [], bad = []; const ok = (c, m) => (c ? good : bad).push(m);
   const dlg = () => $('dialog[open]');
   const setv = (sel, v) => { const el = $(sel, dlg() || document); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
-  const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  // bước 168: điện thoại chọn ca thì lịch thu thành nút "‹ Chọn ca khác" → bấm nút đó trước khi chọn lại ca
-  const pick = async () => { const pk = $('[data-dspick]'); if (pk) { pk.click(); await sleep(300); } await wait('[data-dsca="182"]'); $('[data-dsca="182"]').click(); await sleep(400); await wait('.stc-dsp'); };
-  const go = async () => { location.hash = DS; await sleep(300); await wait('.stc-dsp, .stc-wk'); await sleep(400); await pick(); };
+  const DS = '#/ca/doi-soat?id=182&tab=tien';   // khối tiền ca Chiều 18/11 ở tab ② trang đối soát ca (lưới ca của tab cũ đã bỏ)
+  const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = DS; await sleep(300); await wait('.stc-dsp'); await sleep(400); };
   const box = (k) => $(`.stc-dsp .stc-c4[data-k="${k}"]`);
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
   const act = async (sel, reason, extra) => { $(sel).click(); await wait('dialog[open]', 30); await sleep(200); if (extra) extra(); if (reason != null) setv('[name=reason]', reason);
