@@ -23,7 +23,9 @@ const cas = [
   ca(161, D16, 'Sáng', rev(2010000, 2980000)), ca(162, D16, 'Chiều', rev(2260000, 3420000)), ca(163, D16, 'Tối', rev(1700000, 2530000)),
   ca(171, D17, 'Sáng', rev(1720000, 2640000)), ca(172, D17, 'Chiều', rev(1980000, 2870000, { kt_wait: true, bank_ck: null, kt_missing: ['chuyển khoản ngân hàng (0/1 tài khoản)'], recon_money_done: false })),
   ca(173, D17, 'Tối', rev(1610000, 2050000)),
-  ca(181, D18, 'Sáng', rev(1850000, 2430000, { cash_mode: 'ca', ql_counted: 2072000, recon_money_done: true })),
+  // chặng 4 (tệp 162 — Nợ bill phải bằng danh sách khách nợ HĐ của ca): ca 181 có khách nợ HĐ Bàn 9 100.000 (id 705) → NV khai + máy Fabi cùng ghi 100.000
+  ca(181, D18, 'Sáng', rev(1850000, 2430000, { cash_mode: 'ca', ql_counted: 2072000, recon_money_done: true,
+    nv: { opening: 1000000, revenue: 4280000, debt: 100000 }, fabi: { has: true, opening: 1000000, revenue: 4280000, tm: 1850000, ck: 2430000, debt: 100000, edited_bills: 0 } })),
   ca(182, D18, 'Chiều', { ...rev(2100000, 3050000), staff: 'Hà, Tú', recon_money_done: false, start_tm: 1050000,
     nv: { opening: 1500000, revenue: 5150000, debt: 120000 }, fabi: { has: true, opening: 1050000, revenue: 5150000, tm: 2100000, ck: 3050000, debt: 150000, edited_bills: 0 } }),
   ca(183, D18, 'Tối', { ...rev(1540000, 2210000), staff: 'Tú, Ngọc' }),

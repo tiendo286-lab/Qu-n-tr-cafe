@@ -1,7 +1,9 @@
 // Chặng 4 (anh Tiến chốt 22/11 "Báo đỏ và chặn", máy chủ tệp 162): Nợ bill của ca phải bằng danh sách khách nợ hoá đơn của ca.
 //  Ca 182 (chưa xác nhận): máy 150.000 > danh sách 120.000 → "Lấy số máy Fabi" bắt chọn người nợ phần chênh 30.000; chọn rồi → ô Nợ xanh.
-//  Ca 181 (đã xác nhận): Nợ bill 0 nhưng danh sách 100.000 → ghi chú "ca đã xác nhận Fabi; muốn sửa: Mở lại xác nhận".
+//  Ca 181 (đã xác nhận): bài tự dựng Nợ bill 0 (NV + máy) trong khi danh sách 100.000 → ghi chú "ca đã xác nhận Fabi; muốn sửa: Mở lại xác nhận".
+//  (Dữ liệu thử chung stc_fixture để ca 181 khớp danh sách — flow_ds171 cần Hoàn thành được ca này.)
 // Chạy role chu / qlt / ql, index.html và test/phone.html, confirm=1. Kết quả: out[].stc18 = { ok, fail }.
+import { rpc } from '../js/sb.js';
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s);
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -26,6 +28,7 @@ export default async ({ sleep, out }) => {
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1 && dlg().getBoundingClientRect().right <= window.innerWidth + 1, '3b. hộp không tràn ngang 390px');
     type($('select[name=name]', dlg()), 'Bàn 5'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] select[name=name]', 40); await sleep(900); await wait('.stc-dsp'); await sleep(400);
     ok(box()?.classList.contains('ok'), '4. chọn người → Nợ bill = danh sách = 150.000 → ô Nợ xanh');
+    await rpc('app__test_stc_ca', { p_id: 181, p: { nv: { debt: 0 }, fabi: { debt: 0 } } });   // ca đã xác nhận mà Nợ bill lệch danh sách
     await open(181);
     const w = [...document.querySelectorAll('.stc-dsp .stc-warnbox')].find((x) => txt(x).includes('danh sách khách nợ hoá đơn'));
     ok(!!w && txt(w).includes('100.000') && txt(w).includes('mở lại xác nhận'), '5. ca 181 đã xác nhận, Nợ bill 0 ≠ danh sách 100.000 → ghi chú, không mở lại');

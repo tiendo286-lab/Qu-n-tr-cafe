@@ -120,6 +120,11 @@ export function makeStc(T, me) {
   };
 
   return {
+    // chặng 4: bài thử dựng tình huống (bỏ qua kiểm quyền) — gộp trường vào 1 ca; nv / fabi gộp sâu
+    app__test_stc_ca({ p_id, p }) {
+      const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.');
+      Object.entries(p || {}).forEach(([k, v]) => { c[k] = v && typeof v === 'object' && !Array.isArray(v) && c[k] && typeof c[k] === 'object' ? { ...c[k], ...v } : v; });
+    },
     app_ca_gio({ p_report }) { return gioView(p_report).v; },
     app_ca_gio_save({ p_report, p_end, p_reason }) {
       if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này đối soát tiền được.');
