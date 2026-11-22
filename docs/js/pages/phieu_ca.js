@@ -10,7 +10,7 @@ import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
-import { catalog } from '../data.js';
+import { catalog, weekStart } from '../data.js';
 import { renderNew } from '../chot_ca_moi.js?v=2026.11.22.3';
 import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.22.3';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
@@ -235,6 +235,14 @@ export async function render({ params }) {
   </div>`;
   // Bước 35: bản đối soát chỉ mở ở trang riêng #/quan-ly/doi-soat/ca (từng bước); #/ca/phieu luôn là phiếu nhân viên (chỉ xem khi đã hoàn thành)
   const wantDs = String(params.__ds || '') === '1';
+  // Đối soát về Chốt ca (thiết kế 22/11): trạng thái Việc · Tiền của ca + ca chưa xong của cơ sở (tệp 164) → tab mở trước, "Ca tiếp theo chưa xong ›"
+  const [DSR, CON] = wantDs && canRc ? await Promise.all([
+    rpc('app_ca_ds_tuan', { p_branch: R0.branch_id, p_from: R0.work_date, p_to: R0.work_date }).then((rs) => (rs || []).find((x) => Number(x.id) === id) || null).catch(() => null),
+    rpc('app_ca_ds_con', { p_branch: R0.branch_id }).catch(() => [])]) : [null, []];
+  const NX = nextUnfinished(CON || [], R0);
+  const dsTop = html`<div class="toolbar ds-top"><a class="btn sm secondary ds-staff" href="#/ca/phieu?id=${id}">Xem phiếu nhân viên</a>${NX
+    ? html`<a class="btn sm" id="ds-nextca2" href="#/ca/doi-soat?id=${NX.id}&tab=${NX.tab || 'viec'}">Ca tiếp theo chưa xong ›</a>` : html`<button type="button" class="btn sm secondary" id="ds-nextca2" disabled>✓ Hết ca chưa xong</button>`}
+    <a class="btn sm secondary" href="#/ca?cn=${R0.branch_id}&tuan=${weekStart(R0.work_date)}">‹ Bảng tuần</a></div>`;
   if (wantDs && !canRc) {
     return { title: 'Đối soát ca', html: html`<div class="card stack" style="gap:10px;max-width:640px"><h1 style="margin:0">Đối soát ca ${R0.shift}</h1>
       <div class="${done && R0.recon_note ? 'ds-norecon' : ''}">${done ? (R0.recon_note ? html`🔒 ${R0.recon_note} Muốn kiểm tra thì nhờ Chủ thêm tên bạn vào ô cơ sở này ở dòng "Đối soát ca" trong Bảng phân công.` : 'Bạn không có quyền đối soát phiếu này.') : `Nhân viên chưa hoàn thành phiếu chốt ca ${R0.shift} nên chưa đối soát được.`}</div>
@@ -242,7 +250,7 @@ export async function render({ params }) {
   }
   if (wantDs && ktBlocked) {
     return { title: 'Phiếu chốt ca · Chờ kế toán', html: html`<div class="card stack" style="gap:12px;max-width:680px"><h1 style="margin:0">Ca ${R0.shift} · ${R0.branch_code}</h1>
-      ${ktWaitBox}<div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/ca">‹ Danh sách ca</a></div></div>` };
+      ${ktWaitBox}${dsTop}</div>` };
   }
   // Bước 41: phiếu đang chốt → màn hình chốt ca mới theo phiếu Fabi (?cu=1 để xem phiếu kiểu cũ)
   if (!wantDs && R0.status === 'dang_chot' && R0.can_edit && String(params.cu || '') !== '1') {
@@ -787,7 +795,7 @@ export async function render({ params }) {
         ${!isDs && moveChanged(R).length ? html`<span class="pill warn">Quản lý đã sửa ${moveChanged(R).length} khoản thu chi</span>` : ''}
         ${done ? html`<span class="pill ${ktBlocked ? 'warn' : R0.recon_status === 'hoan_thanh' ? 'ok' : R0.recon_status === 'mo_lai' ? 'warn' : 'off'}">${ktBlocked ? 'CHỜ KẾ TOÁN' : R0.recon_status === 'hoan_thanh' ? 'HOÀN THÀNH PHIẾU' : R0.recon_status === 'mo_lai' ? `ĐANG KIỂM TRA LẠI ${nChecks}/${nItems}` : `CHỜ QUẢN LÝ KIỂM TRA ${nChecks}/${nItems}`}</span>` : ''}
       </div>
-      ${canRc && !isDs ? (ktBlocked ? html`<div class="pc-ban">${ktWaitBox}</div>` : html`<div class="pc-ban"><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>`) : ''}</div>
+      ${canRc && !isDs ? (ktBlocked ? html`<div class="pc-ban">${ktWaitBox}</div>` : html`<div class="pc-ban"><a class="btn sm" href="#/ca/doi-soat?id=${R0.id}">Đối soát ca này ›</a></div>`) : ''}</div>
     <div class="toolbar"><a class="btn sm secondary" href="#/ca?ngay=${R.work_date}">‹ Danh sách ca</a>
       <div id="saved-indicator" class="saved" role="status" hidden></div></div></div>`;
 
@@ -811,12 +819,12 @@ export async function render({ params }) {
     ? partPanel
     : html`<section class="card stack" style="gap:8px">
         ${done && R.recon_status === 'hoan_thanh' ? html`<div class="alert ok">Hoàn thành đối soát: ${R.recon_by_name} · ${dt(R.recon_at)}</div>` : ''}
-        ${canRc ? (ktBlocked ? ktWaitBox : html`<div class="pc-line"><span class="st-meta grow">Số nhân viên đã gửi được giữ nguyên. Quản lý mở bước Kiểm tra trên chính phiếu này.</span><a class="btn sm" href="#/ca/phieu?id=${R0.id}&__ds=1">Mở bước Kiểm tra ›</a></div>`) : ''}
+        ${canRc ? (ktBlocked ? ktWaitBox : html`<div class="pc-line"><span class="st-meta grow">Số nhân viên đã gửi được giữ nguyên. Quản lý mở bước Kiểm tra trên chính phiếu này.</span><a class="btn sm" href="#/ca/doi-soat?id=${R0.id}">Đối soát ca này ›</a></div>`) : ''}
         ${R.can_reopen ? html`<div><button type="button" class="btn sm secondary danger" id="reopen">Mở lại phiếu cho nhân viên sửa</button></div>` : ''}</section>`;
 
   // Trang Đối soát ca (bước 35): 4 bước — điện thoại xem từng bước, máy tính hiện cả 4 bước
   const dsLeft = (i) => (DS_ITEMS[i] || []).filter((it) => !doneItem(it));
-  const dsHd = (i) => i === DS_LAST ? '' : html`<div class="ds-hd"><span>BƯỚC ${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${i < DS_LAST
+  const dsHd = (i) => html`<div class="ds-hd"><span>BƯỚC ${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)} · ${DS_PART[i] ? DS_PART[i].toUpperCase() + ' · ' : ''}${DS_STEPS[i].toUpperCase()}</span>${DS_ITEMS[i].length
     ? (dsLeft(i).length ? html`<span class="pill off">Còn ${dsLeft(i).length}/${DS_ITEMS[i].length} hạng mục</span>` : html`<span class="pill ok">✓ Đã đối soát</span>`) : ''}</div>`;
   const PDT = PD ? Object.fromEntries((PD.parts || []).map((p) => [p.part, p])) : {};
   const whoPart = (k) => { const p = PDT[k]; if (!p || !p.done_at) return ''; return html`<div class="st-meta ds-who">Phần ${p.label}: ${p.done_name || p.claimed_name || ''}${p.done_ql ? html` · <strong>quản lý tự làm — đã tự đối soát</strong>` : ''}</div>`; };
@@ -841,16 +849,31 @@ export async function render({ params }) {
       <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Ở đó đi <b>6 bước</b>: Xác nhận Fabi ở bước 2 thì các mục tiền ở đây tự "✓ Xong"; tích đủ mục kiểm tra rồi bấm <b>🔒 Hoàn thành đối soát ca</b> ở bước 6 (và xong cả phần việc ở đây) thì ca mới thành Đã đối soát.</div>
       <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a>
       ${iposPhotos.length ? html`<h3 style="margin:4px 0 0;font-size:15px">Ảnh phiếu Fabi chốt ca</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}</div>` : html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`}</section>` : '';
+  // Đối soát về Chốt ca: tab ② ③ = khối 6 bước của Sổ thu chi ở chế độ một ca (caMoney); ① = các bước phần việc (form)
+  const wLeft = isDs ? (DSR?.viec?.thieu || ['nhan_su', 'ban_giao', 'nhap_hang'].filter((it) => !doneItem(it)).map((it) => CHECK_LABEL[it])) : [];
+  const tab0 = ['viec', 'tien', 'xong'].includes(params.tab) ? params.tab : params.buoc ? 'viec'
+    : /^[1-6]$/.test(String(params.b || '')) ? (String(params.b) === '6' ? 'xong' : 'tien') : (DSR?.tab || 'viec');
+  const wRows = [[0, 'Ai làm ca', ['nhan_su']], [2, 'Bàn giao + nhận hàng', ['ban_giao', 'nhap_hang']]];
+  const wSum = isDs ? html`<div class="stc-part ds-wsum"><div class="h">① Phần việc</div><div class="stc-sum">${wRows.map(([i, t, its]) => { const lf = its.filter((it) => !doneItem(it));
+      return html`<button type="button" class="stc-sr ds-wgo" data-wgo="${i}"><i class="stc-mk ${lf.length ? '' : 'ok'}">${lf.length ? '!' : '✓'}</i><b>${t}</b><span class="pill ${lf.length ? 'warn' : 'ok'}">${lf.length ? 'Còn: ' + lf.map((x) => CHECK_LABEL[x]).join(', ') : '✓ Xong'}</span></button>`; })}</div>
+      ${wLeft.includes('Chờ Chủ duyệt x2') ? html`<div class="st-meta">⏳ Nghỉ & làm thay: chờ Chủ duyệt x2.</div>` : ''}
+      ${R0.recon_status === 'hoan_thanh' && NX ? html`<div class="toolbar"><a class="btn" href="#/ca/doi-soat?id=${NX.id}&tab=${NX.tab || 'viec'}">Ca tiếp theo chưa xong ›</a></div>` : ''}</div>` : '';
+  const MONEY = isDs ? await import('./so_thu_chi.js?v=2026.11.22.3').then((m) => m.caMoney({ cn: R0.branch_id, thang: String(R0.work_date || '').slice(0, 7), ds: R0.id, b: params.b || null, workLeft: wLeft, workSum: str(wSum) }))
+    .catch((e) => ({ html: str(html`<div class="alert warn">Chưa mở được phần tiền: ${e.message || e}</div>`), mount() {} })) : null;
+  let moneyHtml = isDs ? String(MONEY?.html || '') : '';
+  if (isDs && !moneyHtml.includes('data-tab-pane')) moneyHtml = `<section data-tab-pane="tien">${moneyHtml}</section><section data-tab-pane="xong">${moneyHtml}</section>`;
+  if (isDs) moneyHtml = moneyHtml.replace('data-tab-pane="tien"', `data-tab-pane="tien"${tab0 === 'tien' ? '' : ' hidden'}`).replace('data-tab-pane="xong"', `data-tab-pane="xong"${tab0 === 'xong' ? '' : ' hidden'}`);
+  const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', ok: '✓' };
+  const wN = wLeft.filter((t) => t !== 'Chờ Chủ duyệt x2').length;
+  const dsTabs = isDs ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', wN ? `còn ${wN}` : '✓'], ['tien', '② Phần tiền', TSYM[DSR?.tien?.st] || ''],
+      ['xong', '③ Hoàn thành', R0.recon_status === 'hoan_thanh' ? '✓' : '']].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" aria-selected="${k === tab0 ? 'true' : 'false'}">${l}${n ? html`<span class="ds-ptn ${n === '✓' ? 'ok' : ''}">${n}</span>` : ''}</button>`)}</nav>` : '';
+  const dsMore = isDs ? html`<div class="ds-more-row"><details class="ds-more"><summary>Lịch sử sửa · mở lại phiếu</summary><div class="stack" style="gap:10px;margin-top:8px">${dsFoot}</div></details></div>` : '';
   const dsPhone = isDs;   // bước 86: đối soát đi từng bước (cả máy tính)
   const dsX2 = isDs && (R.staff || []).some((s2) => !s2.worked || (s2.source && s2.source !== 'lich'));   // bước 87: có người nghỉ / làm hộ / ca bổ sung
-  const dsBody = isDs ? html`${DEN_CSS}${unifiedSteps}<div id="ds-parts" class="dsp" data-left="${JSON.stringify(DS_ITEMS.map((_, i) => dsLeft(i).length))}" data-x2="${dsX2 ? 1 : 0}"></div><section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang kiểm tra các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" hidden aria-label="Các mục kiểm tra">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${i < DS_LAST && dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
-      ${!dsPhone ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', dsLeft(0).length + dsLeft(1).length], ['tien', '② Phần tiền', dsLeft(2).length], ['xong', '③ Hoàn thành', -1]].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" data-left="${n}">${l}${n > 0 ? html`<span class="ds-ptn">còn ${n}</span>` : n === 0 ? html`<span class="ds-pto">✓</span>` : ''}</button>`)}</nav>` : ''}
+  const dsBody = isDs ? html`${DEN_CSS}${unifiedSteps}<div id="ds-parts" class="dsp" data-left="${JSON.stringify(DS_ITEMS.map((_, i) => dsLeft(i).length))}" data-x2="${dsX2 ? 1 : 0}"></div><section class="card stack pc-sec" id="ds-lights" style="gap:10px"><div class="st-meta">Đang kiểm tra các hạng mục…</div></section>${dsPhone ? html`<nav class="wz-steps ds-steps" hidden aria-label="Các mục kiểm tra">${DS_STEPS.map((t, i) => html`<button type="button" class="wz-st ds-st" data-ds-go="${i}" ${i === DS_X2 && !dsX2 ? 'hidden' : ''}><b>${i + 1 - (!dsX2 && i > DS_X2 ? 1 : 0)}</b><span>${t}</span><i class="wz-dot" ${dsLeft(i).length ? '' : 'hidden'}></i></button>`)}</nav>` : ''}
       <div class="ds-pane stack" data-ds="0">${dsHd(0)}${whoPart('nhan_su')}${staffCmp}<details class="ca-more ds-edit"><summary>Sửa giờ / người làm <span class="st-meta">(bắt buộc ghi lý do)</span></summary><div class="stack" style="gap:10px;margin-top:8px">${rcWhy}${secStaff}</div></details></div>
       <div class="ds-pane stack" data-ds="1" ${dsX2 ? '' : 'data-skip="1"'}>${dsHd(1)}<section class="card stack pc-sec" style="gap:6px"><div class="st-meta">Ca có <b>người nghỉ, người làm thay hoặc ca bổ sung</b>. Quản lý cơ sở chỉ xem — <b>Quản lý tổng</b> phân loại, <b>Chủ</b> duyệt theo mức lương x2 đã chốt. ${R0.self_reconciled ? 'Ca do quản lý tự chốt đã hoàn thành; việc này tiếp tục theo dõi riêng trong Công việc.' : 'Phần tiền vẫn đối soát được trong lúc chờ; ca chỉ hoàn thành khi Chủ đã duyệt.'}</div></section>${can('doi_soat') ? html`${CV_CSS}<section class="card stack pc-sec" id="ds-cv" style="gap:8px"></section>` : ''}</div>
       <div class="ds-pane stack" data-ds="2">${dsHd(2)}${secHand}${can('doi_soat') ? html`${DG_CSS}<section class="card stack pc-sec" id="ds-dg" style="gap:8px"></section>` : ''}${whoPart('nhan_hang')}${secGoods}</div>
-      <div class="ds-pane stack" data-ds="3"><div id="ds-need" hidden></div>${stcCard}
-        <div class="ds-more-row">
-          <details class="ds-more"><summary>Lịch sử sửa · mở lại phiếu</summary><div class="stack" style="gap:10px;margin-top:8px">${dsFoot}</div></details></div></div>
       ${dsPhone ? html`<section class="card wz-foot"><button type="button" class="btn secondary" id="ds-prev">‹ Quay lại</button><span class="st-meta" id="ds-pos"></span><button type="button" class="btn" id="ds-next">Duyệt & tiếp ›</button><div class="ds-end" id="ds-end" hidden><button type="button" class="btn ok" id="ds-done">Về danh sách</button><button type="button" class="btn" id="ds-nextca">Ca tiếp theo ›</button></div></section>` : ''}` : '';
 
   // Phiếu từng bước (điện thoại / nhân viên): 5 bước, bước cuối kiểm tra những chỗ còn thiếu rồi HOÀN THÀNH
@@ -872,8 +895,8 @@ export async function render({ params }) {
       <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì bấm "Khách đã trả" ở mục 4 (${wizard ? 'bước Tiền: thu chi' : 'Khách chưa thanh toán'}).</div></div>` : '';
   return {
     title: `Chốt ca ${R.shift} ${R.branch_code}`,
-    html: html`${STYLE}${HD_CSS}${DT_CSS}${SHIFT_CSS}<div class="${isDs ? 'ph-wrap' : ''}">${head}${nhacNo}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds' : ''}" onsubmit="return false">${body}</form></div>`,
-    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT, DIR, edT, mEdit, paintMoney: (v) => moneyTable({...R,...v}), tcDone: isDs && doneItem('thu_chi') }); },
+    html: html`${STYLE}${HD_CSS}${DT_CSS}${SHIFT_CSS}<div class="${isDs ? 'ph-wrap' : ''}">${head}${isDs ? html`${dsTop}${dsTabs}` : ''}${nhacNo}<form id="pc-form" class="stack pc ${wizard ? 'wz' : ''} ${isDs ? 'ds ds-tab-viec' : ''}" onsubmit="return false" ${isDs && tab0 !== 'viec' ? 'hidden' : ''}>${body}</form>${isDs ? html`${raw(moneyHtml)}${dsMore}` : ''}</div>`,
+    mount() { return mount(R, ed, C, { isDs, RC, R0, wizard, P, PT, edH, dsPhone, dsStep: Number(params.buoc) || 0, LK, KT, DIR, edT, mEdit, paintMoney: (v) => moneyTable({...R,...v}), tcDone: isDs && doneItem('thu_chi'), money: MONEY, tabAfterWork: DSR?.tien?.st === 'ok' ? 'xong' : 'tien' }); },
   };
 }
 
@@ -884,9 +907,11 @@ const STEP_PART = ['tien', 'tien', 'nhan_su'];
 // bước 87: bước "Nghỉ & ca bổ sung (x2)" (QL tổng phân loại, Chủ duyệt) chỉ hiện khi ca có người nghỉ / làm hộ
 // bước 110 (anh Tiến 15/11): phần tiền gộp 1 trang — Phiếu Fabi · Khách nợ · Thu chi · Tiền mặt · Chuyển khoản, bấm 1 lần duyệt & hoàn thành
 // bước 156 (anh Tiến 19/11): bỏ bước "Tiền" — phần tiền làm ở Sổ thu chi › Đối soát Fabi; bước cuối chỉ còn Hoàn thành (trạng thái phần tiền + lịch sử)
-const DS_STEPS = ['Ai làm ca', 'Nghỉ & làm thay', 'Bàn giao', 'Hoàn thành'];
-const DS_ITEMS = [['nhan_su'], [], ['ban_giao', 'nhap_hang'], []];
-const DS_PART = ['① Phần việc', '① Phần việc', '① Phần việc', '② Hoàn thành'];
+// Đưa Đối soát Fabi về lại Chốt ca (anh Tiến duyệt 22/11): trang đối soát của ca 3 tab — ① Phần việc (3 bước dưới) · ② Phần tiền · ③ Hoàn thành
+// (② ③ là khối 6 bước của Sổ thu chi ở chế độ một ca — caMoney); bước "Hoàn thành" cũ của trang này bỏ.
+const DS_STEPS = ['Ai làm ca', 'Nghỉ & làm thay', 'Bàn giao'];
+const DS_ITEMS = [['nhan_su'], [], ['ban_giao', 'nhap_hang']];
+const DS_PART = ['① Phần việc', '① Phần việc', '① Phần việc'];
 const DS_X2 = 1;
 const DS_LAST = DS_STEPS.length - 1;
 // Những chỗ còn thiếu / sai trước khi hoàn thành (giống kiểm tra trên máy chủ) — [bước, nội dung]
@@ -943,6 +968,16 @@ function collect() {
   };
 }
 
+// Đối soát về Chốt ca: ca kế tiếp còn việc sau ca đang mở (theo thứ tự máy chủ trả: ngày rồi thứ tự ca), bỏ ca chờ kế toán; hết thì quay về ca cũ nhất
+const SH_ORD = (s) => { const i = ['Sáng', 'Chiều', 'Tối'].indexOf(s); return i < 0 ? 9 : i; };
+function nextUnfinished(con, r) {
+  const ok = (x) => x.st !== 'kt' && Number(x.id) !== Number(r.id);
+  const i = con.findIndex((x) => Number(x.id) === Number(r.id));
+  if (i >= 0) return [...con.slice(i + 1), ...con.slice(0, i)].find(ok) || null;
+  const key = (x) => `${x.date || x.work_date}|${SH_ORD(x.shift)}`;
+  const me = key(r);
+  return con.filter(ok).find((x) => key(x) > me) || con.find(ok) || null;
+}
 function mount(R, ed, C0, ctx = {}) {
   const { isDs, RC, R0, wizard, P, PT = {}, edH, dsPhone, dsStep, LK, KT, DIR, edT, tcDone } = ctx;
   let saveNow = null;
@@ -1141,9 +1176,9 @@ function mount(R, ed, C0, ctx = {}) {
       if (!dsPhone) { showPart(PART(st)); $(`.ds-pane[data-ds="${st}"]`)?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
       $$('.ds-pane').forEach((p) => { p.hidden = Number(p.dataset.ds) !== st; });
       $$('.ds-st').forEach((b) => { const k = Number(b.dataset.dsGo); b.classList.toggle('on', k === st); b.classList.toggle('past', k < st); });
-      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = st === DS_LAST; const sk = $('.ds-pane[data-skip]') ? 1 : 0; $('#ds-pos').textContent = `Bước ${st + 1 - (sk && st > DS_X2 ? 1 : 0)}/${DS_LAST + 1 - sk}`;
-      $('#ds-next').textContent = canApprove ? 'Duyệt & tiếp ›' : 'Tiếp ›';
-      { const mo = $('#ds-money-ok'); if (mo) mo.hidden = st !== DS_LAST; $('#ds-end').hidden = st !== DS_LAST || !!mo; $('#ds-pos').hidden = st === DS_LAST; }
+      $('#ds-prev').disabled = st === 0; $('#ds-next').hidden = false; const sk = $('.ds-pane[data-skip]') ? 1 : 0; $('#ds-pos').textContent = `Bước ${st + 1 - (sk && st > DS_X2 ? 1 : 0)}/${DS_LAST + 1 - sk}`;
+      $('#ds-next').textContent = st === DS_LAST ? (canApprove ? 'Duyệt & sang phần tiền ›' : 'Sang phần tiền ›') : canApprove ? 'Duyệt & tiếp ›' : 'Tiếp ›';
+      { const en = $('#ds-end'); if (en) en.hidden = true; $('#ds-pos').hidden = false; }   // Đối soát về Chốt ca: hết bước phần việc → tab ② / ③
       { const last = st === DS_LAST; const me = !!ctx.mEdit; const sh = (q, on) => { const el = $(q); if (el) el.hidden = !on; };   // bước 121
         sh('#ds-money-open', last && !me); sh('#ds-money-cancel', last && me); sh('#ds-money-save', last && me);
         if (last && me) { sh('#ds-money-ok', false); sh('#ds-end', false); sh('#ds-prev', false); } else sh('#ds-prev', true); }   // bước 92 / 115: bước Tiền — còn phải duyệt thì nút Duyệt, duyệt xong thì Về danh sách / Ca tiếp theo — cùng 1 hàng
@@ -1193,6 +1228,19 @@ function mount(R, ed, C0, ctx = {}) {
       $$('.ds-pt').forEach((b) => b.addEventListener('click', () => { showPart(b.dataset.ptab); window.scrollTo({ top: Math.max(0, ($('.ds-ptabs')?.getBoundingClientRect().top || 0) + window.scrollY - 70), behavior: 'smooth' }); }));
     }
     form.addEventListener('click', (ev) => { const g = ev.target.closest('[data-ds-go]'); if (g) { cur = Number(g.dataset.dsGo); go(cur); } });
+    // Đối soát về Chốt ca: 3 tab — ① = form (bước phần việc), ② ③ = khối tiền một ca; nhớ tab trên đường dẫn (vẽ lại sau thao tác vẫn đúng tab)
+    const setTab = (k) => {
+      if (!['viec', 'tien', 'xong'].includes(k)) return;
+      const f = $('.ds-tab-viec'); if (f) f.hidden = k !== 'viec';
+      $$('[data-tab-pane]').forEach((p) => { p.hidden = p.dataset.tabPane !== k; });
+      $$('.ds-pt').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.ptab === k)));
+      try { const [pth, qs] = location.hash.split('?'); const u = new URLSearchParams(qs || ''); u.set('tab', k); u.delete('b'); u.delete('buoc'); history.replaceState(null, '', pth + '?' + u.toString()); } catch (_) { /* bỏ qua */ }
+    };
+    $$('.ds-pt').forEach((b) => b.addEventListener('click', () => { setTab(b.dataset.ptab); window.scrollTo({ top: 0 }); }));
+    const onTab = (ev) => { setTab(ev.detail?.tab); window.scrollTo({ top: 0 }); };
+    window.addEventListener('stc-one-tab', onTab); ctx.offTab = () => window.removeEventListener('stc-one-tab', onTab);
+    $$('.ds-wgo').forEach((b) => b.addEventListener('click', () => { setTab('viec'); cur = Number(b.dataset.wgo); go(cur); }));
+    ctx.money?.mount();
     if (dsPhone) {
       $('#ds-prev').addEventListener('click', () => { goDir = -1; cur = Math.max(0, cur - 1); if (cur === DS_X2 && $('.ds-pane[data-skip]')) cur = 0; go(cur); goDir = 1; });
       // bước 92: Hoàn thành → về trang Đối soát; Ca tiếp theo → mở đối soát ca kế tiếp cùng cơ sở (Sáng → Chiều → Tối → Sáng hôm sau)
@@ -1215,8 +1263,11 @@ function mount(R, ed, C0, ctx = {}) {
       });
       $('#ds-next').addEventListener('click', async () => {
         const b = $('#ds-next'); b.disabled = true;
+        const wasLast = cur === DS_LAST;
         let n = 0; try { n = await approveStep(cur); } catch (e) { showSaved(e.message, true); b.disabled = false; return; }
-        b.disabled = false; cur = Math.min(DS_LAST, cur + 1); if (cur === DS_X2 && $('.ds-pane[data-skip]')) cur = DS_X2 + 1;
+        b.disabled = false;
+        if (wasLast) { setTab(ctx.tabAfterWork || 'tien'); if (n) { flash('Đã duyệt phần việc.'); rerender(); } else window.scrollTo({ top: 0 }); return; }   // Đối soát về Chốt ca
+        cur = Math.min(DS_LAST, cur + 1); if (cur === DS_X2 && $('.ds-pane[data-skip]')) cur = DS_X2 + 1;
         if (n) { try { sessionStorage.setItem(key, String(cur)); } catch (_) { /* bỏ qua */ } flash(`Đã duyệt bước ${cur}.`); rerender(); return; }
         go(cur);
       });
@@ -2137,10 +2188,13 @@ function mount(R, ed, C0, ctx = {}) {
     });
   };
 
-  return () => { if (dirty) saveNow().catch(() => {}); };
+  return () => { if (dirty) saveNow().catch(() => {}); if (ctx.offTab) ctx.offTab(); };
 }
 
 const STYLE = html`<style>
+  .ds-top { display: flex; flex-wrap: wrap; gap: 6px; margin: 4px 0 8px; }   /* Đối soát về Chốt ca */
+  .ds-tab-viec[hidden], [data-tab-pane][hidden] { display: none !important; }
+  .ds-ptn.ok { background: var(--ok-bg, #e7f6ec); color: var(--ok-ink, #166534); }
   .ds-ptabs { display: flex; gap: 6px; flex-wrap: wrap; position: sticky; top: 0; z-index: 4; background: var(--ground, #f5efe6); padding: 6px 0; }   /* bước 79 */
   .ds-pt { font: inherit; font-weight: 800; font-size: 15px; padding: 10px 16px; border-radius: 12px; border: 2px solid var(--line-strong); background: var(--card); cursor: pointer; display: inline-flex; gap: 8px; align-items: center; color: var(--ink); }
   .ds-pt[aria-selected="true"] { border-color: var(--primary); background: var(--primary); color: #fff; }

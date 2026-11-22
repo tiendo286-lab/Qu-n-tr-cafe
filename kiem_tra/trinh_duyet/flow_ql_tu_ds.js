@@ -1,5 +1,6 @@
-// KIỂM TRA VÙNG KHOÁ (bước 152, 19/11 — thay bài bước 129): trang Đối soát ca KHÔNG còn phần tiền.
-// Bước Tiền chỉ còn thẻ dẫn sang Sổ thu chi › Đối soát Fabi (mở đúng ca); không còn nút ✎ Mở để sửa / Lưu, không còn ô sửa số tiền.
+// KIỂM TRA VÙNG KHOÁ (bước 152, 19/11 — thay bài bước 129; đổi 22/11 theo thiết kế "Đưa Đối soát Fabi về lại Chốt ca", anh Tiến duyệt):
+// trang đối soát của ca có 3 tab. Tab ① Phần việc KHÔNG có phần tiền (không nút ✎ Mở để sửa / Lưu, không ô sửa số tiền).
+// Tiền chỉ làm ở tab ② ③ = khối 6 bước của Sổ thu chi (chế độ một ca), ĐÚNG ca đang mở (#stc-page.stc-one[data-ds=<ca>]); thay cho thẻ dẫn sang Sổ thu chi cũ.
 // Phiếu thử có mục WEB TỰ ĐỐI SOÁT như trước (để chắc không còn đường nào sửa tiền ở trang cũ).
 // Chạy: role=ql và role=chu, confirm=1, script=flow_ql_tu_ds — index.html và test/phone.html.
 export default async ({ sleep, out }) => {
@@ -30,13 +31,12 @@ export default async ({ sleep, out }) => {
     await rpc('app__test_auto_lock', { p_id: id, p_items: ['thoi_gian', 'doanh_thu', 'cong_no', 'thu_chi'] });   // như phiếu LHP 9/11 Sáng
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await sleep(1800);
     check(!$('#ds-money-open') && !$('#ds-money-save') && !$('.ds-editing') && !$('.ds-mlock'), 'không còn nút ✎ Mở để sửa / Lưu phần tiền');
-    const pane = $('.ds-pane[data-ds="3"]') || document;
+    const pane = $('.ds-tab-viec') || document;
     const inputs = [...pane.querySelectorAll('#total_revenue, #reported_transfer, #moves input, #debts input, .lx-box input')].filter((x) => !x.disabled && x.type !== 'hidden');
-    check(!inputs.length, 'bước Tiền không còn ô sửa số tiền' + (inputs.length ? ` (còn ${inputs.length} ô)` : ''));
-    const a = pane.querySelector('a.ds-stc');
-    const href = a ? a.getAttribute('href') : '';
-    check(!!a && /quan-ly\/so-thu-chi\?/.test(href) && /tab=doi-soat/.test(href) && new RegExp('ds=' + id + '(&|$)').test(href), 'có thẻ "Phần tiền làm ở Sổ thu chi › Đối soát Fabi" mở đúng ca' + (a ? '' : ' (không thấy)'));
-    check(!!a && /(chưa xác nhận fabi|đã xác nhận fabi|đã chốt ca)/i.test(a.closest('.ds-stc-card')?.innerText || ''), 'thẻ ghi trạng thái phần tiền');
+    check(!inputs.length, 'tab ① Phần việc không có ô sửa số tiền' + (inputs.length ? ` (còn ${inputs.length} ô)` : ''));
+    check(!$('a.ds-stc') && !$('.ds-stc-card'), 'không còn thẻ dẫn sang Sổ thu chi (tiền nay ở tab ② ③ ngay trong trang)');
+    const mp = $('[data-tab-pane="tien"]')?.closest('#stc-page');
+    check(!!mp && mp.classList.contains('stc-one') && mp.dataset.ds === String(id) && !!$('[data-tab-pane="xong"]'), 'tab ② ③ là khối tiền của ĐÚNG ca đang mở (ca ' + id + ')' + (mp ? '' : ' (không thấy)'));
     // bước 152 (lỗi duyệt mã C1): sửa phần việc ở Đối soát ca KHÔNG được gửi số tiền / thu chi / khách nợ rỗng (ô tiền đã bỏ khỏi trang)
     { location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=1'; await wait('.ds-pane'); await sleep(1500);
       const k0 = window.__LOG.length;
@@ -48,13 +48,12 @@ export default async ({ sleep, out }) => {
       check(!!note && sv.length > 0 && !bad.length, 'sửa giờ / ghi chú người làm ở Đối soát ca: lưu không gửi ô tiền rỗng' + (!note ? ' (không thấy ô)' : !sv.length ? ' (không thấy lần lưu)' : bad.length ? ' (gửi ' + [...new Set(bad)].join(', ') + ')' : ''));
       location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/phieu?id=' + id + '&__ds=1&buoc=4'; await wait('.ds-pane'); await sleep(1200); }
     if (new URLSearchParams(location.search).get('dung')) { window.scrollTo(0, 0); out.push({ route: 'ql_tu_ds', title: seen.join(' · '), errs: fails }); return; }   // &dung=1: dừng để chụp màn hình
-    const a2 = document.querySelector('.ds-pane[data-ds="3"] a.ds-stc');
-    if (a2) {
-      a2.click(); await sleep(2500);
+    const t2 = document.querySelector('.ds-pt[data-ptab="tien"]');
+    check(!!t2, 'có tab ② Phần tiền');
+    if (t2) {
+      t2.click(); await sleep(500);
       const hp = new URLSearchParams(location.hash.split('?')[1] || '');
-      check(location.hash.startsWith('#/quan-ly/so-thu-chi') && hp.get('tab') === 'doi-soat' && hp.get('ds') === String(id), 'bấm thẻ → Sổ thu chi › Đối soát Fabi đúng ca (' + location.hash.slice(0, 80) + ')');
-      check(!!document.querySelector('#stc-page, #root .alert'), 'trang Sổ thu chi mở được');
-      history.back(); await sleep(1500);
+      check(!$('[data-tab-pane="tien"]').hidden && $('.ds-tab-viec').hidden && hp.get('tab') === 'tien' && hp.get('id') === String(id), 'bấm tab ② → hiện phần tiền của đúng ca, ẩn phần việc (' + location.hash.slice(0, 80) + ')');
     }
     const wide = document.documentElement.scrollWidth > window.innerWidth + 1;
     check(!wide, 'không tràn ngang');

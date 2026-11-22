@@ -1630,10 +1630,12 @@ export async function caMoney({ cn, thang, ds, b = null, workLeft = [], workSum 
   ONE = { workLeft: workLeft || [] };
   const key = String(ds) + '|one|' + (b || '');
   if (key !== DS_PARAM) { DS_SEL = String(ds); DS_PARAM = key; DS_B = /^[1-6]$/.test(String(b || '')) ? Number(b) - 1 : null; DSB.stepFor = null; }
+  // không mở được / không có số liệu: vẫn ghi rõ khối tiền của ca nào (#stc-page.stc-one[data-ds]) để trang ca và bài thử vùng khoá nhận đúng ca
+  const msg = (m) => ({ html: str(html`<div id="stc-page" class="stc-one" data-ds="${ds}"><section class="ds-tpane" data-tab-pane="tien">${m}</section><section class="ds-tpane" data-tab-pane="xong">${raw(workSum)}${m}</section></div>`), mount() {} });
   let D;
-  try { D = await load(String(cn), thang); } catch (e) { return { html: html`<div class="alert warn">Chưa mở được phần tiền của ca: ${e.message || e}</div>`, mount() {} }; }
+  try { D = await load(String(cn), thang); } catch (e) { return msg(html`<div class="alert warn">Chưa mở được phần tiền của ca: ${e.message || e}</div>`); }
   const a = dsInfo(D).all.find((x) => String(x.c.id) === String(ds));
-  if (!a) return { html: html`<section class="card stc-empty">Chưa có số liệu phần tiền của ca này.</section>`, mount() {} };
+  if (!a) return msg(html`<section class="card stc-empty">Chưa có số liệu phần tiền của ca này (ca chưa có trong sổ tháng của cơ sở).</section>`);
   const left = dsLeft(dsChecks(a.c, dsCtx(D, a.c)));
   return {
     html: str(html`${STYLE}<div id="stc-page" class="stc-one" data-ds="${ds}"><section class="ds-tpane" data-tab-pane="tien"><div id="stc-ds">${dsPanel(D, a)}</div></section>
