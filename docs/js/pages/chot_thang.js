@@ -373,7 +373,7 @@ const STYLE = html`<style>
   .ct-miss h2 { font-size: 17px; margin: 0; }
   .ct-ml { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
   .ct-ml li { overflow-wrap: anywhere; min-width: 0; }
-  .ct-sub { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; list-style: disc; }
+  .ct-sub { margin: 6px 0 0; padding-left: 2px; display: flex; flex-direction: column; gap: 4px; list-style: none; }
   .ct-sub summary { font-weight: 500; }
   .ct-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
   .ct-chip { display: inline-block; border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; font-size: 13px; text-decoration: none; background: var(--card); max-width: 100%; overflow-wrap: anywhere; }
