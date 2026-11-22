@@ -198,10 +198,24 @@ export function makeFin(T, me) {
       need(p_branch); if (p_month >= today().slice(0, 7)) throw new Error('Chỉ chốt được tháng đã kết thúc.');
       const c = calc(p_branch, p_month);
       if (c.revenue.in_progress) throw new Error(`Còn ${c.revenue.in_progress} phiếu chốt ca đang chốt dở trong tháng.`);
-      if (c.revenue.recon < c.revenue.done) throw new Error(`Còn ${c.revenue.done - c.revenue.recon} ca chưa hoàn thành đối soát. Đối soát xong rồi mới chốt tháng.`);
-      if (c.totals.uncat) throw new Error(`Còn ${c.totals.uncat} khoản chi ở phiếu ca chưa phân nhóm.`);
+      if (c.revenue.recon < c.revenue.done) throw new Error(`Còn ${c.revenue.done - c.revenue.recon} ca chưa hoàn thành đối soát. Xem khung "Còn thiếu để chốt tháng" ở đầu trang Chốt tháng: ca nào kẹt ở đâu, bấm vào là tới chỗ làm.`);
+      if (c.totals.uncat) throw new Error(`Còn ${c.totals.uncat} khoản chi ở phiếu ca chưa phân nhóm. Chọn nhóm hoặc "Không tính" ở mục 4 của trang Chốt tháng hoặc ở Sổ thu chi › Sổ chi trước khi chốt.`);
       T.fin_month_closes.push({ branch_id: p_branch, month: p_month, note: p_note || null, closed_by: me.account_id, closed_at: now() });
       T.fin_close_log.push({ branch_id: p_branch, month: p_month, action: 'chot', reason: p_note || null, by: name(me.account_id), at: now() });
+    },
+    // chặng 3 (tệp 159): khung "Còn thiếu để chốt tháng". Bản giả: chưa đủ 4 kết quả tiền → "fabi"; đủ tiền mà thiếu mục việc → "viec" (không mô phỏng kế toán / nút Hoàn thành)
+    app_fin_missing({ p_branch, p_month }) {
+      need(p_branch); const c = calc(p_branch, p_month);
+      const IT = ['thoi_gian', 'doanh_thu', 'chuyen_khoan', 'tien_mat', 'thu_chi', 'nhan_su', 'ban_giao', 'nhap_hang', 'cong_no'];
+      const LB = { thoi_gian: 'Thời gian doanh thu', doanh_thu: 'Doanh thu', nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', nhap_hang: 'Nhập hàng', cong_no: 'Công nợ', thu_chi: 'Thu chi', tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
+      const sh = T.shift_reports.filter((r) => r.branch_id === p_branch && String(r.work_date).startsWith(p_month)).sort((a, b) => (a.work_date + a.id).localeCompare(b.work_date + b.id));
+      const lb = (r) => ({ id: r.id, date: r.work_date, shift: r.shift }); const recon = {};
+      sh.filter((r) => r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh').forEach((r) => {
+        const miss = IT.filter((it) => !(T.__checks ? T.__checks(r.id) : []).includes(it));
+        const g = (T.__res ? T.__res(r.id).length : 0) < 4 ? 'fabi' : miss.length ? 'viec' : 'cho';
+        (recon[g] = recon[g] || []).push({ ...lb(r), miss: g === 'viec' ? miss.map((it) => LB[it]) : [] });
+      });
+      return { branch_id: p_branch, month: p_month, unchecked: c.totals.uncat, gap_pending: 0, ext_bad: 0, in_progress: sh.filter((r) => r.status === 'dang_chot').map(lb), recon };
     },
     app_fin_reopen({ p_branch, p_month, p_reason }) {
       if (me.role !== 'chu') throw new Error('Chỉ Chủ được mở lại tháng đã chốt.'); if (!(p_reason || '').trim()) throw new Error('Ghi lý do mở lại tháng.');

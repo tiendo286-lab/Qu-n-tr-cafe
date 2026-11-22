@@ -29,9 +29,32 @@ export default async ({ sleep, out }) => {
     return `phiếu ${id} ngày ${pm}`;
   });
   await step('Tổng hợp tất cả cơ sở', async () => { await go(`#/quan-ly/chot-thang?thang=${M}&cn=all`); return txt('.ct-month') + ' · ' + txt('.branch-tabs') + ' || ' + $$('.table tbody tr').slice(0, 2).map((r) => r.innerText.replace(/\s+/g, ' ')).join(' / '); });
+  const must = (ok, msg) => { if (!ok) throw new Error('KHÔNG ĐẠT: ' + msg); };
+  const overflow = (root) => { const W = document.documentElement.clientWidth; return [...root.querySelectorAll('*')].filter((el) => el.offsetParent && el.getBoundingClientRect().right > W + 0.5).map((el) => el.tagName + '.' + String(el.className).slice(0, 30)).slice(0, 5).join(', '); };
+  await step('Khung "Còn thiếu để chốt tháng" ở trang Tất cả (chặng 3)', async () => {
+    const box = $('#ct-miss'); must(box, 'không có khung Còn thiếu ở trang Tất cả');
+    const li = [...box.querySelectorAll('.ct-ml > li')].find((x) => x.innerText.includes(branchCode)); must(li, 'khung không có dòng cơ sở ' + branchCode);
+    must(li.innerText.includes('ca chưa hoàn thành đối soát'), 'dòng cơ sở không báo ca chưa hoàn thành đối soát: ' + li.innerText);
+    must(li.querySelector(`a[href*="cn=${br}"]`), 'tên cơ sở không dẫn tới trang chi tiết');
+    return txt('#ct-miss');
+  });
   await step('Chi tiết cơ sở: số liệu + cảnh báo', async () => {
     await go(`#/quan-ly/chot-thang?thang=${M}&cn=${br}`);
     return txt('.ct-kpis') + ' || ' + txt('.ct-status') + ' || khoản ở phiếu ca: ' + $$('.ct-mv').length + ' · ' + txt('.ct-grid .ct-sec');
+  });
+  await step('Khung Còn thiếu ở trang cơ sở: ca chưa xác nhận Fabi dẫn tới đúng ca, khoản chưa chọn nhóm dẫn tới mục 4', async () => {
+    const box = $('#ct-miss'); must(box && !box.classList.contains('ok'), 'không có khung Còn thiếu (hoặc báo đủ điều kiện sai)');
+    must(!$('.ct-status .alert.warn'), 'còn dòng cảnh báo cũ trùng với khung');
+    const bt = box.innerText.toLowerCase();   // tiêu đề / dòng xổ xuống in hoa theo kiểu chung của web
+    must(bt.includes('ca chưa hoàn thành đối soát') && bt.includes('chưa xác nhận fabi'), 'khung không chia nhóm "chưa xác nhận Fabi": ' + box.innerText);
+    $$('#ct-miss details').forEach((d) => { d.open = true; }); await sleep(200);
+    const chip = $(`#ct-miss a.ct-chip[href*="ds=${id}"]`); must(chip && chip.getAttribute('href').includes('tab=doi-soat') && chip.getAttribute('href').includes(`cn=${br}`), 'không có ô ca dẫn tới Sổ thu chi › Đối soát Fabi đúng ca');
+    must(box.innerText.includes('chưa chọn nhóm'), 'khung không báo khoản thu chi chưa chọn nhóm');
+    const tr = overflow(box); must(!tr, 'khung tràn ngang: ' + tr);
+    $('.ct-go[data-go="ct-s4"]').click(); await sleep(900);
+    const top = $('#ct-s4').getBoundingClientRect().top; must(top > -10 && top < 260, 'bấm "mục 4 bên dưới" không cuộn tới mục 4 (top ' + Math.round(top) + ')');
+    window.scrollTo(0, 0);
+    return txt('#ct-miss') + ` · ô ca: ${chip.getAttribute('href')} · mục 4 top ${Math.round(top)}`;
   });
   await step('Phân nhóm khoản "Mua đá" → Vật dụng', async () => {
     const s = $$('.ct-mv').find((x) => x.closest('.ct-row').innerText.includes('Mua đá')); setv(s, [...s.options].find((o) => o.text === 'Vật dụng').value);
@@ -47,13 +70,19 @@ export default async ({ sleep, out }) => {
   await step('Chốt khi còn ca chưa đối soát → bị chặn', async () => { $('#ct-close').click(); await sleep(600); return txt('#saved-indicator, .saved') || 'KHÔNG BÁO'; });
   await step('Đối soát xong ca → Chốt tháng → khóa', async () => {
     for (const it of ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no']) await rpc('app_ca_result_set', { p_id: id, p_item: it, p_result: 'khop', p_amount: null, p_reason: null, p_people: null });
-    for (const it of ['thoi_gian', 'doanh_thu', 'nhan_su', 'ban_giao']) await rpc('app_ca_check', { p_id: id, p_item: it, p_on: true });
+    // chặng 3: đủ 9 mục (thêm Nhập hàng — trước đây thiếu nên ca không hoàn thành đối soát, tháng không chốt được; khung Còn thiếu chỉ ra đúng chỗ)
+    for (const it of ['thoi_gian', 'doanh_thu', 'nhan_su', 'ban_giao', 'nhap_hang']) await rpc('app_ca_check', { p_id: id, p_item: it, p_on: true });
     await go(`#/quan-ly/chot-thang?thang=${M}&cn=${br}`);
     $('#ct-close').click(); await sleep(800); await wait('.ct-bar'); await sleep(500);
     let blocked = ''; try { await rpc('app_fin_entry_save', { p_id: null, p: { branch_id: br, entry_date: pm, kind: 'chi', amount: 1000, note: 'x' } }); blocked = 'KHÔNG KHÓA'; } catch (e) { blocked = e.message; }
+    must(!$('#ct-miss'), 'tháng đã chốt mà vẫn hiện khung Còn thiếu — trạng thái: ' + txt('.ct-status') + ' | báo: ' + txt('#saved-indicator') + ' | khung: ' + txt('#ct-miss'));
     return `${txt('.ct-status')} · nút thêm: ${!!$('#ct-add')} · ô nhóm khóa: ${$$('.ct-mv').every((s) => s.disabled)} · thêm khoản: ${blocked}`;
   });
-  await step('Mở lại tháng (Chủ, có lý do)', async () => { $('#ct-reopen').click(); await sleep(800); await wait('.ct-bar'); await sleep(500); return txt('.ct-status') + ' · ' + txt('details:last-of-type'); });
+  await step('Mở lại tháng (Chủ, có lý do)', async () => {
+    $('#ct-reopen').click(); await sleep(800); await wait('.ct-bar'); await sleep(500);
+    must($('#ct-miss.ok'), 'mở lại tháng đã đủ điều kiện mà khung không báo "Không còn việc nào chặn": ' + txt('#ct-miss'));
+    return txt('.ct-status') + ' · ' + txt('#ct-miss') + ' · ' + txt('details:last-of-type');
+  });
   await step('Cài đặt: nhóm chi/thu + giao cơ sở cho quản lý', async () => {
     $('#ct-set').click(); await sleep(800); const d = $('dialog[open]');
     const a = `${d.querySelectorAll('.ct-cat').length} nhóm · quản lý: ${d.querySelectorAll('.ct-mgr').length}`;

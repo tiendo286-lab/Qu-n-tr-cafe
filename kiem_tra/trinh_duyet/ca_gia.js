@@ -18,6 +18,7 @@ export function makeCa(T, me) {
   const MONEY = ['tien_mat', 'chuyen_khoan', 'thu_chi', 'cong_no'];
   const KT_ITEMS = ['thoi_gian', 'doanh_thu', ...MONEY];
   const RES = {}; const SF = []; let sfSeq = 1; T.__SF = SF;   // Thu chi (fin_gia) đọc phiếu trừ lương
+  T.__res = (id) => MONEY.filter((it) => RES[id + '|' + it]);   // chặng 3: khung "Còn thiếu để chốt tháng" (fin_gia) đọc ca nào đã có kết quả tiền
   const LBL = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản', thu_chi: 'Thu chi', cong_no: 'Công nợ' };
   const eff = (id) => RECON[id] || snap(id);
   // bước 120: ghi chú sửa thu chi (giống app__ca_move_notes)

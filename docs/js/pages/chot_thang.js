@@ -14,6 +14,58 @@ const monthLabel = (m) => `Tháng ${Number(m.slice(5, 7))}/${m.slice(0, 4)}`;
 const shiftMonth = (m, k) => { const [y, mo] = m.split('-').map(Number); const d = new Date(Date.UTC(y, mo - 1 + k, 1)); return d.toISOString().slice(0, 7); };
 const sum = (a, f) => a.reduce((s, x) => s + Number(f(x) || 0), 0);
 
+// chặng 3 (anh Tiến chốt 22/11/2026): khung "Còn thiếu để chốt tháng" — đếm đúng các việc nút Chốt tháng chặn (máy chủ app_fin_missing,
+// cùng điều kiện với app_fin_close), chia ca chưa hoàn thành đối soát theo chỗ kẹt, bấm vào là tới chỗ làm.
+const caLb = (x) => `${dmy(x.date).slice(0, 5)} ${x.shift}`;
+const qs = (o) => Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => `${k}=${v}`).join('&');
+const MISS_GRP = [   // [nhóm, chữ, mở ở đâu: ds = Sổ thu chi › Đối soát Fabi đúng ca · ca = trang Đối soát ca (phần việc)]
+  ['kt', 'chờ kế toán nhập file Fabi / số dư ngân hàng', 'ds'],
+  ['fabi', 'chưa xác nhận Fabi', 'ds'],
+  ['hoan_thanh', 'đã xác nhận Fabi, chưa bấm "Hoàn thành đối soát ca"', 'ds'],
+  ['viec', 'phần tiền xong, còn phần việc (Nhân sự, Bàn giao…) ở trang Đối soát ca', 'ca'],
+  ['cho', 'đủ điều kiện nhưng chưa ghi nhận — mở ca ở trang Đối soát ca', 'ca'],
+];
+function missBox(M, D, cn, month, cur) {
+  const R = D.revenue; const Tt = D.totals; const RC = D.recon || {}; const rc = M?.recon || {};
+  const stc = (o) => '#/quan-ly/so-thu-chi?' + qs({ cn, thang: month, ...o });
+  const href = { ds: (id) => stc({ tab: 'doi-soat', ds: id }), ca: (id) => `#/quan-ly/doi-soat/ca?id=${id}`, phieu: (id) => `#/ca/phieu?id=${id}` };
+  const chips = (list, to, miss) => html`<div class="ct-chips">${list.map((x) => html`<a class="ct-chip" href="${to(x.id)}">${caLb(x)}${miss && (x.miss || []).length ? html`<small> · ${x.miss.join(', ')}</small>` : ''}</a>`)}</div>`;
+  const lines = [];
+  if (R.in_progress) lines.push(html`<li><b>${R.in_progress} phiếu chốt ca đang chốt dở</b> — nhân viên chốt xong phiếu mới tính.${(M?.in_progress || []).length ? chips(M.in_progress, href.phieu) : ''}</li>`);
+  const left = Number(R.done) - Number(R.recon);
+  if (left > 0) {
+    const grp = MISS_GRP.filter(([k]) => (rc[k] || []).length);
+    lines.push(html`<li><b>${left} ca chưa hoàn thành đối soát</b>${grp.length ? html`<ul class="ct-sub">${grp.map(([k, t, w]) => html`<li><details><summary>${rc[k].length} ca ${t}</summary>${chips(rc[k], href[w], k === 'kt' || k === 'viec')}</details></li>`)}</ul>` : ''}</li>`);
+  }
+  const nMv = Math.max(Number(M?.unchecked || 0), Number(Tt.uncat || 0));
+  if (nMv) lines.push(html`<li><b>${nMv} khoản thu chi ở phiếu ca chưa chọn nhóm</b> — chọn nhóm (hoặc "Không tính") ở <button type="button" class="ct-go" data-go="ct-s4">mục 4 bên dưới</button> hoặc ở <a href="${stc({ tab: 'chi', loc: 'st:todo' })}">Sổ thu chi › Sổ chi</a>.</li>`);
+  if (Number(M?.gap_pending)) lines.push(html`<li><b>${M.gap_pending} ca có chênh lệch tiền đang chờ xử lý</b> — xử lý ở <a href="${stc({ tab: 'doi-soat' })}">Sổ thu chi › Đối soát Fabi</a> (bước Chênh lệch) hoặc <a href="${stc({ tab: 'tong' })}">Tổng › Việc cần làm</a>.</li>`);
+  const ext = Number(M?.ext_bad ?? D.ext_bad ?? 0);
+  if (ext) lines.push(html`<li><b>${ext} khoản ở Quỹ ngoài chưa chia hết cho cơ sở</b> — Chủ vào <a href="#/quan-ly/so-thu-chi?${qs({ cn: 'ngoai', tab: 'tong', thang: month })}">Sổ thu chi › Quỹ ngoài</a> để chia.</li>`);
+  const gap = Number(RC.gap || 0);
+  return html`<section class="card ct-miss ${lines.length ? '' : 'ok'}" id="ct-miss">
+    <h2>${lines.length ? `Còn thiếu để chốt ${monthLabel(month).toLowerCase()}` : `✓ Không còn việc nào chặn chốt ${monthLabel(month).toLowerCase()}`}</h2>
+    ${lines.length ? html`<ul class="ct-ml">${lines}</ul>` : ''}
+    ${RC.active && gap ? html`<div class="st-meta">Tiền đã rút về đang lệch ${signed(gap)} so với tiền phải rút về — không chặn, nhưng khi chốt phải ghi lý do (xem <button type="button" class="ct-go" data-go="ct-s6">mục 6</button>; tiền rút về ghi ở <a href="${stc({ tab: 'tong' })}">Sổ thu chi › Tổng</a>).</div>` : ''}
+    ${month >= cur ? html`<div class="st-meta">Tháng chưa kết thúc nên số còn thay đổi; chỉ bấm chốt được sau ngày cuối tháng.</div>` : ''}</section>`;
+}
+// trang Tất cả: mỗi cơ sở một dòng tóm tắt, bấm tên để vào khung chi tiết
+function missOverview(rows, MS, month, cur, q) {
+  const ext = Math.max(0, ...MS.map((M) => Number(M?.ext_bad || 0)));
+  return html`<section class="card ct-miss" id="ct-miss"><h2>Còn thiếu để chốt ${monthLabel(month).toLowerCase()}</h2>
+    <ul class="ct-ml">${rows.map((r, i) => {
+      const M = MS[i]; const R = r.revenue || {}; const it = [];
+      if (Number(R.in_progress)) it.push(`${R.in_progress} phiếu đang chốt dở`);
+      if (Number(R.done) > Number(R.recon)) it.push(`${R.done - R.recon} ca chưa hoàn thành đối soát`);
+      const nMv = Math.max(Number(M?.unchecked || 0), Number(r.totals?.uncat || 0));
+      if (nMv) it.push(`${nMv} khoản thu chi chưa chọn nhóm`);
+      if (Number(M?.gap_pending)) it.push(`${M.gap_pending} ca có chênh lệch chờ xử lý`);
+      if (r.recon?.active && Number(r.recon.gap)) it.push(`tiền rút về lệch ${signed(r.recon.gap)} (ghi lý do khi chốt)`);
+      return html`<li><a href="${q({ cn: r.branch_id })}"><b>${r.code}</b></a>: ${r.closed ? html`<span class="pill ok">Đã chốt</span>` : it.length ? it.join(' · ') : html`<span class="pill ok">Đủ điều kiện chốt</span>`}</li>`;
+    })}${ext ? html`<li><b>${ext} khoản ở Quỹ ngoài chưa chia hết cho cơ sở</b> (chung mọi cơ sở) — Chủ vào <a href="#/quan-ly/so-thu-chi?${qs({ cn: 'ngoai', tab: 'tong', thang: month })}">Sổ thu chi › Quỹ ngoài</a> để chia.</li>` : ''}</ul>
+    <div class="st-meta">Bấm tên cơ sở để xem từng ca còn kẹt ở đâu.${month >= cur ? ' Tháng chưa kết thúc nên số còn thay đổi.' : ''}</div></section>`;
+}
+
 export async function render({ params }) {
   const cur = vnToday().slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : cur;
@@ -37,7 +89,9 @@ export async function render({ params }) {
     </section>`;
 
   if (cn === 'all') {
-    const rows = await rpc('app_fin_overview', { p_month: month });
+    const [rows, ...MB] = await Promise.all([rpc('app_fin_overview', { p_month: month }),
+      ...B.branches.map((b) => rpc('app_fin_missing', { p_branch: b.id, p_month: month }).catch(() => null))]);
+    const MS = rows.map((r) => MB.find((M) => M && Number(M.branch_id) === Number(r.branch_id)) || null);
     const T = (k) => sum(rows, (r) => r.totals[k]);
     const body = html`<section class="card flush"><div class="card-head"><h2>Tổng hợp ${monthLabel(month)}</h2><span class="st-meta">Bấm tên cơ sở để xem chi tiết và chốt</span></div>
       <div class="table-wrap"><table class="table rt ct-ov">
@@ -56,17 +110,14 @@ export async function render({ params }) {
             <td class="r" data-label="Thu khác">${vnd(T('thu'))}</td><td class="r" data-label="Lãi tạm tính"><strong>${signed(T('profit'))}</strong></td>
             <td class="r" data-label="Lệch tiền mặt">${signed(sum(rows, (r) => r.cash.gap))}</td><td class="r" data-label="Khoản âm">${vnd(sum(rows, (r) => r.shortfalls.total))}</td><td></td><td></td>
             <td data-label="Đã chốt">${rows.filter((r) => r.closed).length}/${rows.length}</td></tr></tbody></table></div></section>`;
-    return { title: 'Chốt tháng', html: html`${STYLE}${head}${body}`, mount: () => mountSettings(B) };
+    const miss = rows.every((r) => r.closed) ? '' : missOverview(rows, MS, month, cur, q);
+    return { title: 'Chốt tháng', html: html`${STYLE}${head}${miss}${body}`, mount: () => mountSettings(B) };
   }
 
-  const D = await rpc('app_fin_month', { p_branch: cn, p_month: month });
+  const [D, M] = await Promise.all([rpc('app_fin_month', { p_branch: cn, p_month: month }),
+    rpc('app_fin_missing', { p_branch: cn, p_month: month }).catch(() => null)]);
   const R = D.revenue; const Tt = D.totals; const locked = !!D.closed;
   const cats = (k) => D.categories.filter((c) => c.kind === k && c.active);
-  const warn = [];
-  if (R.in_progress) warn.push(`${R.in_progress} phiếu chốt ca đang chốt dở`);
-  if (R.recon < R.done) warn.push(`${R.done - R.recon} ca chưa hoàn thành đối soát`);
-  if (Tt.uncat) warn.push(`${Tt.uncat} khoản chi ở phiếu ca chưa phân nhóm`);
-  if (D.ext_bad) warn.push(`${D.ext_bad} khoản ở Quỹ ngoài chưa chia hết cho cơ sở`);
   const RC = D.recon || {}; const gap = Number(RC.gap || 0);
   const note = R.done < R.expect ? `Mới có ${R.done}/${R.expect} ca có phiếu chốt ca hoàn thành (tính tới hôm nay) — kiểm tra ngày nào thiếu phiếu.` : '';
   const dayRows = D.days.map((d) => { const gap = d.counted !== null && d.expected !== null ? d.counted - d.expected : null; return { ...d, gap }; });
@@ -81,8 +132,8 @@ export async function render({ params }) {
       ${locked ? html`<div class="st-meta">ĐÃ CHỐT bởi ${D.closed.by} · ${dt(D.closed.at)}${D.closed.note ? ' · ' + D.closed.note : ''}. Số liệu tháng này đã khóa.</div>`
         : html`<div class="st-meta">Chưa chốt. Kiểm tra từng phần bên dưới rồi bấm <strong>Chốt tháng</strong> (sau khi hết tháng).</div>`}</div>
     ${locked ? html`<span class="pill ok">ĐÃ CHỐT</span>` : html`<span class="pill mute">Chưa chốt</span>`}
-    ${warn.length && !locked ? html`<div class="alert warn ct-warn">Cần xử lý trước khi chốt: ${warn.join(' · ')}</div>` : ''}
     ${note && !locked ? html`<div class="st-meta ct-warn">Lưu ý: ${note}</div>` : ''}</section>`;
+  const miss = locked ? '' : missBox(M, D, cn, month, cur);
 
   const secRev = html`<section class="card stack ct-sec"><h2>1. Doanh thu (từ phiếu chốt ca)</h2>
     <div class="kv">
@@ -121,7 +172,7 @@ export async function render({ params }) {
 
   const catOpts = (kind, sel, withNone) => html`${withNone ? html`<option value="">— Chưa phân nhóm —</option>` : ''}${cats(kind).map((c) => html`<option value="${c.id}" ${String(sel) === String(c.id) ? 'selected' : ''}>${c.name}</option>`)}`;
   const byChi = D.by_cat.filter((x) => x.kind === 'chi'); const byThu = D.by_cat.filter((x) => x.kind === 'thu');
-  const secCost = html`<section class="card stack ct-sec"><h2>4. Chi phí và thu khác</h2>
+  const secCost = html`<section class="card stack ct-sec" id="ct-s4"><h2>4. Chi phí và thu khác</h2>
     <div class="ct-cats">
       <div><div class="pc-sub">CHI PHÍ THEO NHÓM</div>${byChi.length ? html`<div class="kv">${byChi.map((x) => html`<div>${x.name}</div><div>${vnd(x.amount)}</div>`)}<div><strong>Tổng chi</strong></div><div><strong>${vnd(Tt.chi)}</strong></div></div>` : html`<div class="st-meta">Chưa có khoản chi.</div>`}</div>
       <div><div class="pc-sub">THU KHÁC THEO NHÓM</div>${byThu.length ? html`<div class="kv">${byThu.map((x) => html`<div>${x.name}</div><div>${vnd(x.amount)}</div>`)}<div><strong>Tổng thu khác</strong></div><div><strong>${vnd(Tt.thu)}</strong></div></div>` : html`<div class="st-meta">Chưa có khoản thu khác.</div>`}</div></div>
@@ -154,7 +205,7 @@ export async function render({ params }) {
     ${S.count ? html`<div class="kv"><div><strong>Tổng khoản âm (${S.count})</strong></div><div><strong>${vnd(S.total)}</strong></div>${KA.map(([k, l]) => html`<div>${l}</div><div>${vnd(S[k])}</div>`)}</div>
       <a class="st-meta" href="#/quan-ly/so-thu-chi?tab=chi&loc=st:tl&thang=${month}">Mở phiếu trừ lương trong Sổ chi ›</a>` : html`<div class="st-meta">Không có khoản âm trong tháng.</div>`}</section>`;
 
-  const secEnd = html`<section class="card stack ct-sec"><h2>6. Kết quả và chốt tháng</h2>
+  const secEnd = html`<section class="card stack ct-sec" id="ct-s6"><h2>6. Kết quả và chốt tháng</h2>
     <div class="kv">
       <div>Doanh thu</div><div>${vnd(Tt.revenue)}</div>
       <div>+ Thu khác</div><div>${vnd(Tt.thu)}</div>
@@ -184,8 +235,11 @@ export async function render({ params }) {
 
   return {
     title: `Chốt tháng ${D.branch_code}`,
-    html: html`${STYLE}${head}${status}${kpi}<div class="ct-grid">${secRev}${secCash}${secBank}${secKa}</div>${secCost}${secEnd}`,
-    mount() { mountSettings(B); mountBranch(D, cn, month, cats, catOpts); },
+    html: html`${STYLE}${head}${status}${miss}${kpi}<div class="ct-grid">${secRev}${secCash}${secBank}${secKa}</div>${secCost}${secEnd}`,
+    mount() {
+      mountSettings(B); mountBranch(D, cn, month, cats, catOpts);
+      $$('.ct-go').forEach((b) => b.addEventListener('click', () => document.getElementById(b.dataset.go)?.scrollIntoView({ behavior: 'smooth', block: 'start' })));
+    },
   };
 }
 
@@ -314,6 +368,17 @@ const STYLE = html`<style>
   .radio-pill:has(input:checked) { border-color: var(--primary); background: var(--caramel-soft); font-weight: 600; }
   .rc-log { font-size: 13px; padding: 3px 0; border-bottom: 1px dashed var(--line-soft); }
   details > summary { cursor: pointer; font-weight: 600; }
+  .ct-miss { padding: 14px 16px; display: flex; flex-direction: column; gap: 8px; border-left: 5px solid var(--warn-line); min-width: 0; }
+  .ct-miss.ok { border-left-color: var(--ok-line); }
+  .ct-miss h2 { font-size: 17px; margin: 0; }
+  .ct-ml { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; }
+  .ct-ml li { overflow-wrap: anywhere; min-width: 0; }
+  .ct-sub { margin: 6px 0 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; list-style: disc; }
+  .ct-sub summary { font-weight: 500; }
+  .ct-chips { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0 2px; }
+  .ct-chip { display: inline-block; border: 1px solid var(--line-strong); border-radius: 999px; padding: 3px 10px; font-size: 13px; text-decoration: none; background: var(--card); max-width: 100%; overflow-wrap: anywhere; }
+  .ct-chip small { color: var(--ink-2); }
+  .ct-go { background: none; border: 0; padding: 0; color: var(--primary-dark); text-decoration: underline; cursor: pointer; font: inherit; }
   @media (max-width: 900px) { .ct-grid, .ct-cats { grid-template-columns: minmax(0, 1fr); } .ct-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
   @media (max-width: 760px) { .ct-k b { font-size: 17px; } .ct-row select { width: 100%; } }
 </style>`;
