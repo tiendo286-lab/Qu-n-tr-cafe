@@ -45,7 +45,7 @@ export default async ({ visit, sleep, out }) => {
       ok(assignBtns === 0, '3. Cấp 1 không có nút giao hạng mục');
       await rpc('app__test_dt_assign', { p_no: 3, p_employee: 7 });
       root = await visit('#/dao-tao/phieu?id=1&t=' + Date.now()); const a0 = ach();
-      const rw = row(3); rw.closest('details').open = true;
+      const rw = row(3);   // chặng 4: hạng mục chưa có mức nằm ở tab Ngày tiếp theo (mở sẵn) — không còn khối ngày giáo trình để mở
       const intro = rw.querySelector('.it-intro'); ok(!intro.disabled, '4. Cấp 1 tích được Giới thiệu ở hạng mục được giao');
       intro.checked = true; intro.dispatchEvent(new Event('change')); await sleep(800);
       const prac = row(3).querySelector('.it-prac'); prac.checked = true; prac.dispatchEvent(new Event('change')); await sleep(400);

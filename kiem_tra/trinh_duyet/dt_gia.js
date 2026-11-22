@@ -6,9 +6,10 @@ export function makeDt(T, me) {
   T.trainings = [{ id: 1, employee_id: 3, program_id: 1, branch_id: 1, start_date: today, instructor_id: 5, manager_id: 1 }];
   T.training_marks = [{ training_id: 1, item_no: 1, introduced: true, practiced: true, level: 'tot', by_account: 1, at: now() }, { training_id: 1, item_no: 2, introduced: true, practiced: false, level: null }];
   T.training_days = [];
+  T.training_mark_log = []; T.training_day_notes = [];   // chặng 4 (tệp 163): sổ lịch sử + nhận xét theo ngày thật
   const total = PROG.items.length;
   const params = new URLSearchParams(location.search);
-  const workflow = ['flow_dt137', 'flow_dt169', 'flow_dt170'].includes(params.get('script')) || params.get('dtwork') === '1';
+  const workflow = ['flow_dt137', 'flow_dt169', 'flow_dt170', 'flow_dt_c4'].includes(params.get('script')) || params.get('dtwork') === '1';
   let reviewer = Number(params.get('dtptc')) || null;   // bước 169: ?dtptc=<tài khoản> = người phụ trách chính có sẵn
   const extras = [];
   const part = (t) => extras.filter((f) => f.training_id === t.id);
@@ -25,6 +26,26 @@ export function makeDt(T, me) {
   const status = (t) => (workflow && part(t).some((f) => f.is_extra && !f.finished_at) ? 'dao_tao_bo_sung'
     : ach(t) >= total ? workflow && !t.workflow_review_at ? 'cho_nhan_xet' : 'hoan_thanh' : today >= dayFromStart(t, 8) || t.cont_trainer_kind ? 'dao_tao_tiep' : 'dang_dao_tao');
   const emp = (id) => T.employees.find((e) => e.id === id);
+  // chặng 4 (tệp 163): ghi sổ lịch sử giống trigger training_marks_log — mỗi lần đổi thật thành 1 dòng; đào tạo lại luôn ghi
+  let logId = 0;
+  const meName = () => `${me.code} – ${me.name}`;
+  const st3 = (m) => (m ? { introduced: !!m.introduced, practiced: !!m.practiced, level: m.level || null } : null);
+  const logMark = (tid, no, o, n, { relearn = false, by = meName(), at = now(), kind = null, pending = false } = {}) => {
+    const gd2 = extras.some((f) => f.training_id === tid && f.no === no && f.is_extra && f.employee_id);
+    if (!kind) {
+      if (o && o.introduced === n.introduced && o.practiced === n.practiced && o.level === n.level && !relearn) return;
+      kind = relearn || (gd2 && o?.level && n.level) ? 'dao_tao_lai'
+        : o && ((o.introduced && !n.introduced) || (o.practiced && !n.practiced) || (o.level && !n.level)) ? 'bo_tich'
+          : n.level && n.level !== o?.level ? 'muc' : n.practiced && !o?.practiced ? 'thuc_hanh' : 'gioi_thieu';
+    }
+    T.training_mark_log.push({ id: ++logId, training_id: tid, no, at, day: at.slice(0, 10), by, kind, old: o, new: n, pending: !!pending, gd2, note: null });
+  };
+  const dayNote = (t, d) => {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '') || !T.training_mark_log.some((l) => l.training_id === t.id && l.day === d)) throw new Error('Ngày này chưa có lần đào tạo nào trên phiếu.');
+    let n = T.training_day_notes.find((x) => x.training_id === t.id && x.day === d); if (!n) T.training_day_notes.push(n = { training_id: t.id, day: d });
+    return n;
+  };
+  T.training_marks.forEach((m) => logMark(m.training_id, m.item_no, null, st3(m), { by: 'admin – Chủ' }));   // phiếu có sẵn: dòng lịch sử hôm nay
   // bước 170: bài flow_dt170 — lịch đã công bố quanh hôm nay (NV mới 3; Cấp 1 NV07 trùng 2 ca; NV09 Cấp 1 cơ sở 1 không trùng ca)
   if (params.get('script') === 'flow_dt170') {
     if (!T.employees.some((e) => e.id === 9)) T.employees.push({ id: 9, code: 'NV09', name: 'Cấp 1 cơ sở thử', rank: 'Cấp 1', status: 'Đang làm' });
@@ -72,15 +93,46 @@ export function makeDt(T, me) {
     // bước 169: dựng tình huống cho bài thử theo vai (bỏ qua kiểm quyền)
     app__test_dt_assign({ p_no, p_employee }) { const t = tr(1); const cur = part(t).find((f) => f.no === p_no); const nx = { training_id: 1, no: p_no, employee_id: p_employee, name: emp(p_employee)?.name, is_extra: false, finished_at: null };
       if (cur) Object.assign(cur, nx); else extras.push(nx); },
-    app__test_dt_pending({ p_no, p_level }) { let m = T.training_marks.find((x) => x.training_id === 1 && x.item_no === p_no); if (!m) T.training_marks.push(m = { training_id: 1, item_no: p_no });
-      Object.assign(m, { introduced: true, practiced: true, level: p_level, cho_kiem_tra: true, cho_by: 9, cho_at: now(), by_account: 9, at: now() }); },
+    app__test_dt_pending({ p_no, p_level }) { let m = T.training_marks.find((x) => x.training_id === 1 && x.item_no === p_no); const o = m ? st3(m) : null; if (!m) T.training_marks.push(m = { training_id: 1, item_no: p_no });
+      Object.assign(m, { introduced: true, practiced: true, level: p_level, cho_kiem_tra: true, cho_by: 9, cho_at: now(), by_account: 9, at: now() });
+      logMark(1, p_no, o, st3(m), { by: accName(9), pending: true }); },
+    // chặng 4: dữ liệu mẫu để chụp ảnh cho anh duyệt — phiếu 1 có lịch sử 3 ngày thật (hôm kia, hôm qua, hôm nay)
+    app__test_dt_demo() {
+      const t = tr(1); const D = (k) => new Date(Date.now() + 7 * 3600e3 - k * 864e5).toISOString().slice(0, 10);
+      const A = D(2), B = D(1), C = D(0); const HD = accName(5), C1 = accName(9), NV = 'NV03 – Người học thử';
+      t.start_date = A; T.training_marks = []; T.training_mark_log = []; T.training_day_notes = [];
+      const S = (i, p, l) => ({ introduced: i, practiced: p, level: l });
+      const L = (no, day, hm, by, kind, o, n, pending = false) => T.training_mark_log.push({ id: ++logId, training_id: 1, no, at: `${day} ${hm}:00`, day, by, kind, old: o, new: n, pending, gd2: false, note: null });
+      const I = S(true, false, null), O = S(false, false, null);
+      [[1, '08:10', '08:25', 'tot'], [2, '08:15', '08:40', 'kha'], [3, '09:00', '09:20', 'tot'], [4, '09:05', '09:45', 'kha'], [5, '10:00', '10:30', 'tb']]
+        .forEach(([no, a, b, lv]) => { L(no, A, a, HD, 'gioi_thieu', null, I); L(no, A, b, HD, 'muc', I, S(true, true, lv)); });
+      L(6, A, '10:10', HD, 'gioi_thieu', null, I); L(6, B, '08:20', HD, 'muc', I, S(true, true, 'kha'));
+      L(7, B, '08:30', HD, 'gioi_thieu', null, I); L(7, B, '09:00', HD, 'muc', I, S(true, true, 'tot'));
+      L(8, B, '08:35', C1, 'gioi_thieu', null, I); L(8, B, '09:10', C1, 'muc', I, S(true, true, 'kha'), true); L(8, B, '14:00', HD, 'xac_nhan', S(true, true, 'kha'), S(true, true, 'kha'));
+      L(9, B, '09:30', HD, 'gioi_thieu', null, I); L(9, B, '10:00', HD, 'muc', I, S(true, true, 'tb'));
+      L(10, B, '10:15', C1, 'gioi_thieu', null, I); L(10, B, '10:40', C1, 'muc', I, S(true, true, 'kha'), true); L(10, C, '08:05', HD, 'xac_nhan', S(true, true, 'kha'), S(true, true, 'tot'));
+      L(5, C, '08:30', HD, 'dao_tao_lai', S(true, true, 'tb'), S(true, true, 'kha'));
+      L(11, C, '08:50', HD, 'gioi_thieu', null, I); L(12, C, '09:00', HD, 'gioi_thieu', null, I); L(12, C, '09:05', HD, 'bo_tich', I, O); L(12, C, '09:07', HD, 'gioi_thieu', O, I);
+      L(13, C, '09:20', C1, 'gioi_thieu', null, I); L(13, C, '09:40', C1, 'muc', I, S(true, true, 'tot'), true);
+      const M = (no, lv, by, at, x = {}) => T.training_marks.push({ training_id: 1, item_no: no, introduced: true, practiced: !!lv, level: lv, by_account: by, at, ...x });
+      M(1, 'tot', 5, `${A} 08:25:00`); M(2, 'kha', 5, `${A} 08:40:00`); M(3, 'tot', 5, `${A} 09:20:00`); M(4, 'kha', 5, `${A} 09:45:00`); M(5, 'kha', 5, `${C} 08:30:00`);
+      M(6, 'kha', 5, `${B} 08:20:00`); M(7, 'tot', 5, `${B} 09:00:00`); M(8, 'kha', 9, `${B} 09:10:00`, { checked_by: 5, checked_at: `${B} 14:00:00` }); M(9, 'tb', 5, `${B} 10:00:00`);
+      M(10, 'tot', 9, `${B} 10:40:00`, { checked_by: 5, checked_at: `${C} 08:05:00` }); M(11, null, 5, `${C} 08:50:00`); M(12, null, 5, `${C} 09:07:00`);
+      M(13, 'tot', 9, `${C} 09:40:00`, { cho_kiem_tra: true, cho_by: 9, cho_at: `${C} 09:40:00` });
+      [8, 10, 13].forEach((no) => { if (!part(t).some((f) => f.no === no)) extras.push({ training_id: 1, no, employee_id: 7, name: emp(7)?.name, is_extra: false, finished_at: null }); });
+      T.training_day_notes.push({ training_id: 1, day: A, comment: 'Nắm được cách chào khách, đưa menu. Ghi order còn chậm.', comment_by: HD, comment_at: `${A} 21:00:00`, trainee_at: `${A} 21:05:00`, trainee_by: NV, instructor_at: `${A} 21:00:00`, instructor_by: HD },
+        { training_id: 1, day: B, comment: 'Bưng khay ổn. Mục 9 cần luyện thêm.', comment_by: HD, comment_at: `${B} 21:10:00`, instructor_at: `${B} 21:10:00`, instructor_by: HD });
+      T.training_days = [{ training_id: 1, day: 1, comment: 'Ghi theo ngày giáo trình (trước khi đổi): đi làm đúng giờ.', instructor_at: `${A} 21:30:00` }];
+    },
     app__test_dt_fill() {
       const t = tr(1);
       for (const i of PROG.items) if (!T.training_marks.some((m) => m.training_id === t.id && m.item_no === i.no && m.level)) {
         const existing = T.training_marks.find((m) => m.training_id === t.id && m.item_no === i.no);
         const fields = { training_id: t.id, item_no: i.no, introduced: true, practiced: true, level: 'tot' };
+        const o = existing ? st3(existing) : null;
         if (existing) Object.assign(existing, fields);
         else T.training_marks.push(fields);
+        logMark(t.id, i.no, o, st3(fields), { by: 'admin – Chủ' });
       }
     },
     app_dt_list: () => T.employees.filter((e) => e.status === 'Đang làm').map((e) => ({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank,
@@ -101,7 +153,9 @@ export function makeDt(T, me) {
       const t = tr(p_id); if (!canCheck(t)) throw new Error('Chỉ người hướng dẫn chính của phiếu hoặc người phụ trách chính đào tạo được xác nhận đạt.');
       const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === p_no);
       if (!m || !m.cho_kiem_tra || !m.level) throw new Error('Hạng mục này không chờ kiểm tra.');
+      const o = st3(m);
       Object.assign(m, { level: p_level || m.level, cho_kiem_tra: false, checked_by: me.account_id, checked_at: now() });
+      logMark(t.id, p_no, o, st3(m), { kind: 'xac_nhan' });
       return { achieved: ach(t), status: status(t), level: m.level };
     },
     // bước 170 (tệp 149): tab Phân công + Chờ kiểm tra
@@ -161,11 +215,13 @@ export function makeDt(T, me) {
         can_edit: canEdit(t), can_admin: !!me.perms.dao_tao, is_trainee: me.employee_id === t.employee_id };
     },
     app_dt_update({ p_id, p }) { const t = tr(p_id); if (!canEdit(t)) throw new Error('Bạn không có quyền.'); if ('instructor_id' in p && p.instructor_id !== t.instructor_id) { if (!isPtc() && me.role !== 'chu') throw new Error('Chỉ người phụ trách chính đào tạo hoặc Chủ được đổi người hướng dẫn chính.'); mainGuide(p.instructor_id); } Object.assign(t, p); },
-    app_dt_mark({ p_id, p_no, p }) {
+    app_dt_mark({ p_id, p_no, p: p0 }) {
+      const { relearn, ...p } = p0 || {};   // chặng 4: p.relearn = đào tạo lại (luôn ghi sổ)
       const t = tr(p_id);
       const mine = part(t).find((f) => f.no === p_no && f.employee_id === me.employee_id && (!f.is_extra || !f.finished_at));
       if (!canEdit(t) && !mine) throw new Error('Bạn chỉ được cập nhật hạng mục được giao.');
-      let m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === p_no); if (!m) { m = { training_id: t.id, item_no: p_no, introduced: false, practiced: false, level: null }; T.training_marks.push(m); }
+      let m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === p_no); const o = m ? st3(m) : null;
+      if (!m) { m = { training_id: t.id, item_no: p_no, introduced: false, practiced: false, level: null }; T.training_marks.push(m); }
       const n = { ...m, ...p };
       if (workflow && n.practiced && !n.level && (!m.practiced || m.level)) throw new Error('Chọn mức đạt khi đánh dấu đã thực hành.');
       if (n.practiced && !n.introduced) throw new Error(`Hạng mục ${p_no} phải “Đã giới thiệu” trước.`);
@@ -175,6 +231,7 @@ export function makeDt(T, me) {
       const pend = !!n.level && cap1;
       Object.assign(m, n, { at: now(), by_account: me.account_id,
         cho_kiem_tra: !n.level ? false : canCheck(t) ? false : pend || !!m.cho_kiem_tra, cho_by: pend ? me.account_id : m.cho_by, cho_at: pend ? now() : m.cho_at });
+      logMark(t.id, p_no, o, st3(m), { relearn: !!relearn, pending: !!m.cho_kiem_tra });
       const followup = part(t).find((f) => f.no === p_no && f.employee_id);
       if (followup && p.level) followup.finished_at = now();
       return { by: `${me.code} – ${me.name}`, at: now(), achieved: ach(t), status: status(t), pending: !!m.cho_kiem_tra };
@@ -186,6 +243,24 @@ export function makeDt(T, me) {
       if (p_who === 'hd' && !canEdit(t)) throw new Error('Chỉ người hướng dẫn mới xác nhận.');
       let d = T.training_days.find((x) => x.training_id === p_id && x.day === p_day); if (!d) T.training_days.push(d = { training_id: p_id, day: p_day });
       d[p_who === 'nv' ? 'trainee_at' : 'instructor_at'] = p_on ? now() : null;
+    },
+    // chặng 4 (tệp 163): lịch sử + nhận xét / xác nhận theo ngày thật
+    app_dt_history({ p_id }) {
+      const t = tr(p_id); const cmp = (a, b) => (a < b ? -1 : a > b ? 1 : 0);
+      return { log: T.training_mark_log.filter((l) => l.training_id === t.id).sort((a, b) => cmp(a.day, b.day) || cmp(a.at, b.at) || a.id - b.id).map(({ training_id: _t, ...l }) => l),
+        notes: T.training_day_notes.filter((n) => n.training_id === t.id).sort((a, b) => cmp(a.day, b.day)).map(({ training_id: _t, ...n }) => n) };
+    },
+    app_dt_dnote_comment({ p_id, p_day, p_comment }) {
+      const t = tr(p_id); if (!canEdit(t)) throw new Error('Bạn không có quyền.'); if (t.workflow_review_at) throw new Error('Phiếu đã có nhận xét cuối.');
+      Object.assign(dayNote(t, p_day), { comment: String(p_comment || '').trim() || null, comment_by: meName(), comment_at: now() });
+    },
+    app_dt_dnote_confirm({ p_id, p_day, p_who, p_on }) {
+      const t = tr(p_id); if (t.workflow_review_at) throw new Error('Phiếu đã có nhận xét cuối.');
+      if (p_who === 'nv' && me.employee_id !== t.employee_id) throw new Error('Chỉ chính nhân viên được đào tạo mới xác nhận phần của nhân viên.');
+      if (p_who === 'hd' && !canEdit(t)) throw new Error('Chỉ người hướng dẫn / người có quyền Đào tạo mới xác nhận phần người hướng dẫn.');
+      if (p_who !== 'nv' && p_who !== 'hd') throw new Error('Không hợp lệ.');
+      const n = dayNote(t, p_day); const k = p_who === 'nv' ? 'trainee' : 'instructor';
+      n[k + '_at'] = p_on ? now() : null; n[k + '_by'] = p_on ? meName() : null;
     },
     app_dt_delete({ p_id }) { T.trainings = T.trainings.filter((t) => t.id !== p_id); },
     app_dt_mine: () => T.trainings.filter((t) => me.employee_id && [t.employee_id, t.instructor_id, t.cont_trainer_id].includes(me.employee_id))   // bước 174 (tệp 155): bỏ Quản lý phụ trách cũ
