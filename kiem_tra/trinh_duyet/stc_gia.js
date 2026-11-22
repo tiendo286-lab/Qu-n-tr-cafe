@@ -12,6 +12,36 @@ export function makeStc(T, me) {
   let ST = null; const st = () => ST || (ST = ((d) => { d.items.forEach((x) => { if (x.src === 'move' && String(x.id).startsWith('z:')) x.id = 'm:' + x.ca_id + ':z' + x.id.slice(2); }); return d; })(copy(MONTH)));
   // chặng 4 (tệp 162): tổng danh sách khách nợ hoá đơn của ca (như billListOf ở so_thu_chi_tinh.js)
   const billList = (c) => (st().ca_debts || []).filter((x) => x.report_id === c.id && x.t === 'moi' && (x.kind || 'bill') === 'bill').reduce((a, x) => a + Number(x.amount || 0), 0);
+  // Đối soát về Chốt ca (thiết kế 22/11): mỗi ca thử phần tiền cũng là một phiếu chốt ca (ca_gia) để trang đối soát của ca mở được;
+  // trạng thái chờ kế toán của các ca này lấy theo dữ liệu thử phần tiền (fb_gia ktState hỏi T.__stcKt trước)
+  T.shift_reports = T.shift_reports || [];
+  (MONTH.cas || []).forEach((c) => {
+    if (T.shift_reports.some((r) => r.id === c.id)) return;
+    T.shift_reports.push({ id: c.id, branch_id: 1, work_date: c.date, shift: c.shift, status: 'hoan_thanh', recon_status: 'chua', cash_mode: c.cash_mode || 'ngay',
+      opening_cash: c.nv?.opening ?? 1000000, total_revenue: c.nv?.revenue ?? 0, pos_debt: c.nv?.debt ?? 0,
+      created_by: 1, completed_by: 1, completed_at: c.date + ' 12:00:00', updated_at: c.date + ' 12:00:00', updated_by: 1 });
+  });
+  T.__stcKt = (id) => { const c = st().cas.find((x) => x.id === Number(id)); if (!c) return null;
+    const ready = !c.kt_wait; return { need: true, fabi: !!c.fabi?.has, bank: c.bank_ck != null, ready, missing: ready ? [] : (c.kt_missing || []) }; };
+  // tệp 164: trạng thái Việc · Tiền của một phiếu (giống app__ca_ds_row); light = không phân biệt red / xn
+  const W_LB = { nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', nhap_hang: 'Nhập hàng' };
+  const dsRow = (r, light = false) => {
+    const thieu = Object.keys(W_LB).filter((k) => !(T.shift_report_checks || []).some((x) => x.report_id === r.id && x.item === k)).map((k) => W_LB[k]);
+    const c = st().cas.find((x) => x.id === r.id);
+    const kt = T.__ktState ? T.__ktState(r.id) : (T.__stcKt(r.id) || { need: false, ready: true, missing: [] });
+    let st1; let viec = !thieu.length; let tth = [];
+    if (r.recon_status === 'hoan_thanh') { st1 = 'ok'; viec = true; thieu.length = 0; }
+    else if (kt && kt.need && !kt.ready) { st1 = 'kt'; tth = kt.missing || []; }
+    else if (!c || !c.recon_money_done) {
+      const red = c && !light && (Number(c.nv?.opening) !== Number(c.fabi?.opening) || Number(c.nv?.revenue) !== Number(c.fabi?.revenue)
+        || Number(c.nv?.debt ?? 0) !== Number(c.fabi?.debt ?? 0) || Number(c.nv?.debt ?? 0) !== billList(c));
+      st1 = red ? 'red' : 'xn';
+    } else st1 = c.done ? 'ok' : 'ht';
+    return { id: r.id, date: r.work_date, shift: r.shift, recon: r.recon_status, tab: !viec ? 'viec' : st1 !== 'ok' ? 'tien' : 'xong',
+      viec: { xong: viec, thieu, x2: 'khong_can' }, tien: { st: st1, thieu: tth } };
+  };
+  const SH_ORD = (s) => { const i = ['Sáng', 'Chiều', 'Tối'].indexOf(s); return i < 0 ? 9 : i; };
+  const byCa = (a, b) => (a.work_date < b.work_date ? -1 : a.work_date > b.work_date ? 1 : SH_ORD(a.shift) - SH_ORD(b.shift) || a.id - b.id);
   // bước 153: mọi phiếu trừ lương của tháng (app_stc_month.shortfalls) — dựng từ gap.tl của dữ liệu giả
   let SF = null; let SFN = 900;
   const sfs = () => SF || (SF = st().items.filter((x) => x.gap && (x.gap.tl || []).length).flatMap((x) => x.gap.tl.map((t) => ({ id: t.id, report_id: x.ca_id, date: x.date,
@@ -120,6 +150,18 @@ export function makeStc(T, me) {
   };
 
   return {
+    // tệp 164 (Đối soát về Chốt ca): bảng tuần + ca chưa xong — không có quyền đối soát → []
+    app_ca_ds_tuan({ p_branch, p_from, p_to }) {
+      if (!me.perms.doi_soat || !['chu', 'ql_tong', 'ql'].includes(me.role)) return [];
+      return (T.shift_reports || []).filter((r) => r.branch_id === Number(p_branch) && r.status === 'hoan_thanh' && r.work_date >= p_from && r.work_date <= p_to)
+        .sort(byCa).map((r) => dsRow(r));
+    },
+    app_ca_ds_con({ p_branch }) {
+      if (!me.perms.doi_soat || !['chu', 'ql_tong', 'ql'].includes(me.role)) return [];
+      const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+      return (T.shift_reports || []).filter((r) => r.branch_id === Number(p_branch) && r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh' && r.work_date >= '2026-11-01' && r.work_date <= today)
+        .sort(byCa).map((r) => { const x = dsRow(r, true); return { id: x.id, date: x.date, shift: x.shift, tab: x.tab, st: x.tien.st }; });
+    },
     // chặng 4: bài thử dựng tình huống (bỏ qua kiểm quyền) — gộp trường vào 1 ca; nv / fabi gộp sâu
     app__test_stc_ca({ p_id, p }) {
       const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.');
