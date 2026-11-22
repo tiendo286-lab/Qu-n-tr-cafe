@@ -35,6 +35,7 @@ export default async ({ sleep, out }) => {
     wide('3. Đối soát Fabi');
     // 4. xử lý phiếu chênh lệch: trừ lương 30.000 → chốt được
     $('.stc-glc [data-gap]').click(); await wait('dialog[open]', 30); await sleep(300);
+    $$('[data-tlc]', dlg()).forEach((c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }); await sleep(150);   // 22/11: tích người phải chịu (mặc định không ai)
     setv('[name=reason]', 'thiếu thật'); await submit();
     if (dlg()) { bad.push('4. phiếu trừ lương lỗi: ' + txt($('.stc-err', dlg()))); $('[data-x]', dlg())?.click(); }
     await open(183);

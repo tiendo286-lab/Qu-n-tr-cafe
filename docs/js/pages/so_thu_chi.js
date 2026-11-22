@@ -550,11 +550,26 @@ async function extDialog(D, x) {
 // ---------------- Phiếu chênh lệch (đợt 3) ----------------
 // Ca thiếu: Trừ lương / Quán chịu / Ghép · Ca dư: Ghép / Phiếu thu / Gán nợ khách trả. Quán chịu, Ghép của người không phải Chủ → chờ Chủ duyệt.
 const gapStatus = (s) => String(s || '').replace('Chờ xử lý (dư)', 'Chờ xử lý · chưa làm phiếu thu');
+// Trừ tiền nhân viên (anh Tiến chốt 22/11): người làm ca có ô tích — mặc định không ai được tích; tích / bỏ tích là web chia đều lại số tiền cho
+// người được tích (làm tròn nghìn, phần lẻ cho người tích đầu tiên), sau đó sửa tay được từng người. Dùng ở Phiếu chênh lệch → Trừ lương và → Trừ lương ở khoản chi.
+const splitEven = (total, n) => { const b = Math.floor(total / n / 1000) * 1000; return Array.from({ length: n }, (_, i) => (i === 0 ? total - b * (n - 1) : b)); };
+const tlPick = (people, total, pre) => html`<div class="stc-tlpick" data-total="${total}" data-pre="${pre}">${people.map((p) => html`<div class="stc-tlr">
+  <label class="stc-tlc"><input type="checkbox" data-tlc="${p.id}"><span>${p.name}</span></label>
+  <input class="input" name="${pre}_${p.id}" inputmode="numeric" data-money value="" disabled placeholder="—" aria-label="Số tiền trừ ${p.name}"></div>`)}</div>`;
+function bindTlPick(d) {
+  const box = d.querySelector('.stc-tlpick'); if (!box) return;
+  box.addEventListener('change', (ev) => {
+    if (!ev.target.matches('[data-tlc]')) return;
+    const rows = [...box.querySelectorAll('.stc-tlr')]; const on = rows.filter((r) => r.querySelector('[data-tlc]').checked);
+    const parts = on.length ? splitEven(Number(box.dataset.total) || 0, on.length) : [];
+    rows.forEach((r) => { const inp = r.querySelector('input.input'); const k = on.indexOf(r); inp.disabled = k < 0; inp.value = k < 0 ? '' : fmt(parts[k]); });
+  });
+}
+const tlPicked = (d, people, pre) => people.filter((p) => d.querySelector(`[data-tlc="${p.id}"]`)?.checked).map((p) => ({ employee_id: p.id, amount: money(d, `${pre}_${p.id}`) }));
 function gapDialog(D, x) {
   const g = x.gap; const thieu = g.kind === 'thieu'; const ca = (D.cas || []).find((c) => c.id === x.ca_id) || {};
   const mm = dayChain(D, x.date).get(ca.id)?.money?.[x.pm] || {}; const gross = Number(x.gross ?? x.amount);
   const avail = Number(g.avail || 0); const people = g.people || [];
-  const split = (i) => { const n = people.length || 1; const b = Math.floor(avail / n / 1000) * 1000; return i === 0 ? avail - b * (n - 1) : b; };
   const ghepLock = thieu && g.has_tl ? 'Đã tạo phiếu trừ tiền — huỷ phiếu trừ tiền trước khi ghép.' : '';
   const noLock = !thieu && g.has_thu ? 'Đã tạo phiếu thu — huỷ phiếu thu trước khi gán nợ.' : '';
   const debts = (D.open_debts || []).filter((o) => debtBefore(o, { date: x.date, shift: ca.shift }) && Number(o.left) > 0 && Number(o.left) <= Number(g.avail || 0));   // bước 168: nợ phát sinh TRƯỚC ca (theo thứ tự ca), két dư đủ cả khoản (máy chủ kiểm lại)
@@ -577,8 +592,8 @@ function gapDialog(D, x) {
   const pane = (k, body) => html`<div class="stc-gp" data-pane="${k}" ${k === first ? '' : 'hidden'}>${body}</div>`;
   const lockNote = (m) => html`<div class="st-meta">🔒 ${m}</div>`;
   const panes = {
-    tl: () => pane('tl', html`<div class="st-meta">Mặc định chia đều người làm ca, sửa được. Tổng không quá ${fmt(avail)}.</div>
-      ${people.map((p, i) => html`<label class="field stc-tlp"><span>${p.name}</span><input class="input" name="tl_${p.id}" inputmode="numeric" data-money value="${fmt(split(i))}"></label>`)}`),
+    tl: () => pane('tl', html`<div class="st-meta">Tích người phải chịu — web tự chia đều cho người được tích (làm tròn nghìn), sửa tay được. Tổng không quá ${fmt(avail)}.</div>
+      ${people.length ? tlPick(people, avail, 'tl') : html`<div class="st-meta">Phiếu ca chưa có người làm ca.</div>`}`),
     qc: () => pane('qc', html`<label class="field"><span>Số tiền quán chịu</span><input class="input" name="qc_amount" inputmode="numeric" data-money value="${fmt(avail)}"></label>
       ${owner ? '' : html`<div class="st-meta">⏳ Quán chịu cần Chủ duyệt.</div>`}`),
     match: () => pane('match', ghepLock ? lockNote(ghepLock) : cands.length ? html`<label class="field"><span>Ghép với</span><select class="input" name="cand">${cands.map((c) => html`<option value="${c.report}" data-amt="${c.amount}">${c.label} · còn ${fmt(c.amount)}</option>`)}</select></label>
@@ -601,7 +616,7 @@ function gapDialog(D, x) {
     <label class="field"><span>Lý do (bắt buộc)</span><input class="input" name="reason" placeholder="vd: khách quỵt / nhân viên đưa nhầm tiền thối"></label>
     <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Đóng</button>${avail > 0 && first ? html`<button class="btn sm" type="submit">Lưu</button>` : ''}</div></form>`);
   let cur = first;
-  d.querySelectorAll('[data-money]').forEach((i) => i.classList.add('money')); bindMoneyInputs(d);
+  d.querySelectorAll('[data-money]').forEach((i) => i.classList.add('money')); bindMoneyInputs(d); bindTlPick(d);
   d.querySelector('[data-x]').addEventListener('click', () => d.close());
   const cs = d.querySelector('[name=cand]');
   cs?.addEventListener('change', () => { const a = Number(cs.selectedOptions[0]?.dataset.amt || 0); d.querySelector('[name=match_amount]').value = fmt(Math.min(avail, a)); });
@@ -623,8 +638,9 @@ function gapDialog(D, x) {
     run(async () => {
       const r = need(); let res = 'ok';
       if (cur === 'tl') {
-        const ps = people.map((p) => ({ employee_id: p.id, amount: money(d, 'tl_' + p.id) })).filter((p) => p.amount > 0);
-        if (!ps.length) throw new Error('Nhập số tiền trừ lương.');
+        const ps = tlPicked(d, people, 'tl').filter((p) => p.amount > 0);
+        if (!ps.length) throw new Error('Tích người phải chịu và số tiền trừ lương.');
+        const tot = ps.reduce((a, p) => a + p.amount, 0); if (tot > avail) throw new Error(`Tổng ${fmt(tot)} — không quá ${fmt(avail)}.`);
         await rpc('app_stc_gap_tl', { p_report: ca.id, p_item: item, p_people: ps, p_reason: r });
       } else if (cur === 'qc') res = await rpc('app_stc_gap_qc', { p_report: ca.id, p_item: item, p_amount: money(d, 'qc_amount'), p_reason: r });
       else if (cur === 'match') {
@@ -885,15 +901,21 @@ function kaDelDialog(D, k) {
   open(d, async () => { const r = val(d, 'reason'); if (!r) throw new Error('Ghi lý do.'); await rpc('app_ka_delete', { p_id: k.id, p_note: r }); after('Đã xoá phiếu trừ lương'); });
 }
 async function toKaDialog(D, x) {
-  if (!x) return; const list = await emps(); const amt = Number(x.amount);
-  const row = (i) => html`<div class="stc-tlp" style="display:flex;gap:6px;flex-wrap:wrap"><select class="input" name="emp_${i}" style="flex:1 1 160px;min-width:0"><option value="">— Chọn nhân viên —</option>${empOpts(list, null)}</select>
-    <input class="input" name="amt_${i}" inputmode="numeric" data-money placeholder="Số tiền" value="${i ? '' : fmt(amt)}" style="flex:0 1 120px;min-width:0"></div>`;
+  if (!x) return; const amt = Number(x.amount);
+  // người làm ca (đã làm) lấy từ phiếu ca; không lấy được thì như cũ: chọn nhân viên + số tiền
+  const [list, R] = await Promise.all([emps(), rpc('app_ca_get', { p_id: x.ca_id }).catch(() => null)]);
+  const ids = [...new Set((R?.staff || []).filter((st) => st.worked).map((st) => Number(st.employee_id)).filter(Boolean))];
+  const staff = ids.map((id) => ({ id, name: (list.find((e) => Number(e.id) === id) || {}).name || (R.staff.find((st) => Number(st.employee_id) === id) || {}).name || 'NV ' + id }));
+  const others = staff.length ? list.filter((e) => !ids.includes(Number(e.id))) : list; const nRow = staff.length ? 1 : 3;
+  const row = (i) => html`<div class="stc-tlp" style="display:flex;gap:6px;flex-wrap:wrap"><select class="input" name="emp_${i}" style="flex:1 1 160px;min-width:0"><option value="">— ${staff.length ? 'Người ngoài ca (nếu có)' : 'Chọn nhân viên'} —</option>${empOpts(others, null)}</select>
+    <input class="input" name="amt_${i}" inputmode="numeric" data-money placeholder="Số tiền" value="${i || staff.length ? '' : fmt(amt)}" style="flex:0 1 120px;min-width:0"></div>`;
   const d = dialog(form(`→ Trừ lương · ${x.title} ${fmt(amt)}`, html`<div class="st-meta">Khoản chi nhân viên ghi thật ra là tiền nhân viên phải chịu. Khoản vẫn là tiền ra khỏi két nhưng thành <b>Không tính chi phí</b>, và tạo phiếu trừ lương (nhân viên được báo, gửi giải trình được). Tổng phải đúng ${fmt(amt)}.</div>
-    ${[0, 1, 2].map(row)}`));
-  d.querySelector('[name=reason]').value = x.title;
+    ${staff.length ? html`<div class="st-meta">Người làm ca — tích người phải chịu, web tự chia đều (làm tròn nghìn), sửa tay được:</div>${tlPick(staff, amt, 'tk')}` : ''}
+    ${Array.from({ length: nRow }, (_, i) => row(i))}`));
+  d.querySelector('[name=reason]').value = x.title; bindTlPick(d);
   open(d, async () => {
-    const ps = [0, 1, 2].map((i) => ({ employee_id: Number(val(d, 'emp_' + i)), amount: money(d, 'amt_' + i) })).filter((p) => p.employee_id && p.amount > 0);
-    if (!ps.length) throw new Error('Chọn nhân viên và số tiền.');
+    const ps = [...tlPicked(d, staff, 'tk'), ...Array.from({ length: nRow }, (_, i) => ({ employee_id: Number(val(d, 'emp_' + i)), amount: money(d, 'amt_' + i) }))].filter((p) => p.employee_id && p.amount > 0);
+    if (!ps.length) throw new Error(staff.length ? 'Tích người phải chịu (hoặc chọn người ngoài ca) và số tiền.' : 'Chọn nhân viên và số tiền.');
     const tot = ps.reduce((a, p) => a + p.amount, 0); if (tot !== amt) throw new Error(`Tổng ${fmt(tot)} — phải đúng ${fmt(amt)}.`);
     await rpc('app_tc_move_to_ka', { p_report: x.ca_id, p_mkey: mkeyOf(x), p_people: ps, p_reason: val(d, 'reason') || null }); after('Đã chuyển thành trừ lương');
   });
@@ -1852,6 +1874,9 @@ const STYLE = html`<style>
   .stc-how { font-size: 13px; margin-bottom: 6px; } .stc-how summary { cursor: pointer; color: var(--primary); font-weight: 700; }
   .stc-sidep summary { cursor: pointer; display: flex; gap: 6px; align-items: center; } .stc-sidep[open] summary { margin-bottom: 6px; }
   .stc-cajump { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px; } .stc-cajump .btn { width: auto; }
+  .stc-tlpick { display: grid; gap: 6px; } .stc-tlr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 150px); gap: 8px; align-items: center; }
+  .stc-tlc { display: flex; gap: 8px; align-items: center; min-width: 0; font-weight: 600; cursor: pointer; } .stc-tlc input { width: 20px; height: 20px; flex: 0 0 auto; }
+  .stc-tlr input.input:disabled { background: var(--subtle, #f7f2ea); }
   .stc-dsp { margin: 6px 12px 14px; border: 1px solid var(--line-strong); border-radius: 14px; background: var(--subtle); padding: 12px; display: flex; flex-direction: column; gap: 10px; }
   .stc-dsh { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   /* bước 171: 6 bước đối soát + mục quản lý phải kiểm tra */

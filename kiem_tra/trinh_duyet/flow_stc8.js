@@ -57,6 +57,24 @@ export default async ({ sleep, out }) => {
       await go(BASE); $('.stc-all')?.click(); await sleep(500);
       ok(!$$('#stc-book .stc-it').some((i) => txt(i).includes('đã chuyển trừ lương')) && !!md(), '5. Bỏ chuyển → khoản chi trở lại, có lại nút → Trừ lương');
     }
+    // 5b. anh Tiến chốt 22/11: → Trừ lương hiện người làm ca có ô tích — mặc định không ai được tích; tích ai web tự chia đều (sửa được); vẫn chọn được người ngoài ca
+    { const { rpc } = await import('../js/sb.js');
+      const ids = await rpc('app__test_ca_staff', { p_id: 181, p_n: 2 });
+      await go(BASE); $('.stc-all')?.click(); await sleep(500);
+      const r2 = $$('#stc-book .stc-it').find((i) => txt(i).includes('mua đá') && i.querySelector('[data-toka]'));
+      r2?.querySelector('[data-toka]').click(); await wait('dialog[open] [data-tlc]', 40); await sleep(300);
+      const cbs = $$('[data-tlc]', dlg()); const tick = (c) => { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); };
+      const amt = (id) => $(`[name=tk_${id}]`, dlg())?.value;
+      ok(ids.length === 2 && cbs.length === 2 && !cbs.some((c) => c.checked) && !amt(ids[0]) && !!$('[name=emp_0]', dlg()), '5b. → Trừ lương: 2 người làm ca có ô tích, chưa ai được tích, có ô chọn người ngoài ca');
+      if (cbs.length === 2) {
+        tick(cbs[0]); await sleep(150); const one = amt(cbs[0].dataset.tlc); tick(cbs[1]); await sleep(150);
+        ok(one === '50.000' && amt(cbs[0].dataset.tlc) === '25.000' && amt(cbs[1].dataset.tlc) === '25.000', `5b. tích 1 người → 50.000; tích người thứ 2 → 25.000 / người (thấy ${one})`);
+        await submit();
+        if (dlg()) { bad.push('5b. chuyển lỗi: ' + txt($('.stc-err', dlg()))); $('[data-x]', dlg())?.click(); }
+        await go(BASE); $('.stc-all')?.click(); await sleep(500);
+        ok($$('#stc-book .stc-it').some((i) => txt(i).includes('đã chuyển trừ lương')), '5b. lưu → khoản chi "Đã chuyển trừ lương" (2 người)');
+        $$('#stc-book [data-kaundo]')[0]?.click(); await wait('dialog[open]', 40); await sleep(200); await submit();
+      } else if (dlg()) $('[data-x]', dlg())?.click(); }
     // 6. phiếu chi chuyển khoản của ca (bảng Chuyển khoản)
     await go(BASE + '&pm=ck'); $('.stc-all')?.click(); await sleep(500);
     const bo = $('#stc-book [data-bankout]');

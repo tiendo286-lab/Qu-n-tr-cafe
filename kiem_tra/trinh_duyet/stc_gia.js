@@ -169,6 +169,13 @@ export function makeStc(T, me) {
       const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.');
       Object.entries(p || {}).forEach(([k, v]) => { c[k] = v && typeof v === 'object' && !Array.isArray(v) && c[k] && typeof c[k] === 'object' ? { ...c[k], ...v } : v; });
     },
+    // → Trừ lương (anh Tiến chốt 22/11: người làm ca có ô tích): gắn p_n nhân viên đang làm vào ca (đã làm) — app_ca_get trả về như phiếu thật
+    app__test_ca_staff({ p_id, p_n = 2 }) {
+      const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || [];
+      const es = (T.employees || []).filter((e) => e.status === 'Đang làm').slice(0, p_n);
+      es.forEach((e) => { if (!T.shift_report_staff.some((s) => s.report_id === rid && s.employee_id === e.id)) T.shift_report_staff.push({ report_id: rid, employee_id: e.id, worked: 1, source: 'lich', time_in: '06:45', time_out: '12:30' }); });
+      return es.map((e) => e.id);
+    },
     // Nhập hàng (luật 15/11; anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): gắn 1 lần hàng kho tổng CHƯA đối soát vào ca (như ca cũ trước 15/11) — bỏ dấu Nhập hàng của ca
     app__test_ca_hang({ p_id }) {
       T.delivery_invoices = T.delivery_invoices || []; T.delivery_lines = T.delivery_lines || [];

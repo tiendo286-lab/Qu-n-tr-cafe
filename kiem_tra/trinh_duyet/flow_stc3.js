@@ -39,7 +39,13 @@ export default async ({ sleep, out }) => {
   // 2. ca thiếu có 3 cách
   ok(!!act('tl') && !!act('qc') && !!act('match') && !act('thu'), '2. ca thiếu: Trừ lương / Quán chịu / Ghép');
   act('tl').click(); await sleep(100);
-  ok($('[name=tl_900]', dlg())?.value === '15.000' && $('[name=tl_901]', dlg())?.value === '15.000', '2. trừ lương chia đều 15.000 / người');
+  // anh Tiến chốt 22/11: người làm ca có ô tích — mặc định không ai được tích; tích ai thì web tự chia đều cho người được tích, sửa tay được
+  const tick = (c) => { if (c && !c.checked) { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); } };
+  ok($$('[data-tlc]', dlg()).length === 2 && !$('[data-tlc]:checked', dlg()) && $('[name=tl_900]', dlg())?.disabled && !$('[name=tl_900]', dlg())?.value, '2. trừ lương: 2 người làm ca có ô tích, chưa ai được tích, chưa điền số');
+  tick($('[data-tlc="900"]', dlg())); await sleep(100);
+  const one = $('[name=tl_900]', dlg())?.value; const off = $('[name=tl_901]', dlg())?.disabled;
+  tick($('[data-tlc="901"]', dlg())); await sleep(100);
+  ok(one === '30.000' && off && $('[name=tl_900]', dlg())?.value === '15.000' && $('[name=tl_901]', dlg())?.value === '15.000', `2. tích 1 người → 30.000; tích thêm người thứ 2 → chia đều 15.000 / người (thấy ${one})`);
   // 3. ghép: ca gợi ý trong 3 ngày, thiếu lý do bị báo
   act('match').click(); await sleep(100);
   ok(txt($('[name=cand]', dlg())).includes('ca sáng 18/11') && $('[name=match_amount]', dlg()).value === '20.000', '3. ghép gợi ý ca Sáng 18/11, số 20.000');
@@ -53,7 +59,8 @@ export default async ({ sleep, out }) => {
   await go(CHI); await openGap('g:183:tm');
   ok(txt($('.stc-avail', dlg())).includes('10.000'), '4. còn xử lý được 10.000');
   act('tl').click(); await sleep(100);
-  ok($('[name=tl_900]', dlg()).value === '5.000', '4. chia đều phần còn lại 5.000 / người');
+  tick($('[data-tlc="900"]', dlg())); tick($('[data-tlc="901"]', dlg())); await sleep(100);
+  ok($('[name=tl_900]', dlg()).value === '5.000' && $('[name=tl_901]', dlg()).value === '5.000', '4. tích 2 người → chia đều phần còn lại 5.000 / người');
   setv('[name=reason]', 'Trừ lương 2 bạn'); await save(); await settle(CHI);
   ok(txt(row('g:183:tm')).includes('đã xử lý'), '4. trừ lương hết phần còn lại → Đã xử lý');
   await openGap('g:183:tm');
