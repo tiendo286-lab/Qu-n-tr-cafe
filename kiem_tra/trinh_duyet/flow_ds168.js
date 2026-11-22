@@ -20,8 +20,9 @@ export default async ({ sleep, out }) => {
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // ---- a. chưa chọn ca: đường cũ (không có ca) → bảng tuần Chốt ca của cơ sở (ô ca hai dòng Việc · Tiền, "Còn N ca chưa đối soát xong")
-    location.hash = DS + '&t=' + Date.now(); await sleep(500); await wait('.cw-t .cw-c[data-id]', 80); await sleep(500);
-    ok(location.hash.startsWith('#/ca?') && !!$('.cw-c[data-ds="1"]') && !!$('.cw-con') && !$('.stc-dsp'), 'a. đường cũ Đối soát Fabi (chưa chọn ca) → bảng tuần Chốt ca: ' + location.hash.slice(0, 40));
+    location.hash = DS + '&t=' + Date.now(); await sleep(500); await wait('.cw-t', 80); await wait('.cw-con', 30); await sleep(500);
+    // tháng này → tuần hiện tại (có thể chưa có phiếu nào trong tuần) — kiểm bảng tuần + dòng "Còn N ca chưa đối soát xong" (tính từ 01/11), không phụ thuộc ngày chạy
+    ok(location.hash.startsWith('#/ca?') && !!$('.cw-t') && !!$('.cw-con') && !$('.stc-dsp'), 'a. đường cũ Đối soát Fabi (chưa chọn ca) → bảng tuần Chốt ca: ' + location.hash.slice(0, 40));
     wide('a. bảng tuần Chốt ca');
     // ---- b. ca 182: chưa xác nhận Fabi, còn ô đỏ
     await open(182);

@@ -39,13 +39,13 @@
   - **D.** Kẹt quá 3 lần thử: dừng phần đó, ghi đã thử gì, sang phần sau.
 - Mỗi PR bàn giao bằng tiếng Việt đơn giản, đủ 5 mục: **Đã làm gì & đã kiểm tra gì** · **Em đã tự quyết** · **Cần anh quyết** · **Chưa làm, chờ anh** · **Anh cần làm gì tiếp** (tệp SQL nào cần chạy, thứ tự gộp). Cuối buổi cập nhật `tai_lieu/BAN_GIAO.md` và viết 1 bảng tổng: phần nào xong / dở / chưa làm.
 
-## Vùng khoá: quyền sửa phần tiền đối soát (anh Tiến chốt 18/11/2026, cập nhật 19/11 bước 152)
-- **Từ bước 152, phần tiền đối soát làm ở Sổ thu chi › Đối soát Fabi** (Xác nhận Fabi → thu chi của ca → 🔒 Chốt ca). Trang Đối soát ca cũ không còn bước tiền / nút ✎ Mở để sửa, chỉ còn thẻ dẫn sang Đối soát Fabi.
+## Vùng khoá: quyền sửa phần tiền đối soát (anh Tiến chốt 18/11/2026, cập nhật 19/11 bước 152, 23/11 chặng 5)
+- **Từ 23/11 (chặng 5), phần tiền đối soát làm ở trang đối soát của ca trong Chốt ca** (`#/ca/doi-soat?id=`): tab ② Phần tiền (5 bước, khối tiền của Sổ thu chi ở chế độ một ca — `caMoney` trong `so_thu_chi.js`), tab ③ Hoàn thành (nút Hoàn thành đối soát ca, Mở lại). Sổ thu chi không còn tab Đối soát Fabi; đường cũ `?tab=doi-soat` tự chuyển sang. Trang Đối soát ca cũ (`doi_soat.js`) chỉ còn dẫn đường.
 - Vùng khoá là mã quyết định **ai sửa / xác nhận / chốt được phần tiền của ca, mục nào bị khoá** (cả web lẫn máy chủ). Gồm:
-  - Ở `docs/js`: các chỗ dùng `can_recon`, `recon_note`, `is_chu`, `can_unlock`, `can_direct`, `mEdit`, `MONEY_EDIT`, `LKF`, `lkItem`, `ds-money-open`, `ds-money-save`, `app_ca_auto_locks` (mã cũ còn sót trong `phieu_ca.js`, không còn nút gọi).
+  - Ở `docs/js`: các chỗ dùng `can_recon`, `recon_note`, `is_chu`, `can_unlock`, `can_direct`, `mEdit`, `MONEY_EDIT`, `LKF`, `lkItem`, `ds-money-open`, `ds-money-save`, `app_ca_auto_locks` (mã cũ còn sót trong `phieu_ca.js`, không còn nút gọi); chặng 5: `caMoney` / `ONE` (chế độ một ca) và khoá nút Hoàn thành theo phần việc (`ONE.workLeft` trong `doneStep`).
   - Ở máy chủ: các hàm `app__ca_auto_ok`, `app_ca_recon_apply`, `app_ca_auto_locks`, `app__ca_locked_items`, `app__ca_locked_fields`; phần `can_recon` / `recon_note` của `app_ca_get`; `app_can`; bảng `role_permissions`; khoá Chốt ca `app__stc_final_guard` (tệp 135); quyền Sổ thu chi `app__stc_can` / `app__stc_need` (tệp 136).
 - **Bỏ mật khẩu (anh Tiến chốt 19/11/2026):** không còn hook / mật khẩu. Trước khi sửa vùng này chỉ cần nói cho anh Tiến biết định sửa gì và vì sao (trong thiết kế hoặc trong chat).
-- Sửa xong phải chạy bài thử `kiem_tra/trinh_duyet/flow_ql_tu_ds.js` (role=ql và role=chu, ở `index.html` và `test/phone.html`) và thấy đạt, trước khi đẩy lên web. Từ bước 152 bài này kiểm tra Đối soát ca **không còn** chỗ sửa tiền và thẻ dẫn mở đúng ca ở Đối soát Fabi; chạy thêm `flow_stc6` + `flow_stc7` (role chu / qlt / ql) cho phần tiền mới. Đổi quyền ở máy chủ thì phải dò cả giao diện (bài học lỗi bước 129, xem `tai_lieu/BAN_GIAO.md`).
+- Sửa xong phải chạy bài thử `kiem_tra/trinh_duyet/flow_ql_tu_ds.js` (role=ql và role=chu, ở `index.html` và `test/phone.html`) và thấy đạt, trước khi đẩy lên web. Từ chặng 5 bài này kiểm tra trang đối soát ca 3 thẻ: thẻ ① không có ô sửa tiền, thẻ ② là khối tiền của đúng ca (`#stc-page.stc-one[data-ds]`); chạy thêm `flow_stc6` + `flow_stc7` (role chu / qlt / ql) và `flow_dsca` cho phần tiền. Đổi quyền ở máy chủ thì phải dò cả giao diện (bài học lỗi bước 129, xem `tai_lieu/BAN_GIAO.md`).
 
 ## Kiểm tra
 - Giao diện chạy thử với Supabase giả lập: `kiem_tra/trinh_duyet/` (xem README ở đó). Không có dữ liệu thật thì bỏ qua bước dựng dữ liệu, chỉ kiểm tra cú pháp + logic.
