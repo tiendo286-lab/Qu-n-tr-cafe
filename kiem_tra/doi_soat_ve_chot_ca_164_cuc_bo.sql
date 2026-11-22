@@ -109,5 +109,9 @@ begin
                                    and position('xác nhận ở Đối soát Fabi' in pg_get_functiondef('public.app_stc_move_exchange(bigint,text,text)'::regprocedure)) = 0
                                    and position('tab ③ Hoàn thành' in pg_get_functiondef('public.app_stc_move_exchange(bigint,text,text)'::regprocedure)) > 0 then 'ĐẠT' else 'HỎNG' end
         || ' (12) chữ báo lỗi (Hoàn thành lại, Chốt tháng, đổi luân chuyển) chỉ trang đối soát của ca, không còn "Sổ thu chi › Đối soát Fabi" / "bước 6"';
+  -- (12b) nhập hàng tách sang menu Hàng hoá từ 15/11 (bước 104): câu báo lỗi khi đánh dấu Nhập hàng không còn chỉ "mục 7" của phiếu ca
+  rep := rep || E'\n' || case when position('ở mục 7' in pg_get_functiondef('public.app_ca_check(bigint,text,boolean)'::regprocedure)) = 0
+                                   and position('Hàng hoá › Đối soát' in pg_get_functiondef('public.app_ca_check(bigint,text,boolean)'::regprocedure)) > 0 then 'ĐẠT' else 'HỎNG' end
+        || ' (12b) chữ báo lỗi Nhập hàng chỉ menu Hàng hoá › Đối soát, không còn "mục 7"';
   raise exception 'REPORT>> %', rep;
 end $$;

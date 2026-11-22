@@ -75,6 +75,8 @@ export default async ({ sleep, out }) => {
       await fresh(); await go('#/ca/doi-soat?id=161&tab=xong', '[data-tab-pane="xong"]');
       const dn = $('[data-tab-pane="xong"] [data-dsdone]');
       ok(!$('[data-tab-pane="xong"]').hidden && !!dn && dn.disabled && /còn phần việc/.test(txt($('[data-tab-pane="xong"]'))), '(d) tab ③: còn phần việc → nút Hoàn thành khoá, ghi "Còn phần việc" · thấy: ' + txt($('[data-tab-pane="xong"]')).slice(0, 220));
+      // nhập hàng tách sang menu Hàng hoá từ 15/11: tóm tắt phần việc gọi bước cuối là "Bàn giao" như thanh bước, không ghi "nhận hàng"
+      ok(/bàn giao/.test(txt($('.ds-wsum'))) && !/nhận hàng/.test(txt($('.ds-wsum'))), '(d) tóm tắt phần việc: bước "Bàn giao" (không ghi "nhận hàng") · thấy: ' + txt($('.ds-wsum')).slice(0, 120));
       for (const it of ['nhan_su', 'ban_giao', 'nhap_hang']) await rpc('app_ca_check', { p_id: 161, p_item: it, p_on: true });
       await fresh(); await go('#/ca/doi-soat?id=161&tab=xong', '[data-tab-pane="xong"]');
       ok(!!$('[data-tab-pane="xong"] [data-dsdone]') && !$('[data-tab-pane="xong"] [data-dsdone]').disabled, '(d) xong phần việc + tích đủ phần tiền → nút Hoàn thành bấm được · thấy: ' + txt($('[data-tab-pane="xong"]')).slice(0, 220));

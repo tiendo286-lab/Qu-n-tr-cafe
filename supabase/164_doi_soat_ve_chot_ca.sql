@@ -79,20 +79,23 @@ grant execute on function public.app_ca_ds_tuan(bigint, date, date), public.app_
 -- Chữ báo lỗi còn chỉ chỗ cũ ("Sổ thu chi › Đối soát Fabi", "bước 6" — tab đã bỏ) → trang đối soát của ca trong Chốt ca (tab ② Phần tiền / ③ Hoàn thành).
 -- CHỈ đổi chữ trong câu báo lỗi, không đổi điều kiện nào. Bản đang chạy không có chuỗi cũ (đã vá / khác bản) thì bỏ qua hàm đó — không dừng tệp.
 --   app_ca_recon_finish (tệp 150: Hoàn thành đối soát lại sau khi mở lại phiếu) · app_fin_close (tệp 159: Chốt tháng) · app_stc_move_exchange (tệp 160: đổi luân chuyển trong ca)
+--   · app_ca_check (tệp 31: đánh dấu Nhập hàng — nhập hàng tách sang menu Hàng hoá từ 15/11, phiếu ca không còn "mục 7")
 do $$
 declare d text; i int;
   fns text[] := array['public.app_ca_recon_finish(bigint)', 'public.app_fin_close(bigint,text,text)',
-                      'public.app_stc_move_exchange(bigint,text,text)', 'public.app_stc_move_exchange(bigint,text,text)'];
+                      'public.app_stc_move_exchange(bigint,text,text)', 'public.app_stc_move_exchange(bigint,text,text)', 'public.app_ca_check(bigint,text,boolean)'];
   olds text[] := array[
     'vào Sổ thu chi › Đối soát Fabi, tích đủ mục kiểm tra rồi bấm "Hoàn thành đối soát ca" ở bước 6.',
     'Xử lý ở Sổ thu chi › Đối soát Fabi (bước Chênh lệch)',
     'xác nhận ở Đối soát Fabi trước rồi mới đổi khoản.',
-    'Mở lại ở bước 6 mới đổi được.'];
+    'Mở lại ở bước 6 mới đổi được.',
+    'Bấm "Đối soát hàng" ở mục 7.'];
   news text[] := array[
     'vào trang đối soát của ca ở Chốt ca: tab ② Phần tiền tích đủ mục kiểm tra rồi bấm "Hoàn thành đối soát ca" ở tab ③.',
     'Xử lý ở trang đối soát của ca trong Chốt ca (tab ② Phần tiền, bước Chênh lệch)',
     'xác nhận ở trang đối soát của ca (tab ② Phần tiền) trước rồi mới đổi khoản.',
-    'Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới đổi được.'];
+    'Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới đổi được.',
+    'Đối soát hàng ở menu Hàng hoá › Đối soát trước.'];
 begin
   for i in 1 .. array_length(fns, 1) loop
     if to_regprocedure(fns[i]) is null then continue; end if;

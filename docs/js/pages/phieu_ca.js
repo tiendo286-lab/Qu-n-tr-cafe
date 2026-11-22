@@ -844,7 +844,7 @@ export async function render({ params }) {
   const wLeft = isDs ? (DSR?.viec?.thieu || ['nhan_su', 'ban_giao', 'nhap_hang'].filter((it) => !doneItem(it)).map((it) => CHECK_LABEL[it])) : [];
   const tab0 = ['viec', 'tien', 'xong'].includes(params.tab) ? params.tab : params.buoc ? 'viec'
     : /^[1-6]$/.test(String(params.b || '')) ? (String(params.b) === '6' ? 'xong' : 'tien') : (DSR?.tab || 'viec');
-  const wRows = [[0, 'Ai làm ca', ['nhan_su']], [2, 'Bàn giao + nhận hàng', ['ban_giao', 'nhap_hang']]];
+  const wRows = [[0, 'Ai làm ca', ['nhan_su']], [2, 'Bàn giao', ['ban_giao', 'nhap_hang']]];   // nhập hàng tách sang menu Hàng hoá từ 15/11 (bước 104): mục Nhập hàng tự xong, ca cũ còn hàng thì nhắc ở bước Bàn giao
   const wSum = isDs ? html`<div class="stc-part ds-wsum"><div class="h">① Phần việc</div><div class="stc-sum">${wRows.map(([i, t, its]) => { const lf = its.filter((it) => !doneItem(it));
       return html`<button type="button" class="stc-sr ds-wgo" data-wgo="${i}"><i class="stc-mk ${lf.length ? '' : 'ok'}">${lf.length ? '!' : '✓'}</i><b>${t}</b><span class="pill ${lf.length ? 'warn' : 'ok'}">${lf.length ? 'Còn: ' + lf.map((x) => CHECK_LABEL[x]).join(', ') : '✓ Xong'}</span></button>`; })}</div>
       ${wLeft.includes('Chờ Chủ duyệt x2') ? html`<div class="st-meta">⏳ Nghỉ & làm thay: chờ Chủ duyệt x2.</div>` : ''}
