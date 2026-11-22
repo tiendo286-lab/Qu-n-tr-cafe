@@ -69,6 +69,17 @@ export default async ({ sleep, out }) => {
       $('.ds-pt[data-ptab="xong"]')?.click(); await sleep(200); $('.ds-pt[data-ptab="tien"]')?.click(); await sleep(200);
       window.dispatchEvent(new HashChangeEvent('hashchange')); await sleep(900); await wait('.stc-dsp'); await sleep(300);
       ok(curStep() === '1' && /tab=tien/.test(location.hash), '(m) đổi tab rồi trang vẽ lại → vẫn ở bước đang làm (bước 2), thấy bước ' + (Number(curStep()) + 1));
+      // (o) Nhập hàng (luật 15/11, anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): ca không gắn hàng kho tổng (182) — ngay lần mở đầu không thấy dòng "Nhập hàng"
+      //     ở bảng đèn, bước Bàn giao không nhắc hàng chưa đối soát, tóm tắt phần việc không ghi Nhập hàng
+      await go('#/ca/doi-soat?id=182&tab=viec&t=o', '#ds-lights .den-list'); await sleep(300);
+      ok(!/nhập hàng/.test(txt($('#ds-lights'))) && !/hàng kho tổng chưa đối soát/.test(txt($('.ds-pane[data-ds="2"]'))) && !/nhập hàng/.test(txt($('.ds-wsum'))),
+        '(o) ca không gắn hàng kho tổng: không thấy "Nhập hàng" (bảng đèn: ' + ($$('#ds-lights .den-row strong').map((x) => txt(x)).join(', ') || '—') + ')');
+      // (p) ca cũ còn hàng kho tổng chưa đối soát (gắn thử vào ca 183) → dòng "Nhập hàng" đỏ + bước Bàn giao nhắc sang Hàng hoá › Đối soát
+      await rpc('app__test_ca_hang', { p_id: 183 });
+      await go('#/ca/doi-soat?id=183&tab=viec&t=p', '#ds-lights .den-list'); await sleep(300);
+      { const row = $$('#ds-lights .den-row').find((x) => /nhập hàng/.test(txt(x)));
+        ok(!!row && row.classList.contains('r') && /hàng kho tổng chưa đối soát/.test(txt($('.ds-pane[data-ds="2"]'))) && !!$('.ds-pane[data-ds="2"] a[href*="#/hang-hoa/doi-soat"]'),
+          '(p) ca còn hàng chưa đối soát: dòng "Nhập hàng" đỏ + bước Bàn giao có nút sang Hàng hoá › Đối soát'); }
       // (d) ③ khoá khi còn phần việc; xong phần việc thì mở
       const { TICKS } = await import('../js/so_thu_chi_tinh.js');
       await rpc('app__test_stc_ca', { p_id: 161, p: { ticks: TICKS, done: null } });

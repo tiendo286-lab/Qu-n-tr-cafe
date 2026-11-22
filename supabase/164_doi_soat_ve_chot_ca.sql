@@ -7,6 +7,8 @@
 --   kt = chờ kế toán · red = chưa xác nhận Fabi, còn ô đỏ (mở ca / doanh thu / nợ) · xn = chờ xác nhận Fabi ·
 --   ht = đã xác nhận, chưa bấm Hoàn thành · ok = đã bấm Hoàn thành (stc_ca_done) hoặc ca đã "Đã đối soát".
 -- Phần việc xong = đủ dấu Ai làm ca (nhan_su), Bàn giao (ban_giao), Nhập hàng (nhap_hang) và x2 không cần / đã duyệt.
+-- Nhập hàng (luật 15/11 — tách sang menu Hàng hoá; anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): ca không nhận hàng kho tổng nào thì không tính
+--   thiếu (máy tự đánh dấu khi mở trang đối soát — app__ca_auto_recon, cùng điều kiện); chỉ ca có hàng kho tổng gắn vào (ca cũ trước 15/11) mới tính.
 -- Bài thử: kiem_tra/doi_soat_ve_chot_ca_164_cuc_bo.sql. Chạy lại nhiều lần không sao.
 
 -- một ca → {id, date, shift, recon, tab, viec{xong, thieu, x2}, tien{st, thieu}}; p_light: bỏ phân biệt red / xn (chỉ cần tab)
@@ -17,7 +19,8 @@ begin
   select * into r from public.shift_reports where id = p_id;
   if r.id is null then return null; end if;
   thieu := array(select public.app__ca_item_label(q.u) from unnest(array['nhan_su', 'ban_giao', 'nhap_hang']) with ordinality q(u, o)
-                  where not exists (select 1 from public.shift_report_checks c where c.report_id = p_id and c.item = q.u) order by q.o);
+                  where not exists (select 1 from public.shift_report_checks c where c.report_id = p_id and c.item = q.u)
+                    and (q.u <> 'nhap_hang' or exists (select 1 from public.delivery_invoices d where d.received_report_id = p_id)) order by q.o);
   cv := case when coalesce(r.self_reconciled, false) then 'khong_can' else public.app__cv_state(p_id) end;
   if coalesce(cv, '') not in ('khong_can', 'da_duyet') then thieu := thieu || 'Chờ Chủ duyệt x2'::text; end if;
   viec := cardinality(thieu) = 0;

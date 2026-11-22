@@ -506,6 +506,9 @@ export function makeCa(T, me) {
       const kt = T.__ktState ? T.__ktState(p_id) : null;
       if (kt?.need && !kt.ready) throw new Error('Phiếu chờ kế toán: còn thiếu ' + kt.missing.join(', ') + '.');
       if (!RECON[p_id]) RECON[p_id] = snap(p_id);
+      // như app__ca_auto_recon: ca không nhận hàng kho tổng nào → tự đánh dấu Nhập hàng (luật 15/11)
+      if (!(T.delivery_invoices || []).some((d) => d.received_report_id === p_id) && !T.shift_report_checks.some((c) => c.report_id === p_id && c.item === 'nhap_hang'))
+        T.shift_report_checks.push({ report_id: p_id, item: 'nhap_hang', checked_by: me.account_id, checked_at: now() });
       const ids = new Set([...RECON[p_id].staff, ...snap(p_id).staff].map((x) => x.employee_id));
       const employees = Object.fromEntries([...ids].map((id) => { const e = T.employees.find((x) => x.id === id) || {}; return [String(id), { code: e.code, name: e.name, rank: e.rank, pay_cash: !!e.pay_cash }]; }));
       return { data: JSON.parse(JSON.stringify(RECON[p_id])), original: snap(p_id), employees, editable: r.recon_status !== 'hoan_thanh', recon_status: r.recon_status,

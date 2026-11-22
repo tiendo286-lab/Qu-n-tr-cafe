@@ -100,6 +100,14 @@ begin
   begin t := public.app_ca_ds_tuan(1, '2026-11-09', '2026-11-15'); e := jsonb_array_length(t)::text; exception when others then e := 'lỗi: ' || sqlerrm; end;
   rep := rep || E'\n' || case when e = '0' then 'ĐẠT' else 'HỎNG' end || ' (9c) nhân viên → ' || e || ' dòng';
 
+  -- (13) Nhập hàng (luật 15/11; anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): ca không nhận hàng kho tổng nào → không ghi thiếu "Nhập hàng"
+  --      (máy tự đánh dấu khi mở trang đối soát — app__ca_auto_recon); ca có hàng kho tổng gắn vào (ca cũ trước 15/11) mà chưa có dấu → vẫn ghi thiếu
+  v := public.app__ca_ds_row(X); e := v -> 'viec' ->> 'thieu';
+  insert into public.delivery_invoices(branch_id, work_date, received_report_id) values (1, '2026-11-11', X);
+  v := public.app__ca_ds_row(X);
+  rep := rep || E'\n' || case when e not ilike '%nhập hàng%' and (v -> 'viec' ->> 'thieu') ilike '%nhập hàng%' then 'ĐẠT' else 'HỎNG' end
+        || format(' (13) Nhập hàng: ca không gắn hàng → thiếu %s · gắn hàng chưa đối soát → thiếu %s', e, v -> 'viec' ->> 'thieu');
+
   -- (12) chữ báo lỗi ở máy chủ không còn chỉ "Sổ thu chi › Đối soát Fabi" / "bước 6" (tab cũ đã bỏ) → trang đối soát của ca (tab ② / ③); chỉ đổi chữ
   rep := rep || E'\n' || case when position('Sổ thu chi › Đối soát Fabi' in pg_get_functiondef('public.app_ca_recon_finish(bigint)'::regprocedure)) = 0
                                    and position('tab ③' in pg_get_functiondef('public.app_ca_recon_finish(bigint)'::regprocedure)) > 0

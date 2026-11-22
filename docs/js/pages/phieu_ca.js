@@ -222,6 +222,9 @@ export async function render({ params }) {
   // bước 134: phần việc + danh mục hỏi cùng lúc với phiếu (dùng khi phiếu đang chốt; không dùng thì bỏ qua)
   const partsP = rpc('app_ca_parts', { p_id: id }); partsP.catch(() => {});
   const catP = catalog().catch(() => null);
+  // Đối soát ca: mở bản kiểm tra (app_ca_recon) TRƯỚC khi đọc phiếu — máy chủ tự đánh dấu mục tự động (Nhập hàng của ca không gắn hàng kho tổng…)
+  // nên lần mở đầu đã thấy đúng (trước đây đọc phiếu trước, lần đầu còn hiện "Nhập hàng" đỏ). Lỗi (chưa gửi / chờ kế toán / không quyền) để phần dưới xử lý như cũ.
+  const PRE = String(params.__ds || '') === '1' ? await rpc('app_ca_recon', { p_id: id }).catch(() => null) : null;
   const R0 = await rpc('app_ca_get', { p_id: id });
   const done = R0.status === 'hoan_thanh';
   const canRc = !!R0.can_recon && done;
@@ -260,7 +263,7 @@ export async function render({ params }) {
     return renderNew(R0, P41, SH41);
   }
   let reconError = null;
-  const RC = canRc && wantDs ? await rpc('app_ca_recon', { p_id: id }).catch((error) => { reconError = error; return null; }) : null;
+  const RC = canRc && wantDs ? (PRE || await rpc('app_ca_recon', { p_id: id }).catch((error) => { reconError = error; return null; })) : null;
   if (wantDs && reconError) {
     return { title: 'Không mở được bước Kiểm tra', html: html`<div class="card stack" data-recon-error style="gap:12px;max-width:680px"><h1 style="margin:0">Không mở được bước Kiểm tra</h1>
       <div class="alert error">Kết nối máy chủ bị gián đoạn hoặc tình trạng dữ liệu vừa thay đổi. Chưa có thao tác kiểm tra nào được thực hiện.</div>

@@ -27,7 +27,8 @@ export function makeStc(T, me) {
   // tệp 164: trạng thái Việc · Tiền của một phiếu (giống app__ca_ds_row); light = không phân biệt red / xn
   const W_LB = { nhan_su: 'Nhân viên trong ca', ban_giao: 'Bàn giao ca sau', nhap_hang: 'Nhập hàng' };
   const dsRow = (r, light = false) => {
-    const thieu = Object.keys(W_LB).filter((k) => !(T.shift_report_checks || []).some((x) => x.report_id === r.id && x.item === k)).map((k) => W_LB[k]);
+    const thieu = Object.keys(W_LB).filter((k) => !(T.shift_report_checks || []).some((x) => x.report_id === r.id && x.item === k)
+      && (k !== 'nhap_hang' || (T.delivery_invoices || []).some((d) => d.received_report_id === r.id))).map((k) => W_LB[k]);   // Nhập hàng chỉ tính khi ca có hàng kho tổng (như tệp 164)
     const c = st().cas.find((x) => x.id === r.id);
     const kt = T.__ktState ? T.__ktState(r.id) : (T.__stcKt(r.id) || { need: false, ready: true, missing: [] });
     let st1; let viec = !thieu.length; let tth = [];
@@ -167,6 +168,15 @@ export function makeStc(T, me) {
     app__test_stc_ca({ p_id, p }) {
       const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.');
       Object.entries(p || {}).forEach(([k, v]) => { c[k] = v && typeof v === 'object' && !Array.isArray(v) && c[k] && typeof c[k] === 'object' ? { ...c[k], ...v } : v; });
+    },
+    // Nhập hàng (luật 15/11; anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): gắn 1 lần hàng kho tổng CHƯA đối soát vào ca (như ca cũ trước 15/11) — bỏ dấu Nhập hàng của ca
+    app__test_ca_hang({ p_id }) {
+      T.delivery_invoices = T.delivery_invoices || []; T.delivery_lines = T.delivery_lines || [];
+      const id = Math.max(9000, ...T.delivery_invoices.map((x) => x.id || 0)) + 1; const rid = Number(p_id); const r = (T.shift_reports || []).find((x) => x.id === rid) || {};
+      T.delivery_invoices.push({ id, branch_id: r.branch_id || 1, work_date: r.work_date || '2026-11-10', kind: 'hoa_don', state: 'da_nhan', doc_no: 'PX-THU-' + id, received_report_id: rid });
+      T.delivery_lines.push({ id: Math.max(9000, ...T.delivery_lines.map((x) => x.id || 0)) + 1, invoice_id: id, sort: 1, name: 'Sữa tươi (thử)', unit: 'hộp', qty_invoice: 2, checked_at: null });
+      T.shift_report_checks = (T.shift_report_checks || []).filter((x) => !(x.report_id === rid && x.item === 'nhap_hang'));
+      return id;
     },
     app_ca_gio({ p_report }) { return gioView(p_report).v; },
     app_ca_gio_save({ p_report, p_end, p_reason }) {
