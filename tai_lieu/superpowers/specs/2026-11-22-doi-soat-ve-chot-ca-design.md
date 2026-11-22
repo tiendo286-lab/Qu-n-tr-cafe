@@ -3,6 +3,7 @@
 - Người đề xuất: anh Tiến, 22/11/2026 sáng (chặng 3). Khi em hỏi về 234 ca chưa hoàn thành đối soát, anh trả lời: "Tôi sẽ đưa đối soát fabi về lại chốt ca".
 - Thứ tự: anh chốt "để sau cùng", làm sau mọi việc khác.
 - 22/11 chiều anh giao: "Hỏi kỹ rồi bắt đầu làm". Em hỏi 2 lượt, anh chọn đủ 6 câu (mục 2).
+- **Anh duyệt bản thiết kế 22/11 chiều:** "Duyệt, làm xong gửi ảnh rồi mới lên". Kế hoạch làm: `tai_lieu/superpowers/plans/2026-11-22-doi-soat-ve-chot-ca.md`.
 - Vùng khoá tiền đối soát: có đụng.
   - Giao diện: khối sửa / xác nhận / hoàn thành phần tiền dời chỗ.
   - Máy chủ: luật không đổi; chỉ thêm hàm đọc.
