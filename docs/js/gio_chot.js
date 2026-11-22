@@ -1,4 +1,4 @@
-// Giờ chốt ca (bước 162): dòng "Giờ doanh thu" + ô ✎ Sửa giờ chốt dùng chung cho Sổ thu chi › Đối soát Fabi và trang Đối soát ca.
+// Giờ chốt ca (bước 162): dòng "Giờ doanh thu" + ô ✎ Sửa giờ chốt dùng chung cho khối tiền (② Phần tiền của trang đối soát ca — thiết kế 22/11; trước là Sổ thu chi › Đối soát Fabi) và trang Đối soát ca.
 // Trang chỉ đặt ô giữ chỗ <div class="stc-gio" data-gio-ca="<id ca>"></div>; watchGio(root, onSaved) tự lấp mỗi khi trang vẽ lại.
 // Máy chủ (tệp 144): app_ca_gio (đọc), app_ca_gio_save (sửa tay — chỉ khi ca chưa có file Fabi). Có file Fabi thì giờ chốt tự theo file.
 import { rpc } from './sb.js';

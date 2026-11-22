@@ -48,7 +48,8 @@ export default async ({ sleep, out }) => {
     const bt = box.innerText.toLowerCase();   // tiêu đề / dòng xổ xuống in hoa theo kiểu chung của web
     must(bt.includes('ca chưa hoàn thành đối soát') && bt.includes('chưa xác nhận fabi'), 'khung không chia nhóm "chưa xác nhận Fabi": ' + box.innerText);
     $$('#ct-miss details').forEach((d) => { d.open = true; }); await sleep(200);
-    const chip = $(`#ct-miss a.ct-chip[href*="ds=${id}"]`); must(chip && chip.getAttribute('href').includes('tab=doi-soat') && chip.getAttribute('href').includes(`cn=${br}`), 'không có ô ca dẫn tới Sổ thu chi › Đối soát Fabi đúng ca');
+    // Đối soát về Chốt ca (thiết kế 22/11): ô ca "chưa xác nhận Fabi" mở trang đối soát của ca, tab ② Phần tiền (trước: Sổ thu chi › Đối soát Fabi)
+    const chip = $(`#ct-miss a.ct-chip[href^="#/ca/doi-soat?id=${id}&"]`); must(chip && chip.getAttribute('href').includes('tab=tien'), 'không có ô ca dẫn tới trang đối soát của ca (tab ② Phần tiền) đúng ca');
     must(box.innerText.includes('chưa chọn nhóm'), 'khung không báo khoản thu chi chưa chọn nhóm');
     const tr = overflow(box); must(!tr, 'khung tràn ngang: ' + tr);
     $('.ct-go[data-go="ct-s4"]').click(); await sleep(900);

@@ -45,7 +45,7 @@ export function tcList(box, rows, { cats = [], brById = null, showReport = true,
       : html`<span class="dt-do"><span class="pill ok">Đã đối soát</span> <span class="st-meta">${r.excluded ? 'Không tính' : r.category || ''}</span><button type="button" class="btn sm secondary dt-undo">Bỏ đối soát</button>${debtBtn}${delBtn}</span>`;
     return html`<div class="dt-r ${r.status === 'cho' ? 'todo' : ''}" data-i="${i}" data-br="${r.branch_id}">
       <div class="dt-m"><strong>${r.note || '(không ghi nội dung)'}</strong>
-        <div class="st-meta">${dmy(r.date)}${br ? ` · ${br.code}` : ''}${showReport ? html` · <a href="#/quan-ly/doi-soat/ca?id=${r.report_id}">Phiếu ca ${r.shift}</a>` : ''} · ${PAY[r.pay] || ''}${r.by ? ` · ${r.by}` : ''}${r.status === 'da' && r.checked_at ? ` · đối soát ${r.checked_by || ''} ${dt(r.checked_at)}` : ''}</div>
+        <div class="st-meta">${dmy(r.date)}${br ? ` · ${br.code}` : ''}${showReport ? html` · <a href="#/ca/doi-soat?id=${r.report_id}">Phiếu ca ${r.shift}</a>` : ''} · ${PAY[r.pay] || ''}${r.by ? ` · ${r.by}` : ''}${r.status === 'da' && r.checked_at ? ` · đối soát ${r.checked_by || ''} ${dt(r.checked_at)}` : ''}</div>
         ${empSel(r)}</div>
       <div class="dt-a ${r.kind === 'chi' ? 'neg' : 'pos'}">${r.kind === 'chi' ? '−' : '+'}${fmt(r.amount)}đ</div>
       <div class="dt-act">${act}</div></div>`;

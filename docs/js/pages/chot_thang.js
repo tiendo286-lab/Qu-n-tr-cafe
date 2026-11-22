@@ -18,17 +18,19 @@ const sum = (a, f) => a.reduce((s, x) => s + Number(f(x) || 0), 0);
 // cùng điều kiện với app_fin_close), chia ca chưa hoàn thành đối soát theo chỗ kẹt, bấm vào là tới chỗ làm.
 const caLb = (x) => `${dmy(x.date).slice(0, 5)} ${x.shift}`;
 const qs = (o) => Object.entries(o).filter(([, v]) => v !== null && v !== undefined && v !== '').map(([k, v]) => `${k}=${v}`).join('&');
-const MISS_GRP = [   // [nhóm, chữ, mở ở đâu: ds = Sổ thu chi › Đối soát Fabi đúng ca · ca = trang Đối soát ca (phần việc)]
-  ['kt', 'chờ kế toán nhập file Fabi / số dư ngân hàng', 'ds'],
-  ['fabi', 'chưa xác nhận Fabi', 'ds'],
-  ['hoan_thanh', 'đã xác nhận Fabi, chưa bấm "Hoàn thành đối soát ca"', 'ds'],
-  ['viec', 'phần tiền xong, còn phần việc (Nhân sự, Bàn giao…) ở trang Đối soát ca', 'ca'],
-  ['cho', 'đủ điều kiện nhưng chưa ghi nhận — mở ca ở trang Đối soát ca', 'ca'],
+// [nhóm, chữ, tab mở ở trang đối soát của ca trong Chốt ca — Đối soát về Chốt ca (thiết kế 22/11): tien = ② Phần tiền · xong = ③ Hoàn thành · viec = ① Phần việc]
+const MISS_GRP = [
+  ['kt', 'chờ kế toán nhập file Fabi / số dư ngân hàng', 'tien'],
+  ['fabi', 'chưa xác nhận Fabi', 'tien'],
+  ['hoan_thanh', 'đã xác nhận Fabi, chưa bấm "Hoàn thành đối soát ca"', 'xong'],
+  ['viec', 'phần tiền xong, còn phần việc (Nhân sự, Bàn giao…)', 'viec'],
+  ['cho', 'đủ điều kiện nhưng chưa ghi nhận', 'xong'],
 ];
 function missBox(M, D, cn, month, cur) {
   const R = D.revenue; const Tt = D.totals; const RC = D.recon || {}; const rc = M?.recon || {};
   const stc = (o) => '#/quan-ly/so-thu-chi?' + qs({ cn, thang: month, ...o });
-  const href = { ds: (id) => stc({ tab: 'doi-soat', ds: id }), ca: (id) => `#/quan-ly/doi-soat/ca?id=${id}`, phieu: (id) => `#/ca/phieu?id=${id}` };
+  const caPg = (tab) => (id) => `#/ca/doi-soat?id=${id}&tab=${tab}`;
+  const href = { tien: caPg('tien'), xong: caPg('xong'), viec: caPg('viec'), phieu: (id) => `#/ca/phieu?id=${id}` };
   const chips = (list, to, miss) => html`<div class="ct-chips">${list.map((x) => html`<a class="ct-chip" href="${to(x.id)}">${caLb(x)}${miss && (x.miss || []).length ? html`<small> · ${x.miss.join(', ')}</small>` : ''}</a>`)}</div>`;
   const lines = [];
   if (R.in_progress) lines.push(html`<li><b>${R.in_progress} phiếu chốt ca đang chốt dở</b> — nhân viên chốt xong phiếu mới tính.${(M?.in_progress || []).length ? chips(M.in_progress, href.phieu) : ''}</li>`);
@@ -39,7 +41,7 @@ function missBox(M, D, cn, month, cur) {
   }
   const nMv = Math.max(Number(M?.unchecked || 0), Number(Tt.uncat || 0));
   if (nMv) lines.push(html`<li><b>${nMv} khoản thu chi ở phiếu ca chưa chọn nhóm</b> — chọn nhóm (hoặc "Không tính") ở <button type="button" class="ct-go" data-go="ct-s4">mục 4 bên dưới</button> hoặc ở <a href="${stc({ tab: 'chi', loc: 'st:todo' })}">Sổ thu chi › Sổ chi</a>.</li>`);
-  if (Number(M?.gap_pending)) lines.push(html`<li><b>${M.gap_pending} ca có chênh lệch tiền đang chờ xử lý</b> — xử lý ở <a href="${stc({ tab: 'doi-soat' })}">Sổ thu chi › Đối soát Fabi</a> (bước Chênh lệch) hoặc <a href="${stc({ tab: 'tong' })}">Tổng › Việc cần làm</a>.</li>`);
+  if (Number(M?.gap_pending)) lines.push(html`<li><b>${M.gap_pending} ca có chênh lệch tiền đang chờ xử lý</b> — xử lý ở trang đối soát của từng ca (<a href="#/ca?cn=${cn}">Chốt ca</a> › bấm ô ca › ② Phần tiền, bước Chênh lệch) hoặc <a href="${stc({ tab: 'tong' })}">Sổ thu chi › Tổng › Việc cần làm</a>.</li>`);
   const ext = Number(M?.ext_bad ?? D.ext_bad ?? 0);
   if (ext) lines.push(html`<li><b>${ext} khoản ở Quỹ ngoài chưa chia hết cho cơ sở</b> — Chủ vào <a href="#/quan-ly/so-thu-chi?${qs({ cn: 'ngoai', tab: 'tong', thang: month })}">Sổ thu chi › Quỹ ngoài</a> để chia.</li>`);
   const gap = Number(RC.gap || 0);

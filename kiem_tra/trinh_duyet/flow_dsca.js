@@ -64,6 +64,11 @@ export default async ({ sleep, out }) => {
       // (g) Ca tiếp theo chưa xong
       const nx = $('.ds-top #ds-nextca2');
       ok(!!nx && /#\/ca\/doi-soat\?id=162(&|$)/.test(nx.getAttribute('href') || ''), '(g) "Ca tiếp theo chưa xong ›" sang ca 162: ' + (nx?.getAttribute('href') || 'không thấy'));
+      // (i) ca nhân viên đang chốt dở mở bằng đường mới → báo chưa hoàn thành phiếu (không vỡ trang)
+      const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+      const idOpen = await rpc('app_ca_open', { p_branch: 1, p_date: today, p_shift: 'Sáng' });
+      await go(`#/ca/doi-soat?id=${idOpen}`, '#root .card');
+      ok(/chưa hoàn thành phiếu chốt ca/.test(txt($('#root'))) && !$('.ds-ptabs'), '(i) ca đang chốt dở → "Nhân viên chưa hoàn thành phiếu chốt ca…", không có 3 tab');
       // (k) ca chờ kế toán (172): trang báo Chờ kế toán, nút Ca tiếp theo bỏ qua ca chờ kế toán
       await go('#/ca/doi-soat?id=172', '#root .card');
       const nk = $('#ds-nextca2');

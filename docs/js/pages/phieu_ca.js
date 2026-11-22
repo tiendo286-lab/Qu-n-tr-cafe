@@ -233,7 +233,7 @@ export async function render({ params }) {
     <span>${KT_GATE ? html`Chưa thể kiểm tra ca này vì còn thiếu: <b>${ktMissing.join(', ') || 'dữ liệu kế toán'}</b>.` : 'Chưa kiểm tra được tình trạng file Fabi và số liệu ngân hàng. Hãy tải lại trang.'}</span>
     <span class="toolbar" style="gap:6px"><a class="btn sm secondary" href="#/ke-toan/fabi">Mở File ca Fabi</a><a class="btn sm secondary" href="#/ke-toan/chuyen-khoan">Mở Chuyển khoản thực nhận</a></span>
   </div>`;
-  // Bước 35: bản đối soát chỉ mở ở trang riêng #/quan-ly/doi-soat/ca (từng bước); #/ca/phieu luôn là phiếu nhân viên (chỉ xem khi đã hoàn thành)
+  // Bước 35: bản đối soát chỉ mở ở trang riêng (nay #/ca/doi-soat?id=, 3 tab — thiết kế 22/11; #/quan-ly/doi-soat/ca vẫn mở được); #/ca/phieu luôn là phiếu nhân viên
   const wantDs = String(params.__ds || '') === '1';
   // Đối soát về Chốt ca (thiết kế 22/11): trạng thái Việc · Tiền của ca + ca chưa xong của cơ sở (tệp 164) → tab mở trước, "Ca tiếp theo chưa xong ›"
   const [DSR, CON] = wantDs && canRc ? await Promise.all([
@@ -841,14 +841,7 @@ export async function render({ params }) {
   void moneyOpen;
   const moneyLock = !isDs || !R.can_recon ? '' : mEdit ? html`<div class="alert warn ds-mlock ds-editing"><span class="grow">✎ <b>Đang sửa</b> · <span id="ds-edit-n">chưa có thay đổi</span> — sửa xong bấm <b>Lưu</b> ở dưới (chưa lưu gì lên máy chủ).</span></div>`
     : html`<div class="alert info ds-mlock"><span class="grow">🔒 <b>Đang xem.</b> Muốn sửa số Fabi, thu chi, khách nợ, ảnh… bấm <b>✎ Mở để sửa</b> ở dưới.</span></div>`;
-  // bước 152: phần tiền bỏ khỏi trang Đối soát ca → thẻ dẫn sang Sổ thu chi › Đối soát Fabi (mở đúng ca). Xác nhận Fabi ghi kết quả tiền nên các mục tiền tự "✓ Xong".
-  const mDone = ['tien_mat', 'chuyen_khoan'].every((it) => (R.results || {})[it]);
-  const stcHref = `#/quan-ly/so-thu-chi?tab=doi-soat&cn=${R.branch_id}&thang=${String(R.work_date || '').slice(0, 7)}&ds=${R.id}`;
-  const stcCard = isDs ? html`<section class="card stack pc-sec ds-stc-card" style="gap:10px"><div class="pc-sec-head"><h2>Phần tiền · làm ở Sổ thu chi</h2><span class="pill ${mDone ? 'ok' : 'warn'}">${mDone ? '✓ Đã xác nhận Fabi' : 'Chưa xác nhận Fabi'}</span></div>
-      <div class="stc-gio" data-gio-ca="${R.id}"></div>
-      <div class="st-meta">Tiền mặt, chuyển khoản, thu chi, khách nợ và chênh lệch của ca làm ở <b>Sổ thu chi</b>. Ở đó đi <b>6 bước</b>: Xác nhận Fabi ở bước 2 thì các mục tiền ở đây tự "✓ Xong"; tích đủ mục kiểm tra rồi bấm <b>🔒 Hoàn thành đối soát ca</b> ở bước 6 (và xong cả phần việc ở đây) thì ca mới thành Đã đối soát.</div>
-      <a class="btn ds-stc" href="${stcHref}">Phần tiền làm ở Sổ thu chi › Đối soát Fabi ›</a>
-      ${iposPhotos.length ? html`<h3 style="margin:4px 0 0;font-size:15px">Ảnh phiếu Fabi chốt ca</h3><div class="photos">${iposPhotos.map((p) => html`<figure class="ph" data-path="${p.path}"><a target="_blank" rel="noopener"><img alt="Ảnh phiếu Fabi" loading="lazy"></a></figure>`)}</div>` : html`<div class="st-meta">Ca này chưa có ảnh phiếu Fabi.</div>`}</section>` : '';
+  // bước 152 → Đối soát về Chốt ca (22/11): thẻ dẫn sang Sổ thu chi đã bỏ — phần tiền nay ở tab ② ③ ngay trong trang (caMoney)
   // Đối soát về Chốt ca: tab ② ③ = khối 6 bước của Sổ thu chi ở chế độ một ca (caMoney); ① = các bước phần việc (form)
   const wLeft = isDs ? (DSR?.viec?.thieu || ['nhan_su', 'ban_giao', 'nhap_hang'].filter((it) => !doneItem(it)).map((it) => CHECK_LABEL[it])) : [];
   const tab0 = ['viec', 'tien', 'xong'].includes(params.tab) ? params.tab : params.buoc ? 'viec'
@@ -1480,7 +1473,7 @@ function mount(R, ed, C0, ctx = {}) {
       ${MONEY_DEFER ? html`<div class="rs-who" ${sug === 'thieu' ? '' : 'hidden'}><div class="pc-line" role="radiogroup" aria-label="Xử lý khoản thiếu">
           <label class="radio-pill"><input type="radio" name="who" value="tab" ${had.length ? '' : 'checked'}> ${item === 'chuyen_khoan' ? 'Chờ tiền về' : 'Để Đối soát Fabi xử lý'}</label>
           <label class="radio-pill"><input type="radio" name="who" value="now" ${had.length ? 'checked' : ''}> Chọn người chịu ngay</label></div>
-        <div class="st-meta">${item === 'chuyen_khoan' ? 'Khách chuyển khoản có thể về hôm sau: ca vẫn hoàn thành đối soát, chưa báo nhân viên. Xử lý (ghép tiền về / trừ lương / quán chịu) ở Sổ thu chi › Đối soát Fabi.' : 'Ca vẫn hoàn thành đối soát, chưa báo nhân viên. Chọn người chịu / quán chịu ở Sổ thu chi › Đối soát Fabi.'}</div></div>` : ''}
+        <div class="st-meta">${item === 'chuyen_khoan' ? 'Khách chuyển khoản có thể về hôm sau: ca vẫn hoàn thành đối soát, chưa báo nhân viên. Xử lý (ghép tiền về / trừ lương / quán chịu) ở tab ② Phần tiền (bước Chênh lệch) của trang này.' : 'Ca vẫn hoàn thành đối soát, chưa báo nhân viên. Chọn người chịu / quán chịu ở Sổ thu chi › Đối soát Fabi.'}</div></div>` : ''}
       <div class="rs-people" ${sug === 'thieu' && (!MONEY_DEFER || had.length) ? '' : 'hidden'}>
         <div class="pc-sub">NHÂN VIÊN CHỊU KHOẢN THIẾU <span class="st-meta">— web chia đều cho người được tích (sửa được số từng người); mặc định ghi <strong>TRỪ LƯƠNG</strong>, mỗi người nhận thông báo</span></div>
         ${staff.length ? staff.map((p) => { const h = had.find((k) => k.employee_id === p.id); return html`<div class="pc-line rs-p" data-emp="${p.id}"><label class="grow" style="display:flex;gap:8px;align-items:center"><input type="checkbox" ${h ? 'checked' : ''}> ${p.name}</label>

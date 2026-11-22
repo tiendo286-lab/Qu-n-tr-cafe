@@ -62,7 +62,7 @@ export async function render({ params }) {
       ${rv ? html`<div class="fb-why"><div class="fb-reason"><b>Lỗi:</b>${rv.lines.map((l) => html`<div>${l}</div>`)}</div>
         ${f.nguoi_chot ? html`<p class="st-meta">Người chốt phiếu: <b>${f.nguoi_chot}</b></p>` : ''}
         ${f.nv ? cmpTable(f) : ''}
-        ${isDS && f.report_id ? html`<a class="btn sm secondary fb-open-ds" href="#/quan-ly/doi-soat/ca?id=${f.report_id}">Mở đối soát ca ›</a>` : ''}</div>` : ''}
+        ${isDS && f.report_id ? html`<a class="btn sm secondary fb-open-ds" href="#/ca/doi-soat?id=${f.report_id}&tab=tien">Mở đối soát ca ›</a>` : ''}</div>` : ''}
       ${!rv && confirmedNote(f) ? html`<p class="st-meta fb-xn">✓ ${confirmedNote(f)}</p>` : ''}
       <div class="fb-money">${money('Doanh thu NET', f.net)}${money('Chuyển khoản', f.ck)}${money('Tiền mặt', f.tm)}${money('Nợ trên Fabi', f.no)}</div>
       <details><summary>Xem số tiền và thông tin file</summary><div class="fb-extra">

@@ -1,5 +1,5 @@
 // Đối soát (bước 35): Bảng ca theo ngày + VIỆC CHỜ ĐỐI SOÁT gom 1 chỗ (phiếu ca, dòng thu chi, hàng nhận, giải trình khoản âm)
-// + đối soát tiền mặt cuối ngày theo cơ sở. Đối soát từng phiếu ca làm ở trang riêng #/quan-ly/doi-soat/ca.
+// + đối soát tiền mặt cuối ngày theo cơ sở. Đối soát từng phiếu ca làm ở trang đối soát của ca trong Chốt ca (#/ca/doi-soat?id=, thiết kế 22/11).
 import { render as rerender } from '../app.js';
 import { addDays, vnToday } from '../data.js';   // bước 77: Đối soát theo tuần, 1 cơ sở
 import { DOW, WEEK_CSS, mondayOf } from './ke_toan_ck.js';
@@ -71,7 +71,7 @@ function weekTables(WD, cn, DEBT = new Map()) {
       <div class="dw-wrap"><table class="dw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}<th class="dw-end">Kiểm đếm</th></tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th>${dname(d, i)}</th>${shifts.map((sh) => stCell(get(i, sh), d))}
           <td>${endCell((cds[i] || []).find((c) => c.branch_id === cn), d)}</td></tr>`)}</tbody></table></div>
-      <div class="dw-lg">${['xong', 'mot', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở <a href="#/quan-ly/so-thu-chi?tab=doi-soat">Sổ thu chi › Đối soát Fabi</a>). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
+      <div class="dw-lg">${['xong', 'mot', 'cho', 'kt', 'dang', 'tre', 'am', 'chua'].map((k) => html`<span class="dw-c ${WST[k][1]}">${WST[k][0]}</span>`)}<span class="st-meta">TM / CK: lệch (âm = thiếu, dương = dư; ≤ 5.000 coi như khớp — xử lý ở trang đối soát của ca — <a href="#/ca">Chốt ca</a> › bấm ô ca › ② Phần tiền). Đỏ: khách nợ chưa trả · xanh: đã trả · xanh dương: ca thu nợ. Bấm ô mở Đối soát ca; cột Kiểm đếm mở kiểm đếm cuối ngày.</span></div></section>
     ${debtSection(DEBT, reps)}`;
 }
 
@@ -158,7 +158,7 @@ export async function render({ params }) {
         return html`${Number(dm.open_amt) > 0 ? html`<div class="bc-m">Có công nợ ${fmt(dm.open_amt)}đ</div>` : ''}${Number(dm.paid_amt) > 0 ? html`<div class="bc-m bc-paid">Thu nợ ${fmt(dm.paid_amt)}đ</div>` : ''}`;
       })()}
       ${s.st === 'kt' ? html`<div class="bc-m">Thiếu: ${(ktById.get(s.report_id).missing || []).map((m) => (m.startsWith('file') ? 'file Fabi' : m.startsWith('chuyển') ? 'CK ngân hàng' : m)).join(', ')}</div>` : ''}`;
-    const href = s.status === 'hoan_thanh' ? `#/quan-ly/doi-soat/ca?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
+    const href = s.status === 'hoan_thanh' ? `#/ca/doi-soat?id=${s.report_id}` : `#/ca/phieu?id=${s.report_id}`;
     return s.report_id ? html`<a class="bc ${cls}" href="${href}">${inner}</a>` : html`<div class="bc ${cls}">${inner}</div>`;
   };
   const shifts = [...new Set(rows.map((r) => r.shift))];
@@ -198,11 +198,11 @@ export async function render({ params }) {
   const repRow = (r) => html`<div class="td-r" data-br="${r.branch_id}">
       <div class="td-m"><strong>${dmy(r.date)} · ${bcode(r.branch_id)} · Ca ${r.shift}</strong>
         <div class="st-meta">${r.recon_status === 'mo_lai' ? 'Đang đối soát lại · ' : ''}${r.checks}/9 hạng mục · TM ${result(r.cash_left)} · CK ${result(r.transfer_left)}${r.ck_basis === 'nhan_vien' ? ' (tạm)' : ''}${r.completed_by ? ` · ${r.completed_by}` : ''}</div></div>
-      <a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${r.id}">Đối soát ›</a></div>`;
+      <a class="btn sm" href="#/ca/doi-soat?id=${r.id}">Đối soát ›</a></div>`;
   const goodRow = (g) => html`<div class="td-r" data-br="${g.branch_id}">
       <div class="td-m"><strong>${g.kind === 'khong_hd' ? 'Nhận không hóa đơn' : `Hóa đơn ${g.doc_no || ''}`} · ${bcode(g.branch_id)}</strong>
         <div class="st-meta">Ca ${g.shift} ${dmy(g.date)} · ${g.received_by || ''} · còn ${g.n_unchecked}/${g.n_lines} món chưa đối soát</div></div>
-      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/quan-ly/doi-soat/ca?id=${g.report_id}&buoc=3">Đối soát hàng ›</a>`
+      ${g.report_status === 'hoan_thanh' ? html`<a class="btn sm" href="#/ca/doi-soat?id=${g.report_id}&buoc=3">Đối soát hàng ›</a>`
         : html`<a class="btn sm secondary" href="#/ca/phieu?id=${g.report_id}">Phiếu ca chưa hoàn thành</a>`}</div>`;
   const kaRow = (k, i) => html`<div class="td-r" data-br="${k.branch_id}" data-i="${i}">
       <div class="td-m"><strong>${k.employee} · −${fmt(k.amount)}đ</strong> <span class="pill ${KA_STATUS[k.status][1]}">${KA_STATUS[k.status][0]}${k.auto_tru ? ' (mặc định)' : ''}</span>
@@ -225,7 +225,7 @@ export async function render({ params }) {
         ${repWait.length ? html`<h3 style="margin-top:10px">Chờ kế toán — phần tiền chưa đối soát được <span class="st-meta">(Nhân sự, Bàn giao, Nhập hàng vẫn làm được)</span></h3>
           ${repWait.map((r) => html`<div class="td-r" data-br="${r.branch_id}"><div class="td-m"><strong>${dmy(r.date)} · ${bcode(r.branch_id)} · Ca ${r.shift}</strong>
             <div class="st-meta">Thiếu: ${(ktById.get(r.id).missing || []).join(', ')}</div></div>
-            <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${r.id}">Đối soát nhân sự / hàng ›</a></div>`)}` : ''}</div>
+            <a class="btn sm secondary" href="#/ca/doi-soat?id=${r.id}">Đối soát nhân sự / hàng ›</a></div>`)}` : ''}</div>
       <div class="td-sec" id="td-mv"><h3>2. Dòng thu chi ở phiếu ca chờ đối soát <span class="st-meta">(từ ${dmy(T.from)})</span></h3><div id="td-moves"></div></div>
       <div class="td-sec" id="td-hang"><h3>3. Hàng nhận chưa đối soát</h3>${T.goods.length ? T.goods.map(goodRow) : html`<div class="st-meta">Không có.</div>`}</div>
       <div class="td-sec" id="td-ka"><h3>4. Nhân viên giải trình khoản âm</h3>${T.ka.length ? T.ka.map(kaRow) : html`<div class="st-meta">Không có giải trình mới.</div>`}</div>
@@ -234,7 +234,7 @@ export async function render({ params }) {
           <div class="st-meta" style="font-weight:700;margin-top:4px">${lbl} (${list.length})</div>
           ${list.length ? list.map((c) => html`<div class="td-r" data-br="${c.branch_id}"><div class="td-m"><strong>${dmy(c.date)} · ${c.branch} · Ca ${c.shift}</strong>${c.state === 'lech' ? html` <span class="pill off">nhân sự đã đổi — phân loại lại</span>` : ''}
               <div class="st-meta">${c.absent ? `Nghỉ: ${c.absent}` : ''}${c.absent && c.helper ? ' · ' : ''}${c.helper ? `Hỗ trợ: ${c.helper}` : ''}${c.x2 ? ` · x2: ${c.x2}` : ''}${c.set_by ? ` · phân loại: ${c.set_by}` : ''}</div></div>
-            <a class="btn sm secondary" href="#/quan-ly/doi-soat/ca?id=${c.id}&buoc=2">Mở bước Nghỉ & làm thay ›</a></div>`) : html`<div class="st-meta">Không có.</div>`}`)}</div>
+            <a class="btn sm secondary" href="#/ca/doi-soat?id=${c.id}&buoc=2">Mở bước Nghỉ & làm thay ›</a></div>`) : html`<div class="st-meta">Không có.</div>`}`)}</div>
       <div class="td-sec" id="td-muon"><h3>5. Nợ TM chưa trả</h3>${(LO || []).length ? LO.map(loanRow) : html`<div class="st-meta">Không có.</div>`}</div>
     </section>`;
 
