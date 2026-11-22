@@ -105,7 +105,13 @@ export async function render({ params }) {
   if (cn) lsSet(cn);
   const BR = branches.find((b) => b.id === cn) || { code: '', name: '' };
   const mine = all.map((rows) => rows.filter((r) => r.branch_id === cn));
-  const DEBT = new Map(((cn ? await rpc('app_ca_debt_week', { p_branch: cn, p_from: days[0], p_to: days[6] }).catch(() => []) : []) || []).map((x) => [x.report_id, x]));   // bước 79
+  // Đối soát về Chốt ca (thiết kế 22/11, tệp 164): trạng thái Việc · Tiền từng ca + ca chưa xong — chỉ người đối soát được cơ sở này (không quyền → [])
+  const [DW, DSL, CON] = cn ? await Promise.all([rpc('app_ca_debt_week', { p_branch: cn, p_from: days[0], p_to: days[6] }).catch(() => []),
+    rpc('app_ca_ds_tuan', { p_branch: cn, p_from: days[0], p_to: days[6] }).catch(() => []), rpc('app_ca_ds_con', { p_branch: cn }).catch(() => [])]) : [[], [], []];
+  const DEBT = new Map((DW || []).map((x) => [x.report_id, x]));   // bước 79
+  const DSW = new Map((DSL || []).map((x) => [Number(x.id), x]));
+  const conOk = (CON || []).filter((x) => x.st !== 'kt');
+  const nKt = (CON || []).length - conOk.length;
   const shifts = []; mine.flat().forEach((r) => { if (!shifts.includes(r.shift)) shifts.push(r.shift); });
   const q = (o) => '#/ca?' + Object.entries({ tuan: wk, cn, ...o }).map(([k, v]) => `${k}=${v}`).join('&');
   const nDone = mine.flat().filter((s) => s.status === 'hoan_thanh').length;
@@ -116,8 +122,12 @@ export async function render({ params }) {
     const [cls, lb] = s.status === 'hoan_thanh' ? ['ok', 'Xong'] : s.report_id ? ['warn', 'Đang chốt'] : miss ? ['miss', 'Thiếu phiếu'] : ['none', 'Chưa mở'];
     // bước 80: hiện lại tiền mặt / chuyển khoản âm dương dưới trạng thái
     const money = s.status === 'hoan_thanh' && s.cash_left != null ? html`<span class="cw-m"><span class="${Number(s.cash_left) < 0 ? 'neg' : Number(s.cash_left) > 0 ? 'pos' : ''}">TM ${kfmt(s.cash_left)}</span><span class="${Number(s.transfer_left) < 0 ? 'neg' : Number(s.transfer_left) > 0 ? 'pos' : ''}">CK ${kfmt(s.transfer_left)}</span></span>` : '';
-    return html`<td><button type="button" class="ca-shift cw-c ${cls}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}">
-      <span class="cw-st">${lb}</span>${money}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}</button></td>`;
+    const x = s.report_id ? DSW.get(Number(s.report_id)) : null;   // người đối soát: thay "Xong" bằng Việc · Tiền
+    const st = x ? (x.recon === 'hoan_thanh' ? html`<span class="cw-st">✓ Đã đối soát</span>`
+      : html`<span class="cw-dv">Việc ${x.viec?.xong ? '✓' : '–'}</span><span class="cw-dt">Tiền ${TSYM[x.tien?.st] || '…'}</span>`) : html`<span class="cw-st">${lb}</span>`;
+    const tip = x && x.recon !== 'hoan_thanh' ? ` · Việc: ${x.viec?.xong ? 'xong' : 'còn ' + (x.viec?.thieu || []).join(', ')} · Tiền: ${TTXT[x.tien?.st] || ''}${(x.tien?.thieu || []).length ? ' (thiếu ' + x.tien.thieu.join(', ') + ')' : ''}` : '';
+    return html`<td><button type="button" class="ca-shift cw-c ${cls} ${x && x.recon === 'hoan_thanh' ? 'dsok' : ''}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" ${x ? html`data-ds="1" data-tab="${x.tab || 'viec'}"` : ''} title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}${tip}">
+      ${st}${money}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}</button></td>`;
   };
   const body = html`${STYLE}${WSTYLE}${NB_CSS}${ND_CSS}
     <section class="card cw-bar">
@@ -127,10 +137,13 @@ export async function render({ params }) {
         <a class="btn sm secondary" href="${q({ tuan: addDays(wk, 7) })}" aria-label="Tuần sau">›</a></div></section>
     ${!branches.length ? html`<div class="card">Chưa có cơ sở nào bật ca làm việc.</div>` : html`
     <section class="card cw-card"><div class="cw-h"><h2>${BR.code} – ${BR.name}</h2><span class="st-meta">${nDone} phiếu xong${nMiss ? html` · <b class="neg">${nMiss} thiếu phiếu</b>` : ''}</span></div>
+      ${(CON || []).length ? html`<div class="cw-con">Còn <b>${CON.length} ca chưa đối soát xong</b>${nKt ? ` (${nKt} ca chờ kế toán)` : ''}${conOk.length
+        ? html` · <a href="#/ca/doi-soat?id=${conOk[0].id}&tab=${conOk[0].tab || 'viec'}">Làm ca cũ nhất ›</a>` : ' · các ca còn lại đều chờ kế toán'}</div>` : ''}
       <div class="cw-wrap"><table class="cw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}</tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
-      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div></section>
+      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div>
+      ${DSW.size ? html`<div class="cw-lg cw-lgds st-meta"><b>Đối soát:</b> Việc ✓ xong · – còn việc &nbsp;|&nbsp; Tiền ⏳ chờ kế toán · 🔴 ô đỏ (mở ca / doanh thu / nợ) · 🔵 chờ xác nhận Fabi · 🟡 chưa bấm Hoàn thành · ✓ xong. Bấm ô để đối soát ca đó.</div>` : ''}</section>
     ${debtSection(DEBT, days.flatMap((d, i) => shifts.map((sh) => mine[i].find((r) => r.shift === sh)).filter((s) => s && s.report_id).map((s) => ({ report_id: s.report_id, day: d, shift: s.shift }))))}`}`;
   return {
     title: 'Chốt ca',
@@ -138,7 +151,7 @@ export async function render({ params }) {
       : html`<div class="stack" style="gap:12px">${body}</div>`,
     mount() {
       $$('.cw-c[data-b]').forEach((b) => b.addEventListener('click', async () => {
-        if (b.dataset.id) return go(`/ca/phieu?id=${b.dataset.id}`);
+        if (b.dataset.id) return go(b.dataset.ds ? `/ca/doi-soat?id=${b.dataset.id}&tab=${b.dataset.tab || 'viec'}` : `/ca/phieu?id=${b.dataset.id}`);   // người đối soát → trang đối soát của ca
         const d = b.dataset.d;
         if (!confirm(`Mở phiếu chốt ca ${b.dataset.s} ngày ${dmy(d)}${d < vnToday() ? ' (phiếu bổ sung)' : ''}?`)) return;
         b.disabled = true;
@@ -149,7 +162,14 @@ export async function render({ params }) {
   };
 }
 
+// Đối soát về Chốt ca: ký hiệu dòng Tiền (giống Đối soát Fabi)
+const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', ok: '✓' };
+const TTXT = { kt: 'chờ kế toán', red: 'còn ô đỏ (mở ca / doanh thu / nợ)', xn: 'chờ xác nhận Fabi', ht: 'chưa bấm Hoàn thành', ok: 'xong' };
 const WSTYLE = html`<style>
+  .cw-dv, .cw-dt { display: block; font-size: 12px; font-weight: 600; line-height: 1.35; }
+  .cw-c.dsok .cw-st { color: var(--ok-ink, #166534); }
+  .cw-con { font-size: 14px; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg, #fff7e6); border: 1px solid var(--warn-line, #f3d19c); overflow-wrap: anywhere; }
+  .cw-lgds { font-size: 12px; }
   .cw-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; }
   .cw-wk { display: flex; align-items: center; gap: 8px; } .cw-wt { display: flex; flex-direction: column; align-items: center; min-width: 130px; font-size: 13px; }
   .cw-card { padding: 14px; display: flex; flex-direction: column; gap: 10px; }

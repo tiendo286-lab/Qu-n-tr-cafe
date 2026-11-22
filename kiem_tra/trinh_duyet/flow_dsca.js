@@ -13,8 +13,23 @@ export default async ({ sleep, out }) => {
   // Sổ thu chi giữ dữ liệu tháng 60 giây (CACHE) → sau khi bài thử đổi dữ liệu giả, mở tháng khác một lần để trang tải lại (như flow_stc18)
   const fresh = async () => { await go('#/quan-ly/so-thu-chi?cn=1&thang=2026-10', '.stc-tabs'); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
+  const cell = (id) => $(`.cw-c[data-id="${id}"]`);
   try {
     if (['chu', 'qlt', 'ql'].includes(role)) {
+      // (a) bảng tuần Chốt ca 16/11–22/11, cơ sở 1: ô ca đã gửi phiếu có hai dòng Việc · Tiền (hoặc ✓ Đã đối soát)
+      await go('#/ca?cn=1&tuan=2026-11-16', '.cw-c[data-id="182"]');
+      const sent = [161, 162, 163, 171, 172, 173, 181, 182, 183].map(cell).filter(Boolean);
+      ok(sent.length === 9 && sent.every((c) => (c.querySelector('.cw-dv') && c.querySelector('.cw-dt')) || /đã đối soát/.test(txt(c))), `(a) 9 ô ca đã gửi phiếu đều có Việc · Tiền (${sent.length} ô)`);
+      ok(/⏳/.test(txt(cell(172)?.querySelector('.cw-dt'))) && /🔴/.test(txt(cell(182)?.querySelector('.cw-dt'))) && /–/.test(txt(cell(182)?.querySelector('.cw-dv'))),
+        `(a) ca 172 chờ kế toán ⏳ · ca 182 ô đỏ 🔴, chưa làm phần việc – (172: ${txt(cell(172)?.querySelector('.cw-dt'))} · 182: ${txt(cell(182)?.querySelector('.cw-dv'))} ${txt(cell(182)?.querySelector('.cw-dt'))})`);
+      ok(!!$('.cw-lgds'), '(a) có chú thích ký hiệu Việc · Tiền');
+      // (b) đầu bảng: Còn N ca chưa đối soát xong · Làm ca cũ nhất ›
+      const con = $('.cw-con'); const lk = con?.querySelector('a');
+      ok(!!con && /còn \d+ ca chưa đối soát xong/.test(txt(con)) && /#\/ca\/doi-soat\?id=141(&|$)/.test(lk?.getAttribute('href') || ''), '(b) dòng "Còn N ca chưa đối soát xong" → ca cũ nhất 141: ' + txt(con).slice(0, 80) + ' ' + (lk?.getAttribute('href') || ''));
+      // bấm ô ca → thẳng trang đối soát của ca, đúng tab
+      cell(182)?.click(); await until(() => location.hash.startsWith('#/ca/doi-soat'));
+      ok(/^#\/ca\/doi-soat\?id=182&tab=viec/.test(location.hash), '(a2) bấm ô 182 → trang đối soát của ca, tab ①: ' + location.hash.slice(0, 50));
+      if (window.innerWidth <= 430) ok(fits(), '(l) bảng tuần không tràn ngang 390px');
       // (e) đường cũ Sổ thu chi › Đối soát Fabi → trang đối soát của ca (tab ②, giữ bước)
       await go('#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11&ds=182&b=2');
       await until(() => location.hash.startsWith('#/ca/doi-soat'));
@@ -53,6 +68,12 @@ export default async ({ sleep, out }) => {
       await go('#/ca/doi-soat?id=172', '#root .card');
       const nk = $('#ds-nextca2');
       ok(/chờ kế toán/.test(txt($('#root'))) && !!nk && !/id=172(&|$)/.test(nk.getAttribute('href') || '') && /id=173(&|$)/.test(nk.getAttribute('href') || ''), '(k) ca chờ kế toán: báo Chờ kế toán, Ca tiếp theo → 173: ' + (nk?.getAttribute('href') || 'không thấy'));
+    }
+    if (role === 'kt' || role === 'nv') {   // (h) không đối soát được (Kế toán) · (j) nhân viên: ô như cũ, bấm ô mở phiếu chốt ca
+      await go('#/ca?cn=1&tuan=2026-11-16', '.cw-c');
+      ok(!$('.cw-dv') && !$('.cw-dt') && !$('.cw-con'), `(${role === 'kt' ? 'h' : 'j'}) không có dòng Việc · Tiền / Còn N ca`);
+      const c = cell(182);
+      if (c) { c.click(); await until(() => location.hash.startsWith('#/ca/phieu')); ok(/^#\/ca\/phieu\?id=182/.test(location.hash), `(${role === 'kt' ? 'h' : 'j'}) bấm ô → phiếu chốt ca: ` + location.hash.slice(0, 40)); }
     }
     ok(fits(), '(l) không tràn ngang');
   } catch (e) { bad.push('LỖI CHẠY: ' + (e?.stack || e?.message || e)); }
