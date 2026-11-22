@@ -23,4 +23,5 @@ cp "$D/flow_dt169.js" "$D/flow_dt170.js" "$W/test/"
 cp "$D/flow_ln174.js" "$W/test/"
 cp "$D/flow_hh_c4.js" "$W/test/"   # chặng 4
 cp "$D/flow_dt_c4.js" "$W/test/"   # chặng 4: phiếu đào tạo theo tab ngày thật
+cp "$D/flow_dsca.js" "$W/test/"   # đưa Đối soát Fabi về lại Chốt ca
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"

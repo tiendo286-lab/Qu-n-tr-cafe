@@ -44,6 +44,7 @@ const PAGES = {
   '/ca/phieu': 'phieu_ca',
   '/quan-ly/doi-soat': 'doi_soat',
   '/quan-ly/doi-soat/ca': 'doi_soat_ca',
+  '/ca/doi-soat': 'doi_soat_ca',   // Đối soát về Chốt ca (thiết kế 22/11): trang đối soát của ca 3 tab, thuộc Chốt ca
   '/quan-ly/hop': 'cv_tat_ca', // đường dẫn cũ (thông báo cũ) → Công việc
   '/viec': 'cv_toi',
   '/cong-viec/phan-cong': 'cv_phan_cong',

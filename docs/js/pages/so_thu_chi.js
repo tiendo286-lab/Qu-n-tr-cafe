@@ -2,10 +2,10 @@
 // 4 tab: Tổng · Đối soát Fabi · Sổ thu · Sổ chi + Quỹ ngoài (chỉ Chủ). Bước 151: tab Đối soát Fabi = A · Fabi → B · Thu chi của ca → 🔒 Chốt ca (khoá vĩnh viễn) + Khoản treo ở tab Tổng.
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi-design.md · Hàm tính: ../so_thu_chi_tinh.js · Máy chủ: app_stc_month, app_stc_ext
 import { render as rerender } from '../app.js';
-import { catalog, vnToday } from '../data.js';
+import { catalog, vnToday, weekStart } from '../data.js';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
-import { $, dialog, html, showSaved, str } from '../ui.js';
+import { $, dialog, go, html, raw, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
 import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, todoItems, debtGroups, blameShare, billListOf, caChecks, caChoices, debtBefore, dsTodo, fabiNeeds, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView, dsChecks, dsCtx, dsLeft, DS_STEPS, BIG } from '../so_thu_chi_tinh.js';
@@ -13,7 +13,9 @@ import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, todoItems, debtGroups, blameShare,
 export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
 const PM = { tm: 'Tiền mặt', ck: 'Chuyển khoản' };
-const TABS = [['tong', 'Tổng'], ['doi-soat', 'Đối soát Fabi'], ['thu', 'Sổ thu'], ['chi', 'Sổ chi']];
+// Đưa Đối soát Fabi về lại Chốt ca (anh Tiến duyệt 22/11): bỏ tab Đối soát Fabi — đối soát từng ca ở trang #/ca/doi-soat?id= (khối tiền: caMoney)
+const TABS = [['tong', 'Tổng'], ['thu', 'Sổ thu'], ['chi', 'Sổ chi']];
+const caHref = (id, tab = 'tien', b = '') => `#/ca/doi-soat?id=${id}&tab=${tab}${b ? '&b=' + b : ''}`;
 const LS_BR = 'tcBranch';
 const lsGet = () => { try { return localStorage.getItem(LS_BR); } catch (_) { return null; } };
 const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
@@ -57,11 +59,17 @@ async function load(cn, month) {
 const q = (over = {}) => '#/quan-ly/so-thu-chi?' + new URLSearchParams(Object.entries({ ...P, ...over }).filter(([, v]) => v != null && v !== '')).toString();
 
 export async function render({ params }) {
+  ONE = null;
+  if (params.tab === 'doi-soat') {   // Đối soát về Chốt ca: tab cũ (thông báo, dấu trang, nút cũ) → trang đối soát của ca / bảng tuần Chốt ca
+    const b = /^[1-6]$/.test(params.b || '') ? params.b : '';
+    if (params.ds) go(`/ca/doi-soat?id=${params.ds}&tab=${b === '6' ? 'xong' : 'tien'}${b && b !== '6' ? '&b=' + b : ''}`);
+    else go(`/ca?${params.cn && params.cn !== 'ngoai' ? 'cn=' + params.cn + '&' : ''}tuan=${weekStart((/^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7)) + '-01')}`);
+    return { title: 'Đang chuyển', html: html`<div class="card">Đối soát từng ca nay làm ở Chốt ca — đang chuyển…</div>` };
+  }
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7);
   let cn = params.cn === 'ngoai' ? 'ngoai' : (params.cn || lsGet() || '1');
   const isExt = cn === 'ngoai';
   let tab = TABS.some((t) => t[0] === params.tab) ? params.tab : 'tong';
-  if (isExt && tab === 'doi-soat') tab = 'tong';
   P = { tab, cn, thang: month, pm: params.pm === 'ck' ? 'ck' : 'tm', cot: params.cot || '', loc: params.loc || '' };
   if (params.ds && params.ds + '|' + (params.t || '') !== DS_PARAM) { DS_SEL = params.ds; DS_PARAM = params.ds + '|' + (params.t || ''); DS_B = /^[1-6]$/.test(params.b || '') ? Number(params.b) - 1 : null; DSB.stepFor = null; }   // đường dẫn chọn ca 1 lần
   let D;
@@ -80,151 +88,157 @@ export async function render({ params }) {
   const head = html`<header class="stc-top stc-head">
       <div class="stc-toprow"><div class="stc-month"><a class="stc-mb" href="${q({ thang: shiftMonth(month, -1) })}" aria-label="Tháng trước">‹</a><strong>${monthLabel(month)}</strong><a class="stc-mb" href="${q({ thang: shiftMonth(month, 1) })}" aria-label="Tháng sau">›</a></div>
         <nav class="branch-tabs" aria-label="Cơ sở">${(D.branches || []).map((b) => html`<a class="${String(cn) === String(b.id) ? 'on' : ''}" href="${q({ cn: b.id })}">${b.code}</a>`)}
-          ${D.owner ? html`<a class="stc-qn ${isExt ? 'on' : ''}" href="${q({ cn: 'ngoai', tab: tab === 'doi-soat' ? 'tong' : tab })}">Quỹ ngoài</a>` : ''}</nav></div>
+          ${D.owner ? html`<a class="stc-qn ${isExt ? 'on' : ''}" href="${q({ cn: 'ngoai', tab })}">Quỹ ngoài</a>` : ''}</nav></div>
       <div class="stc-sub"><b>Sổ thu chi · ${D.branch.code}</b> · số liệu từ ${dmy(D.from)} · thu chi, đối soát Fabi và quỹ ở một chỗ</div>
-      <nav class="stc-tabs" aria-label="Chọn sổ">${TABS.filter((t) => !(isExt && t[0] === 'doi-soat')).map(([k, l]) => html`<a class="${tab === k ? 'on' : ''}" href="${q({ tab: k, cot: '' })}">${l}</a>`)}</nav>
+      <nav class="stc-tabs" aria-label="Chọn sổ">${TABS.map(([k, l]) => html`<a class="${tab === k ? 'on' : ''}" href="${q({ tab: k, cot: '' })}">${l}</a>`)}</nav>
     </header>`;
-  const body = tab === 'thu' || tab === 'chi' ? bookPage(D, tab) : tab === 'tong' ? tongPage(D) : dsPage(D);
+  const body = tab === 'thu' || tab === 'chi' ? bookPage(D, tab) : tongPage(D);
   return {
     title: `Sổ thu chi ${D.branch.code}`,
     html: html`${STYLE}<div id="stc-page">${head}${body}</div>`,
-    mount() {
-      const root = $('#stc-page'); if (!root) return;
-      watchGio(root, () => after('Đã sửa giờ chốt'));   // bước 162: dòng giờ chốt ở Đối soát Fabi phần A
-      if (P.tab === 'tong' && !D.ext) fillCounts(D);
-      if (P.tab === 'thu' || P.tab === 'chi') fillFilter(D, P.tab);
-      // bước 172: xếp người + nhóm công nợ cho nợ mới của ca (bước 1 của Đối soát Fabi)
-      root.addEventListener('change', (ev) => {   // chọn người → nhóm nhảy theo nhóm của người đó (quản lý vẫn đổi được)
-        const ps = ev.target.closest('[data-dperson]'); const g = ps?.selectedOptions?.[0]?.dataset?.grp;
-        if (ps && g) ps.closest('[data-dsort]').querySelector('[data-dgrp]').value = g;
-      });
-      root.addEventListener('click', async (ev) => {   // bước 173: máy Fabi ghi sai — sửa số / bỏ / duyệt / từ chối
-        const b = ev.target.closest('[data-dsfix],[data-dsfixcancel],[data-dsfixok],[data-dsfixno],[data-dsfixfabi]');
-        if (!b || !root.contains(b)) return;
-        const run = async (p, msg) => { b.disabled = true; try { await p; after(msg); } catch (e) { b.disabled = false; showSaved(e.message || e, true); } };
-        if (b.dataset.dsfix) { const c = (D.cas || []).find((x) => String(x.id) === b.dataset.ca); if (c) fixDialog(D, c, b.dataset.dsfix); }
-        else if (b.dataset.dsfixcancel) run(rpc('app_stc_fix_cancel', { p_req: Number(b.dataset.dsfixcancel) }), 'Đã bỏ số sửa');
-        else if (b.dataset.dsfixok) run(rpc('app_stc_fix_decide', { p_req: Number(b.dataset.dsfixok), p_ok: true, p_note: null }), 'Đã duyệt số sửa');
-        else if (b.dataset.dsfixno) {
-          const d = dialog(form('Từ chối số sửa', html`<label class="field"><span>Lý do từ chối (quản lý sẽ thấy)</span><input class="input" name="fnote" placeholder="vd: xem lại camera"></label>`, ' '));
-          d.querySelector('[name=reason]')?.closest('.field')?.remove();
-          open(d, async () => { await rpc('app_stc_fix_decide', { p_req: Number(b.dataset.dsfixno), p_ok: false, p_note: val(d, 'fnote') }); after('Đã từ chối số sửa'); });
-        } else if (b.dataset.dsfixfabi) run((async () => { await rpc('app_stc_fix_cancel', { p_req: Number(b.dataset.dsfixfabi) });
-          await rpc('app_stc_ds_fabi', { p_report: Number(b.dataset.ca), p_field: b.dataset.k, p_name: null, p_reason: 'Bỏ sửa, lấy số máy Fabi' }); })(), 'Đã lấy số máy Fabi');
-      });
-      root.addEventListener('click', (ev) => {   // thiết kế sua-no-cua-ca: Sửa / Xoá một khoản nợ của ca · + Thêm khoản nợ quên ghi
-        const de = ev.target.closest('[data-dedit],[data-dadd]');
-        if (!de || !root.contains(de)) return;
-        if (de.dataset.dadd) { const c = (D.cas || []).find((x) => String(x.id) === de.dataset.dadd); if (c) caDebtAddDialog(D, c); return; }
-        const x = (D.ca_debts || []).find((q) => q.t === 'moi' && String(q.id) === de.dataset.dedit);
-        const c = x && (D.cas || []).find((q) => Number(q.id) === Number(x.report_id));
-        if (x && c) caDebtDialog(D, c, x);
-      });
-      root.addEventListener('click', async (ev) => {
-        const se = ev.target.closest('[data-dsortedit]');
-        if (se && root.contains(se)) { SORT_EDIT.add(se.dataset.dsortedit); rerender(); return; }
-        const so = ev.target.closest('[data-dsortok]');
-        if (!so || !root.contains(so)) return;
-        const wrap = so.closest('[data-dsort]'); const pid = wrap.querySelector('[data-dperson]').selectedOptions[0]?.dataset?.pid;
-        if (!pid) { showSaved('Chọn người nợ trong danh sách rồi mới bấm Xếp. Chưa có tên thì thêm ở Sổ chi › 👥 Người nợ.', true); return; }
-        so.disabled = true;
-        try { await rpc('app_stc_debt_sort', { p_debt: Number(so.dataset.dsortok), p_person: Number(pid), p_grp: wrap.querySelector('[data-dgrp]').value });
-          SORT_EDIT.delete(so.dataset.dsortok); after('Đã xếp người + nhóm công nợ'); }
-        catch (e) { so.disabled = false; showSaved(e.message || e, true); }
-      });
-      root.addEventListener('click', (ev) => {
-        const f5 = ev.target.closest('.stc-qnadd,[data-qned],[data-qnok],.stc-lcadd,.stc-kq,[data-adj],.stc-xadd');
-        if (f5 && root.contains(f5)) {
-          if (f5.classList.contains('stc-qnadd')) qnDialog(D, null);
-          else if (f5.dataset.qned) qnDialog(D, D.items.find((x) => x.id === 'w:' + f5.dataset.qned));
-          else if (f5.dataset.qnok) qnConfirm(D, Number(f5.dataset.qnok));
-          else if (f5.classList.contains('stc-lcadd')) addPanel(D, f5, 'chi', { preset: 'lc' });
-          else if (f5.classList.contains('stc-kq')) countDialog(D);
-          else if (f5.dataset.adj) adjDialog(D, Number(f5.dataset.adj));
-          else extDialog(D, null);
-          return;
-        }
-        const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt],[data-addca],[data-gap]');
-        if (w && root.contains(w)) {
-          if (w.dataset.gap) { const it = D.items.find((x) => x.id === w.dataset.gap); if (it?.gap) gapDialog(D, it); }
-          else if (w.dataset.addca) addPanel(D, w, w.dataset.book || (P.tab === 'thu' ? 'thu' : 'chi'), { caId: w.dataset.addca });
-          else if (w.dataset.ed) editDialog(D, D.items.find((x) => x.id === w.dataset.ed));
-          else if (w.dataset.unc) uncollectDialog(D, D.items.find((x) => x.id === w.dataset.unc));
-          else if (w.dataset.colDebt) collectDialog(D, w.dataset.colDebt);
-          else addPanel(D, w, P.tab === 'thu' ? 'thu' : 'chi');
-          return;
-        }
-        // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
-        const pp = ev.target.closest('[data-people]');
-        if (pp && root.contains(pp)) { peopleDialog(D); return; }
-        const pe = ev.target.closest('[data-pedit]');   // bước 172: sửa một người nợ ngay ở khung Người nợ của ô Cho nợ
-        if (pe && root.contains(pe)) { const p = (D.people || []).find((q) => String(q.id) === pe.dataset.pedit); if (p) personDialog(D, p); return; }
-        const pw = ev.target.closest('[data-dsphoto]');
-        if (pw && root.contains(pw)) { photoDialog(D, Number(pw.dataset.dsphoto)); return; }
-        const kw = ev.target.closest('[data-kaed],[data-kadel],[data-toka],[data-kaundo],[data-bankout]');
-        if (kw && root.contains(kw)) {
-          if (kw.dataset.kaed) kaEditDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kaed));
-          else if (kw.dataset.kadel) kaDelDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kadel));
-          else if (kw.dataset.toka) toKaDialog(D, D.items.find((x) => x.id === kw.dataset.toka));
-          else if (kw.dataset.kaundo) kaUndoDialog(D, D.items.find((x) => x.id === kw.dataset.kaundo));
-          else bankOutDialog(D, Number(kw.dataset.bankout));
-          return;
-        }
-        const rw = ev.target.closest('[data-restore]');
-        if (rw && root.contains(rw)) { const it = D.items.find((x) => x.id === rw.dataset.restore); if (it) restoreDialog(D, it); return; }
-        const tw = ev.target.closest('[data-treodo]');
-        if (tw && root.contains(tw)) { treoAct(D, tw); return; }
-        const bw = ev.target.closest('[data-dsbook],[data-dspm]');
-        if (bw && root.contains(bw)) { if (bw.dataset.dsbook) DSB.book = bw.dataset.dsbook; if (bw.dataset.dspm) DSB.pm = bw.dataset.dspm; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); return; }
-        const sw = ev.target.closest('[data-dsstep],[data-dsprev],[data-dsnext]');   // bước 171: đổi bước trong 6 bước đối soát
-        if (sw && root.contains(sw) && !sw.disabled) { DSB.step = sw.dataset.dsstep != null ? Number(sw.dataset.dsstep) : Math.max(0, Math.min(5, DSB.step + (sw.dataset.dsnext ? 1 : -1)));
-          if (DSB.step === 2) DSB.book = 'thu'; if (DSB.step === 3) DSB.book = 'chi';
-          const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); $('.stc-dsp')?.scrollIntoView({ block: 'start' }); return; }
-        const fw = ev.target.closest('[data-dsfocus]');   // chặng 2: "Còn thiếu" → tới ô cần nhập (cùng bước)
-        if (fw && root.contains(fw)) { const inp = root.querySelector(`.stc-dsp [name="${fw.dataset.dsfocus}"]`); if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); } return; }
-        const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen],[data-dsfinal],[data-dsdone],[data-dsundone],[data-tick],[data-dssau]');
-        if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
-        const jw = ev.target.closest('[data-dsjump]');   // bước 168: thanh cuối màn hình → nhảy tới chỗ cần xử lý
-        if (jw && root.contains(jw)) { dsJump(D, jw); return; }
-        const pk = ev.target.closest('[data-dspick]');   // bước 168 (điện thoại): ‹ Chọn ca khác → về lịch thu
-        if (pk && root.contains(pk)) { DS_SEL = null; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); $('#stc-ds')?.scrollIntoView({ block: 'start' }); return; }
-        const ds = ev.target.closest('[data-dsca]');
-        if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); if (isPhone()) $('#stc-ds')?.scrollIntoView({ block: 'start' }); else if (ds.classList.contains('stc-go')) $('.stc-dsp')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-        const zw = ev.target.closest('[data-showzero]');   // bước 164: hiện lại cột cả tháng bằng 0
-        if (zw && root.contains(zw)) { SHOW_ZERO = true; const b0 = $('#stc-book'); if (b0) b0.innerHTML = str(bookCard(D, P.tab)); return; }
-        const t = ev.target.closest('[data-day],[data-ca],.stc-all,.stc-none'); if (!t || !root.contains(t)) return;
-        if (t.dataset.day) { OPEN_D.has(t.dataset.day) ? OPEN_D.delete(t.dataset.day) : OPEN_D.add(t.dataset.day); }
-        else if (t.dataset.ca) { OPEN_C.has(t.dataset.ca) ? OPEN_C.delete(t.dataset.ca) : OPEN_C.add(t.dataset.ca); }
-        else if (t.classList.contains('stc-all')) { D.items.forEach((x) => { OPEN_D.add(x.date); OPEN_C.add(x.ca_id ? String(x.ca_id) : 'o:' + x.date); }); (D.cas || []).forEach((c) => { OPEN_D.add(c.date); OPEN_C.add(String(c.id)); }); }
-        else { OPEN_D.clear(); OPEN_C.clear(); }
-        const b = $('#stc-book'); if (b && (P.tab === 'thu' || P.tab === 'chi')) b.innerHTML = str(bookCard(D, P.tab));
-      });
-      root.addEventListener('change', async (ev) => {   // bước 155: chọn nhóm / người nợ ngay trên dòng
-        const cx = ev.target.closest('[data-catx]'); const wx = ev.target.closest('[data-whox]');
-        if (cx) { const it = D.items.find((x) => x.id === cx.dataset.catx); if (!it) return; cx.disabled = true; try { await setCat(D, it, cx.value); } catch (e) { showSaved(e.message || e, true); cx.disabled = false; } }
-        else if (wx) { const it = D.items.find((x) => x.id === wx.dataset.whox); if (it) setWho(D, it, wx.value, wx); }
-      });
-      if ((P.tab === 'thu' || P.tab === 'chi') && !FTV) finTypes().then(() => { const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab)); });
-      // bước 152: bộ lọc sổ — vẽ lại riêng phần sổ, giữ con trỏ ở ô tìm; đường dẫn cập nhật không tải lại trang
-      let lfT = null;
-      const lfSet = (k, v) => { const f = parseLoc(P.loc); f[k] = v; if (k === 'type') f.cat = ''; P.loc = locStr(f);
-        try { history.replaceState(null, '', q()); } catch (_) { /* bỏ qua */ }
-        const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab));
-        const c = $('#stc-lfclr'); if (c) c.hidden = !P.loc; if (k === 'type') fillFilter(D, P.tab);
-        root.querySelectorAll('.stc-flt [data-lf]').forEach((e2) => e2.closest('.stc-fl')?.classList.toggle('on', !!f[e2.dataset.lf]));
-        const nOn = ['src', 'type', 'cat', 'st'].filter((x) => f[x]).length; const fb = $('.stc-fbtn'); if (fb) fb.textContent = '⚙ Lọc' + (nOn ? ` (${nOn})` : ''); };
-      root.addEventListener('input', (ev) => { const i = ev.target.closest('[data-lf="q"]'); if (!i) return; clearTimeout(lfT); lfT = setTimeout(() => lfSet('q', i.value), 250); });
-      root.addEventListener('change', (ev) => { const i = ev.target.closest('select[data-lf]'); if (i) lfSet(i.dataset.lf, i.value); });
-      root.addEventListener('click', (ev) => { if (!ev.target.closest('#stc-lfclr')) return; P.loc = ''; location.hash = q(); });
-      root.addEventListener('click', (ev) => {   // bước 164: ✕ từng điều kiện / Bỏ hết (giữ ô đang chọn) + ⚙ Lọc trên điện thoại
-        const fb = ev.target.closest('.stc-fbtn'); if (fb && root.contains(fb)) { fb.closest('.stc-flt').classList.toggle('open'); return; }
-        const uw = ev.target.closest('[data-unloc]'); if (!uw || !root.contains(uw)) return;
-        if (uw.dataset.unloc === 'all') { P.loc = ''; location.hash = q(); return; }
-        const ctl = root.querySelector(`.stc-flt [data-lf="${uw.dataset.unloc}"]`); if (ctl) ctl.value = '';
-        lfSet(uw.dataset.unloc, '');
-      });
-    },
+    mount() { bindPage(D); },
   };
+}
+
+// gắn mọi thao tác của trang (Sổ thu chi, hoặc khối tiền một ca ở trang đối soát ca — cùng #stc-page)
+function bindPage(D) {
+  const root = $('#stc-page'); if (!root) return;
+  watchGio(root, () => after('Đã sửa giờ chốt'));   // bước 162: dòng giờ chốt ở Đối soát Fabi phần A
+  if (P.tab === 'tong' && !D.ext) fillCounts(D);
+  if (P.tab === 'thu' || P.tab === 'chi') fillFilter(D, P.tab);
+  // bước 172: xếp người + nhóm công nợ cho nợ mới của ca (bước 1 của Đối soát Fabi)
+  root.addEventListener('change', (ev) => {   // chọn người → nhóm nhảy theo nhóm của người đó (quản lý vẫn đổi được)
+    const ps = ev.target.closest('[data-dperson]'); const g = ps?.selectedOptions?.[0]?.dataset?.grp;
+    if (ps && g) ps.closest('[data-dsort]').querySelector('[data-dgrp]').value = g;
+  });
+  root.addEventListener('click', async (ev) => {   // bước 173: máy Fabi ghi sai — sửa số / bỏ / duyệt / từ chối
+    const b = ev.target.closest('[data-dsfix],[data-dsfixcancel],[data-dsfixok],[data-dsfixno],[data-dsfixfabi]');
+    if (!b || !root.contains(b)) return;
+    const run = async (p, msg) => { b.disabled = true; try { await p; after(msg); } catch (e) { b.disabled = false; showSaved(e.message || e, true); } };
+    if (b.dataset.dsfix) { const c = (D.cas || []).find((x) => String(x.id) === b.dataset.ca); if (c) fixDialog(D, c, b.dataset.dsfix); }
+    else if (b.dataset.dsfixcancel) run(rpc('app_stc_fix_cancel', { p_req: Number(b.dataset.dsfixcancel) }), 'Đã bỏ số sửa');
+    else if (b.dataset.dsfixok) run(rpc('app_stc_fix_decide', { p_req: Number(b.dataset.dsfixok), p_ok: true, p_note: null }), 'Đã duyệt số sửa');
+    else if (b.dataset.dsfixno) {
+      const d = dialog(form('Từ chối số sửa', html`<label class="field"><span>Lý do từ chối (quản lý sẽ thấy)</span><input class="input" name="fnote" placeholder="vd: xem lại camera"></label>`, ' '));
+      d.querySelector('[name=reason]')?.closest('.field')?.remove();
+      open(d, async () => { await rpc('app_stc_fix_decide', { p_req: Number(b.dataset.dsfixno), p_ok: false, p_note: val(d, 'fnote') }); after('Đã từ chối số sửa'); });
+    } else if (b.dataset.dsfixfabi) run((async () => { await rpc('app_stc_fix_cancel', { p_req: Number(b.dataset.dsfixfabi) });
+      await rpc('app_stc_ds_fabi', { p_report: Number(b.dataset.ca), p_field: b.dataset.k, p_name: null, p_reason: 'Bỏ sửa, lấy số máy Fabi' }); })(), 'Đã lấy số máy Fabi');
+  });
+  root.addEventListener('click', (ev) => {   // thiết kế sua-no-cua-ca: Sửa / Xoá một khoản nợ của ca · + Thêm khoản nợ quên ghi
+    const de = ev.target.closest('[data-dedit],[data-dadd]');
+    if (!de || !root.contains(de)) return;
+    if (de.dataset.dadd) { const c = (D.cas || []).find((x) => String(x.id) === de.dataset.dadd); if (c) caDebtAddDialog(D, c); return; }
+    const x = (D.ca_debts || []).find((q) => q.t === 'moi' && String(q.id) === de.dataset.dedit);
+    const c = x && (D.cas || []).find((q) => Number(q.id) === Number(x.report_id));
+    if (x && c) caDebtDialog(D, c, x);
+  });
+  root.addEventListener('click', async (ev) => {
+    const se = ev.target.closest('[data-dsortedit]');
+    if (se && root.contains(se)) { SORT_EDIT.add(se.dataset.dsortedit); rerender(); return; }
+    const so = ev.target.closest('[data-dsortok]');
+    if (!so || !root.contains(so)) return;
+    const wrap = so.closest('[data-dsort]'); const pid = wrap.querySelector('[data-dperson]').selectedOptions[0]?.dataset?.pid;
+    if (!pid) { showSaved('Chọn người nợ trong danh sách rồi mới bấm Xếp. Chưa có tên thì thêm ở Sổ chi › 👥 Người nợ.', true); return; }
+    so.disabled = true;
+    try { await rpc('app_stc_debt_sort', { p_debt: Number(so.dataset.dsortok), p_person: Number(pid), p_grp: wrap.querySelector('[data-dgrp]').value });
+      SORT_EDIT.delete(so.dataset.dsortok); after('Đã xếp người + nhóm công nợ'); }
+    catch (e) { so.disabled = false; showSaved(e.message || e, true); }
+  });
+  root.addEventListener('click', (ev) => {
+    const f5 = ev.target.closest('.stc-qnadd,[data-qned],[data-qnok],.stc-lcadd,.stc-kq,[data-adj],.stc-xadd');
+    if (f5 && root.contains(f5)) {
+      if (f5.classList.contains('stc-qnadd')) qnDialog(D, null);
+      else if (f5.dataset.qned) qnDialog(D, D.items.find((x) => x.id === 'w:' + f5.dataset.qned));
+      else if (f5.dataset.qnok) qnConfirm(D, Number(f5.dataset.qnok));
+      else if (f5.classList.contains('stc-lcadd')) addPanel(D, f5, 'chi', { preset: 'lc' });
+      else if (f5.classList.contains('stc-kq')) countDialog(D);
+      else if (f5.dataset.adj) adjDialog(D, Number(f5.dataset.adj));
+      else extDialog(D, null);
+      return;
+    }
+    const w = ev.target.closest('[data-ed],[data-unc],.stc-add,[data-col-debt],[data-addca],[data-gap]');
+    if (w && root.contains(w)) {
+      if (w.dataset.gap) { const it = D.items.find((x) => x.id === w.dataset.gap); if (it?.gap) gapDialog(D, it); }
+      else if (w.dataset.addca) addPanel(D, w, w.dataset.book || (P.tab === 'thu' ? 'thu' : 'chi'), { caId: w.dataset.addca });
+      else if (w.dataset.ed) editDialog(D, D.items.find((x) => x.id === w.dataset.ed));
+      else if (w.dataset.unc) uncollectDialog(D, D.items.find((x) => x.id === w.dataset.unc));
+      else if (w.dataset.colDebt) collectDialog(D, w.dataset.colDebt);
+      else addPanel(D, w, P.tab === 'thu' ? 'thu' : 'chi');
+      return;
+    }
+    // bước 153: phiếu trừ lương (sửa / xoá), → Trừ lương / bỏ chuyển, phiếu chi chuyển khoản của ca
+    const pp = ev.target.closest('[data-people]');
+    if (pp && root.contains(pp)) { peopleDialog(D); return; }
+    const pe = ev.target.closest('[data-pedit]');   // bước 172: sửa một người nợ ngay ở khung Người nợ của ô Cho nợ
+    if (pe && root.contains(pe)) { const p = (D.people || []).find((q) => String(q.id) === pe.dataset.pedit); if (p) personDialog(D, p); return; }
+    const pw = ev.target.closest('[data-dsphoto]');
+    if (pw && root.contains(pw)) { photoDialog(D, Number(pw.dataset.dsphoto)); return; }
+    const kw = ev.target.closest('[data-kaed],[data-kadel],[data-toka],[data-kaundo],[data-bankout]');
+    if (kw && root.contains(kw)) {
+      if (kw.dataset.kaed) kaEditDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kaed));
+      else if (kw.dataset.kadel) kaDelDialog(D, (D.shortfalls || []).find((x) => String(x.id) === kw.dataset.kadel));
+      else if (kw.dataset.toka) toKaDialog(D, D.items.find((x) => x.id === kw.dataset.toka));
+      else if (kw.dataset.kaundo) kaUndoDialog(D, D.items.find((x) => x.id === kw.dataset.kaundo));
+      else bankOutDialog(D, Number(kw.dataset.bankout));
+      return;
+    }
+    const rw = ev.target.closest('[data-restore]');
+    if (rw && root.contains(rw)) { const it = D.items.find((x) => x.id === rw.dataset.restore); if (it) restoreDialog(D, it); return; }
+    const tw = ev.target.closest('[data-treodo]');
+    if (tw && root.contains(tw)) { treoAct(D, tw); return; }
+    const bw = ev.target.closest('[data-dsbook],[data-dspm]');
+    if (bw && root.contains(bw)) { if (bw.dataset.dsbook) DSB.book = bw.dataset.dsbook; if (bw.dataset.dspm) DSB.pm = bw.dataset.dspm; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); return; }
+    const sw = ev.target.closest('[data-dsstep],[data-dsprev],[data-dsnext]');   // bước 171: đổi bước trong 6 bước đối soát
+    if (sw && root.contains(sw) && !sw.disabled) { const nx = sw.dataset.dsstep != null ? Number(sw.dataset.dsstep) : Math.max(0, Math.min(5, DSB.step + (sw.dataset.dsnext ? 1 : -1)));
+      if (ONE && nx >= 5) { window.dispatchEvent(new CustomEvent('stc-one-tab', { detail: { tab: 'xong' } })); return; }   // Đối soát về Chốt ca: bước 6 = tab ③
+      if (ONE && sw.closest('[data-tab-pane="xong"]')) window.dispatchEvent(new CustomEvent('stc-one-tab', { detail: { tab: 'tien' } }));
+      DSB.step = nx;
+      if (DSB.step === 2) DSB.book = 'thu'; if (DSB.step === 3) DSB.book = 'chi';
+      const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); $('.stc-dsp')?.scrollIntoView({ block: 'start' }); return; }
+    const fw = ev.target.closest('[data-dsfocus]');   // chặng 2: "Còn thiếu" → tới ô cần nhập (cùng bước)
+    if (fw && root.contains(fw)) { const inp = root.querySelector(`.stc-dsp [name="${fw.dataset.dsfocus}"]`); if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); } return; }
+    const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen],[data-dsfinal],[data-dsdone],[data-dsundone],[data-tick],[data-dssau]');
+    if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
+    const jw = ev.target.closest('[data-dsjump]');   // bước 168: thanh cuối màn hình → nhảy tới chỗ cần xử lý
+    if (jw && root.contains(jw)) { dsJump(D, jw); return; }
+    const pk = ev.target.closest('[data-dspick]');   // bước 168 (điện thoại): ‹ Chọn ca khác → về lịch thu
+    if (pk && root.contains(pk)) { DS_SEL = null; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); $('#stc-ds')?.scrollIntoView({ block: 'start' }); return; }
+    const ds = ev.target.closest('[data-dsca]');
+    if (ds && root.contains(ds)) { DS_SEL = ds.dataset.dsca; const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); if (isPhone()) $('#stc-ds')?.scrollIntoView({ block: 'start' }); else if (ds.classList.contains('stc-go')) $('.stc-dsp')?.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    const zw = ev.target.closest('[data-showzero]');   // bước 164: hiện lại cột cả tháng bằng 0
+    if (zw && root.contains(zw)) { SHOW_ZERO = true; const b0 = $('#stc-book'); if (b0) b0.innerHTML = str(bookCard(D, P.tab)); return; }
+    const t = ev.target.closest('[data-day],[data-ca],.stc-all,.stc-none'); if (!t || !root.contains(t)) return;
+    if (t.dataset.day) { OPEN_D.has(t.dataset.day) ? OPEN_D.delete(t.dataset.day) : OPEN_D.add(t.dataset.day); }
+    else if (t.dataset.ca) { OPEN_C.has(t.dataset.ca) ? OPEN_C.delete(t.dataset.ca) : OPEN_C.add(t.dataset.ca); }
+    else if (t.classList.contains('stc-all')) { D.items.forEach((x) => { OPEN_D.add(x.date); OPEN_C.add(x.ca_id ? String(x.ca_id) : 'o:' + x.date); }); (D.cas || []).forEach((c) => { OPEN_D.add(c.date); OPEN_C.add(String(c.id)); }); }
+    else { OPEN_D.clear(); OPEN_C.clear(); }
+    const b = $('#stc-book'); if (b && (P.tab === 'thu' || P.tab === 'chi')) b.innerHTML = str(bookCard(D, P.tab));
+  });
+  root.addEventListener('change', async (ev) => {   // bước 155: chọn nhóm / người nợ ngay trên dòng
+    const cx = ev.target.closest('[data-catx]'); const wx = ev.target.closest('[data-whox]');
+    if (cx) { const it = D.items.find((x) => x.id === cx.dataset.catx); if (!it) return; cx.disabled = true; try { await setCat(D, it, cx.value); } catch (e) { showSaved(e.message || e, true); cx.disabled = false; } }
+    else if (wx) { const it = D.items.find((x) => x.id === wx.dataset.whox); if (it) setWho(D, it, wx.value, wx); }
+  });
+  if ((P.tab === 'thu' || P.tab === 'chi') && !FTV) finTypes().then(() => { const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab)); });
+  // bước 152: bộ lọc sổ — vẽ lại riêng phần sổ, giữ con trỏ ở ô tìm; đường dẫn cập nhật không tải lại trang
+  let lfT = null;
+  const lfSet = (k, v) => { const f = parseLoc(P.loc); f[k] = v; if (k === 'type') f.cat = ''; P.loc = locStr(f);
+    try { history.replaceState(null, '', q()); } catch (_) { /* bỏ qua */ }
+    const b = $('#stc-book'); if (b) b.innerHTML = str(bookCard(D, P.tab));
+    const c = $('#stc-lfclr'); if (c) c.hidden = !P.loc; if (k === 'type') fillFilter(D, P.tab);
+    root.querySelectorAll('.stc-flt [data-lf]').forEach((e2) => e2.closest('.stc-fl')?.classList.toggle('on', !!f[e2.dataset.lf]));
+    const nOn = ['src', 'type', 'cat', 'st'].filter((x) => f[x]).length; const fb = $('.stc-fbtn'); if (fb) fb.textContent = '⚙ Lọc' + (nOn ? ` (${nOn})` : ''); };
+  root.addEventListener('input', (ev) => { const i = ev.target.closest('[data-lf="q"]'); if (!i) return; clearTimeout(lfT); lfT = setTimeout(() => lfSet('q', i.value), 250); });
+  root.addEventListener('change', (ev) => { const i = ev.target.closest('select[data-lf]'); if (i) lfSet(i.dataset.lf, i.value); });
+  root.addEventListener('click', (ev) => { if (!ev.target.closest('#stc-lfclr')) return; P.loc = ''; location.hash = q(); });
+  root.addEventListener('click', (ev) => {   // bước 164: ✕ từng điều kiện / Bỏ hết (giữ ô đang chọn) + ⚙ Lọc trên điện thoại
+    const fb = ev.target.closest('.stc-fbtn'); if (fb && root.contains(fb)) { fb.closest('.stc-flt').classList.toggle('open'); return; }
+    const uw = ev.target.closest('[data-unloc]'); if (!uw || !root.contains(uw)) return;
+    if (uw.dataset.unloc === 'all') { P.loc = ''; location.hash = q(); return; }
+    const ctl = root.querySelector(`.stc-flt [data-lf="${uw.dataset.unloc}"]`); if (ctl) ctl.value = '';
+    lfSet(uw.dataset.unloc, '');
+  });
 }
 
 // ---------------- Sửa / thêm / xoá (đợt 2a: khoản ngoài ca) ----------------
@@ -350,7 +364,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     // bước 168: ca chưa xác nhận Fabi → nút nhảy tới Xác nhận Fabi của ca đó (vẫn giữ luật: phải xác nhận Fabi mới thêm vào ca được)
     const jw = box.querySelector('.stc-cajump'); const bad = D.locked ? [] : list.filter((x) => !x.ok && (x.why === 'chưa xác nhận Fabi' || x.done));
     jw.hidden = !bad.length;
-    jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '', loc: '' })}&ds=${x.id}${x.done ? '&b=6' : ''}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở Đối soát Fabi' : 'Xác nhận Fabi'} ›</a>`)}`);
+    jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${caHref(x.id, x.done ? 'xong' : 'tien')}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở Đối soát Fabi' : 'Xác nhận Fabi'} ›</a>`)}`);
   };
   // bước 168: Thu nợ ngoài ca — chỉ nợ phát sinh từ ngày của phiếu trở về trước (máy chủ tệp 147 chặn lại)
   const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => debtBefore(x, { date: dv }));
@@ -679,7 +693,7 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
         : ca && !ca.recon_money_done ? 'Xác nhận Fabi ở tab Đối soát Fabi mới sửa được' : ca ? 'Khoản tự động / đổi tiền / đã thành nợ — sửa ở phiếu ca' : 'Sửa ở trang cũ';
     const open1 = !caDone && !(ca && isFin(D, ca.id));
     const whyUi = debtOfCa && open1 ? html`${x.pm === 'ck' ? 'Nợ CK' : 'Khách mượn'} — sửa ở ${who ? html`<button type="button" class="stc-lk" data-dsstep="0">bước 1</button>` : 'Đối soát Fabi › bước 1'} · Nợ của ca`
-      : luong && open1 ? html`Lương tiền mặt — sửa ở <a href="#/quan-ly/doi-soat/ca?id=${ca.id}">Đối soát ca › Ai làm ca</a>` : why;
+      : luong && open1 ? html`Lương tiền mặt — sửa ở <a href="${caHref(ca.id, 'viec')}">Đối soát ca › Ai làm ca</a>` : why;
     pills.push(html`<button type="button" class="btn sm secondary stc-act" disabled title="${why}">Sửa / Xoá</button><span class="st-meta">🔒 ${whyUi}</span>`);
   }
   return html`<div class="stc-it"><span class="stc-tag t-${x.col}">${colName(book, x.col)}</span>
@@ -715,10 +729,10 @@ function addBtn(D, c, book, label, { noLock = false } = {}) {
   if (D.ext) return D.locked ? off(`+ Thêm khoản ngoài`, 'btn sm secondary') : html`<button type="button" class="btn sm secondary stc-xadd">+ Thêm khoản ngoài</button>`;
   if (String(c.caId).startsWith('o:')) return html`<button type="button" class="btn sm secondary stc-add">+ Thêm phiếu ${book} ngoài ca</button>`;
   const ca = (D.cas || []).find((x) => x.id === c.caId);
-  const go = html` <a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a>`;
+  const go = html` <a class="btn sm secondary" href="${caHref(c.caId)}">Xử lý ca này ở trang đối soát ca ›</a>`;
   if (ca && isFin(D, ca.id)) return html`<span class="st-meta">🔒 Ca đã chốt — không thêm / sửa được nữa</span>`;
   if (noLock && D.locked) return '';   // duyệt mã: ghi chú "Tháng đã chốt" đã có ở đầu ca
-  if (ca && ca.done && !D.locked) return noLock ? '' : html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới thêm / sửa được. </span>${P.tab === 'doi-soat' ? '' : go}`;   // bước 171
+  if (ca && ca.done && !D.locked) return noLock ? '' : html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới thêm / sửa được. </span>${P.tab === 'doi-soat' ? '' : go}`;   // bước 171
   if (ca && !ca.recon_money_done) return noLock ? '' : html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
@@ -986,7 +1000,7 @@ function bookCard(D, book) {
         <span class="stc-lab"><span class="stc-chev">›</span>${dm(d.date)} <small>${wd(d.date)}</small></span>${cells(d.byCol, book, d.total, cols)}</button>
       ${o ? html`<div class="stc-cas">${cas.map((c) => { const co = OPEN_C.has(String(c.caId)); const cx = (D.cas || []).find((x) => x.id === c.caId); const lk = D.ext ? null : caLock(D, cx); return html`<div class="stc-ca ${co ? 'open' : ''}">
           <button type="button" class="stc-crow stc-g" style="--n:${n}" data-ca="${c.caId}" aria-expanded="${co}"><span class="stc-lab"><span class="stc-chev">›</span>${caLabel(c)} <small>${c.staff || ''}</small>${D.ext ? '' : caPill(D, cx)}</span>${cells(c.byCol, book, c.total, cols)}</button>
-          ${co ? html`<div class="stc-its">${lk ? html`<div class="st-meta stc-calock" title="${lk.why}">${lk.t} · <a href="${q({ tab: 'doi-soat', cot: '' })}&ds=${c.caId}">Xử lý ca này ở Đối soát Fabi ›</a></div>` : ''}${c.items.length ? c.items.map((x) => itemRow(x, book, D, { quiet: !!lk })) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
+          ${co ? html`<div class="stc-its">${lk ? html`<div class="st-meta stc-calock" title="${lk.why}">${lk.t} · <a href="${caHref(c.caId)}">Xử lý ca này ở trang đối soát ca ›</a></div>` : ''}${c.items.length ? c.items.map((x) => itemRow(x, book, D, { quiet: !!lk })) : html`<div class="st-meta stc-empty">Không có khoản ${book === 'thu' ? 'thu' : 'chi'} ${PM[P.pm].toLowerCase()}.</div>`}
             <div class="stc-it add">${addBtn(D, c, book, caLabel(c), { noLock: !!lk })}</div></div>` : ''}</div>`; })}</div>` : ''}</div>`;
   });
   return html`<div class="stc-ch"><h2>${book === 'thu' ? 'Sổ thu' : 'Sổ chi'} · ${PM[P.pm]} <small>${P.cot ? `chỉ hiện ${colName(book, P.cot)}` : 'theo ngày · bấm ngày để xem từng ca'}</small></h2>
@@ -1097,8 +1111,8 @@ function tongPage(D) {   // bước 166 (KH5): mẫu B — Việc cần làm | A
   if (!ext) {
     const todos = todoItems(D, F.waitQN);
     const act = (t) => {
-      if (t.kind === 'xn') return html`<a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${t.ref.id}">Mở ›</a>`;
-      if (t.kind === 'fabi') return html`<a class="btn sm secondary" href="${q({ tab: 'doi-soat', cot: '' })}&ds=${t.ref.id}">Mở ›</a>`;
+      if (t.kind === 'xn') return html`<a class="btn sm secondary" href="${caHref(t.ref.id, 'xong')}">Mở ›</a>`;
+      if (t.kind === 'fabi') return html`<a class="btn sm secondary" href="${caHref(t.ref.id)}">Mở ›</a>`;
       if (t.kind === 'lech') return html`<a class="btn sm secondary" href="${q({ tab: t.ref.book, pm: t.ref.pm, cot: 'lech' })}">Xử lý ›</a>`;
       if (t.kind === 'cat') return html`<a class="btn sm secondary" href="${q({ tab: 'chi', pm: t.ref.pm, cot: 'chi' })}">Phân loại ›</a>`;
       return D.owner ? html`<button type="button" class="btn sm" data-qnok="${idNum(t.ref.id)}">Đã nhận tiền</button>` : html`<span class="st-meta">chờ Chủ</span>`;
@@ -1142,7 +1156,8 @@ function tongPage(D) {   // bước 166 (KH5): mẫu B — Việc cần làm | A
     <div class="stc-two">${qnBox}${kqBox}</div>
     ${cmp}`;
 }
-let DS_SEL = null;   // ca đang mở ở tab Đối soát Fabi
+let DS_SEL = null;   // ca đang mở (khối tiền một ca ở trang đối soát ca)
+let ONE = null;   // Đối soát về Chốt ca: { workLeft } khi khối tiền đang nằm trong trang đối soát ca (bước 1–5 = tab ②, bước 6 = tab ③)
 let DS_B = null;   // bước 171: bước mở theo đường dẫn b=1..6 (dùng 1 lần)
 let DS_PARAM = '';   // tham số ds= đã dùng (không ép lại sau mỗi lần vẽ)
 const DSB = { book: 'thu', pm: 'tm', step: 0, stepFor: null };   // sổ / bảng đang xem ở phần B
@@ -1522,20 +1537,25 @@ function gapStep(D, a, mk) {
 // bước 6: tóm tắt + Hoàn thành đối soát ca (phải tích đủ; máy chủ tự kiểm lại)
 function doneStep(D, a, left) {
   const c = a.c; const n = left.reduce((s, v) => s + v, 0); const ro = !!D.ext || !!D.locked; const pend = (a.gaps || []).filter((g) => !g.done);
+  // Đối soát về Chốt ca: phải xong phần việc (tab ①); chỉ còn chờ Chủ duyệt x2 thì vẫn bấm được (ca tự thành Đã đối soát khi Chủ duyệt)
+  const wl = ONE ? (ONE.workLeft || []) : []; const wb = wl.filter((t) => t !== 'Chờ Chủ duyệt x2');
   return html`<div class="stc-part"><div class="h">Hoàn thành đối soát ca</div>
     <div class="stc-sum">${[0, 1, 2, 3, 4].map((i) => html`<button type="button" class="stc-sr" data-dsstep="${i}"><i class="stc-mk ${left[i] ? '' : 'ok'}">${left[i] ? i + 1 : '✓'}</i><b>${DS_STEPS[i]}</b><span class="pill ${left[i] ? 'warn' : 'ok'}">${left[i] ? `còn ${left[i]} mục ›` : 'xong'}</span></button>`)}</div>
     ${c.done ? html`<div class="alert ${pend.length ? 'warn' : 'ok'}">${pend.length ? `🟠 Đã đối soát, còn ${pend.length} chênh lệch chờ xử lý / chờ Chủ duyệt. Xong thì ca tự chuyển 🟢.` : '🟢 Đã hoàn thành đối soát ca.'} <span class="st-meta">${c.done.by || ''}${c.done.at ? ' · ' + c.done.at : ''}</span></div>
         <div class="st-meta">Phiếu thu chi của ca đang khoá. Bấm Mở lại để sửa; các mục đã tích được giữ.</div>
         ${ro ? '' : html`<div class="stc-tools"><button type="button" class="btn sm secondary" data-dsundone="1">Mở lại</button></div>`}`
-      : html`<div class="st-meta">${n ? html`Còn <b>${n} mục</b> chưa kiểm tra. Bấm vào bước còn thiếu ở trên để tới đúng chỗ.` : 'Đã kiểm tra đủ mọi mục.'}</div>
-        ${ro ? '' : html`<div class="stc-tools"><button type="button" class="btn" data-dsdone="1" ${n ? 'disabled' : ''}>🔒 Hoàn thành đối soát ca</button></div>`}
-        <div class="st-meta">Phải tích đủ mọi mục ở 5 bước mới bấm được. Ca chỉ thành "đã đối soát" sau nút này.</div>`}</div>`;
+      : html`<div class="st-meta">${n ? html`Còn <b>${n} mục</b> chưa kiểm tra. Bấm vào bước còn thiếu ở trên để tới đúng chỗ.`
+          : wb.length ? html`Còn phần việc: <b>${wb.join(', ')}</b> — làm ở tab ① Phần việc.`
+          : wl.length ? 'Chỉ còn chờ Chủ duyệt x2 — bấm Hoàn thành được, ca tự thành Đã đối soát khi Chủ duyệt.' : 'Đã kiểm tra đủ mọi mục.'}</div>
+        ${ro ? '' : html`<div class="stc-tools"><button type="button" class="btn" data-dsdone="1" ${n || wb.length ? 'disabled' : ''}>🔒 Hoàn thành đối soát ca</button></div>`}
+        <div class="st-meta">${ONE ? 'Phải xong phần việc và tích đủ mọi mục ở 5 bước phần tiền mới bấm được.' : 'Phải tích đủ mọi mục ở 5 bước mới bấm được.'} Ca chỉ thành "đã đối soát" sau nút này.</div>`}</div>`;
 }
 function dsPanel(D, a) {
   const c = a.c; const steps = dsChecks(c, dsCtx(D, c)); const left = dsLeft(steps); const ro = !!D.ext || !!D.locked;
   if (DSB.stepFor !== c.id) {   // ca mới mở: theo đường dẫn b=, không thì ca đã hoàn thành → bước 6, còn lại → bước đầu tiên còn thiếu
     const f = left.findIndex((n, i) => n > 0 && (c.recon_money_done || i < 2));
     DSB.stepFor = c.id; DSB.step = DS_B != null ? DS_B : c.done || f < 0 ? 5 : f; DS_B = null;
+    if (ONE) DSB.step = Math.min(4, DSB.step);   // bước 6 nằm ở tab ③ của trang đối soát ca
     if (DSB.step === 2) DSB.book = 'thu'; if (DSB.step === 3) DSB.book = 'chi';
   }
   const i = DSB.step; const list = steps[i] || [];
@@ -1544,7 +1564,7 @@ function dsPanel(D, a) {
   const body = lock ? html`<div class="stc-part stc-lockp"><div class="h">${DS_STEPS[i]}</div><div class="st-meta">🔒 Bước này mở sau khi <b>Xác nhận Fabi</b> ở bước 2.</div><div class="stc-tools"><button type="button" class="btn sm" data-dsstep="1">Về bước 2</button></div></div>`
     : i === 0 ? partA(D, a, 1, mk) : i === 1 ? partA(D, a, 2, mk) : i === 2 ? partB(D, a, 'thu', mk) : i === 3 ? partB(D, a, 'chi', mk) : i === 4 ? gapStep(D, a, mk) : doneStep(D, a, left);
   return html`<div class="stc-dsp stc-full"><div class="stc-dsh"><b>${caName(c)}</b> <span class="st-meta">${c.staff || ''}</span> <span class="pill ${a.st.cls.replace('p-', '')}">${a.st.txt}</span></div>
-    <nav class="stc-steps" aria-label="Các bước đối soát">${DS_STEPS.map((t, k) => { const n = k < 5 ? left[k] : (c.done ? 0 : 1);
+    <nav class="stc-steps" aria-label="Các bước đối soát">${(ONE ? DS_STEPS.slice(0, 5) : DS_STEPS).map((t, k) => { const n = k < 5 ? left[k] : (c.done ? 0 : 1);
       return html`<button type="button" class="stc-st ${k === i ? 'on' : ''} ${n ? (k < i ? 'todo' : '') : 'done'}" data-dsstep="${k}" aria-current="${k === i ? 'step' : 'false'}"><i>${!n && k !== i ? '✓' : k + 1}</i><span>${t}</span></button>`; })}</nav>
     <section class="stc-step" data-step="${i}">${lock || i === 5 ? '' : chkBox(c, list, ro)}${body}</section>${dsBar(D, a, left)}</div>`;
 }
@@ -1566,6 +1586,7 @@ function dsJump(D, b) {
 }
 function dsBody(D) {
   const { dates, all } = dsInfo(D);
+  if (ONE) { const a1 = all.find((x) => String(x.c.id) === String(DS_SEL)); return a1 ? dsPanel(D, a1) : html`<section class="card stc-empty">Chưa có số liệu phần tiền của ca này.</section>`; }
   if (!all.length) return html`<section class="card stc-empty">Tháng này chưa có ca nào.</section>`;
   const extra = [...new Set(all.map((a) => a.c.shift).filter((s) => !SHIFT_ORDER.includes(s)))];
   const cols = [...SHIFT_ORDER, ...extra];
@@ -1600,6 +1621,26 @@ function dsBody(D) {
     ${sel ? dsPanel(D, sel) : ''}`;
 }
 function dsPage(D) { return html`<div id="stc-ds">${dsBody(D)}</div>`; }
+
+// Đối soát về Chốt ca (thiết kế 22/11): khối tiền của MỘT ca cho trang đối soát ca (#/ca/doi-soat?id=):
+// tab ② = bước 1–5 (#stc-ds), tab ③ = bước 6 (#stc-done) kèm tóm tắt phần việc (workSum). Cùng mọi nút, hộp thoại, phép tính của 6 bước cũ.
+// workLeft: nhãn phần việc còn thiếu (khoá nút Hoàn thành, trừ "Chờ Chủ duyệt x2"). Trang ca nghe sự kiện 'stc-one-tab' để đổi tab.
+export async function caMoney({ cn, thang, ds, b = null, workLeft = [], workSum = '' }) {
+  P = { tab: 'doi-soat', cn: String(cn), thang, pm: 'tm', cot: '', loc: '' };
+  ONE = { workLeft: workLeft || [] };
+  const key = String(ds) + '|one|' + (b || '');
+  if (key !== DS_PARAM) { DS_SEL = String(ds); DS_PARAM = key; DS_B = /^[1-6]$/.test(String(b || '')) ? Number(b) - 1 : null; DSB.stepFor = null; }
+  let D;
+  try { D = await load(String(cn), thang); } catch (e) { return { html: html`<div class="alert warn">Chưa mở được phần tiền của ca: ${e.message || e}</div>`, mount() {} }; }
+  const a = dsInfo(D).all.find((x) => String(x.c.id) === String(ds));
+  if (!a) return { html: html`<section class="card stc-empty">Chưa có số liệu phần tiền của ca này.</section>`, mount() {} };
+  const left = dsLeft(dsChecks(a.c, dsCtx(D, a.c)));
+  return {
+    html: str(html`${STYLE}<div id="stc-page" class="stc-one" data-ds="${ds}"><section class="ds-tpane" data-tab-pane="tien"><div id="stc-ds">${dsPanel(D, a)}</div></section>
+      <section class="ds-tpane" data-tab-pane="xong">${raw(workSum)}<div id="stc-done">${doneStep(D, a, left)}</div></section></div>`),
+    mount() { bindPage(D); },
+  };
+}
 
 // ---------------- Khoản treo (tab Tổng) ----------------
 function treoCard(D) {
