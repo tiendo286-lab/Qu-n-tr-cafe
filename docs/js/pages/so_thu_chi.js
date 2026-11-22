@@ -63,7 +63,10 @@ export async function render({ params }) {
   if (params.tab === 'doi-soat') {   // Đối soát về Chốt ca: tab cũ (thông báo, dấu trang, nút cũ) → trang đối soát của ca / bảng tuần Chốt ca
     const b = /^[1-6]$/.test(params.b || '') ? params.b : '';
     if (params.ds) go(`/ca/doi-soat?id=${params.ds}&tab=${b === '6' ? 'xong' : 'tien'}${b && b !== '6' ? '&b=' + b : ''}${params.t ? '&t=' + encodeURIComponent(params.t) : ''}`);
-    else go(`/ca?${params.cn && params.cn !== 'ngoai' ? 'cn=' + params.cn + '&' : ''}tuan=${weekStart((/^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7)) + '-01')}`);
+    else {   // không có ca: bảng tuần Chốt ca của cơ sở — tháng này / không ghi tháng → tuần hiện tại; tháng khác → tuần có ngày 1 của tháng đó
+      const m = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : ''; const td = vnToday();
+      go(`/ca?${params.cn && params.cn !== 'ngoai' ? 'cn=' + params.cn + '&' : ''}tuan=${weekStart(!m || m === td.slice(0, 7) ? td : m + '-01')}`);
+    }
     return { title: 'Đang chuyển', html: html`<div class="card">Đối soát từng ca nay làm ở Chốt ca — đang chuyển…</div>` };
   }
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : vnToday().slice(0, 7);

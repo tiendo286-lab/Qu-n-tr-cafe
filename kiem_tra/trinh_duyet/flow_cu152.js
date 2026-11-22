@@ -13,8 +13,6 @@ export default async ({ sleep, out }) => {
       ['#/quan-ly/thu-chi?thang=2026-11&cn=1', { tab: 'chi', thang: '2026-11', cn: '1' }, 'Thu chi'],
       ['#/quan-ly/thu-chi?xem=khoan-am&thang=2026-11', { tab: 'chi', loc: 'st:tl', thang: '2026-11' }, 'Thu chi › khoản âm'],
       ['#/quan-ly/khoan-am', { tab: 'chi', loc: 'st:tl' }, 'Khoản âm (cũ)'],
-      ['#/quan-ly/lech-tien?thang=2026-11&cn=1', { tab: 'doi-soat', thang: '2026-11', cn: '1' }, 'Lệch tiền ca'],
-      ['#/quan-ly/am-tien', { tab: 'doi-soat' }, 'Âm tiền (cũ)'],
       ['#/quan-ly/so-quy?thang=2026-11&cn=1', { tab: 'tong', thang: '2026-11', cn: '1' }, 'Sổ quỹ'],
       ['#/quan-ly/bao-cao-ca', { tab: 'chi' }, 'Báo cáo ca (cũ)'],
     ];
@@ -23,6 +21,17 @@ export default async ({ sleep, out }) => {
       const p = hp();
       const hit = location.hash.startsWith('#/quan-ly/so-thu-chi') && Object.entries(want).every(([k, v]) => p.get(k) === v);
       ok(hit && !!$('#stc-page'), `${name}: ${h} → ${location.hash}`);
+    }
+    // 22/11 (Đưa Đối soát Fabi về lại Chốt ca): tab Đối soát Fabi đã bỏ → Lệch tiền ca / Âm tiền cũ về bảng tuần Chốt ca (giữ cơ sở);
+    //   tháng này hoặc không ghi tháng → tuần hiện tại; tháng trước → tuần có ngày 1 của tháng đó
+    const wk = (d) => { const x = new Date(d + 'T00:00:00Z'); x.setUTCDate(x.getUTCDate() - ((x.getUTCDay() + 6) % 7)); return x.toISOString().slice(0, 10); };   // thứ Hai
+    const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+    const prevM = (() => { const x = new Date(today.slice(0, 7) + '-01T00:00:00Z'); x.setUTCMonth(x.getUTCMonth() - 1); return x.toISOString().slice(0, 7); })();
+    for (const [h, cn, tuan, name] of [['#/quan-ly/lech-tien?thang=' + today.slice(0, 7) + '&cn=1', '1', wk(today), 'Lệch tiền ca (tháng này)'],
+      ['#/quan-ly/lech-tien?thang=' + prevM + '&cn=1', '1', wk(prevM + '-01'), 'Lệch tiền ca (tháng trước)'], ['#/quan-ly/am-tien', null, wk(today), 'Âm tiền (cũ)']]) {
+      location.hash = '#/__tam'; await sleep(250); location.hash = h; await sleep(600); await wait('.cw-bar', 80); await sleep(400);
+      const p = hp();
+      ok(location.hash.startsWith('#/ca?') && (!cn || p.get('cn') === cn) && p.get('tuan') === tuan && !!$('.cw-bar'), `${name}: ${h} → ${location.hash} (bảng tuần Chốt ca, tuần ${tuan})`);
     }
     // menu không còn 3 mục cũ
     const links = $$('a[href]').map((a) => a.getAttribute('href'));
