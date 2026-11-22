@@ -8,7 +8,7 @@ import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, html, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
-import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, todoItems, debtGroups, blameShare, caChecks, caChoices, debtBefore, dsTodo, fabiNeeds, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView, dsChecks, dsCtx, dsLeft, DS_STEPS, BIG } from '../so_thu_chi_tinh.js';
+import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, todoItems, debtGroups, blameShare, billListOf, caChecks, caChoices, debtBefore, dsTodo, fabiNeeds, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView, dsChecks, dsCtx, dsLeft, DS_STEPS, BIG } from '../so_thu_chi_tinh.js';
 
 export const perm = 'doi_soat';   // bước 152: quản lý cơ sở cũng làm (máy chủ chỉ cho cơ sở được giao)
 const TRIAL = 'Đang chạy thử — chưa sửa ở đây';
@@ -44,6 +44,8 @@ async function load(cn, month) {
     // bước 172: người nợ là danh sách thật (app_stc_people), gọi song song với sổ tháng; người chỉ xem được sổ thì dùng danh sách suy từ tên như cũ (không có nút sửa)
     const [M, PP] = await Promise.all([rpc('app_stc_month', { p_branch: Number(cn), p_month: month }), rpc('app_stc_people', { p_branch: Number(cn) }).catch(() => null)]);
     D = M; D.finals = {}; D.treo = [];
+    // chặng 4 (22/11): tổng danh sách khách nợ hoá đơn của từng ca — ô Nợ ở bước 1 so với số này (máy chủ tệp 162 cùng điều kiện)
+    if (Array.isArray(D.ca_debts)) (D.cas || []).forEach((c) => { c.bill_list = billListOf(D, c.id); });
     D.people_real = Array.isArray(PP);
     D.people = D.people_real ? PP.map((p) => ({ ...p, no_remind: p.grp !== 'khach' }))
       : (D.people || []).map((p) => ({ id: null, phone: null, active: 1, grp: p.no_remind ? 'khac' : 'khach', ...p }));
@@ -1164,11 +1166,13 @@ function dsAct(D, b) {
   const f = c.fabi || {}, nv = c.nv || {};
   if (b.dataset.dsfabi) {
     const k = b.dataset.dsfabi; const L = { mo: ['Tiền mở ca', nv.opening, f.opening], dt: ['Doanh thu', nv.revenue, f.revenue], no: ['Nợ bill', nv.debt, f.debt] }[k];
-    const more = k === 'no' && Number(f.debt) > Number(nv.debt);
+    const blv = Number(c.bill_list ?? nv.debt ?? 0);   // chặng 4: phần chênh tính theo danh sách khách nợ hoá đơn của ca
+    const more = k === 'no' && Number(f.debt) > blv;
     ask('Lấy số máy Fabi', html`<div class="st-meta">${L[0]}: phiếu nhân viên ghi ${fmt(L[1] ?? 0)} → máy Fabi ${fmt(L[2] ?? 0)}. Web sửa số trên phiếu nhân viên theo máy, lưu số cũ → mới và người sửa.</div>
       ${k === 'dt' ? html`<div class="st-meta">Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi.</div>` : k === 'mo' ? html`<div class="st-meta">Chỉ sửa số trên phiếu nhân viên, không tạo phiếu thu / chi.</div>` : ''}
-      ${more ? html`<label class="field"><span>Người nợ phần chênh ${fmt(Number(f.debt) - Number(nv.debt))} (thêm khách nợ ở Công nợ — không tạo phiếu chi; không chọn ai thì không thêm)</span>${personSelect(D)}</label>` : ''}`,
-      false, (d) => rpc('app_stc_ds_fabi', { p_report: c.id, p_field: k, p_name: more ? val(d, 'name') || null : null, p_reason: val(d, 'reason') || null }), 'Đã lấy số máy Fabi');
+      ${more ? html`<label class="field"><span>Người nợ phần chênh ${fmt(Number(f.debt) - blv)} (bắt buộc — Nợ bill phải bằng danh sách khách nợ; thêm khách nợ ở Công nợ, không tạo phiếu chi)</span>${personSelect(D)}</label>` : ''}`,
+      false, (d) => { if (more && !val(d, 'name')) throw new Error('Chọn người nợ phần chênh — Nợ bill phải bằng danh sách khách nợ hoá đơn của ca.');
+        return rpc('app_stc_ds_fabi', { p_report: c.id, p_field: k, p_name: more ? val(d, 'name') || null : null, p_reason: val(d, 'reason') || null }); }, 'Đã lấy số máy Fabi');
   } else if (b.dataset.dsblame) {
     const who = b.dataset.dsblame;
     ask(who === 'nay' ? 'Ca này ghi sai tiền mở ca' : who === 'doi' ? 'Hai ca cùng chịu' : 'Ca trước ghi sai', html`<div class="st-meta">${who === 'nay' ? 'Tiền đầu ca của ca này tính bằng số phải là — phần lệch thành dòng Chênh lệch tiền mặt của ca này.'
@@ -1264,7 +1268,8 @@ function fixDialog(D, c, k) {
     ? html`<label class="field"><span>Bán tiền mặt đúng là</span><input class="input" name="ftm" inputmode="numeric" data-money value="${dtEmpty ? '' : fmt(f.tm ?? 0)}"></label>
       <label class="field"><span>Bán chuyển khoản đúng là</span><input class="input" name="fck" inputmode="numeric" data-money value="${dtEmpty ? '' : fmt(f.ck ?? 0)}"></label>
       <div class="st-meta">Doanh thu = tiền mặt + chuyển khoản + nợ bill.</div>`
-    : html`<label class="field"><span>${name} đúng là</span><input class="input" name="fval" inputmode="numeric" data-money value="${fmt((k === 'mo' ? nv.opening : nv.debt) ?? 0)}"></label>`;
+    : html`<label class="field"><span>${name} đúng là</span><input class="input" name="fval" inputmode="numeric" data-money value="${fmt((k === 'mo' ? nv.opening : c.bill_list ?? nv.debt) ?? 0)}"></label>
+      ${k === 'no' && c.bill_list != null ? html`<div class="st-meta">Danh sách khách nợ hoá đơn của ca: <b>${fmt(c.bill_list)}</b> — Nợ bill phải bằng số này mới Xác nhận Fabi được.</div>` : ''}`;
   const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${dtEmpty ? 'Máy Fabi không có số' : 'Máy Fabi ghi sai'} · ${name}</h2>
     <div class="st-meta">${dtEmpty ? 'Tệp Fabi của ca này không có số doanh thu — ghi số theo phiếu máy in.' : `Máy ghi ${fmt((k === 'mo' ? f.opening : k === 'dt' ? f.revenue : f.debt) ?? 0)}.`} ${D.owner ? 'Chủ gửi thì duyệt ngay.' : 'Số sửa phải chờ Chủ duyệt; chưa duyệt thì chưa Xác nhận Fabi được.'}</div>
     ${body}<label class="field"><span>Lý do (bắt buộc)</span><input class="input" name="reason" placeholder="vd: máy không ghi hoá đơn bàn 4"></label>
@@ -1324,7 +1329,8 @@ function partA(D, a, part = 1, mk = () => '') {
   if (c.recon_money_done) {
     if (part === 1) return html`<div class="stc-part stc-pa"><div class="h">Số máy Fabi ${phBtn(c)} ${mk('anh')} <span class="st-meta">đã xác nhận Fabi · muốn sửa số: Mở lại xác nhận ở bước 2</span></div><div class="stc-gio" data-gio-ca="${c.id}"></div>
       <div class="stc-stp" id="ds-s1"><div class="stc-fsum"><div><span>Tiền mở ca ${mk('mo')}</span><b>${fmt(f.has ? f.opening ?? 0 : nv.opening ?? 0)}</b></div><div><span>Doanh thu (máy Fabi) ${mk('dt')}</span><b>${fmt(f.revenue ?? nv.revenue ?? 0)}</b></div>
-        <div><span>Nợ bill (máy Fabi) ${mk('no')}</span><b>${fmt(f.debt ?? nv.debt ?? 0)}</b></div></div>${warnHd}${debtList(D, c)}</div></div>`;
+        <div><span>Nợ bill (máy Fabi) ${mk('no')}</span><b>${fmt(f.debt ?? nv.debt ?? 0)}</b></div></div>${warnHd}
+        ${c.bill_list != null && Number(nv.debt ?? 0) !== Number(c.bill_list) ? html`<div class="stc-warnbox">⚠ Nợ bill trên phiếu ${fmt(nv.debt ?? 0)} khác danh sách khách nợ hoá đơn ${fmt(c.bill_list)} — ca đã xác nhận Fabi; muốn sửa: Mở lại xác nhận ở bước 2.</div>` : ''}${debtList(D, c)}</div></div>`;
     return html`<div class="stc-part stc-pa"><div class="stc-stp" id="ds-s2"><div class="h">Tiền thực nhận ${mk('fabi')} <span class="pill ok">✓ Đã xác nhận Fabi</span>${fin || ro ? '' : html`<button type="button" class="btn sm secondary" data-dsreopen="1">Mở lại xác nhận</button>`}</div>
       <div class="stc-fsum"><div><span>Tiền mặt thực nhận ${mk('cash')}</span><b>${m ? fmt(m.tm.real) : '–'}</b></div><div><span>Chuyển khoản thực nhận ${mk('ck')}</span><b>${kt ? 'chờ kế toán' : fmt(c.bank_ck)}</b></div></div>${keep}${gapNote(gaps)}</div>${fixHelp(c)}</div>`;
   }
@@ -1332,7 +1338,10 @@ function partA(D, a, part = 1, mk = () => '') {
       : `dòng Chênh lệch tiền mặt ${signedFmt(Number(x.blame.diff))} của ${x.blame.who === 'nay' ? 'ca này' : 'ca trước'}`}.</span>` : x.fix === 'fabi' ? html`<span class="st-meta">→ Lấy số máy: chỉ sửa số trên phiếu nhân viên, không tạo phiếu.</span>` : ''),
     dt: (x) => (x.st === 'red' && x.empty ? html`<span class="st-meta">→ Bấm "Sai, sửa số": ghi bán tiền mặt + bán chuyển khoản theo phiếu máy in (doanh thu = tiền mặt + chuyển khoản + nợ bill — nợ sai thì sửa ô Nợ bill trước). Chủ duyệt xong ô thành xanh.</span>`
       : x.st === 'red' ? html`<span class="st-meta">→ Phiếu thu không đổi: sổ luôn lấy doanh thu máy Fabi; thiếu tiền thật thì hiện ở dòng Chênh lệch.</span>` : ''),
-    no: (x) => (x.st === 'red' && Number(f.debt) > Number(nv.debt) ? html`<span class="st-meta">→ Không tạo phiếu chi: thêm khách nợ ${fmt(Number(f.debt) - Number(nv.debt))} ở Công nợ (bill nợ chưa phải tiền).</span>` : '') };
+    no: (x) => { const bl = c.bill_list ?? Number(nv.debt ?? 0);   // chặng 4: so với danh sách khách nợ hoá đơn của ca
+      if (x.st === 'red' && f.has && Number(f.debt ?? 0) < bl) return html`<span class="st-meta">→ Danh sách khách nợ hoá đơn của ca: <b>${fmt(bl)}</b> — máy ghi ít hơn nên không lấy số máy được. Khách nợ thật thì bấm "Sai, sửa số", ghi Nợ bill = ${fmt(bl)} để Chủ duyệt.</span>`;
+      if (x.list) return html`<span class="st-meta">→ Danh sách khách nợ hoá đơn của ca: <b>${fmt(bl)}</b>. Nợ bill phải bằng danh sách — bấm "Lấy số máy Fabi" (chọn người nợ phần chênh) hoặc "Sai, sửa số".</span>`;
+      return x.st === 'red' && Number(f.debt) > bl ? html`<span class="st-meta">→ Không tạo phiếu chi: thêm khách nợ ${fmt(Number(f.debt) - bl)} ở Công nợ (bill nợ chưa phải tiền).</span>` : ''; } };
   const raw = { mo: [nv.opening, f.opening], dt: [nv.revenue, f.revenue], no: [nv.debt, f.debt] };
   const pv = (D.cas || []).find((o) => o.date === c.date && SHIFT_ORDER.indexOf(o.shift) === SHIFT_ORDER.indexOf(c.shift) - 1);
   const prevFin = !!pv && isFin(D, pv.id);   // máy chủ cũng chặn
@@ -1345,16 +1354,16 @@ function partA(D, a, part = 1, mk = () => '') {
     if (q?.status === 'tu_choi') return html`<div class="stc-fxq no">✗ Chủ từ chối số ${fxNum(x.k, q)}${q.note ? ' · ' + q.note : ''}${by}</div>
       <span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}">Sửa lại số</button><button type="button" class="btn sm secondary" data-dsfixfabi="${q.id}" data-k="${x.k}" data-ca="${c.id}">Bỏ sửa, lấy số máy Fabi</button></span>`;
     if (q?.status === 'duyet') return html`<div class="stc-fxq ok">✓ Chủ đã duyệt số ${fxNum(x.k, q)} (${x.empty ? 'máy không có số' : 'máy ghi ' + fmt(fbT)})${by}</div>
-      ${D.owner && !c.recon_money_done ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfixcancel="${q.id}">Bỏ số đã duyệt</button></span>` : ''}`;
+      ${!c.recon_money_done && (D.owner || x.list) ? html`<span class="stc-tools">${x.list ? html`<button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}">Sửa lại số</button>` : ''}${D.owner ? html`<button type="button" class="btn sm secondary" data-dsfixcancel="${q.id}">Bỏ số đã duyệt</button>` : ''}</span>` : ''}`;
     if (c.recon_money_done) return '';
     return x.st === 'red' ? html`<span class="stc-tools"><button type="button" class="btn sm secondary" data-dsfix="${x.k}" data-ca="${c.id}" title="Máy Fabi cũng ghi sai: gửi số đúng cho Chủ duyệt">Sai, sửa số</button></span>`
       : html`<span class="stc-tools"><button type="button" class="stc-lk" data-dsfix="${x.k}" data-ca="${c.id}">Máy ghi sai? Sửa số</button></span>`; };
   const box = (x) => { const [a1, b1] = raw[x.k]; const nvT = Number(a1 ?? 0), fbT = Number(b1 ?? 0);
     const held = x.fx && ['cho', 'tu_choi'].includes(x.fx.status);   // đang chờ / bị từ chối: ẩn "Lấy số máy Fabi" (bấm Bỏ sửa trước)
-    const txt = x.st === 'red' && x.fix === 'fabi' ? `🔴 Nhân viên ghi ${nvT > fbT ? 'thừa' : 'thiếu'} ${fmt(nvT - fbT)} so với máy` : x.txt;
+    const txt = x.list ? x.txt : x.st === 'red' && x.fix === 'fabi' ? `🔴 Nhân viên ghi ${nvT > fbT ? 'thừa' : 'thiếu'} ${fmt(nvT - fbT)} so với máy` : x.txt;
     return html`<div class="stc-c4 ${x.st}" data-k="${x.k}"><b>${x.name} ${mk(x.k)}</b><span class="stc-ln">Phiếu nhân viên ghi: <b>${fmt(nvT)}</b></span><span class="stc-ln">Máy Fabi ghi: <b>${!f.has ? 'chưa có' : x.empty ? 'không có số' : fmt(fbT)}</b></span>
       ${x.k === 'mo' ? html`<span class="st-meta">${x.b}</span>` : ''}<span class="pill ${x.st === 'ok' ? 'ok' : x.st === 'red' ? 'off' : 'info'}">${txt}</span>${effect[x.k](x)}${x.note ? html`<span class="st-meta">⚠ ${x.note}</span>` : ''}
-      ${fixUi(x, fbT)}${D.ext ? '' : x.fix === 'fabi' && !held ? html`<span class="stc-tools"><button type="button" class="btn sm" data-dsfabi="${x.k}">Lấy số máy Fabi${x.k === 'no' && Number(f.debt) > Number(nv.debt) ? ` (thêm báo nợ ${fmt(Number(f.debt) - Number(nv.debt))})` : ''}</button></span>`
+      ${fixUi(x, fbT)}${D.ext ? '' : x.fix === 'fabi' && !held ? html`<span class="stc-tools"><button type="button" class="btn sm" data-dsfabi="${x.k}">Lấy số máy Fabi${x.k === 'no' && Number(f.debt) > Number(c.bill_list ?? nv.debt) ? ` (thêm báo nợ ${fmt(Number(f.debt) - Number(c.bill_list ?? nv.debt))})` : ''}</button></span>`
         : x.fix === 'blame' ? html`<span class="st-meta">Ca nào ghi sai thì ca đó chịu tiền lệch:</span><span class="stc-tools">${prevFin ? html`<span class="st-meta">Ca trước đã chốt ca — không chọn "Ca trước ghi sai" được.</span>` : html`<button type="button" class="btn sm secondary" data-dsblame="truoc">Ca trước ghi sai</button>${x.short ? html`<button type="button" class="btn sm secondary" data-dsblame="doi" title="Không rõ ai sai: chia đôi tiền thiếu, số lẻ ca này chịu">Hai ca cùng chịu</button>` : ''}`}<button type="button" class="btn sm secondary" data-dsblame="nay">Ca này ghi sai</button></span>`
         : x.blame ? html`<span class="stc-tools"><span class="st-meta">${x.blame.by || ''}${x.blame.reason ? ' · ' + x.blame.reason : ''}</span><button type="button" class="btn sm secondary" data-dsunblame="1">Huỷ chọn</button></span>` : ''}</div>`; };
   const s1 = cs.filter((x) => ['mo', 'dt', 'no'].includes(x.k));

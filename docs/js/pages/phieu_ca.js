@@ -3,6 +3,7 @@
 import { render as rerender, isManager, can } from '../app.js';
 import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
+import { bindPeopleSelect, loadPeople, peopleSelect } from '../nguoi_no_chon.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.22.1';
 import { rpc, sb } from '../sb.js';
@@ -1549,22 +1550,26 @@ function mount(R, ed, C0, ctx = {}) {
     });
   }
   // bước 74: Ghi nhận nợ ở đối soát — số tiền ca không đổi; nợ vào Công nợ; khách trả ở ca sau thì tự bù ca này
-  $('#rd-add')?.addEventListener('click', () => {
+  $('#rd-add')?.addEventListener('click', async () => {
+    const people = await loadPeople(R.branch_id);   // chặng 4 (22/11): chọn người nợ trong danh sách (+ Thêm người nợ…); không lấy được thì giữ ô gõ tên
     const d = dialog(html`<form class="stack" style="gap:12px;max-width:460px"><h2 style="margin:0">Ghi nhận nợ · ca ${R.shift} ${dmy(R.work_date)}</h2>
       <div class="st-meta">Khách nợ nhưng nhân viên đã bấm thanh toán trên Fabi. Số tiền của ca <b>không đổi</b> (ca hiện thiếu khoản này — Đối soát Fabi ghi ca còn lệch, chờ khách trả nợ). Khoản nợ vào Công nợ và nhắc ở các ca sau; khách trả ở ca sau thì web tự bù cho ca này.</div>
       <div class="pc-line" role="radiogroup" aria-label="Nhân viên đã bấm"><label class="radio-pill"><input type="radio" name="it" value="chuyen_khoan" checked> NV bấm Chuyển khoản</label><label class="radio-pill"><input type="radio" name="it" value="tien_mat"> NV bấm Tiền mặt</label></div>
-      <label class="field"><span>Tên người nợ</span><input class="input" name="nm" autocomplete="off" placeholder="vd: Chị Hoa (tên đã có trong danh sách người nợ)"></label>
-      <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>
+      ${people ? html`<label class="field"><span>Người nợ</span>${peopleSelect(people, { name: 'nm' })}</label>`
+        : html`<label class="field"><span>Tên người nợ</span><input class="input" name="nm" autocomplete="off" placeholder="vd: Chị Hoa (tên đã có trong danh sách người nợ)"></label>
+      <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>`}
       <label class="field"><span>Số điện thoại</span><input class="input" name="ph" inputmode="tel" autocomplete="off"></label>
       <label class="field"><span>Số tiền nợ</span><input class="input money" name="amt" inputmode="numeric" autocomplete="off"></label>
       <label class="field"><span>Ghi chú</span><input class="input" name="note" autocomplete="off" placeholder="vd: hẹn trả cuối tuần"></label>
       <div id="rd-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Ghi nhận nợ</button></div></form>`);
     bindMoneyInputs(d); const f = d.querySelector('form');
+    if (people) bindPeopleSelect(d, people, R.branch_id, { onPick: (n) => { const q = people.find((x) => x.name === n); if (q?.phone && !f.ph.value) f.ph.value = q.phone; } });
     d.querySelector('[data-x]').addEventListener('click', () => d.close());
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault();
-      try { await rpc('app_ca_recon_debt', { p_report: R.id, p_item: f.querySelector('[name=it]:checked').value, p_name: f.nm.value, p_phone: f.ph.value, p_amount: parseMoney(f.amt.value), p_note: f.note.value });
+      try { if (!f.nm.value) throw new Error('Chọn người nợ.');
+        await rpc('app_ca_recon_debt', { p_report: R.id, p_item: f.querySelector('[name=it]:checked').value, p_name: f.nm.value, p_phone: f.ph.value, p_amount: parseMoney(f.amt.value), p_note: f.note.value });
         d.close(); flash('Đã ghi nhận nợ — khoản nợ vào Công nợ, nhắc ở các ca sau.'); rerender(); }
       catch (e) { d.querySelector('#rd-err').innerHTML = str(html`<div class="alert error">${e.message}</div>`); }
     });

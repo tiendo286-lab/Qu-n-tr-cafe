@@ -1,5 +1,6 @@
 // Bước 173 (đợt C): máy Fabi ghi sai — "Sai, sửa số" ở bước 1, chờ Chủ duyệt, Chủ duyệt / từ chối. Chạy role chu / qlt / ql, index.html và test/phone.html.
-//  Ca 182 (chưa xác nhận Fabi): ô Nợ bill đỏ (máy ghi nhiều hơn phiếu).
+//  Ca 182 (chưa xác nhận Fabi): ô Nợ bill đỏ (máy ghi 150.000, phiếu = danh sách khách nợ hoá đơn 120.000).
+//  Chặng 4 (anh Tiến chốt 22/11 "Báo đỏ và chặn", tệp 162): số duyệt phải bằng danh sách khách nợ → thử bằng 120.000; duyệt số khác danh sách thì vẫn đỏ.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const txt = (el) => (el?.innerText || '').replace(/\s+/g, ' ').trim().toLowerCase();
@@ -26,26 +27,31 @@ export default async ({ sleep, out }) => {
     ok(!!$('[name=fval]', dlg()) && !!$('[name=reason]', dlg()), 'hộp Sửa số: ô số đúng + lý do');
     wide('hộp sửa số');
     let k0 = (window.__LOG || []).length;
-    type($('[name=fval]', dlg()), '77.000'); $('button[type=submit]', dlg()).click(); await sleep(600);
+    ok(/120\.000/.test($('[name=fval]', dlg()).value) && txt(dlg()).includes('danh sách khách nợ hoá đơn của ca'), 'hộp Sửa số điền sẵn tổng danh sách 120.000 + nhắc'); type($('[name=fval]', dlg()), '120.000'); $('button[type=submit]', dlg()).click(); await sleep(600);
     ok(calls('app_stc_fix_request', k0).length === 0 && !!dlg(), 'chưa ghi lý do → chưa gửi');
     type($('[name=reason]', dlg()), 'Máy không ghi nợ bàn 4'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] [name=fval]', 40); await redraw();
     const c1 = calls('app_stc_fix_request', k0);
-    ok(c1.length === 1 && Number(c1[0].p_report) === 182 && c1[0].p_field === 'no' && Number(c1[0].p?.val) === 77000 && c1[0].p_reason === 'Máy không ghi nợ bàn 4', 'gửi đúng ca, ô, số, lý do');
+    ok(c1.length === 1 && Number(c1[0].p_report) === 182 && c1[0].p_field === 'no' && Number(c1[0].p?.val) === 120000 && c1[0].p_reason === 'Máy không ghi nợ bàn 4', 'gửi đúng ca, ô, số, lý do');
     if (role === 'chu') {
       ok(box()?.classList.contains('ok') && txt(box()).includes('chủ đã duyệt') && !!box().querySelector('[data-dsfixcancel]'), 'Chủ gửi → duyệt ngay: ô xanh "Chủ đã duyệt", có nút Bỏ số đã duyệt');
       k0 = (window.__LOG || []).length; box().querySelector('[data-dsfixcancel]').click(); await redraw();
       ok(calls('app_stc_fix_cancel', k0).length === 1 && box()?.classList.contains('red'), 'Chủ bỏ số đã duyệt → ô về đỏ');
       // quản lý đã gửi (tạo bằng lối riêng của bộ thử) → Chủ thấy Duyệt / Từ chối
-      await sb.rpc('app__thu_fix_cho', { p_report: 182, p_field: 'no', p: { val: 77000 } }); await open();
+      await sb.rpc('app__thu_fix_cho', { p_report: 182, p_field: 'no', p: { val: 120000 } }); await open();
       ok(txt(box()).includes('chờ chủ duyệt') && !!box().querySelector('[data-dsfixok]') && !!box().querySelector('[data-dsfixno]'), 'Chủ thấy số sửa chờ duyệt + nút Duyệt / Từ chối');
       box().querySelector('[data-dsfixno]').click(); await wait('dialog[open] [name=fnote]', 40); await sleep(200);
       k0 = (window.__LOG || []).length; type($('[name=fnote]', dlg()), 'Xem lại camera'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] [name=fnote]', 40); await redraw();
       const c2 = calls('app_stc_fix_decide', k0);
       ok(c2.length === 1 && c2[0].p_ok === false && c2[0].p_note === 'Xem lại camera', 'Từ chối → gửi đúng, kèm lý do');
       ok(txt(box()).includes('chủ từ chối') && !!box().querySelector('[data-dsfix="no"]') && !!box().querySelector('[data-dsfixfabi]'), 'bị từ chối: ô ghi "Chủ từ chối", có Sửa lại số + Bỏ sửa, lấy số máy Fabi');
-      await sb.rpc('app__thu_fix_cho', { p_report: 182, p_field: 'no', p: { val: 77000 } }); await open();
+      await sb.rpc('app__thu_fix_cho', { p_report: 182, p_field: 'no', p: { val: 120000 } }); await open();
       k0 = (window.__LOG || []).length; box().querySelector('[data-dsfixok]').click(); await redraw();
       ok(calls('app_stc_fix_decide', k0)[0]?.p_ok === true && box()?.classList.contains('ok'), 'Duyệt → ô xanh');
+      // chặng 4: Chủ duyệt số KHÁC danh sách khách nợ (77.000 ≠ 120.000) → ô vẫn đỏ, ghi rõ danh sách, cho gửi lại
+      box().querySelector('[data-dsfixcancel]').click(); await redraw();
+      await sb.rpc('app__thu_fix_cho', { p_report: 182, p_field: 'no', p: { val: 77000 } }); await open();
+      box().querySelector('[data-dsfixok]').click(); await redraw();
+      ok(box()?.classList.contains('red') && txt(box()).includes('danh sách khách nợ') && !!box().querySelector('[data-dsfix="no"]'), 'duyệt 77.000 ≠ danh sách 120.000 → ô vẫn đỏ, ghi danh sách, có Sửa lại số');
     } else {
       ok(txt(box()).includes('chờ chủ duyệt') && !box().querySelector('[data-dsfixok]') && !!box().querySelector('[data-dsfixcancel]'), 'quản lý: ô ghi "chờ Chủ duyệt", có Bỏ sửa, không có nút Duyệt');
       ok(!box().querySelector('[data-dsfabi]'), 'đang chờ duyệt thì ẩn "Lấy số máy Fabi"');

@@ -99,7 +99,9 @@ export function makeFb(T, me) {
       const files = T.fabi_shifts.filter((f) => f.work_date >= p_from && f.work_date <= p_to).map((f) => {
         const r = T.shift_reports.find((x) => x.id === f.report_id);
         const nv = r ? Object.fromEntries(['ipos_opening', 'total_revenue', 'pos_transfer', 'pos_cash', 'pos_debt', 'cash_counted', 'pos_diff'].map((k) => [k, r[k] ?? null])) : null;   // bước 136
-        return { ...f, branch_code: f.code, chenh: f.tong - f.cuoi, report_status: r?.status || null, uploaded_by: 'Chủ', nv, nguoi_chot: r?.completed_by ? (T.accounts?.find((a) => a.id === r.completed_by)?.display_name || 'Người chốt thử') : null };
+        const res = T.__res && f.report_id ? T.__res(f.report_id) : [];   // chặng 4 (tệp 162): cờ xn = ca đã Xác nhận Fabi (có kết quả tiền mặt + chuyển khoản)
+        return { ...f, branch_code: f.code, chenh: f.tong - f.cuoi, report_status: r?.status || null, uploaded_by: 'Chủ', nv, xn: res.includes('tien_mat') && res.includes('chuyen_khoan'),
+          nguoi_chot: r?.completed_by ? (T.accounts?.find((a) => a.id === r.completed_by)?.display_name || 'Người chốt thử') : null };
       });
       const missing = T.shift_reports.filter((r) => r.work_date >= p_from && r.work_date <= p_to && !/full/i.test(r.shift) && !T.fabi_shifts.some((f) => f.branch_id === r.branch_id && f.work_date === r.work_date && f.shift === r.shift))
         .map((r) => ({ report_id: r.id, branch_code: (T.branches.find((b) => b.id === r.branch_id) || {}).code, work_date: r.work_date, shift: r.shift, status: r.status }));

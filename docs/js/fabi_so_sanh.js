@@ -29,8 +29,18 @@ export function reviewOf(f) {
   if (!f.report_id) return { kind: 'chua_phieu', short: 'Có file Fabi, chưa có phiếu nhân viên',
     lines: ['Fabi có ca này nhưng trên web chưa có phiếu chốt ca của nhân viên.'] };
   if (f.report_status !== 'hoan_thanh') return null;
+  if (f.xn) return null;   // chặng 4 (anh Tiến chốt 22/11): quản lý đã Xác nhận Fabi ca này (số đã đối chiếu khớp / Chủ duyệt) → hết báo
   const diff = f.diff || [], fixed = f.fixed || [];
   if (diff.length) return { kind: 'lech', short: 'Gõ khác Fabi: ' + labels(diff), lines: [...diff.map(diffLine), ...fixed.map(fixedLine)] };
   if (fixed.length) return { kind: 'da_sua', short: 'Web đã sửa theo Fabi: ' + labels(fixed), lines: fixed.map(fixedLine) };
+  return null;
+}
+
+// Ca đã Xác nhận Fabi mà lúc tải tệp từng khác Fabi → một dòng ghi nhỏ (không còn đếm vào "Cần quản lý xem"); null = không có gì để ghi
+export function confirmedNote(f) {
+  if (!f?.xn || f.report_status !== 'hoan_thanh') return null;
+  const diff = f.diff || [], fixed = f.fixed || [];
+  if (diff.length) return `Gõ khác Fabi: ${labels(diff)} · quản lý đã xác nhận Fabi`;
+  if (fixed.length) return `Web đã sửa theo Fabi: ${labels(fixed)} · quản lý đã xác nhận Fabi`;
   return null;
 }

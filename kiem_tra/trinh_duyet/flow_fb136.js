@@ -68,6 +68,16 @@ export default async ({ sleep, out }) => {
     // nút Xem
     $('#fb-review [data-ca="T136A"]').click(); await sleep(1200);
     check(/ca=T136A/.test(location.hash) && !!$('#fb-ca-T136A'), `Bấm Xem → ${location.hash}`);
+    // chặng 4 (anh Tiến chốt 22/11): quản lý Xác nhận Fabi ca gõ khác Fabi → hết báo "Cần quản lý xem", thẻ ca ghi nhỏ "quản lý đã xác nhận Fabi"
+    await rpc('app__test_set_results', { p_id: idLech, p_items: ['tien_mat', 'chuyen_khoan'] });
+    location.hash = '#/__tam'; await sleep(200); location.hash = `#/ke-toan/fabi?cn=${br}&ngay=${day}`; await wait('#fb-day-detail'); await sleep(800);
+    const rows2 = $$('#fb-review .fb-review-row');
+    check(rows2.length === 2 && !rows2.some((x) => /Tổng tiền/.test(txt(x))), `Đã xác nhận Fabi → khung còn 2 ca: ${rows2.map(txt).join(' | ')}`);
+    const cardA = $('#fb-ca-T136A');
+    check(!!cardA && /Quản lý đã xác nhận Fabi/.test(txt($('.pill', cardA))) && /Gõ khác Fabi: Tổng tiền.*quản lý đã xác nhận Fabi/.test(txt($('.fb-xn', cardA))) && !cardA.classList.contains('has-review'),
+      `Thẻ ca đã xác nhận: ${txt($('.pill', cardA))} · ${txt($('.fb-xn', cardA))}`);
+    const n2 = txt($('.needs b') || $('.fb-stats b'));
+    check(/2/.test(txt([...document.querySelectorAll('div')].find((x) => /^Cần quản lý xem/.test(txt(x.firstElementChild)))?.querySelector('b'))), `Ô đếm "Cần quản lý xem" = 2 (${n2})`);
   } catch (e) { fail = e.message || String(e); }
   out.push({ route: 'file ca Fabi 136', title: (fail ? `KIỂM TRA THẤT BẠI: ${fail} || ` : `ĐẠT ${r.length} kiểm tra || `) + r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

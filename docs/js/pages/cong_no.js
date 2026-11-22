@@ -7,6 +7,7 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, noKind, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, str } from '../ui.js';
+import { bindPeopleSelect, loadPeople, peopleSelect } from '../nguoi_no_chon.js';
 
 export const perm = 'doi_soat';
 const LS_BR = 'tcBranch';
@@ -127,11 +128,14 @@ export async function render(ctx) {
       try { await rpc('app_cn_debt_uncollect', { p_id: Number(b.dataset.id) }); flash('Đã bỏ lần thu.'); rerender(); } catch (e) { b.disabled = false; alert(e.message); }
     }));
   }
-  function newDebt(g, p = null) {
+  async function newDebt(g, p = null) {
+    const people = p ? null : await loadPeople(cn);   // chặng 4 (22/11): chọn người nợ trong danh sách (+ Thêm người nợ…); không lấy được thì giữ ô gõ tên
     const kind0 = g === 'khach' ? 'bill' : 'muon';
     const dl = dialog(html`<form class="stack cn-dlg" style="gap:12px"><h2 style="margin:0">${p ? `Ghi thêm nợ — ${p.name}` : `Ghi nợ — ${BR.code}`}</h2>
       ${p ? '' : html`<div class="pc-line" role="radiogroup" aria-label="Nhóm">${Object.entries(GRP_SHORT).map(([k, l]) => html`<label class="radio-pill"><input type="radio" name="grp" value="${k}" ${k === g ? 'checked' : ''}> ${l}</label>`)}</div>`}
-      ${p ? '' : html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" list="cn-names" autocomplete="off" value="${g === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Anh Thắng, Bàn 5"><datalist id="cn-names"></datalist></label>
+      ${p ? '' : people ? html`<label class="field"><span>Người nợ</span>${peopleSelect(people, { cur: g === 'kho' && people.some((q) => q.name === 'Kho tổng') ? 'Kho tổng' : '' })}</label>
+        <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>`
+        : html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" list="cn-names" autocomplete="off" value="${g === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Anh Thắng, Bàn 5"><datalist id="cn-names"></datalist></label>
         <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>
         <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>`}
       <div class="pc-line" role="radiogroup" aria-label="Loại nợ">${[['bill', 'Nợ HĐ', 'khách chưa trả hoá đơn'], ['muon', 'Nợ TM', 'cầm tiền mặt của quán'], ['ck', 'Nợ CK', 'quán chuyển khoản cho']].map(([k, l, t]) => html`<label class="radio-pill" title="${t}"><input type="radio" name="kind" value="${k}" ${k === kind0 ? 'checked' : ''}> ${l}</label>`)}</div>
@@ -142,6 +146,8 @@ export async function render(ctx) {
       <div class="cn-err"></div>
       <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Ghi nợ</button></div></form>`);
     bindMoneyInputs(dl); const f = dl.querySelector('form');
+    if (people) bindPeopleSelect(dl, people, cn, { grp0: () => f.grp.value, onPick: (n, gp) => { if (gp) { const r = f.querySelector(`[name=grp][value="${gp}"]`); if (r) r.checked = true; }
+      const q = people.find((x) => x.name === n); if (q?.phone && !f.phone.value) f.phone.value = q.phone; } });
     const fill = () => { const gg = p ? p.grp : f.grp.value; const dlist = dl.querySelector('#cn-names'); if (dlist) dlist.innerHTML = str(html`${namesOf(gg).map((n) => html`<option value="${n}"></option>`)}`);
       const k = [...f.kind].find((x) => x.checked)?.value; f.fund_out.disabled = k === 'bill'; if (k === 'bill') f.fund_out.checked = false; };
     fill(); f.addEventListener('change', fill);
@@ -150,6 +156,7 @@ export async function render(ctx) {
       ev.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
       const gg = p ? p.grp : f.grp.value;
       try {
+        if (!p && !f.name.value) throw new Error('Chọn người nợ.');
         await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: cn, grp: gg, name: p ? (p.rows.find((r) => r.by_ql)?.name || p.name) : f.name.value, phone: p ? p.phone || '' : f.phone.value,
           kind: [...f.kind].find((x) => x.checked).value, amount: parseMoney(f.amount.value), date: f.date.value, note: f.note.value, fund_out: f.fund_out.checked } });
         dl.close(); flash('Đã ghi nợ.'); rerender();

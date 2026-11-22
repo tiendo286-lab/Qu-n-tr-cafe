@@ -1,6 +1,6 @@
 // Bước 136: bài thử module so sánh File ca Fabi (không cần trình duyệt).
 // Chạy: /System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc -m kiem_tra/fabi_so_sanh_136.mjs
-import { FIELDS, compareRows, reviewOf } from '../docs/js/fabi_so_sanh.js';
+import { FIELDS, compareRows, confirmedNote, reviewOf } from '../docs/js/fabi_so_sanh.js';
 
 const log = globalThis.print || console.log;
 let fail = 0, n = 0;
@@ -50,5 +50,16 @@ eq(FIELDS.map((x) => x[2]), ['Số dư đầu', 'Doanh thu NET', 'Chuyển kho�
 { const f = base({ nv: { ...NV, cash_counted: 3140000 }, diff: [{ field: 'cash_counted', label: 'Tổng tiền', nv: 3140000, fabi: 3320000 }],
     fixed: [{ field: 'cash_counted', label: 'Tổng tiền', before: 3140000, fabi: 3320000 }] });
   ok(reviewOf(f).lines.includes('Web đã sửa số đối soát theo Fabi: Tổng tiền 3.140.000 → 3.320.000'), 'lech + fixed'); }
+
+// 8. chặng 4 (anh Tiến chốt 22/11): ca đã Xác nhận Fabi (xn) → không còn "Cần quản lý xem"; vẫn ghi nhỏ lý do + "quản lý đã xác nhận"
+{ const lech = base({ xn: true, nv: { ...NV, cash_counted: 3140000 }, diff: [{ field: 'cash_counted', label: 'Tổng tiền', nv: 3140000, fabi: 3320000 }] });
+  eq(reviewOf(lech), null, 'gõ khác Fabi nhưng đã xác nhận → không cần xem');
+  eq(confirmedNote(lech), 'Gõ khác Fabi: Tổng tiền · quản lý đã xác nhận Fabi', 'ghi chú ca đã xác nhận (gõ khác)');
+  const sua = base({ xn: true, fixed: [{ field: 'ipos_opening', label: 'Số dư đầu', before: 900000, fabi: 1000000 }] });
+  eq(reviewOf(sua), null, 'web đã sửa nhưng đã xác nhận → không cần xem');
+  eq(confirmedNote(sua), 'Web đã sửa theo Fabi: Số dư đầu · quản lý đã xác nhận Fabi', 'ghi chú ca đã xác nhận (web sửa)');
+  eq(confirmedNote(base({ xn: true })), null, 'đã xác nhận, không có gì khác → không ghi chú');
+  eq(reviewOf(base({ xn: false, diff: [{ field: 'pos_cash', label: 'Tiền mặt', nv: 1, fabi: 2 }] })).kind, 'lech', 'chưa xác nhận → vẫn cần xem');
+  eq(reviewOf({ report_id: null, xn: false }).kind, 'chua_phieu', 'chưa có phiếu → vẫn cần xem'); }
 
 log(fail ? `KIỂM TRA THẤT BẠI ${fail}/${n}` : `ĐẠT ${n} kiểm tra`);

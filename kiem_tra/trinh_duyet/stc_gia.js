@@ -10,6 +10,8 @@ export function makeStc(T, me) {
   const admin = () => ['chu', 'ql_tong'].includes(me.role);
   // khoản của phiếu ca mang mã thật 'm:<ca>:<mkey>' như máy chủ (bước 153: → Trừ lương cần mkey)
   let ST = null; const st = () => ST || (ST = ((d) => { d.items.forEach((x) => { if (x.src === 'move' && String(x.id).startsWith('z:')) x.id = 'm:' + x.ca_id + ':z' + x.id.slice(2); }); return d; })(copy(MONTH)));
+  // chặng 4 (tệp 162): tổng danh sách khách nợ hoá đơn của ca (như billListOf ở so_thu_chi_tinh.js)
+  const billList = (c) => (st().ca_debts || []).filter((x) => x.report_id === c.id && x.t === 'moi' && (x.kind || 'bill') === 'bill').reduce((a, x) => a + Number(x.amount || 0), 0);
   // bước 153: mọi phiếu trừ lương của tháng (app_stc_month.shortfalls) — dựng từ gap.tl của dữ liệu giả
   let SF = null; let SFN = 900;
   const sfs = () => SF || (SF = st().items.filter((x) => x.gap && (x.gap.tl || []).length).flatMap((x) => x.gap.tl.map((t) => ({ id: t.id, report_id: x.ca_id, date: x.date,
@@ -342,8 +344,14 @@ export function makeStc(T, me) {
       if (p_field === 'mo' && f.opening == null) throw new Error('Máy Fabi không có số tiền đầu ca ở ca này — bấm "Sai, sửa số" để Chủ duyệt.');
       if (p_field === 'mo') { c.nv.opening = f.opening; c.start_tm = f.opening; }
       else if (p_field === 'dt') c.nv.revenue = f.revenue;
-      else if (p_field === 'no') { const diff = f.debt - c.nv.debt; c.nv.debt = f.debt;
-        if (diff > 0 && String(p_name || '').trim()) st().open_debts.push({ id: 'd:' + (++N), who: p_name.trim(), kind: 'bill', amount: diff, left: diff, date: c.date, from: `ca ${c.shift} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`, no_remind: false }); }
+      else if (p_field === 'no') {   // tệp 162: Nợ bill phải bằng danh sách khách nợ hoá đơn của ca
+        const bl = billList(c);
+        if (f.debt < bl) throw new Error(`Máy Fabi ghi nợ ${f.debt} — ít hơn danh sách khách nợ hoá đơn của ca (${bl}). Khách nợ thật thì giữ số nợ: bấm "Sai, sửa số".`);
+        const diff = f.debt - bl;
+        if (diff > 0 && !String(p_name || '').trim()) throw new Error(`Máy Fabi ghi nợ nhiều hơn danh sách khách nợ hoá đơn ${diff} — chọn người nợ phần chênh để Nợ bill khớp danh sách.`);
+        c.nv.debt = f.debt;
+        if (diff > 0) { const id = ++N; st().open_debts.push({ id: 'd:' + id, who: p_name.trim(), kind: 'bill', amount: diff, left: diff, date: c.date, from: `ca ${c.shift} ${c.date.slice(8, 10)}/${c.date.slice(5, 7)}`, no_remind: false });
+          (st().ca_debts = st().ca_debts || []).push({ report_id: c.id, t: 'moi', id: 900000 + id, who: p_name.trim(), kind: 'bill', amount: diff, left: diff, pm: null, from: null }); } }
       else throw new Error('Ô cần sửa không hợp lệ.');
     },
     // bước 173 (tệp 153): máy Fabi ghi sai — gửi số sửa, Chủ duyệt / từ chối (Chủ gửi = duyệt ngay); duyệt thì ghi số vào phiếu
@@ -417,7 +425,8 @@ export function makeStc(T, me) {
       if (fx.some((q) => q.status === 'tu_choi')) throw new Error('Chủ đã từ chối số sửa — sửa lại số hoặc bấm "Bỏ sửa, lấy số máy Fabi" rồi mới xác nhận.');
       const moOpen = fixOk(c, 'mo', c.nv.opening) ? c.nv.opening : f.opening;
       if ((c.nv.opening !== f.opening && !fixOk(c, 'mo', c.nv.opening)) || (!c.blame && exp != null && moOpen !== exp)
-        || (c.nv.revenue !== f.revenue && !fixOk(c, 'dt', c.nv.revenue)) || (c.nv.debt !== f.debt && !fixOk(c, 'no', c.nv.debt))) throw new Error('Còn ô đỏ ở bước ① (tiền mở ca / doanh thu / nợ) — sửa xong mới chốt.');
+        || (c.nv.revenue !== f.revenue && !fixOk(c, 'dt', c.nv.revenue)) || (c.nv.debt !== f.debt && !fixOk(c, 'no', c.nv.debt))
+        || (Array.isArray(st().ca_debts) && c.nv.debt !== billList(c))) throw new Error('Còn ô đỏ ở bước ① (tiền mở ca / doanh thu / nợ) — sửa xong mới chốt.');   // tệp 162: nợ khớp danh sách
       if (c.cash_mode === 'ca' && c.ql_counted == null) throw new Error('Nhập tiền mặt thực nhận ở bước ② trước.');
       c.recon_money_done = true; items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:') && !x.void) x.can_edit = true; });
       return { tm: 0, ck: 0 };

@@ -1,5 +1,5 @@
 import { can, render as rerender } from '../app.js';
-import { compareRows, reviewOf } from '../fabi_so_sanh.js?v=2026.11.22.1';
+import { compareRows, confirmedNote, reviewOf } from '../fabi_so_sanh.js?v=2026.11.22.1';
 import { addDays, catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { xlsx } from '../excel.js';
@@ -11,9 +11,10 @@ import { DOW, mondayOf } from './ke_toan_ck.js';
 
 const SHIFTS = ['Sáng', 'Chiều', 'Tối'];
 const STATES = { khop: ['Khớp phiếu', 'ok'], lech: ['Nhân viên gõ khác Fabi', 'warn'], da_sua: ['Web đã sửa số theo Fabi', 'warn'],
-  chua_phieu: ['Chưa có phiếu nhân viên', 'warn'], dang_chot: ['Nhân viên đang chốt', 'mute'] };
+  chua_phieu: ['Chưa có phiếu nhân viên', 'warn'], dang_chot: ['Nhân viên đang chốt', 'mute'], xn: ['Quản lý đã xác nhận Fabi', 'ok'] };
 // bước 136: ca cần quản lý xem = reviewOf (chưa có phiếu / nhân viên gõ khác Fabi / web đã sửa số đối soát theo Fabi)
-const stateOf = (f) => reviewOf(f)?.kind || (f.report_status !== 'hoan_thanh' ? 'dang_chot' : 'khop');
+// chặng 4 (22/11): ca đã Xác nhận Fabi thì hết báo — trạng thái "Quản lý đã xác nhận Fabi" + một dòng ghi nhỏ lý do cũ
+const stateOf = (f) => reviewOf(f)?.kind || (f.report_status !== 'hoan_thanh' ? 'dang_chot' : confirmedNote(f) ? 'xn' : 'khop');
 const lsGet = () => { try { return localStorage.getItem('ckBranch'); } catch (_) { return null; } };
 const lsSet = (v) => { try { localStorage.setItem('ckBranch', String(v)); } catch (_) { /* bộ nhớ bị chặn */ } };
 const validDay = (v) => /^\d{4}-\d{2}-\d{2}$/.test(v || '');
@@ -62,6 +63,7 @@ export async function render({ params }) {
         ${f.nguoi_chot ? html`<p class="st-meta">Người chốt phiếu: <b>${f.nguoi_chot}</b></p>` : ''}
         ${f.nv ? cmpTable(f) : ''}
         ${isDS && f.report_id ? html`<a class="btn sm secondary fb-open-ds" href="#/quan-ly/doi-soat/ca?id=${f.report_id}">Mở đối soát ca ›</a>` : ''}</div>` : ''}
+      ${!rv && confirmedNote(f) ? html`<p class="st-meta fb-xn">✓ ${confirmedNote(f)}</p>` : ''}
       <div class="fb-money">${money('Doanh thu NET', f.net)}${money('Chuyển khoản', f.ck)}${money('Tiền mặt', f.tm)}${money('Nợ trên Fabi', f.no)}</div>
       <details><summary>Xem số tiền và thông tin file</summary><div class="fb-extra">
         <div class="fb-money">${money('Số dư đầu ca', f.dau)}${money('Tiền đếm thực tế', f.tong)}</div>

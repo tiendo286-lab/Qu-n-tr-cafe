@@ -449,6 +449,11 @@ export function makeCa(T, me) {
       const n = T.shift_report_checks.filter((c) => c.report_id === p_id).length;
       if (['chua', 'mo_lai'].includes(r.recon_status) && n >= ITEMS.length) { Object.assign(r, { recon_status: 'hoan_thanh', recon_by: me.account_id, recon_at: now() }); RLOG.push({ report_id: p_id, action: 'hoan_thanh_doi_soat', by: name(me.account_id), at: now() }); }
     },
+    // chặng 4: chỉ dùng trong bài thử — coi như quản lý đã Xác nhận Fabi ca này (ghi kết quả tiền mặt + chuyển khoản "khớp")
+    app__test_set_results({ p_id, p_items }) {
+      for (const it of p_items || ['tien_mat', 'chuyen_khoan']) RES[p_id + '|' + it] = { result: 'khop', amount: 0, reason: null, by: me.account_id, at: now(), people: [] };
+      return MONEY.filter((it) => RES[p_id + '|' + it]);
+    },
     app_ca_result_set({ p_id, p_item, p_result, p_amount, p_reason, p_people }) {
       const r = rep(p_id); if (r.recon_status === 'hoan_thanh') throw new Error('Phiếu đã HOÀN THÀNH ĐỐI SOÁT. Bấm "Mở lại đối soát" trước khi sửa.');
       const kt = T.__ktState ? T.__ktState(p_id) : null;   // bước 44: phần tiền chờ kế toán

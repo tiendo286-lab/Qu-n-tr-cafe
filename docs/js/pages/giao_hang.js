@@ -42,6 +42,12 @@ async function branchesFor(params, G, can) {
 export async function render({ params, can }) {
   if (params.nhan) return receivePage(params.nhan === 'moi' ? 'moi' : Number(params.nhan), params, can);
   if (params.ds || params.xem) return reconPage(Number(params.ds || params.xem), !!params.ds && can('doi_soat'), can);
+  // chặng 4 (anh Tiến chốt 22/11): danh sách Đối soát hàng chỉ dành cho người có quyền Đối soát (menu cũng chỉ hiện cho họ); người khác gõ địa chỉ
+  // thì về Nhận hàng. Máy chủ vốn đã chặn mọi nút đối soát (app__need('doi_soat')) và không trả tiền hàng; ?xem= (xem một lần giao) vẫn mở như cũ.
+  if (routePath() === '/hang-hoa/doi-soat' && !can('doi_soat')) {
+    try { history.replaceState(null, '', NHAN + (params.cn ? `?cn=${encodeURIComponent(params.cn)}` : '')); } catch (_) { /* giữ địa chỉ cũ */ }
+    return nhanList(params, can);
+  }
   return routePath() === '/hang-hoa/doi-soat' ? listPage(params, can) : nhanList(params, can);
 }
 

@@ -155,6 +155,12 @@ export function blameText(b) {
   return b.who === 'doi' ? `Hai ca cùng chịu: ca trước ${signed(s.prev)} · ca này ${signed(s.nay)}` : `${b.who === 'nay' ? 'Ca này chịu' : 'Ca trước chịu'} ${signed(Number(b.diff))}`;
 }
 
+// chặng 4 (22/11): tổng danh sách khách nợ hoá đơn ghi ở ca (khoản nợ HĐ "mới" của ca trong D.ca_debts — số gốc, kể cả khách đã trả sau)
+export function billListOf(D, caId) {
+  return (D?.ca_debts || []).filter((x) => Number(x.report_id) === Number(caId) && x.t === 'moi' && (x.kind || 'bill') === 'bill')
+    .reduce((s, x) => s + Number(x.amount || 0), 0);
+}
+
 export function caChecks(ca, link) {
   const f = ca.fabi || {}, nv = ca.nv || {}, has = !!f.has;
   // bước 173: máy Fabi ghi sai → số Chủ đã duyệt thay số máy (phiếu đã được ghi theo số đó); fx = yêu cầu sửa mới nhất của ô
@@ -182,6 +188,15 @@ export function caChecks(ca, link) {
   const no = { ...(has ? { ...cmp('no', 'Nợ', `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, `Fabi ${fmt(f.debt ?? 0)}`, Number(nv.debt ?? 0), Number(f.debt ?? 0)), ...(okFix('no', nv.debt) ? approved('no') : {}) }
     : { k: 'no', name: 'Nợ', a: `NV khai nợ HĐ ${fmt(nv.debt ?? 0)}`, b: 'Fabi chưa có', st: 'kt', txt: '⏳ Chờ file Fabi' }), fx: fx.no || null,
     ...(dtEmpty ? { note: 'Tệp Fabi ca này thiếu số — nợ máy ghi chưa chắc đúng. Nợ thật khác thì bấm "Máy ghi sai? Sửa số".' } : {}) };
+  // chặng 4 (anh Tiến chốt 22/11 "Báo đỏ và chặn", máy chủ tệp 162): Nợ bill của ca phải bằng tổng danh sách khách nợ hoá đơn của ca (ca.bill_list).
+  // Máy ghi ít hơn danh sách thì không "Lấy số máy Fabi" được (khách nợ thật sẽ bị mất) — gỡ bằng "Sai, sửa số", Chủ duyệt.
+  const bl = ca.bill_list;
+  if (has && bl != null) {
+    const nvD = Number(nv.debt ?? 0), fbD = Number(f.debt ?? 0);
+    if (nvD !== Number(bl)) Object.assign(no, { st: 'red', list: true, bl: Number(bl), txt: `🔴 Nợ bill ${fmt(nvD)} khác danh sách khách nợ HĐ ${fmt(bl)}` });
+    if (fbD < Number(bl)) delete no.fix;
+    else if (no.list && fbD !== nvD) no.fix = 'fabi';
+  }
   if (no.st === 'ok') delete no.fix;
   const mm = link ? link.money : caMoney([], ca.id, open);
   const money = (pm, name, a, b) => {
