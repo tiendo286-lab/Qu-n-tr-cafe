@@ -209,6 +209,20 @@ export function makeStc(T, me) {
       else items().push({ ...it, edit: edit('them', r) });
       return nk;
     },
+    // chặng 3 (tệp 160): đổi một khoản thu / chi của ca thành Luân chuyển TM – CK — giữ vế cũ (thành "lc", không tính chi phí), thêm vế ngược lại
+    app_stc_move_exchange({ p_report, p_mkey, p_reason }) {
+      need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
+      if (!ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới đổi khoản.');
+      if (ca.done) throw new Error('Ca đã hoàn thành đối soát — Mở lại ở bước 6 mới đổi được.');
+      const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`);
+      if (!x || x.col === 'lc') throw new Error('Khoản này vừa thay đổi. Tải lại trang rồi làm lại.');
+      untick(ca, ['that', 'lon', 'ld', 'sau_tm', 'sau_ck', 'tn', 'sot']);
+      const nk = 'n' + (++N);
+      items().splice(items().indexOf(x), 1, { ...x, col: 'lc', cat: null, no_cost: true, can_edit: false, edit: edit('sua', r, x.amount) });
+      items().push({ id: `m:${p_report}:${nk}`, date: x.date, ca_id: x.ca_id, book: x.book === 'chi' ? 'thu' : 'chi', pm: x.pm === 'tm' ? 'ck' : 'tm', col: 'lc', amount: x.amount,
+        title: x.title, meta: 'Phiếu ca', src: 'move', can_edit: false, no_cost: true });
+      return 'lc-' + nk;
+    },
     // đợt 3: phiếu chênh lệch (giống app_stc_gap_* trên máy chủ, trên dữ liệu giả)
     app_stc_gap_tl({ p_report, p_item, p_people, p_reason }) {
       const x = gapIt(p_report, 'thieu'); reason(p_reason); const g = x.gap;

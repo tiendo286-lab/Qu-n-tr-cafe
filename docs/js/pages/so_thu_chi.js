@@ -273,13 +273,20 @@ async function editDialog(D, x) {
   } else if (x.id.startsWith('m:')) {
     const [, rid, ...mk] = x.id.split(':'); const kind = x.book === 'chi' ? 'chi' : 'thu';
     const ca = (D.cas || []).find((c) => c.id === Number(rid));
+    // chặng 3 (anh Tiến chốt 22/11/2026, máy chủ tệp 160): khách chuyển khoản để lấy tiền mặt (hoặc ngược lại) mà phiếu ghi thành khoản thu / chi
+    // → "Đổi thành Luân chuyển TM – CK": giữ số tiền, thêm vế ngược lại ở hình thức kia, không tính là chi phí / thu khác
+    const lc = html`<div class="stc-lc"><button type="button" class="btn sm secondary stc-2lc">Đổi thành Luân chuyển TM – CK</button>
+      <span class="st-meta">Dùng khi khách chuyển khoản để lấy tiền mặt (hoặc ngược lại). Giữ số tiền, thêm vế ${x.pm === 'ck' ? 'tiền mặt' : 'chuyển khoản'} ${kind === 'chi' ? '+' : '−'}${fmt(x.amount)}, không tính là ${kind === 'chi' ? 'chi phí' : 'thu khác'}. Ghi lý do ở ô dưới rồi bấm.</span></div>`;
     const d = dialog(form(`Sửa khoản ${kind} · Ca ${ca?.shift || ''} ${dm(x.date)}`, html`<div class="st-meta">Sửa vào bản đối soát, phiếu nhân viên giữ nguyên. Mục tiền đã duyệt không bị mở lại.</div>
       <label class="field"><span>Nội dung</span><input class="input" name="note" value="${x.title}"></label>
       <label class="field"><span>Số tiền</span><input class="input" name="amount" inputmode="numeric" data-money value="${fmt(x.amount)}"></label>
-      ${pmSel('pay', x.pm)}${await catSel(kind, x.cat)}`, del));
+      ${pmSel('pay', x.pm)}${await catSel(kind, x.cat)}${lc}`, del));
     const sign = kind === 'chi' ? -1 : 1;
     open(d, async () => { await rpc('app_stc_move_save', { p_report: Number(rid), p_mkey: mk.join(':'), p: { kind: val(d, 'pay'), amount: sign * money(d, 'amount'), note: val(d, 'note'), category_id: val(d, 'cat') || null }, p_reason: val(d, 'reason') }); after('Đã sửa khoản của ca — phiếu cũ gạch ngang'); },
       async () => { await rpc('app_stc_move_save', { p_report: Number(rid), p_mkey: mk.join(':'), p: { delete: true }, p_reason: val(d, 'reason') }); after('Đã xoá khoản của ca'); });
+    d.querySelector('.stc-2lc').addEventListener('click', async () => {
+      try { await rpc('app_stc_move_exchange', { p_report: Number(rid), p_mkey: mk.join(':'), p_reason: val(d, 'reason') }); d.close(); after('Đã đổi thành Luân chuyển TM – CK'); } catch (e) { err(d, e); }
+    });
   } else if (x.id.startsWith('x:')) { return extDialog(D, x);
   } else if (x.id.startsWith('dn:')) {
     const name = x.title.replace(/^Nợ (TM|CK): /, '');
@@ -1638,6 +1645,8 @@ function treoAct(D, b) {
 
 
 const STYLE = html`<style>
+  .stc-lc { display: flex; flex-direction: column; align-items: flex-start; gap: 4px; padding: 8px 10px; border: 1px dashed var(--line-strong); border-radius: 10px; }
+  .stc-lc .st-meta { overflow-wrap: anywhere; }
   .stc-bar { display: flex; flex-direction: column; gap: 10px; }
   .stc-month { display: flex; align-items: center; gap: 8px; }
   .stc-month strong { min-width: 110px; text-align: center; }
