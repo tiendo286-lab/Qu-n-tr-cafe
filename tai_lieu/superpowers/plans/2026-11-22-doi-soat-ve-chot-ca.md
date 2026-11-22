@@ -67,7 +67,7 @@
     - `viec.xong` = đủ dấu `nhan_su`, `ban_giao`, `nhap_hang` **và** x2 (`app__cv_state`, ca `self_reconciled` coi `khong_can`) ∈ {khong_can, da_duyet}.
     - `viec.thieu` = nhãn `app__ca_item_label` các mục thiếu (+ "Chờ Chủ duyệt x2" khi x2 chưa duyệt).
     - `tab`: `'viec'` nếu `not viec.xong`; `'tien'` nếu `tien.st` khác `ok`; còn lại `'xong'`.
-  - `app_ca_ds_con(p_branch bigint) returns jsonb` — mảng `{id, date, shift, tab}`.
+  - `app_ca_ds_con(p_branch bigint) returns jsonb` — mảng `{id, date, shift, tab, st}` (`st` = trạng thái tiền nhẹ: `kt` | `xn` | `ht` | `ok`; `kt` = chờ kế toán → nút Ca tiếp theo bỏ qua).
     - Mọi ca `status='hoan_thanh'`, `recon_status` khác `'hoan_thanh'`, `work_date` từ `2026-11-01` tới hôm nay (giờ VN).
     - Xếp theo ngày rồi thứ tự ca của cơ sở (cùng cách `app_ca_overview` xếp ca).
   - Quyền cả hai: `app__stc_can(p_branch)` false → trả `'[]'::jsonb` (không raise).
@@ -82,7 +82,7 @@
     5. Thêm `stc_ca_done` → `'ok'`.
     6. Thiếu `ban_giao` → `viec.xong=false`, `viec.thieu` có "Bàn giao".
     7. Đủ 3 dấu + `stc_ca_done` qua `app_ca_check` → `recon='hoan_thanh'` (luật cũ vẫn chạy) và ca biến khỏi `app_ca_ds_con`.
-    8. Phần việc ghi được khi kế toán chưa đủ (`app_ca_check(…,'nhan_su',true)` không lỗi).
+    8. Chờ kế toán: `app_ca_check(…,'nhan_su',true)` bị chặn "Phiếu chờ kế toán…" (luật 17/11, anh chốt lại 22/11) và ca có `st='kt'` trong `app_ca_ds_con`.
     9. Quản lý không được giao cơ sở → `[]`; nhân viên → `[]`.
     10. `app_ca_ds_con` đúng thứ tự Sáng → Chiều → Tối, qua 2 ngày.
     11. Khoảng `p_from..p_to` bắc qua 2 tháng trả đủ ca của cả hai tháng.
@@ -167,13 +167,13 @@
   - Thanh tab `.ds-ptabs` (nút `.ds-pt[data-ptab=viec|tien|xong]`) hiện trên mọi khung.
   - Pane ① = các bước 0..2 hiện có (Ai làm ca, Nghỉ & làm thay khi có, Bàn giao + đánh giá + nhận hàng), giữ "Duyệt & tiếp".
     - Bước cuối của ① duyệt xong → sang ② (đã xong tiền thì ③).
-  - **Bỏ chặn cả trang khi `ktBlocked`** (chỉ còn chặn khi `!canRc` hoặc phiếu chưa gửi).
+  - Ca chờ kế toán (`ktBlocked`): giữ trang "Chờ kế toán" như hiện nay (luật 17/11), thêm 2 nút đầu trang (Xem phiếu nhân viên, Ca tiếp theo chưa xong).
   - ② / ③ = `caMoney(...).html`, chỉ khi `canRc`:
     - `workLeft` từ dấu `nhan_su` / `ban_giao` / `nhap_hang` + x2 chờ duyệt;
     - `workSum` là tóm tắt ① (từng bước ✓ / còn gì, nút sang bước).
   - Bỏ pane bước 3 cũ (`stcCard`, `#ds-need`). "Lịch sử sửa · mở lại phiếu" (`dsFoot`) đặt cuối trang.
   - Đầu trang: nút "Xem phiếu nhân viên" (`#/ca/phieu?id=`) và `#ds-nextca2` "Ca tiếp theo chưa xong ›":
-    - ca kế sau ca đang mở trong `app_ca_ds_con`, hết thì quay về ca đầu danh sách;
+    - ca kế sau ca đang mở trong `app_ca_ds_con` (bỏ ca `st='kt'`), hết thì quay về ca đầu danh sách (cũng bỏ `kt`);
     - không còn → nút khoá, chữ "✓ Hết ca chưa xong";
     - mở `#/ca/doi-soat?id=X&tab=<tab của ca đó>`.
   - ③ khi ca đã "Đã đối soát": thêm nút đó.
@@ -246,7 +246,7 @@
     - (h) ql2 không được giao → ô như cũ, mở trang ca báo không có quyền (Review Focus 1);
     - (i) ca đang chốt mở bằng đường mới → câu "chưa hoàn thành phiếu" (Review Focus 2);
     - (j) nhân viên bấm ô → phiếu của mình;
-    - (k) ① làm được ở ca chờ kế toán;
+    - (k) ca chờ kế toán: trang báo "Chờ kế toán", có nút Ca tiếp theo chưa xong (bỏ qua ca chờ kế toán);
     - (l) không tràn ngang.
   - Chốt tháng › khung Còn thiếu dẫn đúng tab (kt / fabi → `tien`, hoan_thanh / cho → `xong`, viec → `viec`).
 

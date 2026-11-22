@@ -17,9 +17,10 @@
   - Trang này không có trong menu. Chỉ vào được từ khung Còn thiếu ở Chốt tháng, Tệp ca Fabi, vài liên kết trong Sổ thu chi, thông báo cũ.
 - **Bảng tuần Chốt ca:** chỉ cho biết nhân viên chốt xong chưa + tiền lệch. Bấm ô chỉ mở phiếu nhân viên để xem.
 
-**Lỗi đang có:** trang Đối soát ca cũ khoá **cả trang** khi kế toán chưa đủ file Fabi + số ngân hàng (`phieu_ca.js`: `if (wantDs && ktBlocked) return …`).
-- Luật anh chốt 12/11 (TINH_NANG mục 5o): "Nhân sự, Bàn giao, Nhập hàng đối soát ngay khi nhân viên gửi (không cần số của kế toán)".
-- Sáng 22/11 có 234 ca chưa hoàn thành; khoảng 205 ca chưa làm Nhân sự + Bàn giao.
+**Chờ kế toán (sửa lại 22/11 chiều):** trang Đối soát ca cũ khoá **cả trang** khi kế toán chưa đủ file Fabi + số ngân hàng. Máy chủ cũng chặn mọi dấu tích (`ca_kt_guard`, tệp 104).
+- Đó là **luật anh chốt 17/11** (TINH_NANG mục 5r37, thay luật 12/11 mục 5o): "chỉ khi đủ file Fabi và số dư ngân hàng mới kiểm tra / đối soát được", áp cho cả phần việc.
+- Lúc hỏi, em báo nhầm đây là lỗi (bỏ sót lần đổi 17/11). Bài thử cục bộ của tệp 164 lộ ra; em báo anh, **anh chốt lại: giữ luật 17/11**.
+- Sáng 22/11 có 234 ca chưa hoàn thành; khoảng 205 ca chưa làm Nhân sự + Bàn giao (phần lớn vì kẹt chờ kế toán / chưa xác nhận Fabi, phải làm ở hai nơi).
 
 **Mục tiêu:** quản lý mở một ca từ Chốt ca là làm xong cả ca ở một chỗ, không phải tìm trang ẩn hay sang Sổ thu chi.
 
@@ -27,13 +28,14 @@
 
 1. Ai làm: **quản lý cơ sở**, thường **dồn vài ngày** làm một lượt.
 2. Mở một ca: **hai phần, Hoàn thành ở cuối**.
-   - ① Phần việc làm ngay khi nhân viên gửi phiếu, không chờ kế toán.
+   - ① Phần việc làm khi kế toán đủ số (giữ luật 17/11 — xem câu 7).
    - ② Phần tiền 6 bước như hiện nay, làm khi kế toán có số.
    - Xong cả hai thì bấm Hoàn thành.
 3. **Bỏ tab "Đối soát Fabi" trong Sổ thu chi**, chỉ làm ở Chốt ca.
 4. Ô bảng tuần Chốt ca hiện **hai dòng: Việc · Tiền**.
 5. Có nút **"Ca tiếp theo chưa xong ›"**; đầu bảng tuần có dòng "Còn N ca chưa đối soát xong · Làm ca cũ nhất ›".
 6. Quản lý bấm ô ca (nhân viên đã gửi phiếu) → **mở thẳng trang đối soát** của ca. Đầu trang có nút "Xem phiếu nhân viên".
+7. (22/11 chiều, hỏi lại sau khi bài thử lộ luật 17/11) **Giữ luật 17/11**: ca chờ kế toán thì cả phần việc lẫn phần tiền đều chờ, trang ca báo "Chờ kế toán" như hiện nay. Không đổi luật máy chủ. Nút "Ca tiếp theo chưa xong" bỏ qua ca đang chờ kế toán.
 
 Đã chốt từ trước, giữ nguyên:
 - 6 bước tiền là bản chốt (Q-35, 21/11).
@@ -82,7 +84,7 @@ Ca Chiều 04/11 · LHP          [Xem phiếu nhân viên]  [Ca tiếp theo chư
   1. Ai làm ca.
   2. Nghỉ & làm thay — chỉ khi ca có người nghỉ / làm hộ / ca bổ sung.
   3. Bàn giao + đánh giá nhân viên + nhận hàng.
-- **Làm được ngay khi nhân viên đã gửi phiếu**, kể cả khi chờ kế toán. Bỏ chặn cả trang. Máy chủ chỉ chặn ghi kết quả phần tiền (`ca_kt_guard`); em kiểm lại bằng bài thử cục bộ.
+- **Ca chờ kế toán** (chưa đủ file Fabi + số ngân hàng): giữ như hiện nay. Trang báo CHỜ KẾ TOÁN (thiếu gì), không làm được phần nào (luật 17/11, máy chủ chặn bằng `ca_kt_guard` tệp 104). Đầu trang vẫn có "Xem phiếu nhân viên" + "Ca tiếp theo chưa xong ›".
 
 **② Phần tiền**
 - Là bước 1–5 của khối 6 bước hiện nay: Số máy Fabi → Tiền thực nhận (Xác nhận Fabi) → Khoản thu → Khoản chi → Chênh lệch.
@@ -90,7 +92,7 @@ Ca Chiều 04/11 · LHP          [Xem phiếu nhân viên]  [Ca tiếp theo chư
   - Sai, sửa số / Chủ duyệt;
   - phiếu chênh lệch, khoản nợ của ca, người nợ, đổi luân chuyển;
   - ảnh phiếu Fabi, giờ chốt.
-- Chưa đủ số kế toán → tab này hiện hộp "CHỜ KẾ TOÁN" ghi thiếu gì (như hiện nay). Tab ① vẫn làm.
+- Chưa đủ số kế toán → cả trang báo "CHỜ KẾ TOÁN" (mục ① ở trên).
 - Ghi "thiếu tiền" vẫn cần xác nhận Ai làm ca trước (luật máy chủ hiện có). Thông báo chỉ thẳng tới tab ①.
 
 **③ Hoàn thành**
@@ -130,7 +132,7 @@ Chỉ người đối soát được cơ sở đó mới thấy dòng Việc · 
 - Tính từ 01/11 (ngày bắt đầu dùng web) tới hôm nay, chỉ ca nhân viên đã gửi phiếu.
 
 ### 5.3 Ca tiếp theo chưa xong
-- Ca kế tiếp **sau** ca đang mở, theo ngày rồi thứ tự ca của cơ sở (Sáng → Chiều → Tối), cùng cơ sở, nhân viên đã gửi phiếu, chưa "Đã đối soát".
+- Ca kế tiếp **sau** ca đang mở, theo ngày rồi thứ tự ca của cơ sở (Sáng → Chiều → Tối), cùng cơ sở, nhân viên đã gửi phiếu, chưa "Đã đối soát", **không đang chờ kế toán** (câu 7).
 - Hết ca phía sau thì quay về ca chưa xong cũ nhất. Không còn ca nào thì nút ghi "✓ Hết ca chưa xong".
 - Mở thẳng tab đầu tiên còn việc của ca đó.
 - Nút hiện ở đầu trang ca và ở ③ sau khi Hoàn thành.
@@ -169,7 +171,7 @@ Chỉ người đối soát được cơ sở đó mới thấy dòng Việc · 
   - `viec.xong` = đủ 3 dấu nhan_su / ban_giao / nhap_hang và x2 (`app__cv_state`) là khong_can / da_duyet (ca quản lý tự chốt: khong_can).
   - Quyền: `app__stc_can(p_branch)`. Không có quyền → trả `[]` (không báo lỗi để bảng tuần vẫn vẽ được).
 - `app_ca_ds_con(p_branch bigint) returns jsonb`
-  - Danh sách ca chưa "Đã đối soát" (nhân viên đã gửi phiếu, từ 01/11 tới hôm nay) theo ngày + thứ tự ca: `{id, date, shift}`.
+  - Danh sách ca chưa "Đã đối soát" (nhân viên đã gửi phiếu, từ 01/11 tới hôm nay) theo ngày + thứ tự ca: `{id, date, shift, tab, st}`. `st = 'kt'` là ca chờ kế toán.
   - Dùng cho dòng "Còn N ca" và nút "Ca tiếp theo chưa xong". Cùng quyền.
 - Bật SECURITY DEFINER, thu hồi `anon`. Dòng cuối ghi `app_migrations`. Chạy lại nhiều lần không sao.
 - Cần mã `sbp_` mới của anh Tiến (mã cũ đã xoá, anh thu hồi) để chạy thử (tự hoàn tác) rồi chạy thật **trước** khi đưa giao diện lên.
@@ -180,12 +182,12 @@ Chỉ người đối soát được cơ sở đó mới thấy dòng Việc · 
 - trạng thái đúng cho từng chỗ kẹt (kt / red / xn / ht / ok; việc thiếu từng mục; x2 chờ duyệt; ca tự chốt);
 - quyền (quản lý không được giao → `[]`; nhân viên → `[]`);
 - "ca tiếp theo" đúng thứ tự;
-- phần việc ghi được khi chờ kế toán.
+- chờ kế toán thì phần việc bị chặn (luật 17/11) và danh sách chưa xong ghi `st = kt`.
 
 **Trình duyệt** — bài mới `flow_dsca` (Chủ / Quản lý tổng / Quản lý cơ sở × máy tính + 390px):
 - ô bảng tuần hai dòng;
 - bấm ô mở đúng tab;
-- ① làm được khi chờ kế toán;
+- ca chờ kế toán báo "Chờ kế toán", có nút Ca tiếp theo chưa xong;
 - ② đủ 5 bước;
 - ③ khoá khi còn việc, Hoàn thành được khi đủ;
 - Ca tiếp theo chưa xong;
@@ -203,9 +205,9 @@ Chỉ người đối soát được cơ sở đó mới thấy dòng Việc · 
 
 ## 7. Tự soát trước khi làm (đọc mã máy chủ, 22/11)
 
-1. Phần việc ghi được khi chờ kế toán.
-   - `app_ca_check` (bản mới nhất ở tệp 31) chỉ cần quyền `doi_soat` + phiếu đã gửi + chưa "Đã đối soát". Không xét kế toán.
-   - Chỉ giao diện đang chặn cả trang → bỏ chặn là đủ, không đổi luật.
+1. **(Sai, sửa lại 22/11 chiều)** Em tưởng phần việc ghi được khi chờ kế toán vì `app_ca_check` (tệp 31) không xét kế toán.
+   - Thật ra trigger `ca_kt_guard` (tệp 104) chặn **mọi** dấu tích / kết quả khi kế toán chưa đủ. Đúng luật 17/11.
+   - Bài thử cục bộ (8) lộ ra. Anh chốt giữ luật này (mục 2 câu 7).
 2. 6 mục tiền được tích khi Xác nhận Fabi.
    - `app_stc_ds_close` (tệp 137) ghi Thời gian + Doanh thu bằng `app_ca_check`.
    - Tiền mặt / Chuyển khoản / Thu chi / Công nợ ghi bằng `app_ca_result_set`. Hàm này (tệp 39) ghi cả kết quả lẫn dấu tích.
