@@ -234,7 +234,8 @@ export function makeStc(T, me) {
       const mine = (bid) => admin() || (me.role === 'ql' && Number(bid) === st().branches[0].id);
       if (!mine(p_branch)) throw new Error('Bạn không được xem thu chi của cơ sở này.');
       const d = copy(st()); d.owner = me.role === 'chu';
-      d.ca_debts = (d.ca_debts || []).map((x) => (x.t === 'moi' ? { ...x, grp: x.grp || 'khach', sorted: !!x.sorted || (x.grp || 'khach') === 'khach' } : x));   // chặng 6.4: nợ khách không cần Xếp d.branches = d.branches.filter((x) => mine(x.id)); d.shortfalls = copy(sfs().filter((k) => k.status !== 'huy'));
+      d.ca_debts = (d.ca_debts || []).map((x) => (x.t === 'moi' ? { ...x, grp: x.grp || 'khach', sorted: !!x.sorted || (x.grp || 'khach') === 'khach' } : x));
+      d.branches = d.branches.filter((x) => mine(x.id)); d.shortfalls = copy(sfs().filter((k) => k.status !== 'huy'));   // (chặng 6.4: dòng trên — nợ khách không cần Xếp, giống app_stc_month tệp 166)
       const b = d.branches.find((x) => x.id === Number(p_branch)) || d.branches[0];
       d.branch = { id: b.id, code: b.code, name: b.code };
       if (p_month !== '2026-11') { Object.assign(d, { month: p_month, from: p_month + '-01', to: p_month + '-28', cas: [], items: [], compare: { fund_days: [], gaps: [] } }); }
@@ -682,8 +683,8 @@ export function makeStc(T, me) {
       caDebtGone(d, 'doi', p_reason);
     },
     // CHỈ DÙNG TRONG BÀI THỬ (không có trên máy chủ thật): thêm một khoản nợ mới còn tiền vào một ca, như nhân viên gõ tên trên phiếu chốt ca
-    app__thu_them_no_ca({ p_report, p_who, p_amount }) {
-      const id = ++N; st().ca_debts.push({ report_id: Number(p_report), t: 'moi', id, who: p_who, kind: 'muon', amount: Number(p_amount), left: Number(p_amount), pm: null, from: null, sorted: false });
+    app__thu_them_no_ca({ p_report, p_who, p_amount, p_grp }) {   // chặng 6.4: mặc định "Nợ khác" chưa phân loại (nợ khách không cần xếp)
+      const id = ++N; st().ca_debts.push({ report_id: Number(p_report), t: 'moi', id, who: p_who, kind: 'muon', amount: Number(p_amount), left: Number(p_amount), pm: null, from: null, sorted: false, grp: p_grp || 'khac' });
       return id;
     },
     app_stc_person_mark({ p_name, p_no_remind }) {

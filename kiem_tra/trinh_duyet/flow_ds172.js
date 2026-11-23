@@ -39,7 +39,7 @@ export default async ({ sleep, out }) => {
       ok(c.length === 1 && c[0].args?.p?.name === 'Anh Thắng xe ôm' && c[0].args?.p?.grp === 'khac' && c[0].args?.p_id == null, 'a. lưu → gọi app_stc_person_save 1 lần với tên + nhóm');
       pd = await people();
       const r = row(pd, 'anh thắng xe ôm');
-      ok(!!r && txt(r).includes('nợ khác') && txt(r).includes('0912000172'), 'a. người mới hiện trong danh sách với nhóm "Nợ khác" + SĐT');
+      ok(!!r && txt(r).includes('người nhà') && txt(r).includes('0912000172'), 'a. người mới hiện trong danh sách với nhóm "Người nhà / người quen" + SĐT');
       // thêm trùng tên (khác hoa thường) → báo lỗi, khung vẫn mở
       $('[data-padd]', pd)?.click(); await wait('dialog[open] [name=pname]', 40); await sleep(200); f = dlg();
       type($('[name=pname]', f), 'anh thắng XE ÔM'); $('button[type=submit]', f)?.click(); await sleep(700);
@@ -48,9 +48,10 @@ export default async ({ sleep, out }) => {
       // sửa nhóm
       pd = await people(); row(pd, 'anh thắng xe ôm')?.querySelector('[data-pedit]')?.click(); await wait('dialog[open] [name=pname]', 40); await sleep(200); f = dlg();
       ok(!!f && $('[name=pname]', f)?.value === 'Anh Thắng xe ôm' && $('[name=pgrp]', f)?.value === 'khac' && !!$('[data-poff]', f), 'a. Sửa: khung mở sẵn tên + nhóm, có nút Ngừng dùng');
-      type($('[name=pgrp]', f), 'khach'); $('button[type=submit]', f)?.click(); await gone('dialog[open] [name=pname]', 40); await sleep(700);
+      type($('[name=pgrp]', f), 'chu'); $('button[type=submit]', f)?.click();   // chặng 6.4: không còn nhóm Khách hàng cho người có tên
+      await gone('dialog[open] [name=pname]', 40); await sleep(700);
       pd = await people();
-      ok(txt(row(pd, 'anh thắng xe ôm')).includes('nợ khách hàng'), 'a. đổi nhóm → nhãn đổi thành "Nợ khách hàng"');
+      ok(txt(row(pd, 'anh thắng xe ôm')).includes('chủ (anh tiến)'), 'a. đổi nhóm → nhãn đổi thành "Chủ (anh Tiến)"');
       // ngừng dùng
       row(pd, 'anh thắng xe ôm')?.querySelector('[data-pedit]')?.click(); await wait('dialog[open] [data-poff]', 40); await sleep(200);
       k0 = (window.__LOG || []).length; $('[data-poff]', dlg())?.click(); await gone('dialog[open] [name=pname]', 40); await sleep(700);
@@ -91,62 +92,57 @@ export default async ({ sleep, out }) => {
       $('.stc-addp [data-x]')?.click(); await sleep(200);
     }
 
-    // ---- c. bước 1 của ca: quản lý xếp người + nhóm công nợ cho từng khoản nợ mới (ca 182: Bàn 5, Bàn 3 còn nợ; Chị Lan đã trả)
+    // ---- c. bước 1 của ca (chặng 6.4, anh Tiến chốt 23/11): nợ khách hàng không cần xếp (✓ + Đổi nhóm); nợ khác phân loại Chủ / Người nhà / Kho tổng
+    //      ca 182: Bàn 5 (HĐ), Bàn 3 (TM) là nợ khách còn tiền; Chị Lan đã trả
     const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
     const openCa = async (id, b) => { location.hash = DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
-    const sortItem = () => $$('.stc-dsp .stc-chk .stc-ci').find((x) => txt(x).includes('nợ mới của ca'));
+    const sortItem = () => $$('.stc-dsp .stc-chk .stc-ci').find((x) => txt(x).includes('nợ khác của ca'));
     const rows = () => $$('.stc-dsp .stc-cdr[data-t="moi"]');
     const rowOf = (name) => rows().find((x) => txt(x).includes(name));
     const redraw = async () => { await sleep(900); await wait('.stc-dsp'); await sleep(350); };
     await openCa(182, 1);
-    ok(!!sortItem() && sortItem().classList.contains('auto') && !sortItem().classList.contains('ok'), 'c. bước 1 có mục "Nợ mới của ca đã xếp đúng người + nhóm công nợ", đang chưa xong');
-    ok(!!rowOf('bàn 5')?.querySelector('[data-dsort]') && !!rowOf('bàn 3')?.querySelector('[data-dsort]'), 'c. khoản nợ mới còn tiền chưa thu có ô xếp người + nhóm');
-    ok(!!rowOf('chị lan') && !rowOf('chị lan').querySelector('[data-dsort]'), 'c. khoản đã trả không có ô xếp');
-    wide('c. bước 1 có ô xếp nợ');
-    let r = rowOf('bàn 5');
-    ok(r?.querySelector('select[data-dperson]')?.value === 'Bàn 5' && r?.querySelector('select[data-dgrp]')?.value === 'khach', 'c. Bàn 5 có trong danh sách → web gợi ý sẵn người + nhóm Nợ khách hàng');
-    const k2 = (window.__LOG || []).length; r?.querySelector('[data-dsortok]')?.click(); await redraw();
-    const c2 = calls('app_stc_debt_sort', k2);
-    ok(c2.length === 1 && Number(c2[0].args?.p_debt) === 701 && Number(c2[0].args?.p_person) === 2 && c2[0].args?.p_grp === 'khach', 'c. bấm Xếp → gọi app_stc_debt_sort đúng khoản, đúng người, đúng nhóm');
-    r = rowOf('bàn 5');
-    ok(!!r && !r.querySelector('[data-dsortok]') && txt(r).includes('nợ khách hàng') && !!r.querySelector('[data-dsortedit]'), 'c. xếp xong: dòng hiện nhóm "Nợ khách hàng" + nút Đổi, không còn nút Xếp');
-    ok(!!sortItem() && !sortItem().classList.contains('ok'), 'c. còn 1 khoản chưa xếp → mục vẫn chưa xong');
-    r = rowOf('bàn 3');
+    ok(!sortItem(), 'c. ca chỉ có nợ khách: không có mục "Nợ khác của ca đã phân loại" (không phải xếp)');
+    ok(['bàn 5', 'bàn 3'].every((n) => rowOf(n) && txt(rowOf(n)).includes('✓ nợ khách hàng') && !rowOf(n).querySelector('[data-dsortok]') && rowOf(n).querySelector('[data-dsortedit]')), 'c. nợ khách còn tiền: ✓ Nợ khách hàng + nút Đổi nhóm, không có nút Xếp');
+    ok(!!rowOf('chị lan') && !rowOf('chị lan').querySelector('[data-dsort]') && !rowOf('chị lan').querySelector('[data-dsortedit]'), 'c. khoản đã trả không có ô xếp');
+    wide('c. bước 1 nợ khách');
+    let r = rowOf('bàn 3');
+    r?.querySelector('[data-dsortedit]')?.click(); await sleep(400); r = rowOf('bàn 3');
+    ok(!!r?.querySelector('[data-dsortok]') && !$$('select[data-dgrp] option', r).some((o) => o.value === 'khach'), 'c. Đổi nhóm → mở ô xếp, chỉ chọn nhóm ②③④');
     ok(r?.querySelector('select[data-dperson]')?.value === '', 'c. tên nhân viên gõ không có trong danh sách → chưa gợi ý ai');
+    const k2 = (window.__LOG || []).length;
     r?.querySelector('[data-dsortok]')?.click(); await sleep(600);
-    ok(calls('app_stc_debt_sort', k2).length === 1, 'c. chưa chọn người thì chưa gửi lên máy chủ');
+    ok(calls('app_stc_debt_sort', k2).length === 0, 'c. chưa chọn người thì chưa gửi lên máy chủ');
     r = rowOf('bàn 3');
-    if (r?.querySelector('select[data-dperson]')) {
-      type(r.querySelector('select[data-dperson]'), 'Cô Lan Anh'); type(r.querySelector('select[data-dgrp]'), 'khac');
-      r.querySelector('[data-dsortok]').click(); await redraw();
-    }
-    r = rows().find((x) => txt(x).includes('cô lan anh'));
-    ok(!!r && txt(r).includes('nợ khác') && txt(r).includes('nv ghi: bàn 3'), 'c. xếp khoản 2: tên theo danh sách, nhóm Nợ khác, giữ dòng "NV ghi: Bàn 3"');
-    ok(!!sortItem() && sortItem().classList.contains('ok'), 'c. xếp hết → mục tự tích ✓');
+    if (r?.querySelector('select[data-dperson]')) { type(r.querySelector('select[data-dperson]'), 'Chủ thử'); await sleep(150); r.querySelector('[data-dsortok]').click(); await redraw(); }
+    const c2 = calls('app_stc_debt_sort', k2);
+    ok(c2.length === 1 && Number(c2[0].args?.p_debt) === 702 && Number(c2[0].args?.p_person) === 5 && c2[0].args?.p_grp === 'chu', 'c. chọn "Chủ thử" → nhóm tự là Chủ, Xếp gửi đúng khoản / người / nhóm: ' + JSON.stringify(c2[0]?.args));
+    r = rowOf('chủ thử');
+    ok(!!r && txt(r).includes('chủ (anh tiến)') && txt(r).includes('nv ghi: bàn 3'), 'c. xếp xong: tên theo danh sách, nhóm Chủ, giữ dòng "NV ghi: Bàn 3"');
+    ok(!!sortItem() && sortItem().classList.contains('ok'), 'c. có nợ khác đã phân loại hết → mục "Nợ khác của ca đã phân loại" tự tích ✓');
     r?.querySelector('[data-dsortedit]')?.click(); await sleep(350);
-    ok(!!rows().find((x) => txt(x).includes('cô lan anh'))?.querySelector('[data-dsortok]'), 'c. bấm Đổi → mở lại ô xếp của khoản đó');
+    ok(!!rowOf('chủ thử')?.querySelector('[data-dsortok]'), 'c. bấm Đổi → mở lại ô xếp của khoản đó');
     wide('c. sau khi xếp');
 
     // ---- d. còn nợ mới chưa xếp thì không Hoàn thành được (ca 181 đã xác nhận Fabi; dùng lối thêm nợ riêng của bộ thử)
     const sb = (await import('/js/sb.js')).sb;
     const tryRpc = async (fn, args) => { try { const x = await sb.rpc(fn, args); return x?.error?.message || ''; } catch (e) { return e?.message || String(e); } };
-    await tryRpc('app__thu_them_no_ca', { p_report: 181, p_who: 'Bàn 12 chưa trả', p_amount: 45000 });
+    await tryRpc('app__thu_them_no_ca', { p_report: 181, p_who: 'Bàn 12 chưa trả', p_amount: 45000, p_grp: 'khac' });   // nhân viên chọn "Nợ khác", chưa rõ ai
     await openCa(181, 6);
     $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await redraw();   // Mở lại bằng nút trên màn hình (màn hình tải lại số mới, thấy khoản nợ vừa thêm)
     const e1 = await tryRpc('app_stc_ds_done', { p_report: 181 });
-    ok(e1.includes('phanloai'), 'd. máy chủ từ chối Hoàn thành khi còn nợ mới chưa xếp: ' + e1.slice(0, 80));
+    ok(e1.includes('phanloai'), 'd. máy chủ từ chối Hoàn thành khi còn nợ khác chưa phân loại: ' + e1.slice(0, 80));
     await openCa(181, 6);
     ok($('[data-tab-pane="xong"] [data-dsdone]')?.disabled === true, 'd. bước 6 (tab ③): nút Hoàn thành đang khoá');
     await openCa(181, 1);
     r = rowOf('bàn 12');
-    if (r?.querySelector('select[data-dperson]')) { type(r.querySelector('select[data-dperson]'), 'Bàn 5'); r.querySelector('[data-dsortok]').click(); await redraw(); }
+    if (r?.querySelector('select[data-dperson]')) { type(r.querySelector('select[data-dperson]'), 'Kho Tổng'); r.querySelector('[data-dsortok]').click(); await redraw(); }
     const e2 = await tryRpc('app_stc_ds_done', { p_report: 181 });
     ok(!e2.includes('phanloai'), 'd. xếp xong thì mục xếp nợ không còn chặn Hoàn thành' + (e2 ? ' (còn thiếu mục khác: ' + e2.slice(0, 60) + ')' : ''));
     if (!e2) await tryRpc('app_stc_ds_undone', { p_report: 181 });
 
     // ---- e. sửa khoản nợ của ca ở bước 1 (thiết kế sua-no-cua-ca): ca 182 — Cô Lan Anh (TM 85.000, chưa trả), Bàn 5 (HĐ), Chị Lan (CK, đã trả)
     await openCa(182, 1);
-    r = rows().find((x) => txt(x).includes('cô lan anh'));
+    r = rows().find((x) => txt(x).includes('chủ thử'));
     ok(!!r?.querySelector('[data-dedit]'), 'e. khoản nợ tiền mặt chưa trả có nút Sửa / Xoá');
     ok(!!rowOf('bàn 5') && !rowOf('bàn 5').querySelector('[data-dedit]') && txt(rowOf('bàn 5')).includes('nợ hoá đơn'), 'e. nợ hoá đơn không có nút, ghi rõ "Nợ hoá đơn — số tiền theo ô Nợ bill"');
     ok(!!rowOf('chị lan') && !rowOf('chị lan').querySelector('[data-dedit]') && txt(rowOf('chị lan')).includes('khách đã trả'), 'e. khoản khách đã trả không có nút, ghi rõ phải Huỷ thu trước');
@@ -163,19 +159,19 @@ export default async ({ sleep, out }) => {
     type($('[name=reason]', dlg()), 'NV ghi nhầm số'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] [name=damt]', 40); await redraw();
     let c3 = calls('app_stc_ca_debt_save', k3);
     ok(c3.length === 1 && Number(c3[0].args?.p_report) === 182 && Number(c3[0].args?.p_debt) === 702 && c3[0].args?.p?.kind === 'muon' && Number(c3[0].args?.p?.amount) === 80000 && c3[0].args?.p_reason === 'NV ghi nhầm số', 'e. Lưu → gửi đúng ca, đúng khoản, 80.000, lý do');
-    r = rows().find((x) => txt(x).includes('cô lan anh'));
+    r = rows().find((x) => txt(x).includes('chủ thử'));
     ok(!!r && txt(r).includes('80.000') && txt(r).includes('quản lý sửa') && txt(r).includes('85.000 → 80.000') && txt(r).includes('nv ghi nhầm số'), 'e. dòng hiện số mới + "Quản lý sửa · 85.000 → 80.000 · … lý do"');
     // đổi TM → CK
     r?.querySelector('[data-dedit]')?.click(); await wait('dialog[open] [name=dkind]', 40); await sleep(200);
     k3 = (window.__LOG || []).length; type($('[name=dkind]', dlg()), 'ck'); type($('[name=reason]', dlg()), 'Khách hứa chuyển khoản'); $('button[type=submit]', dlg()).click(); await gone('dialog[open] [name=damt]', 40); await redraw();
     ok(calls('app_stc_ca_debt_save', k3)[0]?.args?.p?.kind === 'ck', 'e. đổi Tiền mặt → Chuyển khoản');
     // xoá
-    r = rows().find((x) => txt(x).includes('cô lan anh'));
+    r = rows().find((x) => txt(x).includes('chủ thử'));
     r?.querySelector('[data-dedit]')?.click(); await wait('dialog[open] .stc-del', 40); await sleep(200);
     ok(!$('[data-dexch]', dlg()), 'e. khoản chuyển khoản không có nút Đổi thành Luân chuyển');
     k3 = (window.__LOG || []).length; type($('[name=reason]', dlg()), 'Không phải nợ'); $('.stc-del', dlg()).click(); await gone('dialog[open] .stc-del', 40); await redraw();
-    ok(calls('app_stc_ca_debt_delete', k3).length === 1 && !rows().some((x) => txt(x).includes('cô lan anh')), 'e. Xoá khoản nợ → gửi xoá, dòng không còn trong Nợ mới');
-    const gone1 = $$('.stc-dsp .stc-cdr[data-t="xoa"]').find((x) => txt(x).includes('cô lan anh'));
+    ok(calls('app_stc_ca_debt_delete', k3).length === 1 && !rows().some((x) => txt(x).includes('chủ thử')), 'e. Xoá khoản nợ → gửi xoá, dòng không còn trong Nợ mới');
+    const gone1 = $$('.stc-dsp .stc-cdr[data-t="xoa"]').find((x) => txt(x).includes('chủ thử'));
     ok(!!gone1 && txt(gone1).includes('đã xoá') && txt(gone1).includes('không phải nợ'), 'e. khoản đã xoá hiện dòng gạch ngang "Đã xoá · … lý do"');
     // thêm khoản quên ghi
     $('.stc-dsp [data-dadd="182"]')?.click(); await wait('dialog[open] [name=dperson]', 40); await sleep(200); dg = dlg();

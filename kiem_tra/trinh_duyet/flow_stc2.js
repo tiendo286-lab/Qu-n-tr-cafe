@@ -65,7 +65,7 @@ export default async ({ sleep, out }) => {
   ok(!!pr && txt(pr).includes('nợ khách hàng'), '6. Bàn 5 thuộc nhóm Nợ khách hàng (phiếu chốt ca nhắc thu)');
   $('[data-pedit]', pr).click(); await wait('dialog[open] [name=pgrp]', 30); await sleep(200);
   setv('[name=pgrp]', 'khac'); $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay');
-  ok(txt($$('.stc-pp').find((r) => txt(r).includes('bàn 5'))).includes('nợ khác'), '6. đổi sang nhóm Nợ khác → phiếu chốt ca không nhắc người này nữa');
+  ok(txt($$('.stc-pp').find((r) => txt(r).includes('bàn 5'))).includes('người nhà'), '6. đổi sang nhóm Người nhà / người quen (chặng 6.4: tên mới của Nợ khác) → phiếu chốt ca không nhắc người này nữa');
   // 7. khách đang nợ → thu nợ một phần (bước 164: khung Khách còn nợ hiện khi bấm ô Thu nợ)
   await go('#/quan-ly/so-thu-chi?tab=thu&cn=1&thang=2026-11&cot=no');
   const kd = $$('.stc-kd').find((r) => txt(r).includes('cô lan anh'));
