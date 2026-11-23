@@ -1,13 +1,24 @@
 <!doctype html>
 <html lang="vi"><meta charset="utf-8"><title>Đồng bộ C02 Milano</title>
 <link rel="stylesheet" href="popup.css">
-<main><small>MILANO & LELA</small><h1>Đồng bộ C02</h1>
-<p>Tải Excel chi tiết từng ca đã đóng của hôm qua và nhập vào Milano bằng tài khoản đang đăng nhập.</p>
+<main><small>MILANO & LELA · <span id="ver"></span></small><h1>Đồng bộ C02</h1>
+<div id="update" hidden><p>Đã có bản mới <b id="newver"></b> nhưng Chrome vẫn đang chạy bản cũ <b id="oldver"></b>. Bấm nút dưới để nạp bản mới (cửa sổ này sẽ tự đóng, mở lại là xong).</p>
+<button id="reload">Nạp bản mới ngay</button></div>
+<p>Tải Excel chi tiết từng ca đã đóng của ngày chọn (mặc định hôm qua) và nhập vào Milano bằng tài khoản đang đăng nhập.</p>
+<label class="day">Ngày cần lấy<select id="day"></select></label>
 <p id="status" role="status">Đang kiểm tra…</p>
 <button id="preview">1. Kiểm tra tải — chưa nhập</button>
 <button id="upload">2. Đồng bộ lên Milano</button>
+<p id="hint" hidden></p>
+<button id="audit" class="alt">3. Kiểm tra &amp; bù ca lỗi cả tháng</button>
+<p class="note" id="auditnote">Hỏi web trước: chỉ những ca có phiếu mà chưa có file Fabi, hoặc file đang thiếu số, mới tải lại từ Fabi. Ca chưa có file thì tự nhập; file khác Fabi thì liệt kê để anh xem rồi mới nhập đè.</p>
+<div id="auditbox" hidden><p id="auditsum" hidden></p>
+<div id="khac" hidden><p><b>Ca có file trên web khác Fabi</b> — tích ca muốn nhập đè theo Fabi (ca đã đối soát có thể bị mở lại, quản lý được báo):</p><ul id="khaclist"></ul>
+<button id="overwrite">Nhập đè các ca đã chọn</button></div>
+<details id="auditmore"><summary>Ca đã tự nhập / lỗi</summary><ul id="auditlist"></ul></details></div>
 <button id="stop">Dừng sau ca hiện tại và tắt lịch</button>
-<label><input type="checkbox" id="enabled"> Tự chạy hằng ngày từ 08:15</label>
+<label><input type="checkbox" id="enabled"> Tự chạy hằng ngày từ 08:15: lấy hôm qua, rồi tự bù ca lỗi cả tháng</label>
+<p class="note">Lấy bù ngày đã lỡ: chọn ngày ở trên rồi bấm 1, xong bấm 2 như thường — mỗi lần một ngày, lùi tối đa 31 ngày.</p>
 <p class="note">Chrome cần mở và máy có mạng. Khi máy thức dậy sau 08:15, tiện ích kiểm tra chạy bù trong ngày. Bộ file được giữ tạm trong phiên Chrome; Chrome có thể hỏi thêm quyền tải nhiều file vào thư mục tải xuống.</p>
 <p class="note">Lỗi hoặc hết phiên đăng nhập sẽ hiện dấu ! trên tiện ích. Mở lại Fabi/Milano, đăng nhập rồi chạy kiểm tra lại.</p>
 <p id="error" role="alert"></p><details><summary>Ca đã xử lý</summary><ul id="results"></ul></details>

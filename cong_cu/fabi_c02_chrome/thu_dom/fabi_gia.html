@@ -1,0 +1,171 @@
+<!doctype html>
+<html lang="vi"><head><meta charset="utf-8"><title>C02 - Báo cáo ca (trang giả để thử)</title>
+<!-- Trang Fabi GIẢ để thử tiện ích, dựng theo ảnh chụp giao diện Fabi mới ngày 23/11/2026 (đường dẫn /micro/).
+     Không có dữ liệu thật: mã ca, thiết bị, thu ngân đều tự sinh. Bốn kiểu lịch (variant) vì chưa biết chắc cấu trúc trang thật. -->
+<style>
+body{font:14px system-ui,sans-serif;margin:0;padding:16px;color:#222}
+.top{margin-bottom:10px}.filters{display:flex;gap:8px;align-items:center;position:relative;flex-wrap:wrap}
+.date-range{width:220px;padding:8px}.time{width:60px;padding:8px}
+#picker{position:absolute;top:44px;left:0;background:#fff;border:1px solid #ccc;display:flex;gap:16px;padding:12px;z-index:5;box-shadow:0 4px 18px #0002}
+#picker[hidden]{display:none}.presets{display:flex;flex-direction:column;gap:4px;min-width:120px}
+.presets button{text-align:left;padding:6px;border:0;background:#f3f3f3;cursor:pointer}
+.months{display:flex;gap:16px}.hdr,.cap,.rdp-caption{display:flex;gap:8px;align-items:center;justify-content:center;margin-bottom:6px}
+.cal td,.days .d{width:28px;height:28px;text-align:center;cursor:pointer}.out,.muted,.rdp-outside{color:#bbb}
+.days,.wk{display:grid;grid-template-columns:repeat(7,28px)}.sel{background:#1560bd;color:#fff;border-radius:50%}
+table{border-collapse:collapse}td,th{padding:4px 8px;border-bottom:1px solid #eee;white-space:nowrap}
+.pager{display:flex;gap:6px;align-items:center;margin-top:8px}.pager .on{background:#1560bd;color:#fff}
+.link{color:#1560bd;cursor:pointer}button svg{width:10px;height:10px;stroke:#333;fill:none}
+</style></head><body><div id="app"></div>
+<script>
+(() => {
+const C = Object.assign({ today: '2026-11-23', variant: 'title', apply: false, spa: true, split: true, empty: [], per: 10, delay: 700 }, window.__FABI__ || {});
+const pad = (n) => String(n).padStart(2, '0');
+const vn = (s) => s.split('-').reverse().join('/');
+const addDays = (s, k) => { const d = new Date(s + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + k); return d.toISOString().slice(0, 10); };
+const A = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+const LIST = '/micro/report/revenue/revenue/shift', DETAIL = LIST + '-detail';
+// Dữ liệu giả: 45 ngày gần nhất, mỗi ngày 12 ca (hôm nay 4 ca).
+const DATA = {}, BY_CODE = {};
+for (let k = 0; k <= 45; k++) {
+  const day = addDays(C.today, -k);
+  DATA[day] = C.empty.includes(day) ? [] : Array.from({ length: k === 0 ? 4 : 12 }, (_, i) => {
+    const r = { code: '#' + A[k % 32] + A[Math.floor(k / 32) % 32] + A[i % 32] + 'QZ', day,
+      open: `${vn(day)} ${pad(6 + i)}:0${i % 6}`, close: `${vn(day)} ${pad(7 + i)}:30`,
+      device: `TEST-DEVICE-${(i % 4) + 1}`, cashier: `thu-ngan-${(i % 4) + 1}@example.test`, store: `TEST-STORE-${(i % 4) + 1}` };
+    BY_CODE[r.code] = r; return r;
+  });
+}
+const app = document.getElementById('app');
+let sel = { from: C.today, to: C.today }, pageNo = 1, pending = null, staged = null, view = C.today.slice(0, 7);
+let shownRows = [], shownInfo = { from: 0, to: 0, total: 0 }, timer;
+function go(url) { if (C.spa) { history.pushState(null, '', url); route(); } else location.href = url; }
+window.addEventListener('popstate', () => route());
+function route() { if (location.pathname === DETAIL) detail(); else list(); }
+
+function monthCells(ym) {
+  const [y, m] = ym.split('-').map(Number);
+  const lead = (new Date(Date.UTC(y, m - 1, 1)).getUTCDay() + 6) % 7; // tuần bắt đầu thứ 2
+  return Array.from({ length: 42 }, (_, i) => {
+    const d = new Date(Date.UTC(y, m - 1, 1 - lead + i));
+    return { iso: d.toISOString().slice(0, 10), d: d.getUTCDate(), out: d.getUTCMonth() !== m - 1 };
+  });
+}
+const nextYm = (ym, k) => { const [y, m] = ym.split('-').map(Number); const d = new Date(Date.UTC(y, m - 1 + k, 1)); return d.toISOString().slice(0, 7); };
+const ICON_L = '<svg viewBox="0 0 10 10"><path d="M7 1 L3 5 L7 9"/></svg>', ICON_R = '<svg viewBox="0 0 10 10"><path d="M3 1 L7 5 L3 9"/></svg>';
+function cellClass(c) { return (c.out ? (C.variant === 'data-day' ? 'rdp-outside' : C.variant === 'title' ? 'out' : 'muted') : '') + (pending && pending.from === c.iso ? ' sel' : ''); }
+function panel(ym, left, right) {
+  const [y, m] = ym.split('-').map(Number), cells = monthCells(ym);
+  const weeks = [0, 1, 2, 3, 4, 5].map((w) => cells.slice(w * 7, w * 7 + 7));
+  const wk = ['T2', 'T3', 'T4', 'T5', 'T6', 'T7', 'CN'];
+  if (C.variant === 'title') return `<div class="panel"><div class="hdr">${left ? '<button class="cal-prev">‹</button>' : ''}<span class="m">Tháng ${m}</span><span class="y">${y}</span>${right ? '<button class="cal-next">›</button>' : ''}</div>
+    <table class="cal"><thead><tr>${wk.map((x) => `<th>${x}</th>`).join('')}</tr></thead><tbody>${weeks.map((w) => `<tr>${w.map((c) => `<td title="${c.iso}" class="${cellClass(c)}" data-k="${c.iso}"><div class="inner">${c.d}</div></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  if (C.variant === 'data-day') return `<div class="rdp-month"><div class="rdp-caption"><span>Tháng ${m} ${y}</span></div>
+    <table role="grid"><tbody>${weeks.map((w) => `<tr>${w.map((c) => `<td data-day="${c.iso}" class="${cellClass(c)}" data-k="${c.iso}"><button class="rdp-day_button" ${c.out ? 'disabled' : ''}>${c.d}</button></td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
+  // Kiểu "select": tháng/năm nằm trong ô chọn — tiện ích không đọc được nhãn, phải tự nhận ra tháng của lưới.
+  if (C.variant === 'select') return `<div class="cal"><div class="cap"><select class="msel">${Array.from({ length: 12 }, (_, i) => `<option ${i + 1 === m ? 'selected' : ''}>Tháng ${i + 1}</option>`).join('')}</select>
+    <select class="ysel">${[y - 1, y, y + 1].map((x) => `<option ${x === y ? 'selected' : ''}>${x}</option>`).join('')}</select></div>
+    <div class="wk">${wk.map((x) => `<span>${x}</span>`).join('')}</div><div class="days">${cells.map((c) => `<div class="d ${cellClass(c)}" data-k="${c.iso}">${c.d}</div>`).join('')}</div></div>`;
+  return `<div class="cal"><div class="cap">${left ? `<button class="nav">${ICON_L}</button>` : ''}<span>Tháng ${m}</span><span>${y}</span>${right ? `<button class="nav">${ICON_R}</button>` : ''}</div>
+    <div class="wk">${wk.map((x) => `<span>${x}</span>`).join('')}</div><div class="days">${cells.map((c) => `<div class="d ${cellClass(c)}" data-k="${c.iso}">${c.d}</div>`).join('')}</div></div>`;
+}
+function drawPicker() {
+  const p = document.getElementById('picker');
+  const nav = C.variant === 'data-day' ? `<nav class="rdp-nav"><button class="rdp-button_previous">${ICON_L}</button><button class="rdp-button_next">${ICON_R}</button></nav>`
+    : C.variant === 'select' ? `<div class="navbar"><button aria-label="Previous month">${ICON_L}</button><button aria-label="Next month">${ICON_R}</button></div>` : '';
+  p.innerHTML = `<div class="presets"><label><input type="checkbox" checked> Hiển thị 2 tháng</label>
+    ${['Hôm nay', 'Hôm qua', '7 ngày trước', 'Tháng này', 'Tháng trước'].map((x) => `<button class="preset">${x}</button>`).join('')}</div>
+    <div>${nav}<div class="months">${panel(view, true, false)}${panel(nextYm(view, 1), false, true)}</div>${C.apply ? '<button class="ok">Áp dụng</button>' : ''}</div>`;
+  // Mã thật thường vẽ lại cả lịch sau mỗi lần bấm: các ô cũ bị bỏ, tiện ích phải tìm lại ô.
+  for (const el of p.querySelectorAll('[data-k]')) { el.__iso = el.dataset.k; if (['plain', 'select', 'typed'].includes(C.variant)) el.removeAttribute('data-k'); }
+}
+function openPicker() { const p = document.getElementById('picker'); if (!p.hidden) return; view = sel.to.slice(0, 7); pending = null; drawPicker(); p.hidden = false; }
+function closePicker() { document.getElementById('picker').hidden = true; pending = null; }
+function commit(r) { sel = r; closePicker(); pageNo = 1; document.querySelector('.date-range').value = `${vn(r.from)} - ${vn(r.to)}`; refresh(); }
+function pickDay(iso) {
+  if (!pending) { pending = { from: iso }; document.querySelector('.date-range').value = `${vn(iso)} - `; drawPicker(); return; }
+  let a = pending.from, b = iso; if (b < a) [a, b] = [b, a];
+  pending = null; staged = { from: a, to: b }; document.querySelector('.date-range').value = `${vn(a)} - ${vn(b)}`;
+  if (C.apply) drawPicker(); else commit(staged);
+}
+function list() {
+  app.innerHTML = `<div class="top">HỆ THỐNG CAFE HP · 4/4</div>
+    <div class="filters"><input class="date-range" value="${vn(sel.from)} - ${vn(sel.to)}"><input class="time" value="00:00"> - <input class="time" value="23:59">
+      <div id="picker" hidden></div></div>
+    <p id="report"></p>
+    ${C.split ? '<div class="tbl"><table class="head"><thead><tr id="hr"></tr></thead></table><div class="body"><table><tbody id="tb"></tbody></table></div></div>'
+      : '<table class="one"><thead><tr id="hr"></tr></thead><tbody id="tb"></tbody></table>'}
+    <div class="pager"><select><option>10</option><option>20</option></select><span id="lbl"></span><span id="btns"></span></div>`;
+  document.getElementById('hr').innerHTML = ['#', 'Mã ca', 'Nhân viên', 'Số dư đầu ca', 'Doanh thu (net) (0 đ)', 'Thời gian mở ca', 'Thời gian đóng', 'Thiết bị mở ca'].map((x) => `<th>${x}</th>`).join('');
+  const input = document.querySelector('.date-range');
+  input.addEventListener('click', openPicker);
+  // Kiểu "typed": bấm ngày trên lịch không ăn, chỉ gõ "dd/mm/yyyy - dd/mm/yyyy" + Enter mới đổi ngày.
+  input.addEventListener('keydown', (e) => {
+    const m = e.key === 'Enter' && input.value.match(/^(\d{2})\/(\d{2})\/(\d{4}) - (\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) commit({ from: `${m[3]}-${m[2]}-${m[1]}`, to: `${m[6]}-${m[5]}-${m[4]}` });
+  });
+  document.addEventListener('mousedown', (e) => { const p = document.getElementById('picker'); if (p && !p.hidden && !p.contains(e.target) && e.target !== input) closePicker(); });
+  document.getElementById('picker').addEventListener('click', (e) => {
+    const pr = e.target.closest('.preset');
+    if (pr) {
+      const t = pr.textContent.trim(), y = addDays(C.today, -1);
+      if (t === 'Hôm nay') commit({ from: C.today, to: C.today }); else if (t === 'Hôm qua') commit({ from: y, to: y });
+      else if (t === '7 ngày trước') commit({ from: addDays(C.today, -7), to: y });
+      else if (t === 'Tháng này') commit({ from: C.today.slice(0, 8) + '01', to: C.today });
+      else commit({ from: nextYm(C.today.slice(0, 7), -1) + '-01', to: addDays(C.today.slice(0, 8) + '01', -1) });
+      return;
+    }
+    const nv = e.target.closest('button.cal-prev,button.cal-next,button.nav,.rdp-nav button,.navbar button');
+    if (nv) {
+      const back = nv.matches('.cal-prev,.rdp-button_previous') || nv.getAttribute('aria-label') === 'Previous month'
+        || (nv.matches('.nav') && !!nv.closest('.cal') && nv === nv.closest('.cal').querySelector('.cap').firstElementChild);
+      view = nextYm(view, back ? -1 : 1); drawPicker(); return;
+    }
+    if (e.target.closest('.ok')) { if (staged) commit(staged); return; }
+    let el = e.target; while (el && el !== e.currentTarget && !el.__iso) el = el.parentElement;
+    if (el && el.__iso && C.variant === 'typed') return;
+    if (el && el.__iso) { if (el.querySelector('button[disabled]') || el.closest('button[disabled]')) return; pickDay(el.__iso); }
+  });
+  refresh(true);
+}
+function rowsOf(r) { let out = []; for (let d = r.from; d <= r.to; d = addDays(d, 1)) out = out.concat(DATA[d] || []); return out; }
+function refresh(now) {
+  document.getElementById('report').textContent = `Báo cáo được tính từ ${vn(sel.from)} 00:00 - ${vn(sel.to)} 23:59`;
+  clearTimeout(timer);
+  // Như trang thật: chữ ngày đổi ngay, bảng và dòng "Hiển thị" đổi sau khi tải xong.
+  const draw = () => {
+    const all = rowsOf(sel), total = all.length;
+    shownRows = all.slice((pageNo - 1) * C.per, pageNo * C.per);
+    shownInfo = { from: total ? (pageNo - 1) * C.per + 1 : 0, to: Math.min(pageNo * C.per, total), total };
+    const tb = document.getElementById('tb');
+    // Kiểu "title" (giống bảng antd): có một dòng đo cột rỗng, cao 0, ở đầu phần thân bảng.
+    const measure = C.variant === 'title' ? `<tr class="measure" style="height:0;line-height:0">${'<td style="padding:0;border:0"></td>'.repeat(8)}</tr>` : '';
+    tb.innerHTML = measure + (shownRows.length ? shownRows.map((r, i) => `<tr><td>${shownInfo.from + i}</td><td><span class="link">${r.code}</span></td><td>${r.cashier}</td><td>1,000,000 đ</td><td>0 đ</td><td>${r.open}</td><td>${r.close}</td><td>${r.device}</td></tr>`).join('')
+      : '<tr><td colspan="8">Không có dữ liệu</td></tr>');
+    for (const s of tb.querySelectorAll('.link')) s.addEventListener('click', () => { const r = BY_CODE[s.textContent]; go(`${DETAIL}?store=${r.store}&shift_id=1652624866${r.code.slice(1)}`); });
+    const lbl = document.getElementById('lbl'); lbl.textContent = '';
+    lbl.append('Hiển thị ', String(shownInfo.from), ' - ', String(shownInfo.to), ' trên tổng số ', String(total)); // nhiều mẩu chữ như React
+    const pages = Math.max(1, Math.ceil(total / C.per)), glyph = C.variant !== 'plain';
+    const btn = (label, n, on) => `<button data-p="${n}" class="${on ? 'on' : ''}">${label}</button>`;
+    document.getElementById('btns').innerHTML = btn(glyph ? '«' : ICON_L + ICON_L, 1) + btn(glyph ? '‹' : ICON_L, Math.max(1, pageNo - 1))
+      + Array.from({ length: pages }, (_, i) => btn(String(i + 1), i + 1, i + 1 === pageNo)).join('')
+      + btn(glyph ? '›' : ICON_R, Math.min(pages, pageNo + 1)) + btn(glyph ? '»' : ICON_R + ICON_R, pages);
+    for (const b of document.querySelectorAll('#btns button')) b.addEventListener('click', () => { const n = Number(b.dataset.p); if (n !== pageNo) { pageNo = n; refresh(); } });
+  };
+  if (now) draw(); else timer = setTimeout(draw, C.delay);
+}
+function detail() {
+  const q = new URLSearchParams(location.search), id = q.get('shift_id') || '';
+  const r = Object.values(BY_CODE).find((x) => id.endsWith(x.code.slice(1)));
+  app.innerHTML = r ? `<h1>Chi tiết báo cáo ca</h1><button id="xuat">Xuất báo cáo</button>
+    <div>Thời gian mở ca <b>${r.open}</b></div><div>Thời gian đóng <b>${r.close}</b></div><div>Mã ca <b>${r.code}</b></div><div>Tổng số hoá đơn <b>3</b></div>` : '<p>Không có ca</p>';
+  if (!r) return;
+  document.getElementById('xuat').addEventListener('click', () => {
+    const bytes = new Uint8Array(1500); bytes.set([80, 75, 3, 4]); for (let i = 4; i < bytes.length; i++) bytes[i] = (i * 31) % 251;
+    const url = URL.createObjectURL(new Blob([bytes], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' }));
+    const a = document.createElement('a'); a.href = url; a.download = 'ca.xlsx'; document.body.append(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 100);
+  });
+}
+route();
+})();
+</script></body></html>

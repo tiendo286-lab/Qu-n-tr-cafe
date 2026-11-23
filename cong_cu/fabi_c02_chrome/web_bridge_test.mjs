@@ -34,5 +34,14 @@ export async function bridgeTests() {
   allowed = true; tabUrl = 'https://other.example';
   const changed = await call({ v: 1, type: 'upload' }); check(() => assert.ok(changed.error));
   check(() => assert.equal(writes, 1));
+  // 0.3.0: web chỉ điều khiển ngày hôm qua — không gửi được ngày, không nhập được bản kiểm tra của ngày lấy bù.
+  check(() => assert.equal(!!validRequest({ v: 1, type: 'preview', day: previousDay() }), false));
+  const backfill = { ...state, run: { ...state.run, day: '2026-01-01' } };
+  let backfillWrites = 0, backfillListener;
+  installWebBridge({ chrome: { tabs: { get: async () => ({ url }) }, runtime: { onMessageExternal: { addListener(fn) { backfillListener = fn; } }, getManifest: () => ({ version: '0.3.0' }) } },
+    read: async () => backfill, authorize: async () => true, control: async () => { backfillWrites++; return backfill; } });
+  const refused = await new Promise((resolve) => backfillListener({ v: 1, type: 'upload' }, sender, resolve));
+  check(() => assert.ok(refused.error));
+  check(() => assert.equal(backfillWrites, 0));
   return passed;
 }

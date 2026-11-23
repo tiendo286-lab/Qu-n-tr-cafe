@@ -26,16 +26,42 @@ export async function runTests() {
   check(() => assert.throws(() => core.queueRows([{ page: 1, rows: [{ ...rows[0], close: '' }] }], day)));
   check(() => assert.throws(() => core.queueRows([{ page: 1, rows: [{ ...rows[0], open: '01/01/2000 07:00' }] }], day)));
   check(() => assert.throws(() => core.queueRows([], day)));
-  const source = (await fs.readFile(new URL('./worker.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
+  // 0.3.0 (23/11/2026) — Fabi đổi sang đường dẫn /micro/, có dòng "trên tổng số N", thêm chọn ngày lấy bù.
+  check(() => assert.equal(core.FABI, 'https://fabi.ipos.vn/micro/report/revenue/revenue/shift'));
+  for (const base of ['https://fabi.ipos.vn/micro', 'https://fabi.ipos.vn']) {
+    const u = base + '/report/revenue/revenue/shift-detail?store=S-1&shift_id=TEST00001';
+    check(() => assert.deepEqual(core.detailIdentity(u), { id: 'TEST00001', store: 'S-1' }));
+    check(() => assert.equal(core.isDetailUrl(u), true));
+  }
+  check(() => assert.throws(() => core.detailIdentity('https://fabi.ipos.vn/khac/report/revenue/revenue/shift-detail?store=S&shift_id=X')));
+  check(() => assert.equal(core.isDetailUrl(core.FABI), false));
+  check(() => assert.equal(core.isDetailUrl('https://other.example/micro/report/revenue/revenue/shift-detail?store=S&shift_id=X'), false));
+  const counted = pages.map((p) => ({ ...p, total: 12 }));
+  check(() => assert.equal(core.queueRows(counted, day).length, 12));
+  check(() => assert.throws(() => core.queueRows(counted.map((p) => ({ ...p, total: 13 })), day), /13/)); // Fabi báo 13 ca mà chỉ đọc được 12 → dừng, không bỏ sót
+  check(() => assert.throws(() => core.queueRows([counted[0], { ...counted[1], total: 11 }], day))); // tổng số đổi giữa hai trang
+  const at = Date.parse('2026-11-23T01:00:00Z'); // 08:00 ngày 23/11 giờ Việt Nam
+  check(() => assert.deepEqual(core.recentDays(3, at), ['2026-11-22', '2026-11-21', '2026-11-20']));
+  check(() => assert.equal(core.recentDays(31, at).at(-1), '2026-10-23'));
+  for (const [d, ok] of [['2026-11-22', true], ['2026-10-23', true], ['2026-10-22', false], ['2026-11-23', false], ['2026-11-24', false],
+    ['2026-11-31', false], ['22/11/2026', false], ['2026-11-2', false], [undefined, false]]) check(() => assert.equal(core.validDay(d, at), ok, String(d)));
+  check(() => assert.equal(core.vnDate('2026-11-18'), '18/11/2026'));
+  const source =(await fs.readFile(new URL('./worker.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   const fabiSource = await fs.readFile(new URL('./fabi_page.js', import.meta.url), 'utf8');
   const milanoSource = await fs.readFile(new URL('./milano_page.js', import.meta.url), 'utf8');
   new vm.Script(fabiSource.replace('export async function', 'async function'));
   new vm.Script(milanoSource.replace('export async function', 'async function'));
   passed += 2;
-  async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate } = {}) {
+  // Danh sách giả theo đúng ngày được hỏi; trang nào cũng báo "trên tổng số" như Fabi mới.
+  const pagesFor = (d, total) => {
+    const v = d.split('-').reverse().join('/');
+    const rs = Array.from({ length: 12 }, (_, i) => ({ ...makeRow(i + 1), open: `${v} 07:00`, close: `${v} 12:00` }));
+    return [{ page: 1, pages: 2, total, rows: rs.slice(0, 10) }, { page: 2, pages: 2, total, rows: rs.slice(10) }];
+  };
+  async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate, total = 12, saved = () => 'khop', failDay, web = () => ({}) } = {}) {
     const local = savedState ? { state: structuredClone(savedState) } : {}, session = {}, tabs = new Map();
-    const time = { ...core.vnClock(), minutes }; let startup, message;
-    let id = 1, uploaded = 0, previewed = 0;
+    const time = { ...core.vnClock(), minutes }; let startup, message, installed;
+    let id = 1, uploaded = 0, previewed = 0, checked = 0; const lists = [];
     const area = (store) => ({
       get: async (key) => ({ [key]: structuredClone(store[key]) }),
       set: async (data) => Object.assign(store, structuredClone(data)),
@@ -53,17 +79,20 @@ export async function runTests() {
         },
         scripting: { executeScript: async ({ func, args: [command, arg], target }) => {
           if (fail) throw Error('Lỗi thử nghiệm');
+          if (failDay && func.name === 'fabiPage' && arg?.day === failDay) throw Error('Lỗi thử nghiệm ngày ' + failDay);
           let result;
           if (func.name === 'fabiPage') {
-            if (command === 'list') result = pages[arg.page - 1];
+            if (command === 'list') { lists.push(structuredClone(arg)); result = pagesFor(arg.day, total)[arg.page - 1]; }
             if (command === 'open') {
-              const url = core.FABI + '-detail?store=TEST&shift_id=TEST' + arg.short.slice(1);
+              const url = core.FABI + '-detail?store=TEST&shift_id=TEST' + arg.open.slice(0, 10).replace(/\D/g, '') + arg.short.slice(1);
               tabs.get(target.tabId).url = url; result = navigationReturnsNull ? null : { url };
             }
             if (command === 'export') result = { base64: btoa('PK-test-' + arg.short) };
           } else {
+            if (command === 'suspects') return [{ result: { days: web(arg) } }];
             const index = Number(arg.id.slice(-5)) - 1;
             if (command === 'preview') previewed++;
+            if (command === 'check') { checked++; const st = saved(index, arg.day); result = { id: arg.id, hash: 'test-hash-' + arg.id, store: core.STORES[index % 4], state: st, diff: st === 'khac' ? ['doanh thu'] : [] }; return [{ result }]; }
             const hash = 'test-hash-' + arg.id;
             const unchanged = command === 'upload' && arg.previousHash === hash;
             if (command === 'upload' && !unchanged) uploaded++;
@@ -72,19 +101,19 @@ export async function runTests() {
           return [{ result }];
         } },
         alarms: { get: async () => ({}), create: async () => {}, onAlarm: { addListener() {} } },
-        runtime: { id: 'test', onInstalled: { addListener() {} }, onStartup: { addListener(fn) { startup = fn; } }, onMessage: { addListener(fn) { message = fn; } }, onMessageExternal: { addListener() {} } },
+        runtime: { id: 'test', getManifest: () => ({ version: '0.3.0' }), onInstalled: { addListener(fn) { installed = fn; } }, onStartup: { addListener(fn) { startup = fn; } }, onMessage: { addListener(fn) { message = fn; } }, onMessageExternal: { addListener() {} } },
       },
     });
     new vm.Script(source).runInContext(context);
     const run = (s) => vm.runInContext(s, context);
-    return { run, local, session, time, startup: () => startup(), tabCount: () => tabs.size, count: () => ({ uploaded, previewed }),
+    return { run, local, session, time, startup: () => startup(), installed: (reason) => installed({ reason }), closeTab: (n) => tabs.delete(n), tabIds: () => [...tabs.keys()], tabCount: () => tabs.size, count: () => ({ uploaded, previewed, checked }), lists: () => lists,
       send: (type) => new Promise((resolve) => message({ type }, { id: 'test' }, resolve)) };
   }
   const h = await harness();
   await h.run("start('preview')"); await h.run('drive()');
   check(() => assert.equal(h.local.state.run.status, 'success'));
   check(() => assert.equal(h.local.state.run.results.length, 12));
-  check(() => assert.deepEqual(h.count(), { uploaded: 0, previewed: 12 }));
+  check(() => assert.deepEqual(h.count(), { uploaded: 0, previewed: 12, checked: 0 }));
   check(() => assert.equal(h.local.state.lastSuccess, undefined));
   await h.run("start('upload')"); await h.run('drive()');
   check(() => assert.equal(h.local.state.lastSuccess, day));
@@ -127,9 +156,17 @@ export async function runTests() {
   check(() => assert.equal(auto.count().uploaded, 12));
   check(() => assert.equal(auto.local.state.lastSuccess, day));
   check(() => assert.equal(auto.local.state.lastAuto, auto.time.day));
-  await auto.run('clock()');
-  check(() => assert.equal(auto.tabCount(), 2));
+  await auto.run('clock()'); // 0.3.7: xong hôm qua thì lượt sau tự chạy nút 3 (hỏi web, bù ca lỗi cả tháng)
+  for (let i = 0; i < 50 && auto.local.state.run.status === 'running'; i++) { await auto.run('drive()'); await new Promise((r) => setTimeout(r, 2)); }
+  check(() => assert.equal(auto.local.state.run.mode, 'audit'));
+  check(() => assert.equal(auto.local.state.run.status, 'success'));
+  check(() => assert.equal(auto.local.state.lastAutoAudit, auto.time.day));
+  check(() => assert.equal(auto.tabCount(), 4));
+  await auto.run('clock()'); // mỗi ngày một lần
+  check(() => assert.equal(auto.tabCount(), 4));
   check(() => assert.equal(auto.count().uploaded, 12));
+  await auto.run("control({ type: 'enable', value: true })"); // ô Tự chạy bật được dù lần cuối là kiểm tra tháng
+  check(() => assert.equal(auto.local.state.enabled, true));
   const reopened = await harness({ savedState: auto.local.state, minutes: 900 });
   await reopened.startup();
   check(() => assert.equal(reopened.local.state.enabled, true));
@@ -187,8 +224,121 @@ export async function runTests() {
   await recovered.run("start('upload')"); await recovered.run('drive()');
   check(() => assert.equal(recovered.local.state.run.status, 'success'));
   check(() => assert.equal(recovered.count().uploaded, 11)); // một ca đã xác minh trước khi mất phiên không bị nhập lại
+  // 0.3.0 — chọn ngày để lấy bù (từ cửa sổ tiện ích), hôm qua vẫn bấm nút "Hôm qua" của Fabi.
+  const settle = async (x) => { for (let i = 0; i < 400 && x.local.state?.run?.status === 'running'; i++) await new Promise((r) => setTimeout(r, 5)); };
+  const back = await harness();
+  const older = core.recentDays(5)[4];
+  await back.run(`control({ type: 'preview', day: '${older}' })`); await settle(back);
+  check(() => assert.equal(back.local.state.run.status, 'success'));
+  check(() => assert.equal(back.local.state.run.day, older));
+  check(() => assert.equal(back.local.state.run.results.length, 12));
+  check(() => assert.ok(back.lists().length > 0 && back.lists().every((a) => a.day === older && a.useYesterday === false)));
+  check(() => assert.equal(back.count().uploaded, 0));
+  await back.run("control({ type: 'upload' })"); await settle(back); // nút Đồng bộ dùng đúng ngày vừa kiểm tra
+  check(() => assert.equal(back.local.state.run.mode, 'upload'));
+  check(() => assert.equal(back.local.state.run.status, 'success'));
+  check(() => assert.equal(back.local.state.run.day, older));
+  check(() => assert.equal(back.count().uploaded, 12));
+  check(() => assert.equal(back.local.state.synced[older].count, 12));
+  check(() => assert.equal(back.local.state.lastSuccess, older));
+  await back.run("control({ type: 'preview' })"); await settle(back); // không chọn ngày → hôm qua
+  check(() => assert.equal(back.local.state.run.day, day));
+  check(() => assert.ok(back.lists().filter((a) => a.day === day).every((a) => a.useYesterday === true)));
+  await back.run("control({ type: 'upload' })"); await settle(back);
+  check(() => assert.equal(back.local.state.lastSuccess, day));
+  await back.run(`control({ type: 'preview', day: '${older}' })`); await settle(back);
+  await back.run("control({ type: 'upload' })"); await settle(back);
+  check(() => assert.equal(back.local.state.lastSuccess, day)); // lấy bù ngày cũ không lùi mốc ngày mới nhất
+  check(() => assert.equal(back.count().uploaded, 24)); // ngày cũ chạy lại, dữ liệu như cũ → không nhập lại
+  const wrong = await harness();
+  await assert.rejects(wrong.run("control({ type: 'preview', day: '2000-01-01' })")); passed++;
+  await assert.rejects(wrong.run(`control({ type: 'preview', day: '${core.vnClock().day}' })`)); passed++; // hôm nay chưa xong ngày
+  check(() => assert.equal(wrong.tabCount(), 0));
+  const short = await harness({ total: 13 });
+  await short.run("start('preview')"); await short.run('drive()'); await short.run('drive()'); await short.run('drive()');
+  check(() => assert.equal(short.local.state.run.status, 'error')); // Fabi báo 13 ca, đọc được 12 → dừng
+  check(() => assert.match(short.local.state.run.message, /13/));
+  check(() => assert.equal(short.count().uploaded, 0));
+  // Nạp bản mới: lỗi của bản cũ không còn hiện như lỗi mới (23/11 anh Tiến thấy lại câu lỗi cũ, tưởng bản mới vẫn hỏng).
+  const oldError = { enabled: false, done: {}, run: { status: 'error', mode: 'preview', day, phase: 'list', attempts: 3, results: [], message: 'Chưa hoàn tất: Fabi đổi bộ lọc ngày; cần kiểm tra lại thao tác.' } };
+  const updated = await harness({ savedState: oldError });
+  await updated.installed('update'); await new Promise((r) => setTimeout(r, 20));
+  check(() => assert.equal(updated.local.state.run.status, 'stopped'));
+  check(() => assert.match(updated.local.state.run.message, /0\.3\.0/));
+  check(() => assert.doesNotMatch(updated.local.state.run.message, /đổi bộ lọc/));
+  check(() => assert.equal(updated.tabCount(), 0)); // không tự chạy lượt mới
+  const busyRun = await harness({ savedState: { ...oldError, run: { ...oldError.run, status: 'running', attempts: 1 } } });
+  await busyRun.installed('update'); await new Promise((r) => setTimeout(r, 20));
+  check(() => assert.doesNotMatch(busyRun.local.state.run.message, /đổi bộ lọc/)); // lượt dở chạy tiếp ngay bằng bản mới
+  check(() => assert.ok(busyRun.local.state.run.attempts >= 1 || busyRun.local.state.run.status !== 'running'));
+  const stopNow = await harness({ savedState: { ...oldError, run: { ...oldError.run, status: 'running', attempts: 1 } } });
+  await stopNow.send('stop');
+  check(() => assert.equal(stopNow.local.state.run.status, 'stopped')); // không đang bước nào thì Dừng có hiệu lực ngay
+  check(() => assert.equal(stopNow.local.state.enabled, false));
+  const fresh = await harness({ savedState: oldError });
+  await fresh.installed('install'); await new Promise((r) => setTimeout(r, 20));
+  check(() => assert.equal(fresh.local.state.run.status, 'error')); // chỉ xử lý khi cập nhật bản
+  // 0.3.5 — tab Fabi / Milano của tiện ích bị đóng giữa chừng thì tự mở lại, không kẹt "No tab with id".
+  const closed = await harness();
+  await closed.run("start('preview')");
+  const [appTab, fabiTab] = closed.tabIds();
+  closed.closeTab(fabiTab); closed.closeTab(appTab);
+  await closed.run('drive()');
+  check(() => assert.equal(closed.local.state.run.status, 'success'));
+  check(() => assert.equal(closed.local.state.run.results.length, 12));
+  check(() => assert.equal(closed.tabCount(), 2));
+  // 0.3.2 — nút "3. Kiểm tra & bù ca thiếu cả tháng": ca thiếu tự nhập, ca khác Fabi chờ anh xem rồi mới nhập đè.
+  const at2 = Date.parse('2026-11-23T01:00:00Z');
+  check(() => assert.equal(core.monthDays(at2).length, 22));
+  check(() => assert.equal(core.monthDays(at2)[0], '2026-11-01'));
+  check(() => assert.equal(core.monthDays(at2).at(-1), '2026-11-22'));
+  check(() => assert.equal(core.monthDays(Date.parse('2026-12-01T01:00:00Z')).length, 30)); // ngày 1 thì xét cả tháng trước
+  const finish = async (x) => { for (let i = 0; i < 3000 && x.local.state?.run?.status === 'running'; i++) { await x.run('drive()'); await new Promise((r) => setTimeout(r, 2)); } };
+  const month = core.monthDays();
+  const idOf = (d, i) => 'TEST' + d.split('-').reverse().join('') + String(i + 1).padStart(5, '0');
+  const all12 = (d) => Array.from({ length: 12 }, (_, i) => idOf(d, i));
+  // Web báo: 2 ngày có lỗi (mỗi ngày 2 phiếu chưa có file = ca 1 và 6, 1 file thiếu số = ca 4); các ngày khác ổn.
+  const badDays = [month[0], month[Math.min(2, month.length - 1)]];
+  const web = () => Object.fromEntries(badDays.map((d) => [d, { missing: 2, saved: all12(d).filter((_, i) => i !== 0 && i !== 5), broken: [idOf(d, 3)] }]));
+  const audit = await harness({ web, saved: (i) => (i === 0 || i === 5 ? 'thieu' : i === 3 ? 'khac' : 'khop') });
+  await audit.run("control({ type: 'audit' })"); await finish(audit);
+  const ar = () => audit.local.state.run;
+  check(() => assert.equal(ar().mode, 'audit'));
+  check(() => assert.equal(ar().status, 'success'));
+  check(() => assert.deepEqual([...ar().days], badDays)); // chỉ mở Fabi ở ngày web báo lỗi
+  check(() => assert.ok(audit.lists().every((a) => badDays.includes(a.day))));
+  check(() => assert.equal(audit.count().checked, 3 * badDays.length)); // chỉ tải đúng ca thiếu + ca thiếu số
+  check(() => assert.equal(audit.count().uploaded, 2 * badDays.length)); // ca thiếu tự nhập
+  check(() => assert.equal(ar().results.filter((x) => x.status === 'khac').length, badDays.length));
+  check(() => assert.equal(ar().counts.thieu, 2 * badDays.length));
+  check(() => assert.equal(audit.local.state.lastSuccess, undefined));
+  const pick = ar().results.filter((x) => x.status === 'khac').slice(0, 1).map((x) => x.id);
+  await assert.rejects(audit.run("control({ type: 'overwrite', ids: ['KHONG-CO'] })")); passed++;
+  await audit.run(`control({ type: 'overwrite', ids: ${JSON.stringify(pick)} })`); await finish(audit);
+  check(() => assert.equal(audit.count().uploaded, 2 * badDays.length + 1)); // nhập đè đúng ca anh chọn
+  check(() => assert.equal(ar().results.filter((x) => x.status === 'da_nhap_de').length, 1));
+  check(() => assert.equal(ar().status, 'success'));
+  const quiet = await harness();
+  await quiet.run("control({ type: 'audit' })"); await finish(quiet);
+  check(() => assert.equal(quiet.local.state.run.status, 'success')); // web không có ca lỗi → xong ngay, không mở Fabi
+  check(() => assert.equal(quiet.lists().length, 0));
+  check(() => assert.match(quiet.local.state.run.message, /không có ca/i));
+  const stray = await harness({ web: () => ({ [month[0]]: { missing: 1, saved: all12(month[0]), broken: [] } }) });
+  await stray.run("control({ type: 'audit' })"); await finish(stray);
+  check(() => assert.equal(stray.count().checked, 0)); // phiếu chưa có file mà Fabi không có ca nào thiếu → ghi lại, không tải
+  check(() => assert.ok(stray.local.state.run.failures.some((f) => f.day === month[0])));
+  const skip = await harness({ web, failDay: badDays[0] });
+  await skip.run("control({ type: 'audit' })"); await finish(skip);
+  check(() => assert.equal(skip.local.state.run.status, 'success')); // một ngày lỗi không chặn các ngày khác
+  check(() => assert.ok(skip.local.state.run.failures.some((f) => f.day === badDays[0])));
+  check(() => assert.equal(skip.count().checked, 3 * (badDays.length - 1)));
+  const dead = await harness({ fail: true });
+  await dead.run("control({ type: 'audit' })"); await finish(dead);
+  check(() => assert.equal(dead.local.state.run.status, 'error')); // không hỏi được web (hết phiên…) thì dừng
+  check(() => assert.equal(dead.count().uploaded, 0));
   passed += await validationTests(day, core.STORES[0]);
   passed += await bridgeTests();
   return { passed, note: 'Dữ liệu giả; chưa thay thế kiểm tra Chrome/Fabi/Milano thật.' };
 }
-if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) console.log(await runTests());
+// So bằng URL đã mã hoá để chạy được cả khi đường dẫn có dấu cách (vd "Milano App").
+if (typeof process !== 'undefined' && process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) console.log(await runTests());

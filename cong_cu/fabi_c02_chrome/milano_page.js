@@ -9,6 +9,20 @@ export async function milanoPage(command, args) {
     const me = await rpc('app_me');
     return { allowed: !!me?.perms?.ke_toan && !me.must_change };
   }
+  // Hỏi web trước (không cần file): từng ngày còn bao nhiêu phiếu ca chưa có file Fabi, file nào đang thiếu số.
+  if (command === 'suspects') {
+    const list = await rpc('app_fabi_list', { p_from: args.from, p_to: args.to });
+    const days = {};
+    const day = (d) => (days[d] ??= { missing: 0, saved: [], broken: [] });
+    for (const r of list.missing || []) day(String(r.work_date).slice(0, 10)).missing++;
+    for (const f of list.files || []) {
+      const d = String(f.work_date).slice(0, 10);
+      day(d).saved.push(f.ma_ca);
+      if (['dau', 'net', 'tong'].some((k) => f[k] == null) || !f.close_at) day(d).broken.push(f.ma_ca); // trống tiền mặt / chuyển khoản: bỏ qua (28 file đầu tháng 11, anh chọn để sau)
+    }
+    for (const [d, x] of Object.entries(days)) if (!x.missing && !x.broken.length) delete days[d];
+    return { days };
+  }
   const [{ parseDetail }, { xlsx }] = await Promise.all([
     import(base + 'js/pages/ke_toan_fabi.js'), import(base + 'js/excel.js'),
   ]);
@@ -59,17 +73,29 @@ export async function milanoPage(command, args) {
   const hash = [...new Uint8Array(digest)].map((n) => n.toString(16).padStart(2, '0')).join('');
   const list = await rpc('app_fabi_list', { p_from: args.day, p_to: args.day });
   if (command === 'preview') return { id: row.ma_ca, store: row.store, hash, bills: row.bills.length, items: row.items.length };
-  if (command !== 'upload') throw Error('Thao tác Milano không được hỗ trợ.');
-  if (args.expectedHash !== hash) throw Error('Dữ liệu ca khác bản đã kiểm tra; cần tải lại.');
+  if (command !== 'upload' && command !== 'check') throw Error('Thao tác Milano không được hỗ trợ.');
+  if (command === 'upload' && args.expectedHash !== hash) throw Error('Dữ liệu ca khác bản đã kiểm tra; cần tải lại.');
   const money = (name) => row.pay.filter((p) => name === 'ck' ? /chuyển khoản/i.test(p.name) : p.name.trim().toLowerCase() === (name === 'tm' ? 'tiền mặt' : 'nợ')).reduce((n, p) => n + p.amount, 0);
   const savedTime = (v) => typeof v === 'string' ? v.slice(0, 16).replace(' ', 'T') : '';
   const fileTime = (v) => `${toISO(v)}T${v.slice(11, 16)}`;
-  const sameSaved = (f) => f && f.store === row.store && f.work_date === args.day &&
-    ['dau', 'net', 'tong'].every((k) => f[k] != null && Number(f[k]) === row[k]) &&
-    ['tm', 'ck', 'no'].every((k) => f[k] != null && Number(f[k]) === money(k)) &&
-    f.chenh != null && Number(f.chenh) === row.tong - row.cuoi &&
-    savedTime(f.open_at) === fileTime(row.open) && savedTime(f.close_at) === fileTime(row.close) &&
-    JSON.stringify(canonical(f.tra_no)) === JSON.stringify(canonical(row.tra_no)) && JSON.stringify(canonical(f.sua)) === JSON.stringify(canonical(row.sua));
+  // Các phần của file đang lưu trên web khác file Fabi vừa tải (rỗng = khớp). Danh sách máy chủ chưa trả món/nhóm món nên chưa so phần đó.
+  const num = (v, x) => v != null && Number(v) === x;
+  const diffSaved = (f) => [
+    ['cơ sở', f.store === row.store], ['ngày', f.work_date === args.day],
+    ['tiền đầu ca', num(f.dau, row.dau)], ['doanh thu', num(f.net, row.net)], ['tổng tiền', num(f.tong, row.tong)],
+    ['tiền mặt', num(f.tm, money('tm'))], ['chuyển khoản', num(f.ck, money('ck'))], ['nợ', num(f.no, money('no'))],
+    ['chênh lệch', num(f.chenh, row.tong - row.cuoi)],
+    ['giờ mở', savedTime(f.open_at) === fileTime(row.open)], ['giờ đóng', savedTime(f.close_at) === fileTime(row.close)],
+    ['trả nợ', JSON.stringify(canonical(f.tra_no)) === JSON.stringify(canonical(row.tra_no))],
+    ['hoá đơn sửa', JSON.stringify(canonical(f.sua)) === JSON.stringify(canonical(row.sua))],
+  ].filter(([, ok]) => !ok).map(([label]) => label);
+  const sameSaved = (f) => !!f && !diffSaved(f).length;
+  if (command === 'check') {
+    const saved = list.files.find((f) => f.ma_ca === row.ma_ca);
+    if (!saved) return { id: row.ma_ca, store: row.store, hash, state: 'thieu' };
+    const diff = diffSaved(saved);
+    return { id: row.ma_ca, store: row.store, hash, state: diff.length ? 'khac' : 'khop', diff };
+  }
   if (args.previousHash === hash && sameSaved(list.files.find((f) => f.ma_ca === row.ma_ca))) return { id: row.ma_ca, store: row.store, hash, status: 'unchanged' };
   const result = await rpc('app_fabi_upload', { p_rows: [row] });
   if (result.length !== 1 || result[0].ma_ca !== row.ma_ca || result[0].status === 'chua_ro_co_so') throw Error('Máy chủ chưa xác nhận đúng cơ sở/ca đã nhập.');
