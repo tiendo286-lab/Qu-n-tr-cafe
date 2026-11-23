@@ -105,7 +105,10 @@ const VA_PEOPLE = [{ account_id: 6, name: 'QL tổng thử', code: 'NV01', role:
   { account_id: 7, name: 'Kế toán thử', code: 'ketoan', role: 'ke_toan', branches: [], ke_toan: false }, { account_id: 3, name: 'Nhân viên thử', code: 'NV3', role: 'nv', branches: [], ke_toan: false },
   { account_id: 8, name: 'Nhân viên kế toán thử', code: 'NV8', role: 'nv', branches: [], ke_toan: true }];
 const VA_WRITE = /_(save|set|add|del|delete|mark|seen|ack|create|update|upsert|send|done|confirm|apply|close|open|claim|collect|reopen|submit|edit|move|touch|read|tick)(_|$)/;
-const CA = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(T, ME), ...makeHt(T, ME), ...makeKt(T, ME), ...makeFin(T, ME), ...makeFund(T, ME), ...makeStc(T, ME), ...makeNh(T, ME), ...makeDg(T, ME), ...makeCv(T, ME), ...makeFb(T, ME), ...makePc(T, ME), ...makeHn(T, ME) };
+const CA0 = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(T, ME), ...makeHt(T, ME), ...makeKt(T, ME), ...makeFin(T, ME), ...makeFund(T, ME), ...makeStc(T, ME), ...makeNh(T, ME), ...makeDg(T, ME), ...makeCv(T, ME), ...makeFb(T, ME), ...makePc(T, ME), ...makeHn(T, ME) };
+// chặng 6.3b: app_ca_recon_debt_uncollect — dòng "Khách trả nợ cũ" của sổ tháng giả (stc) xử lý trước, còn lại như ca_gia
+const CA = CA0;
+{ const base = CA.app_ca_recon_debt_uncollect; CA.app_ca_recon_debt_uncollect = function (a) { if (CA.__stcTraUncollect?.(a)) return null; return base.call(this, a); }; }
 const authCbs = [];
 export const sb = {
   from: (t) => new Q(t),

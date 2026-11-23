@@ -35,6 +35,18 @@ export default async ({ sleep, out }) => {
         if (r0) ok(stepNo() === 0 && manualLeft() === 0, `còn mục đỏ → ở lại bước 1, mục QL đã tích hết (bước ${stepNo() + 1}, còn ${manualLeft()})`);
         else ok(stepNo() === 1, `không còn mục đỏ → sang bước 2 (đang bước ${stepNo() + 1})`);
       }
+      // Chặng 6.3b: "Xoá lần trả" ở khung Khách trả nợ cũ trong ca (ca 182 chưa Xác nhận Fabi) — bắt lý do, xoá xong dòng Trả biến mất
+      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '.stc-dsp');
+      const tx = $('[data-traxoa]');
+      ok(!!tx, `bước 1 có nút "Xoá lần trả" ở dòng khách trả nợ cũ: ${tx?.closest('.stc-cdr')?.innerText.replace(/\s+/g, ' ').slice(0, 80) || '-'}`);
+      if (tx) {
+        const id = tx.dataset.traxoa; tx.click(); await wait('form.stc-dlg'); await sleep(200);
+        const f = $('form.stc-dlg'); f.requestSubmit(); await sleep(500);
+        ok(/lý do/i.test($('form.stc-dlg .stc-err')?.innerText || ''), `chưa ghi lý do thì chặn: ${$('form.stc-dlg .stc-err')?.innerText.trim() || '-'}`);
+        $('form.stc-dlg [name=reason]').value = 'Khách CK rút TM, không phải trả nợ'; $('form.stc-dlg').requestSubmit();
+        await until(() => !$(`[data-traxoa="${id}"]`) && !$('form.stc-dlg'), 100); await sleep(500);
+        ok(!$(`[data-traxoa="${id}"]`), 'xoá xong: dòng Trả biến mất');
+      }
       // Bước 2: không tự bấm Xác nhận Fabi
       await go('#/ca/doi-soat?id=182&tab=tien&b=2', '.stc-dsp');
       const fabiBefore = !!$('[data-dsreopen]');

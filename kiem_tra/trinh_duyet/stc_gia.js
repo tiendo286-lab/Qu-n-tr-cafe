@@ -175,6 +175,15 @@ export function makeStc(T, me) {
     },
     // → Trừ lương (anh Tiến chốt 22/11: người làm ca có ô tích): gắn p_n nhân viên đang làm vào ca (đã làm) — app_ca_get trả về như phiếu thật
     // chặng 6.3 (chỉ bài thử): coi ca như đã Xác nhận Fabi để mở bước 3–5, bỏ các mục quản lý tự tích
+    // chặng 6.3b: bỏ lần trả nợ cũ của ca (dòng t='tra' trong sổ tháng giả). sb_gia gọi trước, không phải dòng giả thì để ca_gia xử lý.
+    __stcTraUncollect({ p_report, p_debt, p_reason }) {
+      const L = st().ca_debts || []; const i = L.findIndex((x) => x.t === 'tra' && Number(x.id) === Number(p_debt)); if (i < 0) return false;
+      if (Number(L[i].report_id) !== Number(p_report)) throw new Error('Khoản khách trả không thuộc ca này.');
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa hoặc xoá khoản khách trả.');
+      const c = st().cas.find((x) => x.id === Number(p_report)); if (c?.done) throw new Error('Ca đã hoàn thành đối soát — mở lại để sửa.');
+      if (c?.recon_money_done) throw new Error(`Mục ${L[i].pm === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
+      L.splice(i, 1); return true;
+    },
     app__test_ds_open({ p_id }) { const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.'); c.recon_money_done = true; c.done = null; c.ticks = []; },
     app__test_ca_staff({ p_id, p_n = 2 }) {
       const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || []; T.employees = T.employees || [];

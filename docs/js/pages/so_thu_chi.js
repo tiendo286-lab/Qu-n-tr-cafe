@@ -129,6 +129,8 @@ function bindPage(D) {
       await rpc('app_stc_ds_fabi', { p_report: Number(b.dataset.ca), p_field: b.dataset.k, p_name: null, p_reason: 'Bỏ sửa, lấy số máy Fabi' }); })(), 'Đã lấy số máy Fabi');
   });
   root.addEventListener('click', (ev) => {   // thiết kế sua-no-cua-ca: Sửa / Xoá một khoản nợ của ca · + Thêm khoản nợ quên ghi
+    const tx = ev.target.closest('[data-traxoa]');   // chặng 6.3b: Xoá lần khách trả nợ cũ trong ca
+    if (tx && root.contains(tx)) { const x = (D.ca_debts || []).find((q) => q.t === 'tra' && String(q.id) === tx.dataset.traxoa); if (x) traDelDialog(x); return; }
     const de = ev.target.closest('[data-dedit],[data-dadd]');
     if (!de || !root.contains(de)) return;
     if (de.dataset.dadd) { const c = (D.cas || []).find((x) => String(x.id) === de.dataset.dadd); if (c) caDebtAddDialog(D, c); return; }
@@ -431,6 +433,12 @@ function collectDialog(D, debtId) {
   open(d, async () => { if (!debtBefore(x, { date: val(d, 'date') })) throw new Error(`Khoản nợ này ghi ${x.from || dm(x.date)} — ngày thu phải từ ngày đó trở đi.`);
     if (!shortOk(Number(x.left), money(d, 'amount'))) throw new Error('Chưa ghi — sửa số tiền khách trả.');
     await rpc('app_stc_collect', { p_debt: idNum(x.id), p: { date: val(d, 'date'), kind: val(d, 'pay'), amount: money(d, 'amount') }, p_reason: val(d, 'reason') || null }); after('Đã ghi thu nợ'); });
+}
+// chặng 6.3b: bỏ lần khách trả nợ cũ do nhân viên ghi trong phiếu ca (khoản nợ quay lại còn nợ ở ca gốc). Máy chủ: app_ca_recon_debt_uncollect.
+function traDelDialog(x) {
+  const d = dialog(form(`Xoá lần trả · ${x.who || ''}`, html`<div class="st-meta">Khách trả ${fmt(x.amount)} (${x.pm === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'}) — nợ từ ${x.from || '—'}. Xoá thì dòng Trả biến mất, tiền phải có của ca giảm ${fmt(x.amount)}, khoản nợ quay lại còn nợ.
+    Nếu thực ra khách chuyển khoản để rút tiền mặt: xoá ở đây rồi sang ca gốc, khoản nợ đó bấm Sửa / Xoá → Đổi thành Luân chuyển TM – CK.</div>`));
+  open(d, async () => { if (!val(d, 'reason')) throw new Error('Ghi lý do xoá.'); await rpc('app_ca_recon_debt_uncollect', { p_report: Number(x.report_id), p_debt: Number(x.id), p_reason: val(d, 'reason') }); after('Đã xoá lần trả — khoản nợ quay lại còn nợ'); });
 }
 function uncollectDialog(D, x) {
   const d = dialog(form(`Huỷ thu nợ · ${x.title}`, html`<div class="st-meta">Dòng thu nợ ${fmt(x.amount)} sẽ gạch ngang, khoản nợ mở lại.</div>`, ' '));
@@ -1305,7 +1313,10 @@ function debtList(D, c) {
             <select class="input sm" data-dgrp aria-label="Nhóm công nợ">${Object.entries(GRP_NO).map(([k, t]) => html`<option value="${k}" ${g0 === k ? 'selected' : ''}>${t}</option>`)}</select>
             <button type="button" class="btn sm" data-dsortok="${x.id}">Xếp</button></span>`;
     return html`<div class="stc-cdr" data-t="moi"><span class="stc-dtag d-${cls}">${lab}</span><span><b>${x.who || '—'}</b>${why ? html` <span class="st-meta">· ${why}</span>` : ''} ${st}${fixUi(x, a, l)}${x.content ? html`<br><span class="st-meta">NV ghi: ${x.content}</span>` : ''}${editLine(x.edit, x)}${sortUi}</span><b class="stc-amt">${fmt(a)}</b></div>`; };
-  const rowTra = (x) => html`<div class="stc-cdr" data-t="tra"><span class="stc-dtag d-tra">Trả</span><span><b>${x.who || '—'}</b> <span class="st-meta">· ${x.pm === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} · nợ từ ${x.from || '—'}</span></span><b class="stc-amt">+${fmt(x.amount)}</b></div>`;
+  // chặng 6.3b: khách trả nợ cũ ghi nhầm (vd khách chuyển khoản rút tiền mặt) → Xoá lần trả; khoản nợ quay lại còn nợ. Đã Xác nhận Fabi thì phải Mở lại trước.
+  const traUi = (x) => !canSort ? '' : c.recon_money_done ? html`<br><span class="st-meta">🔒 Muốn xoá lần trả: bấm Mở lại xác nhận ở bước 2 trước</span>`
+    : html` <button type="button" class="stc-lk" data-traxoa="${x.id}">Xoá lần trả</button>`;
+  const rowTra = (x) => html`<div class="stc-cdr" data-t="tra"><span class="stc-dtag d-tra">Trả</span><span><b>${x.who || '—'}</b> <span class="st-meta">· ${x.pm === 'chuyen_khoan' ? 'chuyển khoản' : 'tiền mặt'} · nợ từ ${x.from || '—'}</span>${traUi(x)}</span><b class="stc-amt">+${fmt(x.amount)}</b></div>`;
   const rowXoa = (x) => { const [lab, cls] = DEBT_TAG[x.kind] || DEBT_TAG.bill; const e = x.edit || {};
     return html`<div class="stc-cdr stc-gone" data-t="xoa"><span class="stc-dtag d-${cls}">${lab}</span><span><s>${x.who || '—'}</s><br><span class="st-meta">${e.action === 'doi' ? 'Đã đổi thành Luân chuyển TM – CK' : 'Đã xoá'} · ${e.by || ''}${e.at ? ' · ' + e.at : ''}${e.reason ? ' · lý do: ' + e.reason : ''}</span></span><s class="stc-amt">${fmt(x.amount)}</s></div>`; };
   return html`<div class="stc-cadebt">
