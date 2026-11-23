@@ -51,7 +51,8 @@ export default async ({ sleep, out }) => {
     location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&t=' + Date.now(); await sleep(400); await wait('.stc-pay'); await sleep(300);
     $('.stc-all')?.click(); await sleep(400);
     const caRow = $$('.stc-ca').find((c) => txt(c).includes('quản lý lấy tiền két'));
-    ok(!!caRow && !txt(caRow).includes('ca đã chốt') && !!caRow.querySelector('[data-addca]'), '6. Sổ chi chung: ca đã xác nhận (vừa Mở lại) có nút thêm, không còn "Ca đã chốt"');
+    // chặng 6.3d (anh Tiến chốt 23/11): Sổ thu chi luôn ngoài ca — dòng ca có đường dẫn sang trang đối soát ca thay cho nút thêm tại sổ
+    ok(!!caRow && !txt(caRow).includes('ca đã chốt') && !!caRow.querySelector('a.stc-addca-go[href*="#/ca/doi-soat?id="]'), '6. Sổ chi chung: ca đã xác nhận (vừa Mở lại) có đường dẫn thêm phiếu ở trang đối soát ca, không còn "Ca đã chốt"');
     { const dn = $$('.stc-ca').find((c) => txt(c).includes('đã hoàn thành đối soát'));
       ok(!!dn && !dn.querySelector('[data-addca]') && !!dn.querySelector('a[href*="#/ca/doi-soat?id="]'), '6. bước 171: ca đã hoàn thành → không có nút thêm, có đường dẫn sang trang đối soát ca để Mở lại'); }
     const c182 = $$('.stc-ca').find((c) => txt(c).includes('mua sữa tươi'));
