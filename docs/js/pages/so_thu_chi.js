@@ -114,6 +114,8 @@ function bindPage(D) {
   root.addEventListener('change', (ev) => {   // chọn người → nhóm nhảy theo nhóm của người đó (quản lý vẫn đổi được)
     const ps = ev.target.closest('[data-dperson]'); const g = ps?.selectedOptions?.[0]?.dataset?.grp;
     if (ps && g) ps.closest('[data-dsort]').querySelector('[data-dgrp]').value = g;
+    const gs = ev.target.closest('[data-dgrp]');   // chặng 6.4: chọn ① Nợ khách hàng → không cần chọn người
+    if (gs) { const w = gs.closest('[data-dsort]').querySelector('[data-dperson]'); if (w) w.hidden = gs.value === 'khach'; }
   });
   root.addEventListener('click', async (ev) => {   // bước 173: máy Fabi ghi sai — sửa số / bỏ / duyệt / từ chối
     const b = ev.target.closest('[data-dsfix],[data-dsfixcancel],[data-dsfixok],[data-dsfixno],[data-dsfixfabi]');
@@ -146,10 +148,10 @@ function bindPage(D) {
     if (se && root.contains(se)) { SORT_EDIT.add(se.dataset.dsortedit); rerender(); return; }
     const so = ev.target.closest('[data-dsortok]');
     if (!so || !root.contains(so)) return;
-    const wrap = so.closest('[data-dsort]'); const pid = wrap.querySelector('[data-dperson]').selectedOptions[0]?.dataset?.pid;
-    if (!pid) { showSaved('Chọn người nợ trong danh sách rồi mới bấm Xếp. Chưa có tên thì thêm ở Sổ chi › 👥 Người nợ.', true); return; }
+    const wrap = so.closest('[data-dsort]'); const grp = wrap.querySelector('[data-dgrp]').value; const pid = grp === 'khach' ? null : wrap.querySelector('[data-dperson]').selectedOptions[0]?.dataset?.pid;
+    if (!pid && grp !== 'khach') { showSaved('Chọn người nợ trong danh sách rồi mới bấm Xếp. Chưa có tên thì thêm ở Sổ chi › 👥 Người nợ.', true); return; }
     so.disabled = true;
-    try { await rpc('app_stc_debt_sort', { p_debt: Number(so.dataset.dsortok), p_person: Number(pid), p_grp: wrap.querySelector('[data-dgrp]').value });
+    try { await rpc('app_stc_debt_sort', { p_debt: Number(so.dataset.dsortok), p_person: pid ? Number(pid) : null, p_grp: grp });
       SORT_EDIT.delete(so.dataset.dsortok); after('Đã xếp người + nhóm công nợ'); }
     catch (e) { so.disabled = false; showSaved(e.message || e, true); }
   });
@@ -1369,12 +1371,14 @@ function debtList(D, c) {
   const rowMoi = (x) => { const [lab, cls, why] = DEBT_TAG[x.kind] || DEBT_TAG.bill; const a = Number(x.amount), l = Number(x.left);
     const st = l <= 0 ? html`<span class="pill ok">đã trả${D.debt_paid?.[x.id] ? ' · ' + paidTxt(D.debt_paid[x.id]) : ''}</span>` : '';
     const hit = act.find((p) => p.id === x.person_id) || act.find((p) => p.name.toLowerCase() === String(x.who || '').trim().toLowerCase());
-    const g0 = (x.sorted && x.grp) || hit?.grp || x.grp || 'khach';
+    // chặng 6.4 (anh Tiến chốt 23/11): nợ khách hàng không cần Xếp (✓ + "Đổi nhóm" khi nhân viên chọn nhầm); nợ khác phân loại vào Chủ / Người nhà / Kho tổng + người
+    const isKh = (x.grp || 'khach') === 'khach'; const named = act.filter((p) => (p.grp || 'khach') !== 'khach'); const hit2 = hit && (hit.grp || 'khach') !== 'khach' ? hit : null;
+    const g0 = x.sorted && isKh ? 'khac' : (x.sorted && x.grp) || hit2?.grp || (isKh ? 'khac' : x.grp);
     const sortUi = l <= 0 ? '' : x.sorted && !SORT_EDIT.has(String(x.id))
-      ? html` <span class="pill ok">✓ ${GRP_NO[x.grp] || GRP_NO.khach}</span>${canSort ? html` <button type="button" class="stc-lk" data-dsortedit="${x.id}">Đổi</button>` : ''}`
-      : !canSort ? html` <span class="pill warn">chưa xếp nhóm nợ</span>`
-        : html`<span class="stc-dso" data-dsort="${x.id}"><select class="input sm" data-dperson aria-label="Người nợ"><option value="">— Chọn người nợ —</option>${act.map((p) => html`<option value="${p.name}" data-pid="${p.id}" data-grp="${p.grp || 'khach'}" ${hit && hit.id === p.id ? 'selected' : ''}>${p.name}</option>`)}</select>
-            <select class="input sm" data-dgrp aria-label="Nhóm công nợ">${Object.entries(GRP_NO).map(([k, t]) => html`<option value="${k}" ${g0 === k ? 'selected' : ''}>${t}</option>`)}</select>
+      ? html` <span class="pill ok">✓ ${GRP_NO[x.grp] || GRP_NO.khach}</span>${canSort ? html` <button type="button" class="stc-lk" data-dsortedit="${x.id}">${isKh ? 'Đổi nhóm' : 'Đổi'}</button>` : ''}`
+      : !canSort ? html` <span class="pill warn">chưa phân loại nợ</span>`
+        : html`<span class="stc-dso" data-dsort="${x.id}"><select class="input sm" data-dperson aria-label="Người nợ"><option value="">— Chọn người nợ —</option>${named.map((p) => html`<option value="${p.name}" data-pid="${p.id}" data-grp="${p.grp}" ${hit2 && hit2.id === p.id ? 'selected' : ''}>${p.name}</option>`)}</select>
+            <select class="input sm" data-dgrp aria-label="Nhóm công nợ">${Object.entries(GRP_NO).filter(([k]) => !(isKh && k === 'khach')).map(([k, t]) => html`<option value="${k}" ${g0 === k ? 'selected' : ''}>${t}</option>`)}</select>
             <button type="button" class="btn sm" data-dsortok="${x.id}">Xếp</button></span>`;
     return html`<div class="stc-cdr" data-t="moi"><span class="stc-dtag d-${cls}">${lab}</span><span><b>${x.who || '—'}</b>${why ? html` <span class="st-meta">· ${why}</span>` : ''} ${st}${fixUi(x, a, l)}${x.content ? html`<br><span class="st-meta">NV ghi: ${x.content}</span>` : ''}${editLine(x.edit, x)}${sortUi}</span><b class="stc-amt">${fmt(a)}</b></div>`; };
   // chặng 6.3b: khách trả nợ cũ ghi nhầm (vd khách chuyển khoản rút tiền mặt) → Xoá lần trả; khoản nợ quay lại còn nợ. Đã Xác nhận Fabi thì phải Mở lại trước.
@@ -1601,7 +1605,7 @@ const CHK = {
   mo: ['Tiền mở ca khớp tiền ca trước để lại', 'Lệch thì chọn ca nào ghi sai, ca đó chịu tiền lệch'],
   dt: ['Doanh thu trên phiếu khớp máy Fabi', 'Lệch thì bấm "Lấy số máy Fabi"'],
   no: ['Nợ bill trên phiếu khớp máy Fabi', 'Lệch thì bấm "Lấy số máy Fabi"'],
-  phanloai: ['Nợ mới của ca đã xếp đúng người + nhóm công nợ', 'Ở khung "Nợ mới trong ca" bên dưới: chọn người trong danh sách + nhóm rồi bấm Xếp'],
+  phanloai: ['Nợ khác của ca đã phân loại (Chủ / Người nhà / Kho tổng)', 'Ở khung "Nợ mới trong ca" bên dưới: chọn nhóm + người trong danh sách rồi bấm Xếp (nợ khách hàng không cần xếp)'],
   hd: ['Đã hỏi về hoá đơn bị sửa / xoá trên máy', 'Hỏi nhân viên hoặc xem camera, rõ lý do rồi tích'],
   anh: ['Ảnh phiếu Fabi in cuối ca đúng với số máy', 'Bấm 📷 xem ảnh, so doanh thu, tiền mặt, chuyển khoản'],
   cash: ['Đã đếm két và nhập tiền mặt thực nhận', 'Quản lý tự đếm, không lấy số nhân viên đếm'],

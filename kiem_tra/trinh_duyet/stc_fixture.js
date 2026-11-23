@@ -119,7 +119,8 @@ const base = {
   people: [{ id: 1, name: 'Kho Tổng', phone: null, grp: 'kho', active: 1, no_remind: true, open: 300000, n: 1 },
     { id: 2, name: 'Bàn 5', phone: null, grp: 'khach', active: 1, no_remind: false, open: 50000, n: 1 },
     { id: 3, name: 'Cô Lan Anh', phone: '0903000003', grp: 'khach', active: 1, no_remind: false, open: 20000, n: 1 },
-    { id: 4, name: 'Khách', phone: null, grp: 'khach', active: 1, no_remind: false, open: 0, n: 0, shared: true }],   // chặng 6.4: người chung "Khách"
+    { id: 4, name: 'Khách', phone: null, grp: 'khach', active: 1, no_remind: false, open: 0, n: 0, shared: true },
+    { id: 5, name: 'Chủ thử', phone: null, grp: 'chu', active: 1, no_remind: true, open: 0, n: 0 }],   // chặng 6.4: nhóm Chủ   // chặng 6.4: người chung "Khách"
 };
 const F = fundSummary(base);
 const end = (pm, d) => F.daily[pm].find((x) => x.date === d).end;

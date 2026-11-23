@@ -95,6 +95,48 @@ export default async ({ sleep, out }) => {
       const g = (n) => sv.find((d) => d.table_name === n)?.grp;
       ok(g('Kho tổng') === 'kho' && g('bàn 5') === 'khach' && g('anh lấy 100k') === 'khac', `B4. lưu đúng nhóm: Kho tổng=${g('Kho tổng')} · bàn 5=${g('bàn 5')} · anh lấy 100k=${g('anh lấy 100k')}`);
     }
+    if (PHAN === 'C') {   // bước 1 trang đối soát ca (role chu / qlt / ql) — VÙNG KHOÁ
+      await rpc('app__test_ca_debt_add', { p_report: 182, p_who: 'anh lấy 100k', p_kind: 'muon', p_amount: 100000, p_grp: 'khac' });   // trước khi trang đọc tháng
+      const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = '#/ca/doi-soat?id=182&tab=tien&b=1&t=' + Date.now(); await wait('.stc-dsp'); await sleep(900); };
+      const row = (w) => $$('.stc-cdr[data-t="moi"]').find((r) => txt(r).includes(w));
+      await go();
+      let r3 = row('bàn 3'); let rk = row('anh lấy 100k');
+      ok(!!r3 && /✓ nợ khách hàng/.test(txt(r3)) && !$('[data-dsortok]', r3) && /đổi nhóm/.test(txt($('[data-dsortedit]', r3))), 'C1. nợ khách (Bàn 3): ✓ Nợ khách hàng, không phải Xếp, có nút Đổi nhóm');
+      const gopt = rk ? $$('[data-dgrp] option', rk).map((o) => o.value) : [];
+      const popt = rk ? $$('[data-dperson] option', rk).map((o) => o.textContent.trim()) : [];
+      ok(!!rk && !!$('[data-dsortok]', rk) && gopt.includes('chu') && gopt.includes('kho') && gopt.includes('khac'), 'C2. nợ khác chưa phân loại: ô nhóm (' + gopt.join(',') + ') + người + Xếp');
+      ok(popt.includes('Chủ thử') && !popt.some((t) => /^(Bàn 5|Cô Lan Anh|Khách)$/.test(t)), 'C2. ô người chỉ có người có tên (không có tên khách / "Khách"): ' + popt.join(', '));
+      ok(/nợ khác của ca đã phân loại/.test(txt($('.stc-dsp'))), 'C3. mục việc "Nợ khác của ca đã phân loại" có trong bước 1');
+      wide('C. bước 1');
+      if (rk) {
+        const ps = $('[data-dperson]', rk); ps.value = 'Chủ thử'; ps.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200);
+        ok($('[data-dgrp]', rk).value === 'chu', 'C4. chọn "Chủ thử" → nhóm tự nhảy ③ Chủ');
+        const k0 = (window.__LOG || []).length; $('[data-dsortok]', rk).click(); await sleep(1500);
+        const c = calls('app_stc_debt_sort', k0)[0];
+        ok(c && c.p_grp === 'chu' && Number(c.p_person) === 5, 'C4. Xếp → gửi nhóm chu, người 5: ' + JSON.stringify(c));
+        rk = row('chủ thử') || row('anh lấy 100k');
+        ok(!!rk && /✓ chủ \(anh tiến\)/.test(txt(rk)), 'C4. sau Xếp: ✓ Chủ (anh Tiến)');
+      }
+      r3 = row('bàn 3');
+      if (r3) {
+        $('[data-dsortedit]', r3).click(); await sleep(600); r3 = row('bàn 3');
+        const go2 = r3 ? $$('[data-dgrp] option', r3).map((o) => o.value) : [];
+        ok(!!r3 && !go2.includes('khach') && go2.includes('chu'), 'C5. Đổi nhóm nợ khách: chọn ②③④ (' + go2.join(',') + ')');
+        if (r3) { const ps = $('[data-dperson]', r3); ps.value = 'Chủ thử'; ps.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200);
+          const k0 = (window.__LOG || []).length; $('[data-dsortok]', r3).click(); await sleep(1500);
+          ok(calls('app_stc_debt_sort', k0)[0]?.p_grp === 'chu', 'C5. Đổi nhóm → Xếp vào Chủ'); }
+      }
+      const rc = row('chủ thử');
+      if (rc) {
+        $('[data-dsortedit]', rc).click(); await sleep(600);
+        const r2 = row('chủ thử'); const gs = r2 && $('[data-dgrp]', r2);
+        if (gs) { gs.value = 'khach'; gs.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200); }
+        ok(!!gs && $('[data-dperson]', r2).hidden, 'C6. đổi về ① Nợ khách hàng → ẩn ô người');
+        const k0 = (window.__LOG || []).length; r2 && $('[data-dsortok]', r2).click(); await sleep(1500);
+        const c = calls('app_stc_debt_sort', k0)[0];
+        ok(c && c.p_grp === 'khach' && c.p_person == null, 'C6. Xếp về khách hàng không cần người: ' + JSON.stringify(c));
+      } else ok(false, 'C6. không thấy dòng của Chủ thử để đổi về khách');
+    }
   } catch (e) { bad.push('LỖI CHẠY ' + (e.message || e)); }
   out.push({ route: 'nhóm công nợ ' + PHAN, title: `ĐẠT ${good.length} · LỖI ${bad.length} || ${[...bad.map((x) => 'LỖI ' + x), ...good.map((x) => 'ĐẠT ' + x)].join(' || ')}`, len: 0, errs: [...(window.__ERR || []), ...bad] });
 };

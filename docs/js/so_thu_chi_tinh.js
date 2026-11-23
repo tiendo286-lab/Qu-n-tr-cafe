@@ -415,7 +415,9 @@ export function dsChecks(ca, { checks = [], items = [], gaps = [], next = null, 
   const b1 = [a('mo', box('mo')), a('dt', box('dt')), a('no', box('no'))];
   // bước 172: nợ mới của ca còn tiền chưa thu phải được xếp đúng người + nhóm công nợ (khoản đã trả hết thì không cần) — giống app__stc_ds_missing
   const owe = debts.filter((x) => x.t === 'moi' && Number(x.left) > 0);
-  if (owe.length) { const left = owe.filter((x) => !x.sorted).length; b1.push(a('phanloai', left === 0, { n: left })); }
+  // chặng 6.4: nợ khách hàng không cần xếp — chỉ nợ khác (Chủ / Người nhà / Kho tổng) phải phân loại
+  const oth = owe.filter((x) => (x.grp || 'khach') !== 'khach' || !x.sorted);
+  if (oth.length) { const left = oth.filter((x) => !x.sorted).length; b1.push(a('phanloai', left === 0, { n: left })); }
   if (Number(ca.fabi?.edited_bills || 0) > 0) b1.push(m('hd'));
   b1.push(m('anh'));
   // cash: chỉ bắt quản lý nhập khi Thu theo ca (đúng điều kiện Xác nhận Fabi đang có); gối đầu: ca có để két lại (thu theo ca, hoặc ca cuối ngày)

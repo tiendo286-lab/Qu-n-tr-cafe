@@ -196,6 +196,8 @@ export function makeStc(T, me) {
       (st().ca_debts = st().ca_debts || []).push({ report_id: Number(p_report), t: 'tra', id: 9000 + O.indexOf(o), who: o.who, kind: o.kind, amount: p_amount, left: 0, pm: p_kind, from: o.from });
       return true;
     },
+    // chặng 6.4: thêm một khoản "Nợ khác" chưa phân loại vào ca (bài thử flow_nhom64 phần C — gọi trước khi trang đọc tháng)
+    app__test_ca_debt_add({ p_report, p_who, p_kind, p_amount, p_grp }) { const id = ++N; (st().ca_debts = st().ca_debts || []).push({ report_id: Number(p_report), t: 'moi', id, who: p_who, kind: p_kind || 'muon', amount: Number(p_amount), left: Number(p_amount), pm: null, from: null, sorted: false, person_id: null, grp: p_grp || 'khac', content: null }); return id; },
     app__test_ds_open({ p_id }) { const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.'); c.recon_money_done = true; c.done = null; c.ticks = []; },
     app__test_ca_staff({ p_id, p_n = 2 }) {
       const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || []; T.employees = T.employees || [];
