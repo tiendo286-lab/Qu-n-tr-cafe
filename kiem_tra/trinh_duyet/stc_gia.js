@@ -319,10 +319,23 @@ export function makeStc(T, me) {
       if (!x || x.col === 'lc') throw new Error('Khoản này vừa thay đổi. Tải lại trang rồi làm lại.');
       untick(ca, ['that', 'lon', 'ld', 'sau_tm', 'sau_ck', 'tn', 'sot']);
       const nk = 'n' + (++N);
-      items().splice(items().indexOf(x), 1, { ...x, col: 'lc', cat: null, no_cost: true, can_edit: false, edit: edit('sua', r, x.amount) });
+      items().splice(items().indexOf(x), 1, { ...x, col: 'lc', cat: null, no_cost: true, can_edit: false, edit: edit('sua', r, x.amount), xk: 'lc-' + nk });
       items().push({ id: `m:${p_report}:${nk}`, date: x.date, ca_id: x.ca_id, book: x.book === 'chi' ? 'thu' : 'chi', pm: x.pm === 'tm' ? 'ck' : 'tm', col: 'lc', amount: x.amount,
-        title: x.title, meta: 'Phiếu ca', src: 'move', can_edit: false, no_cost: true });
+        title: x.title, meta: 'Phiếu ca', src: 'move', can_edit: false, no_cost: true, xk: 'lc-' + nk });
       return 'lc-' + nk;
+    },
+    // tệp 170: xoá phiếu Luân chuyển TM – CK của ca — xoá cả 2 vế cùng mã, bắt lý do, hiện gạch ngang
+    app_stc_move_exchange_delete({ p_report, p_mkey, p_reason }) {
+      need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
+      if (!ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới xoá phiếu luân chuyển.');
+      if (ca.done) throw new Error('Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành mới xoá được.');
+      const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}` && !i.void);
+      if (!x) throw new Error('Phiếu này vừa thay đổi. Tải lại trang rồi làm lại.');
+      if (x.col !== 'lc') throw new Error('Khoản này không phải phiếu Luân chuyển TM – CK của ca.');
+      untick(ca, ['that', 'lon', 'ld', 'sau_tm', 'sau_ck', 'tn', 'sot']);
+      const pair = items().filter((i) => !i.void && i.ca_id === x.ca_id && i.col === 'lc' && (i === x || (x.xk && i.xk === x.xk)));
+      pair.forEach((i) => { items().push(voidOf(i, 'xoa', r)); items().splice(items().indexOf(i), 1); });
+      return null;
     },
     // đợt 3: phiếu chênh lệch (giống app_stc_gap_* trên máy chủ, trên dữ liệu giả)
     app_stc_gap_tl({ p_report, p_item, p_people, p_reason }) {

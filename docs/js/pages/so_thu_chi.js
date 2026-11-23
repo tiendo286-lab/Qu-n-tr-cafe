@@ -296,6 +296,13 @@ async function editDialog(D, x) {
       <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${note}"></label>`, del));
     open(d, async () => { await rpc('app_stc_transfer_save', { p_id: idNum(x.id), p: { date: val(d, 'date'), direction: val(d, 'dir'), amount: money(d, 'amount'), note: val(d, 'note') }, p_reason: val(d, 'reason') }); after('Đã sửa luân chuyển'); },
       async () => { await rpc('app_stc_transfer_delete', { p_id: idNum(x.id), p_reason: val(d, 'reason') }); after('Đã xoá luân chuyển'); });
+  } else if (x.id.startsWith('m:') && x.col === 'lc') {   // tệp 170: xoá phiếu Luân chuyển TM – CK của ca — máy chủ xoá cả 2 vế, bắt lý do
+    const [, rid, ...mk] = x.id.split(':'); const ca = (D.cas || []).find((c) => c.id === Number(rid));
+    const d = dialog(form(`Xoá Luân chuyển TM – CK · Ca ${ca?.shift || ''} ${dm(x.date)}`, html`<div class="st-meta"><b>${x.title}</b> · ${fmt(x.amount)}<br>
+      Xoá <b>cả hai vế</b> (tiền mặt và chuyển khoản) của phiếu luân chuyển này khỏi bản đối soát; phiếu nhân viên giữ nguyên. Ghi lý do rồi bấm <b>Xoá phiếu</b>.</div>`, del));
+    d.querySelector('button[type=submit]')?.remove();
+    const go = async () => { await rpc('app_stc_move_exchange_delete', { p_report: Number(rid), p_mkey: mk.join(':'), p_reason: val(d, 'reason') }); after('Đã xoá phiếu Luân chuyển TM – CK (cả 2 vế)'); };
+    open(d, go, go);
   } else if (x.id.startsWith('m:')) {
     const [, rid, ...mk] = x.id.split(':'); const kind = x.book === 'chi' ? 'chi' : 'thu';
     const ca = (D.cas || []).find((c) => c.id === Number(rid));
@@ -770,7 +777,10 @@ function itemRow(x, book, D = null, { quiet = false, who = false } = {}) {
   if (x.chia) pills.push(html`<span class="pill info">${x.chia}</span>`);
   if (D && !D.ext && x.book === 'chi' && x.col === 'no' && String(x.id).startsWith('dn:')) pills.push(debtPills(D, x));   // bước 155
   const caDone = String(x.id).startsWith('m:') && !!x.ca_id && isDone(D, x.ca_id);   // bước 171: chỉ khoá phiếu thu chi của ca; khoản sinh ra khi xử lý chênh lệch (gán nợ…) vẫn huỷ được sau khi ca đã hoàn thành
-  if (x.can_edit && !caDone) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
+  // tệp 170 (anh Tiến chốt 23/11/2026): phiếu Luân chuyển TM – CK của ca xoá được (cả 2 vế) khi ca đã Xác nhận Fabi, chưa Hoàn thành, chưa chốt
+  const lcCa = D && !D.ext && !D.locked && !x.void && x.src === 'move' && x.col === 'lc' && x.ca_id ? (D.cas || []).find((c) => c.id === x.ca_id) : null;
+  if (lcCa?.recon_money_done && !lcCa.done && !isFin(D, x.ca_id)) pills.push(html`<button type="button" class="btn sm secondary stc-lcdel" data-ed="${x.id}">Xoá luân chuyển</button>`);
+  else if (x.can_edit && !caDone) pills.push(x.id.startsWith('dc:') ? html`<button type="button" class="btn sm secondary stc-unc" data-unc="${x.id}">Huỷ thu</button>`
     : html`<button type="button" class="btn sm secondary stc-ed" data-ed="${x.id}">Sửa / Xoá</button>`);
   else if (!quiet && !['dt', 'lech'].includes(x.col) && !x.to_qn) {   // bước 164: ca đang khoá đã có 1 dòng ghi chú
     const ca = x.ca_id ? (D?.cas || []).find((c) => c.id === x.ca_id) : null;

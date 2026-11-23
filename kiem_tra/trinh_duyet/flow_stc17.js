@@ -36,10 +36,25 @@ export default async ({ sleep, out }) => {
     const r1 = lc('mua đá');
     ok(!!r1 && txt(r1).includes('50.000'), '5. Sổ chi tiền mặt: "Mua đá" 50.000 thành Luân chuyển');
     ok(!!r1 && !$('button.stc-ed', r1) && !$('button.stc-ed[data-ed="m:181:k52"]'), '5b. dòng đã đổi không còn nút Sửa / Xoá');
+    ok(!!r1 && !!$('button.stc-lcdel[data-ed="m:181:k52"]', r1), '5c. dòng luân chuyển có nút "Xoá luân chuyển" (tệp 170)');
     await book('thu', 'ck');
     const r2 = lc('mua đá');
     ok(!!r2 && txt(r2).includes('50.000'), '6. Sổ thu chuyển khoản: có vế ngược lại "Mua đá" 50.000 ở cột Luân chuyển');
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `7. không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
+    // tệp 170 (anh Tiến chốt 23/11/2026): xoá phiếu Luân chuyển TM – CK của ca — bấm ở vế nào cũng xoá cả 2 vế, bắt lý do
+    const xb = r2 && $('button.stc-lcdel', r2);
+    ok(!!xb, '8. vế ngược lại (Sổ thu chuyển khoản) cũng có nút "Xoá luân chuyển"');
+    xb.click(); await wait('dialog[open]', 30); await sleep(250);
+    ok(txt(dlg()).includes('xoá luân chuyển tm – ck') && txt(dlg()).includes('cả hai vế') && !$('button[type=submit]', dlg()) && !!$('.stc-del', dlg()), '9. hộp xoá: nói rõ xoá cả hai vế, chỉ có nút Xoá phiếu (không có Lưu)');
+    if (window.innerWidth <= 400) { const r = dlg().getBoundingClientRect(); ok(r.right <= window.innerWidth + 1, `9b. hộp xoá không tràn ngang (${Math.round(r.right)}/${window.innerWidth})`); }
+    $('.stc-del', dlg()).click(); await sleep(600);
+    ok(!!dlg() && txt($('.stc-err', dlg())).includes('lý do'), '10. chưa ghi lý do → báo "Ghi lý do", hộp vẫn mở');
+    setv('[name=reason]', 'Thêm trùng'); $('.stc-del', dlg()).click(); await sleep(1000);
+    ok(!dlg(), '11. ghi lý do → xoá xong, hộp đóng');
+    await book('thu', 'ck');
+    ok(!lc('mua đá'), '12. Sổ thu chuyển khoản: hết dòng luân chuyển "Mua đá"');
+    await book('chi', 'tm');
+    ok(!lc('mua đá') && !$('button.stc-lcdel[data-ed="m:181:k52"]'), '13. Sổ chi tiền mặt: vế kia cũng hết (xoá cả 2 vế)');
   } catch (e) { bad.push('LỖI CHẠY: ' + e.message + ' · ' + $$('dialog[open] .stc-err').map(txt).join(' | ')); }
   out.push({ stc17: { ok: good, fail: bad } });
 };
