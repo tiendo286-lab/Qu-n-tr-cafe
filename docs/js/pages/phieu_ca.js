@@ -17,7 +17,7 @@ import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from '../ca_chung.js?v=2026.11.23.5';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel, DEBT_GRP } from '../ca_chung.js?v=2026.11.23.5';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -182,7 +182,7 @@ function debtRowDs(d, ed, canKind, info = '', rut = false) {   // bước 113 / 
     <input class="input money db-amt" inputmode="numeric" placeholder="Số tiền" aria-label="Số tiền nợ" value="${d.amount ? fmt(d.amount) : ''}" ${lock ? 'disabled' : ''}>
     ${d.closed_at ? html`<span class="pill ok db-paid" data-debt="${d.id}" data-at="${paidAt(d.closed_at)}">Đã thu${paidAt(d.closed_at) ? ' ' + paidAt(d.closed_at) : ''}</span>` : ed ? html`<button type="button" class="btn secondary danger ${d.id ? 'uv-ddel' : 'pc-del'}" aria-label="Xóa khoản nợ">×</button>` : html`<span></span>`}
     <div class="sc-full sc-two">${raw(debtWhoSel(d, DEBT_PEOPLE, lock ? 'disabled' : ''))}<input class="input db-table" placeholder="Bàn / tên khách" aria-label="Tên khách" value="${d.table_name || ''}" ${lock ? 'disabled' : ''} ${who ? 'hidden' : ''}><input class="input db-note" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" value="${d.note || ''}" ${lock ? 'disabled' : ''}></div>
-    <span class="sc-full st-meta db-grp" ${who ? '' : 'hidden'}>Vào <b>${d.grp === 'kho' ? '② Nợ kho tổng' : '③ Nợ khác'}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ</span>
+    <span class="sc-full st-meta db-grp" ${who ? '' : 'hidden'}>Vào <b>${DEBT_GRP[d.grp] || DEBT_GRP.khac}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ</span>
     ${d.from ? html`<span class="sc-full ds-ed">✎ đổi từ ${d.from}</span>` : ''}
     ${info ? html`<span class="sc-full ds-ed">✎ ${info}</span>` : ''}
     ${rut && k === 'muon' && d.id ? html`<div class="sc-full sc-conv"><span class="st-meta">Đổi thành:</span><button type="button" class="btn sm secondary" data-muon-rut="${d.id}" data-closed="${d.closed_at ? 1 : 0}">Luân chuyển TM – CK</button></div>` : ''}</div>`;
@@ -539,7 +539,7 @@ export async function render({ params }) {
     const tmS = ds.filter((d) => d.kind === 'muon').reduce((t, d) => t + Number(d.amount || 0), 0); const ckS = ds.filter((d) => d.kind === 'ck').reduce((t, d) => t + Number(d.amount || 0), 0);
     const fno = FB ? Number(FB.no) : Number(R.pos_debt || 0);
     return html`<section class="card stack pc-sec" style="gap:8px"><div class="pc-sec-head"><h2>Khách nợ trong ca</h2><div class="rc-chips">${chip('cong_no')}</div></div>
-      <div class="st-meta">Kiểm tra loại nợ nhân viên chọn. Sai thì bấm đổi. (Đổi nhóm Kho tổng / Nợ khác ở tab <b>Công nợ</b>.)</div>
+      <div class="st-meta">Kiểm tra loại nợ nhân viên chọn. Sai thì bấm đổi. (Đổi nhóm Kho tổng / Chủ / Người nhà ở tab <b>Công nợ</b>.)</div>
       ${R.can_recon ? html`<div class="pc-line" style="gap:8px;flex-wrap:wrap"><button type="button" class="btn sm secondary" data-rdgo="1">+ Thêm khách nợ</button><span class="st-meta grow">${traNoFabi(R.work_date) ? 'khách nợ nhưng nhân viên bấm nhầm thanh toán tiền mặt / chuyển khoản trên Fabi' : 'khách nợ (đã bấm thanh toán TM / CK trên Fabi) mà nhân viên quên ghi'}</span></div>` : ''}
       ${ds.length ? ds.map((d) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${(!d.kind || d.kind === 'bill') ? 'Bàn ' : ''}${d.table_name} · ${fmt(d.amount)}</strong>
           <span class="seg cm88-seg">${[['bill', 'HĐ'], ['muon', 'TM'], ['ck', 'CK']].map(([k, l]) => html`<button type="button" class="${(d.kind || 'bill') === k ? 'on' : ''}" data-dkind="${k}" data-debt="${d.id}" ${canKind && !d.closed_at ? '' : 'disabled'}>${l}</button>`)}</span></div>
@@ -1570,7 +1570,7 @@ function mount(R, ed, C0, ctx = {}) {
   function qlPick() {
     const list = (R.open_debts || []).filter((x) => !x.closed_at && !x.family);
     const d = dialog(html`<div class="stack" style="gap:10px;width:min(460px, calc(100vw - 56px))"><h2 style="margin:0">Khách trả nợ trong ca ${R.shift} ${dmy(R.work_date)}</h2>
-      <div class="st-meta">Chọn khách đã trả và cách trả (chỉ Nợ khách hàng; Nợ kho tổng / nợ khác thu ở tab Công nợ).</div>
+      <div class="st-meta">Chọn khách đã trả và cách trả (chỉ Nợ khách hàng; Kho tổng / Chủ / Người nhà thu ở tab Công nợ).</div>
       <div class="stack" style="gap:6px;max-height:60vh;overflow:auto">${list.map((x) => html`<div class="fb-row"><div class="pc-line" style="gap:8px;flex-wrap:wrap"><strong class="grow">${noName(x)}</strong><b>${fmt(x.amount)}</b></div>
         <div class="st-meta">${x.by_ql ? `Quản lý ghi ${dmy(x.from_date)}` : `Nợ ca ${x.from_shift || ''} ${dmy(x.from_date)}`}${x.note ? ' · ' + x.note : ''}</div>
         <div class="pc-line" style="gap:8px;justify-content:flex-end"><button type="button" class="btn sm secondary" data-pk="${x.id}" data-k="tien_mat">Trả TM</button><button type="button" class="btn sm secondary" data-pk="${x.id}" data-k="chuyen_khoan">Trả CK</button></div></div>`)}</div>
@@ -1824,7 +1824,7 @@ function mount(R, ed, C0, ctx = {}) {
     const row = sel.closest('.uv-debt'); const nm = row.querySelector('.db-table'); const g = sel.selectedOptions[0]?.dataset.grp || 'khach';
     if (sel.value) { const nt = row.querySelector('.db-note'); if (nt && !nt.value && nm.value && row.dataset.grp === 'khach') nt.value = nm.value; nm.value = sel.value; nm.hidden = true; row.dataset.grp = g; }
     else { if (row.dataset.grp !== 'khach') nm.value = ''; nm.hidden = false; row.dataset.grp = 'khach'; }
-    const gl = row.querySelector('.db-grp'); if (gl) { gl.hidden = !sel.value; gl.innerHTML = `Vào <b>${g === 'kho' ? '② Nợ kho tổng' : '③ Nợ khác'}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ`; }
+    const gl = row.querySelector('.db-grp'); if (gl) { gl.hidden = !sel.value; gl.innerHTML = `Vào <b>${DEBT_GRP[g] || DEBT_GRP.khac}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ`; }
     changed();
   });
   form.addEventListener('click', (ev) => {
@@ -2019,7 +2019,7 @@ function mount(R, ed, C0, ctx = {}) {
         const o = id ? (R.debts || []).find((x) => x.id === id) : null;
         if (o && (o.kind || 'muon') === v.kind && (o.table_name || '') === v.name && Number(o.amount) === v.amount && (o.note || '') === v.note && (o.grp || 'khach') === v.grp) return;
         if (!id && !v.name && !v.amount) return;
-        const gTxt = v.grp === 'kho' ? ' (② Nợ kho tổng)' : v.grp === 'khac' ? ' (③ Nợ khác)' : '';
+        const gTxt = v.grp && v.grp !== 'khach' && DEBT_GRP[v.grp] ? ` (${DEBT_GRP[v.grp]})` : '';
         debts.push({ op: 'set', id, ...v });
         lines.push(v.from ? `Đổi ${v.from} → Báo nợ ${v.kind === 'ck' ? 'CK' : v.kind === 'bill' ? 'HĐ' : 'TM'} · ${v.name || '(chưa ghi tên)'}${gTxt}`
           : `${id ? 'Sửa' : 'Thêm'} báo nợ: ${v.name || '(chưa ghi tên)'} · ${fmt(v.amount)}${gTxt}`);

@@ -27,17 +27,19 @@ export default async ({ sleep, out }) => {
       location.hash = '#/ca/phieu?id=' + id; await wait('#cm-next'); await sleep(300);
       $('[data-shift-step="2"]').click(); await wait('#cm-open'); await sleep(300);
       $('#cm-add-debt')?.click(); await sleep(200);
+      $('[data-dg="0"][data-v="khac"]')?.click(); await sleep(200);   // chặng 6.4: chọn người ở "Nợ khác"
       let who = $('[data-dwho="0"]');
-      check(!!who && [...who.options].some((x) => /Kho tổng/.test(x.textContent)) && [...who.options].some((x) => /Khách/.test(x.textContent)), 'Dòng Báo nợ có menu Người nợ (Khách, Kho tổng…)');
+      check(!!who && [...who.options].some((x) => /Kho tổng/.test(x.textContent)) && [...who.options].some((x) => /Chưa rõ/.test(x.textContent)), 'Dòng Báo nợ › Nợ khác có menu Người nợ (Chưa rõ, Kho tổng…)');
       pick(who, 'Kho tổng'); await sleep(200);
       check(!$('[data-db="0"][data-k="table_name"]') && /② Nợ kho tổng/.test(txt($('.cm-debt'))), 'Chọn Kho tổng → ẩn ô tên, ghi "② Nợ kho tổng"');
       set($('[data-db="0"][data-k="amount"]'), '10586000');
       const tono = $$('[data-tono]').find((b) => /Mua đá/.test(txt(b.closest('.sc-row')) + (b.closest('.sc-row').querySelector('[data-k="note"]')?.value || '')));
       tono?.click(); await sleep(200);
-      who = $('[data-dwho="1"]'); check(!!who, 'Thu/Chi → Báo nợ: dòng nợ mới có menu Người nợ');
-      const fam = who && [...who.options].find((x) => x.dataset.grp === 'khac');
+      $('[data-dg="1"][data-v="khac"]')?.click(); await sleep(200);
+      who = $('[data-dwho="1"]'); check(!!who, 'Thu/Chi → Báo nợ › Nợ khác: dòng nợ mới có menu Người nợ');
+      const fam = who && [...who.options].find((x) => x.dataset.grp === 'khac' && x.value);
       if (fam) { pick(who, fam.value); await sleep(200); }
-      check(!!fam && /③ Nợ khác/.test(txt($$('.cm-debt')[1])), 'Chọn người nhà → "③ Nợ khác"');
+      check(!!fam && /④ Người nhà/.test(txt($$('.cm-debt')[1])), 'Chọn người nhà → "④ Người nhà / người quen"');
       $('#cm-exchange')?.click(); await sleep(200);
       const xb = $$('[data-xdir][data-v="ck_tm"]').slice(-1)[0]; xb?.click(); await sleep(200);
       const ex = $$('.sc-exchange').slice(-1)[0];

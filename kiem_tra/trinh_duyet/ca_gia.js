@@ -380,9 +380,10 @@ export function makeCa(T, me) {
     // bước 116 (migration 99): quản lý thêm / sửa / xoá Báo nợ khi đối soát
     // bước 133: menu Người nợ = tên nhóm ② / ③ của cơ sở + Kho tổng
     app_ca_debt_people({ p_branch }) {
-      const seen = new Map(); T.shift_debts.filter((d) => d.branch_id === p_branch && ['kho', 'khac'].includes(d.grp) && (d.table_name || '').trim()).forEach((d) => seen.set(d.table_name.trim().toLowerCase(), { name: d.table_name.trim(), grp: d.grp }));
+      const seen = new Map(); T.shift_debts.filter((d) => d.branch_id === p_branch && ['kho', 'chu', 'khac'].includes(d.grp) && (d.table_name || '').trim()).forEach((d) => seen.set(d.table_name.trim().toLowerCase(), { name: d.table_name.trim(), grp: d.grp }));
       seen.delete('kho tổng');
       const rest = [...seen.values()]; if (!rest.length) rest.push({ name: 'Người nhà thử', grp: 'khac' });
+      if (!rest.some((x) => x.grp === 'chu')) rest.push({ name: 'Chủ thử', grp: 'chu' });   // chặng 6.4: nhóm Chủ
       return [...rest, { name: 'Kho tổng', grp: 'kho' }];
     },
     app_ca_recon_debt_set({ p_report, p_debt, p_kind, p_name, p_amount, p_note, p_reason, p_from }) {

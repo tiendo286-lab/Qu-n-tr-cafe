@@ -19,11 +19,14 @@ export const exchSigns = (dir) => (dir === 'ck_tm' ? { tm: 1, ck: -1 } : { tm: -
 export const DEBT_GRPS = ['khach', 'kho', 'chu', 'khac'];
 export const DEBT_GRP = { khach: '① Nợ khách hàng', kho: '② Nợ kho tổng', chu: '③ Nợ của Chủ (anh Tiến)', khac: '④ Người nhà / người quen' };
 export const DEBT_GRP_SHORT = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', chu: 'Chủ (anh Tiến)', khac: 'Người nhà / người quen' };
-export function debtWhoSel(d, people, attrs = '') {
-  const cur = d.grp && d.grp !== 'khach' ? d.table_name : '';
-  const opts = [['', 'Khách', 'khach'], ...(people || []).map((p) => [p.name, p.name, p.grp])];
+// other = true (chặng 6.4, phiếu chốt ca mới): ô chọn người của "Nợ khác" — dòng đầu "Chưa rõ — quản lý phân loại", chữ gõ tay không thành tên người
+export const debtGrpTag = (g) => (g === 'kho' ? ' (②)' : g === 'chu' ? ' (③)' : g === 'khac' ? ' (④)' : '');
+export function debtWhoSel(d, people, attrs = '', other = false) {
+  const inList = (people || []).some((p) => p.name === d.table_name);
+  const cur = d.grp && d.grp !== 'khach' && (!other || inList) ? d.table_name : '';
+  const opts = [other ? ['', 'Chưa rõ — quản lý phân loại', 'khac'] : ['', 'Khách', 'khach'], ...(people || []).map((p) => [p.name, p.name, p.grp])];
   if (cur && !opts.some((o) => o[0] === cur)) opts.push([cur, cur, d.grp]);
-  return `<select class="input debt-who" ${attrs} aria-label="Người nợ">${opts.map(([v, l, g]) => `<option value="${String(v).replace(/"/g, '&quot;')}" data-grp="${g}" ${v === cur ? 'selected' : ''}>Người nợ: ${String(l).replace(/</g, '&lt;')}${g === 'kho' ? ' (②)' : g === 'khac' ? ' (③)' : ''}</option>`).join('')}</select>`;
+  return `<select class="input debt-who" ${attrs} aria-label="Người nợ">${opts.map(([v, l, g]) => `<option value="${String(v).replace(/"/g, '&quot;')}" data-grp="${g}" ${v === cur ? 'selected' : ''}>${other && !v ? '' : 'Người nợ: '}${String(l).replace(/</g, '&lt;')}${v ? debtGrpTag(g) : ''}</option>`).join('')}</select>`;
 }
 export function collapseMoves(moves = []) {
   const seen = new Set();

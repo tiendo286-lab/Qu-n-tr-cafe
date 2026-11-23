@@ -6,7 +6,7 @@ import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
 import { $, $$, dialog, flash, html, raw, showSaved, str } from './ui.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel } from './ca_chung.js?v=2026.11.23.5';
+import { SHIFT_CSS, shiftFabiFields, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, periodError, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel, DEBT_GRP } from './ca_chung.js?v=2026.11.23.5';
 
 const BUCKET = 'phieu-ca';
 const GOI_DAU = 1000000;
@@ -248,12 +248,17 @@ export async function renderNew(R0, P, SH) {
         ${expStart ? html`<label class="pc-f" id="cm-open-wrap" ${money().startBad ? '' : 'hidden'}><span>Ghi chú số dư đầu khác ${expStart.src} (không bắt buộc)</span><input class="input" id="cm-open-note" value="${V.opening_note}" placeholder="vd: chủ rút 500.000 lúc 14:00"></label>` : ''}`;
     },
     3: () => {   // bước 113: báo nợ gọn — mỗi khoản 1 dòng như Thu / Chi; TM / CK = bàn đã bấm thanh toán trên Fabi mà khách chưa trả
+      // chặng 6.4 (anh Tiến chốt 23/11): mỗi khoản chọn Nợ khách (chỉ ghi chú khách / bàn) hoặc Nợ khác (chọn người nếu biết; chưa rõ thì quản lý phân loại ở bước 1 đối soát ca)
+      const debtWho = (d, i) => { const kh = !d.grp || d.grp === 'khach'; const dis = d.closed_at ? 'disabled' : ''; const picked = !kh && debtPeople.some((p) => p.name === d.table_name);
+        return html`<div class="sc-full sc-two cm-dwrap"><span class="sc-seg cm-dgrp" role="group" aria-label="Nợ khách hay nợ khác">${[['khach', 'Nợ khách'], ['khac', 'Nợ khác']].map(([k, l]) => html`<button type="button" data-dg="${i}" data-v="${k}" class="${(kh ? 'khach' : 'khac') === k ? 'on' : ''}" aria-pressed="${(kh ? 'khach' : 'khac') === k}" ${dis}>${l}</button>`)}</span>
+          ${kh ? '' : raw(debtWhoSel(d, debtPeople, `data-dwho="${i}" ${dis}`, true))}
+          ${picked ? '' : html`<input class="input" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="${kh ? 'Khách / bàn 5 (ghi chú)' : 'Ai nợ, nợ gì (vd: anh Tiến lấy 100k)'}" aria-label="${kh ? 'Khách hoặc bàn' : 'Ai nợ'}" ${dis}>`}<input class="input" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" ${dis}></div>
+          ${kh ? '' : html`<span class="sc-full st-meta">${picked ? html`Vào <b>${DEBT_GRP[d.grp] || DEBT_GRP.khac}</b>` : html`Quản lý sẽ <b>phân loại</b> (Chủ / Người nhà / Kho tổng) ở bước 1 đối soát ca`} · ca sau không nhắc · quản lý thu ở Công nợ</span>`}`; };
       const c = money(); const pd = V.f.pos_debt || 0;
       return html`${V.debts.map((d, i) => html`<div class="sc-row cm-debt"><span class="sc-kt"><b>Báo nợ</b><span class="sc-seg" role="group" aria-label="Loại nợ">${[['muon', 'TM'], ['ck', 'CK'], ['bill', 'HĐ']].map(([k, l]) => html`<button type="button" data-dk="${i}" data-v="${k}" class="${(d.kind || '') === k ? 'on' : ''}" aria-pressed="${(d.kind || '') === k}" ${d.closed_at ? 'disabled' : ''}>${l}</button>`)}</span></span>
           <input class="input money" data-db="${i}" data-k="amount" inputmode="numeric" value="${d.amount ? fmt(d.amount) : ''}" placeholder="Số tiền" aria-label="Số tiền nợ" ${d.closed_at ? 'disabled' : ''}>
           ${d.closed_at ? html`<span class="pill ok">Đã thu${paidAt(d)}</span>` : html`<button type="button" class="btn secondary danger" data-dbx="${i}" aria-label="Xóa khoản nợ">×</button>`}
-          <div class="sc-full sc-two">${raw(debtWhoSel(d, debtPeople, `data-dwho="${i}" ${d.closed_at ? 'disabled' : ''}`))}${d.grp && d.grp !== 'khach' ? '' : html`<input class="input" data-db="${i}" data-k="table_name" value="${d.table_name || ''}" placeholder="Bàn / tên khách" aria-label="Bàn hoặc tên khách" ${d.closed_at ? 'disabled' : ''}>`}<input class="input" data-db="${i}" data-k="note" value="${d.note || ''}" placeholder="SĐT, hẹn trả (không bắt buộc)" aria-label="Ghi chú nợ" ${d.closed_at ? 'disabled' : ''}></div>
-          ${d.grp && d.grp !== 'khach' ? html`<span class="sc-full st-meta">Vào <b>${d.grp === 'kho' ? '② Nợ kho tổng' : '③ Nợ khác'}</b> · ca sau không nhắc · quản lý thu ở tab Công nợ</span>` : ''}</div>`)}
+          ${debtWho(d, i)}</div>`)}
         ${V.debts.length ? html`<span class="st-meta"><b>TM / CK</b>: bàn đã bấm thanh toán tiền mặt / chuyển khoản trên Fabi mà khách chưa trả (hoặc khách mượn tiền mặt). <b>HĐ</b>: Fabi ghi nợ. Ca sau được nhắc thu.</span>` : ''}
         ${V.debts.length || pd ? html`<div class="alert ${billSum() === pd ? 'ok' : 'warn'}" id="cm-debt-sum" style="margin:0">${billSum() === pd ? '✅' : '⚠️'} Nợ HĐ đã ghi <b>${fmt(billSum())}</b> ${billSum() === pd ? '=' : '≠'} Nợ trên phiếu Fabi (${fmt(pd)})
           ${c.loanOut ? html`<br>Nợ TM <b>${fmt(c.loanOut)}</b> → trừ tiền két` : ''}${c.ckOut ? html`<br>Nợ CK <b>${fmt(c.ckOut)}</b> → trừ tiền hotline` : ''}</div>` : ''}`;
@@ -391,7 +396,7 @@ export async function renderNew(R0, P, SH) {
       }
       case 3: {
         const nk = V.debts.find((d) => !['bill', 'muon', 'ck'].includes(d.kind)); if (nk) return `Chọn HĐ / TM / CK cho khoản nợ ${nk.table_name || 'mới'}.`;
-        if (V.debts.some((d) => !(d.table_name || '').trim() || !(Number(d.amount) > 0))) return 'Khoản nợ nào cũng phải có bàn / tên khách và số tiền.';
+        if (V.debts.some((d) => !(d.table_name || '').trim() || !(Number(d.amount) > 0))) return 'Khoản nợ nào cũng phải có ghi chú (khách / bàn / ai nợ) và số tiền.';
         if (billSum() !== (V.f.pos_debt || 0)) return `Tổng Nợ HĐ (${fmt(billSum())}) phải bằng dòng Nợ trên phiếu Fabi (${fmt(V.f.pos_debt || 0)}).`;
         return '';
       }
@@ -573,10 +578,15 @@ export async function renderNew(R0, P, SH) {
           soft();
         }));
         $$('[data-dbx]', root).forEach((b) => b.addEventListener('click', () => { V.debts.splice(Number(b.dataset.dbx), 1); draw(); }));
-        $$('[data-dwho]', root).forEach((sel) => sel.addEventListener('change', () => {   // bước 133: chọn người nợ → đúng nhóm Công nợ
-          const d = V.debts[Number(sel.dataset.dwho)]; const o = sel.selectedOptions[0];
-          if (!sel.value) { if (d.grp && d.grp !== 'khach') d.table_name = ''; d.grp = 'khach'; }
-          else { if (!d.note && d.table_name && (!d.grp || d.grp === 'khach')) d.note = d.table_name; d.table_name = sel.value; d.grp = o.dataset.grp || 'khac'; }
+        $$('[data-dg]', root).forEach((b) => b.addEventListener('click', () => {   // chặng 6.4: Nợ khách / Nợ khác
+          const d = V.debts[Number(b.dataset.dg)]; const picked = d.grp && d.grp !== 'khach' && debtPeople.some((p) => p.name === d.table_name);
+          if (b.dataset.v === 'khach') { if (picked) { d.table_name = d.note || ''; d.note = ''; } d.grp = 'khach'; } else if (!d.grp || d.grp === 'khach') d.grp = 'khac';
+          draw();
+        }));
+        $$('[data-dwho]', root).forEach((sel) => sel.addEventListener('change', () => {   // bước 133: chọn người nợ → đúng nhóm Công nợ (chặng 6.4: chỉ ở Nợ khác)
+          const d = V.debts[Number(sel.dataset.dwho)]; const o = sel.selectedOptions[0]; const picked = debtPeople.some((p) => p.name === d.table_name);
+          if (!sel.value) { if (picked) { d.table_name = d.note || ''; d.note = ''; } d.grp = 'khac'; }
+          else { if (!d.note && d.table_name && !picked) d.note = d.table_name; d.table_name = sel.value; d.grp = o.dataset.grp || 'khac'; }
           draw();
         }));
         $$('[data-unpay]', root).forEach((b) => b.addEventListener('click', () => { const sel = $(`[data-paid="${b.dataset.unpay}"]`, root); if (sel) { sel.value = ''; sel.dispatchEvent(new Event('change', { bubbles: true })); } }));
