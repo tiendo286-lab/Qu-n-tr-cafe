@@ -195,12 +195,16 @@ async function clock() {
 }
 chrome.alarms.onAlarm.addListener((a) => { (a.name === 'c02-step' ? drive() : clock()).catch(console.error); });
 // Nạp bản mới: lượt cũ đang báo lỗi thì đổi thành "đã dừng" kèm câu nhắc, để không tưởng bản mới vẫn hỏng.
-// Lượt đang chạy để bản mới chạy tiếp; không tự mở lượt mới.
+// Lượt dở (bản cũ khởi động) thì chạy tiếp ngay bằng bản mới, đếm lại số lần thử; không tự mở lượt mới.
 async function afterUpdate() {
-  const s = await read();
+  const s = await read(), version = chrome.runtime.getManifest().version;
+  if (s.run?.status === 'running') {
+    s.run.attempts = 0; s.run.message = `Đã nạp bản ${version}, chạy tiếp lượt đang dở bằng bản mới…`;
+    await save(s); return drive();
+  }
   if (s.run?.status !== 'error') return;
   s.run.status = 'stopped';
-  s.run.message = `Đã nạp bản ${chrome.runtime.getManifest().version}. Lỗi của bản cũ đã xoá — chọn ngày rồi bấm 1. Kiểm tra tải.`;
+  s.run.message = `Đã nạp bản ${version}. Lỗi của bản cũ đã xoá — chọn ngày rồi bấm 1. Kiểm tra tải.`;
   await save(s);
 }
 chrome.runtime.onInstalled.addListener((d) => {
@@ -218,6 +222,8 @@ async function control(m) {
     } else if (m.type === 'stop') {
       if (s.run?.status === 'running') s.run.stopRequested = true;
       s.enabled = false; await save(s);
+      // Không có bước nào đang làm (đang chờ lần thử sau) thì dừng ngay, khỏi đợi báo thức.
+      if (s.run?.status === 'running' && !busy && !starting) await drive();
     } else if (m.type === 'upload') {
       // Đồng bộ đúng ngày của lượt Kiểm tra vừa thành công (hôm qua hoặc ngày lấy bù).
       if (!(s.run?.mode === 'preview' && s.run.status === 'success' && validDay(s.run.day))) throw Error('Cần kiểm tra đủ ca thành công trước khi đồng bộ thật.');

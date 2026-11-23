@@ -258,7 +258,12 @@ export async function runTests() {
   check(() => assert.equal(updated.tabCount(), 0)); // không tự chạy lượt mới
   const busyRun = await harness({ savedState: { ...oldError, run: { ...oldError.run, status: 'running', attempts: 1 } } });
   await busyRun.installed('update'); await new Promise((r) => setTimeout(r, 20));
-  check(() => assert.equal(busyRun.local.state.run.status, 'running')); // lượt đang chạy thì để bản mới chạy tiếp
+  check(() => assert.doesNotMatch(busyRun.local.state.run.message, /đổi bộ lọc/)); // lượt dở chạy tiếp ngay bằng bản mới
+  check(() => assert.ok(busyRun.local.state.run.attempts >= 1 || busyRun.local.state.run.status !== 'running'));
+  const stopNow = await harness({ savedState: { ...oldError, run: { ...oldError.run, status: 'running', attempts: 1 } } });
+  await stopNow.send('stop');
+  check(() => assert.equal(stopNow.local.state.run.status, 'stopped')); // không đang bước nào thì Dừng có hiệu lực ngay
+  check(() => assert.equal(stopNow.local.state.enabled, false));
   const fresh = await harness({ savedState: oldError });
   await fresh.installed('install'); await new Promise((r) => setTimeout(r, 20));
   check(() => assert.equal(fresh.local.state.run.status, 'error')); // chỉ xử lý khi cập nhật bản
