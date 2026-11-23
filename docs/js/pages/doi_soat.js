@@ -229,7 +229,7 @@ export async function render({ params }) {
       <div class="td-sec" id="td-mv"><h3>2. Dòng thu chi ở phiếu ca chờ đối soát <span class="st-meta">(từ ${dmy(T.from)})</span></h3><div id="td-moves"></div></div>
       <div class="td-sec" id="td-hang"><h3>3. Hàng nhận chưa đối soát</h3>${T.goods.length ? T.goods.map(goodRow) : html`<div class="st-meta">Không có.</div>`}</div>
       <div class="td-sec" id="td-ka"><h3>4. Nhân viên giải trình khoản âm</h3>${T.ka.length ? T.ka.map(kaRow) : html`<div class="st-meta">Không có giải trình mới.</div>`}</div>
-      <div class="td-sec" id="td-cv"><h3>6. Nghỉ / làm thay (x2)</h3>
+      <div class="td-sec" id="td-cv"><h3>6. Nghỉ / làm thay (x2) <a class="btn sm" href="#/quan-ly/nghi-lam-thay">Duyệt nhiều ca một lúc ›</a></h3>
         ${[['Chờ Quản lý tổng phân loại', (CVT || []).filter((c) => c.state !== 'cho_duyet')], ['Chờ Chủ duyệt', (CVT || []).filter((c) => c.state === 'cho_duyet')]].map(([lbl, list]) => html`
           <div class="st-meta" style="font-weight:700;margin-top:4px">${lbl} (${list.length})</div>
           ${list.length ? list.map((c) => html`<div class="td-r" data-br="${c.branch_id}"><div class="td-m"><strong>${dmy(c.date)} · ${c.branch} · Ca ${c.shift}</strong>${c.state === 'lech' ? html` <span class="pill off">nhân sự đã đổi — phân loại lại</span>` : ''}

@@ -50,6 +50,15 @@ export function makeCv(T, me) {
         const b = T.branches.find((x) => x.id === r.branch_id) || {}; const P = people(r.id); const nm = (k) => P.filter((p) => p.kind === k).map((p) => `${p.code} – ${p.name}`).join(', ') || null;
         return { id: r.id, branch_id: r.branch_id, branch: b.display_code || b.code, date: r.work_date, shift: r.shift, state: state(r.id), absent: nm('nghi'), helper: nm('ho_tro'), x2: null, set_by: null }; });
     },
+    // tệp 165: ca đã Chủ duyệt trong tháng + cờ khiếu nại chưa xem
+    app_cv_done({ p_month }) {
+      if (!/^\d{4}-\d{2}$/.test(p_month || '')) throw new Error('Tháng không hợp lệ.');
+      return T.shift_reports.filter((r) => String(r.work_date).startsWith(p_month + '-') && state(r.id) === 'da_duyet').map((r) => {
+        const b = T.branches.find((x) => x.id === r.branch_id) || {};
+        const cx = T.shift_covers.filter((c) => c.report_id === r.id);
+        return { id: r.id, branch_id: r.branch_id, branch: b.display_code || b.code, date: r.work_date, shift: r.shift, ok_at: T.cover_reviews[r.id].ok_at, ok_by: 'admin – Chủ',
+          complaint: cx.some((c) => !c.resolved_at && (c.complaint_absent || c.complaint_helper)) }; });
+    },
     app_cv_approve({ p_id, p_items, p_note }) {
       if (!isOwner) throw new Error('Chỉ Chủ duyệt nghỉ / làm thay.');
       if (p_items) write(p_id, p_items);

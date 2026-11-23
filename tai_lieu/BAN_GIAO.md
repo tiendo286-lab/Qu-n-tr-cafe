@@ -228,7 +228,7 @@ Cập nhật: 23/11/2026 sáng, sau chặng 5 (chặng 6 phần 1 — tiện íc
 | Việc | Ghi chú |
 |---|---|
 | **Chặng 6.1 — tiện ích Đồng bộ C02 0.3.0** (nhánh `chang6-fabi-c02`) | Chờ anh thử trên Fabi thật (nạp lại tiện ích → Kiểm tra tải hôm qua → gửi ảnh), rồi lấy bù 18–22/11. Sau đó bản 0.3.1 tự lấy bù 7 ngày mỗi sáng. Xem mục 23/11 chặng 6. |
-| **Chặng 6.2 — Trang duyệt x2 nhiều ca** | Anh đã chọn; chưa làm. Hỏi kỹ trước (ai dùng, lọc thế nào, duyệt từng dòng hay nhiều dòng). Luật x2 giữ nguyên. |
+| **Chặng 6.2 — Trang Duyệt nghỉ & làm thay** (nhánh `chang6-duyet-x2`) | Làm xong trên nhánh, chờ anh duyệt ảnh (artifact `XHMQ8Kv6pcV2Mc4oH51AkM`). Trước khi gộp: chạy `supabase/165_cv_da_duyet.sql` lên máy chủ (cần mã `sbp_`), tăng `version.json`, ghi `app_releases`. Bài thử: `kiem_tra/cv_da_duyet_165_cuc_bo.sql` 5/5; `flow_x2p` (chu / qlt / ql × 2 khung) đạt. `flow_cv46` (bài cũ bước 46) hỏng cả trên `main` — không do chặng 6.2, để dọn. |
 | **Chặng 6.3 — Nút "Đã xem — tích hết" mỗi bước phần tiền** | Anh đã chọn; chưa làm. Vùng khoá tiền đối soát → nói rõ định sửa gì trước, chạy `flow_ql_tu_ds` / `flow_stc6` / `flow_stc7` / `flow_dsca`. |
 | ~~Màn hình phiếu đào tạo theo tab ngày thật (chặng 4 đợt 2)~~ — ✅ lên web 2026.11.22.3 (13:53) | Anh duyệt ảnh 22/11. Xem mục 22/11 trưa. |
 | ~~Đưa Đối soát Fabi về lại Chốt ca~~ — ✅ lên web 2026.11.23.1 (07:19), máy chủ tệp 164 | Xem mục 23/11 sáng. Còn để dọn: mã + CSS phần tổng quan tab cũ trong `so_thu_chi.js` (không còn đường tới); bài báo cáo cũ `flow_den` / `flow_dsdt` / `flow_unified98`. |

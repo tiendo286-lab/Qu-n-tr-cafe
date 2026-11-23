@@ -1,0 +1,90 @@
+// Chặng 6.2 (anh Tiến duyệt hình mẫu 23/11): trang Duyệt nghỉ & làm thay (#/quan-ly/nghi-lam-thay).
+// role=chu: dựng 3 phiếu đã gửi có nghỉ / hỗ trợ → thẻ Chờ phân loại: áp hàng loạt (tự ghép 1–1, x2), bỏ lý do 1 ca → Lưu: ca đó báo đỏ, ca khác lưu
+//   → Chờ Chủ duyệt (tích sẵn) → Duyệt các ca đã tích → Đã duyệt → Sửa → Duyệt lại. role=qlt: Lưu được, không có nút Duyệt. role=ql: chỉ xem.
+export default async ({ sleep, out }) => {
+  const $ = (s) => document.querySelector(s); const $$ = (s) => [...document.querySelectorAll(s)];
+  const txt = (s) => ($(s)?.innerText || '').replace(/\s+/g, ' ').trim();
+  const wait = async (fn, n = 300) => { for (let i = 0; i < n; i++) { if (typeof fn === 'string' ? $(fn) : fn()) return true; await sleep(100); } return false; };
+  const W = () => `rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`;
+  const role = new URLSearchParams(location.search).get('role');
+  const r = []; const ok = (c, m) => r.push(`${c ? 'ĐẠT' : 'LỖI'} ${m}`);
+  const go = async (h) => { location.hash = '#/__tam'; await sleep(200); location.hash = h; await wait('.x2p-tabs'); await sleep(800); };
+  try {
+    await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(2000);
+    const { rpc } = await import('../js/sb.js');
+    {
+      var day = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
+      const ov = await rpc('app_ca_overview', { p_date: day });
+      const emps = await rpc('app_ca_employees');
+      // Phiếu đã gửi: absent=true → người đầu lịch nghỉ + 1 người hỗ trợ; absent=false → chỉ 1 người hỗ trợ làm thêm
+      const mk = async (o, absent) => {
+        const id = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift });
+        for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
+        const R = await rpc('app_ca_get', { p_id: id });
+        const staff = (R.staff || []).map((s, i) => ({ ...s, worked: !(absent && i === 0), absent_reason: absent && i === 0 ? 'Ốm' : null, time_in: '06:45', time_out: '12:39' }));
+        if (absent && !staff.some((s) => s.source === 'lich' && !s.worked)) { const n = emps.find((e) => !staff.some((s) => s.employee_id === e.id)); staff.push({ employee_id: n.id, source: 'lich', worked: false, absent_reason: 'Ốm' }); }
+        const h = emps.find((e) => !staff.some((s) => s.employee_id === e.id));
+        staff.push({ employee_id: h.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' });
+        await rpc('app_ca_save', { p_id: id, p: { rev_start: R.rev_start || day + ' 06:45', rev_end: (R.rev_start || '') > day + ' 12:00' ? day + ' 23:30' : day + ' 12:39', reported_transfer: 3000000, total_revenue: 5000000, pos_cash: 2000000, pos_transfer: 3000000,
+          cash_counted: 3000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: 0, cups: 50, moves: [], goods: [], handover: [], debts: [], staff } });
+        await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
+        for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
+        return id;
+      };
+      var mkCa = mk, pickOv = []; for (const o of ov) if (!pickOv.some((x) => x.branch_id === o.branch_id)) pickOv.push(o);
+    }
+    if (role === 'chu') {
+      const pick = pickOv;   // 3 cơ sở khác nhau, ca đầu ngày
+      const ids = [await mkCa(pick[0], true), await mkCa(pick[1], true), await mkCa(pick[2], false)];
+      r.push(`Dựng 3 phiếu: ${(await Promise.all(ids.map((id) => rpc('app_ca_get', { p_id: id })))).map((x) => x.status).join(', ')}`);
+      await go('#/quan-ly/nghi-lam-thay');
+      ok(!!$('a[href="#/quan-ly/nghi-lam-thay"]'), 'menu Quản lý ca có "Nghỉ & làm thay"');
+      ok(txt('.x2p-tabs').includes('Chờ phân loại') && txt('.x2p-tabs').includes('Đã duyệt'), `3 thẻ: ${txt('.x2p-tabs')}`);
+      const mine = () => ids.map((id) => $(`.x2p-ca[data-id="${id}"]`));
+      ok(mine().every(Boolean), `3 ca hiện ở Chờ phân loại · ${$$('.x2p-ca').length} dòng · ${W()}`);
+      mine().forEach((el) => { const c = el.querySelector('.x2p-pick'); c.checked = true; c.dispatchEvent(new Event('change')); });
+      $('#x2p-reason').value = 'tu_tim'; $('#x2p-x').checked = true; $('#x2p-apply').click(); await sleep(300);
+      const [a, b, c] = mine();
+      ok(a.querySelector('.cv-reason').value === 'tu_tim' && !!a.querySelector('.cv-helper').value && a.querySelector('.cv-x').checked, 'Áp: ca 1–1 tự ghép người làm thay, tích x2');
+      ok(c.querySelector('.cv-e .cv-x')?.checked === true, 'Áp: ca chỉ có người hỗ trợ → x2 cho người làm thêm');
+      ok(/chưa lưu/.test(txt('#x2p-msg')), `Thông báo áp: ${txt('#x2p-msg')}`);
+      b.querySelector('.cv-reason').value = ''; // ca 2 bỏ lý do → phải báo đỏ, không lưu
+      $('#x2p-save').click(); await wait(() => txt('#x2p-msg').includes('báo đỏ'), 100);
+      ok(b.classList.contains('bad') && /Chưa chọn lý do/.test(b.querySelector('.x2p-err').innerText), `Ca thiếu lý do báo đỏ: ${b.querySelector('.x2p-err').innerText}`);
+      const st = await Promise.all(ids.map((id) => rpc('app_cv_get', { p_id: id }).then((x) => x.state)));
+      ok(st[0] === 'cho_duyet' && st[1] === 'chua_phan_loai' && st[2] === 'cho_duyet', `Sau Lưu: ${st.join(', ')} · ${txt('#x2p-msg')}`);
+      await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+      const d1 = $(`.x2p-ca[data-id="${ids[0]}"]`), d3 = $(`.x2p-ca[data-id="${ids[2]}"]`);
+      ok(d1 && d3 && d1.querySelector('.x2p-pick').checked && d3.querySelector('.x2p-pick').checked, `Chờ Chủ duyệt: 2 ca tích sẵn · ${txt('#x2p-count')}`);
+      ok(!!$('#x2p-ok') && !$('#x2p-save'), 'Chủ có nút Duyệt các ca đã tích');
+      $('#x2p-ok').click(); await wait(() => !$(`.x2p-ca[data-id="${ids[0]}"]`) || /Đã duyệt/.test(txt('.flash, .alert.ok')), 100); await sleep(800);
+      const st2 = await Promise.all(ids.map((id) => rpc('app_cv_get', { p_id: id }).then((x) => x.state)));
+      ok(st2[0] === 'da_duyet' && st2[2] === 'da_duyet', `Sau Duyệt: ${st2.join(', ')} · ${txt('#root .alert')}`.slice(0, 200));
+      await go('#/quan-ly/nghi-lam-thay?tab=xong');
+      const x1 = $(`.x2p-ca[data-id="${ids[0]}"]`);
+      ok(!!x1 && /Chủ đã duyệt/i.test(x1.innerText) && /x2 lương/.test(x1.innerText), `Đã duyệt: ${x1?.innerText.replace(/\s+/g, ' ').slice(0, 160)}`);
+      x1.querySelector('[data-edit]').click(); await sleep(300);
+      const x1e = $(`.x2p-ca[data-id="${ids[0]}"]`);
+      ok(!!x1e.querySelector('.cv-reason') && !!x1e.querySelector('[data-reok]'), 'Sửa → mở ô sửa + nút Duyệt lại');
+      x1e.querySelector('.cv-a .cv-x').checked = false; x1e.querySelector('[data-reok]').click(); await sleep(1500);
+      const g = await rpc('app_cv_get', { p_id: ids[0] });
+      ok(g.state === 'da_duyet' && g.rows.some((x) => x.absent_id && x.x2 === false), `Duyệt lại: x2 bỏ → ${g.rows.map((x) => x.x2).join(',')}`);
+      r.push(`Khung: ${W()}`);
+    } else {
+      let id = null;
+      try { id = await mkCa(pickOv[0], true); } catch (e) { r.push(`(không dựng được ca bằng vai ${role}: ${e.message})`); }
+      await go('#/quan-ly/nghi-lam-thay');
+      r.push(`Thẻ: ${txt('.x2p-tabs')} · ${W()}`);
+      const row = id && $(`.x2p-ca[data-id="${id}"]`);
+      if (role === 'qlt') {
+        ok(!!row && !!row.querySelector('.cv-reason') && !!$('#x2p-save') && !!$('#x2p-reason'), 'QL tổng: ca hiện, sửa được, có Áp + Lưu');
+        if (row) { row.querySelector('.x2p-pick').checked = true; row.querySelector('.x2p-pick').dispatchEvent(new Event('change')); $('#x2p-reason').value = 'nho_ql'; $('#x2p-apply').click(); await sleep(200);
+          $('#x2p-save').click(); await sleep(1500); ok((await rpc('app_cv_get', { p_id: id })).state === 'cho_duyet', 'QL tổng lưu phân loại → chờ Chủ duyệt'); }
+        await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+        ok(!$('#x2p-ok') && !!$('#x2p-save'), 'QL tổng ở Chờ Chủ duyệt: có Lưu, không có Duyệt');
+      }
+      if (role === 'ql') ok((!id || !!row) && !$('#x2p-save') && !$('#x2p-ok') && !$('.x2p-pick') && !$('.cv-reason'), `Quản lý cơ sở chỉ xem (ca ${id ? 'hiện' : 'không dựng được'}, không tích, không lưu / duyệt)`);
+    }
+  } catch (e) { r.push('LỖI ' + e.stack); }
+  out.push({ route: 'duyệt nghỉ & làm thay', title: r.join(' || '), len: 0, errs: [...window.__ERR, ...r.filter((x) => x.startsWith('LỖI'))] });
+};
