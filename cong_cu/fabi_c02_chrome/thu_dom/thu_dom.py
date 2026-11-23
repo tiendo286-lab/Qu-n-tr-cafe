@@ -74,6 +74,7 @@ CASES = [
     dict(variant='data-day', apply=True, spa=False, split=True),  # ô ngày có data-day, cần bấm "Áp dụng", mở ca tải lại trang
     dict(variant='plain', apply=False, spa=False, split=False),   # lịch chỉ có chữ số, nút mũi tên chỉ là hình
     dict(variant='select', apply=False, spa=True, split=False),   # tháng/năm nằm trong ô chọn: tự nhận ra tháng theo số ngày + thứ của ngày 1
+    dict(variant='typed', apply=False, spa=True, split=False),    # bấm ngày trên lịch không ăn: dự phòng gõ ngày vào ô + Enter
 ]
 ONLY = os.environ.get('KIEU')  # vd KIEU=select: chỉ chạy một kiểu lịch
 with sync_playwright() as p:

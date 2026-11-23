@@ -122,10 +122,18 @@ export async function fabiPage(command, args = {}) {
   // Tháng của từng lưới theo thứ tự: theo nhãn nếu nhãn khớp lưới, không thì tự nhận ra trong ±3 tháng quanh ngày cần lấy.
   const months = () => {
     const cals = calendars(), labels = monthLabels();
-    if (cals.length && labels.length === cals.length && cals.every((g, i) => fits(g, labels[i].y, labels[i].m))) return cals.map((g, i) => ({ g, y: labels[i].y, m: labels[i].m }));
+    // Số nhãn = số lưới: ghép theo thứ tự (23/11 trên Fabi thật, lưới không qua được phép đếm nên phải tin nhãn).
+    if (cals.length && labels.length === cals.length) return cals.map((g, i) => ({ g, y: labels[i].y, m: labels[i].m }));
     const [ty, tm] = String(args.day).split('-').map(Number);
     const near = [-3, -2, -1, 0, 1, 2, 3].map((k) => { const d = new Date(Date.UTC(ty, tm - 1 + k, 1)); return { y: d.getUTCFullYear(), m: d.getUTCMonth() + 1 }; });
     return cals.map((g) => { const hit = near.filter((c) => fits(g, c.y, c.m)); return hit.length === 1 ? { g, ...hit[0] } : { g, y: null, m: null }; });
+  };
+  // Tiện ích thấy gì trên lịch (để sửa nhanh qua ảnh chụp câu lỗi; không có dữ liệu ca).
+  const calSketch = () => {
+    const cals = calendars(), labels = monthLabels();
+    const g = cals.map((c) => { const t = c.cells.map((el) => clean(el.textContent)), f = t.indexOf('1'); let n = 0; while (f >= 0 && t[f + n] === String(n + 1)) n++; return `${t.length} ô/1 ở ${f}/chuỗi ${n}/${sig(c.cells[0])}`; });
+    const raw = texts().filter(([, t]) => /^Tháng\s*\d/i.test(t)).map(([, t]) => t).slice(0, 4);
+    return `lưới: ${g.join('; ') || 'không thấy'} · nhãn: ${labels.map((l) => l.m + '/' + l.y).join(', ') || 'không đọc được'} (chữ: ${raw.join(' | ') || '-'})`;
   };
   const dayCell = (iso) => {
     const [y, m, d] = iso.split('-').map(Number);
@@ -160,7 +168,8 @@ export async function fabiPage(command, args = {}) {
     if (hit) return hit;
     // Nút chỉ có hình: xét vị trí so với nhãn tháng đầu / cuối.
     if (!labels.length) return null;
-    const icons = [...root.querySelectorAll('button,[role=button]')].filter((el) => visible(el) && !inGrid(el) && !clean(el.textContent));
+    let icons = [...root.querySelectorAll('button,[role=button]')].filter((el) => visible(el) && !inGrid(el) && !clean(el.textContent));
+    if (!icons.length) icons = [...root.querySelectorAll('svg')].map((v) => v.parentElement).filter((el) => el && visible(el) && !inGrid(el) && !clean(el.textContent));
     const before = icons.filter((el) => after(el, labels[0].el)), behind = icons.filter((el) => after(labels.at(-1).el, el));
     return dir < 0 ? (behind.length ? before.at(-1) : before[0]) : (behind.length ? behind[0] : before[1]);
   };
@@ -186,24 +195,41 @@ export async function fabiPage(command, args = {}) {
         return;
       }
       const ms = months().filter((x) => x.y);
-      if (!ms.length) throw Error(`Không đọc được tháng trên bảng chọn ngày của Fabi (lưới ngày: ${calendars().length}, nhãn tháng: ${monthLabels().length}).`);
+      if (!ms.length) throw Error(`Không đọc được tháng trên bảng chọn ngày của Fabi (${calSketch()}).`);
       const first = ms[0].y * 12 + ms[0].m, last = ms.at(-1).y * 12 + ms.at(-1).m;
-      if (want >= first && want <= last) throw Error(`Lịch Fabi đang hiện tháng ${m}/${y} nhưng không bấm được ngày ${vn} (lưới ngày: ${calendars().length}, nhãn tháng: ${monthLabels().length}, ô ngày: ${sig(box)}).`);
+      if (want >= first && want <= last) throw Error(`Lịch Fabi đang hiện tháng ${m}/${y} nhưng không bấm được ngày ${vn} (${calSketch()}).`);
       const nav = navButton(want < first ? -1 : 1);
-      if (!nav) throw Error(`Không thấy nút ${want < first ? 'lùi' : 'tiến'} tháng trên lịch Fabi.`);
+      if (!nav) throw Error(`Không thấy nút ${want < first ? 'lùi' : 'tiến'} tháng trên lịch Fabi (${calSketch()}).`);
       press(nav); await sleep(450);
     }
     throw Error('Lùi lịch quá 14 lần vẫn chưa tới tháng cần lấy.');
   };
+  // Dự phòng khi bấm lịch không được: gõ "dd/mm/yyyy - dd/mm/yyyy" vào ô ngày rồi Enter (trang phải ghi đúng ngày mới đọc).
+  const typeDay = async (box) => {
+    if (box.tagName !== 'INPUT') return false;
+    box.focus();
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set.call(box, `${vn} - ${vn}`);
+    box.dispatchEvent(new Event('input', { bubbles: true })); box.dispatchEvent(new Event('change', { bubbles: true }));
+    for (const type of ['keydown', 'keypress', 'keyup']) box.dispatchEvent(new KeyboardEvent(type, { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true }));
+    box.blur();
+    try { await wait(reportIs, '', 5000); return true; } catch (_) { return false; }
+  };
   const chooseDay = async () => {
     const box = await openPicker();
     const yesterday = args.useYesterday && preset('Hôm qua');
-    if (yesterday) press(yesterday); else await pickDay(box);
-    try { await wait(reportIs, '', 12000); return; } catch (_) { /* có lịch chỉ áp dụng khi đóng lại */ }
-    document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
-    press(document.body);
-    await wait(reportIs, () => `Bộ lọc C02 chưa đúng trọn ngày ${vn} (đang là: ${reportNow()}; ô ngày: ${clean(box.value ?? box.textContent) || 'trống'}).`, 10000);
+    let pickErr = null;
+    if (yesterday) press(yesterday);
+    else { try { await pickDay(box); } catch (e) { pickErr = e; } }
+    if (!pickErr) {
+      try { await wait(reportIs, '', 12000); return; } catch (_) { /* có lịch chỉ áp dụng khi đóng lại */ }
+      document.activeElement?.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+      press(document.body);
+      try { await wait(reportIs, '', 6000); return; } catch (_) { /* thử gõ ngày */ }
+    }
+    if (await typeDay(dateBox() || box)) return;
+    throw Error(`${pickErr ? pickErr.message : `Bộ lọc C02 chưa đúng trọn ngày ${vn} (${calSketch()}).`} Đã thử gõ ngày vào ô cũng chưa được (đang là: ${reportNow()}; ô ngày: ${clean(box.value ?? box.textContent) || 'trống'}).`);
   };
+
 
   // ---- Phân trang kiểu mới: nút số trang + dòng "Hiển thị a - b trên tổng số N" ----
   const pager = () => {

@@ -76,7 +76,7 @@ function drawPicker() {
     ${['Hôm nay', 'Hôm qua', '7 ngày trước', 'Tháng này', 'Tháng trước'].map((x) => `<button class="preset">${x}</button>`).join('')}</div>
     <div>${nav}<div class="months">${panel(view, true, false)}${panel(nextYm(view, 1), false, true)}</div>${C.apply ? '<button class="ok">Áp dụng</button>' : ''}</div>`;
   // Mã thật thường vẽ lại cả lịch sau mỗi lần bấm: các ô cũ bị bỏ, tiện ích phải tìm lại ô.
-  for (const el of p.querySelectorAll('[data-k]')) { el.__iso = el.dataset.k; if (C.variant === 'plain' || C.variant === 'select') el.removeAttribute('data-k'); }
+  for (const el of p.querySelectorAll('[data-k]')) { el.__iso = el.dataset.k; if (['plain', 'select', 'typed'].includes(C.variant)) el.removeAttribute('data-k'); }
 }
 function openPicker() { const p = document.getElementById('picker'); if (!p.hidden) return; view = sel.to.slice(0, 7); pending = null; drawPicker(); p.hidden = false; }
 function closePicker() { document.getElementById('picker').hidden = true; pending = null; }
@@ -98,6 +98,11 @@ function list() {
   document.getElementById('hr').innerHTML = ['#', 'Mã ca', 'Nhân viên', 'Số dư đầu ca', 'Doanh thu (net) (0 đ)', 'Thời gian mở ca', 'Thời gian đóng', 'Thiết bị mở ca'].map((x) => `<th>${x}</th>`).join('');
   const input = document.querySelector('.date-range');
   input.addEventListener('click', openPicker);
+  // Kiểu "typed": bấm ngày trên lịch không ăn, chỉ gõ "dd/mm/yyyy - dd/mm/yyyy" + Enter mới đổi ngày.
+  input.addEventListener('keydown', (e) => {
+    const m = e.key === 'Enter' && input.value.match(/^(\d{2})\/(\d{2})\/(\d{4}) - (\d{2})\/(\d{2})\/(\d{4})$/);
+    if (m) commit({ from: `${m[3]}-${m[2]}-${m[1]}`, to: `${m[6]}-${m[5]}-${m[4]}` });
+  });
   document.addEventListener('mousedown', (e) => { const p = document.getElementById('picker'); if (p && !p.hidden && !p.contains(e.target) && e.target !== input) closePicker(); });
   document.getElementById('picker').addEventListener('click', (e) => {
     const pr = e.target.closest('.preset');
@@ -117,6 +122,7 @@ function list() {
     }
     if (e.target.closest('.ok')) { if (staged) commit(staged); return; }
     let el = e.target; while (el && el !== e.currentTarget && !el.__iso) el = el.parentElement;
+    if (el && el.__iso && C.variant === 'typed') return;
     if (el && el.__iso) { if (el.querySelector('button[disabled]') || el.closest('button[disabled]')) return; pickDay(el.__iso); }
   });
   refresh(true);
