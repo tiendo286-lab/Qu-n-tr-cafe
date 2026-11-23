@@ -312,9 +312,10 @@ export function makeFin(T, me) {
       return { can_edit: admin() || me.role === 'ql', open, thu };
     },
     app_cn_debt_save({ p_id, p }) {
+      if (p.grp === 'khach' && !(p.name || '').trim()) p = { ...p, name: 'Khách' };   // chặng 6.4 (tệp 166): nợ khách không ghi chú → "Khách"
       if (!(p.name || '').trim()) throw new Error('Ghi tên khách nợ.'); if (!(p.amount > 0)) throw new Error('Nhập số tiền nợ lớn hơn 0.');
       T.shift_debts = T.shift_debts || [];
-      const k = ['muon', 'ck'].includes(p.kind) ? p.kind : 'bill'; const grp = ['khach', 'kho', 'khac'].includes(p.grp) ? p.grp : p.family ? 'khac' : 'khach'; const fam = grp === 'khach' ? 0 : 1; const fo = p.fund_out && k !== 'bill' ? 1 : 0;   // bước 85
+      const k = ['muon', 'ck'].includes(p.kind) ? p.kind : 'bill'; const grp = ['khach', 'kho', 'chu', 'khac'].includes(p.grp) ? p.grp : p.family ? 'khac' : 'khach'; const fam = grp === 'khach' ? 0 : 1; const fo = p.fund_out && k !== 'bill' ? 1 : 0;   // bước 85
       if (p_id) { Object.assign(T.shift_debts.find((d) => d.id === p_id), { table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '', kind: k, family: fam, fund_out: fo }); return p_id; }
       const id = nid('shift_debts'); T.shift_debts.push({ id, grp, branch_id: p.branch_id, report_id: null, table_name: p.name.trim(), phone: p.phone || null, amount: p.amount, note: p.note || '', kind: k, family: fam, fund_out: fo, created_at: (p.date || '') + ' 09:00:00' }); return id;
     },

@@ -7,6 +7,7 @@ import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, parseMoney } from '../tien.js';
 import { $, dialog, go, html, raw, showSaved, str } from '../ui.js';
 import { mountBankOuts } from '../phieu_chi_ck.js';
+import { DEBT_GRP_SHORT } from '../ca_chung.js';
 import { watchGio } from '../gio_chot.js';
 import { ALERT, COLS, LOC_EMPTY, SHIFT_ORDER, todoItems, debtGroups, blameShare, billListOf, caChecks, caChoices, debtBefore, dsTodo, fabiNeeds, tileInfo, zeroCols, locChips, caGaps, caStage, compareDays, dayChain, dayTree, filterItems, finalNeeds, fold, fundSummary, gapMath, gapParts, gapShort, locStr, parseLoc, sumItems, treoView, dsChecks, dsCtx, dsLeft, DS_STEPS, BIG } from '../so_thu_chi_tinh.js';
 
@@ -867,7 +868,8 @@ async function setWho(D, x, v, sel) {
   personDialog(D, null, async (r) => { await save(r.name); after('Đã thêm người nợ'); });
 }
 // bước 172: người nợ là danh sách thật của cơ sở — thêm / sửa (tên, SĐT, nhóm công nợ) / ngừng dùng. "Kho tổng" luôn có: không đổi tên, không ngừng dùng.
-const GRP_NO = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', khac: 'Nợ khác' };
+const GRP_NO = DEBT_GRP_SHORT;   // chặng 6.4: 4 nhóm
+const isShared = (p) => !!p?.shared || (p?.grp === 'khach' && String(p?.name || '').trim().toLowerCase() === 'khách');   // người chung "Khách"
 const isKhoTong = (p) => String(p?.name || '').trim().toLowerCase() === 'kho tổng';
 // Ô chọn người nợ: chỉ người ĐANG DÙNG trong danh sách, chia theo nhóm công nợ; value là TÊN người (các hàm lưu nợ nhận tên). Quá 8 người thì có ô tìm không dấu.
 function personOpts(D, cur = '', add = true, q = '') {
@@ -904,8 +906,8 @@ function personDialog(D, p, onDone) {
   const d = dialog(html`<form class="stack stc-dlg" style="gap:10px"><h2 style="margin:0">${p ? 'Sửa người nợ' : 'Thêm người nợ'}</h2>
     <label class="field"><span>Tên người nợ</span><input class="input" name="pname" autocomplete="off" value="${p?.name || ''}" ${kho ? 'disabled' : ''} placeholder="vd: Anh Thắng xe ôm"></label>
     <label class="field"><span>Số điện thoại (không bắt buộc)</span><input class="input" name="pphone" inputmode="tel" autocomplete="off" value="${p?.phone || ''}"></label>
-    <label class="field"><span>Nhóm công nợ</span><select class="input" name="pgrp" ${kho ? 'disabled' : ''}>${Object.entries(GRP_NO).map(([k, l]) => html`<option value="${k}" ${(p?.grp || 'khach') === k ? 'selected' : ''}>${l}</option>`)}</select></label>
-    <div class="st-meta">Nợ khách hàng: phiếu chốt ca nhắc thu. Nợ kho tổng / Nợ khác: không nhắc.</div>
+    <label class="field"><span>Nhóm công nợ</span><select class="input" name="pgrp" ${kho ? 'disabled' : ''}>${Object.entries(GRP_NO).filter(([k]) => k !== 'khach').map(([k, l]) => html`<option value="${k}" ${(p?.grp || 'khac') === k ? 'selected' : ''}>${l}</option>`)}</select></label>
+    <div class="st-meta">Nợ khách hàng không cần tên — ghi chú (khách / bàn…) ở khoản nợ. Kho tổng / Chủ / Người nhà: không nhắc ở phiếu chốt ca.</div>
     <div class="stc-err"></div><div class="toolbar" style="justify-content:flex-end">${p && !kho ? html`<button type="button" class="btn sm secondary" data-poff style="margin-right:auto">${p.active ? 'Ngừng dùng' : 'Dùng lại'}</button>` : ''}<button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`);
   const save = async (active) => {
     const name = val(d, 'pname') || p?.name || ''; const grp = d.querySelector('[name=pgrp]').value;
@@ -1129,12 +1131,12 @@ function debtBox(D) {
 function peopleBox(D) {
   // bước 172: mỗi người một dòng — tên, nhóm công nợ, SĐT, còn nợ bao nhiêu, nút Sửa; người ngừng dùng xếp cuối, chữ mờ
   const grpOf = (p) => p.grp || (p.no_remind ? 'khac' : 'khach');
-  const list = [...(D.people || [])].sort((a, b) => (b.active ?? 1) - (a.active ?? 1));
+  const list = [...(D.people || [])].filter((p) => !(grpOf(p) === 'khach' && p.active === 0 && !isShared(p))).sort((a, b) => (b.active ?? 1) - (a.active ?? 1));   // chặng 6.4: tên khách cũ đã ngừng dùng thì ẩn
   const rows = list.map((p) => { const off = p.active === 0; const g = grpOf(p);
     return html`<div class="stc-si stc-pp ${off ? 'off' : ''}" data-prow="${p.id ?? p.name}"><span><b>${p.name}</b> <span class="pill ${g === 'khach' ? 'info' : 'mute'}">${GRP_NO[g]}</span>${off ? html` <span class="pill mute">ngừng dùng</span>` : ''}<br>
       <span class="st-meta">${p.phone ? p.phone + ' · ' : ''}${p.n ? `${p.n} khoản còn nợ` : 'không còn nợ'}</span></span>
-      <span class="stc-r"><b>${p.open ? fmt(p.open) : ''}</b>${D.people_real && !D.ext && p.id != null ? html`<button type="button" class="btn sm secondary" data-pedit="${p.id}">Sửa</button>` : ''}</span></div>`; });
-  return sbox('Người nợ', rows.length ? rows : html`<div class="st-meta">Chưa có người nợ có tên.</div>`, 'Nợ khách hàng: phiếu chốt ca nhắc thu. Nợ kho tổng / Nợ khác: không nhắc.');
+      <span class="stc-r"><b>${p.open ? fmt(p.open) : ''}</b>${D.people_real && !D.ext && p.id != null && !isShared(p) ? html`<button type="button" class="btn sm secondary" data-pedit="${p.id}">Sửa</button>` : ''}</span></div>`; });
+  return sbox('Người nợ', rows.length ? rows : html`<div class="st-meta">Chưa có người nợ có tên.</div>`, 'Nợ khách hàng: gộp chung "Khách" + ghi chú, phiếu chốt ca nhắc thu. Kho tổng / Chủ / Người nhà: không nhắc.');
 }
 function catBox(D) {
   const its = D.items.filter((x) => !x.void && x.book === 'chi' && x.col === 'chi');

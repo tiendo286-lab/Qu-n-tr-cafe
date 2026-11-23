@@ -15,8 +15,10 @@ export function newExchangeKey() { return crypto.randomUUID(); }
 export const EXCH_LABEL = 'Luân chuyển tiền mặt – CK';
 export const EXCH_DIRS = [['tm_ck', 'TM → CK'], ['ck_tm', 'CK → TM']];
 export const exchSigns = (dir) => (dir === 'ck_tm' ? { tm: 1, ck: -1 } : { tm: -1, ck: 1 });
-// bước 133: nhóm Công nợ khi chọn người nợ ở dòng Báo nợ
-export const DEBT_GRP = { khach: '① Nợ khách hàng', kho: '② Nợ kho tổng', khac: '③ Nợ khác' };
+// chặng 6.4 (anh Tiến chốt 23/11): 4 nhóm công nợ — một nguồn tên chung cho mọi trang (Công nợ, Sổ thu chi, phiếu chốt ca, đối soát ca)
+export const DEBT_GRPS = ['khach', 'kho', 'chu', 'khac'];
+export const DEBT_GRP = { khach: '① Nợ khách hàng', kho: '② Nợ kho tổng', chu: '③ Nợ của Chủ (anh Tiến)', khac: '④ Người nhà / người quen' };
+export const DEBT_GRP_SHORT = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', chu: 'Chủ (anh Tiến)', khac: 'Người nhà / người quen' };
 export function debtWhoSel(d, people, attrs = '') {
   const cur = d.grp && d.grp !== 'khach' ? d.table_name : '';
   const opts = [['', 'Khách', 'khach'], ...(people || []).map((p) => [p.name, p.name, p.grp])];

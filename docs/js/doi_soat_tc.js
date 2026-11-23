@@ -4,9 +4,10 @@ import { rpc } from './sb.js';
 import { dmy, dt, fmt } from './tien.js';
 import { dialog, html, showSaved, str } from './ui.js';
 import { bindPeopleSelect, loadPeople, peopleSelect } from './nguoi_no_chon.js';
+import { DEBT_GRP_SHORT } from './ca_chung.js';
 
 const PAY = { tien_mat: 'Tiền mặt', chuyen_khoan: 'Chuyển khoản' };
-const GRP_NO = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', khac: 'Nợ khác' };   // bước 95
+const GRP_NO = DEBT_GRP_SHORT;   // bước 95 · chặng 6.4: 4 nhóm
 
 export const DT_CSS = html`<style>
   .dt-r { display: grid; grid-template-columns: minmax(0, 1fr) 110px minmax(0, 320px); gap: 10px; align-items: center; padding: 8px 4px; border-top: 1px solid var(--line-soft, var(--line)); }

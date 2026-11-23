@@ -231,7 +231,8 @@ export function makeStc(T, me) {
       // bước 152: quản lý cơ sở chỉ được giao cơ sở đầu tiên (giả lập Phân công việc Đối soát ca)
       const mine = (bid) => admin() || (me.role === 'ql' && Number(bid) === st().branches[0].id);
       if (!mine(p_branch)) throw new Error('Bạn không được xem thu chi của cơ sở này.');
-      const d = copy(st()); d.owner = me.role === 'chu'; d.branches = d.branches.filter((x) => mine(x.id)); d.shortfalls = copy(sfs().filter((k) => k.status !== 'huy'));
+      const d = copy(st()); d.owner = me.role === 'chu';
+      d.ca_debts = (d.ca_debts || []).map((x) => (x.t === 'moi' ? { ...x, grp: x.grp || 'khach', sorted: !!x.sorted || (x.grp || 'khach') === 'khach' } : x));   // chặng 6.4: nợ khách không cần Xếp d.branches = d.branches.filter((x) => mine(x.id)); d.shortfalls = copy(sfs().filter((k) => k.status !== 'huy'));
       const b = d.branches.find((x) => x.id === Number(p_branch)) || d.branches[0];
       d.branch = { id: b.id, code: b.code, name: b.code };
       if (p_month !== '2026-11') { Object.assign(d, { month: p_month, from: p_month + '-01', to: p_month + '-28', cas: [], items: [], compare: { fund_days: [], gaps: [] } }); }
@@ -615,15 +616,17 @@ export function makeStc(T, me) {
     },
     // bước 172: danh sách người nợ thật + thêm / sửa / ngừng dùng (giống supabase/151_nguoi_no.sql)
     app_stc_people() {
-      need(); const rk = { khach: 0, kho: 1, khac: 2 };
+      need(); const rk = { khach: 0, kho: 1, chu: 2, khac: 3 };
       return copy(st().people).sort((a, b) => (b.active ?? 1) - (a.active ?? 1) || (rk[a.grp] ?? 0) - (rk[b.grp] ?? 0) || a.name.localeCompare(b.name, 'vi'));
     },
     app_stc_person_save({ p_id, p }) {
       need(); const nm = String(p.name || '').trim(); const act = p.active === 0 || p.active === false || p.active === '0' ? 0 : 1;
       if (!nm) throw new Error('Nhập tên người nợ.');
-      if (!['khach', 'kho', 'khac'].includes(p.grp)) throw new Error('Chọn nhóm công nợ.');
+      if (!['khach', 'kho', 'chu', 'khac'].includes(p.grp)) throw new Error('Chọn nhóm công nợ.');
       const old = p_id ? st().people.find((x) => x.id === Number(p_id)) : null;
       if (p_id && !old) throw new Error('Không tìm thấy người nợ.');
+      if (old && (old.shared || (old.grp === 'khach' && old.name.toLowerCase() === 'khách'))) throw new Error('Người chung "Khách" luôn có — không sửa được.');   // chặng 6.4
+      if (p.grp === 'khach') throw new Error('Nợ khách hàng không cần tên — ghi chú ở khoản nợ.');
       if (old && old.name.toLowerCase() === 'kho tổng' && (nm.toLowerCase() !== 'kho tổng' || act === 0 || p.grp !== 'kho')) throw new Error('Kho tổng luôn có — không đổi tên / ngừng dùng được.');
       if (st().people.some((x) => x !== old && x.name.toLowerCase() === nm.toLowerCase())) throw new Error('Đã có người nợ tên này.');
       if (!old) { const id = ++N; st().people.push({ id, name: nm, phone: p.phone || null, grp: p.grp, active: act, no_remind: p.grp !== 'khach', open: 0, n: 0 }); return id; }
@@ -636,10 +639,11 @@ export function makeStc(T, me) {
       need(); const d = (st().ca_debts || []).find((x) => x.t === 'moi' && Number(x.id) === Number(p_debt));
       if (!d) throw new Error('Không tìm thấy khoản nợ.');
       if (!(Number(d.left) > 0)) throw new Error('Khoản nợ đã thu — không đổi được.');
-      const p = st().people.find((x) => x.id === Number(p_person) && x.active !== 0);
+      const p = p_grp === 'khach' ? st().people.find((x) => x.shared) : st().people.find((x) => x.id === Number(p_person) && x.active !== 0);   // chặng 6.4: Khách hàng → người chung
       if (!p) throw new Error('Chọn người nợ trong danh sách.');
-      if (!['khach', 'kho', 'khac'].includes(p_grp)) throw new Error('Chọn nhóm công nợ.');
+      if (!['khach', 'kho', 'chu', 'khac'].includes(p_grp)) throw new Error('Chọn nhóm công nợ.');
       if ((st().cas.find((c) => c.id === Number(d.report_id)) || {}).done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');
+      if (p_grp === 'khach') { Object.assign(d, { who: d.content || d.who, person_id: p.id, grp: 'khach', sorted: true }); return; }
       if (d.who.toLowerCase() !== p.name.toLowerCase()) d.content = d.content || d.who;
       Object.assign(d, { who: p.name, person_id: p.id, grp: p_grp, sorted: true });
     },
@@ -658,7 +662,7 @@ export function makeStc(T, me) {
       }
       const pe = st().people.find((x) => x.id === Number(p?.person_id) && x.active !== 0);
       if (!pe) throw new Error('Chọn người nợ trong danh sách.');
-      if (!['khach', 'kho', 'khac'].includes(p?.grp)) throw new Error('Chọn nhóm công nợ.');
+      if (!['khach', 'kho', 'chu', 'khac'].includes(p?.grp)) throw new Error('Chọn nhóm công nợ.');
       const id = ++N; st().ca_debts.push({ report_id: Number(p_report), t: 'moi', id, who: pe.name, kind: p.kind, amount: amt, left: amt, pm: null, from: null,
         sorted: true, person_id: pe.id, grp: p.grp, content: null, edit: { action: 'them', ...now } });
       return id;

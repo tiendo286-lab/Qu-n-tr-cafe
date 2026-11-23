@@ -4,8 +4,9 @@
 // Không lấy được danh sách (vd không có quyền Sổ thu chi) → loadPeople trả null, hộp dùng lại ô gõ tên như cũ (máy chủ vẫn kiểm tên).
 import { rpc } from './sb.js';
 import { dialog, html, str } from './ui.js';
+import { DEBT_GRP_SHORT } from './ca_chung.js';
 
-export const GRP_NO = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', khac: 'Nợ khác' };
+export const GRP_NO = DEBT_GRP_SHORT;   // chặng 6.4: 4 nhóm
 
 export async function loadPeople(branchId) {
   try { const r = await rpc('app_stc_people', { p_branch: Number(branchId) }); return Array.isArray(r) ? r : null; } catch (_) { return null; }

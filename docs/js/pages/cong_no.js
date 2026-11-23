@@ -8,23 +8,24 @@ import { rpc } from '../sb.js';
 import { bindMoneyInputs, dmy, fmt, noKind, parseMoney, vnd } from '../tien.js';
 import { $, $$, dialog, flash, html, str } from '../ui.js';
 import { bindPeopleSelect, loadPeople, peopleSelect } from '../nguoi_no_chon.js';
+import { DEBT_GRP, DEBT_GRP_SHORT, DEBT_GRPS } from '../ca_chung.js';
 
 export const perm = 'doi_soat';
 const LS_BR = 'tcBranch';
-export const GRP = { khach: '① Nợ khách hàng', kho: '② Nợ kho tổng', khac: '③ Nợ khác' };
-export const GRP_SHORT = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', khac: 'Nợ khác' };
-const GRP_HELP = { khach: 'Nợ HĐ và khách ngoài — phiếu chốt ca nhắc thu', kho: 'chỉ quản lý thu', khac: 'người quen, người nhà… — chỉ quản lý thu' };
+export const GRP = DEBT_GRP; export const GRP_SHORT = DEBT_GRP_SHORT;   // chặng 6.4: 4 nhóm
+const GRP_HELP = { khach: 'gộp một dòng "Khách", mỗi khoản có ghi chú (khách / bàn…) — phiếu chốt ca nhắc thu', kho: 'chỉ quản lý thu',
+  chu: 'nợ của anh Tiến — chỉ quản lý thu, không nhắc ở phiếu chốt ca', khac: 'người nhà, người quen… — chỉ quản lý thu' };
 const PAY = { tien_mat: 'TM', chuyen_khoan: 'CK', gia_dinh: 'chuyển gia đình' };
 const LATE = 7;
 const lsGet = () => { try { return Number(localStorage.getItem(LS_BR)) || null; } catch (_) { return null; } };
 const lsSet = (v) => { try { localStorage.setItem(LS_BR, String(v)); } catch (_) { /* bỏ qua */ } };
 const days = (a, b) => Math.max(0, Math.round((Date.parse(b) - Date.parse(a)) / 864e5));
 export const dispName = (r) => `${(r.kind === 'bill' || !r.kind) && !r.by_ql && /^\s*\d+\s*$/.test(r.name || '') ? 'Bàn ' : ''}${(r.name || '').trim()}`;
-const keyOf = (r) => `${r.grp}|${dispName(r).toLowerCase()}`;
+const keyOf = (r) => (r.grp === 'khach' ? 'khach|khách' : `${r.grp}|${dispName(r).toLowerCase()}`);   // chặng 6.4: nợ khách gộp một dòng
 
 function people(rows, today) {
   const M = new Map();
-  rows.forEach((r) => { const k = keyOf(r); if (!M.has(k)) M.set(k, { key: k, grp: r.grp, name: dispName(r), phone: null, rows: [] }); const p = M.get(k); p.rows.push(r); if (r.phone) p.phone = r.phone; });
+  rows.forEach((r) => { const k = keyOf(r); if (!M.has(k)) M.set(k, { key: k, grp: r.grp, name: r.grp === 'khach' ? 'Khách' : dispName(r), phone: null, rows: [] }); const p = M.get(k); p.rows.push(r); if (r.phone && r.grp !== 'khach') p.phone = r.phone; });
   return [...M.values()].map((p) => {
     const open = p.rows.filter((r) => !r.closed);
     return { ...p, open, owe: open.reduce((t, r) => t + Number(r.amount), 0), oldest: open.length ? Math.max(...open.map((r) => days(r.date, today))) : 0 };
@@ -49,10 +50,10 @@ export async function render(ctx) {
   const fromTxt = (r) => (r.report_id ? `ca ${r.shift || ''}` : r.mv_report ? `từ thu chi ca ${r.mv_ca || ''}` : r.gap_report ? `ghi ở đối soát ca ${r.gap_ca || ''}` : 'QL ghi');
   const paidTxt = (r) => `${dmy(r.paid_date).slice(0, 5)}${r.paid_report ? ` ca ${r.paid_shift || ''}` : ' · quản lý thu'} · ${({ tien_mat: 'tiền mặt', chuyen_khoan: 'chuyển khoản' })[r.paid_kind] || PAY[r.paid_kind] || ''}`;
   const line = (r, full = false) => html`<div class="cn-l ${r.closed ? 'done' : ''}">
-      <div class="cn-l1"><span>Nợ <b>${dmy(r.date).slice(0, 5)}</b> · ${fromTxt(r)} · ${noKind(r.kind)}${r.split && !r.closed ? ' (phần còn lại)' : ''}</span><b class="cn-amt">${fmt(r.amount)}</b></div>
+      <div class="cn-l1"><span>${r.grp === 'khach' ? html`<b class="cn-who">${dispName(r)}</b> · ` : ''}Nợ <b>${dmy(r.date).slice(0, 5)}</b> · ${fromTxt(r)} · ${noKind(r.kind)}${r.split && !r.closed ? ' (phần còn lại)' : ''}</span><b class="cn-amt">${fmt(r.amount)}</b></div>
       <div class="cn-l2">→ ${r.closed ? html`<span class="cn-ok">Trả <b>${paidTxt(r)}</b> ✓</span>` : html`<span class="${late(r) ? 'cn-late' : ''}">chưa trả · ${days(r.date, today) ? `${days(r.date, today)} ngày` : 'hôm nay'}${late(r) ? ' ⚠' : ''}</span>`}
         ${full && r.note ? html`<span class="st-meta"> · ${r.note}</span>` : ''}${full && r.closed && r.paid_note && !['Đã thu', 'Quản lý thu'].includes(r.paid_note) ? html`<span class="st-meta"> · ${r.paid_note}</span>` : ''}
-        ${full && r.closed && r.can_unthu && ed ? html` <button type="button" class="btn sm secondary cn-unthu" data-id="${r.id}">Bỏ đã thu</button>` : ''}</div></div>`;
+        ${full && r.closed && r.can_unthu && ed ? html` <button type="button" class="btn sm secondary cn-unthu" data-id="${r.id}">Bỏ đã thu</button>` : ''}${full && !r.closed && ed && r.grp === 'khach' ? html` <button type="button" class="btn sm cn-thu1" data-id="${r.id}">Đã thu</button> <button type="button" class="btn sm secondary cn-edit1" data-id="${r.id}">Sửa / đổi nhóm</button>` : ''}</div></div>`;
 
   // ---------- trang chi tiết 1 người
   if (params.p) {
@@ -65,13 +66,16 @@ export async function render(ctx) {
           <h1 style="margin-top:6px">${p.name}</h1><div class="sub">${GRP_SHORT[p.grp]}${p.phone ? ` · ${p.phone}` : ''}</div></div></div>
         <section class="card stack cn-sum"><div class="cn-big">Còn nợ <b>${vnd(p.owe)}</b></div>
           ${p.oldest ? html`<div class="st-meta">${p.open.length} khoản · lâu nhất ${p.oldest} ngày${p.grp === 'khach' && p.oldest > LATE ? ' ⚠' : ''}</div>` : html`<div class="cn-ok">✓ Đã trả hết</div>`}
-          ${ed ? html`<div class="cn-btns">${p.open.length ? html`<button type="button" class="btn sm" id="cn-thu">Đã thu</button>` : ''}<button type="button" class="btn sm secondary" id="cn-more">+ Ghi thêm nợ</button><button type="button" class="btn sm secondary" id="cn-edit">Sửa tên / SĐT / nhóm</button></div>` : ''}</section>
+          ${ed && p.grp === 'khach' ? html`<div class="cn-btns"><button type="button" class="btn sm secondary" id="cn-more">+ Ghi nợ khách</button></div><div class="st-meta">Khách trả khoản nào thì bấm <b>Đã thu</b> ở đúng khoản đó.</div>` : ''}${ed && p.grp !== 'khach' ? html`<div class="cn-btns">${p.open.length ? html`<button type="button" class="btn sm" id="cn-thu">Đã thu</button>` : ''}<button type="button" class="btn sm secondary" id="cn-more">+ Ghi thêm nợ</button><button type="button" class="btn sm secondary" id="cn-edit">Sửa tên / SĐT / nhóm</button></div>` : ''}</section>
         <section class="card stack"><h2>Còn nợ (${p.open.length})</h2>${p.open.length ? p.open.map((r) => line(r, true)) : html`<div class="st-meta">Không còn khoản nào.</div>`}</section>
         <section class="card stack"><h2>Đã trả (${paid.length})</h2>${paid.length ? paid.map((r) => line(r, true)) : html`<div class="st-meta">Chưa có lần trả nào (180 ngày gần đây).</div>`}</section></div>`,
       mount() {
         bindUnthu();
         $('#cn-thu')?.addEventListener('click', () => collect(p));
-        $('#cn-more')?.addEventListener('click', () => newDebt(p.grp, p));
+        $('#cn-more')?.addEventListener('click', () => (p.grp === 'khach' ? newDebt('khach') : newDebt(p.grp, p)));
+        const one = (id) => { const r = p.rows.find((x) => String(x.id) === String(id)); return r && { key: p.key, grp: 'khach', name: dispName(r), phone: r.phone || null, rows: [r], open: [r], owe: Number(r.amount) }; };
+        $$('.cn-thu1').forEach((b) => b.addEventListener('click', () => { const o = one(b.dataset.id); if (o) collect(o); }));
+        $$('.cn-edit1').forEach((b) => b.addEventListener('click', () => { const o = one(b.dataset.id); if (o) editPerson(o); }));
         $('#cn-edit')?.addEventListener('click', () => editPerson(p));
       },
     };
@@ -83,10 +87,10 @@ export async function render(ctx) {
   const shown = (p) => (p.owe > 0 || p.rows.some((r) => r.closed && String(r.paid_date).slice(0, 7) === month)) && (!onlyLate || lateP.includes(p));
   const total = P.reduce((t, p) => t + p.owe, 0); const nOwe = P.filter((p) => p.owe > 0).length;
   // bước 97: ô số đầu trang; bấm ô nhóm → chỉ hiện nhóm đó (?g=), bấm lại → cả 3 nhóm
-  const gOn = ['khach', 'kho', 'khac'].includes(params.g) ? params.g : '';
+  const gOn = DEBT_GRPS.includes(params.g) ? params.g : '';
   const gSum = (g) => P.filter((p) => p.grp === g).reduce((t, p) => t + p.owe, 0); const gN = (g) => P.filter((p) => p.grp === g && p.owe > 0).length;
   const paidM = D.rows.filter((r) => r.closed && String(r.paid_date).slice(0, 7) === month);
-  const tile = (g) => html`<a class="cn-k ${gOn === g ? 'on' : ''}" href="${q({ g: gOn === g ? '' : g, qua: params.qua })}"><span class="k">${GRP[g]}</span><b>${fmt(gSum(g))}</b><small>${gN(g)} người${gOn === g ? ' · đang lọc — bấm bỏ lọc' : ''}</small></a>`;
+  const tile = (g) => html`<a class="cn-k ${gOn === g ? 'on' : ''}" href="${q({ g: gOn === g ? '' : g, qua: params.qua })}"><span class="k">${GRP[g]}</span><b>${fmt(gSum(g))}</b><small>${g === 'khach' ? `${P.filter((p) => p.grp === 'khach').reduce((t, p) => t + p.open.length, 0)} khoản` : `${gN(g)} người`}${gOn === g ? ' · đang lọc — bấm bỏ lọc' : ''}</small></a>`;
   const card = (p) => { const rs = p.rows.filter((r) => !r.closed || String(r.paid_date).slice(0, 7) === month);
     return html`<div class="cn-p ${p.owe ? '' : 'done'}" data-s="${(p.name + ' ' + (p.phone || '')).toLowerCase()}">
       <a class="cn-ph" href="${q({ p: p.key })}"><span class="grow"><b>${p.name}</b>${p.phone ? html` <span class="st-meta">${p.phone}</span>` : ''}</span>
@@ -94,7 +98,7 @@ export async function render(ctx) {
       ${rs.map((r) => line(r))}</div>`; };
   const group = (g) => { const ps = P.filter((p) => p.grp === g && shown(p)).sort((a, b) => (b.owe > 0) - (a.owe > 0) || b.oldest - a.oldest || b.owe - a.owe);
     const sum = P.filter((p) => p.grp === g).reduce((t, p) => t + p.owe, 0);
-    const add = { khach: '+ Ghi nợ khách', kho: '+ Kho tổng nợ', khac: '+ Thêm người nợ' }[g];
+    const add = { khach: '+ Ghi nợ khách', kho: '+ Kho tổng nợ', chu: '+ Ghi nợ của Chủ', khac: '+ Thêm người nợ' }[g];
     return html`<section class="card stack cn-g" data-g="${g}"><div class="cn-gh"><div><h2>${GRP[g]}</h2><div class="st-meta">${GRP_HELP[g]}</div></div><b class="cn-gsum">${fmt(sum)}</b></div>
       ${ps.length ? ps.map(card) : html`<div class="st-meta">${onlyLate ? 'Không có.' : 'Không có ai nợ.'}</div>`}
       ${ed && !onlyLate ? html`<div><button type="button" class="btn sm secondary cn-new" data-g="${g}">${add}</button></div>` : ''}</section>`; };
@@ -103,13 +107,13 @@ export async function render(ctx) {
     html: html`${STYLE}<div class="cn-wrap"><div class="page-head"><div><h1>Công nợ</h1><div class="sub">Người nợ quán theo từng cơ sở</div></div></div>
       <nav class="branch-tabs" aria-label="Cơ sở">${D.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${'#/quan-ly/cong-no?cn=' + b.id}" title="${b.name}">${b.code}</a>`)}</nav>
       <div class="cn-ks">
-        <a class="cn-k tot ${gOn ? '' : 'on'}" href="${q({ qua: params.qua })}"><span class="k">Còn nợ</span><b>${fmt(total)}</b><small>${nOwe} người${gOn ? ' · bấm xem cả 3 nhóm' : ''}</small></a>
+        <a class="cn-k tot ${gOn ? '' : 'on'}" href="${q({ qua: params.qua })}"><span class="k">Còn nợ</span><b>${fmt(total)}</b><small>${nOwe} người${gOn ? ' · bấm xem cả 4 nhóm' : ''}</small></a>
         <div class="cn-k paid"><span class="k">Đã thu tháng này</span><b>${fmt(paidM.reduce((t, r) => t + Number(r.amount || 0), 0))}</b><small>${paidM.length} khoản</small></div>
-        ${['khach', 'kho', 'khac'].map(tile)}</div>
+        ${DEBT_GRPS.map(tile)}</div>
       <section class="card stack cn-sum">
-        ${lateP.length ? html`<a class="cn-latebox ${onlyLate ? 'on' : ''}" href="${q({ qua: onlyLate ? '' : '1' })}">⚠ Khách nợ quá ${LATE} ngày: <b>${lateP.length} khách · ${fmt(lateP.reduce((t, p) => t + p.open.filter(late).reduce((s, r) => s + Number(r.amount), 0), 0))}</b> ${onlyLate ? '— bấm để xem tất cả' : '— bấm để lọc'}</a>` : html`<div class="st-meta">Không có khách nợ quá ${LATE} ngày.</div>`}
+        ${lateP.length ? html`<a class="cn-latebox ${onlyLate ? 'on' : ''}" href="${q({ qua: onlyLate ? '' : '1' })}">⚠ Khách nợ quá ${LATE} ngày: <b>${lateP.reduce((t, p) => t + p.open.filter(late).length, 0)} khoản · ${fmt(lateP.reduce((t, p) => t + p.open.filter(late).reduce((s, r) => s + Number(r.amount), 0), 0))}</b> ${onlyLate ? '— bấm để xem tất cả' : '— bấm để lọc'}</a>` : html`<div class="st-meta">Không có khách nợ quá ${LATE} ngày.</div>`}
         <input class="input" id="cn-find" type="search" placeholder="Tìm tên / số điện thoại…" autocomplete="off"></section>
-      ${['khach', 'kho', 'khac'].filter((g) => !gOn || g === gOn).map(group)}
+      ${DEBT_GRPS.filter((g) => !gOn || g === gOn).map(group)}
       <div class="st-meta">Khách trả trong ca: nhân viên chọn ở phiếu chốt ca (chỉ Nợ khách hàng). Trả ngoài ca: bấm vào người → <b>Đã thu</b> (Sổ thu chi cộng vào). Khoản chi của ca thành nợ: Đối soát ca › Thu chi › <b>Thành nợ</b>.</div></div>`,
     mount() {
       $('#cn-find').addEventListener('input', (e) => { const s = e.target.value.trim().toLowerCase();
@@ -133,11 +137,12 @@ export async function render(ctx) {
     const kind0 = g === 'khach' ? 'bill' : 'muon';
     const dl = dialog(html`<form class="stack cn-dlg" style="gap:12px"><h2 style="margin:0">${p ? `Ghi thêm nợ — ${p.name}` : `Ghi nợ — ${BR.code}`}</h2>
       ${p ? '' : html`<div class="pc-line" role="radiogroup" aria-label="Nhóm">${Object.entries(GRP_SHORT).map(([k, l]) => html`<label class="radio-pill"><input type="radio" name="grp" value="${k}" ${k === g ? 'checked' : ''}> ${l}</label>`)}</div>`}
-      ${p ? '' : people ? html`<label class="field"><span>Người nợ</span>${peopleSelect(people, { cur: g === 'kho' && people.some((q) => q.name === 'Kho tổng') ? 'Kho tổng' : '' })}</label>
+      ${p ? '' : html`<label class="field cn-kh"><span>Khách / bàn (ghi chú)</span><input class="input" name="kname" autocomplete="off" placeholder="vd: khách, bàn 5, áo xanh"></label>`}
+      <div class="stack cn-ppl" style="gap:12px">${p ? '' : people ? html`<label class="field"><span>Người nợ</span>${peopleSelect(people, { cur: g === 'kho' && people.some((q) => q.name === 'Kho tổng') ? 'Kho tổng' : '' })}</label>
         <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>`
         : html`<label class="field"><span>Tên người nợ</span><input class="input" name="name" list="cn-names" autocomplete="off" value="${g === 'kho' ? 'Kho tổng' : ''}" placeholder="vd: Anh Thắng, Bàn 5"><datalist id="cn-names"></datalist></label>
         <label class="field"><span>Số điện thoại</span><input class="input" name="phone" inputmode="tel" autocomplete="off"></label>
-        <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>`}
+        <div class="st-meta">Chỉ ghi được tên đã có trong danh sách người nợ của cơ sở. Chưa có thì thêm trước ở Sổ thu chi › Sổ chi › 👥 Người nợ.</div>`}</div>
       <div class="pc-line" role="radiogroup" aria-label="Loại nợ">${[['bill', 'Nợ HĐ', 'khách chưa trả hoá đơn'], ['muon', 'Nợ TM', 'cầm tiền mặt của quán'], ['ck', 'Nợ CK', 'quán chuyển khoản cho']].map(([k, l, t]) => html`<label class="radio-pill" title="${t}"><input type="radio" name="kind" value="${k}" ${k === kind0 ? 'checked' : ''}> ${l}</label>`)}</div>
       <label class="field"><span>Số tiền nợ</span><input class="input money" name="amount" inputmode="numeric" autocomplete="off"></label>
       <label class="field"><span>Ngày nợ</span><input class="input" type="date" name="date" value="${today}" max="${today}"></label>
@@ -149,15 +154,16 @@ export async function render(ctx) {
     if (people) bindPeopleSelect(dl, people, cn, { grp0: () => f.grp.value, onPick: (n, gp) => { if (gp) { const r = f.querySelector(`[name=grp][value="${gp}"]`); if (r) r.checked = true; }
       const q = people.find((x) => x.name === n); if (q?.phone && !f.phone.value) f.phone.value = q.phone; } });
     const fill = () => { const gg = p ? p.grp : f.grp.value; const dlist = dl.querySelector('#cn-names'); if (dlist) dlist.innerHTML = str(html`${namesOf(gg).map((n) => html`<option value="${n}"></option>`)}`);
-      const k = [...f.kind].find((x) => x.checked)?.value; f.fund_out.disabled = k === 'bill'; if (k === 'bill') f.fund_out.checked = false; };
+      const k = [...f.kind].find((x) => x.checked)?.value; f.fund_out.disabled = k === 'bill'; if (k === 'bill') f.fund_out.checked = false;
+      const kh = gg === 'khach'; const a = dl.querySelector('.cn-kh'); if (a) a.hidden = !kh; dl.querySelector('.cn-ppl').hidden = kh && !p; };
     fill(); f.addEventListener('change', fill);
     dl.querySelector('[data-x]').addEventListener('click', () => dl.close());
     f.addEventListener('submit', async (ev) => {
       ev.preventDefault(); const btn = f.querySelector('[type=submit]'); btn.disabled = true;
       const gg = p ? p.grp : f.grp.value;
       try {
-        if (!p && !f.name.value) throw new Error('Chọn người nợ.');
-        await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: cn, grp: gg, name: p ? (p.rows.find((r) => r.by_ql)?.name || p.name) : f.name.value, phone: p ? p.phone || '' : f.phone.value,
+        if (!p && gg !== 'khach' && !f.name.value) throw new Error('Chọn người nợ.');
+        await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: cn, grp: gg, name: p ? (p.rows.find((r) => r.by_ql)?.name || p.name) : gg === 'khach' ? f.kname.value.trim() : f.name.value, phone: p ? p.phone || '' : gg === 'khach' ? '' : f.phone.value,
           kind: [...f.kind].find((x) => x.checked).value, amount: parseMoney(f.amount.value), date: f.date.value, note: f.note.value, fund_out: f.fund_out.checked } });
         dl.close(); flash('Đã ghi nợ.'); rerender();
       } catch (e) { btn.disabled = false; err(dl, e); }
@@ -202,7 +208,7 @@ export async function render(ctx) {
         const g = [...f.grp].find((x) => x.checked).value;
         await rpc('app_cn_person_save', { p_ids: p.rows.map((r) => r.id), p_name: f.name.value, p_phone: f.phone.value, p_grp: g });
         dl.close(); flash('Đã lưu.');
-        location.hash = q({ p: `${g}|${dispName({ ...p.rows[0], name: f.name.value.trim() }).toLowerCase()}` });
+        location.hash = q({ p: g === 'khach' ? 'khach|khách' : `${g}|${dispName({ ...p.rows[0], name: f.name.value.trim() }).toLowerCase()}` });
       } catch (e) { btn.disabled = false; err(dl, e); }
     });
   }
