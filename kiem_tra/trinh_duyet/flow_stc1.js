@@ -81,8 +81,8 @@ export default async ({ sleep, out }) => {
   const cell = (id) => $(`.cw-c[data-id="${id}"]`); const tip = (id) => (cell(id)?.getAttribute('title') || '').toLowerCase();
   const pick = async (id) => { await go(`#/ca/doi-soat?id=${id}&tab=tien`, '#root .card'); await wait('.stc-dsp, #ds-nextca2', 100); await sleep(300); };
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
-  // ca 183 đã bấm Hoàn thành (còn lệch tiền mặt xử lý sau) → dòng Tiền ✓ như thiết kế 22/11 (⏳ · 🔴 · 🔵 · 🟡 · ✓; ô cam "Còn lệch" của lịch cũ không còn)
-  ok(txt(cell(183)?.querySelector('.cw-dt')).includes('✓') && tip(183).includes('tiền: xong') && txt(cell(182)?.querySelector('.cw-dt')).includes('🔴') && tip(182).includes('mở ca')
+  // ca 183 đã bấm Hoàn thành nhưng còn lệch tiền mặt chờ xử lý → dòng Tiền 🟠 (anh Tiến chốt 23/11, như ô cam "Còn lệch" của lịch cũ)
+  ok(txt(cell(183)?.querySelector('.cw-dt')).includes('🟠') && tip(183).includes('còn chênh lệch') && txt(cell(182)?.querySelector('.cw-dt')).includes('🔴') && tip(182).includes('mở ca')
     && txt(cell(172)?.querySelector('.cw-dt')).includes('⏳') && tip(172).includes('chờ kế toán'), '14. ô ghi trạng thái ca (' + [183, 182, 172].map((i) => txt(cell(i)) + ' / ' + tip(i)).join(' | ') + ')');
   // bước 171: khung ca = 6 bước (① Số máy Fabi ② Tiền thực nhận ③ Khoản thu ④ Khoản chi ⑤ Chênh lệch ⑥ Hoàn thành) — nay ①–⑤ ở tab ②, ⑥ ở tab ③
   await pick(181);

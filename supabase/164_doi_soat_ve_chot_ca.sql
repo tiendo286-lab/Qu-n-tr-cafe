@@ -5,7 +5,8 @@
 --   của Bảng phân công); không có quyền → [] (không báo lỗi, để bảng tuần vẫn vẽ như cũ).
 -- Trạng thái phần tiền theo đúng thứ tự điều kiện của app__ca_auto_finish / khung Còn thiếu (tệp 159):
 --   kt = chờ kế toán · red = chưa xác nhận Fabi, còn ô đỏ (mở ca / doanh thu / nợ) · xn = chờ xác nhận Fabi ·
---   ht = đã xác nhận, chưa bấm Hoàn thành · ok = đã bấm Hoàn thành (stc_ca_done) hoặc ca đã "Đã đối soát".
+--   ht = đã xác nhận, chưa bấm Hoàn thành · lech = đã bấm Hoàn thành nhưng còn mục tiền chưa có dấu (chênh lệch chờ xử lý / chờ Chủ duyệt —
+--   anh Tiến chốt 23/11: ô cam 🟠, mở bước Chênh lệch) · ok = đã bấm Hoàn thành, đủ dấu mục tiền, hoặc ca đã "Đã đối soát".
 -- Phần việc xong = đủ dấu Ai làm ca (nhan_su), Bàn giao (ban_giao), Nhập hàng (nhap_hang) và x2 không cần / đã duyệt.
 -- Nhập hàng (luật 15/11 — tách sang menu Hàng hoá; anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): ca không nhận hàng kho tổng nào thì không tính
 --   thiếu (máy tự đánh dấu khi mở trang đối soát — app__ca_auto_recon, cùng điều kiện); chỉ ca có hàng kho tổng gắn vào (ca cũ trước 15/11) mới tính.
@@ -40,7 +41,11 @@ begin
                     and coalesce((s ->> 'dt')::boolean, true) and coalesce((s ->> 'no')::boolean, true) then 'xn' else 'red' end;
       end if;
     elsif not done then st := 'ht';
-    else st := 'ok';
+    else
+      tthieu := array(select public.app__ca_item_label(u.it) from unnest(public.app__ca_check_items()) with ordinality u(it, o)
+                       where u.it not in ('nhan_su', 'ban_giao', 'nhap_hang')
+                         and not exists (select 1 from public.shift_report_checks c where c.report_id = p_id and c.item = u.it) order by u.o);
+      st := case when cardinality(tthieu) > 0 then 'lech' else 'ok' end;
     end if;
   end if;
   return jsonb_build_object('id', r.id, 'date', r.work_date, 'shift', r.shift, 'recon', r.recon_status,

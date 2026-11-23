@@ -23,6 +23,9 @@ export default async ({ sleep, out }) => {
       ok(/⏳/.test(txt(cell(172)?.querySelector('.cw-dt'))) && /🔴/.test(txt(cell(182)?.querySelector('.cw-dt'))) && /–/.test(txt(cell(182)?.querySelector('.cw-dv'))),
         `(a) ca 172 chờ kế toán ⏳ · ca 182 ô đỏ 🔴, chưa làm phần việc – (172: ${txt(cell(172)?.querySelector('.cw-dt'))} · 182: ${txt(cell(182)?.querySelector('.cw-dv'))} ${txt(cell(182)?.querySelector('.cw-dt'))})`);
       ok(!!$('.cw-lgds'), '(a) có chú thích ký hiệu Việc · Tiền');
+      // anh Tiến chốt 23/11: ca đã bấm Hoàn thành tiền mà còn chênh lệch chờ xử lý (183: thiếu tiền mặt 30.000) → Tiền 🟠, chú thích có 🟠
+      ok(/🟠/.test(txt(cell(183)?.querySelector('.cw-dt'))) && /còn chênh lệch/.test((cell(183)?.getAttribute('title') || '').toLowerCase()) && /🟠/.test(txt($('.cw-lgds'))),
+        '(a) ca 183 Hoàn thành tiền còn chênh lệch → Tiền 🟠 (' + txt(cell(183)?.querySelector('.cw-dt')) + ')');
       // (b) đầu bảng: Còn N ca chưa đối soát xong · Làm ca cũ nhất ›
       const con = $('.cw-con'); const lk = con?.querySelector('a');
       ok(!!con && /còn \d+ ca chưa đối soát xong/.test(txt(con)) && /#\/ca\/doi-soat\?id=141(&|$)/.test(lk?.getAttribute('href') || ''), '(b) dòng "Còn N ca chưa đối soát xong" → ca cũ nhất 141: ' + txt(con).slice(0, 80) + ' ' + (lk?.getAttribute('href') || ''));

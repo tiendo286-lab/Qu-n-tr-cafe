@@ -63,6 +63,12 @@ begin
   -- (5) đã bấm Hoàn thành phần tiền
   execute row_of into v using t, O;
   rep := rep || E'\n' || case when v -> 'tien' ->> 'st' = 'ok' and v ->> 'recon' is distinct from 'hoan_thanh' then 'ĐẠT' else 'HỎNG' end || format(' (5) có stc_ca_done → %s, recon %s', v -> 'tien' ->> 'st', v ->> 'recon');
+  -- (14) đã bấm Hoàn thành tiền nhưng một mục tiền chưa có dấu (chênh lệch chờ xử lý, vd chuyển khoản dư) → 🟠 lech (anh Tiến chốt 23/11)
+  delete from public.shift_report_checks where report_id = O and item = 'chuyen_khoan';
+  v := public.app__ca_ds_row(O);
+  rep := rep || E'\n' || case when v -> 'tien' ->> 'st' = 'lech' and (v -> 'tien' ->> 'thieu') ilike '%chuyển khoản%' then 'ĐẠT' else 'HỎNG' end
+        || format(' (14) Hoàn thành tiền nhưng thiếu dấu Chuyển khoản (chênh lệch chờ xử lý) → %s, thiếu %s', v -> 'tien' ->> 'st', v -> 'tien' ->> 'thieu');
+  insert into public.shift_report_checks(report_id, item, checked_by, checked_at) values (O, 'chuyen_khoan', chu.id, public.vn_now_text()) on conflict do nothing;
 
   -- (10) ca tiếp theo: đúng thứ tự Sáng → Chiều → Tối, qua 2 ngày
   c := public.app_ca_ds_con(1);

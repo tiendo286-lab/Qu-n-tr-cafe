@@ -857,7 +857,7 @@ export async function render({ params }) {
   let moneyHtml = isDs ? String(MONEY?.html || '') : '';
   if (isDs && !moneyHtml.includes('data-tab-pane')) moneyHtml = `<section data-tab-pane="tien">${moneyHtml}</section><section data-tab-pane="xong">${moneyHtml}</section>`;
   if (isDs) moneyHtml = moneyHtml.replace('data-tab-pane="tien"', `data-tab-pane="tien"${tab0 === 'tien' ? '' : ' hidden'}`).replace('data-tab-pane="xong"', `data-tab-pane="xong"${tab0 === 'xong' ? '' : ' hidden'}`);
-  const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', ok: '✓' };
+  const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', lech: '🟠', ok: '✓' };
   const wN = wLeft.filter((t) => t !== 'Chờ Chủ duyệt x2').length;
   const dsTabs = isDs ? html`<nav class="ds-ptabs" role="tablist" aria-label="Phần đối soát">${[['viec', '① Phần việc', wN ? `còn ${wN}` : '✓'], ['tien', '② Phần tiền', TSYM[DSR?.tien?.st] || ''],
       ['xong', '③ Hoàn thành', R0.recon_status === 'hoan_thanh' ? '✓' : '']].map(([k, l, n]) => html`<button type="button" class="ds-pt" role="tab" data-ptab="${k}" aria-selected="${k === tab0 ? 'true' : 'false'}">${l}${n ? html`<span class="ds-ptn ${n === '✓' ? 'ok' : ''}">${n}</span>` : ''}</button>`)}</nav>` : '';

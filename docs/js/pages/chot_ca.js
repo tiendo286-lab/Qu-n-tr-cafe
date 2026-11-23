@@ -143,7 +143,7 @@ export async function render({ params }) {
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
       <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div>
-      ${DSW.size ? html`<div class="cw-lg cw-lgds st-meta"><b>Đối soát:</b> Việc ✓ xong · – còn việc &nbsp;|&nbsp; Tiền ⏳ chờ kế toán · 🔴 ô đỏ (mở ca / doanh thu / nợ) · 🔵 chờ xác nhận Fabi · 🟡 chưa bấm Hoàn thành · ✓ xong. Bấm ô để đối soát ca đó.</div>` : ''}</section>
+      ${DSW.size ? html`<div class="cw-lg cw-lgds st-meta"><b>Đối soát:</b> Việc ✓ xong · – còn việc &nbsp;|&nbsp; Tiền ⏳ chờ kế toán · 🔴 ô đỏ (mở ca / doanh thu / nợ) · 🔵 chờ xác nhận Fabi · 🟡 chưa bấm Hoàn thành · 🟠 còn chênh lệch chờ xử lý · ✓ xong. Bấm ô để đối soát ca đó.</div>` : ''}</section>
     ${debtSection(DEBT, days.flatMap((d, i) => shifts.map((sh) => mine[i].find((r) => r.shift === sh)).filter((s) => s && s.report_id).map((s) => ({ report_id: s.report_id, day: d, shift: s.shift }))))}`}`;
   return {
     title: 'Chốt ca',
@@ -163,8 +163,8 @@ export async function render({ params }) {
 }
 
 // Đối soát về Chốt ca: ký hiệu dòng Tiền (giống Đối soát Fabi)
-const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', ok: '✓' };
-const TTXT = { kt: 'chờ kế toán', red: 'còn ô đỏ (mở ca / doanh thu / nợ)', xn: 'chờ xác nhận Fabi', ht: 'chưa bấm Hoàn thành', ok: 'xong' };
+const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', lech: '🟠', ok: '✓' };   // 🟠: anh Tiến chốt 23/11
+const TTXT = { kt: 'chờ kế toán', red: 'còn ô đỏ (mở ca / doanh thu / nợ)', xn: 'chờ xác nhận Fabi', ht: 'chưa bấm Hoàn thành', lech: 'còn chênh lệch chờ xử lý / chờ Chủ duyệt', ok: 'xong' };
 const WSTYLE = html`<style>
   .cw-dv, .cw-dt { display: block; font-size: 12px; font-weight: 600; line-height: 1.35; }
   .cw-c.dsok .cw-st { color: var(--ok-ink, #166534); }

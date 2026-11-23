@@ -38,7 +38,11 @@ export function makeStc(T, me) {
       const red = c && !light && (Number(c.nv?.opening) !== Number(c.fabi?.opening) || Number(c.nv?.revenue) !== Number(c.fabi?.revenue)
         || Number(c.nv?.debt ?? 0) !== Number(c.fabi?.debt ?? 0) || Number(c.nv?.debt ?? 0) !== billList(c));
       st1 = red ? 'red' : 'xn';
-    } else st1 = c.done ? 'ok' : 'ht';
+    } else if (!c.done) st1 = 'ht';
+    else {   // 🟠 (anh Tiến chốt 23/11): đã Hoàn thành nhưng còn chênh lệch chờ xử lý (máy chủ: thiếu dấu mục tiền)
+      const pend = st().items.filter((x) => x.ca_id === r.id && x.gap && Number(x.gap.avail || 0) > 0);
+      st1 = pend.length ? 'lech' : 'ok'; tth = [...new Set(pend.map((x) => (x.pm === 'ck' ? 'Chuyển khoản' : 'Tiền mặt')))];
+    }
     return { id: r.id, date: r.work_date, shift: r.shift, recon: r.recon_status, tab: !viec ? 'viec' : st1 !== 'ok' ? 'tien' : 'xong',
       viec: { xong: viec, thieu, x2: 'khong_can' }, tien: { st: st1, thieu: tth } };
   };
