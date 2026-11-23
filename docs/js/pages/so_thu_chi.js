@@ -201,7 +201,7 @@ function bindPage(D) {
       const box = $('#stc-ds'); if (box) box.innerHTML = str(dsBody(D)); $('.stc-dsp')?.scrollIntoView({ block: 'start' }); return; }
     const fw = ev.target.closest('[data-dsfocus]');   // chặng 2: "Còn thiếu" → tới ô cần nhập (cùng bước)
     if (fw && root.contains(fw)) { const inp = root.querySelector(`.stc-dsp [name="${fw.dataset.dsfocus}"]`); if (inp) { inp.scrollIntoView({ block: 'center' }); inp.focus(); } return; }
-    const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen],[data-dsfinal],[data-dsdone],[data-dsundone],[data-tick],[data-dssau]');
+    const dw = ev.target.closest('[data-dsfabi],[data-dsblame],[data-dsunblame],[data-dsmode],[data-dscash],[data-dsclose],[data-dsreopen],[data-dsfinal],[data-dsdone],[data-dsundone],[data-tick],[data-tickall],[data-dssau]');
     if (dw && root.contains(dw) && !dw.disabled) { dsAct(D, dw); return; }
     const jw = ev.target.closest('[data-dsjump]');   // bước 168: thanh cuối màn hình → nhảy tới chỗ cần xử lý
     if (jw && root.contains(jw)) { dsJump(D, jw); return; }
@@ -1231,6 +1231,20 @@ function dsAct(D, b) {
   } else if (b.dataset.dsreopen) {
     ask('Mở lại xác nhận Fabi', html`<div class="st-meta">Mở lại để sửa số Fabi / nhân viên ghi / tiền thực nhận. Thu chi của ca khoá sửa tới khi xác nhận lại.</div>`, false,   // bước 160: không bắt ghi lý do
       (d) => rpc('app_stc_ds_reopen', { p_report: c.id, p_reason: val(d, 'reason') || null }), 'Đã mở lại xác nhận');
+  } else if (b.dataset.tickall) {   // chặng 6.3: tích lần lượt từng mục (máy chủ kiểm từng mục như bấm tay) rồi sang bước sau nếu bước đã xong
+    const list = dsChecks(c, dsCtx(D, c))[DSB.step] || [];
+    const todo = list.filter((x) => !x.auto && !x.ok); const red = list.filter((x) => x.auto && !x.ok); const last = DSB.step >= 4;
+    b.disabled = true;
+    (async () => {
+      try {
+        for (const x of todo) await rpc('app_stc_tick', { p_report: c.id, p_item: x.k, p_on: true });
+        if (!red.length && !last) { DSB.step += 1; if (DSB.step === 2) DSB.book = 'thu'; if (DSB.step === 3) DSB.book = 'chi'; }
+        CACHE = null;
+        showSaved(red.length ? `Đã tích ${todo.length} mục — bước này còn ${red.length} mục web chưa tích được` : `Đã tích ${todo.length} mục`);
+        await rerender();
+        if (!red.length && last && ONE) window.dispatchEvent(new CustomEvent('stc-one-tab', { detail: { tab: 'xong' } }));
+      } catch (e) { b.disabled = false; showSaved(e.message, true); }
+    })();
   } else if (b.dataset.tick) {   // bước 171: mục quản lý tự tích
     const on = !(c.ticks || []).includes(b.dataset.tick);
     run(() => rpc('app_stc_tick', { p_report: c.id, p_item: b.dataset.tick, p_on: on }), on ? 'Đã tích' : 'Đã bỏ tích');
@@ -1533,7 +1547,16 @@ function chkBox(c, list, ro) {
   return html`<section class="stc-chk"><h3>Quản lý cần kiểm tra ở bước này <em>${done}/${list.length} xong</em></h3>${list.map((x, n) => { const [t, how] = CHK[x.k] || [x.k, ''];
     const inner = html`<span class="bx">✓</span><span class="t"><i class="stc-mk ${x.ok ? 'ok' : ''}">${n + 1}</i> <b>${t}</b><span class="how">${how} · <b>${x.auto ? (x.wait ? 'đang chờ ca sau gửi phiếu' : 'web tự tích') : 'quản lý bấm để tích'}</b></span></span>`;
     return x.auto ? html`<div class="stc-ci auto ${x.ok ? 'ok' : ''}">${inner}</div>`
-      : html`<button type="button" class="stc-ci ${x.ok ? 'ok' : ''}" data-tick="${x.k}" aria-pressed="${x.ok ? 'true' : 'false'}" ${ro || c.done ? 'disabled' : ''}>${inner}</button>`; })}</section>`;
+      : html`<button type="button" class="stc-ci ${x.ok ? 'ok' : ''}" data-tick="${x.k}" aria-pressed="${x.ok ? 'true' : 'false'}" ${ro || c.done ? 'disabled' : ''}>${inner}</button>`; })}${tickAll(c, list, ro)}</section>`;
+}
+// chặng 6.3 (anh Tiến chọn 23/11): một nút tích hết mục quản lý tự tích của bước rồi sang bước sau.
+// Còn mục web tự xét chưa xong (đỏ) thì vẫn tích mục của quản lý nhưng ở lại bước này. Không bấm Xác nhận Fabi.
+function tickAll(c, list, ro) {
+  const todo = list.filter((x) => !x.auto && !x.ok); const red = list.filter((x) => x.auto && !x.ok);
+  if (!todo.length || ro || c.done) return '';
+  const last = DSB.step >= 4;
+  return html`<div class="stc-tkall"><button type="button" class="btn" data-tickall="1">✓ Đã xem — tích hết ${todo.length} mục${red.length ? '' : last ? ' & sang Hoàn thành' : ' & sang bước sau'}</button>
+    ${red.length ? html`<span class="st-meta stc-tkall-red">Bước này còn ${red.length} mục web chưa tích được (${red.map((x) => (CHK[x.k] || [x.k])[0]).join('; ')}): bấm vẫn tích mục của quản lý nhưng ở lại bước này để xử lý.</span>` : ''}</div>`;
 }
 // bước 2: số ở bước này sai thì sửa ở đâu (anh Tiến hỏi 20/11)
 function fixHelp(c) {
@@ -1891,6 +1914,8 @@ const STYLE = html`<style>
   section.stc-chk { background: var(--warn-bg); border: 1px solid var(--warn-line); border-radius: 12px; padding: 10px 12px; display: grid; gap: 6px; color: var(--warn-ink); }
   .stc-chk h3 { margin: 0; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
   .stc-chk h3 em { font-style: normal; margin-left: auto; font-size: 12.5px; background: var(--card); border-radius: 99px; padding: 1px 9px; }
+  .stc-tkall { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 2px; }
+  .stc-tkall .stc-tkall-red { flex: 1 1 220px; min-width: 0; }
   .stc-ci { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: start; background: var(--card); border-radius: 9px; padding: 7px 10px; color: var(--ink); border: 0; text-align: left; width: 100%; font: inherit; }
   button.stc-ci { cursor: pointer; } button.stc-ci:disabled { cursor: default; opacity: .75; }
   .stc-ci .bx { width: 22px; height: 22px; border-radius: 6px; border: 2px solid var(--warn-line); display: grid; place-items: center; font-size: 13px; font-weight: 700; color: transparent; margin-top: 1px; }

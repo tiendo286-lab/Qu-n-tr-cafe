@@ -174,6 +174,8 @@ export function makeStc(T, me) {
       Object.entries(p || {}).forEach(([k, v]) => { c[k] = v && typeof v === 'object' && !Array.isArray(v) && c[k] && typeof c[k] === 'object' ? { ...c[k], ...v } : v; });
     },
     // → Trừ lương (anh Tiến chốt 22/11: người làm ca có ô tích): gắn p_n nhân viên đang làm vào ca (đã làm) — app_ca_get trả về như phiếu thật
+    // chặng 6.3 (chỉ bài thử): coi ca như đã Xác nhận Fabi để mở bước 3–5, bỏ các mục quản lý tự tích
+    app__test_ds_open({ p_id }) { const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.'); c.recon_money_done = true; c.done = null; c.ticks = []; },
     app__test_ca_staff({ p_id, p_n = 2 }) {
       const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || []; T.employees = T.employees || [];
       // nhân viên GIẢ (không dùng tên thật trong dữ liệu chép về máy thử)

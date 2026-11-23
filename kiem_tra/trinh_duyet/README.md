@@ -1,5 +1,6 @@
 # Chạy thử giao diện trên Chrome (không đụng dữ liệu thật)
 
+- Chặng 6.3 (nút tích hết mỗi bước phần tiền): `script=flow_tick63&confirm=1` (role chu / qlt / ql, máy tính + `test/phone.html`; role nv: không có nút) — ca 182 bước 1 còn mục đỏ: tích mục QL, ở lại + báo; ca 183 (hook `app__test_ds_open` mở bước 3–5, gọi TRƯỚC khi trang đọc tháng vì trang giữ dữ liệu 60 giây) bước 3, 4 sạch: tích xong sang bước sau; bước 2 không bấm Xác nhận Fabi.
 - Chặng 6.2 (trang Duyệt nghỉ & làm thay, tệp 165): `script=flow_x2p` (role chu / qlt / ql, máy tính + `test/phone.html`) — chu dựng 3 phiếu có nghỉ / hỗ trợ: Áp hàng loạt (tự ghép 1–1, x2), ca thiếu lý do báo đỏ, Lưu → Chờ Chủ duyệt (tích sẵn) → Duyệt → Đã duyệt → Sửa → Duyệt lại; qlt: sửa / Áp / Lưu, không có Duyệt; ql: chỉ xem.
 - **Chạy bằng Playwright (19/11):** `python3 -m venv <thư mục>/venv && <thư mục>/venv/bin/pip install playwright` (1 lần, dùng Chrome có sẵn), rồi `chuan_bi.sh <thư mục tạm>` và `<venv>/bin/python kiem_tra/trinh_duyet/chay_pw.py <thư mục tạm> "role=chu&script=flow_ln167" [--phone]` — chạy thời gian thật, in ĐẠT / LỖI, mã thoát 1 khi hỏng.
 - **CSDL thử cục bộ (19/11):** `kiem_tra/may_chu_cuc_bo/` — dựng Postgres trên máy (không đụng Supabase) từ mọi tệp `supabase/*.sql` để chạy thử tệp SQL mới + bài thử `kiem_tra/*.sql`. Xem README ở đó.
