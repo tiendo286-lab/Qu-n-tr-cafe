@@ -86,7 +86,10 @@ export async function validationTests(day, store) {
   check(() => assert.equal(JSON.stringify(diff.diff), JSON.stringify(['doanh thu', 'tiền mặt'])));
   check(() => assert.equal(ck.uploads(), 1));
   // 0.3.4 — hỏi web trước: phiếu ca chưa có file + file thiếu số (không cần file Excel).
-  ck.corrupt('ck', null);
+  ck.corrupt('ck', null); ck.corrupt('tm', null);
+  const onlyMoney = await ck.invoke('suspects', { from: day, to: day, base64: undefined });
+  check(() => assert.equal(JSON.stringify(onlyMoney.days[day].broken), '[]')); // chỉ trống tiền mặt / chuyển khoản: bỏ qua (anh chọn 23/11)
+  ck.corrupt('net', null);
   const sus = await ck.invoke('suspects', { from: day, to: day, base64: undefined });
   check(() => assert.equal(JSON.stringify(sus.days[day]), JSON.stringify({ missing: 1, saved: [args.id], broken: [args.id] })));
   const noOptional = fixture().filter((r) => !['PHIẾU THANH TOÁN NỢ', 'HOÁ ĐƠN SỬA/XOÁ'].includes(r[0]));

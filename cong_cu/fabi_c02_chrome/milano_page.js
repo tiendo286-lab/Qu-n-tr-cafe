@@ -18,7 +18,7 @@ export async function milanoPage(command, args) {
     for (const f of list.files || []) {
       const d = String(f.work_date).slice(0, 10);
       day(d).saved.push(f.ma_ca);
-      if (['dau', 'net', 'tong', 'tm', 'ck'].some((k) => f[k] == null) || !f.close_at) day(d).broken.push(f.ma_ca);
+      if (['dau', 'net', 'tong'].some((k) => f[k] == null) || !f.close_at) day(d).broken.push(f.ma_ca); // trống tiền mặt / chuyển khoản: bỏ qua (28 file đầu tháng 11, anh chọn để sau)
     }
     for (const [d, x] of Object.entries(days)) if (!x.missing && !x.broken.length) delete days[d];
     return { days };
