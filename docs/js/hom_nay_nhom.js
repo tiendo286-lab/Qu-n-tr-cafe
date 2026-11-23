@@ -1,6 +1,6 @@
 // Việc hôm nay chia nhóm (bước 142): chia khối Vận hành / Nhân sự / Khác, gộp việc cùng loại, Đã xong hôm nay, Mọi người (Chủ).
 // Hàm thuần (không gọi máy chủ, không chạm trang) để thử bằng jsc: kiem_tra/hom_nay_nhom_142.mjs
-import { ORDER, collectWork, jobCat } from './hom_nay_viec.js?v=2026.11.23.3';
+import { ORDER, collectWork, jobCat } from './hom_nay_viec.js?v=2026.11.23.4';
 
 export const CATS = [
   { id: 'vh', name: 'Vận hành', hint: 'Tiền · Chốt ca · Hàng hoá · Ngân hàng' },
