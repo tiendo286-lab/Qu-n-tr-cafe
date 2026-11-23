@@ -9,6 +9,20 @@ export async function milanoPage(command, args) {
     const me = await rpc('app_me');
     return { allowed: !!me?.perms?.ke_toan && !me.must_change };
   }
+  // Hỏi web trước (không cần file): từng ngày còn bao nhiêu phiếu ca chưa có file Fabi, file nào đang thiếu số.
+  if (command === 'suspects') {
+    const list = await rpc('app_fabi_list', { p_from: args.from, p_to: args.to });
+    const days = {};
+    const day = (d) => (days[d] ??= { missing: 0, saved: [], broken: [] });
+    for (const r of list.missing || []) day(String(r.work_date).slice(0, 10)).missing++;
+    for (const f of list.files || []) {
+      const d = String(f.work_date).slice(0, 10);
+      day(d).saved.push(f.ma_ca);
+      if (['dau', 'net', 'tong', 'tm', 'ck'].some((k) => f[k] == null) || !f.close_at) day(d).broken.push(f.ma_ca);
+    }
+    for (const [d, x] of Object.entries(days)) if (!x.missing && !x.broken.length) delete days[d];
+    return { days };
+  }
   const [{ parseDetail }, { xlsx }] = await Promise.all([
     import(base + 'js/pages/ke_toan_fabi.js'), import(base + 'js/excel.js'),
   ]);

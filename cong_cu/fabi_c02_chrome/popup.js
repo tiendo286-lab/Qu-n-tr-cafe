@@ -46,7 +46,7 @@ function show(s) {
   $('#enabled').disabled = running || (!s.enabled && !(s.run?.mode === 'upload' && s.run?.status === 'success'));
   const md = monthDays();
   $('#audit').disabled = running;
-  $('#audit').textContent = `3. Kiểm tra & bù ca thiếu cả tháng (${short(md[0])} → ${short(md.at(-1))})`;
+  $('#audit').textContent = `3. Kiểm tra & bù ca lỗi cả tháng (${short(md[0])} → ${short(md.at(-1))})`;
   showAudit(s, running);
   $('#results').replaceChildren(...(s.run?.mode === 'audit' ? [] : s.run?.results || []).map((r) => {
     const li = document.createElement('li'); li.textContent = `${r.store} · ${r.id} · ${labels[r.status] || r.status}`; return li;
@@ -78,7 +78,7 @@ function showAudit(s, running) {
   const other = (r.results || []).filter((x) => ['da_nhap', 'da_nhap_de', 'loi'].includes(x.status));
   const name = { da_nhap: 'thiếu, đã nhập', da_nhap_de: 'đã nhập đè theo Fabi', loi: 'lỗi' };
   $('#auditlist').replaceChildren(...other.map((x) => li(`${x.store || '?'} · ${short(x.day)} · ${x.short} · ${name[x.status]}${x.note ? ': ' + x.note : ''}`)),
-    ...(r.failures || []).map((f) => li(`Ngày ${short(f.day)} · không đọc được danh sách: ${f.note}`)));
+    ...(r.failures || []).map((f) => li(`Ngày ${short(f.day)} · ${f.note}`)));
   $('#auditmore').hidden = !other.length && !(r.failures || []).length;
 }
 async function act(type, extra) { try { $('#error').textContent = ''; show(await send(type, extra)); } catch (e) { $('#error').textContent = e.message; } }

@@ -33,7 +33,7 @@ export async function validationTests(day, store) {
       mock: { xlsx: async () => ({ read: () => book, utils: { sheet_to_json: () => raw } }),
         rpc: async (name, p) => {
           if (name === 'app_me') return { perms: { ke_toan: allowed }, must_change: false, private: 'PRIVATE' };
-          if (name === 'app_fabi_list') return { files: saved ? [saved] : [] };
+          if (name === 'app_fabi_list') return { files: saved ? [saved] : [], missing: [{ report_id: 1, branch_code: 'LHP', work_date: day, shift: 'sang', status: 'submitted' }] };
           assert.equal(name, 'app_fabi_upload'); uploaded++;
           const row = p.p_rows[0];
           saved = { ma_ca: row.ma_ca, store: row.store, work_date: day, dau: row.dau, net: row.net, tong: row.tong,
@@ -85,6 +85,10 @@ export async function validationTests(day, store) {
   check(() => assert.equal(diff.state, 'khac'));
   check(() => assert.equal(JSON.stringify(diff.diff), JSON.stringify(['doanh thu', 'tiền mặt'])));
   check(() => assert.equal(ck.uploads(), 1));
+  // 0.3.4 — hỏi web trước: phiếu ca chưa có file + file thiếu số (không cần file Excel).
+  ck.corrupt('ck', null);
+  const sus = await ck.invoke('suspects', { from: day, to: day, base64: undefined });
+  check(() => assert.equal(JSON.stringify(sus.days[day]), JSON.stringify({ missing: 1, saved: [args.id], broken: [args.id] })));
   const noOptional = fixture().filter((r) => !['PHIẾU THANH TOÁN NỢ', 'HOÁ ĐƠN SỬA/XOÁ'].includes(r[0]));
   const noOptionalResult = await (await harness(noOptional)).invoke('preview');
   check(() => assert.equal(noOptionalResult.id, args.id));

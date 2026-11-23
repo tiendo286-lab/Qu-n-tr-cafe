@@ -76,10 +76,10 @@ async function start(mode, { automatic = false, day: wanted } = {}) {
   const app = await chrome.tabs.create({ url: MILANO + '#/ke-toan/fabi', active: false });
   const fabi = await chrome.tabs.create({ url: FABI, active: false });
   if (mode === 'audit') {
-    const days = monthDays();
-    s.run = { mode, days, dayIdx: 0, day: days[0], app: app.id, fabi: fabi.id, status: 'running', phase: 'list', page: 1, pages: [], queue: [], index: 0,
+    const month = monthDays();
+    s.run = { mode, month, days: [], plan: {}, dayIdx: 0, day: month.at(-1), app: app.id, fabi: fabi.id, status: 'running', phase: 'scan', page: 1, pages: [], queue: [], index: 0,
       results: [], staged: [], failures: [], counts: { khop: 0, thieu: 0, khac: 0, loi: 0 }, skips: 0, attempts: 0, started: Date.now(),
-      message: `Kiểm tra cả tháng ${vnDate(days[0])} → ${vnDate(days.at(-1))}: đang lấy danh sách ca ngày ${vnDate(days[0])}…` };
+      message: `Đang hỏi web các ca lỗi ${vnDate(month[0])} → ${vnDate(month.at(-1))}…` };
     return await save(s, version);
   }
   s.run = { day, mode, app: app.id, fabi: fabi.id, status: 'running', phase: 'list', page: 1, pages: [], queue: [], index: 0,
@@ -88,6 +88,7 @@ async function start(mode, { automatic = false, day: wanted } = {}) {
   } finally { starting = false; }
 }
 const STORE_SHORT = { 'Milano Coffee - Lê Hồng Phong': 'LHP', 'Milano Coffee - Đông Khê': 'ĐK', 'Milano Coffee - Hồ Sen': 'HS', 'Lela Cafe': 'LL' };
+const sameCa = (maCa, short) => String(maCa).toUpperCase().endsWith(String(short).slice(1).toUpperCase());
 const auditSummary = (r) => `${r.counts.khop} khớp · ${r.counts.thieu} thiếu đã nhập · ${r.counts.khac} khác Fabi chờ anh xem · ${r.counts.loi} lỗi`;
 // Lượt "Kiểm tra & bù ca thiếu cả tháng": từng ngày → từng ca tải lại từ Fabi → so với file đang lưu trên web.
 // Ca chưa có file thì nhập luôn; ca khác Fabi thì giữ file tạm, chờ anh xem rồi bấm nhập đè (có thể mở lại ca đã đối soát).
@@ -109,9 +110,20 @@ async function auditStep(s) {
     r.index++; r.message = `Đã nhập đè ${r.index}/${r.pick.length} ca…`;
     return;
   }
+  if (r.phase === 'scan') {
+    // Bước 1: hỏi web (vài giây) — chỉ những ngày có phiếu ca chưa có file / file thiếu số mới phải mở Fabi.
+    const w = await execute(r.app, milanoPage, ['suspects', { from: r.month[0], to: r.month.at(-1) }]);
+    r.plan = w.days || {};
+    r.days = r.month.filter((d) => r.plan[d]);
+    r.phase = 'list'; r.dayIdx = 0; r.day = r.days[0] || r.day;
+    const nMiss = r.days.reduce((n, d) => n + r.plan[d].missing, 0), nBroken = r.days.reduce((n, d) => n + r.plan[d].broken.length, 0);
+    r.message = r.days.length ? `Web báo ${nMiss} phiếu ca chưa có file, ${nBroken} file thiếu số ở ${r.days.length} ngày. Đang lấy từ Fabi…` : '';
+    return;
+  }
   if (r.dayIdx >= r.days.length) {
     r.status = 'success'; r.finished = Date.now(); r.phase = 'done';
-    r.message = `Đã kiểm tra cả tháng ${vnDate(r.days[0])} → ${vnDate(r.days.at(-1))}: ${auditSummary(r)}.`;
+    r.message = r.days.length ? `Đã xử lý ${r.days.length} ngày có ca lỗi (${vnDate(r.month[0])} → ${vnDate(r.month.at(-1))}): ${auditSummary(r)}.`
+      : `Web không có ca lỗi nào từ ${vnDate(r.month[0])} → ${vnDate(r.month.at(-1))} (không có phiếu ca thiếu file, không có file thiếu số).`;
     for (const [key, value] of Object.entries(s.done)) if (value.at < Date.now() - 45 * 86400000) delete s.done[key];
     return;
   }
@@ -123,14 +135,15 @@ async function auditStep(s) {
     r.pages = r.pages.filter((x) => x.page !== p.page).concat(p);
     if (p.pages > 50) throw Error('Số trang C02 bất thường; cần kiểm tra bộ lọc ngày.');
     if (r.page < p.pages) { r.page++; return; }
-    r.queue = queueRows(r.pages, r.day); r.pages = []; r.index = 0; r.phase = 'detail'; r.skips = 0;
-    r.message = `Ngày ${dd} (${r.dayIdx + 1}/${r.days.length}): ${r.queue.length} ca, đang so từng ca…`;
+    // Đọc đủ danh sách ngày (vẫn kiểm tổng số ca), rồi chỉ giữ ca web chưa có file + ca có file thiếu số.
+    const plan = r.plan[r.day] || { missing: 0, saved: [], broken: [] }, full = queueRows(r.pages, r.day);
+    r.queue = full.filter((q) => !plan.saved.some((m) => sameCa(m, q.short)) || plan.broken.some((m) => sameCa(m, q.short)));
+    const absent = full.filter((q) => !plan.saved.some((m) => sameCa(m, q.short))).length;
+    if (plan.missing > absent) r.failures.push({ day: r.day, note: `web còn ${plan.missing} phiếu ca chưa có file nhưng Fabi chỉ có ${absent} ca chưa có trên web — cần xem phiếu ca (nhầm ca / nhầm ngày?).` });
+    r.pages = []; r.index = 0; r.phase = 'detail'; r.skips = 0;
+    r.message = `Ngày ${dd} (${r.dayIdx + 1}/${r.days.length}): ${r.queue.length} ca cần tải lại…`;
   } else if (r.phase === 'detail') {
     if (r.index >= r.queue.length) {
-      const mine = r.results.filter((x) => x.day === r.day);
-      if (mine.length === r.queue.length && mine.every((x) => x.status === 'khop' || x.status === 'da_nhap')) {
-        s.synced = { ...(s.synced || {}), [r.day]: { count: mine.length, at: Date.now() } };
-      }
       r.dayIdx++; r.phase = 'list'; r.page = 1; r.pages = []; r.queue = []; r.index = 0;
       return;
     }
@@ -170,7 +183,7 @@ async function auditStep(s) {
 async function auditSkip(r, e) {
   r.skips = (r.skips || 0) + 1; r.attempts = 0;
   if (r.phase === 'list') {
-    r.failures.push({ day: r.day, note: e.message });
+    r.failures.push({ day: r.day, note: 'không đọc được danh sách Fabi: ' + e.message });
     r.dayIdx++; r.page = 1; r.pages = []; r.queue = []; r.index = 0;
   } else {
     const q = r.queue[r.index] || {};
@@ -273,7 +286,7 @@ async function drive() {
         s.run.attempts++;
         s.run.message = `Chưa hoàn tất: ${e.message}`;
         if (s.run.attempts >= 3) {
-          if (s.run.mode === 'audit' && s.run.phase !== 'overwrite' && (s.run.skips || 0) < 2) await auditSkip(s.run, e);
+          if (s.run.mode === 'audit' && ['list', 'detail', 'check'].includes(s.run.phase) && (s.run.skips || 0) < 2) await auditSkip(s.run, e);
           else s.run.status = 'error';
         }
         await save(s); break;
