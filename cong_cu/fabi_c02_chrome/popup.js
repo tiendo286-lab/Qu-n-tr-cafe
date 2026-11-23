@@ -1,4 +1,4 @@
-import { MAX_BACK_DAYS, recentDays, vnDate } from './core.mjs';
+import { MAX_BACK_DAYS, monthDays, recentDays, vnDate } from './core.mjs';
 const $ = (s) => document.querySelector(s);
 const labels = { preview: 'Đã kiểm tra, chưa nhập', unchanged: 'Đã có, số liệu khớp', khop: 'Đã nhập, khớp phiếu',
   lech: 'Đã nhập, khác phiếu và báo quản lý', chua_phieu: 'Đã nhập, chưa có phiếu trên web', dang_chot: 'Đã nhập, phiếu đang chốt' };
@@ -44,9 +44,42 @@ function show(s) {
   $('#stop').disabled = !running && !s.enabled;
   $('#enabled').checked = !!s.enabled;
   $('#enabled').disabled = running || (!s.enabled && !(s.run?.mode === 'upload' && s.run?.status === 'success'));
-  $('#results').replaceChildren(...(s.run?.results || []).map((r) => {
+  const md = monthDays();
+  $('#audit').disabled = running;
+  $('#audit').textContent = `3. Kiểm tra & bù ca thiếu cả tháng (${short(md[0])} → ${short(md.at(-1))})`;
+  showAudit(s, running);
+  $('#results').replaceChildren(...(s.run?.mode === 'audit' ? [] : s.run?.results || []).map((r) => {
     const li = document.createElement('li'); li.textContent = `${r.store} · ${r.id} · ${labels[r.status] || r.status}`; return li;
   }));
+}
+const li = (text, box) => { const x = document.createElement('li'); x.textContent = text; if (box) x.prepend(box); return x; };
+let ticked = null; // ca khác Fabi anh đã bỏ tích (giữ qua các lần làm mới)
+function showAudit(s, running) {
+  const r = s.run, on = r?.mode === 'audit';
+  $('#auditbox').hidden = !on;
+  if (!on) return;
+  $('#auditsum').textContent = r.message || '';
+  const khac = (r.results || []).filter((x) => x.status === 'khac');
+  ticked ??= new Set(khac.map((x) => x.id));
+  $('#khac').hidden = !khac.length || r.status === 'running';
+  const key = JSON.stringify(khac.map((x) => x.id));
+  if ($('#khaclist').dataset.key !== key) {
+    $('#khaclist').replaceChildren(...khac.map((x) => {
+      const box = document.createElement('input'); box.type = 'checkbox'; box.checked = ticked.has(x.id);
+      box.onchange = () => { if (box.checked) ticked.add(x.id); else ticked.delete(x.id); show(last); };
+      return li(` ${x.store} · ${short(x.day)} · ${x.short} · khác: ${(x.diff || []).join(', ') || 'chưa rõ'}`, box);
+    }));
+    $('#khaclist').dataset.key = key;
+  }
+  const pick = khac.filter((x) => ticked.has(x.id)).map((x) => x.id);
+  $('#overwrite').disabled = running || !pick.length;
+  $('#overwrite').textContent = `Nhập đè ${pick.length} ca đã chọn theo Fabi`;
+  $('#overwrite').onclick = () => act('overwrite', { ids: pick });
+  const other = (r.results || []).filter((x) => ['da_nhap', 'da_nhap_de', 'loi'].includes(x.status));
+  const name = { da_nhap: 'thiếu, đã nhập', da_nhap_de: 'đã nhập đè theo Fabi', loi: 'lỗi' };
+  $('#auditlist').replaceChildren(...other.map((x) => li(`${x.store || '?'} · ${short(x.day)} · ${x.short} · ${name[x.status]}${x.note ? ': ' + x.note : ''}`)),
+    ...(r.failures || []).map((f) => li(`Ngày ${short(f.day)} · không đọc được danh sách: ${f.note}`)));
+  $('#auditmore').hidden = !other.length && !(r.failures || []).length;
 }
 async function act(type, extra) { try { $('#error').textContent = ''; show(await send(type, extra)); } catch (e) { $('#error').textContent = e.message; } }
 // Chrome chỉ đổi phần chạy nền khi nạp lại tiện ích, còn cửa sổ này đọc tệp mới mỗi lần mở.
@@ -63,6 +96,7 @@ try {
 $('#day').onchange = (e) => { chosen = e.target.value; if (last) show(last); };
 $('#preview').onclick = () => act('preview', { day: chosen });
 $('#upload').onclick = () => act('upload');
+$('#audit').onclick = () => { ticked = null; act('audit'); };
 $('#stop').onclick = () => act('stop');
 $('#enabled').onchange = (e) => act('enable', { value: e.target.checked });
 await act('state');

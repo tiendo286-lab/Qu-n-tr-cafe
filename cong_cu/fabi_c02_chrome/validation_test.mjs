@@ -71,6 +71,20 @@ export async function validationTests(day, store) {
   h.corrupt('close_at', '2000-01-01T12:00:00');
   await h.invoke('upload', { expectedHash: preview.hash, previousHash: preview.hash });
   check(() => assert.equal(h.uploads(), 3)); // cùng giờ nhưng khác ngày đóng không được coi là khớp
+  // 0.3.2 — so file Fabi vừa tải với file đang lưu trên web (nút Kiểm tra & bù ca thiếu).
+  const ck = await harness();
+  const missing = await ck.invoke('check');
+  check(() => assert.equal(missing.state, 'thieu'));
+  check(() => assert.equal(missing.hash.length, 64));
+  check(() => assert.equal(ck.uploads(), 0)); // kiểm tra không ghi gì
+  await ck.invoke('upload', { expectedHash: missing.hash });
+  const same = await ck.invoke('check');
+  check(() => assert.equal(same.state, 'khop'));
+  ck.corrupt('net', 999); ck.corrupt('tm', 5);
+  const diff = await ck.invoke('check');
+  check(() => assert.equal(diff.state, 'khac'));
+  check(() => assert.equal(JSON.stringify(diff.diff), JSON.stringify(['doanh thu', 'tiền mặt'])));
+  check(() => assert.equal(ck.uploads(), 1));
   const noOptional = fixture().filter((r) => !['PHIẾU THANH TOÁN NỢ', 'HOÁ ĐƠN SỬA/XOÁ'].includes(r[0]));
   const noOptionalResult = await (await harness(noOptional)).invoke('preview');
   check(() => assert.equal(noOptionalResult.id, args.id));

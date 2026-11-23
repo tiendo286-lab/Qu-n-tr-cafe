@@ -58,10 +58,10 @@ export async function runTests() {
     const rs = Array.from({ length: 12 }, (_, i) => ({ ...makeRow(i + 1), open: `${v} 07:00`, close: `${v} 12:00` }));
     return [{ page: 1, pages: 2, total, rows: rs.slice(0, 10) }, { page: 2, pages: 2, total, rows: rs.slice(10) }];
   };
-  async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate, total = 12 } = {}) {
+  async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate, total = 12, saved = () => 'khop', failDay } = {}) {
     const local = savedState ? { state: structuredClone(savedState) } : {}, session = {}, tabs = new Map();
     const time = { ...core.vnClock(), minutes }; let startup, message, installed;
-    let id = 1, uploaded = 0, previewed = 0; const lists = [];
+    let id = 1, uploaded = 0, previewed = 0, checked = 0; const lists = [];
     const area = (store) => ({
       get: async (key) => ({ [key]: structuredClone(store[key]) }),
       set: async (data) => Object.assign(store, structuredClone(data)),
@@ -79,17 +79,19 @@ export async function runTests() {
         },
         scripting: { executeScript: async ({ func, args: [command, arg], target }) => {
           if (fail) throw Error('Lỗi thử nghiệm');
+          if (failDay && func.name === 'fabiPage' && arg?.day === failDay) throw Error('Lỗi thử nghiệm ngày ' + failDay);
           let result;
           if (func.name === 'fabiPage') {
             if (command === 'list') { lists.push(structuredClone(arg)); result = pagesFor(arg.day, total)[arg.page - 1]; }
             if (command === 'open') {
-              const url = core.FABI + '-detail?store=TEST&shift_id=TEST' + arg.short.slice(1);
+              const url = core.FABI + '-detail?store=TEST&shift_id=TEST' + arg.open.slice(0, 10).replace(/\D/g, '') + arg.short.slice(1);
               tabs.get(target.tabId).url = url; result = navigationReturnsNull ? null : { url };
             }
             if (command === 'export') result = { base64: btoa('PK-test-' + arg.short) };
           } else {
             const index = Number(arg.id.slice(-5)) - 1;
             if (command === 'preview') previewed++;
+            if (command === 'check') { checked++; const st = saved(index, arg.day); result = { id: arg.id, hash: 'test-hash-' + arg.id, store: core.STORES[index % 4], state: st, diff: st === 'khac' ? ['doanh thu'] : [] }; return [{ result }]; }
             const hash = 'test-hash-' + arg.id;
             const unchanged = command === 'upload' && arg.previousHash === hash;
             if (command === 'upload' && !unchanged) uploaded++;
@@ -103,14 +105,14 @@ export async function runTests() {
     });
     new vm.Script(source).runInContext(context);
     const run = (s) => vm.runInContext(s, context);
-    return { run, local, session, time, startup: () => startup(), installed: (reason) => installed({ reason }), tabCount: () => tabs.size, count: () => ({ uploaded, previewed }), lists: () => lists,
+    return { run, local, session, time, startup: () => startup(), installed: (reason) => installed({ reason }), tabCount: () => tabs.size, count: () => ({ uploaded, previewed, checked }), lists: () => lists,
       send: (type) => new Promise((resolve) => message({ type }, { id: 'test' }, resolve)) };
   }
   const h = await harness();
   await h.run("start('preview')"); await h.run('drive()');
   check(() => assert.equal(h.local.state.run.status, 'success'));
   check(() => assert.equal(h.local.state.run.results.length, 12));
-  check(() => assert.deepEqual(h.count(), { uploaded: 0, previewed: 12 }));
+  check(() => assert.deepEqual(h.count(), { uploaded: 0, previewed: 12, checked: 0 }));
   check(() => assert.equal(h.local.state.lastSuccess, undefined));
   await h.run("start('upload')"); await h.run('drive()');
   check(() => assert.equal(h.local.state.lastSuccess, day));
@@ -267,6 +269,48 @@ export async function runTests() {
   const fresh = await harness({ savedState: oldError });
   await fresh.installed('install'); await new Promise((r) => setTimeout(r, 20));
   check(() => assert.equal(fresh.local.state.run.status, 'error')); // chỉ xử lý khi cập nhật bản
+  // 0.3.2 — nút "3. Kiểm tra & bù ca thiếu cả tháng": ca thiếu tự nhập, ca khác Fabi chờ anh xem rồi mới nhập đè.
+  const at2 = Date.parse('2026-11-23T01:00:00Z');
+  check(() => assert.equal(core.monthDays(at2).length, 22));
+  check(() => assert.equal(core.monthDays(at2)[0], '2026-11-01'));
+  check(() => assert.equal(core.monthDays(at2).at(-1), '2026-11-22'));
+  check(() => assert.equal(core.monthDays(Date.parse('2026-12-01T01:00:00Z')).length, 30)); // ngày 1 thì xét cả tháng trước
+  const finish = async (x) => { for (let i = 0; i < 3000 && x.local.state?.run?.status === 'running'; i++) { await x.run('drive()'); await new Promise((r) => setTimeout(r, 2)); } };
+  const month = core.monthDays();
+  const audit = await harness({ saved: (i) => (i % 5 === 0 ? 'thieu' : i === 3 ? 'khac' : 'khop') });
+  await audit.run("control({ type: 'audit' })"); await finish(audit);
+  const ar = () => audit.local.state.run;
+  check(() => assert.equal(ar().mode, 'audit'));
+  check(() => assert.equal(ar().status, 'success'));
+  check(() => assert.deepEqual([...ar().days], month));
+  check(() => assert.equal(audit.count().checked, 12 * month.length));
+  check(() => assert.equal(audit.count().uploaded, 3 * month.length)); // chỉ ca thiếu được tự nhập
+  check(() => assert.equal(ar().results.filter((x) => x.status === 'khac').length, month.length));
+  check(() => assert.equal(ar().results.filter((x) => x.status === 'da_nhap').length, 3 * month.length));
+  check(() => assert.equal(ar().counts.khop, 8 * month.length));
+  check(() => assert.ok(audit.lists().every((a) => month.includes(a.day) && a.useYesterday === (a.day === day))));
+  check(() => assert.equal(audit.local.state.lastSuccess, undefined)); // kiểm tra tháng không đổi mốc của lịch hằng ngày
+  const pick = ar().results.filter((x) => x.status === 'khac').slice(0, 2).map((x) => x.id);
+  await assert.rejects(audit.run("control({ type: 'overwrite', ids: ['KHONG-CO'] })")); passed++;
+  await audit.run(`control({ type: 'overwrite', ids: ${JSON.stringify(pick)} })`); await finish(audit);
+  check(() => assert.equal(audit.count().uploaded, 3 * month.length + 2)); // nhập đè đúng 2 ca anh chọn
+  check(() => assert.equal(ar().results.filter((x) => x.status === 'da_nhap_de').length, 2));
+  check(() => assert.equal(ar().results.filter((x) => x.status === 'khac').length, month.length - 2));
+  check(() => assert.equal(ar().status, 'success'));
+  const clean = await harness();
+  await clean.run("control({ type: 'audit' })"); await finish(clean);
+  check(() => assert.equal(clean.count().uploaded, 0));
+  check(() => assert.equal(clean.local.state.synced[month[0]].count, 12)); // ngày khớp hết ghi là đã đồng bộ
+  const badDay = month[Math.min(2, month.length - 1)];
+  const skip = await harness({ failDay: badDay });
+  await skip.run("control({ type: 'audit' })"); await finish(skip);
+  check(() => assert.equal(skip.local.state.run.status, 'success')); // một ngày lỗi không chặn cả tháng
+  check(() => assert.ok(skip.local.state.run.failures.some((f) => f.day === badDay)));
+  check(() => assert.equal(skip.count().checked, 12 * (month.length - 1)));
+  const dead = await harness({ fail: true });
+  await dead.run("control({ type: 'audit' })"); await finish(dead);
+  check(() => assert.equal(dead.local.state.run.status, 'error')); // lỗi liên tiếp (hết phiên đăng nhập…) thì dừng hẳn
+  check(() => assert.equal(dead.count().uploaded, 0));
   passed += await validationTests(day, core.STORES[0]);
   passed += await bridgeTests();
   return { passed, note: 'Dữ liệu giả; chưa thay thế kiểm tra Chrome/Fabi/Milano thật.' };

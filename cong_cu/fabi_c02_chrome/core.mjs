@@ -58,3 +58,8 @@ export function queueRows(pages, day) {
   if (!found.size) throw Error('Không có ca đã đóng; chưa thể xác nhận ngày đã đủ dữ liệu.');
   return [...found.values()];
 }
+// "Cả tháng đang mở": từ ngày 1 của tháng chứa hôm qua tới hôm qua, cũ trước (ngày 1 thì xét cả tháng trước).
+export function monthDays(now = Date.now()) {
+  const last = previousDay(now);
+  return recentDays(MAX_BACK_DAYS, now).filter((d) => d.slice(0, 7) === last.slice(0, 7)).reverse();
+}

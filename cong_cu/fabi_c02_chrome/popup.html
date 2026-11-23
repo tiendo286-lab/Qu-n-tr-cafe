@@ -10,6 +10,12 @@
 <button id="preview">1. Kiểm tra tải — chưa nhập</button>
 <button id="upload">2. Đồng bộ lên Milano</button>
 <p id="hint" hidden></p>
+<button id="audit" class="alt">3. Kiểm tra &amp; bù ca thiếu cả tháng</button>
+<p class="note" id="auditnote">Tải lại từng ca của cả tháng từ Fabi, so với file trên web: ca chưa có file thì tự nhập, ca có file khác Fabi thì liệt kê để anh xem rồi mới nhập đè. Khoảng 1–2 phút mỗi ngày.</p>
+<div id="auditbox" hidden><p id="auditsum" hidden></p>
+<div id="khac" hidden><p><b>Ca có file trên web khác Fabi</b> — tích ca muốn nhập đè theo Fabi (ca đã đối soát có thể bị mở lại, quản lý được báo):</p><ul id="khaclist"></ul>
+<button id="overwrite">Nhập đè các ca đã chọn</button></div>
+<details id="auditmore"><summary>Ca đã tự nhập / lỗi</summary><ul id="auditlist"></ul></details></div>
 <button id="stop">Dừng sau ca hiện tại và tắt lịch</button>
 <label><input type="checkbox" id="enabled"> Tự chạy hằng ngày từ 08:15 (lấy hôm qua)</label>
 <p class="note">Lấy bù ngày đã lỡ: chọn ngày ở trên rồi bấm 1, xong bấm 2 như thường — mỗi lần một ngày, lùi tối đa 31 ngày.</p>

@@ -1,4 +1,4 @@
-import { FABI, MILANO, STORES, previousDay, vnClock, vnDate, validDay, detailIdentity, isDetailUrl, queueRows } from './core.mjs';
+import { FABI, MILANO, STORES, previousDay, vnClock, vnDate, validDay, monthDays, detailIdentity, isDetailUrl, queueRows } from './core.mjs';
 import { fabiPage } from './fabi_page.js';
 import { milanoPage } from './milano_page.js';
 import { installWebBridge } from './web_bridge.mjs';
@@ -75,13 +75,113 @@ async function start(mode, { automatic = false, day: wanted } = {}) {
   await chrome.storage.session.set({ batch: {}, pending: null });
   const app = await chrome.tabs.create({ url: MILANO + '#/ke-toan/fabi', active: false });
   const fabi = await chrome.tabs.create({ url: FABI, active: false });
+  if (mode === 'audit') {
+    const days = monthDays();
+    s.run = { mode, days, dayIdx: 0, day: days[0], app: app.id, fabi: fabi.id, status: 'running', phase: 'list', page: 1, pages: [], queue: [], index: 0,
+      results: [], staged: [], failures: [], counts: { khop: 0, thieu: 0, khac: 0, loi: 0 }, skips: 0, attempts: 0, started: Date.now(),
+      message: `Kiểm tra cả tháng ${vnDate(days[0])} → ${vnDate(days.at(-1))}: đang lấy danh sách ca ngày ${vnDate(days[0])}…` };
+    return await save(s, version);
+  }
   s.run = { day, mode, app: app.id, fabi: fabi.id, status: 'running', phase: 'list', page: 1, pages: [], queue: [], index: 0,
     results: [], staged: [], failures: [], attempts: 0, started: Date.now(), message: `Đang lấy danh sách ca ngày ${vnDate(day)}…` };
   return await save(s, version);
   } finally { starting = false; }
 }
+const STORE_SHORT = { 'Milano Coffee - Lê Hồng Phong': 'LHP', 'Milano Coffee - Đông Khê': 'ĐK', 'Milano Coffee - Hồ Sen': 'HS', 'Lela Cafe': 'LL' };
+const auditSummary = (r) => `${r.counts.khop} khớp · ${r.counts.thieu} thiếu đã nhập · ${r.counts.khac} khác Fabi chờ anh xem · ${r.counts.loi} lỗi`;
+// Lượt "Kiểm tra & bù ca thiếu cả tháng": từng ngày → từng ca tải lại từ Fabi → so với file đang lưu trên web.
+// Ca chưa có file thì nhập luôn; ca khác Fabi thì giữ file tạm, chờ anh xem rồi bấm nhập đè (có thể mở lại ca đã đối soát).
+async function auditStep(s) {
+  const r = s.run;
+  if (r.phase === 'overwrite') {
+    if (r.index >= r.pick.length) {
+      r.status = 'success'; r.finished = Date.now(); r.phase = 'done';
+      r.message = `Đã nhập đè ${r.pick.length} ca theo file Fabi. ${auditSummary(r)}.`; return;
+    }
+    const item = r.staged.find((x) => x.id === r.pick[r.index]);
+    const batch = (await chrome.storage.session.get('batch')).batch || {};
+    if (!item || !batch[item.id]) throw Error('File tạm không còn trong Chrome (Chrome đã khởi động lại?). Bấm 3. Kiểm tra lại.');
+    const result = await execute(r.app, milanoPage, ['upload', { ...batch[item.id], expectedHash: item.hash }]);
+    s.done[`${item.day}:${item.id}`] = { hash: item.hash, store: result.store, at: Date.now() };
+    const res = r.results.find((x) => x.id === item.id && x.status === 'khac');
+    if (res) { res.status = 'da_nhap_de'; res.server = result.status; }
+    r.counts.khac--; item.done = true;
+    r.index++; r.message = `Đã nhập đè ${r.index}/${r.pick.length} ca…`;
+    return;
+  }
+  if (r.dayIdx >= r.days.length) {
+    r.status = 'success'; r.finished = Date.now(); r.phase = 'done';
+    r.message = `Đã kiểm tra cả tháng ${vnDate(r.days[0])} → ${vnDate(r.days.at(-1))}: ${auditSummary(r)}.`;
+    for (const [key, value] of Object.entries(s.done)) if (value.at < Date.now() - 45 * 86400000) delete s.done[key];
+    return;
+  }
+  r.day = r.days[r.dayIdx];
+  const useYesterday = r.day === previousDay(), dd = vnDate(r.day).slice(0, 5);
+  if (r.phase === 'list') {
+    await navigate(r.fabi, FABI);
+    const p = await execute(r.fabi, fabiPage, ['list', { day: r.day, page: r.page, useYesterday }]);
+    r.pages = r.pages.filter((x) => x.page !== p.page).concat(p);
+    if (p.pages > 50) throw Error('Số trang C02 bất thường; cần kiểm tra bộ lọc ngày.');
+    if (r.page < p.pages) { r.page++; return; }
+    r.queue = queueRows(r.pages, r.day); r.pages = []; r.index = 0; r.phase = 'detail'; r.skips = 0;
+    r.message = `Ngày ${dd} (${r.dayIdx + 1}/${r.days.length}): ${r.queue.length} ca, đang so từng ca…`;
+  } else if (r.phase === 'detail') {
+    if (r.index >= r.queue.length) {
+      const mine = r.results.filter((x) => x.day === r.day);
+      if (mine.length === r.queue.length && mine.every((x) => x.status === 'khop' || x.status === 'da_nhap')) {
+        s.synced = { ...(s.synced || {}), [r.day]: { count: mine.length, at: Date.now() } };
+      }
+      r.dayIdx++; r.phase = 'list'; r.page = 1; r.pages = []; r.queue = []; r.index = 0;
+      return;
+    }
+    const q = r.queue[r.index];
+    r.message = `Ngày ${dd} (${r.dayIdx + 1}/${r.days.length}): so ca ${r.index + 1}/${r.queue.length} ${q.short}… · ${auditSummary(r)}`;
+    await navigate(r.fabi, FABI);
+    await execute(r.fabi, fabiPage, ['list', { day: r.day, page: q.page, useYesterday }]);
+    const opened = await execute(r.fabi, fabiPage, ['open', q]);
+    const identity = detailIdentity(opened.url);
+    if (!identity.id.endsWith(q.short.slice(1))) throw Error('Mã ca chi tiết khác mã đã chọn.');
+    const file = await execute(r.fabi, fabiPage, ['export', q]);
+    await chrome.storage.session.set({ pending: { ...file, id: identity.id, store: identity.store, day: r.day, open: q.open, close: q.close } });
+    r.phase = 'check';
+  } else if (r.phase === 'check') {
+    const { pending } = await chrome.storage.session.get('pending');
+    if (!pending) { r.phase = 'detail'; return; }
+    const c = await execute(r.app, milanoPage, ['check', pending]);
+    const base = { day: r.day, id: c.id, short: r.queue[r.index].short, store: STORE_SHORT[c.store] || c.store };
+    if (c.state === 'thieu') {
+      const up = await execute(r.app, milanoPage, ['upload', { ...pending, expectedHash: c.hash }]);
+      s.done[`${r.day}:${c.id}`] = { hash: c.hash, store: up.store, at: Date.now() };
+      r.results.push({ ...base, status: 'da_nhap', server: up.status }); r.counts.thieu++;
+    } else if (c.state === 'khac') {
+      const batch = (await chrome.storage.session.get('batch')).batch || {};
+      batch[c.id] = pending; await chrome.storage.session.set({ batch });
+      r.staged.push({ id: c.id, hash: c.hash, day: r.day });
+      r.results.push({ ...base, status: 'khac', diff: [...(c.diff || [])] }); r.counts.khac++;
+    } else {
+      r.results.push({ ...base, status: 'khop' }); r.counts.khop++;
+    }
+    r.index++; r.phase = 'detail'; r.skips = 0;
+    await save(s);
+    await chrome.storage.session.remove('pending');
+  }
+}
+// Một ngày / một ca lỗi 3 lần: ghi lại rồi làm tiếp phần sau. Lỗi liền 3 chỗ (hết phiên đăng nhập…) thì dừng hẳn.
+async function auditSkip(r, e) {
+  r.skips = (r.skips || 0) + 1; r.attempts = 0;
+  if (r.phase === 'list') {
+    r.failures.push({ day: r.day, note: e.message });
+    r.dayIdx++; r.page = 1; r.pages = []; r.queue = []; r.index = 0;
+  } else {
+    const q = r.queue[r.index] || {};
+    r.results.push({ day: r.day, id: q.short, short: q.short, store: '', status: 'loi', note: e.message }); r.counts.loi++;
+    r.index++; r.phase = 'detail';
+    await chrome.storage.session.remove('pending');
+  }
+}
 async function step(s) {
   const r = s.run;
+  if (r.mode === 'audit') return auditStep(s);
   // Ngày giữ cố định suốt lượt. Đúng hôm qua thì bấm nút "Hôm qua" của Fabi, ngày khác thì bấm ngày trên lịch;
   // qua nửa đêm giữa lượt thì lần sau tự chuyển sang bấm lịch, trang Fabi vẫn phải ghi đúng ngày mới đọc.
   if (!validDay(r.day)) throw Error('Ngày của lượt này đã quá 31 ngày. Chạy lại.');
@@ -172,7 +272,10 @@ async function drive() {
         if (fresh.run?.status !== 'running') break;
         s.run.attempts++;
         s.run.message = `Chưa hoàn tất: ${e.message}`;
-        if (s.run.attempts >= 3) s.run.status = 'error';
+        if (s.run.attempts >= 3) {
+          if (s.run.mode === 'audit' && s.run.phase !== 'overwrite' && (s.run.skips || 0) < 2) await auditSkip(s.run, e);
+          else s.run.status = 'error';
+        }
         await save(s); break;
       }
     }
@@ -224,6 +327,17 @@ async function control(m) {
       s.enabled = false; await save(s);
       // Không có bước nào đang làm (đang chờ lần thử sau) thì dừng ngay, khỏi đợi báo thức.
       if (s.run?.status === 'running' && !busy && !starting) await drive();
+    } else if (m.type === 'audit') {
+      await start('audit'); drive().catch(console.error);
+    } else if (m.type === 'overwrite') {
+      // Nhập đè các ca anh đã xem và chọn trong lượt kiểm tra tháng vừa xong.
+      const r = s.run, batch = (await chrome.storage.session.get('batch')).batch || {};
+      const ids = Array.isArray(m.ids) ? [...new Set(m.ids)] : [];
+      if (r?.mode !== 'audit' || r.status !== 'success' || !ids.length ||
+          ids.some((id) => !r.staged.some((x) => x.id === id && !x.done) || !batch[id])) throw Error('Không còn file tạm của các ca này. Bấm 3. Kiểm tra lại.');
+      r.pick = ids; r.index = 0; r.phase = 'overwrite'; r.status = 'running'; r.attempts = 0; r.stopRequested = false;
+      r.message = `Đang nhập đè ${ids.length} ca…`;
+      await save(s); drive().catch(console.error);
     } else if (m.type === 'upload') {
       // Đồng bộ đúng ngày của lượt Kiểm tra vừa thành công (hôm qua hoặc ngày lấy bù).
       if (!(s.run?.mode === 'preview' && s.run.status === 'success' && validDay(s.run.day))) throw Error('Cần kiểm tra đủ ca thành công trước khi đồng bộ thật.');
@@ -235,7 +349,7 @@ async function control(m) {
     return read();
 }
 chrome.runtime.onMessage.addListener((m, sender, reply) => {
-  if (sender.id !== chrome.runtime.id || sender.tab || !['state', 'preview', 'upload', 'enable', 'stop'].includes(m.type)) return;
+  if (sender.id !== chrome.runtime.id || sender.tab || !['state', 'preview', 'upload', 'enable', 'stop', 'audit', 'overwrite'].includes(m.type)) return;
   control(m).then((state) => reply({ state }), (e) => reply({ error: e.message }));
   return true;
 });
