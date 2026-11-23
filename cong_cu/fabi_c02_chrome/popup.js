@@ -49,6 +49,17 @@ function show(s) {
   }));
 }
 async function act(type, extra) { try { $('#error').textContent = ''; show(await send(type, extra)); } catch (e) { $('#error').textContent = e.message; } }
+// Chrome chỉ đổi phần chạy nền khi nạp lại tiện ích, còn cửa sổ này đọc tệp mới mỗi lần mở.
+// Tệp trên máy đã là bản mới mà Chrome còn chạy bản cũ → hiện nút nạp lại (anh khỏi phải tìm nút ↻ trong Quản lý tiện ích).
+const loaded = chrome.runtime.getManifest().version;
+$('#ver').textContent = `bản ${loaded}`;
+try {
+  const disk = (await (await fetch(chrome.runtime.getURL('manifest.json'), { cache: 'no-store' })).json()).version;
+  if (disk && disk !== loaded) {
+    $('#update').hidden = false; $('#newver').textContent = disk; $('#oldver').textContent = loaded;
+    $('#reload').onclick = () => chrome.runtime.reload();
+  }
+} catch (_) { /* không đọc được tệp: bỏ qua */ }
 $('#day').onchange = (e) => { chosen = e.target.value; if (last) show(last); };
 $('#preview').onclick = () => act('preview', { day: chosen });
 $('#upload').onclick = () => act('upload');

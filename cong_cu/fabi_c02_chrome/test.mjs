@@ -60,7 +60,7 @@ export async function runTests() {
   };
   async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate, total = 12 } = {}) {
     const local = savedState ? { state: structuredClone(savedState) } : {}, session = {}, tabs = new Map();
-    const time = { ...core.vnClock(), minutes }; let startup, message;
+    const time = { ...core.vnClock(), minutes }; let startup, message, installed;
     let id = 1, uploaded = 0, previewed = 0; const lists = [];
     const area = (store) => ({
       get: async (key) => ({ [key]: structuredClone(store[key]) }),
@@ -98,12 +98,12 @@ export async function runTests() {
           return [{ result }];
         } },
         alarms: { get: async () => ({}), create: async () => {}, onAlarm: { addListener() {} } },
-        runtime: { id: 'test', onInstalled: { addListener() {} }, onStartup: { addListener(fn) { startup = fn; } }, onMessage: { addListener(fn) { message = fn; } }, onMessageExternal: { addListener() {} } },
+        runtime: { id: 'test', getManifest: () => ({ version: '0.3.0' }), onInstalled: { addListener(fn) { installed = fn; } }, onStartup: { addListener(fn) { startup = fn; } }, onMessage: { addListener(fn) { message = fn; } }, onMessageExternal: { addListener() {} } },
       },
     });
     new vm.Script(source).runInContext(context);
     const run = (s) => vm.runInContext(s, context);
-    return { run, local, session, time, startup: () => startup(), tabCount: () => tabs.size, count: () => ({ uploaded, previewed }), lists: () => lists,
+    return { run, local, session, time, startup: () => startup(), installed: (reason) => installed({ reason }), tabCount: () => tabs.size, count: () => ({ uploaded, previewed }), lists: () => lists,
       send: (type) => new Promise((resolve) => message({ type }, { id: 'test' }, resolve)) };
   }
   const h = await harness();
@@ -248,6 +248,20 @@ export async function runTests() {
   check(() => assert.equal(short.local.state.run.status, 'error')); // Fabi báo 13 ca, đọc được 12 → dừng
   check(() => assert.match(short.local.state.run.message, /13/));
   check(() => assert.equal(short.count().uploaded, 0));
+  // Nạp bản mới: lỗi của bản cũ không còn hiện như lỗi mới (23/11 anh Tiến thấy lại câu lỗi cũ, tưởng bản mới vẫn hỏng).
+  const oldError = { enabled: false, done: {}, run: { status: 'error', mode: 'preview', day, phase: 'list', attempts: 3, results: [], message: 'Chưa hoàn tất: Fabi đổi bộ lọc ngày; cần kiểm tra lại thao tác.' } };
+  const updated = await harness({ savedState: oldError });
+  await updated.installed('update'); await new Promise((r) => setTimeout(r, 20));
+  check(() => assert.equal(updated.local.state.run.status, 'stopped'));
+  check(() => assert.match(updated.local.state.run.message, /0\.3\.0/));
+  check(() => assert.doesNotMatch(updated.local.state.run.message, /đổi bộ lọc/));
+  check(() => assert.equal(updated.tabCount(), 0)); // không tự chạy lượt mới
+  const busyRun = await harness({ savedState: { ...oldError, run: { ...oldError.run, status: 'running', attempts: 1 } } });
+  await busyRun.installed('update'); await new Promise((r) => setTimeout(r, 20));
+  check(() => assert.equal(busyRun.local.state.run.status, 'running')); // lượt đang chạy thì để bản mới chạy tiếp
+  const fresh = await harness({ savedState: oldError });
+  await fresh.installed('install'); await new Promise((r) => setTimeout(r, 20));
+  check(() => assert.equal(fresh.local.state.run.status, 'error')); // chỉ xử lý khi cập nhật bản
   passed += await validationTests(day, core.STORES[0]);
   passed += await bridgeTests();
   return { passed, note: 'Dữ liệu giả; chưa thay thế kiểm tra Chrome/Fabi/Milano thật.' };

@@ -1,7 +1,9 @@
 <!doctype html>
 <html lang="vi"><meta charset="utf-8"><title>Đồng bộ C02 Milano</title>
 <link rel="stylesheet" href="popup.css">
-<main><small>MILANO & LELA</small><h1>Đồng bộ C02</h1>
+<main><small>MILANO & LELA · <span id="ver"></span></small><h1>Đồng bộ C02</h1>
+<div id="update" hidden><p>Đã có bản mới <b id="newver"></b> nhưng Chrome vẫn đang chạy bản cũ <b id="oldver"></b>. Bấm nút dưới để nạp bản mới (cửa sổ này sẽ tự đóng, mở lại là xong).</p>
+<button id="reload">Nạp bản mới ngay</button></div>
 <p>Tải Excel chi tiết từng ca đã đóng của ngày chọn (mặc định hôm qua) và nhập vào Milano bằng tài khoản đang đăng nhập.</p>
 <label class="day">Ngày cần lấy<select id="day"></select></label>
 <p id="status" role="status">Đang kiểm tra…</p>

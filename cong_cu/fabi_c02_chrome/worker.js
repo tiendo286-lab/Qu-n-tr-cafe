@@ -194,7 +194,19 @@ async function clock() {
   } finally { clockBusy = false; }
 }
 chrome.alarms.onAlarm.addListener((a) => { (a.name === 'c02-step' ? drive() : clock()).catch(console.error); });
-chrome.runtime.onInstalled.addListener(() => alarmSetup().catch(console.error));
+// Nạp bản mới: lượt cũ đang báo lỗi thì đổi thành "đã dừng" kèm câu nhắc, để không tưởng bản mới vẫn hỏng.
+// Lượt đang chạy để bản mới chạy tiếp; không tự mở lượt mới.
+async function afterUpdate() {
+  const s = await read();
+  if (s.run?.status !== 'error') return;
+  s.run.status = 'stopped';
+  s.run.message = `Đã nạp bản ${chrome.runtime.getManifest().version}. Lỗi của bản cũ đã xoá — chọn ngày rồi bấm 1. Kiểm tra tải.`;
+  await save(s);
+}
+chrome.runtime.onInstalled.addListener((d) => {
+  alarmSetup().catch(console.error);
+  if (d?.reason === 'update') afterUpdate().catch(console.error);
+});
 chrome.runtime.onStartup.addListener(() => alarmSetup().then(clock).catch(console.error));
 async function control(m) {
     if (m.type === 'state') return read();
