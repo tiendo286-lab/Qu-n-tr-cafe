@@ -156,9 +156,17 @@ export async function runTests() {
   check(() => assert.equal(auto.count().uploaded, 12));
   check(() => assert.equal(auto.local.state.lastSuccess, day));
   check(() => assert.equal(auto.local.state.lastAuto, auto.time.day));
-  await auto.run('clock()');
-  check(() => assert.equal(auto.tabCount(), 2));
+  await auto.run('clock()'); // 0.3.7: xong hôm qua thì lượt sau tự chạy nút 3 (hỏi web, bù ca lỗi cả tháng)
+  for (let i = 0; i < 50 && auto.local.state.run.status === 'running'; i++) { await auto.run('drive()'); await new Promise((r) => setTimeout(r, 2)); }
+  check(() => assert.equal(auto.local.state.run.mode, 'audit'));
+  check(() => assert.equal(auto.local.state.run.status, 'success'));
+  check(() => assert.equal(auto.local.state.lastAutoAudit, auto.time.day));
+  check(() => assert.equal(auto.tabCount(), 4));
+  await auto.run('clock()'); // mỗi ngày một lần
+  check(() => assert.equal(auto.tabCount(), 4));
   check(() => assert.equal(auto.count().uploaded, 12));
+  await auto.run("control({ type: 'enable', value: true })"); // ô Tự chạy bật được dù lần cuối là kiểm tra tháng
+  check(() => assert.equal(auto.local.state.enabled, true));
   const reopened = await harness({ savedState: auto.local.state, minutes: 900 });
   await reopened.startup();
   check(() => assert.equal(reopened.local.state.enabled, true));

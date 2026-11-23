@@ -43,7 +43,7 @@ function show(s) {
   $('#hint').textContent = ready ? `Đã kiểm tra ngày ${short(s.run.day)}. Ngày đang chọn cần bấm 1. Kiểm tra tải trước.` : '';
   $('#stop').disabled = !running && !s.enabled;
   $('#enabled').checked = !!s.enabled;
-  $('#enabled').disabled = running || (!s.enabled && !(s.run?.mode === 'upload' && s.run?.status === 'success'));
+  $('#enabled').disabled = running || (!s.enabled && !s.lastSuccess && !(s.run?.mode === 'upload' && s.run?.status === 'success'));
   const md = monthDays();
   $('#audit').disabled = running;
   $('#audit').textContent = `3. Kiểm tra & bù ca lỗi cả tháng (${short(md[0])} → ${short(md.at(-1))})`;

@@ -60,7 +60,11 @@ async function start(mode, { automatic = false, day: wanted } = {}) {
   const day = automatic ? previousDay() : wanted ?? previousDay();
   if (!validDay(day)) throw Error(BAD_DAY);
   const now = vnClock();
-  if (automatic) {
+  if (automatic && mode === 'audit') {
+    // Lượt tự bù ca lỗi cả tháng: mỗi ngày một lần, sau lượt hôm qua.
+    if (!s.enabled || now.minutes < 495 || s.lastAutoAudit === now.day) return false;
+    s.lastAutoAudit = now.day;
+  } else if (automatic) {
     if (!s.enabled || now.minutes < 495 || s.lastSuccess === day || s.lastAuto === now.day) return false;
     s.lastAuto = now.day;
   }
@@ -317,6 +321,9 @@ async function clock() {
   // Chỉ tự chạy sau 08:15 giờ Việt Nam; tối đa một lượt mới trong ngày.
   if (s.enabled && vnClock().minutes >= 495 && s.lastSuccess !== previousDay() && s.lastAuto !== vnClock().day) {
     if (await start('upload', { automatic: true })) await drive();
+  } else if (s.enabled && vnClock().minutes >= 495 && s.lastAutoAudit !== vnClock().day) {
+    // Xong (hoặc đã thử) hôm qua thì tự chạy nút 3: hỏi web, chỉ tải ca lỗi; ca khác Fabi chờ anh xem (anh chọn 23/11).
+    if (await start('audit', { automatic: true })) await drive();
   }
   } finally { clockBusy = false; }
 }
@@ -344,7 +351,7 @@ async function control(m) {
     if (m.type === 'stop') stopVersion++;
     const s = await read();
     if (m.type === 'enable') {
-      if (m.value && !(s.run?.status === 'success' && s.run.mode === 'upload')) throw Error('Cần đồng bộ thật thành công một lượt trước khi bật lịch.');
+      if (m.value && !s.lastSuccess && !(s.run?.status === 'success' && s.run.mode === 'upload')) throw Error('Cần đồng bộ thật thành công một lượt trước khi bật lịch.');
       s.enabled = !!m.value; await save(s); await alarmSetup();
     } else if (m.type === 'stop') {
       if (s.run?.status === 'running') s.run.stopRequested = true;

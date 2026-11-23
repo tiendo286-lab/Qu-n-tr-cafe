@@ -21,7 +21,7 @@ export function webView(s, version) {
     progress: { done: r?.results?.length || 0, total: r?.queue?.length || 0 },
     lastSuccess: s.lastSuccess || null, lastFinishedAt: r?.finished || null,
     canUpload: !running && r?.mode === 'preview' && r.status === 'success' && r.day === previousDay(),
-    canEnable: !running && (s.enabled || (r?.mode === 'upload' && r.status === 'success')) };
+    canEnable: !running && (s.enabled || !!s.lastSuccess || (r?.mode === 'upload' && r.status === 'success')) };
 }
 export function installWebBridge({ chrome, read, control, authorize }) {
   chrome.runtime.onMessageExternal.addListener((m, sender, reply) => {
