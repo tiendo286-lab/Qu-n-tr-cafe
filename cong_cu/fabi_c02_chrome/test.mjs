@@ -106,7 +106,7 @@ export async function runTests() {
     });
     new vm.Script(source).runInContext(context);
     const run = (s) => vm.runInContext(s, context);
-    return { run, local, session, time, startup: () => startup(), installed: (reason) => installed({ reason }), tabCount: () => tabs.size, count: () => ({ uploaded, previewed, checked }), lists: () => lists,
+    return { run, local, session, time, startup: () => startup(), installed: (reason) => installed({ reason }), closeTab: (n) => tabs.delete(n), tabIds: () => [...tabs.keys()], tabCount: () => tabs.size, count: () => ({ uploaded, previewed, checked }), lists: () => lists,
       send: (type) => new Promise((resolve) => message({ type }, { id: 'test' }, resolve)) };
   }
   const h = await harness();
@@ -270,6 +270,15 @@ export async function runTests() {
   const fresh = await harness({ savedState: oldError });
   await fresh.installed('install'); await new Promise((r) => setTimeout(r, 20));
   check(() => assert.equal(fresh.local.state.run.status, 'error')); // chỉ xử lý khi cập nhật bản
+  // 0.3.5 — tab Fabi / Milano của tiện ích bị đóng giữa chừng thì tự mở lại, không kẹt "No tab with id".
+  const closed = await harness();
+  await closed.run("start('preview')");
+  const [appTab, fabiTab] = closed.tabIds();
+  closed.closeTab(fabiTab); closed.closeTab(appTab);
+  await closed.run('drive()');
+  check(() => assert.equal(closed.local.state.run.status, 'success'));
+  check(() => assert.equal(closed.local.state.run.results.length, 12));
+  check(() => assert.equal(closed.tabCount(), 2));
   // 0.3.2 — nút "3. Kiểm tra & bù ca thiếu cả tháng": ca thiếu tự nhập, ca khác Fabi chờ anh xem rồi mới nhập đè.
   const at2 = Date.parse('2026-11-23T01:00:00Z');
   check(() => assert.equal(core.monthDays(at2).length, 22));

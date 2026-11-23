@@ -87,6 +87,16 @@ async function start(mode, { automatic = false, day: wanted } = {}) {
   return await save(s, version);
   } finally { starting = false; }
 }
+// Tab Fabi / Milano của lượt chạy bị đóng (anh lỡ tay, Chrome dọn tab…) thì mở lại tab mới, không kẹt "No tab with id".
+async function ensureTabs(r) {
+  for (const [key, url] of [['app', MILANO + '#/ke-toan/fabi'], ['fabi', FABI]]) {
+    try { await chrome.tabs.get(r[key]); continue; } catch (_) { /* tab đã đóng */ }
+    const t = await chrome.tabs.create({ url, active: false });
+    r[key] = t.id;
+    const end = Date.now() + 25000;
+    while (Date.now() < end && (await chrome.tabs.get(t.id)).status !== 'complete') await new Promise((ok) => setTimeout(ok, 250));
+  }
+}
 const STORE_SHORT = { 'Milano Coffee - Lê Hồng Phong': 'LHP', 'Milano Coffee - Đông Khê': 'ĐK', 'Milano Coffee - Hồ Sen': 'HS', 'Lela Cafe': 'LL' };
 const sameCa = (maCa, short) => String(maCa).toUpperCase().endsWith(String(short).slice(1).toUpperCase());
 const auditSummary = (r) => `${r.counts.khop} khớp · ${r.counts.thieu} thiếu đã nhập · ${r.counts.khac} khác Fabi chờ anh xem · ${r.counts.loi} lỗi`;
@@ -194,6 +204,7 @@ async function auditSkip(r, e) {
 }
 async function step(s) {
   const r = s.run;
+  await ensureTabs(r);
   if (r.mode === 'audit') return auditStep(s);
   // Ngày giữ cố định suốt lượt. Đúng hôm qua thì bấm nút "Hôm qua" của Fabi, ngày khác thì bấm ngày trên lịch;
   // qua nửa đêm giữa lượt thì lần sau tự chuyển sang bấm lịch, trang Fabi vẫn phải ghi đúng ngày mới đọc.
