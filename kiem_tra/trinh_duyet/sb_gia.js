@@ -108,6 +108,7 @@ const VA_WRITE = /_(save|set|add|del|delete|mark|seen|ack|create|update|upsert|s
 const CA0 = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(T, ME), ...makeHt(T, ME), ...makeKt(T, ME), ...makeFin(T, ME), ...makeFund(T, ME), ...makeStc(T, ME), ...makeNh(T, ME), ...makeDg(T, ME), ...makeCv(T, ME), ...makeFb(T, ME), ...makePc(T, ME), ...makeHn(T, ME) };
 // chặng 6.3b: app_ca_recon_debt_uncollect — dòng "Khách trả nợ cũ" của sổ tháng giả (stc) xử lý trước, còn lại như ca_gia
 const CA = CA0;
+{ const base = CA.app_ca_recon_debt_collect; CA.app_ca_recon_debt_collect = function (a) { if (CA.__stcTraCollect?.(a)) return null; return base.call(this, a); }; }   // chặng 6.3c
 { const base = CA.app_ca_recon_debt_uncollect; CA.app_ca_recon_debt_uncollect = function (a) { if (CA.__stcTraUncollect?.(a)) return null; return base.call(this, a); }; }
 const authCbs = [];
 export const sb = {

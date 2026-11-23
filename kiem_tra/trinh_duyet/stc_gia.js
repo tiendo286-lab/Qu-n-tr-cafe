@@ -184,6 +184,18 @@ export function makeStc(T, me) {
       if (c?.recon_money_done) throw new Error(`Mục ${L[i].pm === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
       L.splice(i, 1); return true;
     },
+    // chặng 6.3c: ghi khách trả nợ cũ vào ca cho dòng open_debts của sổ tháng giả (sb_gia gọi trước, không phải dòng giả thì để ca_gia)
+    __stcTraCollect({ p_report, p_debt, p_kind, p_amount, p_reason }) {
+      const id = typeof p_debt === 'number' ? 'd:' + p_debt : String(p_debt); const O = st().open_debts || []; const o = O.find((x) => x.id === id || x.id === String(p_debt)); if (!o) return false;
+      if (!String(p_reason || '').trim()) throw new Error('Ghi lý do (vd: khách trả nhưng nhân viên không biết).');
+      const c = st().cas.find((x) => x.id === Number(p_report)); if (c?.done) throw new Error('Ca đã hoàn thành đối soát — mở lại để sửa.');
+      if (c?.recon_money_done) throw new Error(`Mục ${p_kind === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
+      if (!(p_amount > 0)) throw new Error('Nhập số tiền khách trả lớn hơn 0.');
+      if (p_amount > Number(o.left)) throw new Error('Khách trả nhiều hơn số nợ.');
+      o.left = Number(o.left) - p_amount;
+      (st().ca_debts = st().ca_debts || []).push({ report_id: Number(p_report), t: 'tra', id: 9000 + O.indexOf(o), who: o.who, kind: o.kind, amount: p_amount, left: 0, pm: p_kind, from: o.from });
+      return true;
+    },
     app__test_ds_open({ p_id }) { const c = st().cas.find((x) => x.id === Number(p_id)); if (!c) throw new Error('Không tìm thấy ca.'); c.recon_money_done = true; c.done = null; c.ticks = []; },
     app__test_ca_staff({ p_id, p_n = 2 }) {
       const rid = Number(p_id); T.shift_report_staff = T.shift_report_staff || []; T.employees = T.employees || [];

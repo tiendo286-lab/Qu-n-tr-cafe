@@ -129,6 +129,8 @@ function bindPage(D) {
       await rpc('app_stc_ds_fabi', { p_report: Number(b.dataset.ca), p_field: b.dataset.k, p_name: null, p_reason: 'Bỏ sửa, lấy số máy Fabi' }); })(), 'Đã lấy số máy Fabi');
   });
   root.addEventListener('click', (ev) => {   // thiết kế sua-no-cua-ca: Sửa / Xoá một khoản nợ của ca · + Thêm khoản nợ quên ghi
+    const ta = ev.target.closest('[data-traadd]');   // chặng 6.3c: ghi khách trả nợ cũ vào ca
+    if (ta && root.contains(ta)) { const c = (D.cas || []).find((x) => String(x.id) === ta.dataset.traadd); if (c) traAddDialog(D, c); return; }
     const tx = ev.target.closest('[data-traxoa]');   // chặng 6.3b: Xoá lần khách trả nợ cũ trong ca
     if (tx && root.contains(tx)) { const x = (D.ca_debts || []).find((q) => q.t === 'tra' && String(q.id) === tx.dataset.traxoa); if (x) traDelDialog(x); return; }
     const de = ev.target.closest('[data-dedit],[data-dadd]');
@@ -341,7 +343,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
       ${f('Chiều', html`<select class="input" name="dir"><option value="tm_tk">Tiền mặt → Tài khoản</option><option value="tk_tm">Tài khoản → Tiền mặt</option></select>`, 'lc')}
       ${f('Tiền', pmOpt('pay2'), 'no-thu')}
       ${f('Ngày', html`<input class="input" type="date" name="date" value="${day0}">`)}
-      ${f('Ca', html`<select class="input" name="ca"><option value="">Ngoài ca</option></select><small class="st-meta stc-canote" hidden></small><span class="stc-cajump" hidden></span>`)}
+      ${f('Ca', html`<select class="input" name="ca"><option value="">Ngoài ca</option></select><small class="st-meta stc-canote" hidden></small><small class="st-meta stc-nohint" hidden>Ô này chỉ ghi thu nợ ngoài ca. Khách trả nợ cũ trong một ca: vào trang đối soát của ca đó, bước 1, nút "+ Khách trả nợ cũ trong ca".</small><span class="stc-cajump" hidden></span>`)}
       ${f('Số tiền', html`<input class="input money" name="amount" inputmode="numeric">`, '', 'stc-am')}
     </div>
     <div class="stc-ar">
@@ -380,6 +382,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     const k = kindOf(); const caOk = k === 'chi' || k === 'khac';
     box.querySelectorAll('[data-show]').forEach((x) => { x.hidden = !!x.dataset.show && !x.dataset.show.split(' ').includes(k); });
     if (!caOk) el('ca').value = '';
+    box.querySelector('.stc-nohint').hidden = k !== 'no-thu';   // chặng 6.3c
     el('ca').disabled = !caOk; el('ca').title = caOk ? '' : 'Cho nợ / Thu nợ / Luân chuyển chỉ thêm ngoài ca';
     const ca = caById(el('ca').value);
     el('reason').placeholder = ca ? 'bắt buộc khi thêm vào ca' : 'không bắt buộc';
@@ -433,6 +436,23 @@ function collectDialog(D, debtId) {
   open(d, async () => { if (!debtBefore(x, { date: val(d, 'date') })) throw new Error(`Khoản nợ này ghi ${x.from || dm(x.date)} — ngày thu phải từ ngày đó trở đi.`);
     if (!shortOk(Number(x.left), money(d, 'amount'))) throw new Error('Chưa ghi — sửa số tiền khách trả.');
     await rpc('app_stc_collect', { p_debt: idNum(x.id), p: { date: val(d, 'date'), kind: val(d, 'pay'), amount: money(d, 'amount') }, p_reason: val(d, 'reason') || null }); after('Đã ghi thu nợ'); });
+}
+// chặng 6.3c (anh Tiến chọn 23/11): khách trả nợ cũ trong ca mà nhân viên không ghi → quản lý ghi vào đúng ca (cộng vào tiền phải có của ca).
+// Chỉ nợ ghi từ ca trước. Máy chủ: app_ca_recon_debt_collect (chặn ca hoàn thành / mục tiền đã đối soát, trả nhiều hơn nợ; trả thiếu → phần còn lại thành nợ riêng).
+function traAddDialog(D, c) {
+  const ok = (D.open_debts || []).filter((o) => Number(o.left) > 0 && debtBefore(o, { date: c.date, shift: c.shift }));
+  const d = dialog(form(`Khách trả nợ cũ trong ca · ${caName(c)}`, html`<div class="st-meta">Khách trả trong ca này mà nhân viên không ghi. Tiền cộng vào tiền phải có của ca (tiền mặt hoặc chuyển khoản).</div>
+    <label class="field"><span>Khách đang nợ</span><select class="input" name="debt"><option value="">${ok.length ? '— Chọn khách —' : '— Không có khách nợ ghi trước ca này —'}</option>${ok.map((o) => html`<option value="${o.id}" data-left="${o.left}">${o.who} · còn ${fmt(o.left)} · ${o.from || ''}</option>`)}</select></label>
+    ${pmSel('pay', P.pm)}<label class="field"><span>Số tiền khách trả</span><input class="input" name="amount" inputmode="numeric" data-money></label>`));
+  const sel = d.querySelector('[name=debt]');
+  sel.addEventListener('change', () => { const l = sel.selectedOptions[0]?.dataset.left; if (l) d.querySelector('[name=amount]').value = fmt(Number(l)); });
+  bindMoneyInputs(d);
+  open(d, async () => {
+    if (!val(d, 'debt')) throw new Error('Chọn khách đang nợ.');
+    if (!val(d, 'reason')) throw new Error('Ghi lý do (vd: khách chuyển khoản trả nợ, nhân viên quên ghi).');
+    await rpc('app_ca_recon_debt_collect', { p_report: Number(c.id), p_debt: idNum(val(d, 'debt')), p_kind: val(d, 'pay'), p_amount: money(d, 'amount'), p_reason: val(d, 'reason') });
+    after('Đã ghi khách trả nợ vào ca');
+  });
 }
 // chặng 6.3b: bỏ lần khách trả nợ cũ do nhân viên ghi trong phiếu ca (khoản nợ quay lại còn nợ ở ca gốc). Máy chủ: app_ca_recon_debt_uncollect.
 function traDelDialog(x) {
@@ -1321,7 +1341,9 @@ function debtList(D, c) {
     return html`<div class="stc-cdr stc-gone" data-t="xoa"><span class="stc-dtag d-${cls}">${lab}</span><span><s>${x.who || '—'}</s><br><span class="st-meta">${e.action === 'doi' ? 'Đã đổi thành Luân chuyển TM – CK' : 'Đã xoá'} · ${e.by || ''}${e.at ? ' · ' + e.at : ''}${e.reason ? ' · lý do: ' + e.reason : ''}</span></span><s class="stc-amt">${fmt(x.amount)}</s></div>`; };
   return html`<div class="stc-cadebt">
     ${moi.length || xoa.length ? html`<div class="stc-cdh">Nợ mới trong ca · ${moi.length} khoản</div>${moi.map(rowMoi)}${xoa.map(rowXoa)}` : ''}
-    ${canSort ? html`<div class="stc-tools"><button type="button" class="btn sm secondary" data-dadd="${c.id}">+ Thêm khoản nợ quên ghi</button></div>` : ''}
+    ${canSort ? html`<div class="stc-tools"><button type="button" class="btn sm secondary" data-dadd="${c.id}">+ Thêm khoản nợ quên ghi</button>
+      ${c.recon_money_done ? html`<span class="st-meta stc-tralock">🔒 Khách trả nợ cũ trong ca: bấm Mở lại xác nhận ở bước 2 trước rồi ghi</span>`
+        : html`<button type="button" class="btn sm secondary" data-traadd="${c.id}">+ Khách trả nợ cũ trong ca</button>`}</div>` : ''}
     ${tra.length ? html`<div class="stc-cdh">Khách trả nợ cũ trong ca</div>${tra.map(rowTra)}` : ''}</div>`;
 }
 // bước 173: hộp "Sai, sửa số" — máy Fabi ghi sai, gửi số đúng + lý do cho Chủ duyệt (Chủ gửi thì duyệt ngay)
