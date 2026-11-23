@@ -1,5 +1,5 @@
 // Chặng 6.3c (anh Tiến chọn 23/11): nút "+ Khách trả nợ cũ trong ca" ở bước 1 phần tiền (khung Nợ của ca) — ghi khách trả nợ cũ VÀO ca
-// (app_ca_recon_debt_collect sẵn có). Ca đã Xác nhận Fabi → nhắc Mở lại. Ô "+ Thêm phiếu" bước 3 chọn Thu nợ → nhắc làm ở bước 1.
+// (app_ca_recon_debt_collect sẵn có). Ca đã Xác nhận Fabi → nhắc Mở lại. Từ 6.3d: "+ Thêm phiếu" bước 3 chọn Thu nợ cũng ghi trong ca.
 // role=chu|qlt|ql; role=nv không có nút. index.html và test/phone.html, confirm=1.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
@@ -46,8 +46,8 @@ export default async ({ sleep, out }) => {
       if (add) {
         add.click(); await wait('.stc-addp'); await sleep(300);
         const k = $('.stc-addp [name=kind]'); k.value = 'no'; k.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200);
-        const h = $('.stc-addp .stc-nohint');
-        ok(!!h && !h.hidden && /bước 1/.test(h.innerText), `Thu nợ ở "+ Thêm phiếu" → nhắc: ${h?.innerText.trim() || '-'}`);
+        const cv = ($('.stc-addp [name=ca]')?.selectedOptions?.[0]?.textContent || '').trim();   // chặng 6.3d: ở trang ca, Thu nợ ghi trong ca
+        ok(/Ca /.test(cv), `Thu nợ ở "+ Thêm phiếu" bước 3 ghi trong ca: "${cv}"`);
       } else ok(false, 'không thấy nút + Thêm phiếu ở bước 3');
       ok(fits(), `không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
     }

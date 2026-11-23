@@ -1,6 +1,6 @@
-// Bài thử bước 163: ô Ca trong "+ Thêm phiếu" (Sổ thu chi) đi theo ô Ngày.
+// Bài thử "+ Thêm phiếu" ở Sổ thu chi. Bước 163 (ô Ca theo ô Ngày) đã thay bằng chặng 6.3d (anh Tiến chọn 23/11):
+// Sổ thu chi luôn ghi NGOÀI ca — không có ô Ca; phiếu trong ca thêm ở trang đối soát của ca (dòng ca trong sổ có đường dẫn sang).
 // Chạy: index.html?auto=1&role=chu&confirm=1&script=flow_stc11 và test/phone.html?... Kết quả: out[].stc11 = { ok, fail }.
-// Dữ liệu giả: 17/11 có Sáng 171, Chiều 172 (chưa xác nhận Fabi), Tối 173; 05/11 không có ca.
 export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 120) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
@@ -9,63 +9,36 @@ export default async ({ sleep, out }) => {
   const setv = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const calls = (name, k0) => (window.__LOG || []).slice(k0).filter((x) => x[0] === 'rpc' && x[1] === name);
   const P = () => $('.stc-addp'); const el = (n) => $(`[name=${n}]`, P());
-  const opts = () => $$('option', el('ca')).map((o) => ({ v: o.value, t: txt(o), d: o.disabled }));
+  const caHidden = () => { const l = el('ca')?.closest('label'); return !l || l.hidden; };
   const SO = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11';
-  const openAdd = async () => { location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp [name=ca]', 60); await sleep(200); };
+  const openAdd = async () => { location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp', 60); await sleep(200); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
-    if (new URLSearchParams(location.search).get('stclock')) {   // duyệt mã I2: tháng đã chốt (&stclock=1) — lý do phải thấy được
+    if (new URLSearchParams(location.search).get('stclock')) {   // tháng đã chốt (&stclock=1): vẫn không có ô Ca
       await openAdd(); setv(el('date'), '2026-11-17'); await sleep(150);
-      const o = opts();
-      ok(!el('ca').disabled && o.slice(1).every((x) => x.d && x.t.includes('tháng đã chốt')), '9. tháng đã chốt: ô Ca vẫn mở xem được, mọi ca mờ "— tháng đã chốt"');
-      ok(txt($('.stc-canote', P())).includes('tháng đã chốt'), '9. dòng nhắc ghi "tháng đã chốt"');
+      ok(caHidden(), '9. tháng đã chốt: không có ô Ca');
       out.push({ stc11: { ok: good, fail: bad } }); return;
     }
-    // bước 171: ca đã Hoàn thành đối soát thì khoá thêm phiếu → Mở lại ca Sáng 17/11 và ca Sáng 16/11 trước (như quản lý bấm Mở lại ở bước 6); ca Tối 17/11 để nguyên đã hoàn thành
     { const sb = (await import('/js/sb.js')).sb; for (const id of [171, 161]) await sb.rpc('app_stc_ds_undone', { p_report: id }); }
-    // 1. Ngày 17/11: Ngoài ca + Sáng → Chiều → Tối, không có ca ngày khác
+    // 1. không có ô Ca ở mọi loại
     await openAdd();
     setv(el('date'), '2026-11-17'); await sleep(150);
-    const o = opts();
-    ok(o.length === 4 && o[0].v === '' && o[0].t === 'ngoài ca' && ['171', '172', '173'].every((id, i) => o[i + 1].v === id), '1. ngày 17/11: Ngoài ca + Sáng → Chiều → Tối (' + o.map((x) => x.v || 'ngoài').join(',') + ')');
-    ok(o[1].t.startsWith('ca sáng · ') && !o[1].d, '1. "Ca Sáng · <người làm>", chọn được');
-    ok(o[2].d && o[2].t.includes('chưa xác nhận fabi'), '2. ca chưa xác nhận Fabi mờ, ghi "chưa xác nhận Fabi"');
-    ok(o[3].d && o[3].t.includes('đã hoàn thành đối soát'), '2. bước 171: ca đã Hoàn thành đối soát mờ, ghi "đã hoàn thành đối soát, Mở lại mới thêm được"');
-    { const js = $$('.stc-cajump a', P()); ok(js.some((a) => a.getAttribute('href').includes('#/ca/doi-soat?id=173&') && a.getAttribute('href').includes('tab=xong') && txt(a).includes('mở lại')), '2. bước 171: có nút nhảy tới bước 6 (22/11: tab ③ Hoàn thành của trang đối soát ca) của ca đã hoàn thành để Mở lại'); }
-    ok(!$('.stc-canote', P()) || $('.stc-canote', P()).hidden || !txt($('.stc-canote', P())), '2. ngày có ca chọn được thì không hiện dòng nhắc');
-    // 3. ngày không có ca
-    setv(el('date'), '2026-11-05'); await sleep(150);
-    ok(opts().length === 1 && txt($('.stc-canote', P())).includes('ngày 05/11 chưa có ca nào xác nhận fabi'), '3. ngày không có ca: chỉ "Ngoài ca" + dòng "Ngày 05/11 chưa có ca nào xác nhận Fabi"');
-    // 4. chọn ca rồi đổi ngày → về Ngoài ca, ô Ngày không khoá
-    setv(el('date'), '2026-11-17'); await sleep(100); setv(el('ca'), '171'); await sleep(100);
-    ok(!el('date').disabled && el('reason').placeholder.includes('bắt buộc khi thêm vào ca'), '4. chọn ca: ô Ngày vẫn sửa được, Lý do bắt buộc');
-    setv(el('date'), '2026-11-16'); await sleep(150);
-    ok(el('ca').value === '' && el('reason').placeholder === 'không bắt buộc', '4. đổi Ngày → ô Ca về "Ngoài ca", Lý do không bắt buộc');
-    // 5. Loại Cho nợ → ô Ca khoá; đổi lại Khoản chi → mở, vẫn theo ngày
-    setv(el('kind'), 'no'); await sleep(100);
-    ok(el('ca').disabled, '5. Loại Cho nợ → ô Ca khoá');
-    setv(el('kind'), 'chi'); await sleep(100);
-    ok(!el('ca').disabled && opts().every((x) => !x.v || ['161', '162', '163'].includes(x.v)), '5. đổi lại Khoản chi → ô Ca mở, vẫn là ca của 16/11');
-    setv(el('date'), '2026-11-15'); await sleep(150);
-    ok(opts().slice(1).every((x) => x.d) && txt($('.stc-canote', P())).includes('đã hoàn thành đối soát'), '5. bước 171: ngày mọi ca đã hoàn thành → dòng nhắc "đã hoàn thành đối soát — Mở lại…"');
-    setv(el('date'), '2026-11-16'); await sleep(150);
-    if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `5. khung Thêm phiếu không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
-    // 6. Lưu sau khi chọn ca rồi đổi ngày → ghi NGOÀI ca (không gửi app_stc_move_save)
-    setv(el('date'), '2026-11-17'); await sleep(100); setv(el('ca'), '171'); await sleep(100); setv(el('date'), '2026-11-16'); await sleep(100);
+    ok(caHidden(), '1. Khoản chi: không có ô Ca (Sổ thu chi luôn ngoài ca)');
+    for (const k of ['no', 'lc', 'chi']) { setv(el('kind'), k); await sleep(120); ok(caHidden(), `1. loại ${k}: vẫn không có ô Ca`); }
+    ok(el('reason').placeholder === 'không bắt buộc', '2. Lý do không bắt buộc (ghi ngoài ca)');
+    if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `2. khung Thêm phiếu không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
+    // 3. Lưu → ghi ngoài ca (app_stc_entry_save, không app_stc_move_save)
     setv(el('note'), 'Mua đá thử'); setv(el('amount'), '30000'); const cat = el('cat'); if (cat && cat.tagName === 'SELECT') setv(cat, cat.options[1]?.value || '');
     const k0 = (window.__LOG || []).length; $('button[type=submit]', P()).click(); await sleep(1200);
-    ok(!calls('app_stc_move_save', k0).length && calls('app_stc_entry_save', k0).length === 1, '6. chọn ca rồi đổi ngày → Lưu ghi ngoài ca, không gắn vào ca cũ');
-    // 8. duyệt mã I1: ngày ngoài tháng đang xem → không báo nhầm "chưa có ca nào xác nhận Fabi"; xem tháng khác → ngày sẵn là ngày đầu tháng đó
-    await openAdd(); setv(el('date'), '2026-12-02'); await sleep(150);
-    ok(txt($('.stc-canote', P())).includes('thuộc tháng khác') && !txt($('.stc-canote', P())).includes('chưa có ca nào'), '8. ngày 02/12 (tháng khác): nhắc "thuộc tháng khác", không báo nhầm');
-    location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-10&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp [name=ca]', 60); await sleep(200);
-    ok(el('date').value === '2026-10-01', '8. xem sổ tháng 10 → ô Ngày điền sẵn 01/10 (' + el('date').value + ')');
-    // 7. bấm nút thêm trong dòng một ca cũ → Ngày = ngày ca, chọn sẵn ca đó
+    ok(!calls('app_stc_move_save', k0).length && calls('app_stc_entry_save', k0).length === 1, '3. Lưu ghi ngoài ca, không gắn vào ca');
+    // 4. xem tháng khác → ô Ngày sẵn ngày đầu tháng đó
+    location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-10&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp', 60); await sleep(200);
+    ok(el('date').value === '2026-10-01', '4. xem sổ tháng 10 → ô Ngày điền sẵn 01/10 (' + el('date').value + ')');
+    // 5. dòng một ca trong sổ: đường dẫn "+ Thêm phiếu … ở trang đối soát ca ›", không còn nút thêm vào ca tại sổ
     location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-all'); await sleep(300); $('.stc-ch .stc-all').click(); await sleep(400);
-    const b = $('[data-addca="161"]');
-    if (b) { b.click(); await wait('.stc-addp [name=ca]', 60); await sleep(200);
-      ok(el('date').value === '2026-11-16' && el('ca').value === '161', '7. thêm từ dòng ca Sáng 16/11 → Ngày 16/11, chọn sẵn ca Sáng (' + el('date').value + ' / ' + el('ca').value + ')'); }
-    else bad.push('7. không thấy nút thêm trong dòng ca 161');
+    const lk = $$('a.stc-addca-go').find((a) => a.getAttribute('href').includes('#/ca/doi-soat?id=161'));
+    ok(!!lk && txt(lk).includes('trang đối soát ca'), '5. dòng ca Sáng 16/11 có đường dẫn sang trang đối soát ca: ' + (lk ? txt(lk) : '-'));
+    ok(!$$('button.stc-addca[data-addca]').some((b) => !b.disabled), '5. Sổ thu chi không còn nút thêm phiếu vào ca tại sổ');
   } catch (e) { bad.push('LỖI CHẠY: ' + (e.message || e)); }
   out.push({ stc11: { ok: good, fail: bad } });
 };

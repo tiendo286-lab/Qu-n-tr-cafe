@@ -327,7 +327,10 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   document.querySelectorAll('.stc-addp').forEach((x) => x.remove());
   const br = D.branch.id; const today = vnToday();
   const pm = P.tab === 'doi-soat' ? DSB.pm : P.pm;
-  const kinds = book === 'chi' ? [['chi', 'Khoản chi'], ['no', 'Cho nợ'], ['lc', 'Luân chuyển quỹ']] : [['khac', 'Thu khác'], ['no', 'Thu nợ'], ['lc', 'Luân chuyển quỹ']];
+  // chặng 6.3d (anh Tiến chọn 23/11): ở trang đối soát ca → phiếu luôn TRONG ca này (mọi loại); ở Sổ thu chi → luôn ngoài ca (không có ô Ca).
+  const caFix = ONE && caId ? (D.cas || []).find((c) => String(c.id) === String(caId)) || null : null;
+  const lcName = caFix ? 'Luân chuyển TM ↔ CK' : 'Luân chuyển quỹ';
+  const kinds = book === 'chi' ? [['chi', 'Khoản chi'], ['no', 'Cho nợ'], ['lc', lcName]] : [['khac', 'Thu khác'], ['no', 'Thu nợ'], ['lc', lcName]];
   const debts = D.open_debts || [];
   // bước 163: ô Ca chỉ hiện ca của ngày đang chọn (caChoices); ca chưa xác nhận Fabi / tháng đã chốt hiện mờ kèm lý do
   const caById = (id) => (id ? (D.cas || []).find((c) => String(c.id) === String(id)) : null);
@@ -340,10 +343,11 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     <div class="stc-ar">
       ${f('Loại', html`<select class="input" name="kind">${kinds.map(([k, l]) => html`<option value="${k}" ${k === preset ? 'selected' : ''}>${l}</option>`)}</select>`, '', 'stc-ak')}
       ${f('Tiền', pmOpt('pay'), 'chi khac no-chi')}
-      ${f('Chiều', html`<select class="input" name="dir"><option value="tm_tk">Tiền mặt → Tài khoản</option><option value="tk_tm">Tài khoản → Tiền mặt</option></select>`, 'lc')}
+      ${f('Chiều', html`<select class="input" name="dir">${caFix ? html`<option value="tm_tk">Tiền mặt ra, chuyển khoản vào</option><option value="tk_tm">Chuyển khoản ra, tiền mặt vào (khách CK lấy tiền mặt)</option>`
+        : html`<option value="tm_tk">Tiền mặt → Tài khoản</option><option value="tk_tm">Tài khoản → Tiền mặt</option>`}</select>`, 'lc')}
       ${f('Tiền', pmOpt('pay2'), 'no-thu')}
       ${f('Ngày', html`<input class="input" type="date" name="date" value="${day0}">`)}
-      ${f('Ca', html`<select class="input" name="ca"><option value="">Ngoài ca</option></select><small class="st-meta stc-canote" hidden></small><small class="st-meta stc-nohint" hidden>Ô này chỉ ghi thu nợ ngoài ca. Khách trả nợ cũ trong một ca: vào trang đối soát của ca đó, bước 1, nút "+ Khách trả nợ cũ trong ca".</small><span class="stc-cajump" hidden></span>`)}
+      ${f('Ca', html`<select class="input" name="ca"><option value="">Ngoài ca</option></select><small class="st-meta stc-canote" hidden></small><small class="st-meta stc-nohint" hidden>Sổ thu chi ghi ngoài ca. Phiếu trong một ca: vào trang đối soát của ca đó (bước 3, bước 4).</small><span class="stc-cajump" hidden></span>`)}
       ${f('Số tiền', html`<input class="input money" name="amount" inputmode="numeric">`, '', 'stc-am')}
     </div>
     <div class="stc-ar">
@@ -360,6 +364,14 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   bindMoneyInputs(box);
   const el = (n) => box.querySelector(`[name=${n}]`);
   const fillCa = (keep) => {
+    if (caFix) {   // chặng 6.3d: ca cố định, ngày theo ca
+      el('ca').innerHTML = str(html`<option value="${caFix.id}">${caName(caFix)}${caFix.staff ? ' · ' + caFix.staff : ''}</option>`); el('ca').value = String(caFix.id); el('ca').disabled = true;
+      el('date').value = caFix.date; el('date').disabled = true; box.querySelector('.stc-canote').hidden = true; box.querySelector('.stc-cajump').hidden = true; return;
+    }
+    if (!ONE) {   // chặng 6.3d: Sổ thu chi luôn ngoài ca — ẩn ô Ca
+      el('ca').innerHTML = str(html`<option value="">Ngoài ca</option>`); el('ca').value = ''; el('ca').closest('label').hidden = true;
+      box.querySelector('.stc-canote').hidden = true; box.querySelector('.stc-cajump').hidden = true; return;
+    }
     const dv = el('date').value; const other = !!dv && !dv.startsWith(P.thang);   // D.cas chỉ có ca của tháng đang xem
     const list = other ? [] : caChoices(D.cas || [], dv, { locked: !!D.locked });
     el('ca').innerHTML = str(html`<option value="">Ngoài ca</option>${list.map((x) => html`<option value="${x.id}" ${x.ok ? '' : 'disabled'}>${x.label}${x.why ? ' — ' + x.why : ''}</option>`)}`);
@@ -374,18 +386,21 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${caHref(x.id, x.done ? 'xong' : 'tien')}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở trang đối soát ca' : 'Xác nhận Fabi'} ›</a>`)}`);
   };
   // bước 168: Thu nợ ngoài ca — chỉ nợ phát sinh từ ngày của phiếu trở về trước (máy chủ tệp 147 chặn lại)
-  const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => debtBefore(x, { date: dv }));
+  const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => Number(x.left ?? 1) > 0 && debtBefore(x, caFix ? { date: caFix.date, shift: caFix.shift } : { date: dv }));
     el('debt').innerHTML = str(html`<option value="">${ok.length ? '— Chọn khách đang nợ —' : `— Không có khách nợ ghi từ ${dv ? dm(dv) : 'ngày này'} trở về trước —`}</option>${ok.map((x) => html`<option value="${x.id}">${x.who} · còn nợ ${fmt(x.left)} · từ ${x.from}</option>`)}`);
     el('debt').value = ok.some((x) => x.id === keep) ? keep : ''; };
   const kindOf = () => { const k = el('kind').value; return k === 'no' ? `no-${book}` : k; };
   const sync = () => {
     const k = kindOf(); const caOk = k === 'chi' || k === 'khac';
     box.querySelectorAll('[data-show]').forEach((x) => { x.hidden = !!x.dataset.show && !x.dataset.show.split(' ').includes(k); });
-    if (!caOk) el('ca').value = '';
-    box.querySelector('.stc-nohint').hidden = k !== 'no-thu';   // chặng 6.3c
-    el('ca').disabled = !caOk; el('ca').title = caOk ? '' : 'Cho nợ / Thu nợ / Luân chuyển chỉ thêm ngoài ca';
+    if (!ONE) el('ca').closest('label').hidden = true;   // chặng 6.3d: Sổ thu chi không có ô Ca
+    if (!caOk && !caFix) el('ca').value = '';
+    box.querySelector('.stc-nohint').hidden = !!caFix || ONE || k !== 'no-thu';   // chặng 6.3c/d: chỉ nhắc ở Sổ thu chi
+    if (caFix) el('ca').disabled = true;
+    else { el('ca').disabled = !caOk; el('ca').title = caOk ? '' : 'Cho nợ / Thu nợ / Luân chuyển chỉ thêm ngoài ca'; }
     const ca = caById(el('ca').value);
     el('reason').placeholder = ca ? 'bắt buộc khi thêm vào ca' : 'không bắt buộc';
+    box.dataset.okReopen = '';   // đổi loại / khách thì phải đồng ý Mở lại lại
   };
   // chặng 2 (21/11): nhớ ca đã chọn — đổi Loại sang Cho nợ / Thu nợ / Luân chuyển (khoá ô Ca) rồi đổi lại thì ca cũ quay lại, không về "Ngoài ca"
   let lastCa = '';
@@ -399,10 +414,35 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
   box.addEventListener('submit', async (ev) => {
     ev.preventDefault(); const sb = box.querySelector('[type=submit]');
     const v = (n) => (el(n)?.value || '').trim(); const amount = parseMoney(v('amount')) || 0; const reason = v('reason') || null;
-    const k = v('kind'); const ca0 = caById(v('ca')); const ca = ca0 && ca0.date === v('date') ? ca0 : null;   // chỉ gắn vào ca của đúng ngày đang chọn
+    const k = v('kind'); const ca0 = caFix || caById(v('ca')); const ca = caFix || (ca0 && ca0.date === v('date') ? ca0 : null);   // chỉ gắn vào ca của đúng ngày đang chọn
     try {
       if (!amount) throw new Error('Nhập số tiền.');
       sb.disabled = true;
+      if (ca && (k === 'no' || k === 'lc')) {   // chặng 6.3d: Thu nợ / Cho nợ / Luân chuyển trong ca (chỉ ở trang đối soát ca)
+        if (!reason) throw new Error('Ghi lý do (thêm vào ca bắt buộc lý do).');
+        if (k === 'lc') {   // ghi một vế rồi đổi thành Luân chuyển → cặp TM ↔ CK của ca, không tính thu / chi
+          const out = v('dir') === 'tk_tm' ? 'chuyen_khoan' : 'tien_mat';
+          const mk = await rpc('app_stc_move_save', { p_report: ca.id, p_mkey: null, p: { kind: out, amount: -amount, note: v('note') || 'Luân chuyển TM ↔ CK', category_id: null }, p_reason: reason });
+          await rpc('app_stc_move_exchange', { p_report: ca.id, p_mkey: mk, p_reason: reason });
+          return after(`Đã thêm luân chuyển TM ↔ CK vào ${caName(ca)}`);
+        }
+        if (book === 'chi') {   // Cho nợ → khoản nợ mới của ca
+          const pp = (D.people || []).find((q) => q.active !== 0 && q.name === v('name'));
+          if (!pp) throw new Error('Chọn người nợ trong danh sách.');
+          await rpc('app_stc_ca_debt_save', { p_report: ca.id, p_debt: null, p: { kind: v('pay') === 'chuyen_khoan' ? 'ck' : 'muon', amount, person_id: pp.id, grp: grpOfSel(el('name')) || 'khach', note: v('note') || null }, p_reason: reason });
+          return after(`Đã thêm khoản nợ vào ${caName(ca)}`);
+        }
+        // Thu nợ → khách trả nợ cũ trong ca. Ca đã Xác nhận Fabi: hỏi trước (Lưu lần 2 = đồng ý) rồi tự Mở lại xác nhận.
+        if (!v('debt')) throw new Error('Chọn khách đang nợ.');
+        if (ca.recon_money_done && box.dataset.okReopen !== '1') {
+          box.dataset.okReopen = '1'; sb.disabled = false;
+          throw new Error(`Ghi thu nợ vào ${caName(ca)} sẽ MỞ LẠI xác nhận Fabi của ca (bước 2, phải bấm Xác nhận Fabi lại). Bấm Lưu phiếu lần nữa để đồng ý.`);
+        }
+        if (ca.recon_money_done) await rpc('app_stc_ds_reopen', { p_report: ca.id, p_reason: 'Ghi khách trả nợ vào ca: ' + reason });
+        await rpc('app_ca_recon_debt_collect', { p_report: ca.id, p_debt: idNum(v('debt')), p_kind: v('pay2'), p_amount: amount, p_reason: reason });
+        if (ca.recon_money_done) DSB.step = 1;
+        return after(ca.recon_money_done ? `Đã ghi thu nợ vào ${caName(ca)} — ca đã Mở lại xác nhận, bấm Xác nhận Fabi lại ở bước 2` : `Đã ghi thu nợ vào ${caName(ca)}`);
+      }
       if (ca) {
         if (!reason) throw new Error('Ghi lý do (thêm vào ca bắt buộc lý do).');
         await rpc('app_stc_move_save', { p_report: ca.id, p_mkey: null, p: { kind: v('pay'), amount: (book === 'chi' ? -1 : 1) * amount, note: v('note'), category_id: v('cat') || null }, p_reason: reason });
@@ -782,6 +822,8 @@ function addBtn(D, c, book, label, { noLock = false } = {}) {
   if (ca && ca.done && !D.locked) return noLock ? '' : html`<span class="st-meta">🔒 Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới thêm / sửa được. </span>${P.tab === 'doi-soat' ? '' : go}`;   // bước 171
   if (ca && !ca.recon_money_done) return noLock ? '' : html`<span class="st-meta">🔒 Chưa xác nhận Fabi — </span>${go}`;
   const bo = book === 'chi' && (P.tab === 'doi-soat' ? DSB.pm : P.pm) === 'ck' ? html`<button type="button" class="btn sm secondary" data-bankout="${c.caId}">Phiếu chi chuyển khoản</button>` : '';   // bước 153
+  // chặng 6.3d (anh Tiến chọn 23/11): Sổ thu chi luôn ghi ngoài ca — phiếu trong ca thêm ở trang đối soát của ca
+  if (!ONE && ca?.recon_money_done) return html`${bo}<a class="btn sm secondary stc-addca-go" href="${caHref(c.caId, 'tien')}">+ Thêm phiếu ${book} vào ${label.toLowerCase()} ở trang đối soát ca ›</a>`;
   return ca?.recon_money_done ? html`<button type="button" class="btn sm secondary stc-addca" data-addca="${c.caId}" data-book="${book}">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button>${bo}${P.tab === 'doi-soat' ? '' : go}`
     : html`<button type="button" class="btn sm secondary stc-addca" disabled title="Chốt tiền ca ở tab Đối soát tiền mới thêm được">+ Thêm phiếu ${book} vào ${label.toLowerCase()}</button><span class="st-meta"> 🔒 chốt tiền ca mới thêm được</span>`;
 }

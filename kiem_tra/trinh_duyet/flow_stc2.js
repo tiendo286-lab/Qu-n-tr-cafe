@@ -87,15 +87,10 @@ export default async ({ sleep, out }) => {
   setv('[name=amount]', '55.000'); setv('[name=reason]', 'Mua thêm đá');
   $('button[type=submit]', dlg()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
   ok($$('.stc-it.void').some((i) => txt(i).includes('mua đá')) && txt(item('mua đá')).includes('55.000') && txt(item('mua đá')).includes('phiếu bổ sung'), '9. sửa khoản ca: gạch ngang + phiếu bổ sung 55.000');
-  const addCa = $$('button.stc-addca').find((b) => !b.disabled);
-  ok(!!addCa && $$('a[href*="#/ca/doi-soat?id="]').length > 0, '11. "+ Thêm phiếu vào ca": ca đã xác nhận bấm được, ca chưa xác nhận có đường dẫn sang Đối soát Fabi');
-  addCa.click(); await wait('.stc-addp', 30); await sleep(200);
-  ok(!!$('[name=ca]', pan())?.value, '11. khung chọn sẵn ca');
-  setp('[name=note]', 'Mua giấy in'); setp('[name=amount]', '25.000'); setp('[name=reason]', '');
-  $('button[type=submit]', pan()).click(); await sleep(500);
-  ok(txt($('.stc-err', pan())).includes('ghi lý do'), '11. thêm vào ca thiếu lý do bị báo');
-  setp('[name=reason]', 'NV quên ghi'); $('button[type=submit]', pan()).click(); await sleep(900); await wait('.stc-pay'); await openAll();
-  ok(!!item('mua giấy in') && txt(item('mua giấy in')).includes('thêm'), '11. khoản thêm vào ca có nhãn thêm');
+  // chặng 6.3d (anh Tiến chọn 23/11): Sổ thu chi luôn ngoài ca — dòng ca có đường dẫn "+ Thêm phiếu … ở trang đối soát ca ›"
+  const goCa = $$('a.stc-addca-go').find((a) => a.getAttribute('href').includes('#/ca/doi-soat?id='));
+  ok(!!goCa && $$('a[href*="#/ca/doi-soat?id="]').length > 0, '11. "+ Thêm phiếu vào ca" ở Sổ thu chi là đường dẫn sang trang đối soát ca');
+  ok(!$$('button.stc-addca[data-addca]').some((b) => !b.disabled), '11. Sổ thu chi không thêm phiếu vào ca tại sổ');
   // 8. không tràn ngang
   if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
   out.push({ stc2: { ok: good, fail: bad } });

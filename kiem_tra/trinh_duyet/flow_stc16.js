@@ -17,17 +17,11 @@ export default async ({ sleep, out }) => {
   try {
     const sb = (await import('/js/sb.js')).sb; await sb.rpc('app_stc_ds_undone', { p_report: 171 });
     // A. ô Ca giữ khi đổi Loại qua lại
-    location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp [name=ca]', 60); await sleep(200);
-    setv(el('date'), '2026-11-17'); await sleep(150); setv(el('ca'), '171'); await sleep(150);
-    ok(el('ca').value === '171', 'A1. chọn ca Sáng 17/11');
-    setv(el('kind'), 'no'); await sleep(150);
-    ok(el('ca').value === '' && el('ca').disabled, 'A2. đổi sang Cho nợ: ô Ca về Ngoài ca và khoá (như cũ)');
-    setv(el('kind'), 'chi'); await sleep(150);
-    ok(el('ca').value === '171' && !el('ca').disabled, 'A3. đổi lại Khoản chi: ô Ca quay lại ca Sáng 17/11 đã chọn (không về Ngoài ca)');
-    setv(el('kind'), 'lc'); await sleep(150); setv(el('kind'), 'chi'); await sleep(150);
-    ok(el('ca').value === '171', 'A4. qua Luân chuyển quỹ rồi lại Khoản chi: vẫn giữ ca đã chọn');
-    setv(el('ca'), ''); await sleep(100); setv(el('kind'), 'no'); await sleep(100); setv(el('kind'), 'chi'); await sleep(150);
-    ok(el('ca').value === '', 'A5. tự chọn Ngoài ca rồi đổi Loại qua lại: vẫn Ngoài ca');
+    // chặng 6.3d (anh Tiến chọn 23/11): Sổ thu chi luôn ngoài ca — không có ô Ca ở mọi loại (phần A cũ "ô Ca giữ khi đổi Loại" bỏ)
+    location.hash = SO + '&t=' + Date.now(); await wait('.stc-ch .stc-add'); await sleep(300); $('.stc-ch .stc-add').click(); await wait('.stc-addp', 60); await sleep(200);
+    const caHid = () => { const l = el('ca')?.closest('label'); return !l || l.hidden; };
+    ok(caHid(), 'A1. Sổ chi: không có ô Ca');
+    for (const k of ['no', 'lc', 'chi']) { setv(el('kind'), k); await sleep(150); ok(caHid(), `A2. loại ${k}: vẫn không có ô Ca`); }
     wide('hộp thêm phiếu');
     $('[data-x]', P()).click(); await sleep(200);
     // B. "Còn thiếu" bấm được

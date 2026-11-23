@@ -52,11 +52,8 @@ export default async ({ sleep, out }) => {
     if (add) {
       add.click(); await sleep(500); const box = $('.stc-addp');
       ok(box && box.querySelector('[name=date]').value === '2026-11-18' && box.querySelector('[name=ca]').value === '183', 'c. Ngày 18/11 và Ca Tối điền sẵn đúng ca');
-      const dt = box.querySelector('[name=date]'); dt.value = '2026-11-17'; dt.dispatchEvent(new Event('change')); await sleep(200);
-      const opt = [...box.querySelectorAll('[name=ca] option')].find((o) => o.value === '172');
-      ok(opt && opt.disabled && txt(opt).includes('chưa xác nhận fabi'), 'c. ca chưa xác nhận Fabi: mờ + ghi lý do trong danh sách');
-      const j = [...box.querySelectorAll('.stc-cajump a')].find((x) => x.getAttribute('href').includes('doi-soat?id=172&'));   // bước 171: hàng nút nhảy có thêm nút "Mở lại" của ca đã hoàn thành
-      ok(!!j && !box.querySelector('.stc-cajump').hidden && txt(j).includes('xác nhận fabi'), 'c. có nút nhảy tới Xác nhận Fabi của ca đó');
+      // chặng 6.3d: ở trang đối soát ca, Ngày + Ca cố định theo ca (không đổi sang ngày / ca khác, không có "Ngoài ca")
+      ok(box.querySelector('[name=date]').disabled && box.querySelector('[name=ca]').disabled && ![...box.querySelectorAll('[name=ca] option')].some((o) => o.value === ''), 'c. Ngày + Ca cố định theo ca, không có "Ngoài ca"');
       wide('c. khung thêm phiếu');
       box.querySelector('[data-x]').click(); await sleep(200);
     }
@@ -66,13 +63,8 @@ export default async ({ sleep, out }) => {
     if (add2) {
       add2.click(); await sleep(500); const box = $('.stc-addp'); const k = box.querySelector('[name=kind]'); k.value = 'no'; k.dispatchEvent(new Event('change')); await sleep(150);
       const dt = box.querySelector('[name=date]'); const opts = () => [...box.querySelectorAll('[name=debt] option')].filter((o) => o.value).map((o) => o.value).sort().join(',');
-      dt.value = '2026-11-15'; dt.dispatchEvent(new Event('change')); await sleep(150);
-      ok(opts() === 'd:2', 'd. Thu nợ ngày 15/11: chỉ nợ ghi trước đó (Cô Lan Anh 10/11) — có ' + opts());
-      dt.value = '2026-11-18'; dt.dispatchEvent(new Event('change')); await sleep(150);
-      ok(opts() === 'd:1,d:2,d:3,d:501', 'd. Thu nợ ngày 18/11: thấy cả nợ 16/11 + 18/11 — có ' + opts());
-      dt.value = '2026-11-09'; dt.dispatchEvent(new Event('change')); await sleep(150);
-      ok(opts() === '' && txt(box.querySelector('[name=debt] option')).includes('không có khách nợ'), 'd. ngày trước mọi khoản nợ: ghi "Không có khách nợ…"');
-      box.querySelector('[data-x]').click(); await sleep(200);
+      // chặng 6.3d: Thu nợ trong ca (Ngày cố định 18/11 ca Tối) — chỉ nợ ghi trước ca này, còn tiền
+      ok(dt.disabled && opts().length > 0 && opts().split(',').includes('d:2'), 'd. Thu nợ trong ca: danh sách nợ ghi trước ca (có Cô Lan Anh 10/11) — ' + opts());
     } else bad.push('d. không mở được khung thêm phiếu thu');
     // Thu nợ từ "Ai còn nợ" (tab Tổng): ngày thu trước ngày nợ → báo lỗi, không ghi
     location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-11&t=' + Date.now(); await sleep(500); await wait('.stc-debts');
