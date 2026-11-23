@@ -2,12 +2,15 @@
 <html lang="vi"><meta charset="utf-8"><title>Đồng bộ C02 Milano</title>
 <link rel="stylesheet" href="popup.css">
 <main><small>MILANO & LELA</small><h1>Đồng bộ C02</h1>
-<p>Tải Excel chi tiết từng ca đã đóng của hôm qua và nhập vào Milano bằng tài khoản đang đăng nhập.</p>
+<p>Tải Excel chi tiết từng ca đã đóng của ngày chọn (mặc định hôm qua) và nhập vào Milano bằng tài khoản đang đăng nhập.</p>
+<label class="day">Ngày cần lấy<select id="day"></select></label>
 <p id="status" role="status">Đang kiểm tra…</p>
 <button id="preview">1. Kiểm tra tải — chưa nhập</button>
 <button id="upload">2. Đồng bộ lên Milano</button>
+<p id="hint" hidden></p>
 <button id="stop">Dừng sau ca hiện tại và tắt lịch</button>
-<label><input type="checkbox" id="enabled"> Tự chạy hằng ngày từ 08:15</label>
+<label><input type="checkbox" id="enabled"> Tự chạy hằng ngày từ 08:15 (lấy hôm qua)</label>
+<p class="note">Lấy bù ngày đã lỡ: chọn ngày ở trên rồi bấm 1, xong bấm 2 như thường — mỗi lần một ngày, lùi tối đa 31 ngày.</p>
 <p class="note">Chrome cần mở và máy có mạng. Khi máy thức dậy sau 08:15, tiện ích kiểm tra chạy bù trong ngày. Bộ file được giữ tạm trong phiên Chrome; Chrome có thể hỏi thêm quyền tải nhiều file vào thư mục tải xuống.</p>
 <p class="note">Lỗi hoặc hết phiên đăng nhập sẽ hiện dấu ! trên tiện ích. Mở lại Fabi/Milano, đăng nhập rồi chạy kiểm tra lại.</p>
 <p id="error" role="alert"></p><details><summary>Ca đã xử lý</summary><ul id="results"></ul></details>

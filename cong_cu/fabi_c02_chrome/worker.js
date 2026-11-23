@@ -1,4 +1,4 @@
-import { FABI, MILANO, STORES, previousDay, vnClock, detailIdentity, queueRows } from './core.mjs';
+import { FABI, MILANO, STORES, previousDay, vnClock, vnDate, validDay, detailIdentity, isDetailUrl, queueRows } from './core.mjs';
 import { fabiPage } from './fabi_page.js';
 import { milanoPage } from './milano_page.js';
 import { installWebBridge } from './web_bridge.mjs';
@@ -31,7 +31,7 @@ async function execute(tabId, func, args) {
     const end = Date.now() + 25000;
     while (Date.now() < end) {
       const next = await chrome.tabs.get(tabId);
-      if (next.status === 'complete' && next.url?.startsWith(FABI + '-detail?')) return { url: next.url };
+      if (next.status === 'complete' && isDetailUrl(next.url)) return { url: next.url };
       await new Promise((resolve) => setTimeout(resolve, 250));
     }
   }
@@ -48,14 +48,17 @@ async function navigate(tabId, url) {
   }
   throw Error('Trang tải quá lâu; sẽ thử lại.');
 }
-async function start(mode, { automatic = false } = {}) {
+const BAD_DAY = 'Ngày cần lấy không hợp lệ: chỉ lấy được từ hôm qua lùi lại tối đa 31 ngày.';
+// day: ngày chọn ở cửa sổ tiện ích để lấy bù; không có thì là hôm qua. Lịch tự động luôn lấy hôm qua.
+async function start(mode, { automatic = false, day: wanted } = {}) {
   if (starting) { if (automatic) return false; throw Error('Một lượt đang khởi tạo.'); }
   starting = true;
   const version = stopVersion;
   try {
   const s = await read();
   if (s.run?.status === 'running') { if (automatic) return false; throw Error('Một lượt đang chạy.'); }
-  const day = previousDay();
+  const day = automatic ? previousDay() : wanted ?? previousDay();
+  if (!validDay(day)) throw Error(BAD_DAY);
   const now = vnClock();
   if (automatic) {
     if (!s.enabled || now.minutes < 495 || s.lastSuccess === day || s.lastAuto === now.day) return false;
@@ -73,17 +76,19 @@ async function start(mode, { automatic = false } = {}) {
   const app = await chrome.tabs.create({ url: MILANO + '#/ke-toan/fabi', active: false });
   const fabi = await chrome.tabs.create({ url: FABI, active: false });
   s.run = { day, mode, app: app.id, fabi: fabi.id, status: 'running', phase: 'list', page: 1, pages: [], queue: [], index: 0,
-    results: [], staged: [], failures: [], attempts: 0, started: Date.now(), message: 'Đang lấy danh sách ca hôm qua…' };
+    results: [], staged: [], failures: [], attempts: 0, started: Date.now(), message: `Đang lấy danh sách ca ngày ${vnDate(day)}…` };
   return await save(s, version);
   } finally { starting = false; }
 }
 async function step(s) {
   const r = s.run;
-  // Giữ ngày cố định suốt lượt, dừng khi sang ngày khác để không lấy nhầm Hôm qua.
-  if (r.day !== previousDay()) throw Error('Đã sang ngày mới. Chạy lại để lấy đúng ngày hôm qua.');
+  // Ngày giữ cố định suốt lượt. Đúng hôm qua thì bấm nút "Hôm qua" của Fabi, ngày khác thì bấm ngày trên lịch;
+  // qua nửa đêm giữa lượt thì lần sau tự chuyển sang bấm lịch, trang Fabi vẫn phải ghi đúng ngày mới đọc.
+  if (!validDay(r.day)) throw Error('Ngày của lượt này đã quá 31 ngày. Chạy lại.');
+  const useYesterday = r.day === previousDay();
   if (r.phase === 'list') {
     await navigate(r.fabi, FABI);
-    const p = await execute(r.fabi, fabiPage, ['list', { day: r.day, page: r.page }]);
+    const p = await execute(r.fabi, fabiPage, ['list', { day: r.day, page: r.page, useYesterday }]);
     r.pages = r.pages.filter((x) => x.page !== p.page).concat(p);
     if (p.pages > 50) throw Error('Số trang C02 bất thường; cần kiểm tra bộ lọc ngày.');
     if (r.page < p.pages) { r.page++; return; }
@@ -94,7 +99,7 @@ async function step(s) {
     const q = r.queue[r.index];
     r.message = `${r.mode === 'preview' ? 'Kiểm tra' : 'Đồng bộ'} ca ${r.index + 1}/${r.queue.length} ${q.short}…`;
     await navigate(r.fabi, FABI);
-    await execute(r.fabi, fabiPage, ['list', { day: r.day, page: q.page }]);
+    await execute(r.fabi, fabiPage, ['list', { day: r.day, page: q.page, useYesterday }]);
     const opened = await execute(r.fabi, fabiPage, ['open', q]);
     const identity = detailIdentity(opened.url);
     if (!identity.id.endsWith(q.short.slice(1))) throw Error('Mã ca chi tiết khác mã đã chọn.');
@@ -141,10 +146,15 @@ async function step(s) {
     const stores = new Set(r.results.map((x) => x.store));
     if (STORES.some((name) => !stores.has(name))) throw Error('Chưa xác nhận đủ báo cáo của cả 4 cơ sở. Xem lại phạm vi C02.');
     r.status = 'success'; r.finished = Date.now();
-    r.message = `${r.mode === 'preview' ? 'Đã tải và kiểm tra' : 'Đã đồng bộ'} đủ ${r.results.length}/${r.queue.length} ca ngày ${r.day}.${r.mode === 'preview' ? ' Chưa nhập lên Milano.' : ''}`;
-    if (r.mode !== 'preview') s.lastSuccess = r.day;
+    r.message = `${r.mode === 'preview' ? 'Đã tải và kiểm tra' : 'Đã đồng bộ'} đủ ${r.results.length}/${r.queue.length} ca ngày ${vnDate(r.day)}.${r.mode === 'preview' ? ' Chưa nhập lên Milano.' : ''}`;
+    if (r.mode !== 'preview') {
+      // Lấy bù ngày cũ không lùi mốc ngày mới nhất (lịch tự động dựa vào mốc này).
+      if (!s.lastSuccess || r.day > s.lastSuccess) s.lastSuccess = r.day;
+      s.synced = { ...(s.synced || {}), [r.day]: { count: r.results.length, at: Date.now() } };
+    }
     // Nhật ký không giữ dữ liệu tiền, thông tin khách hoặc thông tin đăng nhập.
     for (const [key, value] of Object.entries(s.done)) if (value.at < Date.now() - 45 * 86400000) delete s.done[key];
+    for (const [key, value] of Object.entries(s.synced || {})) if (value.at < Date.now() - 45 * 86400000) delete s.synced[key];
   }
 }
 async function drive() {
@@ -196,9 +206,13 @@ async function control(m) {
     } else if (m.type === 'stop') {
       if (s.run?.status === 'running') s.run.stopRequested = true;
       s.enabled = false; await save(s);
+    } else if (m.type === 'upload') {
+      // Đồng bộ đúng ngày của lượt Kiểm tra vừa thành công (hôm qua hoặc ngày lấy bù).
+      if (!(s.run?.mode === 'preview' && s.run.status === 'success' && validDay(s.run.day))) throw Error('Cần kiểm tra đủ ca thành công trước khi đồng bộ thật.');
+      await start('upload', { day: s.run.day }); drive().catch(console.error);
     } else {
-      if (m.type === 'upload' && !(s.run?.mode === 'preview' && s.run.status === 'success' && s.run.day === previousDay())) throw Error('Cần kiểm tra đủ ca thành công trước khi đồng bộ thật.');
-      await start(m.type); drive().catch(console.error);
+      if (m.day != null && !validDay(m.day)) throw Error(BAD_DAY);
+      await start('preview', { day: m.day ?? previousDay() }); drive().catch(console.error);
     }
     return read();
 }

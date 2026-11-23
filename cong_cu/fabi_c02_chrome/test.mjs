@@ -26,16 +26,42 @@ export async function runTests() {
   check(() => assert.throws(() => core.queueRows([{ page: 1, rows: [{ ...rows[0], close: '' }] }], day)));
   check(() => assert.throws(() => core.queueRows([{ page: 1, rows: [{ ...rows[0], open: '01/01/2000 07:00' }] }], day)));
   check(() => assert.throws(() => core.queueRows([], day)));
-  const source = (await fs.readFile(new URL('./worker.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
+  // 0.3.0 (23/11/2026) — Fabi đổi sang đường dẫn /micro/, có dòng "trên tổng số N", thêm chọn ngày lấy bù.
+  check(() => assert.equal(core.FABI, 'https://fabi.ipos.vn/micro/report/revenue/revenue/shift'));
+  for (const base of ['https://fabi.ipos.vn/micro', 'https://fabi.ipos.vn']) {
+    const u = base + '/report/revenue/revenue/shift-detail?store=S-1&shift_id=TEST00001';
+    check(() => assert.deepEqual(core.detailIdentity(u), { id: 'TEST00001', store: 'S-1' }));
+    check(() => assert.equal(core.isDetailUrl(u), true));
+  }
+  check(() => assert.throws(() => core.detailIdentity('https://fabi.ipos.vn/khac/report/revenue/revenue/shift-detail?store=S&shift_id=X')));
+  check(() => assert.equal(core.isDetailUrl(core.FABI), false));
+  check(() => assert.equal(core.isDetailUrl('https://other.example/micro/report/revenue/revenue/shift-detail?store=S&shift_id=X'), false));
+  const counted = pages.map((p) => ({ ...p, total: 12 }));
+  check(() => assert.equal(core.queueRows(counted, day).length, 12));
+  check(() => assert.throws(() => core.queueRows(counted.map((p) => ({ ...p, total: 13 })), day), /13/)); // Fabi báo 13 ca mà chỉ đọc được 12 → dừng, không bỏ sót
+  check(() => assert.throws(() => core.queueRows([counted[0], { ...counted[1], total: 11 }], day))); // tổng số đổi giữa hai trang
+  const at = Date.parse('2026-11-23T01:00:00Z'); // 08:00 ngày 23/11 giờ Việt Nam
+  check(() => assert.deepEqual(core.recentDays(3, at), ['2026-11-22', '2026-11-21', '2026-11-20']));
+  check(() => assert.equal(core.recentDays(31, at).at(-1), '2026-10-23'));
+  for (const [d, ok] of [['2026-11-22', true], ['2026-10-23', true], ['2026-10-22', false], ['2026-11-23', false], ['2026-11-24', false],
+    ['2026-11-31', false], ['22/11/2026', false], ['2026-11-2', false], [undefined, false]]) check(() => assert.equal(core.validDay(d, at), ok, String(d)));
+  check(() => assert.equal(core.vnDate('2026-11-18'), '18/11/2026'));
+  const source =(await fs.readFile(new URL('./worker.js', import.meta.url), 'utf8')).replace(/^import .*;\n/gm, '');
   const fabiSource = await fs.readFile(new URL('./fabi_page.js', import.meta.url), 'utf8');
   const milanoSource = await fs.readFile(new URL('./milano_page.js', import.meta.url), 'utf8');
   new vm.Script(fabiSource.replace('export async function', 'async function'));
   new vm.Script(milanoSource.replace('export async function', 'async function'));
   passed += 2;
-  async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate } = {}) {
+  // Danh sách giả theo đúng ngày được hỏi; trang nào cũng báo "trên tổng số" như Fabi mới.
+  const pagesFor = (d, total) => {
+    const v = d.split('-').reverse().join('/');
+    const rs = Array.from({ length: 12 }, (_, i) => ({ ...makeRow(i + 1), open: `${v} 07:00`, close: `${v} 12:00` }));
+    return [{ page: 1, pages: 2, total, rows: rs.slice(0, 10) }, { page: 2, pages: 2, total, rows: rs.slice(10) }];
+  };
+  async function harness({ fail = false, missingStore = false, navigationReturnsNull = false, savedState, minutes = 495, beforeCreate, total = 12 } = {}) {
     const local = savedState ? { state: structuredClone(savedState) } : {}, session = {}, tabs = new Map();
     const time = { ...core.vnClock(), minutes }; let startup, message;
-    let id = 1, uploaded = 0, previewed = 0;
+    let id = 1, uploaded = 0, previewed = 0; const lists = [];
     const area = (store) => ({
       get: async (key) => ({ [key]: structuredClone(store[key]) }),
       set: async (data) => Object.assign(store, structuredClone(data)),
@@ -55,7 +81,7 @@ export async function runTests() {
           if (fail) throw Error('Lỗi thử nghiệm');
           let result;
           if (func.name === 'fabiPage') {
-            if (command === 'list') result = pages[arg.page - 1];
+            if (command === 'list') { lists.push(structuredClone(arg)); result = pagesFor(arg.day, total)[arg.page - 1]; }
             if (command === 'open') {
               const url = core.FABI + '-detail?store=TEST&shift_id=TEST' + arg.short.slice(1);
               tabs.get(target.tabId).url = url; result = navigationReturnsNull ? null : { url };
@@ -77,7 +103,7 @@ export async function runTests() {
     });
     new vm.Script(source).runInContext(context);
     const run = (s) => vm.runInContext(s, context);
-    return { run, local, session, time, startup: () => startup(), tabCount: () => tabs.size, count: () => ({ uploaded, previewed }),
+    return { run, local, session, time, startup: () => startup(), tabCount: () => tabs.size, count: () => ({ uploaded, previewed }), lists: () => lists,
       send: (type) => new Promise((resolve) => message({ type }, { id: 'test' }, resolve)) };
   }
   const h = await harness();
@@ -187,8 +213,44 @@ export async function runTests() {
   await recovered.run("start('upload')"); await recovered.run('drive()');
   check(() => assert.equal(recovered.local.state.run.status, 'success'));
   check(() => assert.equal(recovered.count().uploaded, 11)); // một ca đã xác minh trước khi mất phiên không bị nhập lại
+  // 0.3.0 — chọn ngày để lấy bù (từ cửa sổ tiện ích), hôm qua vẫn bấm nút "Hôm qua" của Fabi.
+  const settle = async (x) => { for (let i = 0; i < 400 && x.local.state?.run?.status === 'running'; i++) await new Promise((r) => setTimeout(r, 5)); };
+  const back = await harness();
+  const older = core.recentDays(5)[4];
+  await back.run(`control({ type: 'preview', day: '${older}' })`); await settle(back);
+  check(() => assert.equal(back.local.state.run.status, 'success'));
+  check(() => assert.equal(back.local.state.run.day, older));
+  check(() => assert.equal(back.local.state.run.results.length, 12));
+  check(() => assert.ok(back.lists().length > 0 && back.lists().every((a) => a.day === older && a.useYesterday === false)));
+  check(() => assert.equal(back.count().uploaded, 0));
+  await back.run("control({ type: 'upload' })"); await settle(back); // nút Đồng bộ dùng đúng ngày vừa kiểm tra
+  check(() => assert.equal(back.local.state.run.mode, 'upload'));
+  check(() => assert.equal(back.local.state.run.status, 'success'));
+  check(() => assert.equal(back.local.state.run.day, older));
+  check(() => assert.equal(back.count().uploaded, 12));
+  check(() => assert.equal(back.local.state.synced[older].count, 12));
+  check(() => assert.equal(back.local.state.lastSuccess, older));
+  await back.run("control({ type: 'preview' })"); await settle(back); // không chọn ngày → hôm qua
+  check(() => assert.equal(back.local.state.run.day, day));
+  check(() => assert.ok(back.lists().filter((a) => a.day === day).every((a) => a.useYesterday === true)));
+  await back.run("control({ type: 'upload' })"); await settle(back);
+  check(() => assert.equal(back.local.state.lastSuccess, day));
+  await back.run(`control({ type: 'preview', day: '${older}' })`); await settle(back);
+  await back.run("control({ type: 'upload' })"); await settle(back);
+  check(() => assert.equal(back.local.state.lastSuccess, day)); // lấy bù ngày cũ không lùi mốc ngày mới nhất
+  check(() => assert.equal(back.count().uploaded, 24)); // ngày cũ chạy lại, dữ liệu như cũ → không nhập lại
+  const wrong = await harness();
+  await assert.rejects(wrong.run("control({ type: 'preview', day: '2000-01-01' })")); passed++;
+  await assert.rejects(wrong.run(`control({ type: 'preview', day: '${core.vnClock().day}' })`)); passed++; // hôm nay chưa xong ngày
+  check(() => assert.equal(wrong.tabCount(), 0));
+  const short = await harness({ total: 13 });
+  await short.run("start('preview')"); await short.run('drive()'); await short.run('drive()'); await short.run('drive()');
+  check(() => assert.equal(short.local.state.run.status, 'error')); // Fabi báo 13 ca, đọc được 12 → dừng
+  check(() => assert.match(short.local.state.run.message, /13/));
+  check(() => assert.equal(short.count().uploaded, 0));
   passed += await validationTests(day, core.STORES[0]);
   passed += await bridgeTests();
   return { passed, note: 'Dữ liệu giả; chưa thay thế kiểm tra Chrome/Fabi/Milano thật.' };
 }
-if (typeof process !== 'undefined' && import.meta.url === `file://${process.argv[1]}`) console.log(await runTests());
+// So bằng URL đã mã hoá để chạy được cả khi đường dẫn có dấu cách (vd "Milano App").
+if (typeof process !== 'undefined' && process.argv[1] && import.meta.url === (await import('node:url')).pathToFileURL(process.argv[1]).href) console.log(await runTests());

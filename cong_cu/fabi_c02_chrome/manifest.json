@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Milano — Đồng bộ C02",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Lấy Excel C02 chi tiết từng ca trên Fabi và nhập bằng phiên Milano đang đăng nhập.",
   "minimum_chrome_version": "120",
   "permissions": ["alarms", "storage", "scripting"],
