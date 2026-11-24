@@ -1,6 +1,6 @@
 // Bài thử hàm thuần trang Phân công đào tạo theo ca (tệp 174). Thiết kế: tai_lieu/superpowers/specs/2026-11-24-phan-cong-dao-tao-theo-ca-design.md
 // Chạy: jsc -m kiem_tra/pc_dao_tao_tinh_174.mjs (dữ liệu giả tự dựng).
-import { workDays, dayNo, groupsOf, shiftState, itemWhere, span, shortfall, workOf, cards } from '../docs/js/pages/pc_dao_tao_tinh.js';
+import { workDays, dayNo, groupsOf, shiftState, itemWhere, span, shortfall, workOf, cards, allShifts } from '../docs/js/pages/pc_dao_tao_tinh.js';
 let n = 0;
 const ok = (c, m) => { if (!c) throw new Error('KIỂM TRA THẤT BẠI: ' + m); n++; };
 const sh = (date, shift = 'Sáng') => ({ date, shift, branch_id: 1, branch: 'LHP', mates: [] });
@@ -32,4 +32,12 @@ ok(w.length === 1 && w[0].sh.shift === 'Tối' && w[0].items.length === 1, 'work
 ok(workOf([row], 5, '2026-11-24')[0].items.length === 2, 'workOf: HD chính tính cả mục người trống');
 const c = cards([row], '2026-11-24');
 ok(c.n === 1 && c.tre === 1 && c.kt === 1, 'cards: 1 người, 1 ca trễ, 1 mục chờ kiểm tra');
+// Lịch đổi sau khi đã phân công: mục xếp ca 22/11 Chiều (không còn trong lịch) vẫn phải hiện, đếm, lọc được
+const moved = { ...row, items: row.items.concat([it(8, { date: '2026-11-22', shift: 'Chiều', who_id: 7 })]) };
+const as = allShifts(moved);
+const off = as.find((s) => s.date === '2026-11-22');
+ok(as.length === 7 && off && off.off === true && off.shift === 'Chiều' && as.indexOf(off) === 3, 'allShifts: thêm ca "không còn trong lịch" (đánh dấu off), xếp đúng thứ tự ngày');
+ok(allShifts(row).length === 6 && allShifts(row).every((s) => !s.off), 'allShifts: không có mục lệch lịch → đúng các ca đã công bố');
+ok(cards([moved], '2026-11-24').tre === 2, 'cards: ca lệch lịch đã qua còn mục chưa chấm → tính là ca trễ');
+ok(workOf([moved], 7, '2026-11-22').length === 1, 'workOf: lọc người dạy thấy cả ca lệch lịch');
 print('ĐẠT ' + n + ' kiểm tra');

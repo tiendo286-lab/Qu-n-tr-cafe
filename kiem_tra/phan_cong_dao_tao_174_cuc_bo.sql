@@ -127,6 +127,13 @@ begin
   rep := rep || E'\n' || case when jsonb_array_length(j -> 'shifts') = 1 and j -> 'shifts' -> 0 ->> 'by' = 'E4 – QL Hai' and (j -> 'shifts' -> 0 ->> 'day_no')::int = 3 then 'ĐẠT' else 'HỎNG' end
     || format(' (7) việc của Cấp 1: %s', j -> 'shifts');
 
+  -- (9) người phụ trách chính bấm Sửa phần của Cấp 1 B (mục 8 do quản lý A giao lại) và thêm mục 11 → mục 8 VẪN là "A giao lại", mục 11 giao thẳng
+  perform set_config('request.jwt.claims', json_build_object('sub', u_ptc, 'role', 'authenticated')::text, true);
+  perform public.app_dt_plan_assign(tid, d + 1, 'Sáng', 1, 5, array[8, 11]);
+  select count(*) into n from public.training_followups where training_id = tid and item_no = 8 and employee_id = 5 and sub_by = 4;
+  select count(*) into n2 from public.training_followups where training_id = tid and item_no = 11 and employee_id = 5 and sub_by is null and work_date = d + 1;
+  rep := rep || E'\n' || case when n = 1 and n2 = 1 then 'ĐẠT' else 'HỎNG' end || format(' (9) Sửa phần Cấp 1 giữ dấu giao lại: mục 8 %s, mục 11 %s', n, n2);
+
   -- (8) web không đọc thẳng bảng
   rep := rep || E'\n' || case when not has_table_privilege('authenticated', 'public.training_followups', 'select') then 'ĐẠT' else 'HỎNG' end || ' (8) bảng không mở cho web';
   raise exception 'REPORT>> %', rep;

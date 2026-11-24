@@ -69,7 +69,7 @@ export function makeDt(T, me) {
       .forEach(([e, d, sh]) => T.schedule_published.push({ week_id: 9174, employee_id: e, weekday: d, shift: sh, branch_id: 1, role: 'phuc_vu', published_at: now() }));
     const y = addD(today, -1), m1 = addD(today, 1);
     const fx = (no, employee_id, date, shift, sub_by = null) => extras.push({ training_id: 1, no, employee_id, name: emp(employee_id)?.name, note: null, is_extra: false, finished_at: null, branch_id: 1, branch: 'TEST', date, shift, sub_by });
-    fx(3, 5, y, 'Sáng'); fx(4, 5, y, 'Sáng'); [10, 11, 12].forEach((no) => fx(no, 8, m1, 'Sáng')); fx(13, 7, m1, 'Sáng', 8);
+    fx(3, 5, y, 'Sáng'); fx(4, 5, y, 'Sáng'); [10, 11, 12].forEach((no) => fx(no, 8, m1, 'Sáng')); fx(13, 7, m1, 'Sáng', 8); fx(15, 5, y, 'Tối');   // lịch đổi sau khi giao: ca hôm qua Tối không còn trong lịch
     T.training_marks.push({ training_id: 1, item_no: 3, introduced: true, practiced: true, level: 'tot', by_account: 5, at: y + ' 07:40:00' },
       { training_id: 1, item_no: 4, introduced: true, practiced: false, level: null, by_account: 5, at: y + ' 08:05:00' },
       { training_id: 1, item_no: 13, introduced: true, practiced: true, level: 'kha', by_account: 9, at: now(), cho_kiem_tra: true, cho_by: 9, cho_at: now() });
@@ -275,7 +275,8 @@ export function makeDt(T, me) {
         .forEach((f) => Object.assign(f, { employee_id: null, name: null, date: null, shift: null, sub_by: null }));
       let n = 0, moved = 0, skipped = 0;
       items.forEach((no) => { if (markOf(t.id, no)?.level) { skipped += 1; return; } const f = fuOf(t, no); if (f?.date && (f.date !== p_date || f.shift !== p_shift)) moved += 1;
-        setFu(t, no, { employee_id: p_employee, date: p_date, shift: p_shift, sub_by: null, branch_id: s.branch_id, finished_at: null }); n += 1; });
+        const keepSub = f && f.employee_id === p_employee && f.date === p_date && f.shift === p_shift ? f.sub_by || null : null;   // giữ dấu "giao lại" như máy chủ
+        setFu(t, no, { employee_id: p_employee, date: p_date, shift: p_shift, sub_by: keepSub, branch_id: s.branch_id, finished_at: null }); n += 1; });
       return { n, moved, skipped };
     },
     app_dt_plan_unassign({ p_id, p_date, p_shift, p_employee }) {

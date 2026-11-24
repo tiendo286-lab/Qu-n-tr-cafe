@@ -35,6 +35,7 @@ export const PCD_CSS = html`<style>
   .pcd-sh .pcd-sw { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; } .pcd-sh .pcd-gl { display: block; }
   .pcd-sh.chua { background: #fef3c7; border-color: #f59e0b; } .pcd-sh.giao { background: #e3eaf1; border-color: #6f8fae; }
   .pcd-sh.tre { background: #fbe2df; border-color: #dc2626; } .pcd-sh.trong, .pcd-sh.ok { color: var(--muted); }
+  .pcd-sh.off { border-style: dashed; } .pcd-offt { flex: none; }
   .pcd-fw { display: flex; flex-direction: column; gap: 8px; } .pcd-fw-f { display: flex; flex-wrap: wrap; gap: 8px; }
   .pcd-fw-f select { flex: 1 1 220px; width: auto; min-width: 0; } .pcd-fw-f input { width: 160px; max-width: 100%; }
   .pcd-fw-it { display: block; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--card, #fff); color: inherit; font: inherit; cursor: pointer; overflow-wrap: anywhere; }

@@ -50,10 +50,20 @@ export function span(nos) {
 // Số ngày đi làm tới hạn còn thiếu so với số ngày giáo trình
 export const shortfall = (row, days) => Math.max(0, days - workDays(row).filter((d) => !row.due || d <= row.due).length);
 
+// Các ca đã công bố + ca "không còn trong lịch" (mục đã xếp ca nhưng lịch đổi sau đó, off: true), xếp theo ngày rồi ca
+const SH_ORD = ['Sáng', 'Chiều', 'Tối'];
+export function allShifts(row) {
+  const pub = row.shifts || []; const has = new Set(pub.map((s) => `${s.date}|${s.shift}`)); const off = new Map();
+  for (const it of row.items || []) if (it.date && !has.has(`${it.date}|${it.shift}`)) off.set(`${it.date}|${it.shift}`, { date: it.date, shift: it.shift, branch_id: null, branch: null, mates: [], off: true });
+  if (!off.size) return pub;
+  const o = (s) => { const i = SH_ORD.indexOf(s); return i < 0 ? 99 : i; };
+  return [...pub, ...off.values()].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : o(a.shift) - o(b.shift)));
+}
+
 // Việc của một người dạy trong một ngày: [{row, sh, items}]
 export function workOf(rows, whoId, date) {
   const out = [];
-  for (const row of rows) for (const sh of (row.shifts || []).filter((s) => s.date === date)) {
+  for (const row of rows) for (const sh of allShifts(row).filter((s) => s.date === date)) {
     const items = groupsOf(row, sh).filter((g) => String(g.who_id) === String(whoId)).flatMap((g) => g.items);
     if (items.length) out.push({ row, sh, items });
   }
@@ -63,6 +73,6 @@ export function workOf(rows, whoId, date) {
 // Ô tổng: số người đang đào tạo, số ca trễ chưa chấm, số mục chờ kiểm tra
 export const cards = (rows, today) => ({
   n: rows.length,
-  tre: rows.reduce((s, r) => s + (r.shifts || []).filter((sh) => shiftState(r, sh, today) === 'tre').length, 0),
+  tre: rows.reduce((s, r) => s + allShifts(r).filter((sh) => shiftState(r, sh, today) === 'tre').length, 0),
   kt: rows.reduce((s, r) => s + (r.items || []).filter((x) => x.state === 'cho_kt').length, 0),
 });

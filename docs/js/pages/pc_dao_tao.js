@@ -8,7 +8,7 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { $, dialog, flash, html, showSaved, str } from '../ui.js';
-import { cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.24.4';
+import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.24.4';
 import { LEVEL, PCD_CSS, dm, mountMyPlan, myPlanHtml, wd } from './pc_dao_tao_toi.js?v=2026.11.24.4';
 
 export const perm = null;
@@ -41,13 +41,14 @@ export async function render() {
     const d = F.d || today; const xs = workOf(rows, Number(F.who), d);
     if (!xs.length) return html`<div class="pcd-meta">${nameOf(Number(F.who))} không có mục dạy nào ngày ${dm(d)}.</div>`;
     return html`<div class="pcd-meta">${xs.length} ca · ${xs.reduce((s, x) => s + x.items.length, 0)} mục</div>
-      ${xs.map((x) => html`<button type="button" class="pcd-fw-it" data-open="${x.row.id}|${x.sh.date}|${x.sh.shift}"><b>${x.row.employee}</b> · ${x.sh.branch || ''} ${x.sh.shift} · Ngày ${dayNo(x.row, x.sh.date)} · mục ${span(x.items.map((i) => i.no))}</button>`)}`;
+      ${xs.map((x) => html`<button type="button" class="pcd-fw-it" data-open="${x.row.id}|${x.sh.date}|${x.sh.shift}"><b>${x.row.employee}</b> · ${x.sh.branch || ''} ${x.sh.shift} · ${x.sh.off ? 'không còn trong lịch' : 'Ngày ' + dayNo(x.row, x.sh.date)} · mục ${span(x.items.map((i) => i.no))}</button>`)}`;
   };
   const card = (r) => {
     const kts = r.items.filter((i) => i.state === 'cho_kt');
     const days = Math.max(0, ...r.items.map((i) => Number(i.day) || 0));
     const sf = r.shifts.length ? shortfall(r, days) : 0;
-    const tre = r.shifts.filter((sh) => shiftState(r, sh, today) === 'tre').length;
+    const shs = allShifts(r);   // + ca "không còn trong lịch" (lịch đổi sau khi đã giao)
+    const tre = shs.filter((sh) => shiftState(r, sh, today) === 'tre').length;
     const loose = r.items.filter((i) => i.who_id && !i.date && (i.state === 'chua' || i.state === 'gioi_thieu'));
     return html`<details class="card pcd-card" data-id="${r.id}" ${OPEN.has(r.id) ? 'open' : ''}>
       <summary><div class="pcd-h"><b>${r.employee}</b><span class="pcd-meta">${r.program} · Đạt ${r.achieved}/${r.total} · hạn ${dm(r.due)} · HD chính ${r.instructor || '—'}</span></div>
@@ -59,23 +60,23 @@ export async function render() {
             <span class="pcd-meta">${i.pending_by || '—'} ghi mức <b>${LEVEL[i.level] || i.level}</b>${i.pending_at ? ' · ' + dm(i.pending_at) + ' ' + String(i.pending_at).slice(11, 16) : ''}${i.sub_by ? ` · ${nameOf(i.sub_by, r)} giao lại — ${nameOf(i.sub_by, r)} hoặc người phụ trách chính xác nhận` : ''}</span></span>
             ${r.can_check ? html`<span class="pcd-kta"><select class="input sm pcd-kt-lv" aria-label="Mức hạng mục ${i.no}">${Object.entries(LEVEL).map(([k, v]) => html`<option value="${k}" ${k === i.level ? 'selected' : ''}>${v}</option>`)}</select><button type="button" class="btn sm" data-ktok>Xác nhận đạt</button></span>` : ''}</div>`)}</div>` : ''}
         ${loose.length ? html`<div class="pcd-meta">${loose.length} mục đã giao ở trang cũ, chưa xếp ca: mục ${span(loose.map((i) => i.no))}</div>` : ''}
-        ${r.shifts.length ? html`<div class="pcd-shs">${r.shifts.map((sh) => { const st = shiftState(r, sh, today); const gs = groupsOf(r, sh);
-          return html`<button type="button" class="pcd-sh ${st}" data-key="${sh.date}|${sh.shift}"><span class="pcd-sd"><span class="pcd-dn">Ngày ${dayNo(r, sh.date)}</span><b>${wd(sh.date)} ${dm(sh.date)}</b><span>${sh.branch || ''} ${sh.shift}</span></span>
+        ${shs.length ? html`<div class="pcd-shs">${shs.map((sh) => { const st = shiftState(r, sh, today); const gs = groupsOf(r, sh);
+          return html`<button type="button" class="pcd-sh ${st}${sh.off ? ' off' : ''}" data-key="${sh.date}|${sh.shift}"><span class="pcd-sd"><span class="pcd-dn">${sh.off ? 'Ngoài lịch' : 'Ngày ' + dayNo(r, sh.date)}</span><b>${wd(sh.date)} ${dm(sh.date)}</b><span>${sh.branch || ''} ${sh.shift}</span></span>
             <span class="pcd-sw">${gs.length ? gs.map((g) => html`<span class="pcd-gl">${gLabel(g, r)}</span>`) : html`<span class="pcd-meta">${sh.date < today ? 'Không có phân công' : 'Chưa phân công'}</span>`}</span>
-            <span class="pill ${ST[st][1]}">${sh.date === today ? 'Hôm nay' : ST[st][0]}</span></button>`; })}</div>`
+            ${sh.off ? html`<span class="pcd-meta pcd-offt">không còn trong lịch</span>` : ''}<span class="pill ${ST[st][1]}">${sh.date === today ? 'Hôm nay' : ST[st][0]}</span></button>`; })}</div>`
           : html`<div class="pcd-meta pcd-nosched">Chưa có lịch đã công bố — chưa có ca để phân công.</div>`}
       </div></details>`;
   };
 
   // ---- bảng dưới khi bấm một ca
   const openShift = (r, sh, view0) => {
-    const past = sh.date < today; let view = view0 || (sh.date <= today ? 'ct' : 'pc'); let pick = null; let H = null;
+    const past = sh.date < today; let view = sh.off ? 'ct' : view0 || (sh.date <= today ? 'ct' : 'pc'); let pick = null; let H = null;
     const d = dialog(''); d.classList.add('pcd-dlg');
     const mates = (sh.mates || []).filter((id) => TR.has(id) && id !== r.employee_id);
     const head = () => html`<div class="pcd-top"><div class="pcd-row"><h2>${r.employee} · ${sh.branch || ''} ${sh.shift} · ${wd(sh.date)} ${dm(sh.date)}</h2>
         <button type="button" class="btn sm secondary" data-x aria-label="Đóng">✕</button></div>
-      <div class="pcd-meta">Ngày ${dayNo(r, sh.date)} đi làm · Đạt ${r.achieved}/${r.total} · hạn ${dm(r.due)}${sh.date === today ? ' · ca hôm nay' : ''}</div>
-      ${sh.date === today ? html`<div class="pcd-seg" role="tablist"><button type="button" role="tab" data-view="ct" class="${view === 'ct' ? 'on' : ''}" aria-selected="${view === 'ct'}">Chi tiết ngày</button><button type="button" role="tab" data-view="pc" class="${view === 'pc' ? 'on' : ''}" aria-selected="${view === 'pc'}">Phân công</button></div>` : ''}</div>`;
+      <div class="pcd-meta">${sh.off ? 'Ca không còn trong lịch đã công bố' : `Ngày ${dayNo(r, sh.date)} đi làm`} · Đạt ${r.achieved}/${r.total} · hạn ${dm(r.due)}${sh.date === today ? ' · ca hôm nay' : ''}</div>
+      ${sh.date === today && !sh.off ? html`<div class="pcd-seg" role="tablist"><button type="button" role="tab" data-view="ct" class="${view === 'ct' ? 'on' : ''}" aria-selected="${view === 'ct'}">Chi tiết ngày</button><button type="button" role="tab" data-view="pc" class="${view === 'pc' ? 'on' : ''}" aria-selected="${view === 'pc'}">Phân công</button></div>` : ''}</div>`;
     const detail = () => {
       if (!H) return html`<div class="pcd-mid"><div class="pcd-meta">Đang tải…</div></div>`;
       if (H.err) return html`<div class="pcd-mid"><div class="pcd-meta">${H.err}</div></div>`;
@@ -84,6 +85,7 @@ export async function render() {
       const nos = [...new Set([...gs.flatMap((g) => g.items.map((i) => i.no)), ...logs.map((l) => l.no)])].sort((a, b) => a - b);
       const note = (H.notes || []).find((n) => n.day === sh.date);
       return html`<div class="pcd-mid">
+        ${sh.off ? html`<div class="pcd-warn">Ca này không còn trong lịch đã công bố (lịch đã đổi sau khi phân công). Mở một ca khác của ${r.employee}, tích các mục này để chuyển sang ca đó.</div>` : ''}
         <div class="pcd-meta">${nos.length} hạng mục · ${gs.length ? gs.map((g) => gLabel(g, r)).join(' · ') : 'không có phân công'}</div>
         ${nos.length ? nos.map((no) => { const it = r.items.find((i) => i.no === no) || { no, title: '', state: 'chua' }; const ls = logs.filter((l) => l.no === no); const g = whoOf.get(no);
           return html`<div class="pcd-ditem"><div><b>${no}.</b> ${it.title}${g ? html` <span class="pcd-meta">· ${nameOf(g.who_id, r)}${g.sub_by ? ` (${nameOf(g.sub_by, r)} giao lại)` : ''}</span>` : ''}</div>
@@ -179,9 +181,9 @@ export async function render() {
         const t = e.target;
         const shb = t.closest('.pcd-sh');
         if (shb) { const r = rows.find((x) => x.id === Number(shb.closest('.pcd-card').dataset.id)); const [date, shift] = shb.dataset.key.split('|');
-          const sh = r.shifts.find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return; }
+          const sh = allShifts(r).find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return; }
         const fo = t.closest('[data-open]');
-        if (fo) { const [id, date, shift] = fo.dataset.open.split('|'); const r = rows.find((x) => x.id === Number(id)); const sh = r?.shifts.find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return; }
+        if (fo) { const [id, date, shift] = fo.dataset.open.split('|'); const r = rows.find((x) => x.id === Number(id)); const sh = r && allShifts(r).find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return; }
         const ok = t.closest('.pcd-ktr [data-ktok]');
         if (ok) { const row = ok.closest('.pcd-ktr'); const id = Number(row.closest('.pcd-card').dataset.id); ok.disabled = true;
           try { await rpc('app_dt_check_ok', { p_id: id, p_no: Number(row.dataset.no), p_level: row.querySelector('.pcd-kt-lv').value }); OPEN.add(id); flash('Đã xác nhận đạt.'); rerender(); }

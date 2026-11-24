@@ -22,7 +22,9 @@ export default async ({ visit, sleep, out }) => {
       const c1 = card1();
       ok(!!c1 && txt(c1.querySelector('summary')).includes('Người học thử'), 'thẻ phiếu 1: tên nhân viên mới');
       if (c1) { c1.open = true; await sleep(150); }
-      ok(all('.pcd-sh', c1).length === 5, 'phiếu 1 có 5 ca theo lịch đã công bố — có ' + all('.pcd-sh', c1).length);
+      ok(all('.pcd-sh:not(.off)', c1).length === 5, 'phiếu 1 có 5 ca theo lịch đã công bố — có ' + all('.pcd-sh:not(.off)', c1).length);
+      const offRow = $(`.pcd-sh.off[data-key="${y}|Tối"]`, c1);
+      ok(!!offRow && /không còn trong lịch/.test(txt(offRow)) && /15/.test(txt(offRow)), 'lịch đổi sau khi giao: ca hôm qua Tối (mục 15) vẫn hiện, ghi "không còn trong lịch"');
       ok(/Ngày 3/.test(txt($(`.pcd-sh[data-key="${today}|Chiều"]`, c1))), 'ca hôm nay là "Ngày 3" (theo ngày đi làm thật)');
       const c2 = $('details.pcd-card[data-id="2"]'); if (c2) { c2.open = true; await sleep(100); }
       ok(/Chưa có lịch đã công bố/.test(txt(c2)), 'phiếu 2 không lịch: ghi "Chưa có lịch đã công bố"');
@@ -56,6 +58,9 @@ export default async ({ visit, sleep, out }) => {
       // ---- Chi tiết ngày đã qua
       dl = await openShift(y, 'Sáng');
       ok(!!dl && /Đã giới thiệu/.test(txt(dl)) && /Hiện tại/.test(txt(dl)) && !$('#pcd-go', dl), 'ca hôm qua: Chi tiết ngày như phiếu, không có nút Phân công');
+      await closeDlg();
+      dl = await openShift(y, 'Tối');
+      ok(!!dl && /không còn trong lịch/.test(txt(dl)) && !$('#pcd-go', dl), 'ca không còn trong lịch: mở được, ghi rõ, không có nút Phân công');
       await closeDlg();
       dl = await openShift(today, 'Chiều');
       ok(!!dl && !!$('[data-view="ct"]', dl) && !!$('[data-view="pc"]', dl), 'ca hôm nay: có 2 nút Chi tiết ngày / Phân công');

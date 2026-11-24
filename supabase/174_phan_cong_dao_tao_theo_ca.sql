@@ -126,7 +126,10 @@ begin
     select * into f from public.training_followups where training_id = t.id and item_no = v;
     if f.work_date is not null and (f.work_date <> p_date or f.work_shift is distinct from p_shift) then moved := moved + 1; end if;
     perform public.app_dt_followup_save(t.id, v, p_employee, null, false, br);
-    update public.training_followups set work_date = p_date, work_shift = p_shift, sub_by = null where training_id = t.id and item_no = v;
+    -- mục đã ở đúng người + đúng ca (vd quản lý đã giao lại cho Cấp 1 này): GIỮ dấu "giao lại bởi"
+    update public.training_followups set work_date = p_date, work_shift = p_shift,
+      sub_by = case when f.employee_id = p_employee and f.work_date = p_date and f.work_shift is not distinct from p_shift then f.sub_by end
+     where training_id = t.id and item_no = v;
     n := n + 1;
   end loop;
   perform set_config('app.dt_bulk', '', true); perform set_config('app.dt_plan', '', true);
