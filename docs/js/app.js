@@ -18,7 +18,7 @@ export const HUBS = [
   ['Xếp lịch tuần', [['Order', '/quan-ly/order', 'xem_tat_ca'], ['Lịch cơ sở', '/quan-ly/lich-co-so', 'xem_tat_ca'], ['Lịch tổng', '/quan-ly/lich-tong', 'bao_cao'],
     ['Cảnh báo', '/quan-ly/canh-bao', 'xep_lich'], ['Chốt & báo cáo', '/quan-ly/bao-cao', 'bao_cao']], 'tuan', 'Vận hành'],
   // bước 109: Bảng phân công công việc chung (Đợt 1) — việc tự tạo theo bảng + Giao việc riêng + Quá hạn & phạt
-  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Đào tạo', '/cong-viec/dao-tao', null], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
+  ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Đào tạo', '/cong-viec/dao-tao', null], ['Phân công đào tạo', '/dao-tao/phan-cong', null], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
   ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],   // bước 152: Sổ quỹ cũ → tab Tổng của Sổ thu chi
   ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', ['ke_toan', 'doi_soat']]], null, 'Tiền'],
   ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
@@ -57,6 +57,7 @@ const PAGES = {
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
   '/cong-viec/dao-tao': 'cv_dao_tao',
+  '/dao-tao/phan-cong': 'pc_dao_tao',   // tệp 174: phân công đào tạo theo ca (song song trang cũ)
   '/theo-doi-noi-quy': 'nq_theo_doi',
   '/dao-tao/phieu': 'phieu_dao_tao',
   '/cua-toi/dao-tao': 'dao_tao_cua_toi',
