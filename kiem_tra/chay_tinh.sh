@@ -3,7 +3,7 @@
 J=/System/Library/Frameworks/JavaScriptCore.framework/Versions/Current/Helpers/jsc
 cd "$(dirname "$0")/.." || exit 1
 bad=0
-for f in kiem_tra/so_thu_chi_tinh_dot*.mjs kiem_tra/gio_chot_tinh_162.mjs; do
+for f in kiem_tra/so_thu_chi_tinh_dot*.mjs kiem_tra/gio_chot_tinh_162.mjs kiem_tra/doi_soat_moi_tinh_dot*.mjs; do
   out=$("$J" -m "$f" 2>&1 | tail -1)
   case "$out" in ĐẠT*) echo "$f: $out" ;; *) echo "$f: HỎNG — $out"; bad=1 ;; esac
 done
