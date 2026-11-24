@@ -3,7 +3,7 @@ import { isManager } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
 import { html } from '../ui.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.24.3';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.24.4';
 
 const ROLE = { hoc: 'Bạn được đào tạo', huong_dan: 'Bạn hướng dẫn', quan_ly: 'Bạn phụ trách' };
 
