@@ -1,5 +1,6 @@
 // GIẢ LẬP Supabase để chạy thử trên Chrome (không kết nối dữ liệu thật)
 import { DATA } from '../test/data.js';
+import { DS2, ds2Name } from '../js/ds2.js';   // tệp 173: trang đối soát ca mới dùng bản luật mới app_ds2_* (giống sb.js thật)
 import { makeCa, makeStorage } from '../test/ca_gia.js';
 import { makeViec } from '../test/viec_gia.js';
 import { makeTl } from '../test/tl_gia.js';
@@ -110,6 +111,13 @@ const CA0 = { ...makeCa(T, ME), ...makeViec(T, ME), ...makeTl(T, ME), ...makeDt(
 const CA = CA0;
 { const base = CA.app_ca_recon_debt_collect; CA.app_ca_recon_debt_collect = function (a) { if (CA.__stcTraCollect?.(a)) return null; return base.call(this, a); }; }   // chặng 6.3c
 { const base = CA.app_ca_recon_debt_uncollect; CA.app_ca_recon_debt_uncollect = function (a) { if (CA.__stcTraUncollect?.(a)) return null; return base.call(this, a); }; }
+// tệp 173: app_ds2_<tên cũ> = đặt cờ luật mới (window.__DS_MOI, như cờ giao dịch app.ds_moi) rồi gọi đúng hàm giả cũ; cờ hết sau lệnh.
+// Hàm sửa số Fabi / tiền mặt / ca chịu lệch / số sửa / khách trả nợ cũ: ca đã xử lý chênh lệch thì chặn (CA.__ds2NoGap, như app__ds2_no_gap).
+const DS2_GAP = ['app_stc_ds_fabi', 'app_stc_ds_cash', 'app_stc_ds_blame', 'app_stc_ds_blame_undo', 'app_stc_fix_request', 'app_stc_fix_cancel', 'app_stc_fix_decide'];
+for (const n of DS2) CA[n.replace(/^app_(stc|ca_recon)_/, 'app_ds2_')] = function (a) {
+  window.__DS_MOI = true;
+  try { if (DS2_GAP.includes(n)) CA.__ds2NoGap?.(a); return CA[n].call(CA, a); } finally { window.__DS_MOI = false; }
+};
 const authCbs = [];
 export const sb = {
   from: (t) => new Q(t),
@@ -128,7 +136,8 @@ export const sb = {
 export function viError(e) { return String(e?.message || e); }
 // &tre=300: giả lập mỗi lần hỏi máy chủ mất 300ms (mạng thật VN → Singapore); window.__RPCT ghi [tên, bắt đầu, kết thúc]
 const TRE = Number(new URLSearchParams(location.search).get('tre') || 2); window.__RPCT = [];
-export async function rpc(name, args = {}) {
+export async function rpc(name0, args = {}) {
+  const name = ds2Name(name0, location.hash);   // tệp 173 (như sb.js thật)
   window.__LOG.push(['rpc', name, args]);
   const t0 = performance.now(); await new Promise((ok) => setTimeout(ok, TRE)); window.__RPCT.push([name, t0, performance.now()]);
   if (name === 'app_tc_check' && CA.__tc_check && CA.__tc_check(args)) return null;   // bước 155: khoản Sổ thu chi giả

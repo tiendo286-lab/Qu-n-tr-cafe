@@ -1,13 +1,16 @@
-// Trang đối soát ca mới — đợt 1: CHỈ XEM (#/ca/doi-soat-moi?id=<ca>). Chạy song song trang cũ (#/ca/doi-soat?id=), không ghi dữ liệu.
+// Trang đối soát ca mới (#/ca/doi-soat-moi?id=<ca>), chạy song song trang cũ (#/ca/doi-soat?id=). Đợt 1: xem · đợt 2: sửa tại chỗ (luật mới máy chủ tệp 173 —
+// sửa tự do tới khi Hoàn thành; rpc() tự đổi hàm sửa tiền sang app_ds2_*, xem ds2.js) · đợt 3: Hoàn thành gộp, Mở lại, Duyệt phần việc.
+// Khối số máy Fabi / nợ của ca / tiền mặt đếm và mọi hộp thoại dùng lại của Sổ thu chi (stcMoi / stcPart / stcBind); lưu xong: tích / Để sau / chọn nhóm
+// đổi tại chỗ, thao tác khác đọc lại dữ liệu của ca rồi vẽ lại riêng phần thân #dsm-body (không vẽ lại cả trang).
 // Thiết kế: tai_lieu/superpowers/specs/2026-11-24-trang-doi-soat-ca-moi-design.md · Kế hoạch: tai_lieu/superpowers/plans/2026-11-24-trang-doi-soat-ca-moi-dot-1.md
 // 3 trang: ① Phần việc · ② Tiền (Số máy Fabi, Tiền mặt, Chuyển khoản — từng khoản thu / chi và tổng) · ③ Hoàn thành (còn thiếu, xác nhận).
-// Đọc bằng 4 lệnh có sẵn (app_ca_get, app_stc_month, app_ca_ds_tuan một ngày, app_ca_ds_con); số tính bằng hàm của Sổ thu chi nên khớp trang cũ.
-// "Tính lại" chỉ đọc lại 4 lệnh đó và thay phần thân #dsm-body — không vẽ lại cả trang.
-import { rpc, sb } from '../sb.js';
+// Đọc: app_ca_get, sổ tháng của Sổ thu chi (app_stc_month + app_stc_people), app_ca_ds_tuan một ngày, app_ca_ds_con; số tính bằng hàm của Sổ thu chi nên khớp trang cũ.
+import { rpc } from '../sb.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
 import { fmt } from '../tien.js';
-import { SHIFT_ORDER, billListOf, caChecks, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
-import { CHK_LABEL, WORK_LABEL, caBook, confirmList, isClean, missingList, pageState } from '../doi_soat_moi_tinh.js';
+import { SHIFT_ORDER, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
+import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.23.6';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
+import { CHK_LABEL, WORK_LABEL, caBook, confirmKeys, confirmList, isClean, missingList, pageState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';
 
@@ -56,33 +59,45 @@ const CSS = `<style>
 .dsm-gap.bad b{color:var(--off-ink)}.dsm-gap.ok b{color:var(--ok-ink)}
 .dsm-tick{display:flex;gap:7px;align-items:flex-start;font-size:13.5px}
 .dsm-tick i{font-style:normal;width:18px;flex:none}
-.dsm-photos{display:flex;gap:8px;flex-wrap:wrap}
-.dsm-photo{border:1px solid var(--line-strong);border-radius:8px;background:var(--subtle);width:84px;height:110px;padding:0;overflow:hidden;cursor:zoom-in;font-size:11px;color:var(--muted)}
-.dsm-photo img{width:100%;height:100%;object-fit:cover;display:block}
 #dsm-missing{margin:0;padding-left:20px;display:grid;gap:4px}
 #dsm-missing li{cursor:pointer;color:var(--off-ink)}
 #dsm-missing li span{color:var(--muted);font-size:12.5px}
 .dsm-confirm{background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:12px;padding:10px 12px;display:grid;gap:4px}
 .dsm-confirm ol{margin:0;padding-left:20px}
 .dsm-nav{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.dsm-tk{width:100%;text-align:left;border:1px solid var(--line);border-radius:10px;background:var(--card);padding:7px 10px;font:inherit;cursor:pointer;color:var(--ink)}
+.dsm-tk[aria-pressed="true"]{background:var(--ok-bg);color:var(--ok-ink)}
+.dsm-tk:disabled{cursor:default;opacity:.7}
+.dsm-it[data-ed]{cursor:pointer}.dsm-it[data-ed]:hover{filter:brightness(.97)}
+.dsm-it .m select{max-width:100%;min-width:0}
+.dsm-add{justify-self:start}
+.dsm-gl{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;border:1px dashed var(--line-strong);border-radius:10px;padding:7px 10px}
+.dsm-gl span{min-width:0;overflow-wrap:anywhere}
+.dsm-old{min-width:0;overflow-wrap:anywhere}.dsm-old .stc-part{margin:0}
+.stc-moi-hide{display:none!important}
+.dsm-err2:not(:empty){background:var(--off-bg);color:var(--off-ink);border:1px solid var(--off-line,var(--line));border-radius:10px;padding:9px 12px;white-space:pre-wrap}
+.dsm-after{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 </style>`;
 
-const tick = (on, text) => html`<div class="dsm-tick"><i>${on ? '✓' : '☐'}</i><span>${text}</span></div>`;
+// ô tích: k = mã mục quản lý tự tích → nút bấm được (bộ bắt sự kiện của Sổ thu chi gọi app_stc_tick); không k → chỉ hiện trạng thái
+const tick = (on, text, k = null, ro = false) => (k ? html`<button type="button" class="dsm-tick dsm-tk" data-tick="${k}" aria-pressed="${on ? 'true' : 'false'}" ${ro ? raw('disabled') : ''}><i>${on ? '✓' : '☐'}</i><span>${text}</span></button>`
+  : html`<div class="dsm-tick"><i>${on ? '✓' : '☐'}</i><span>${text}</span></div>`);
 
-// ---------------- nạp dữ liệu (4 lệnh) ----------------
+// ---------------- nạp dữ liệu ----------------
+let REFRESH = null;   // móc Sổ thu chi gọi sau mỗi lần lưu (đặt khi mount)
 async function loadShift(id) {
   const R = await rpc('app_ca_get', { p_id: id });
   const [M, ds, con] = await Promise.all([
-    rpc('app_stc_month', { p_branch: R.branch_id, p_month: String(R.work_date).slice(0, 7) }).then((D) => ({ D }), (e) => ({ err: e.message || String(e) })),
+    stcMoi({ cn: R.branch_id, thang: String(R.work_date).slice(0, 7), ds: id, hook: (msg, info) => (REFRESH ? REFRESH(msg, info) : null) })
+      .then((x) => x, (e) => ({ err: e.message || String(e) })),
     rpc('app_ca_ds_tuan', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }).catch(() => []),
     rpc('app_ca_ds_con', { p_branch: R.branch_id }).catch(() => []),
   ]);
-  const D = M.D || null;
-  if (D && Array.isArray(D.ca_debts)) (D.cas || []).forEach((c) => { c.bill_list = billListOf(D, c.id); });   // như load() của Sổ thu chi
-  const ca = D ? (D.cas || []).find((c) => Number(c.id) === Number(id)) || null : null;
+  const D = M.D || null; const a = M.a || null;
+  const ca = a ? a.c : D ? (D.cas || []).find((c) => Number(c.id) === Number(id)) || null : null;
   const dsRow = (ds || []).find((x) => Number(x.id) === Number(id)) || null;
   const err = M.err || (D && !ca ? 'Chưa có số liệu phần tiền của ca này (ca chưa có trong sổ tháng của cơ sở).' : null);
-  return { R, D, ca, dsRow, con: con || [], err, st: ca ? pageState(D, ca, R, dsRow) : null };
+  return { R, D, a, ca, dsRow, con: con || [], err, st: ca ? pageState(D, ca, R, dsRow) : null };
 }
 
 function nextUnfinished(con, R) {   // như trang cũ (phieu_ca.js)
@@ -108,7 +123,7 @@ const tabMark = (S, k) => {
 function viecPane(S) {
   const R = S.R; const staff = R.staff || [];
   const odd = staff.some((s) => s.worked === 0 || s.worked === false || (s.source && s.source !== 'lich'));
-  const h = R.cash_hand;
+  const h = R.cash_hand; const wp = workParts(R); const done = !!(S.ca && S.ca.done);
   return html`<section class="dsm-card"><h2>Nhân viên <span class="dsm-sub">${staff.filter((s) => s.worked !== 0 && s.worked !== false).length} người làm</span></h2>
       ${staff.length ? staff.map((s) => { const nm = `${s.code ? s.code + ' – ' : ''}${s.name || 'NV ' + s.employee_id}`;
         return s.worked === 0 || s.worked === false ? html`<div class="dsm-row"><span>${nm}</span><b>Nghỉ${s.absent_reason ? ': ' + s.absent_reason : ''}</b></div>`
@@ -125,51 +140,58 @@ function viecPane(S) {
     <section class="dsm-card"><h2>Duyệt phần việc</h2>
       ${Object.keys(WORK_LABEL).map((k) => tick(!!(R.checks || {})[k], WORK_LABEL[k] + ((R.checks || {})[k] ? ' — đã duyệt' : ' — chưa duyệt')))}
       ${workMark(S).length ? html`<div class="dsm-sub">Còn: ${workMark(S).join(', ')}.</div>` : ''}
-      <div class="dsm-sub">Đánh giá nhân viên (không bắt buộc) và nút duyệt: làm ở trang cũ trong đợt này.</div></section>`;
+      ${wp.blocked.map((t) => html`<div class="alert warn">⚠ ${t} — làm ở <a href="#/ca/doi-soat?id=${R.id}&tab=viec">trang cũ thẻ ① ›</a></div>`)}
+      ${wp.parts.length && !done ? html`<button type="button" class="btn" id="dsm-workok">✓ Duyệt phần việc (${wp.parts.map((k) => WORK_LABEL[k]).join(', ')})</button>` : ''}
+      <div class="dsm-sub">Sửa giờ đến / về, ghi chú, đánh giá nhân viên (không bắt buộc), đếm lại két: <a href="#/ca/doi-soat?id=${R.id}&tab=viec">trang cũ thẻ ① ›</a>${odd ? html` · Nghỉ & làm thay: <a href="#/quan-ly/nghi-lam-thay">trang Duyệt nghỉ & làm thay ›</a>` : ''}</div></section>`;
 }
 
 // ---------------- trang ② Tiền ----------------
-function bookSec(b, ca, pm, ticks) {
-  const isTm = pm === 'tm';
-  const box = (x, cls) => html`<div class="dsm-it ${cls}"><span class="k">${x.kind}</span><span class="a">${cls === 'thu' ? '+' : '−'}${money(x.amount)}</span><span class="t">${x.title || '—'}</span>
-    <span class="m"><span class="dsm-who">${x.who}</span>${cls === 'chi' && x.col === 'chi' ? (x.cat ? html`<span>Nhóm: ${x.cat}</span>` : html`<span style="color:var(--off-ink)">chưa chọn nhóm</span>`) : ''}</span></div>`;
+// khoản của ca sửa / xoá được ở trang mới: như máy chủ cho (can_edit) + luật mới — phiếu ca thu khác / chi và luân chuyển, khi ca chưa Hoàn thành
+const canEd = (D, ca, it) => !!it && !it.void && !D.locked && !D.ext && !ca.done
+  && (it.can_edit || (it.src === 'move' && it.meta === 'Phiếu ca' && ['chi', 'khac'].includes(it.col)) || (it.src === 'move' && it.col === 'lc'));
+function bookSec(S, b, pm, ticks) {
+  const { D, ca } = S; const isTm = pm === 'tm'; const ro = !!D.locked || !!ca.done;
+  const item = (x) => (D.items || []).find((i) => i.id === x.id);
+  const box = (x, cls) => { const it = item(x); const ed = canEd(D, ca, it); const sel = cls === 'chi' && x.col === 'chi' && it ? stcCatSelect(D, it) : null;
+    return html`<div class="dsm-it ${cls}" ${ed ? raw(`data-ed="${String(x.id).replace(/["<>&]/g, '')}" role="button" tabindex="0"`) : ''}><span class="k">${x.kind}</span><span class="a">${cls === 'thu' ? '+' : '−'}${money(x.amount)}</span><span class="t">${x.title || '—'}</span>
+    <span class="m"><span class="dsm-who">${x.who}</span>${sel || (cls === 'chi' && x.col === 'chi' ? (x.cat ? html`<span>Nhóm: ${x.cat}</span>` : html`<span style="color:var(--off-ink)">chưa chọn nhóm</span>`) : '')}${ed ? html`<span>· bấm để sửa / xoá</span>` : ''}</span></div>`; };
+  const addBtn = (book) => (ro ? '' : html`<button type="button" class="btn sm secondary dsm-add" data-addca="${ca.id}" data-book="${book}">+ Thêm khoản ${book === 'thu' ? 'thu' : 'chi'}</button>`);
   const realLabel = isTm ? (ca.cash_mode === 'ca' ? 'Quản lý đếm được' : 'Tiền mặt trong két') : 'Ngân hàng nhận (kế toán nhập)';
+  const gl = (D.items || []).filter((x) => x.ca_id === ca.id && x.col === 'lech' && !x.void && x.pm === pm);
+  const pend = caGaps(D.items || [], ca.id).some((g) => g.pm === pm && !(g.small || g.done || g.wait));
+  const sau = (ca.ticks || []).includes('sau_' + pm);
   return html`<section class="dsm-card dsm-sec" data-pm="${pm}"><h2>${isTm ? 'Tiền mặt' : 'Chuyển khoản'} ${gapChip(b)}</h2>
     ${isTm ? html`<div class="dsm-row"><span>Mở ca</span><b>${money(b.start)}</b></div>` : ''}
     <div class="dsm-row"><span>+ Bán ${isTm ? 'tiền mặt' : 'chuyển khoản'} (máy Fabi)</span><b>${money(b.ban)}</b></div>
     <div class="dsm-grp thu">Khoản thu</div>
     ${b.thu.length ? b.thu.map((x) => box(x, 'thu')) : html`<div class="dsm-sub">không có</div>`}
+    ${addBtn('thu')}
     <div class="dsm-row dsm-tot thu"><span>Tổng thu</span><b>${money(b.tongThu)}</b></div>
     <div class="dsm-grp chi">Khoản chi</div>
     ${b.chi.length ? b.chi.map((x) => box(x, 'chi')) : html`<div class="dsm-sub">không có</div>`}
+    ${addBtn('chi')}
     <div class="dsm-row dsm-tot chi"><span>Tổng chi</span><b>${money(b.tongChi)}</b></div>
     <div class="dsm-row dsm-must" data-pm="${pm}" data-v="${b.must}"><span>= ${isTm ? 'Phải có' : 'Phải nhận'}</span><b>${money(b.must)}</b></div>
     <div class="dsm-row"><span>${realLabel}</span><b>${b.real == null ? '⏳ chờ kế toán' : money(b.real)}</b></div>
     <div class="dsm-row dsm-gap ${b.real == null ? '' : Math.abs(b.gap) <= 5000 ? 'ok' : 'bad'}" data-pm="${pm}"><span>Lệch = thực nhận − ${isTm ? 'phải có' : 'phải nhận'}</span><b>${b.real == null ? '—' : b.gap === 0 ? '✓ khớp' : signedM(b.gap)}</b></div>
+    ${gl.map((x) => html`<div class="dsm-gl"><span>${x.title || 'Chênh lệch'} <b>${money(x.amount)}</b>${x.status ? html` · <span class="dsm-sub">${x.status}</span>` : ''}</span>${x.gap && !D.locked ? html`<button type="button" class="btn sm" data-dsmgap="${x.id}">Xử lý lệch</button>` : ''}</div>`)}
+    ${pend && !ro ? html`<button type="button" class="dsm-tick dsm-tk" data-dssau="${pm}" aria-pressed="${sau ? 'true' : 'false'}"><i>${sau ? '✓' : '☐'}</i><span>Để sau (xử lý lệch sau — ca hiện 🟠 tới khi xong)</span></button>` : ''}
     ${ticks}</section>`;
 }
 function tienPane(S) {
   if (S.err) return html`<div class="alert warn dsm-err">${S.err}</div>`;
-  const { D, ca, R } = S;
-  const ctx = dsCtx(D, ca); const steps = dsChecks(ca, ctx); const all = steps.flat(); const has = (k) => all.find((x) => x.k === k);
-  const mt = (k) => (has(k) ? tick(has(k).ok, CHK_LABEL[k]) : '');
-  const cks = caChecks(ca, ctx.link).filter((x) => ['mo', 'dt', 'no'].includes(x.k));
-  const book = caBook(D, ca);
-  const photos = (R.photos || []).filter((p) => p.kind === 'ipos');
+  const { D, ca, a } = S; const ro = !!D.locked || !!ca.done;
+  const all = dsChecks(ca, dsCtx(D, ca)).flat(); const has = (k) => all.find((x) => x.k === k);
+  const mt = (k) => { const x = has(k); return x ? tick(x.ok, CHK_LABEL[k], x.auto ? null : k, ro) : ''; };
+  const mk = (k) => { const x = has(k); return !x ? '' : html`<i class="stc-mk ${x.ok ? 'ok' : ''}">${x.ok ? '✓' : '!'}</i>`; };
   const gaps = caGaps(D.items || [], ca.id);
-  const gapTicks = (pm) => html`${gaps.some((g) => g.pm === pm && !g.small) ? mt('ld') : ''}${(ca.ticks || []).includes('sau_' + pm) ? tick(true, 'Để sau (xử lý lệch sau)') : ''}`;
-  const debts = (D.ca_debts || []).filter((x) => Number(x.report_id) === Number(ca.id));
-  const moi = debts.filter((x) => x.t === 'moi'); const tra = debts.filter((x) => x.t === 'tra');
-  return html`<section class="dsm-card"><h2>Số máy Fabi ${cks.every((x) => x.st === 'ok') ? html`<span class="dsm-chip ok">✓ khớp phiếu</span>` : cks.some((x) => x.st === 'kt') ? html`<span class="dsm-chip kt">⏳ chờ file Fabi</span>` : html`<span class="dsm-chip off">⚠ lệch</span>`}</h2>
-      ${cks.map((x) => html`<div class="dsm-row"><span>${x.name}: ${x.a} · ${x.b}</span><b>${x.txt}</b></div>`)}
-      <div class="dsm-photos">${photos.length ? photos.map((p) => html`<button type="button" class="dsm-photo" data-path="${p.path}" aria-label="Phóng to ảnh phiếu">ảnh phiếu</button>`) : html`<span class="dsm-sub">Chưa có ảnh phiếu Fabi.</span>`}</div>
-      ${mt('anh')}${mt('hd')}
-      ${moi.length ? html`<div class="dsm-grp">Nợ mới trong ca</div>${moi.map((x) => html`<div class="dsm-row"><span>${x.who || 'Khách'}${x.content ? ' · ' + x.content : ''}${x.grp && x.grp !== 'khach' ? html` <span class="dsm-sub">${x.sorted ? '(đã xếp)' : '(chưa xếp)'}</span>` : ''}</span><b>${money(x.amount)}</b></div>`)}` : ''}
-      ${has('phanloai') ? tick(has('phanloai').ok, CHK_LABEL.phanloai) : ''}
-      ${tra.length ? html`<div class="dsm-grp">Khách trả nợ cũ trong ca</div>${tra.map((x) => html`<div class="dsm-row"><span>${x.who || 'Khách'} · ${x.from || ''}</span><b>${money(x.amount)}</b></div>`)}` : ''}
-      ${mt('tn')}</section>
-    ${bookSec(book.tm, ca, 'tm', html`${mt('cash')}${mt('goi')}${mt('ket')}${mt('sot')}${mt('cat')}${mt('that')}${mt('lon')}${mt('tm')}${gapTicks('tm')}`)}
-    ${bookSec(book.ck, ca, 'ck', html`${mt('ck')}${mt('ck5')}${gapTicks('ck')}`)}`;
+  const gapTicks = (pm) => html`${gaps.some((g) => g.pm === pm && !g.small) ? mt('ld') : ''}`;
+  const book = caBook(D, ca);
+  return html`<div class="stc-dsp dsm-old">${a ? stcPart(D, a, 1, mk) : ''}</div>
+    <section class="dsm-card"><h2>Quản lý kiểm tra (số máy Fabi, nợ)</h2>${mt('anh')}${mt('hd')}${mt('phanloai')}${mt('tn')}</section>
+    <div class="stc-dsp dsm-old">${a ? stcPart(D, a, 2, mk) : ''}</div>
+    ${bookSec(S, book.tm, 'tm', html`${mt('cash')}${mt('goi')}${mt('ket')}${mt('sot')}${mt('cat')}${mt('that')}${mt('lon')}${mt('tm')}${gapTicks('tm')}`)}
+    ${bookSec(S, book.ck, 'ck', html`${mt('ck')}${mt('ck5')}${gapTicks('ck')}`)}`;
 }
 
 // ---------------- trang ③ Hoàn thành ----------------
@@ -178,15 +200,20 @@ function xongPane(S) {
   const miss = S.ca ? missingList(S.D, S.ca, R, S.dsRow) : workMark(S).map((t) => ({ page: 'viec', k: 'viec', text: t }));
   const conf = S.ca ? confirmList(S.D, S.ca) : [];
   const book = S.ca ? caBook(S.D, S.ca) : null;
-  const wl = workMark(S);
-  return html`<section class="dsm-card"><h2>Tóm tắt ${S.st && S.st.done ? html`<span class="dsm-chip ok">✓ Đã hoàn thành đối soát</span>` : ''}</h2>
+  const wl = workMark(S); const wp = workParts(R); const done = !!(S.ca && S.ca.done); const ro = !S.D || !!S.D.locked || !S.ca;
+  return html`<section class="dsm-card"><h2>Tóm tắt ${done ? html`<span class="dsm-chip ok">✓ Đã hoàn thành đối soát</span>` : ''}</h2>
       <div class="dsm-row"><span>① Phần việc</span><b>${wl.length ? '⚠ còn ' + wl.join(', ') : '✓ đã duyệt'}</b></div>
       ${book ? html`<div class="dsm-row"><span>Tiền mặt</span>${gapChip(book.tm)}</div><div class="dsm-row"><span>Chuyển khoản</span>${gapChip(book.ck)}</div>` : html`<div class="dsm-sub">${S.err || ''}</div>`}</section>
-    <section class="dsm-card"><h2>Còn thiếu</h2>
+    ${done ? html`<section class="dsm-card"><h2>Đã hoàn thành đối soát ca</h2>
+        <div class="dsm-sub">Muốn sửa: bấm Mở lại — bỏ dấu Hoàn thành và mục tiền (ca về "chưa xong", sửa được ngay), dấu duyệt phần việc giữ nguyên.</div>
+        ${ro ? '' : html`<button type="button" class="btn secondary" id="dsm-reopen">Mở lại</button>`}</section>`
+      : html`<section class="dsm-card"><h2>Còn thiếu</h2>
       ${miss.length ? html`<ul id="dsm-missing">${miss.map((x) => html`<li data-go="${x.page}">${x.text} <span>· ${x.page === 'viec' ? 'trang Phần việc' : 'trang Tiền'}</span></li>`)}</ul>` : html`<div class="dsm-sub">Không còn thiếu gì.</div>`}</section>
-    ${conf.length ? html`<section class="dsm-confirm"><b>Bấm Hoàn thành là xác nhận đã:</b><ol>${conf.map((t) => html`<li>${t}</li>`)}</ol></section>` : ''}
-    <button type="button" class="btn" id="dsm-done" disabled>Hoàn thành</button>
-    <div class="dsm-sub">Đợt này trang mới chỉ xem: Hoàn thành ở <a href="#/ca/doi-soat?id=${R.id}&tab=xong">trang cũ ›</a></div>`;
+    ${conf.length || wp.parts.length ? html`<section class="dsm-confirm"><b>Bấm Hoàn thành là xác nhận đã:</b><ol>${conf.map((t) => html`<li>${t}</li>`)}${wp.parts.length ? html`<li>Duyệt phần việc: ${wp.parts.map((k) => WORK_LABEL[k]).join(', ')}</li>` : ''}</ol>
+      <div class="dsm-sub">Web cũng tự xác nhận số Fabi (không còn nút Xác nhận Fabi). Thiếu gì thì báo, không lưu gì.</div></section>` : ''}
+    <div id="dsm-finerr" class="dsm-err2" role="alert"></div>
+    ${ro ? '' : html`<button type="button" class="btn" id="dsm-done">Hoàn thành</button>`}`}
+    <div id="dsm-after"></div>`;
 }
 
 // ---------------- khung trang ----------------
@@ -218,40 +245,103 @@ export async function render({ params }) {
   const title = `Ca ${R.shift} · ${dayName(R.work_date)} · ${R.branch_code || ''}`;
   return {
     title: `Đối soát ca mới · ${R.shift} ${String(R.work_date).slice(8, 10)}/${String(R.work_date).slice(5, 7)}`,
-    html: html`${raw(CSS)}<div id="dsm" class="dsm">
+    html: html`${raw(CSS)}${stcStyle()}<div id="dsm" class="dsm">
       <div class="dsm-head"><h1>${title}<small>${R.branch_name || ''} · trang đối soát ca mới</small></h1>
         <div class="dsm-tools"><button type="button" class="btn sm" id="dsm-recalc">Tính lại</button><a class="btn sm secondary" id="dsm-old" href="#/ca/doi-soat?id=${id}">Về trang cũ</a></div></div>
-      <div class="dsm-note">Bản xem thử — chưa sửa được ở đây. <a href="#/ca/doi-soat?id=${id}">Sửa ở trang cũ ›</a></div>
+      <div class="dsm-note">Trang mới — sửa ngay tại đây, lưu xong số tự tính lại, không phải Mở lại xác nhận. Trang cũ vẫn dùng được: <a href="#/ca/doi-soat?id=${id}">Về trang cũ ›</a></div>
       <div id="dsm-body">${body(S, active)}</div></div>`,
     mount(root) {
-      const bodyEl = () => $('#dsm-body', root);
       const show = (k) => {
         active = k;
         $$('[data-dsm-tab]', root).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.dsmTab === k)));
         $$('[data-dsm-pane]', root).forEach((p) => { p.hidden = p.dataset.dsmPane !== k; });
         try { const [pth, qs] = location.hash.split('?'); const u = new URLSearchParams(qs || ''); u.set('tab', k); history.replaceState(null, '', pth + '?' + u.toString()); } catch (_) { /* bỏ qua */ }
       };
-      const photos = async () => {
-        const els = $$('.dsm-photo[data-path]', root); if (!els.length || !sb.storage) return;
+      // vẽ lại phần thân: thay hẳn phần tử #dsm-body (bộ bắt sự kiện cũ đi theo phần tử cũ), gắn lại bộ bắt của Sổ thu chi với dữ liệu mới
+      const bind = (el) => {
+        if (!el) return;
+        $$('[data-dsm-tab]', el).forEach((b) => b.addEventListener('click', () => show(b.dataset.dsmTab)));
+        $$('#dsm-missing li[data-go]', el).forEach((li) => li.addEventListener('click', () => { show(li.dataset.go); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
+        $$('select[data-catx]', el).forEach((x) => x.addEventListener('click', (e) => e.stopPropagation()));   // chọn nhóm trong khung: không mở hộp Sửa
+        $$('.dsm-it[data-ed]', el).forEach((b) => b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } }));
+        $$('[data-dsmgap]', el).forEach((b) => b.addEventListener('click', () => gapOpen(b.dataset.dsmgap, b)));
+        $('#dsm-workok', el)?.addEventListener('click', (ev) => workOk(ev.currentTarget));
+        $('#dsm-done', el)?.addEventListener('click', (ev) => finish(ev.currentTarget));
+        $('#dsm-reopen', el)?.addEventListener('click', () => reopen());
+        if (S.D) stcBind(el, S.D);
+      };
+      // keep: chỉ đổi tại chỗ (tích / Để sau / chọn nhóm) — giữ dòng giờ chốt đã lấy, khỏi hỏi lại máy chủ
+      const draw = (keep = false) => {
+        const old = $('#dsm-body', root); if (!old) return;
+        const nb = document.createElement('div'); nb.id = 'dsm-body'; nb.innerHTML = str(body(S, active));
+        if (keep) old.querySelectorAll('.stc-gio[data-gio-state="done"]').forEach((g) => {
+          const t = nb.querySelector(`.stc-gio[data-gio-ca="${g.dataset.gioCa}"]`); if (t) { t.innerHTML = g.innerHTML; t.dataset.gioState = 'done'; } });
+        old.replaceWith(nb); bind(nb);
+      };
+      const reload = async () => { const y = window.scrollY; S = await loadShift(id); draw(); try { window.scrollTo(0, y); } catch (_) { /* bỏ qua */ } };
+      // xử lý lệch: số phải chốt trước — ca chưa đủ 4 mục tiền thì tự xác nhận (app_ds2_confirm: kiểm file Fabi, ngân hàng, ô đỏ, tiền mặt đếm) rồi mở hộp
+      const gapOpen = async (gid, b) => {
         try {
-          const { data } = await sb.storage.from('phieu-ca').createSignedUrls(els.map((e) => e.dataset.path), 3600);
-          (data || []).forEach((d, i) => { if (d && d.signedUrl && els[i]) { els[i].dataset.url = d.signedUrl; els[i].innerHTML = str(html`<img src="${d.signedUrl}" alt="Ảnh phiếu Fabi">`); } });
-        } catch (_) { /* không ký được ảnh: vẫn hiện nút chữ */ }
+          if (!S.ca?.recon_money_done) { b.disabled = true; await rpc('app_ds2_confirm', { p_report: id }); await reload(); }
+          if (!stcGap(S.D, gid)) showSaved('Không tìm thấy dòng chênh lệch — bấm Tính lại.', true);
+        } catch (e) { b.disabled = false; showSaved(e.message || String(e), true); }
       };
-      const bind = () => {
-        $$('[data-dsm-tab]', root).forEach((b) => b.addEventListener('click', () => show(b.dataset.dsmTab)));
-        $$('#dsm-missing li[data-go]', root).forEach((li) => li.addEventListener('click', () => { show(li.dataset.go); window.scrollTo({ top: 0, behavior: 'smooth' }); }));
-        $$('.dsm-photo', root).forEach((b) => b.addEventListener('click', () => {
-          if (!b.dataset.url) return;
-          const d = dialog(str(html`<div class="stack" style="gap:10px"><img src="${b.dataset.url}" alt="Ảnh phiếu Fabi" style="max-width:100%;border-radius:10px"><button type="button" class="btn secondary" data-close>Đóng</button></div>`));
-          d.querySelector('[data-close]')?.addEventListener('click', () => d.close());
-        }));
-        photos();
+      const workOk = async (b) => {
+        b.disabled = true;
+        try { await rpc('app_ds2_work_ok', { p_report: id, p_parts: workParts(S.R).parts }); await reload(); showSaved('Đã duyệt phần việc'); }
+        catch (e) { b.disabled = false; showSaved(e.message || String(e), true); }
       };
-      bind();
+      // Hoàn thành gộp (máy chủ app_ds2_finish — một giao dịch): duyệt phần việc web hiện, xác nhận số Fabi, tích ô cơ bản, Hoàn thành; thiếu thì báo, không lưu gì.
+      // Xong: sau 1,5 giây tự mở ca tiếp theo chưa xong của cơ sở (nút "Ở lại ca này"); hết ca thì báo và về bảng tuần Chốt ca.
+      let timer = null;
+      const finish = async (b) => {
+        const err = $('#dsm-finerr', root); if (err) err.textContent = '';
+        b.disabled = true; b.textContent = 'Đang hoàn thành…';
+        try {
+          await rpc('app_ds2_finish', { p_report: id, p_parts: workParts(S.R).parts, p_ticks: S.ca ? confirmKeys(S.D, S.ca) : [] });
+          await reload(); showSaved('Đã hoàn thành đối soát ca');
+          const nx = nextUnfinished(S.con, S.R); const box = $('#dsm-after', root); if (!box) return;
+          box.className = 'dsm-after';
+          box.innerHTML = str(nx ? html`<span>✓ Đã hoàn thành. Sang ca tiếp theo chưa xong (${nx.shift || ''} ${String(nx.date || nx.work_date || '').slice(8, 10)}/${String(nx.date || nx.work_date || '').slice(5, 7)}) sau 1,5 giây…</span><button type="button" class="btn sm secondary" id="dsm-stay">Ở lại ca này</button>`
+            : html`<span>✓ Đã hoàn thành. Hết ca chưa xong của cơ sở — về bảng tuần Chốt ca sau 1,5 giây…</span><button type="button" class="btn sm secondary" id="dsm-stay">Ở lại ca này</button>`);
+          $('#dsm-stay', root)?.addEventListener('click', () => { clearTimeout(timer); timer = null; box.innerHTML = str(html`<span class="dsm-sub">Ở lại ca này.</span>`); });
+          timer = setTimeout(() => { if (!root.isConnected) return; location.hash = nx ? `#/ca/doi-soat-moi?id=${nx.id}` : `#/ca?cn=${S.R.branch_id}`; }, 1500);
+        } catch (e) {
+          b.disabled = false; b.textContent = 'Hoàn thành';
+          if (err) err.textContent = e.message || String(e); else showSaved(e.message || String(e), true);
+        }
+      };
+      const reopen = () => {
+        const d = dialog(str(html`<form class="stack" style="gap:10px"><h2 style="margin:0">Mở lại đối soát ca</h2>
+          <div class="dsm-sub">Bỏ dấu Hoàn thành và mục tiền — ca về "chưa xong", sửa được ngay. Dấu duyệt phần việc giữ nguyên.</div>
+          <label class="field"><span>Lý do (không bắt buộc)</span><input class="input" name="reason"></label><div class="dsm-err2"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Mở lại</button></div></form>`));
+        d.querySelector('[data-x]')?.addEventListener('click', () => d.close());
+        d.querySelector('form')?.addEventListener('submit', async (ev) => {
+          ev.preventDefault(); const sb = ev.currentTarget.querySelector('[type=submit]'); sb.disabled = true;
+          try { await rpc('app_ds2_reopen', { p_report: id, p_reason: (d.querySelector('[name=reason]')?.value || '').trim() || null }); d.close(); await reload(); showSaved('Đã mở lại — sửa xong bấm Hoàn thành lần nữa'); }
+          catch (e) { sb.disabled = false; const x = d.querySelector('.dsm-err2'); if (x) x.textContent = e.message || String(e); }
+        });
+      };
+      REFRESH = async (msg, info) => {
+        if (!root.isConnected) { REFRESH = null; return; }   // đã rời trang
+        try {
+          if (info && info.kind === 'tick' && S.ca) {
+            const t = new Set(S.ca.ticks || []); if (info.on) t.add(info.key); else t.delete(info.key); S.ca.ticks = [...t];
+            S.st = pageState(S.D, S.ca, S.R, S.dsRow); draw(true); return;
+          }
+          if (info && info.kind === 'cat' && S.D) {
+            const it = (S.D.items || []).find((x) => x.id === info.id); if (it) { it.cat = info.cat; it.no_cost = !!info.no_cost; }
+            if (S.ca) S.st = pageState(S.D, S.ca, S.R, S.dsRow); draw(true); return;
+          }
+          if (info && info.kind === 'ui') { draw(true); return; }
+          await reload();
+        } catch (e) { showSaved(e.message || String(e), true); }
+      };
+      bind($('#dsm-body', root));
       $('#dsm-recalc', root)?.addEventListener('click', async (ev) => {
         const b = ev.currentTarget; b.disabled = true;
-        try { S = await loadShift(id); bodyEl().innerHTML = str(body(S, active)); bind(); showSaved('Đã tính lại'); }
+        try { await reload(); showSaved('Đã tính lại'); }
         catch (e) { showSaved(e.message || String(e), true); }
         finally { b.disabled = false; }
       });

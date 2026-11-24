@@ -1,6 +1,7 @@
 // Kết nối Supabase. Project URL và Publishable key được phép công khai (đặt trong trang web là bình thường).
 // Quyền thật sự được kiểm tra trong cơ sở dữ liệu (RLS + hàm kiểm tra quyền).
 import { createClient } from 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/+esm';
+import { ds2Name } from './ds2.js';
 
 export const SUPABASE_URL = 'https://krndtaskjhjpnqauoqiw.supabase.co';
 export const SUPABASE_KEY = 'sb_publishable_PCwfHHqV2_5AmzU72B1Gdw_pb2BXBkf';
@@ -22,8 +23,9 @@ export function viError(err) {
   return m || 'Có lỗi xảy ra.';
 }
 
+// Trang đối soát ca mới (#/ca/doi-soat-moi): hàm sửa tiền đổi sang bản luật mới app_ds2_* (máy chủ tệp 173) — xem ds2.js
 export async function rpc(name, args = {}) {
-  const { data, error } = await sb.rpc(name, args);
+  const { data, error } = await sb.rpc(ds2Name(name, location.hash), args);
   if (error) throw new Error(viError(error));
   return data;
 }

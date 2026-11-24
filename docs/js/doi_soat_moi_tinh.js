@@ -90,3 +90,20 @@ export function isClean(D, ca, R, dsRow) {
   const s = pageState(D, ca, R, dsRow);
   return s.viec.ok && s.tien.ok && !s.tien.wait;
 }
+
+// Đợt 3: phần việc sẽ duyệt khi bấm Duyệt phần việc / Hoàn thành — Nhân sự, Bàn giao, Nhập hàng chưa duyệt. Trang cũ duyệt Bàn giao + Nhập hàng cùng lúc,
+// kể cả khi ca không có hàng (máy chủ chặn nếu còn hàng chưa đối soát). Nhận két lệch cần đếm lại: KHÔNG tự duyệt Bàn giao, báo việc cần làm.
+// Chờ Chủ duyệt x2 không chặn (ca Hoàn thành được, thành Đã đối soát khi Chủ duyệt).
+export function workParts(R) {
+  const ch = (R && R.checks) || {};
+  const recount = R?.cash_hand?.state === 'can_dem_lai';
+  return {
+    parts: ['nhan_su', 'ban_giao', 'nhap_hang'].filter((k) => !ch[k] && !(k === 'ban_giao' && recount)),
+    blocked: !ch.ban_giao && recount ? ['Nhận két lệch: cùng người ca trước đếm lại'] : [],
+  };
+}
+// Đợt 3: mã các ô cơ bản quản lý xác nhận khi bấm Hoàn thành (cùng danh sách, cùng thứ tự với confirmList) — gửi lên app_ds2_finish
+export function confirmKeys(D, ca) {
+  const all = dsChecks(ca, dsCtx(D, ca)).flat();
+  return BASIC.filter((k) => all.some((x) => x.k === k && !x.ok));
+}

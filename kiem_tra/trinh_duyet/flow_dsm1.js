@@ -30,7 +30,7 @@ export default async ({ sleep, out }) => {
       // 2. trang mới: dòng bản xem thử, 3 trang, đường về trang cũ
       await go('#/ca/doi-soat-moi?id=182', '#dsm');
       ok(!!$('#dsm'), 'mở được trang mới ca 182');
-      ok(/Bản xem thử/.test($('#dsm')?.innerText || ''), 'có dòng "Bản xem thử — sửa ở trang cũ"');
+      ok(/Trang mới — sửa ngay tại đây/.test($('#dsm')?.innerText || ''), 'có dòng "Trang mới — sửa ngay tại đây" (đợt 2: hết bản xem thử)');
       ok($$('[data-dsm-tab]').length === 3, `3 nút trang: ${$$('[data-dsm-tab]').map((b) => b.innerText.replace(/\s+/g, ' ').trim()).join(' | ')}`);
       ok(/#\/ca\/doi-soat\?id=182/.test($('#dsm-old')?.getAttribute('href') || ''), 'nút "Về trang cũ" trỏ đúng ca');
       // dữ liệu để so (cùng dữ liệu giả, cách tính của trang cũ)
@@ -59,19 +59,19 @@ export default async ({ sleep, out }) => {
       const tienTxt = $('[data-dsm-pane="tien"]')?.innerText || '';
       const lack = keys.filter((k) => !tienTxt.includes(CHK_LABEL[k]));
       ok(keys.length > 0 && lack.length === 0, `trang Tiền hiện đủ ${keys.length} mục kiểm của ca${lack.length ? ' — thiếu: ' + lack.join(', ') : ''}`);
-      ok(!$('#dsm button[data-tick], #dsm input:not([type=hidden]), #dsm select'), 'trang mới chưa có ô sửa / ô tích bấm được (chỉ xem)');
       ok(fits(), `trang Tiền không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
       // 5. trang ③ Hoàn thành: còn thiếu đúng như hàm tính; nút Hoàn thành khoá
       await tab('xong');
       const want = missingList(D, ca, R, dsRow).length;
       ok($$('#dsm-missing li').length === want, `còn thiếu ${$$('#dsm-missing li').length} dòng = ${want}`);
-      ok(!!$('#dsm-done') && $('#dsm-done').disabled, 'nút Hoàn thành bị khoá trong đợt này');
+      ok(!!$('#dsm-done') && !$('#dsm-done').disabled, 'có nút Hoàn thành bấm được (đợt 3: Hoàn thành gộp)');
       ok(fits(), `trang Hoàn thành không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
       // 6. Tính lại: không vẽ lại cả trang, chỉ 4 lần hỏi máy chủ
       const mark = document.createElement('i'); mark.id = 'dsm-mark'; $('#dsm').prepend(mark);
       const c0 = rpcCount(); $('#dsm-recalc').click();
-      await until(() => rpcCount() - c0 >= 4, 50); await sleep(600);
-      ok(rpcCount() - c0 <= 4 && rpcCount() - c0 >= 2, `Tính lại hỏi máy chủ ${rpcCount() - c0} lần (≤ 4)`);
+      await until(() => rpcCount() - c0 >= 6, 50); await sleep(600);
+      const rn = window.__LOG.filter((x) => x[0] === 'rpc').slice(c0).map((x) => x[1]);
+      ok(rn.length <= 6 && rn.length >= 2, `Tính lại hỏi máy chủ ${rn.length} lần (≤ 6: phiếu ca, sổ tháng, người nợ, bảng tuần một ngày, ca chưa xong, giờ chốt): ${rn.join(', ')}`);
       ok(!!$('#dsm-mark'), 'Tính lại không vẽ lại cả trang');
       ok(!!$('[data-dsm-tab="xong"][aria-selected="true"]'), 'Tính lại giữ trang đang mở');
       // 7. ca chờ kế toán: chuyển khoản hiện ⏳, không có NaN

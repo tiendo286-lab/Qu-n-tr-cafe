@@ -26,4 +26,6 @@ cp "$D/flow_hh_c4.js" "$W/test/"   # chặng 4
 cp "$D/flow_dt_c4.js" "$W/test/"   # chặng 4: phiếu đào tạo theo tab ngày thật
 cp "$D/flow_dsca.js" "$W/test/"   # đưa Đối soát Fabi về lại Chốt ca
 cp "$D/flow_dsm1.js" "$W/test/"   # trang đối soát ca mới — đợt 1 (chỉ xem)
+cp "$D/flow_dsm2.js" "$W/test/"   # trang đối soát ca mới — đợt 2 (sửa tại chỗ)
+cp "$D/flow_dsm3.js" "$W/test/" 2>/dev/null || true   # đợt 3 (Hoàn thành mới)
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"

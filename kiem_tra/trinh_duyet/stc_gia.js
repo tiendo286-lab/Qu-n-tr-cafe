@@ -83,6 +83,7 @@ export function makeStc(T, me) {
     if (!['chu', 'ql_tong', 'ql'].includes(me.role)) throw new Error('Chỉ Chủ, Quản lý tổng hoặc quản lý đối soát của cơ sở này đối soát tiền được.');
     const c = st().cas.find((x) => x.id === Number(rid)); if (!c) throw new Error('Không tìm thấy ca.');
     finGuard(rid);
+    if (open && window.__DS_MOI) { if (c.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.'); return c; }   // tệp 173: luật mới
     if (open && c.recon_money_done) throw new Error('Ca đã chốt tiền — bấm "Mở lại chốt" trước khi sửa.'); return c;
   };
   // tệp 153: tìm yêu cầu sửa số theo mã; ghi số đã duyệt vào phiếu; ô coi là khớp theo số đã duyệt
@@ -181,7 +182,7 @@ export function makeStc(T, me) {
       if (Number(L[i].report_id) !== Number(p_report)) throw new Error('Khoản khách trả không thuộc ca này.');
       if (!String(p_reason || '').trim()) throw new Error('Ghi lý do sửa hoặc xoá khoản khách trả.');
       const c = st().cas.find((x) => x.id === Number(p_report)); if (c?.done) throw new Error('Ca đã hoàn thành đối soát — mở lại để sửa.');
-      if (c?.recon_money_done) throw new Error(`Mục ${L[i].pm === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
+      if (c?.recon_money_done && !window.__DS_MOI) throw new Error(`Mục ${L[i].pm === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
       L.splice(i, 1); return true;
     },
     // chặng 6.3c: ghi khách trả nợ cũ vào ca cho dòng open_debts của sổ tháng giả (sb_gia gọi trước, không phải dòng giả thì để ca_gia)
@@ -189,7 +190,7 @@ export function makeStc(T, me) {
       const id = typeof p_debt === 'number' ? 'd:' + p_debt : String(p_debt); const O = st().open_debts || []; const o = O.find((x) => x.id === id || x.id === String(p_debt)); if (!o) return false;
       if (!String(p_reason || '').trim()) throw new Error('Ghi lý do (vd: khách trả nhưng nhân viên không biết).');
       const c = st().cas.find((x) => x.id === Number(p_report)); if (c?.done) throw new Error('Ca đã hoàn thành đối soát — mở lại để sửa.');
-      if (c?.recon_money_done) throw new Error(`Mục ${p_kind === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
+      if (c?.recon_money_done && !window.__DS_MOI) throw new Error(`Mục ${p_kind === 'chuyen_khoan' ? 'Chuyển khoản' : 'Tiền mặt'} đã đối soát — bấm Sửa ở mục đó để mở lại trước.`);
       if (!(p_amount > 0)) throw new Error('Nhập số tiền khách trả lớn hơn 0.');
       if (p_amount > Number(o.left)) throw new Error('Khách trả nhiều hơn số nợ.');
       o.left = Number(o.left) - p_amount;
@@ -298,8 +299,8 @@ export function makeStc(T, me) {
     },
     app_stc_move_save({ p_report, p_mkey, p, p_reason }) {
       need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
-      if (!ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');
-      if (ca.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');   // bước 171 (tệp 150)
+      if (!window.__DS_MOI && !ca?.recon_money_done) throw new Error('Ca chưa chốt tiền — chốt ở tab Đối soát tiền trước.');   // tệp 173: có cờ thì không cần
+      if (ca?.done) throw new Error('Ca đã hoàn thành đối soát — bấm Mở lại trước.');   // bước 171 (tệp 150)
       const id = p_mkey ? `m:${p_report}:${p_mkey}` : null; const x = id ? items().find((i) => i.id === id) : null;
       untick(ca, (x ? x.book === 'chi' : !p.delete && p.amount < 0) ? ['that', 'lon', 'ld', 'sau_tm', 'sau_ck'] : ['tn', 'sot', 'ld', 'sau_tm', 'sau_ck']);
       if (p.delete) { items().push(voidOf(x, 'xoa', r)); items().splice(items().indexOf(x), 1); return null; }
@@ -314,7 +315,7 @@ export function makeStc(T, me) {
     // chặng 3 (tệp 160): đổi một khoản thu / chi của ca thành Luân chuyển TM – CK — giữ vế cũ (thành "lc", không tính chi phí), thêm vế ngược lại
     app_stc_move_exchange({ p_report, p_mkey, p_reason }) {
       need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
-      if (!ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới đổi khoản.');
+      if (!window.__DS_MOI && !ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới đổi khoản.');
       if (ca.done) throw new Error('Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành của trang đối soát ca mới đổi được.');
       const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}`);
       if (!x || x.col === 'lc') throw new Error('Khoản này vừa thay đổi. Tải lại trang rồi làm lại.');
@@ -328,7 +329,7 @@ export function makeStc(T, me) {
     // tệp 170: xoá phiếu Luân chuyển TM – CK của ca — xoá cả 2 vế cùng mã, bắt lý do, hiện gạch ngang
     app_stc_move_exchange_delete({ p_report, p_mkey, p_reason }) {
       need(); const r = reason(p_reason); const ca = st().cas.find((c) => c.id === Number(p_report)); finGuard(p_report);
-      if (!ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới xoá phiếu luân chuyển.');
+      if (!window.__DS_MOI && !ca?.recon_money_done) throw new Error('Ca chưa xác nhận Fabi — xác nhận ở Đối soát Fabi trước rồi mới xoá phiếu luân chuyển.');
       if (ca.done) throw new Error('Ca đã hoàn thành đối soát — Mở lại ở tab ③ Hoàn thành mới xoá được.');
       const x = items().find((i) => i.id === `m:${p_report}:${p_mkey}` && !i.void);
       if (!x) throw new Error('Phiếu này vừa thay đổi. Tải lại trang rồi làm lại.');
@@ -562,6 +563,40 @@ export function makeStc(T, me) {
       const c = dsCa(p_report, false); c.recon_money_done = false; c.done = null;   // bước 160 (tệp 143): không bắt lý do · bước 171: bỏ luôn dấu Hoàn thành
       items().forEach((x) => { if (x.ca_id === c.id && x.id.startsWith('m:')) x.can_edit = false; });
     },
+    // tệp 173 (trang đối soát ca mới): ca đã xử lý chênh lệch → không sửa số làm đổi tiền (như app__ds2_no_gap)
+    __ds2NoGap({ p_report, p_req }) {
+      const rid = p_report != null ? Number(p_report) : fixFind(p_req).c.id;
+      if (gapAll().some((x) => x.ca_id === rid && (x.gap.decisions || []).length + (x.gap.tl || []).length > 0)) throw new Error('Ca đã xử lý chênh lệch (phiếu chênh lệch / trừ lương / ghép ca) — bấm Huỷ ở dòng Chênh lệch trước khi sửa số này.');
+    },
+    app_ds2_confirm({ p_report }) {
+      const c = dsCa(p_report, false); if (c.recon_money_done) return {};
+      window.__DS_MOI = true; try { return this.app_stc_ds_close({ p_report }); } finally { window.__DS_MOI = false; }
+    },
+    app_ds2_work_ok({ p_report, p_parts }) {
+      dsCa(p_report, false);
+      for (const it of p_parts || []) if (['nhan_su', 'ban_giao', 'nhap_hang'].includes(it) && !(T.shift_report_checks || []).some((x) => x.report_id === Number(p_report) && x.item === it)) this.app_ca_check({ p_id: Number(p_report), p_item: it, p_on: true });
+    },
+    app_ds2_finish({ p_report, p_parts, p_ticks }) {   // một giao dịch: hỏng ở đâu thì trả lại như cũ (bản giả chụp trạng thái rồi khôi phục)
+      const c = dsCa(p_report, false); if (c.done) return { done: true, already: true };
+      const snap = JSON.stringify({ c, chk: T.shift_report_checks || [], rs: (T.shift_reports || []).find((r) => r.id === Number(p_report)) || null });
+      window.__DS_MOI = true;
+      try {
+        this.app_ds2_work_ok({ p_report, p_parts });
+        const has = (it) => (T.shift_report_checks || []).some((x) => x.report_id === Number(p_report) && x.item === it);
+        const hang = (T.delivery_invoices || []).some((d) => d.received_report_id === Number(p_report));
+        const left = [['nhan_su', 'Nhân viên trong ca'], ['ban_giao', 'Bàn giao ca sau'], ['nhap_hang', 'Nhập hàng']].filter(([k]) => !has(k) && (k !== 'nhap_hang' || hang)).map(([, t]) => t);
+        if (left.length) throw new Error('Phần việc chưa duyệt: ' + left.join(', '));
+        if (!c.recon_money_done) this.app_stc_ds_close({ p_report });
+        for (const it of p_ticks || []) if (['anh', 'sot', 'that', 'goi'].includes(it)) this.app_stc_tick({ p_report, p_item: it, p_on: true });
+        this.app_stc_ds_done({ p_report });
+        return { done: true };
+      } catch (e) {
+        const o = JSON.parse(snap); Object.keys(c).forEach((k) => delete c[k]); Object.assign(c, o.c); T.shift_report_checks = o.chk;
+        const r = (T.shift_reports || []).find((x) => x.id === Number(p_report)); if (r && o.rs) Object.assign(r, o.rs);
+        throw e;
+      } finally { window.__DS_MOI = false; }
+    },
+    app_ds2_reopen({ p_report, p_reason }) { this.app_stc_ds_undone({ p_report }); this.app_stc_ds_reopen({ p_report, p_reason }); },
     // bước 153: phiếu trừ lương — sửa / xoá; khoản chi → trừ lương / bỏ chuyển
     app_ka_edit({ p_id, p_employee, p_amount, p_status, p_note }) {
       const k = sfs().find((x) => x.id === Number(p_id)); if (!k || k.status === 'huy') throw new Error('Không tìm thấy phiếu (có thể đã bị xóa).'); finGuard(k.report_id);
