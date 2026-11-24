@@ -1,6 +1,6 @@
 // Bài thử hàm thuần — trang đối soát ca mới đợt 2 + 3. Chạy: jsc -m kiem_tra/doi_soat_moi_tinh_dot2.mjs (dòng cuối "ĐẠT n kiểm tra").
 import { DS2, ds2Name } from '../docs/js/ds2.js';
-import { workParts, confirmKeys, mergeRecon, staffPayload, stepState, canStep, firstStep, moneyLeftList } from '../docs/js/doi_soat_moi_tinh.js';
+import { workParts, confirmKeys, mergeRecon, staffPayload, stepState, canStep, firstStep, moneyLeftList, gapView } from '../docs/js/doi_soat_moi_tinh.js';
 const bad = []; let n = 0;
 const eq = (got, want, msg) => { n++; if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`${msg}: được ${JSON.stringify(got)}, cần ${JSON.stringify(want)}`); };
 
@@ -73,6 +73,27 @@ eq([st3.viec, st3.tien, st3.xong, firstStep(st3), canStep(st3, 'tien')], [true, 
 st3 = stepState(null, null, Rw({}), null);
 eq([st3.viec, st3.tien, firstStep(st3)], [false, false, 'viec'], 'không đọc được phần tiền: ở ①');
 eq(stepState(D3(ca2()), ca2(), { id: 501, checks: { nhan_su: {}, nhap_hang: {} }, cash_hand: { state: 'can_dem_lai' } }, null).viec, false, 'nhận két lệch cần đếm lại: ① chưa xong');
+
+// ---- gapView: chênh lệch xử lý thế nào (anh Tiến 24/11 "muốn hiện rõ") ----
+const gx = (o, g) => ({ id: 'g:1:' + (o.pm || 'tm'), ca_id: 1, col: 'lech', pm: 'tm', book: 'chi', amount: 0, status: '', ...o, gap: g });
+let gv = gapView(gx({ amount: 0, gross: 249000, status: 'Đã xử lý' }, { kind: 'thieu', total: 249000, remain: 0, avail: 0,
+  tl: [{ name: 'NV A', amount: 124500, status: 'tru_luong' }, { name: 'NV B', amount: 124500, status: 'da_bu' }, { name: 'NV C', amount: 1, status: 'huy' }] }));
+eq([gv.kind, gv.total, gv.remain, gv.state, gv.lines.map((l) => [l.how, l.who, l.amount, l.note])],
+  ['thieu', 249000, 0, 'xong', [['Trừ lương', 'NV A', 124500, 'trừ lương'], ['Trừ lương', 'NV B', 124500, 'đã nộp bù']]], 'thiếu 249.000 trừ lương 2 người (bỏ dòng đã huỷ) → đã xử lý hết');
+gv = gapView(gx({ book: 'thu', amount: 20000, status: 'Chờ xử lý (dư)' }, { kind: 'du', total: 20000, remain: 20000, avail: 20000 }));
+eq([gv.kind, gv.remain, gv.state, gv.lines.length], ['du', 20000, 'chua', 0], 'dư 20.000 chưa xử lý');
+gv = gapView(gx({ book: 'thu', amount: 20000, status: 'Chờ xử lý (dư)' }, { kind: 'du', total: 20000, remain: 20000, avail: 20000 }), ['sau_tm']);
+eq(gv.state, 'de_sau', 'dư 20.000 đã bấm Để sau');
+gv = gapView(gx({ pm: 'ck', book: 'thu', amount: 262000, status: 'Chờ xử lý (dư) · ⏳ chờ Chủ duyệt' }, { kind: 'du', total: 262000, remain: 262000, avail: 0,
+  matches: [{ amount: 262000, status: 'cho_duyet', with: 'ca Chiều 18/11' }] }));
+eq([gv.pm, gv.state, gv.lines.map((l) => [l.how, l.amount, l.note])], ['ck', 'cho_duyet', [['Ghép với ca Chiều 18/11', 262000, 'chờ Chủ duyệt']]], 'chuyển khoản dư ghép ca khác chờ Chủ duyệt');
+gv = gapView(gx({ book: 'thu', amount: 0, gross: 30000, status: 'Đã xử lý' }, { kind: 'du', total: 30000, remain: 0, avail: 0,
+  decisions: [{ kind: 'thu_khac', amount: 10000 }], debts: [{ who: 'Chị Hai', amount: 20000 }] }));
+eq([gv.state, gv.lines.map((l) => [l.how, l.who, l.amount])], ['xong', [['Ghi Thu khác', '', 10000], ['Gán nợ khách', 'Chị Hai', 20000]]], 'dư: ghi thu khác + gán nợ khách → xong');
+gv = gapView(gx({ amount: 30000, status: 'Chờ xử lý · chưa làm phiếu trừ tiền' }, { kind: 'thieu', total: 30000, remain: 30000, avail: 0, qc_wait: [{ amount: 30000, by: 'QL thử' }] }));
+eq([gv.state, gv.lines.map((l) => [l.how, l.note])], ['cho_duyet', [['Quán chịu', 'chờ Chủ duyệt · QL thử đề nghị']]], 'thiếu: quán chịu chờ Chủ duyệt');
+gv = gapView(gx({ amount: 3000, status: 'Lệch nhỏ ≤ 5.000' }, { kind: 'thieu', total: 3000, remain: 3000, avail: 3000 }));
+eq([gv.state, gv.remain], ['nho', 0], 'lệch nhỏ ≤ 5.000: coi như khớp');
 
 if (bad.length) { print(bad.join('\n')); throw new Error(`HỎNG ${bad.length}/${n}`); }
 print(`ĐẠT ${n} kiểm tra`);

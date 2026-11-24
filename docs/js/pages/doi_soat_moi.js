@@ -12,7 +12,7 @@ import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.24.7';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { SHIFT_ORDER, caChecks, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
 import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.7';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
-import { BASIC, CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
+import { BASIC, CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, gapView, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';
 
@@ -93,6 +93,9 @@ const CSS = `<style>
 .dsm-sum-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
 .dsm-sum-b{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:4px;min-width:0}
 .dsm-sum-must{border-top:1.5px solid var(--ink-2);padding-top:4px;font-weight:700}
+.dsm-gb{border:1.5px solid var(--warn-line,var(--line-strong));border-radius:10px;padding:8px 10px;display:grid;gap:4px;background:var(--warn-bg)}
+.dsm-gb.xong,.dsm-gb.nho{border-color:var(--ok-line,var(--line));background:var(--ok-bg)}.dsm-gb.chua{border-color:var(--off-line,var(--line-strong));background:var(--off-bg)}
+.dsm-gs{font-weight:700}.dsm-gb.chua .dsm-gs{color:var(--off-ink)}.dsm-gb.xong .dsm-gs,.dsm-gb.nho .dsm-gs{color:var(--ok-ink)}.dsm-gb .dsm-row>span{flex:1 1 160px}
 #dsm-sum .dsm-row>b{white-space:normal;text-align:right;overflow-wrap:anywhere;min-width:0;flex:0 1 auto}#dsm-sum .dsm-row>span{flex:1 1 140px}
 </style>`;
 
@@ -187,6 +190,15 @@ function viecPane(S) {
       ${wp.blocked.length && !done ? html`<div class="dsm-sub">Chưa sang bước 2 được: ${wp.blocked.join(', ')}.</div>` : ''}</div>`;
 }
 
+// ---------------- khối chênh lệch: xử lý thế nào (anh Tiến 24/11 "muốn hiện rõ") ----------------
+const GST = (v) => ({ nho: '✓ Lệch nhỏ ≤ 5.000 — coi như khớp', xong: '✓ Đã xử lý hết', cho_duyet: '⏳ Đã chọn cách xử lý — chờ Chủ duyệt',
+  de_sau: `🟠 Để sau — còn ${money(v.remain)} chưa xử lý`, chua: `⚠ Còn ${money(v.remain)} chưa chọn cách xử lý` })[v.state];
+const gapBlock = (x, ticks, act = '') => { const v = gapView(x, ticks);
+  return html`<div class="dsm-gb ${v.state}"><div class="dsm-row"><span><b>Chênh lệch ${v.pm === 'ck' ? 'chuyển khoản' : 'tiền mặt'}: ${v.kind === 'du' ? 'DƯ' : 'THIẾU'} ${money(v.total)}</b></span>${act}</div>
+    ${v.lines.length ? html`<div class="dsm-sub">Đã xử lý bằng:</div><ul class="dsm-sum-l">${v.lines.map((l) => html`<li>${l.how}${l.who ? ' — ' + l.who : ''}: <b>${money(l.amount)}</b>${l.note ? html` <span>· ${l.note}</span>` : ''}</li>`)}</ul>`
+      : v.state === 'nho' ? '' : html`<div class="dsm-sub">Chưa có cách xử lý nào.</div>`}
+    <div class="dsm-gs">${GST(v)}</div></div>`; };
+
 // ---------------- trang ② Tiền ----------------
 // khoản của ca sửa / xoá được ở trang mới: như máy chủ cho (can_edit) + luật mới — phiếu ca thu khác / chi và luân chuyển, khi ca chưa Hoàn thành
 const canEd = (D, ca, it) => !!it && !it.void && !D.locked && !D.ext && !ca.done
@@ -216,7 +228,7 @@ function bookSec(S, b, pm, ticks) {
     <div class="dsm-row dsm-must" data-pm="${pm}" data-v="${b.must}"><span>= ${isTm ? 'Phải có' : 'Phải nhận'}</span><b>${money(b.must)}</b></div>
     <div class="dsm-row"><span>${realLabel}</span><b>${b.real == null ? '⏳ chờ kế toán' : money(b.real)}</b></div>
     <div class="dsm-row dsm-gap ${b.real == null ? '' : Math.abs(b.gap) <= 5000 ? 'ok' : 'bad'}" data-pm="${pm}"><span>Lệch = thực nhận − ${isTm ? 'phải có' : 'phải nhận'}</span><b>${b.real == null ? '—' : b.gap === 0 ? '✓ khớp' : signedM(b.gap)}</b></div>
-    ${gl.map((x) => html`<div class="dsm-gl"><span>${x.title || 'Chênh lệch'} <b>${money(x.amount)}</b>${x.status ? html` · <span class="dsm-sub">${x.status}</span>` : ''}</span>${x.gap && !D.locked ? html`<button type="button" class="btn sm" data-dsmgap="${x.id}">Xử lý lệch</button>` : ''}</div>`)}
+    ${gl.map((x) => gapBlock(x, ca.ticks || [], x.gap && !D.locked ? html`<button type="button" class="btn sm" data-dsmgap="${x.id}">Xử lý lệch</button>` : ''))}
     ${pend && !ro ? html`<button type="button" class="dsm-tick dsm-tk" data-dssau="${pm}" aria-pressed="${sau ? 'true' : 'false'}"><i>${sau ? '✓' : '☐'}</i><span>Để sau (xử lý lệch sau — ca hiện 🟠 tới khi xong)</span></button>` : ''}
     ${ticks}</section>`;
 }
@@ -281,7 +293,7 @@ function sumPane(S) {
         ${chi.length ? html`<ul class="dsm-sum-l">${chi.map((x) => html`<li>${x.kind && x.kind !== 'Chi' ? x.kind + ': ' : ''}${x.title || x.kind} <span>· ${x.pm} ${money(x.amount)}${x.cat ? ' · ' + x.cat : ''}</span></li>`)}</ul>` : ''}
         ${row('Nợ mới trong ca', moi.length ? `${moi.length} khoản · ${money(sumAmt(moi))}` : 'không có')}
         ${row('Khách trả nợ cũ trong ca', tra.length ? `${tra.length} lần · ${money(sumAmt(tra))}` : 'không có')}
-        ${gl.length ? gl.map((x) => row(`Chênh lệch ${x.pm === 'ck' ? 'chuyển khoản' : 'tiền mặt'}`, `${money(x.amount)}${x.status ? ' · ' + x.status : ''}`)) : row('Chênh lệch', 'không có')}`
+        ${gl.length ? gl.map((x) => gapBlock(x, ca.ticks || [])) : row('Chênh lệch', 'không có')}`
       : html`<div class="dsm-sub">${S.err || 'Chưa có số liệu phần tiền.'}</div>`}
       <div class="dsm-grp">Kiểm tra</div>
       ${ca ? row('Mục kiểm tra', `${okN}/${all.length} xong${basicLeft ? ` · ${basicLeft} ô cơ bản xác nhận khi bấm Hoàn thành` : ''}`) : ''}

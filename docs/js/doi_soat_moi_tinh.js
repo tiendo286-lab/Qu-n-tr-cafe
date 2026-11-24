@@ -130,6 +130,27 @@ export const canStep = (st, k) => k === 'viec' || (k === 'tien' ? !!st.viec : !!
 export const firstStep = (st) => (st.xong ? 'xong' : !st.viec ? 'viec' : !st.tien ? 'tien' : 'xong');
 // Bước ② còn thiếu gì (chữ của từng mục tiền chưa xong, bỏ 4 ô cơ bản và Xác nhận Fabi)
 export const moneyLeftList = (D, ca) => moneyLeft(D, ca).map((x) => CHK_LABEL[x.k] || x.k);
+// Chênh lệch tiền mặt / chuyển khoản của ca xử lý thế nào (anh Tiến 24/11 "muốn hiện rõ"): thiếu / dư bao nhiêu, từng cách xử lý một dòng,
+// còn lại bao nhiêu, trạng thái. x = dòng 'lech' của sổ tháng (x.gap do app_stc_month dựng: tl, decisions, matches, qc_wait, debts, remain, avail).
+// state: nho (≤ 5.000, coi như khớp) · xong (đã xử lý hết) · cho_duyet (phần còn lại chờ Chủ duyệt) · de_sau (đã bấm Để sau) · chua.
+const GAP_DC = { quan_chiu: 'Quán chịu', thu_khac: 'Ghi Thu khác', treo: 'Khoản treo' };   // như GAP_DC của Sổ thu chi
+const TL_ST = { tru_luong: 'trừ lương', da_bu: 'đã nộp bù', mien: 'miễn' };   // như TL_ST của Sổ thu chi
+export function gapView(x, ticks = []) {
+  const g = x.gap || {}; const pm = x.pm === 'ck' ? 'ck' : 'tm';
+  const kind = g.kind === 'du' || (g.kind !== 'thieu' && x.book === 'thu') ? 'du' : 'thieu';
+  const lines = [];
+  (g.tl || []).filter((t) => t.status !== 'huy').forEach((t) => lines.push({ how: 'Trừ lương', who: t.name || '', amount: Number(t.amount || 0), note: TL_ST[t.status] || 'chờ xử lý' }));
+  (g.decisions || []).forEach((d) => lines.push({ how: GAP_DC[d.kind] || d.kind, who: '', amount: Number(d.amount || 0), note: '' }));
+  (g.matches || []).forEach((m) => lines.push({ how: 'Ghép với ' + (m.with || 'ca khác'), who: '', amount: Number(m.amount || 0), note: m.status === 'cho_duyet' ? 'chờ Chủ duyệt' : '' }));
+  (g.qc_wait || []).forEach((q) => lines.push({ how: 'Quán chịu', who: '', amount: Number(q.amount || 0), note: 'chờ Chủ duyệt' + (q.by ? ' · ' + q.by + ' đề nghị' : '') }));
+  (g.debts || []).forEach((d) => lines.push({ how: 'Gán nợ khách', who: d.who || '', amount: Number(d.amount || 0), note: '' }));
+  const small = /Lệch nhỏ/.test(x.status || '');
+  const remain = small ? 0 : Math.max(Number(g.remain ?? x.amount ?? 0), 0);
+  const avail = Math.max(Number(g.avail ?? remain), 0);
+  const sau = (ticks || []).includes('sau_' + pm);
+  const state = small ? 'nho' : remain <= 0 ? 'xong' : avail <= 0 ? 'cho_duyet' : sau ? 'de_sau' : 'chua';
+  return { pm, kind, total: Number(g.total ?? x.gross ?? x.amount ?? 0), lines, remain, state };
+}
 // Đợt 3: mã các ô cơ bản quản lý xác nhận khi bấm Hoàn thành (cùng danh sách, cùng thứ tự với confirmList) — gửi lên app_ds2_finish
 export function confirmKeys(D, ca) {
   const all = dsChecks(ca, dsCtx(D, ca)).flat();

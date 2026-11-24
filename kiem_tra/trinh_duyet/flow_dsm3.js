@@ -48,6 +48,8 @@ export default async ({ sleep, out }) => {
     for (const pm of ['tm', 'ck']) { const a1 = $(`#dsm-sum .dsm-sum-must[data-pm="${pm}"]`)?.dataset.v, b1 = $(`[data-dsm-pane="tien"] .dsm-must[data-pm="${pm}"]`)?.dataset.v;
       ok(a1 != null && a1 === b1, `tổng kết ${pm === 'tm' ? 'tiền mặt phải có' : 'chuyển khoản phải nhận'} ${a1} = trang Tiền ${b1}`); }
     ok(fits(), `trang tổng kết không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
+    { const gb = $('#dsm-sum .dsm-gb'); const t = (gb?.textContent || '').replace(/\s+/g, ' ').trim();
+      ok(!!gb && /THIẾU|DƯ/.test(t) && /Để sau|chưa xử lý|Đã xử lý hết|Chờ Chủ duyệt|coi như khớp/.test(t), `tổng kết hiện rõ chênh lệch tiền mặt xử lý thế nào: ${t.slice(0, 140) || '-'}`); }
     const conf = $$('.dsm-confirm li').map((x) => x.innerText.trim());
     ok(conf.length > 0, `trang Hoàn thành ghi rõ bấm là xác nhận: ${conf.join(' · ')}`);
     n0 = L().length; $('#dsm-done')?.click();
@@ -56,6 +58,13 @@ export default async ({ sleep, out }) => {
     $('#dsm-stay')?.click(); await sleep(2200);
     ok(/id=181\b/.test(location.hash) && !!$('#dsm-reopen'), `bấm Ở lại → vẫn ở ca 181, ca đã Hoàn thành (${location.hash})`);
     ok(fits(), `trang Hoàn thành không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
+    // xử lý phần dư bằng Ghi Thu khác → tổng kết ghi rõ cách xử lý và 'Đã xử lý hết'
+    try { await rpc('app_stc_gap_thu', { p_report: 181, p_item: 'tien_mat', p_amount: 20000, p_reason: 'thử hiện rõ chênh lệch' }); } catch (e) { bad.push('LỖI dựng xử lý lệch: ' + e.message); }
+    $('#dsm-recalc')?.click(); await until(() => /Ghi Thu khác/.test($('#dsm-sum .dsm-gb')?.textContent || ''), 50); await sleep(300);
+    { const t = ($('#dsm-sum .dsm-gb')?.textContent || '').replace(/\s+/g, ' ').trim();
+      ok(/Ghi Thu khác/.test(t) && /20\.000/.test(t) && /Đã xử lý hết/.test(t), `sau khi xử lý: tổng kết ghi 'Ghi Thu khác 20.000 · Đã xử lý hết': ${t.slice(0, 160)}`);
+      const tp = ($('[data-dsm-pane="tien"] .dsm-gb')?.textContent || '').replace(/\s+/g, ' ');
+      ok(/Ghi Thu khác/.test(tp), 'trang Tiền cũng hiện rõ cách xử lý chênh lệch'); }
     // 5. Mở lại rồi Hoàn thành lần nữa, không bấm Ở lại → tự sang ca tiếp theo chưa xong (hoặc báo hết ca)
     $('#dsm-reopen')?.click(); await wait('form [name=reason]', 30);
     const f2 = $('[name=reason]')?.closest('form'); if (f2) (f2.requestSubmit ? f2.requestSubmit() : f2.querySelector('button[type=submit]')?.click());
