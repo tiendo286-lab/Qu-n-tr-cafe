@@ -19,8 +19,8 @@ export default async ({ sleep, out }) => {
       ok(!$('#dsm'), 'nhân viên: không vào được trang đối soát ca mới');
     } else {
       const { rpc } = await import('../js/sb.js');
-      const { dayChain, billListOf } = await import('../js/so_thu_chi_tinh.js');
-      const { missingList } = await import('../js/doi_soat_moi_tinh.js');
+      const { dayChain, billListOf, dsChecks, dsCtx } = await import('../js/so_thu_chi_tinh.js');
+      const { missingList, CHK_LABEL } = await import('../js/doi_soat_moi_tinh.js');
       // ca thử phần tiền chưa có người làm trong phiếu giả → gắn 2 người đang làm (hook sẵn có của máy chủ giả)
       try { await rpc('app__test_ca_staff', { p_id: 182, p_n: 2 }); } catch (_) { /* máy chủ giả cũ không có hook */ }
       // 1. trang cũ có nút sang trang mới
@@ -53,6 +53,12 @@ export default async ({ sleep, out }) => {
       const chiBox = $('.dsm-it.chi'), thuBox = $('.dsm-it.thu');
       ok(!!chiBox, `có khung khoản chi: ${chiBox?.innerText.replace(/\s+/g, ' ').slice(0, 60) || '-'}`);
       if (chiBox && thuBox) ok(getComputedStyle(chiBox).backgroundColor !== getComputedStyle(thuBox).backgroundColor, 'khung thu và khung chi khác màu');
+      // mọi mục kiểm tiền của ca (trừ Xác nhận Fabi — Hoàn thành mới tự làm — và 3 dòng số máy mo / dt / no) đều hiện ở trang Tiền,
+      // để dòng "Còn thiếu" bấm sang trang Tiền có chỗ thấy mục đó
+      const keys = dsChecks(ca, dsCtx(D, ca)).flat().map((x) => x.k).filter((k) => !['fabi', 'mo', 'dt', 'no'].includes(k));
+      const tienTxt = $('[data-dsm-pane="tien"]')?.innerText || '';
+      const lack = keys.filter((k) => !tienTxt.includes(CHK_LABEL[k]));
+      ok(keys.length > 0 && lack.length === 0, `trang Tiền hiện đủ ${keys.length} mục kiểm của ca${lack.length ? ' — thiếu: ' + lack.join(', ') : ''}`);
       ok(!$('#dsm button[data-tick], #dsm input:not([type=hidden]), #dsm select'), 'trang mới chưa có ô sửa / ô tích bấm được (chỉ xem)');
       ok(fits(), `trang Tiền không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
       // 5. trang ③ Hoàn thành: còn thiếu đúng như hàm tính; nút Hoàn thành khoá

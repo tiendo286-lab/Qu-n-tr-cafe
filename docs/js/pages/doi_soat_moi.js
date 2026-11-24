@@ -168,8 +168,8 @@ function tienPane(S) {
       ${has('phanloai') ? tick(has('phanloai').ok, CHK_LABEL.phanloai) : ''}
       ${tra.length ? html`<div class="dsm-grp">Khách trả nợ cũ trong ca</div>${tra.map((x) => html`<div class="dsm-row"><span>${x.who || 'Khách'} · ${x.from || ''}</span><b>${money(x.amount)}</b></div>`)}` : ''}
       ${mt('tn')}</section>
-    ${bookSec(book.tm, ca, 'tm', html`${mt('cash')}${mt('goi')}${mt('ket')}${mt('sot')}${mt('that')}${mt('lon')}${gapTicks('tm')}`)}
-    ${bookSec(book.ck, ca, 'ck', gapTicks('ck'))}`;
+    ${bookSec(book.tm, ca, 'tm', html`${mt('cash')}${mt('goi')}${mt('ket')}${mt('sot')}${mt('cat')}${mt('that')}${mt('lon')}${mt('tm')}${gapTicks('tm')}`)}
+    ${bookSec(book.ck, ca, 'ck', html`${mt('ck')}${mt('ck5')}${gapTicks('ck')}`)}`;
 }
 
 // ---------------- trang ③ Hoàn thành ----------------
