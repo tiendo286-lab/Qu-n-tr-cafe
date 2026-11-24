@@ -24,6 +24,7 @@
 10. **Ba trang cho mỗi ca**: ① Phần việc (nhân viên, bàn giao ca) · ② Tiền · ③ Hoàn thành — trang Tiền không chứa phần việc.
 11. **Trang Tiền liệt kê riêng từng khoản thu, từng khoản chi và tổng cuối** (tổng thu, tổng chi, phải có / phải nhận) trong mỗi mục Tiền mặt / Chuyển khoản.
 12. **Mỗi khoản thu / chi là một khung; bấm vào khung để sửa hoặc xoá.**
+13. **Thu và chi hai màu cho dễ xem**: khung khoản thu xanh lá nhạt, khung khoản chi đỏ nhạt (tiêu đề nhóm và dòng tổng cùng màu); sắc độ cụ thể người làm chọn, miễn khác rõ màu cảnh báo lệch.
 
 ## 3. Không làm / tuyệt đối tránh
 
