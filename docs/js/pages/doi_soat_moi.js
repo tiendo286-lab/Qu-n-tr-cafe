@@ -8,11 +8,11 @@
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
 import { fmt, parseMoney } from '../tien.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.24.5';
+import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.24.5';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { SHIFT_ORDER, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
+import { SHIFT_ORDER, caChecks, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
 import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.5';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
-import { CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
+import { BASIC, CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';
 
@@ -88,6 +88,12 @@ const CSS = `<style>
 .dsm-step>.dsm-sub,.dsm-step>.dsm-left{flex-basis:100%}
 .dsm-left ul{margin:4px 0 0;padding-left:20px}.dsm-left li{color:var(--off-ink)}
 .dsm-tabs button[data-lock]{opacity:.55}
+.dsm-sum-l{margin:0;padding-left:20px;display:grid;gap:2px;font-size:13.5px}.dsm-sum-l li{overflow-wrap:anywhere}.dsm-sum-l span{color:var(--muted)}
+.dsm-sum-left li{color:var(--off-ink)}
+.dsm-sum-g{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:10px}
+.dsm-sum-b{border:1px solid var(--line);border-radius:10px;padding:8px 10px;display:grid;gap:4px;min-width:0}
+.dsm-sum-must{border-top:1.5px solid var(--ink-2);padding-top:4px;font-weight:700}
+#dsm-sum .dsm-row>b{white-space:normal;text-align:right;overflow-wrap:anywhere;min-width:0;flex:0 1 auto}#dsm-sum .dsm-row>span{flex:1 1 140px}
 </style>`;
 
 // ô tích: k = mã mục quản lý tự tích → nút bấm được (bộ bắt sự kiện của Sổ thu chi gọi app_stc_tick); không k → chỉ hiện trạng thái
@@ -234,16 +240,61 @@ function tienPane(S) {
         : html`<div class="dsm-left"><b>Còn ${left.length} mục ở bước này:</b><ul>${left.map((t) => html`<li>${t}</li>`)}</ul></div>`}</div>`;
 }
 
+// ---------------- trang ③: tổng kết cả ca (anh Tiến 24/11 "tab hoàn thành sẽ là tab tổng kết lại toàn bộ ca đó") ----------------
+// Đọc một lượt: người làm · bàn giao · số máy Fabi · tiền mặt · chuyển khoản · khoản chi · nợ trong ca · chênh lệch · kiểm tra — rồi mới bấm Hoàn thành.
+function sumPane(S) {
+  const { R, D, ca } = S; const staff = R.staff || []; const ho = R.handover || [];
+  const row = (k, v) => html`<div class="dsm-row"><span>${k}</span><b>${v}</b></div>`;
+  const h = R.cash_hand; const x2 = S.dsRow && S.dsRow.viec ? S.dsRow.viec.x2 : null;
+  const book = ca ? caBook(D, ca) : null;
+  const cks = ca ? caChecks(ca, dsCtx(D, ca).link).filter((x) => ['mo', 'dt', 'no'].includes(x.k)) : [];
+  const debts = ca ? (D.ca_debts || []).filter((x) => Number(x.report_id) === Number(ca.id)) : [];
+  const moi = debts.filter((x) => x.t === 'moi'); const tra = debts.filter((x) => x.t === 'tra');
+  const gl = ca ? (D.items || []).filter((x) => x.ca_id === ca.id && x.col === 'lech' && !x.void) : [];
+  const chi = book ? [...book.tm.chi.map((x) => ({ ...x, pm: 'TM' })), ...book.ck.chi.map((x) => ({ ...x, pm: 'CK' }))] : [];
+  const all = ca ? dsChecks(ca, dsCtx(D, ca)).flat().filter((x) => x.k !== 'fabi') : [];
+  const okN = all.filter((x) => x.ok).length; const basicLeft = all.filter((x) => !x.ok && BASIC.includes(x.k)).length;
+  const left = all.filter((x) => !x.ok && !BASIC.includes(x.k));   // 4 ô cơ bản: xác nhận khi bấm Hoàn thành (danh sách dưới)
+  const photos = (R.photos || []).filter((p) => p.kind === 'ipos').length;
+  const sumAmt = (xs) => xs.reduce((a, x) => a + Number(x.amount || 0), 0);
+  const bk = (b, pm) => html`<div class="dsm-sum-b"><div class="dsm-row"><b>${pm === 'tm' ? 'Tiền mặt' : 'Chuyển khoản'}</b>${gapChip(b)}</div>
+    ${pm === 'tm' ? row('Mở ca', money(b.start)) : ''}${row('Bán (máy Fabi)', money(b.ban))}
+    ${row(`Thu${b.thu.length ? ` (${b.thu.length} khoản)` : ''}`, '+' + money(b.tongThu))}${row(`Chi${b.chi.length ? ` (${b.chi.length} khoản)` : ''}`, '−' + money(b.tongChi))}
+    <div class="dsm-row dsm-sum-must" data-pm="${pm}" data-v="${b.must}"><span>${pm === 'tm' ? 'Phải có' : 'Phải nhận'}</span><b>${money(b.must)}</b></div>
+    ${row(pm === 'tm' ? 'Thực nhận' : 'Ngân hàng nhận', b.real == null ? '⏳ chờ kế toán' : money(b.real))}
+    ${row('Lệch', b.real == null ? '—' : b.gap === 0 ? '✓ khớp' : signedM(b.gap))}</div>`;
+  return html`<section class="dsm-card" id="dsm-sum"><h2>Tổng kết ca ${ca && ca.done ? html`<span class="dsm-chip ok">✓ Đã hoàn thành${ca.done.by ? ' · ' + ca.done.by : ''}</span>` : html`<span class="dsm-chip warn">Chưa hoàn thành</span>`}</h2>
+      <div class="dsm-grp">① Phần việc</div>
+      <div class="dsm-row"><span>Người làm (${staff.filter(isW).length})</span><b></b></div>
+      ${staff.length ? html`<ul class="dsm-sum-l">${staff.map((s) => html`<li>${s.code ? s.code + ' – ' : ''}${s.name || 'NV ' + s.employee_id} <span>· ${isW(s) ? `${hm(s.time_in) || '—'} – ${hm(s.time_out) || '—'}` : 'nghỉ' + (s.absent_reason ? ': ' + s.absent_reason : '')}${s.cash_paid ? ' · trả lương TM ' + money(s.cash_paid) : ''}</span></li>`)}</ul>` : html`<div class="dsm-sub">Phiếu chưa có nhân viên.</div>`}
+      ${row('Nghỉ & làm thay', x2 ? (CV_STATE[x2] || [x2])[0] : '—')}
+      ${row('Bàn giao — nhận két ca trước', !h ? 'Ca đầu ngày' : (HAND[h.state] || h.state || '—') + (h.gap ? ' ' + signedM(h.gap) : ''))}
+      ${row('Bàn giao — công việc cho ca sau', ho.length ? `${ho.length} việc` : 'không có')}
+      ${ho.length ? html`<ul class="dsm-sum-l">${ho.map((x) => html`<li>${x.content || ''}${x.task_id ? html` <span>· đã giao việc</span>` : ''}</li>`)}</ul>` : ''}
+      ${row('Hàng kho tổng nhận trong ca', R.goods_status === 'khong' || !R.goods_status ? 'không có' : R.goods_status)}
+      ${row('Duyệt', Object.keys(WORK_LABEL).map((k) => WORK_LABEL[k] + ((R.checks || {})[k] ? ' ✓' : ' ☐')).join(' · '))}
+      <div class="dsm-grp">② Tiền</div>
+      ${ca ? html`<div class="dsm-row"><span>Số máy Fabi</span>${photos ? html`<button type="button" class="btn sm secondary" data-dsphoto="${ca.id}">📷 Ảnh phiếu (${photos})</button>` : html`<b class="dsm-sub">chưa có ảnh phiếu</b>`}</div>
+        ${cks.map((x) => row(x.name, x.txt || ''))}
+        <div class="dsm-sum-g">${bk(book.tm, 'tm')}${bk(book.ck, 'ck')}</div>
+        ${row(`Khoản chi (${chi.length})`, chi.length ? '−' + money(sumAmt(chi)) : 'không có')}
+        ${chi.length ? html`<ul class="dsm-sum-l">${chi.map((x) => html`<li>${x.kind && x.kind !== 'Chi' ? x.kind + ': ' : ''}${x.title || x.kind} <span>· ${x.pm} ${money(x.amount)}${x.cat ? ' · ' + x.cat : ''}</span></li>`)}</ul>` : ''}
+        ${row('Nợ mới trong ca', moi.length ? `${moi.length} khoản · ${money(sumAmt(moi))}` : 'không có')}
+        ${row('Khách trả nợ cũ trong ca', tra.length ? `${tra.length} lần · ${money(sumAmt(tra))}` : 'không có')}
+        ${gl.length ? gl.map((x) => row(`Chênh lệch ${x.pm === 'ck' ? 'chuyển khoản' : 'tiền mặt'}`, `${money(x.amount)}${x.status ? ' · ' + x.status : ''}`)) : row('Chênh lệch', 'không có')}`
+      : html`<div class="dsm-sub">${S.err || 'Chưa có số liệu phần tiền.'}</div>`}
+      <div class="dsm-grp">Kiểm tra</div>
+      ${ca ? row('Mục kiểm tra', `${okN}/${all.length} xong${basicLeft ? ` · ${basicLeft} ô cơ bản xác nhận khi bấm Hoàn thành` : ''}`) : ''}
+      ${left.length ? html`<ul class="dsm-sum-l dsm-sum-left">${left.map((x) => html`<li>${CHK_LABEL[x.k] || x.k}</li>`)}</ul>` : ''}</section>`;
+}
+
 // ---------------- trang ③ Hoàn thành ----------------
 function xongPane(S) {
   const { R } = S;
   const miss = S.ca ? missingList(S.D, S.ca, R, S.dsRow) : workMark(S).map((t) => ({ page: 'viec', k: 'viec', text: t }));
   const conf = S.ca ? confirmList(S.D, S.ca) : [];
-  const book = S.ca ? caBook(S.D, S.ca) : null;
-  const wl = workMark(S); const wp = workParts(R); const done = !!(S.ca && S.ca.done); const ro = !S.D || !!S.D.locked || !S.ca;
-  return html`<section class="dsm-card"><h2>Tóm tắt ${done ? html`<span class="dsm-chip ok">✓ Đã hoàn thành đối soát</span>` : ''}</h2>
-      <div class="dsm-row"><span>① Phần việc</span><b>${wl.length ? '⚠ còn ' + wl.join(', ') : '✓ đã duyệt'}</b></div>
-      ${book ? html`<div class="dsm-row"><span>Tiền mặt</span>${gapChip(book.tm)}</div><div class="dsm-row"><span>Chuyển khoản</span>${gapChip(book.ck)}</div>` : html`<div class="dsm-sub">${S.err || ''}</div>`}</section>
+  const wp = workParts(R); const done = !!(S.ca && S.ca.done); const ro = !S.D || !!S.D.locked || !S.ca;
+  return html`${sumPane(S)}
     ${done ? html`<section class="dsm-card"><h2>Đã hoàn thành đối soát ca</h2>
         <div class="dsm-sub">Muốn sửa: bấm Mở lại — bỏ dấu Hoàn thành và mục tiền (ca về "chưa xong", sửa được ngay), dấu duyệt phần việc giữ nguyên.</div>
         ${ro ? '' : html`<button type="button" class="btn secondary" id="dsm-reopen">Mở lại</button>`}</section>`
