@@ -97,7 +97,7 @@ export default async ({ sleep, out }) => {
     }
     if (PHAN === 'C') {   // bước 1 trang đối soát ca (role chu / qlt / ql) — VÙNG KHOÁ
       await rpc('app__test_ca_debt_add', { p_report: 182, p_who: 'anh lấy 100k', p_kind: 'muon', p_amount: 100000, p_grp: 'khac' });   // trước khi trang đọc tháng
-      const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = '#/ca/doi-soat?id=182&tab=tien&b=1&t=' + Date.now(); await wait('.stc-dsp'); await sleep(900); };
+      const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = '#/ca/doi-soat-cu?id=182&tab=tien&b=1&t=' + Date.now(); await wait('.stc-dsp'); await sleep(900); };
       const row = (w) => $$('.stc-cdr[data-t="moi"]').find((r) => txt(r).includes(w));
       await go();
       let r3 = row('bàn 3'); let rk = row('anh lấy 100k');

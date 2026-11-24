@@ -8,7 +8,7 @@ export default async ({ sleep, out }) => {
   const good = [], bad = []; const ok = (c, m) => (c ? good : bad).push(m);
   const dlg = () => $('dialog[open]');
   const setv = (sel, v) => { const el = $(sel, dlg() || document); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
-  const DS = '#/ca/doi-soat?id=182&tab=tien';   // khối tiền ca Chiều 18/11 ở tab ② trang đối soát ca (lưới ca của tab cũ đã bỏ)
+  const DS = '#/ca/doi-soat-cu?id=182&tab=tien';   // khối tiền ca Chiều 18/11 ở tab ② trang đối soát ca (lưới ca của tab cũ đã bỏ)
   const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = DS; await sleep(300); await wait('.stc-dsp'); await sleep(400); };
   const box = (k) => $(`.stc-dsp .stc-c4[data-k="${k}"]`);
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở

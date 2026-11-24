@@ -79,7 +79,7 @@ export default async ({ sleep, out }) => {
   const hdr = txt($('.cw-t thead'));
   ok(hdr.includes('sáng') && hdr.includes('chiều') && hdr.includes('tối') && !hdr.includes('cuối ngày'), '14. bảng tuần Sáng / Chiều / Tối, không có cột Cuối ngày');
   const cell = (id) => $(`.cw-c[data-id="${id}"]`); const tip = (id) => (cell(id)?.getAttribute('title') || '').toLowerCase();
-  const pick = async (id) => { await go(`#/ca/doi-soat?id=${id}&tab=tien`, '#root .card'); await wait('.stc-dsp, #ds-nextca2', 100); await sleep(300); };
+  const pick = async (id) => { await go(`#/ca/doi-soat-cu?id=${id}&tab=tien`, '#root .card'); await wait('.stc-dsp, #ds-nextca2', 100); await sleep(300); };
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
   // ca 183 đã bấm Hoàn thành nhưng còn lệch tiền mặt chờ xử lý → dòng Tiền 🟠 (anh Tiến chốt 23/11, như ô cam "Còn lệch" của lịch cũ)
   ok(txt(cell(183)?.querySelector('.cw-dt')).includes('🟠') && tip(183).includes('còn chênh lệch') && txt(cell(182)?.querySelector('.cw-dt')).includes('🔴') && tip(182).includes('mở ca')

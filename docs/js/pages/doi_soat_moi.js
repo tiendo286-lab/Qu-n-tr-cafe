@@ -7,10 +7,12 @@
 // Đọc: app_ca_get, sổ tháng của Sổ thu chi (app_stc_month + app_stc_people), app_ca_ds_tuan một ngày, app_ca_ds_con; số tính bằng hàm của Sổ thu chi nên khớp trang cũ.
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
-import { fmt } from '../tien.js';
+import { fmt, parseMoney } from '../tien.js';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.24.2';
+import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { SHIFT_ORDER, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
 import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.2';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
-import { CHK_LABEL, WORK_LABEL, caBook, confirmKeys, confirmList, isClean, missingList, pageState, workParts } from '../doi_soat_moi_tinh.js';
+import { CHK_LABEL, WORK_LABEL, caBook, confirmKeys, confirmList, isClean, mergeRecon, missingList, pageState, staffPayload, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';
 
@@ -75,6 +77,10 @@ const CSS = `<style>
 .dsm-gl span{min-width:0;overflow-wrap:anywhere}
 .dsm-old{min-width:0;overflow-wrap:anywhere}.dsm-old .stc-part{margin:0}
 .stc-moi-hide{display:none!important}
+.dsm-st{display:grid;gap:4px;border-bottom:1px dashed var(--line);padding-bottom:6px}.dsm-st:last-of-type{border-bottom:0}
+.dsm-stb{justify-self:start}
+.dsm-ho{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:7px 10px}
+.dsm-ho>span:first-child{min-width:0;overflow-wrap:anywhere;flex:1 1 200px}.dsm-hoa{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .dsm-err2:not(:empty){background:var(--off-bg);color:var(--off-ink);border:1px solid var(--off-line,var(--line));border-radius:10px;padding:9px 12px;white-space:pre-wrap}
 .dsm-after{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 </style>`;
@@ -86,18 +92,21 @@ const tick = (on, text, k = null, ro = false) => (k ? html`<button type="button"
 // ---------------- nạp dữ liệu ----------------
 let REFRESH = null;   // móc Sổ thu chi gọi sau mỗi lần lưu (đặt khi mount)
 async function loadShift(id) {
-  const R = await rpc('app_ca_get', { p_id: id });
-  const [M, ds, con] = await Promise.all([
+  const R0 = await rpc('app_ca_get', { p_id: id });
+  const R = R0;
+  const [M, ds, con, RC] = await Promise.all([
     stcMoi({ cn: R.branch_id, thang: String(R.work_date).slice(0, 7), ds: id, hook: (msg, info) => (REFRESH ? REFRESH(msg, info) : null) })
       .then((x) => x, (e) => ({ err: e.message || String(e) })),
     rpc('app_ca_ds_tuan', { p_branch: R.branch_id, p_from: R.work_date, p_to: R.work_date }).catch(() => []),
     rpc('app_ca_ds_con', { p_branch: R.branch_id }).catch(() => []),
+    rpc('app_ca_recon', { p_id: id }).catch(() => null),   // đợt 4: phần việc theo bản đối soát (quản lý đã sửa), như trang cũ
   ]);
   const D = M.D || null; const a = M.a || null;
   const ca = a ? a.c : D ? (D.cas || []).find((c) => Number(c.id) === Number(id)) || null : null;
   const dsRow = (ds || []).find((x) => Number(x.id) === Number(id)) || null;
   const err = M.err || (D && !ca ? 'Chưa có số liệu phần tiền của ca này (ca chưa có trong sổ tháng của cơ sở).' : null);
-  return { R, D, a, ca, dsRow, con: con || [], err, st: ca ? pageState(D, ca, R, dsRow) : null };
+  const RR = mergeRecon(R0, RC);
+  return { R: RR, D, a, ca, dsRow, con: con || [], err, st: ca ? pageState(D, ca, RR, dsRow) : null };
 }
 
 function nextUnfinished(con, R) {   // như trang cũ (phieu_ca.js)
@@ -120,16 +129,26 @@ const tabMark = (S, k) => {
 };
 
 // ---------------- trang ① Phần việc ----------------
+// Đợt 4: làm đủ phần việc ngay tại trang (không dẫn sang trang cũ): sửa / thêm / bỏ người làm (bản đối soát), nghỉ & làm thay, đánh giá,
+// công việc bàn giao cho ca sau (giao thành việc), Duyệt phần việc. Đã đối soát (recon_status hoàn thành): máy chủ chặn sửa → chỉ xem.
+const hm = (x) => (x ? String(x).slice(0, 5) : '');
+const isW = (s) => !(s.worked === 0 || s.worked === false);
 function viecPane(S) {
-  const R = S.R; const staff = R.staff || [];
-  const odd = staff.some((s) => s.worked === 0 || s.worked === false || (s.source && s.source !== 'lich'));
+  const R = S.R; const staff = R.staff || []; const ho = R.handover || [];
+  const ro = R.recon_status === 'hoan_thanh';
+  const odd = staff.some((s) => !isW(s) || (s.source && s.source !== 'lich'));
   const h = R.cash_hand; const wp = workParts(R); const done = !!(S.ca && S.ca.done);
-  return html`<section class="dsm-card"><h2>Nhân viên <span class="dsm-sub">${staff.filter((s) => s.worked !== 0 && s.worked !== false).length} người làm</span></h2>
-      ${staff.length ? staff.map((s) => { const nm = `${s.code ? s.code + ' – ' : ''}${s.name || 'NV ' + s.employee_id}`;
-        return s.worked === 0 || s.worked === false ? html`<div class="dsm-row"><span>${nm}</span><b>Nghỉ${s.absent_reason ? ': ' + s.absent_reason : ''}</b></div>`
-          : html`<div class="dsm-row"><span>${nm}${s.source && s.source !== 'lich' ? html` <span class="dsm-sub">(ngoài lịch)</span>` : ''}</span><b>${s.time_in || '—'} – ${s.time_out || '—'}</b></div>`; })
+  return html`<section class="dsm-card"><h2>Nhân viên <span class="dsm-sub">${staff.filter(isW).length} người làm</span></h2>
+      ${staff.length ? staff.map((s, i) => { const nm = `${s.code ? s.code + ' – ' : ''}${s.name || 'NV ' + s.employee_id}`;
+        return html`<div class="dsm-st"><div class="dsm-row"><span>${nm}${s.source && s.source !== 'lich' ? html` <span class="dsm-sub">(hỗ trợ / ngoài lịch)</span>` : ''}${s.pay_cash ? html` <span class="dsm-sub">· trả lương tiền mặt${s.cash_paid ? ' ' + money(s.cash_paid) : ''}</span>` : ''}</span>
+          <b>${isW(s) ? `${hm(s.time_in) || '—'} – ${hm(s.time_out) || '—'}` : 'Nghỉ' + (s.absent_reason ? ': ' + s.absent_reason : '')}</b></div>
+          ${s.note ? html`<div class="dsm-sub">Ghi chú: ${s.note}</div>` : ''}
+          ${ro ? '' : html`<button type="button" class="btn sm secondary dsm-stb" data-dsmst="${i}">Sửa</button>`}</div>`; })
         : html`<div class="dsm-sub">Phiếu chưa có nhân viên.</div>`}
-      ${odd ? html`<div class="dsm-sub">Ca có người nghỉ / làm thay / ca bổ sung: quản lý tổng phân loại, Chủ duyệt x2 (trang Duyệt nghỉ & làm thay).</div>` : html`<div class="dsm-sub">Không ai nghỉ / làm thay.</div>`}</section>
+      ${ro ? '' : html`<button type="button" class="btn sm secondary dsm-add" id="dsm-staffadd">+ Thêm người hỗ trợ</button>`}
+      ${(R.checks || {}).nhan_su && !ro ? html`<div class="dsm-sub">Nhân sự đã duyệt — sửa người làm thì web tự bỏ duyệt Nhân sự, duyệt lại ở nút Duyệt phần việc.</div>` : ''}</section>
+    <section class="dsm-card"><h2>Nghỉ & làm thay ${odd ? '' : html`<span class="dsm-sub">không ai nghỉ / làm thay</span>`}</h2><div id="dsm-cv-sum"></div><div id="dsm-cv"></div></section>
+    <section class="dsm-card"><div id="dsm-dg"></div></section>
     <section class="dsm-card"><h2>Bàn giao ca</h2>
       ${!h ? html`<div class="dsm-row"><span>Nhận két ca trước</span><b>Ca đầu ngày</b></div>`
         : html`<div class="dsm-row"><span>Nhận két ca trước</span><b>${HAND[h.state] || h.state || '—'}</b></div>
@@ -137,12 +156,17 @@ function viecPane(S) {
           ${h.prev_cash != null ? html`<div class="dsm-row"><span>Ca trước để lại</span><b>${money(h.prev_cash)}</b></div>` : ''}
           ${h.gap ? html`<div class="dsm-row"><span>Lệch khi giao két</span><b>${signedM(h.gap)}</b></div>` : ''}`}
       <div class="dsm-row"><span>Hàng kho tổng nhận trong ca</span><b>${R.goods_status === 'khong' || !R.goods_status ? 'không có' : R.goods_status}</b></div></section>
+    <section class="dsm-card"><h2>Công việc bàn giao cho ca sau <span class="dsm-sub">${ho.length} việc</span></h2>
+      ${ho.length ? ho.map((x, i) => html`<div class="dsm-ho"><span>${x.content || ''}</span><span class="dsm-hoa">${x.done_at ? html`<span class="dsm-chip ok">Đã xong</span>` : x.task_id ? html`<span class="dsm-chip warn">Đã giao việc${x.task_assignee ? ' cho ' + x.task_assignee : ''}</span>` : ''}
+          ${!ro && !x.task_id && !x.done_at ? html`<button type="button" class="btn sm secondary" data-dsmho="${i}">Sửa</button>` : ''}
+          ${!ro && R.can_recon && x.id && !x.task_id && !x.done_at ? html`<button type="button" class="btn sm secondary" data-dsmgiao="${x.id}">+ Giao thành việc</button>` : ''}</span></div>`)
+        : html`<div class="dsm-sub">Không có việc bàn giao.</div>`}
+      ${ro ? '' : html`<button type="button" class="btn sm secondary dsm-add" id="dsm-hoadd">+ Thêm việc bàn giao</button>`}</section>
     <section class="dsm-card"><h2>Duyệt phần việc</h2>
       ${Object.keys(WORK_LABEL).map((k) => tick(!!(R.checks || {})[k], WORK_LABEL[k] + ((R.checks || {})[k] ? ' — đã duyệt' : ' — chưa duyệt')))}
       ${workMark(S).length ? html`<div class="dsm-sub">Còn: ${workMark(S).join(', ')}.</div>` : ''}
-      ${wp.blocked.map((t) => html`<div class="alert warn">⚠ ${t} — làm ở <a href="#/ca/doi-soat?id=${R.id}&tab=viec">trang cũ thẻ ① ›</a></div>`)}
-      ${wp.parts.length && !done ? html`<button type="button" class="btn" id="dsm-workok">✓ Duyệt phần việc (${wp.parts.map((k) => WORK_LABEL[k]).join(', ')})</button>` : ''}
-      <div class="dsm-sub">Sửa giờ đến / về, ghi chú, đánh giá nhân viên (không bắt buộc), đếm lại két: <a href="#/ca/doi-soat?id=${R.id}&tab=viec">trang cũ thẻ ① ›</a>${odd ? html` · Nghỉ & làm thay: <a href="#/quan-ly/nghi-lam-thay">trang Duyệt nghỉ & làm thay ›</a>` : ''}</div></section>`;
+      ${wp.blocked.map((t) => html`<div class="alert warn">⚠ ${t} — nhân viên ca này cùng người ca trước đếm lại ở <a href="#/ca/phieu?id=${R.id}">phiếu chốt ca ›</a></div>`)}
+      ${wp.parts.length && !done && !ro ? html`<button type="button" class="btn" id="dsm-workok">✓ Duyệt phần việc (${wp.parts.map((k) => WORK_LABEL[k]).join(', ')})</button>` : ''}</section>`;
 }
 
 // ---------------- trang ② Tiền ----------------
@@ -225,9 +249,9 @@ function body(S, active) {
     <div data-dsm-pane="viec" class="dsm" ${active === 'viec' ? '' : raw('hidden')}>${viecPane(S)}</div>
     <div data-dsm-pane="tien" class="dsm" ${active === 'tien' ? '' : raw('hidden')}>${tienPane(S)}</div>
     <div data-dsm-pane="xong" class="dsm" ${active === 'xong' ? '' : raw('hidden')}>${xongPane(S)}</div>
-    <div class="dsm-nav">${prev ? html`<a class="btn sm secondary" href="#/ca/doi-soat-moi?id=${prev.id}">‹ Ca trước</a>` : html`<span></span>`}
-      ${nx ? html`<a class="btn sm" href="#/ca/doi-soat-moi?id=${nx.id}">Ca tiếp theo chưa xong ›</a>` : ''}
-      ${next ? html`<a class="btn sm secondary" href="#/ca/doi-soat-moi?id=${next.id}">Ca sau ›</a>` : html`<span></span>`}</div>`;
+    <div class="dsm-nav">${prev ? html`<a class="btn sm secondary" href="#/ca/doi-soat?id=${prev.id}">‹ Ca trước</a>` : html`<span></span>`}
+      ${nx ? html`<a class="btn sm" href="#/ca/doi-soat?id=${nx.id}">Ca tiếp theo chưa xong ›</a>` : ''}
+      ${next ? html`<a class="btn sm secondary" href="#/ca/doi-soat?id=${next.id}">Ca sau ›</a>` : html`<span></span>`}</div>`;
 }
 const firstTab = (S) => {
   if (S.ca && isClean(S.D, S.ca, S.R, S.dsRow)) return 'xong';
@@ -245,14 +269,14 @@ export async function render({ params }) {
   const title = `Ca ${R.shift} · ${dayName(R.work_date)} · ${R.branch_code || ''}`;
   return {
     title: `Đối soát ca mới · ${R.shift} ${String(R.work_date).slice(8, 10)}/${String(R.work_date).slice(5, 7)}`,
-    html: html`${raw(CSS)}${stcStyle()}<div id="dsm" class="dsm">
+    html: html`${raw(CSS)}${stcStyle()}${CV_CSS}${DG_CSS}<div id="dsm" class="dsm">
       <div class="dsm-head"><h1>${title}<small>${R.branch_name || ''} · trang đối soát ca mới</small></h1>
-        <div class="dsm-tools"><button type="button" class="btn sm" id="dsm-recalc">Tính lại</button><a class="btn sm secondary" id="dsm-old" href="#/ca/doi-soat?id=${id}">Về trang cũ</a></div></div>
-      <div class="dsm-note">Trang mới — sửa ngay tại đây, lưu xong số tự tính lại, không phải Mở lại xác nhận. Trang cũ vẫn dùng được: <a href="#/ca/doi-soat?id=${id}">Về trang cũ ›</a></div>
+        <div class="dsm-tools"><button type="button" class="btn sm" id="dsm-recalc">Tính lại</button><a class="btn sm secondary" id="dsm-phieu" href="#/ca/phieu?id=${id}">Xem phiếu nhân viên</a></div></div>
+      <div class="dsm-sub dsm-hint">Sửa ngay tại đây — lưu xong số tự tính lại, không phải Mở lại xác nhận. <a id="dsm-old" href="#/ca/doi-soat-cu?id=${id}">Trang cũ (dự phòng)</a></div>
       <div id="dsm-body">${body(S, active)}</div></div>`,
     mount(root) {
       const show = (k) => {
-        active = k;
+        active = k; if (k === 'viec') mountWork($('#dsm-body', root));
         $$('[data-dsm-tab]', root).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.dsmTab === k)));
         $$('[data-dsm-pane]', root).forEach((p) => { p.hidden = p.dataset.dsmPane !== k; });
         try { const [pth, qs] = location.hash.split('?'); const u = new URLSearchParams(qs || ''); u.set('tab', k); history.replaceState(null, '', pth + '?' + u.toString()); } catch (_) { /* bỏ qua */ }
@@ -268,6 +292,12 @@ export async function render({ params }) {
         $('#dsm-workok', el)?.addEventListener('click', (ev) => workOk(ev.currentTarget));
         $('#dsm-done', el)?.addEventListener('click', (ev) => finish(ev.currentTarget));
         $('#dsm-reopen', el)?.addEventListener('click', () => reopen());
+        $$('[data-dsmst]', el).forEach((b) => b.addEventListener('click', () => staffDialog(Number(b.dataset.dsmst))));
+        $('#dsm-staffadd', el)?.addEventListener('click', () => staffAdd());
+        $$('[data-dsmho]', el).forEach((b) => b.addEventListener('click', () => hoDialog(Number(b.dataset.dsmho))));
+        $('#dsm-hoadd', el)?.addEventListener('click', () => hoDialog(null));
+        $$('[data-dsmgiao]', el).forEach((b) => b.addEventListener('click', () => hoGiao(b.dataset.dsmgiao)));
+        mountWork(el);
         if (S.D) stcBind(el, S.D);
       };
       // keep: chỉ đổi tại chỗ (tích / Để sau / chọn nhóm) — giữ dòng giờ chốt đã lấy, khỏi hỏi lại máy chủ
@@ -276,6 +306,7 @@ export async function render({ params }) {
         const nb = document.createElement('div'); nb.id = 'dsm-body'; nb.innerHTML = str(body(S, active));
         if (keep) old.querySelectorAll('.stc-gio[data-gio-state="done"]').forEach((g) => {
           const t = nb.querySelector(`.stc-gio[data-gio-ca="${g.dataset.gioCa}"]`); if (t) { t.innerHTML = g.innerHTML; t.dataset.gioState = 'done'; } });
+        if (keep && workMounted === old) { ['#dsm-cv', '#dsm-cv-sum', '#dsm-dg'].forEach((sel) => { const o = $(sel, old); const t = $(sel, nb); if (o && t) t.replaceWith(o); }); workMounted = nb; }
         old.replaceWith(nb); bind(nb);
       };
       const reload = async () => { const y = window.scrollY; S = await loadShift(id); draw(); try { window.scrollTo(0, y); } catch (_) { /* bỏ qua */ } };
@@ -305,7 +336,7 @@ export async function render({ params }) {
           box.innerHTML = str(nx ? html`<span>✓ Đã hoàn thành. Sang ca tiếp theo chưa xong (${nx.shift || ''} ${String(nx.date || nx.work_date || '').slice(8, 10)}/${String(nx.date || nx.work_date || '').slice(5, 7)}) sau 1,5 giây…</span><button type="button" class="btn sm secondary" id="dsm-stay">Ở lại ca này</button>`
             : html`<span>✓ Đã hoàn thành. Hết ca chưa xong của cơ sở — về bảng tuần Chốt ca sau 1,5 giây…</span><button type="button" class="btn sm secondary" id="dsm-stay">Ở lại ca này</button>`);
           $('#dsm-stay', root)?.addEventListener('click', () => { clearTimeout(timer); timer = null; box.innerHTML = str(html`<span class="dsm-sub">Ở lại ca này.</span>`); });
-          timer = setTimeout(() => { if (!root.isConnected) return; location.hash = nx ? `#/ca/doi-soat-moi?id=${nx.id}` : `#/ca?cn=${S.R.branch_id}`; }, 1500);
+          timer = setTimeout(() => { if (!root.isConnected) return; location.hash = nx ? `#/ca/doi-soat?id=${nx.id}` : `#/ca?cn=${S.R.branch_id}`; }, 1500);
         } catch (e) {
           b.disabled = false; b.textContent = 'Hoàn thành';
           if (err) err.textContent = e.message || String(e); else showSaved(e.message || String(e), true);
@@ -322,6 +353,99 @@ export async function render({ params }) {
           try { await rpc('app_ds2_reopen', { p_report: id, p_reason: (d.querySelector('[name=reason]')?.value || '').trim() || null }); d.close(); await reload(); showSaved('Đã mở lại — sửa xong bấm Hoàn thành lần nữa'); }
           catch (e) { sb.disabled = false; const x = d.querySelector('.dsm-err2'); if (x) x.textContent = e.message || String(e); }
         });
+      };
+      // ---- đợt 4: phần việc làm ngay tại trang ----
+      const err2 = (d, e) => { const x = d.querySelector('.dsm-err2'); if (x) x.textContent = e.message || String(e); };
+      const form = (title, inner, extra = '') => {
+        const d = dialog(str(html`<form class="stack" style="gap:10px;max-width:460px"><h2 style="margin:0">${title}</h2>${inner}
+          <label class="field"><span>Lý do sửa (bắt buộc)</span><input class="input" name="reason" autocomplete="off"></label><div class="dsm-err2"></div>
+          <div class="toolbar" style="justify-content:flex-end;flex-wrap:wrap">${extra}<button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`));
+        d.querySelector('[data-x]')?.addEventListener('click', () => d.close());
+        return d;
+      };
+      const run2 = async (d, fn) => { const b = d.querySelector('[type=submit]'); if (b) b.disabled = true; try { await fn(); d.close(); } catch (e) { if (b) b.disabled = false; err2(d, e); } };
+      const reasonOf = (f) => { const r = (f.reason?.value || '').trim(); if (!r) throw new Error('Ghi lý do sửa (bắt buộc).'); return r; };
+      // người làm: gửi ĐỦ danh sách vào bản đối soát (máy chủ giữ nguyên khoá khác); Nhân sự đã duyệt thì bỏ duyệt trước (máy chủ khoá trường của mục đã duyệt)
+      const staffList = () => (S.R.staff || []).map(staffPayload);
+      const saveStaff = async (list, reason) => {
+        if ((S.R.checks || {}).nhan_su) await rpc('app_ca_check', { p_id: id, p_item: 'nhan_su', p_on: false });
+        await rpc('app_ca_recon_save', { p_id: id, p: { staff: list }, p_reason: reason });
+        await reload(); showSaved('Đã lưu người làm');
+      };
+      const staffDialog = (i) => {
+        const s = (S.R.staff || [])[i]; if (!s) return; const w = isW(s);
+        const d = form(`${s.code ? s.code + ' – ' : ''}${s.name || 'NV ' + s.employee_id}`, html`
+          <label class="field"><span>Đi làm</span><select class="input" name="worked"><option value="1" ${w ? raw('selected') : ''}>Có làm</option><option value="0" ${w ? '' : raw('selected')}>Phát sinh nghỉ</option></select></label>
+          <div class="pc-line" data-w="1" style="gap:8px"><label class="field grow"><span>Giờ đến</span><input class="input" type="time" name="in" value="${hm(s.time_in)}"></label><label class="field grow"><span>Giờ về</span><input class="input" type="time" name="out" value="${hm(s.time_out)}"></label></div>
+          ${s.pay_cash ? html`<label class="field" data-w="1"><span>Đã trả lương tiền mặt (đ)</span><input class="input" name="cash" inputmode="numeric" value="${s.cash_paid ? fmt(s.cash_paid) : ''}"></label>` : ''}
+          <label class="field" data-w="0"><span>Lý do nghỉ</span><input class="input" name="absent" value="${s.absent_reason || ''}"></label>
+          <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${s.note || ''}"></label>`,
+          s.source && s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger" data-del style="margin-right:auto">Bỏ người này</button>` : '');
+        const f = d.querySelector('form');
+        const sync = () => { const on = f.worked.value === '1'; f.querySelectorAll('[data-w]').forEach((x) => { x.hidden = x.dataset.w !== (on ? '1' : '0'); }); };
+        f.worked.addEventListener('change', sync); sync();
+        d.querySelector('[data-del]')?.addEventListener('click', () => run2(d, async () => { const r = reasonOf(f); await saveStaff(staffList().filter((_, k) => k !== i), r); }));
+        f.addEventListener('submit', (ev) => { ev.preventDefault(); run2(d, async () => {
+          const r = reasonOf(f); const on = f.worked.value === '1';
+          if (on && (!f.elements.in.value || !f.elements.out.value)) throw new Error('Nhập giờ đến và giờ về.');
+          if (!on && !f.absent.value.trim()) throw new Error('Ghi lý do nghỉ.');
+          const L = staffList();
+          L[i] = { ...L[i], worked: on, time_in: on ? f.elements.in.value : null, time_out: on ? f.elements.out.value : null, absent_reason: on ? null : f.absent.value.trim(),
+            note: f.note.value.trim() || null, cash_paid: on ? (f.cash ? parseMoney(f.cash.value) || null : L[i].cash_paid) : null };
+          await saveStaff(L, r); }); });
+      };
+      const staffAdd = async () => {
+        let emps = []; try { emps = (await rpc('app_ca_employees')) || []; } catch (e) { showSaved(e.message || String(e), true); return; }
+        const have = new Set((S.R.staff || []).map((s) => Number(s.employee_id)));
+        const d = form('Thêm người hỗ trợ', html`<label class="field"><span>Nhân viên</span><select class="input" name="emp"><option value="">— Chọn nhân viên —</option>${emps.filter((e) => !have.has(Number(e.id))).map((e) => html`<option value="${e.id}">${e.code ? e.code + ' – ' : ''}${e.name || ''}</option>`)}</select></label>
+          <div class="pc-line" style="gap:8px"><label class="field grow"><span>Giờ đến</span><input class="input" type="time" name="in"></label><label class="field grow"><span>Giờ về</span><input class="input" type="time" name="out"></label></div>
+          <label class="field"><span>Ghi chú</span><input class="input" name="note"></label>`);
+        const f = d.querySelector('form');
+        f.addEventListener('submit', (ev) => { ev.preventDefault(); run2(d, async () => {
+          if (!f.emp.value) throw new Error('Chọn nhân viên.'); if (!f.elements.in.value || !f.elements.out.value) throw new Error('Nhập giờ đến và giờ về.');
+          const r = reasonOf(f);
+          await saveStaff([...staffList(), staffPayload({ employee_id: f.emp.value, source: 'ho_tro', worked: 1, time_in: f.elements.in.value, time_out: f.elements.out.value, note: f.note.value })], r); }); });
+      };
+      // công việc bàn giao cho ca sau: gửi đủ danh sách {id, content} (như trang cũ); giao thành việc như trang cũ (bước 87)
+      const hoList = () => (S.R.handover || []).map((x) => ({ id: x.id || null, content: x.content || '' }));
+      const saveHo = async (items, reason) => { await rpc('app_ca_recon_handover_save', { p_id: id, p_items: items, p_reason: reason }); await reload(); showSaved('Đã lưu công việc bàn giao'); };
+      const hoDialog = (i) => {
+        const x = i == null ? null : (S.R.handover || [])[i];
+        const d = form(x ? 'Sửa việc bàn giao' : 'Thêm việc bàn giao', html`<label class="field"><span>Nội dung</span><textarea class="input" name="content" rows="3" placeholder="Việc cần ca sau làm tiếp / thiết bị / vệ sinh / an toàn / sự cố">${x ? x.content || '' : ''}</textarea></label>`,
+          x ? html`<button type="button" class="btn sm secondary danger" data-del style="margin-right:auto">Xoá việc</button>` : '');
+        const f = d.querySelector('form');
+        d.querySelector('[data-del]')?.addEventListener('click', () => run2(d, async () => { const r = reasonOf(f); await saveHo(hoList().filter((_, k) => k !== i), r); }));
+        f.addEventListener('submit', (ev) => { ev.preventDefault(); run2(d, async () => {
+          const c = f.content.value.trim(); if (!c) throw new Error('Ghi nội dung việc bàn giao.'); const r = reasonOf(f);
+          const L = hoList(); if (x) L[i] = { ...L[i], content: c }; else L.push({ id: null, content: c });
+          await saveHo(L, r); }); });
+      };
+      const hoGiao = async (hid) => {
+        const h = (S.R.handover || []).find((x) => String(x.id) === String(hid)); if (!h) return;
+        let people = []; try { people = (await rpc('app_viec_people')) || []; } catch (e) { showSaved(e.message || String(e), true); return; }
+        const d = dialog(str(html`<form class="stack" style="gap:12px;max-width:460px"><h2 style="margin:0">Giao thành việc</h2>
+          <div class="dsm-sub">Từ bàn giao ca ${S.R.shift} ${String(S.R.work_date).slice(8, 10)}/${String(S.R.work_date).slice(5, 7)} · ${S.R.branch_code || ''}</div>
+          <div class="dsm-ho"><span>${h.content || ''}</span></div>
+          <label class="field"><span>Người nhận</span><select class="input" name="who"><option value="">— Chọn người nhận —</option>${people.map((p) => html`<option value="${p.id}">${p.name}</option>`)}</select></label>
+          <div class="pc-line" style="gap:8px"><label class="field grow"><span>Mức độ</span><select class="input" name="pri"><option value="gap">Gấp</option><option value="binh_thuong" selected>Bình thường</option><option value="thap">Thấp</option></select></label>
+            <label class="field grow"><span>Hạn (không bắt buộc)</span><input class="input" type="date" name="due"></label></div>
+          <div class="dsm-sub">Người nhận được thông báo; việc hiện ở Công việc. Làm xong thì bàn giao này tự ghi "đã xử lý".</div><div class="dsm-err2"></div>
+          <div class="toolbar" style="justify-content:flex-end"><button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Giao việc</button></div></form>`));
+        d.querySelector('[data-x]')?.addEventListener('click', () => d.close());
+        const f = d.querySelector('form');
+        f.addEventListener('submit', (ev) => { ev.preventDefault(); run2(d, async () => {
+          if (!f.who.value) throw new Error('Chọn người nhận.');
+          await rpc('app_viec_add', { p_meeting: null, p: { kind: 'viec', handover_item_id: h.id, assignee_id: f.who.value, due_date: f.due.value || null, priority: f.pri.value } });
+          await reload(); showSaved('Đã giao việc — người nhận được thông báo'); }); });
+      };
+      // khối nghỉ & làm thay + đánh giá: gắn khi mở trang ① (mỗi khối tự đọc dữ liệu), giữ nguyên khi chỉ vẽ lại tại chỗ
+      let workMounted = null;
+      const mountWork = (el) => {
+        if (active !== 'viec' || !el || workMounted === el) return;
+        workMounted = el;
+        const cv = $('#dsm-cv', el); const dg = $('#dsm-dg', el);
+        if (cv) mountCover(cv, S.R, { sum: $('#dsm-cv-sum', el), onChange: () => reload(), flush: () => null });
+        if (dg) mountReportEval(dg, S.R);
       };
       REFRESH = async (msg, info) => {
         if (!root.isConnected) { REFRESH = null; return; }   // đã rời trang

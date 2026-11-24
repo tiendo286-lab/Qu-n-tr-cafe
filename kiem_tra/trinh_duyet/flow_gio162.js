@@ -53,7 +53,7 @@ export default async ({ sleep, out }) => {
     // 6. trang đối soát ca — 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): thẻ "Phần tiền · làm ở Sổ thu chi" đã bỏ, khối tiền nằm ngay tab ② của trang
     //   → dòng giờ + nút sửa ở bước 1 của tab ② (ca 183 không có file Fabi: vai nào được giao cũng có nút). Mục 1–5 ở trên mở bằng đường cũ (tự chuyển sang trang này).
     if (role === 'chu' || role === 'ql') {
-      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=183&tab=tien&b=1';
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat-cu?id=183&tab=tien&b=1';
       await wait('.ds-ptabs'); await wait('[data-tab-pane="tien"] .stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(300);
       const g = $('[data-tab-pane="tien"] .stc-pa .stc-gio');
       ok(!!g && txt(g).includes('giờ doanh thu') && !!$('[data-gio]', g) && !$('[data-tab-pane="tien"]').hidden, '6. Đối soát ca: tab ② Phần tiền có dòng giờ + nút sửa (' + role + ', cơ sở được giao)'

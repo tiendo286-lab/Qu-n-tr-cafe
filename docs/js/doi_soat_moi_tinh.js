@@ -102,6 +102,20 @@ export function workParts(R) {
     blocked: !ch.ban_giao && recount ? ['Nhận két lệch: cùng người ca trước đếm lại'] : [],
   };
 }
+// Đợt 4: trang hiện phần việc theo BẢN ĐỐI SOÁT (app_ca_recon — quản lý đã sửa) như trang cũ (mergeRecon của phieu_ca.js), không theo phiếu gốc.
+// Không đọc được bản đối soát (chưa có quyền / lỗi mạng) thì dùng phiếu như cũ.
+export function mergeRecon(R0, RC) {
+  if (!RC) return R0;
+  const d = RC.data || {}; const emp = RC.employees || {};
+  return { ...R0, ...d, moves: d.moves || [], goods: d.goods || [],
+    staff: (d.staff || []).map((x) => ({ ...x, worked: x.worked ? 1 : 0, ...(emp[String(x.employee_id)] || {}) })) };
+}
+// Đợt 4: một người làm gửi lên app_ca_recon_save — đúng các trường máy chủ nhận (ô rỗng → null, không gửi tên / mã)
+export function staffPayload(s) {
+  const t = (v) => (v == null || String(v).trim() === '' ? null : String(v).trim());
+  return { employee_id: Number(s.employee_id), source: s.source || 'lich', role: s.role || null, worked: !!(s.worked === undefined ? true : s.worked),
+    time_in: t(s.time_in), time_out: t(s.time_out), absent_reason: t(s.absent_reason), note: t(s.note), cash_paid: Number(s.cash_paid) > 0 ? Number(s.cash_paid) : null };
+}
 // Đợt 3: mã các ô cơ bản quản lý xác nhận khi bấm Hoàn thành (cùng danh sách, cùng thứ tự với confirmList) — gửi lên app_ds2_finish
 export function confirmKeys(D, ca) {
   const all = dsChecks(ca, dsCtx(D, ca)).flat();

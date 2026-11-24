@@ -24,15 +24,15 @@ export default async ({ sleep, out }) => {
       // ca thử phần tiền chưa có người làm trong phiếu giả → gắn 2 người đang làm (hook sẵn có của máy chủ giả)
       try { await rpc('app__test_ca_staff', { p_id: 182, p_n: 2 }); } catch (_) { /* máy chủ giả cũ không có hook */ }
       // 1. trang cũ có nút sang trang mới
-      await go('#/ca/doi-soat?id=182', '#ds-newpage');
+      await go('#/ca/doi-soat-cu?id=182', '#ds-newpage');   // đợt 4: trang cũ ở đường dẫn dự phòng
       const np = $('#ds-newpage');
-      ok(!!np && /#\/ca\/doi-soat-moi\?id=182$/.test(np.getAttribute('href') || ''), `trang cũ có nút "Xem trang mới": ${np?.getAttribute('href') || '-'}`);
+      ok(!!np && /#\/ca\/doi-soat\?id=182$/.test(np.getAttribute('href') || ''), `trang cũ (dự phòng) có nút sang trang mới: ${np?.getAttribute('href') || '-'}`);
       // 2. trang mới: dòng bản xem thử, 3 trang, đường về trang cũ
       await go('#/ca/doi-soat-moi?id=182', '#dsm');
       ok(!!$('#dsm'), 'mở được trang mới ca 182');
-      ok(/Trang mới — sửa ngay tại đây/.test($('#dsm')?.innerText || ''), 'có dòng "Trang mới — sửa ngay tại đây" (đợt 2: hết bản xem thử)');
+      ok(/Sửa ngay tại đây/.test($('#dsm')?.textContent || ''), 'có dòng "Sửa ngay tại đây" (đợt 2: hết bản xem thử)');
       ok($$('[data-dsm-tab]').length === 3, `3 nút trang: ${$$('[data-dsm-tab]').map((b) => b.innerText.replace(/\s+/g, ' ').trim()).join(' | ')}`);
-      ok(/#\/ca\/doi-soat\?id=182/.test($('#dsm-old')?.getAttribute('href') || ''), 'nút "Về trang cũ" trỏ đúng ca');
+      ok(/#\/ca\/doi-soat-cu\?id=182/.test($('#dsm-old')?.getAttribute('href') || ''), 'đường dẫn "Trang cũ (dự phòng)" trỏ đúng ca');
       // dữ liệu để so (cùng dữ liệu giả, cách tính của trang cũ)
       const R = await rpc('app_ca_get', { p_id: 182 });
       const D = await rpc('app_stc_month', { p_branch: R.branch_id, p_month: R.work_date.slice(0, 7) });
@@ -69,9 +69,9 @@ export default async ({ sleep, out }) => {
       // 6. Tính lại: không vẽ lại cả trang, chỉ 4 lần hỏi máy chủ
       const mark = document.createElement('i'); mark.id = 'dsm-mark'; $('#dsm').prepend(mark);
       const c0 = rpcCount(); $('#dsm-recalc').click();
-      await until(() => rpcCount() - c0 >= 6, 50); await sleep(600);
+      await until(() => rpcCount() - c0 >= 7, 50); await sleep(600);
       const rn = window.__LOG.filter((x) => x[0] === 'rpc').slice(c0).map((x) => x[1]);
-      ok(rn.length <= 6 && rn.length >= 2, `Tính lại hỏi máy chủ ${rn.length} lần (≤ 6: phiếu ca, sổ tháng, người nợ, bảng tuần một ngày, ca chưa xong, giờ chốt): ${rn.join(', ')}`);
+      ok(rn.length <= 7 && rn.length >= 2, `Tính lại hỏi máy chủ ${rn.length} lần (≤ 7: phiếu ca, bản đối soát, sổ tháng, người nợ, bảng tuần một ngày, ca chưa xong, giờ chốt): ${rn.join(', ')}`);
       ok(!!$('#dsm-mark'), 'Tính lại không vẽ lại cả trang');
       ok(!!$('[data-dsm-tab="xong"][aria-selected="true"]'), 'Tính lại giữ trang đang mở');
       // 7. ca chờ kế toán: chuyển khoản hiện ⏳, không có NaN

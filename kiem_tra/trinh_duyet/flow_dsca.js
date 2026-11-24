@@ -47,7 +47,7 @@ export default async ({ sleep, out }) => {
 
       // (c) trang đối soát của ca: 3 tab, ① mở trước khi phần việc chưa xong, ② có đúng 5 bước tiền, đầu trang có Xem phiếu nhân viên
       const { rpc } = await import('../js/sb.js');
-      await go('#/ca/doi-soat?id=182', '.ds-ptabs');
+      await go('#/ca/doi-soat-cu?id=182', '.ds-ptabs');
       const pts = $$('.ds-ptabs .ds-pt').map((b) => b.dataset.ptab);
       ok(pts.join(',') === 'viec,tien,xong', '(c) 3 tab ① Phần việc · ② Phần tiền · ③ Hoàn thành: ' + pts.join(','));
       ok($('.ds-pt[data-ptab="viec"]')?.getAttribute('aria-selected') === 'true' && $('[data-tab-pane="tien"]')?.hidden && !$('.ds-tab-viec')?.hidden, '(c) ca chưa làm phần việc → mở tab ①');
@@ -64,9 +64,9 @@ export default async ({ sleep, out }) => {
       // (m) bước đang mở của khối tiền: mở lại cùng ca bằng đường dẫn có t= mới → về đúng bước b= (như đường cũ của Đối soát Fabi);
       //     đổi tab ③ → ② rồi trang vẽ lại (như sau một thao tác) → vẫn ở bước đang làm, không nhảy về bước đầu
       const curStep = () => $('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep;
-      await go('#/ca/doi-soat?id=182&tab=tien&b=3&t=1', '.stc-dsp');
+      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=3&t=1', '.stc-dsp');
       $('.stc-dsp .stc-steps [data-dsstep="0"]')?.click(); await sleep(300);
-      await go('#/ca/doi-soat?id=182&tab=tien&b=3&t=2', '.stc-dsp');
+      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=3&t=2', '.stc-dsp');
       ok(curStep() === '2', '(m) mở lại cùng ca với t= mới → về đúng bước b=3 (thấy bước ' + (Number(curStep()) + 1) + ')');
       $('.stc-dsp .stc-steps [data-dsstep="1"]')?.click(); await sleep(300);
       $('.ds-pt[data-ptab="xong"]')?.click(); await sleep(200); $('.ds-pt[data-ptab="tien"]')?.click(); await sleep(200);
@@ -74,25 +74,25 @@ export default async ({ sleep, out }) => {
       ok(curStep() === '1' && /tab=tien/.test(location.hash), '(m) đổi tab rồi trang vẽ lại → vẫn ở bước đang làm (bước 2), thấy bước ' + (Number(curStep()) + 1));
       // (o) Nhập hàng (luật 15/11, anh Tiến chốt 22/11 "chỉ hiện khi còn hàng"): ca không gắn hàng kho tổng (182) — ngay lần mở đầu không thấy dòng "Nhập hàng"
       //     ở bảng đèn, bước Bàn giao không nhắc hàng chưa đối soát, tóm tắt phần việc không ghi Nhập hàng
-      await go('#/ca/doi-soat?id=182&tab=viec&t=o', '#ds-lights .den-list'); await sleep(300);
+      await go('#/ca/doi-soat-cu?id=182&tab=viec&t=o', '#ds-lights .den-list'); await sleep(300);
       ok(!/nhập hàng/.test(txt($('#ds-lights'))) && !/hàng kho tổng chưa đối soát/.test(txt($('.ds-pane[data-ds="2"]'))) && !/nhập hàng/.test(txt($('.ds-wsum'))),
         '(o) ca không gắn hàng kho tổng: không thấy "Nhập hàng" (bảng đèn: ' + ($$('#ds-lights .den-row strong').map((x) => txt(x)).join(', ') || '—') + ')');
       // (p) ca cũ còn hàng kho tổng chưa đối soát (gắn thử vào ca 183) → dòng "Nhập hàng" đỏ + bước Bàn giao nhắc sang Hàng hoá › Đối soát
       await rpc('app__test_ca_hang', { p_id: 183 });
-      await go('#/ca/doi-soat?id=183&tab=viec&t=p', '#ds-lights .den-list'); await sleep(300);
+      await go('#/ca/doi-soat-cu?id=183&tab=viec&t=p', '#ds-lights .den-list'); await sleep(300);
       { const row = $$('#ds-lights .den-row').find((x) => /nhập hàng/.test(txt(x)));
         ok(!!row && row.classList.contains('r') && /hàng kho tổng chưa đối soát/.test(txt($('.ds-pane[data-ds="2"]'))) && !!$('.ds-pane[data-ds="2"] a[href*="#/hang-hoa/doi-soat"]'),
           '(p) ca còn hàng chưa đối soát: dòng "Nhập hàng" đỏ + bước Bàn giao có nút sang Hàng hoá › Đối soát'); }
       // (d) ③ khoá khi còn phần việc; xong phần việc thì mở
       const { TICKS } = await import('../js/so_thu_chi_tinh.js');
       await rpc('app__test_stc_ca', { p_id: 161, p: { ticks: TICKS, done: null } });
-      await fresh(); await go('#/ca/doi-soat?id=161&tab=xong', '[data-tab-pane="xong"]');
+      await fresh(); await go('#/ca/doi-soat-cu?id=161&tab=xong', '[data-tab-pane="xong"]');
       const dn = $('[data-tab-pane="xong"] [data-dsdone]');
       ok(!$('[data-tab-pane="xong"]').hidden && !!dn && dn.disabled && /còn phần việc/.test(txt($('[data-tab-pane="xong"]'))), '(d) tab ③: còn phần việc → nút Hoàn thành khoá, ghi "Còn phần việc" · thấy: ' + txt($('[data-tab-pane="xong"]')).slice(0, 220));
       // nhập hàng tách sang menu Hàng hoá từ 15/11: tóm tắt phần việc gọi bước cuối là "Bàn giao" như thanh bước, không ghi "nhận hàng"
       ok(/bàn giao/.test(txt($('.ds-wsum'))) && !/nhận hàng/.test(txt($('.ds-wsum'))), '(d) tóm tắt phần việc: bước "Bàn giao" (không ghi "nhận hàng") · thấy: ' + txt($('.ds-wsum')).slice(0, 120));
       for (const it of ['nhan_su', 'ban_giao', 'nhap_hang']) await rpc('app_ca_check', { p_id: 161, p_item: it, p_on: true });
-      await fresh(); await go('#/ca/doi-soat?id=161&tab=xong', '[data-tab-pane="xong"]');
+      await fresh(); await go('#/ca/doi-soat-cu?id=161&tab=xong', '[data-tab-pane="xong"]');
       ok(!!$('[data-tab-pane="xong"] [data-dsdone]') && !$('[data-tab-pane="xong"] [data-dsdone]').disabled, '(d) xong phần việc + tích đủ phần tiền → nút Hoàn thành bấm được · thấy: ' + txt($('[data-tab-pane="xong"]')).slice(0, 220));
       // (g) Ca tiếp theo chưa xong
       const nx = $('.ds-top #ds-nextca2');
@@ -100,10 +100,10 @@ export default async ({ sleep, out }) => {
       // (i) ca nhân viên đang chốt dở mở bằng đường mới → báo chưa hoàn thành phiếu (không vỡ trang)
       const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 10);
       const idOpen = await rpc('app_ca_open', { p_branch: 1, p_date: today, p_shift: 'Sáng' });
-      await go(`#/ca/doi-soat?id=${idOpen}`, '#root .card');
+      await go(`#/ca/doi-soat-cu?id=${idOpen}`, '#root .card');
       ok(/chưa hoàn thành phiếu chốt ca/.test(txt($('#root'))) && !$('.ds-ptabs'), '(i) ca đang chốt dở → "Nhân viên chưa hoàn thành phiếu chốt ca…", không có 3 tab');
       // (k) ca chờ kế toán (172): trang báo Chờ kế toán, nút Ca tiếp theo bỏ qua ca chờ kế toán
-      await go('#/ca/doi-soat?id=172', '#root .card');
+      await go('#/ca/doi-soat-cu?id=172', '#root .card');
       const nk = $('#ds-nextca2');
       ok(/chờ kế toán/.test(txt($('#root'))) && !!nk && !/id=172(&|$)/.test(nk.getAttribute('href') || '') && /id=173(&|$)/.test(nk.getAttribute('href') || ''), '(k) ca chờ kế toán: báo Chờ kế toán, Ca tiếp theo → 173: ' + (nk?.getAttribute('href') || 'không thấy'));
     }

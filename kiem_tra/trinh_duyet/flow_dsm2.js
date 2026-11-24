@@ -66,7 +66,7 @@ export default async ({ sleep, out }) => {
     await go('#/ca/doi-soat-moi?id=182&tab=tien', '#dsm');
     let msg = 'được'; try { await rpc('app_stc_ds_cash', { p_report: 182, p_mode: 'ca', p_counted: 1000000 }); } catch (e) { msg = e.message; }
     ok(msg === 'được', `ca đã xác nhận, ở trang mới sửa tiền mặt được: ${msg}`);
-    location.hash = '#/ca/doi-soat?id=182&tab=tien'; await sleep(600);
+    location.hash = '#/ca/doi-soat-cu?id=182&tab=tien'; await sleep(600);   // đợt 4: trang cũ ở đường dẫn dự phòng
     msg = 'được'; try { await rpc('app_stc_ds_cash', { p_report: 182, p_mode: 'ca', p_counted: 1000000 }); } catch (e) { msg = e.message; }
     ok(/đã chốt tiền/.test(msg), `ca đã xác nhận, ở trang cũ vẫn chặn: ${msg}`);
     // 6. không tràn ngang

@@ -12,13 +12,13 @@ export default async ({ sleep, out }) => {
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
     if (role === 'nv') {
-      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '#root h1');
+      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '#root h1');
       ok(!$('[data-traadd]'), 'nv: không có nút');
     } else {
       const { rpc } = await import('../js/sb.js');
       await rpc('app__test_ds_open', { p_id: 183 });   // trước khi trang đọc tháng (trang giữ dữ liệu 60 giây)
       // Ca 182 chưa Xác nhận Fabi: có nút, chọn khách nợ từ ca trước, bắt lý do, ghi xong thành dòng Trả của ca
-      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '.stc-dsp');
+      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '.stc-dsp');
       const btn = $('[data-traadd]');
       ok(!!btn, `bước 1 có nút "${btn?.innerText.trim() || '+ Khách trả nợ cũ trong ca'}"`);
       if (btn) {
@@ -38,10 +38,10 @@ export default async ({ sleep, out }) => {
         }
       }
       // Ca 183 đã Xác nhận Fabi: không có nút, có lời nhắc Mở lại
-      await go('#/ca/doi-soat?id=183&tab=tien&b=1', '.stc-dsp');
+      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=1', '.stc-dsp');
       ok(!$('[data-traadd]') && /Mở lại xác nhận/.test($('.stc-cadebt')?.innerText || ''), `ca đã Xác nhận Fabi → nhắc Mở lại: ${($('.stc-tralock')?.innerText || '-').trim()}`);
       // Bước 3, "+ Thêm phiếu" chọn Thu nợ → nhắc làm ở bước 1
-      await go('#/ca/doi-soat?id=183&tab=tien&b=3', '.stc-dsp');
+      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=3', '.stc-dsp');
       const add = $('[data-addca][data-book="thu"]') || $('[data-addca]');
       if (add) {
         add.click(); await wait('.stc-addp'); await sleep(300);

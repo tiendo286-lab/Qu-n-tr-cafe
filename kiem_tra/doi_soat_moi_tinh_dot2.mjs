@@ -1,6 +1,6 @@
 // Bài thử hàm thuần — trang đối soát ca mới đợt 2 + 3. Chạy: jsc -m kiem_tra/doi_soat_moi_tinh_dot2.mjs (dòng cuối "ĐẠT n kiểm tra").
 import { DS2, ds2Name } from '../docs/js/ds2.js';
-import { workParts, confirmKeys } from '../docs/js/doi_soat_moi_tinh.js';
+import { workParts, confirmKeys, mergeRecon, staffPayload } from '../docs/js/doi_soat_moi_tinh.js';
 const bad = []; let n = 0;
 const eq = (got, want, msg) => { n++; if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`${msg}: được ${JSON.stringify(got)}, cần ${JSON.stringify(want)}`); };
 
@@ -10,7 +10,10 @@ eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat-moi'), 'app_ds2_ds_cash', 'trang m�
 eq(ds2Name('app_ca_recon_debt_collect', '#/ca/doi-soat-moi?id=5'), 'app_ds2_debt_collect', 'khách trả nợ cũ → app_ds2_debt_collect');
 eq(ds2Name('app_ca_recon_debt_uncollect', '#/ca/doi-soat-moi?id=5'), 'app_ds2_debt_uncollect', 'bỏ lần trả → app_ds2_debt_uncollect');
 eq(ds2Name('app_stc_move_exchange_delete', '#/ca/doi-soat-moi?id=5'), 'app_ds2_move_exchange_delete', 'xoá luân chuyển → bản mới');
-eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat?id=5&tab=tien'), 'app_stc_ds_cash', 'trang cũ giữ hàm cũ');
+eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat?id=5&tab=tien'), 'app_ds2_ds_cash', 'đợt 4: #/ca/doi-soat là trang mới → bản mới');
+eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat'), 'app_ds2_ds_cash', 'đợt 4: #/ca/doi-soat không tham số');
+eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat-cu?id=5&tab=tien'), 'app_stc_ds_cash', 'đợt 4: trang cũ dự phòng giữ hàm cũ');
+eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat-ca?id=5'), 'app_stc_ds_cash', 'đường dẫn khác bắt đầu bằng doi-soat — không đổi');
 eq(ds2Name('app_stc_ds_cash', '#/quan-ly/so-thu-chi?tab=thu'), 'app_stc_ds_cash', 'Sổ thu chi giữ hàm cũ');
 eq(ds2Name('app_stc_ds_cash', '#/ca/doi-soat-moix'), 'app_stc_ds_cash', 'đường dẫn khác bắt đầu giống — không đổi');
 eq(ds2Name('app_stc_ds_cash', ''), 'app_stc_ds_cash', 'không có đường dẫn');
@@ -36,6 +39,20 @@ const chi2 = [it2({ id: 'm:501:a#1', book: 'chi', pm: 'tm', col: 'chi', amount: 
 eq(confirmKeys({ cas: [ca2()], items: chi2, ca_debts: [] }, ca2()), ['anh', 'sot', 'that', 'goi'], 'có khoản chi, thu theo ca: anh, sot, that, goi');
 eq(confirmKeys({ cas: [ca2()], items: [], ca_debts: [] }, ca2()), ['anh', 'sot', 'goi'], 'không có khoản chi: không có ô that');
 eq(confirmKeys({ cas: [ca2({ ticks: ['anh', 'sot'] })], items: chi2, ca_debts: [] }, ca2({ ticks: ['anh', 'sot'] })), ['that', 'goi'], 'ô đã tích không đưa lên');
+
+// ---- đợt 4: mergeRecon — trang hiện người làm theo BẢN ĐỐI SOÁT (quản lý đã sửa) như trang cũ, không theo phiếu gốc ----
+const R0b = { id: 7, staff: [{ employee_id: 1, code: 'A1', name: 'Gốc', time_in: '06:45', time_out: '12:30', worked: 1 }], checks: { nhan_su: {} }, cash_hand: { state: 'khop' }, goods_status: 'khong' };
+const RCb = { data: { staff: [{ employee_id: 1, source: 'lich', worked: true, time_in: '06:45', time_out: '13:15', note: 'về muộn' }, { employee_id: 2, source: 'ho_tro', worked: false, absent_reason: 'ốm' }], goods_status: 'du' },
+  employees: { 1: { code: 'A1', name: 'Nhân viên một', pay_cash: 0 }, 2: { code: 'B2', name: 'Nhân viên hai', pay_cash: 1 } } };
+const Mb = mergeRecon(R0b, RCb);
+eq(Mb.staff.map((x) => [x.employee_id, x.time_out || null, x.worked, x.name]), [[1, '13:15', 1, 'Nhân viên một'], [2, null, 0, 'Nhân viên hai']], 'người làm lấy theo bản đối soát + tên từ danh sách nhân viên');
+eq([Mb.checks.nhan_su !== undefined, Mb.cash_hand.state, Mb.goods_status, Mb.id], [true, 'khop', 'du', 7], 'giữ dấu duyệt / bàn giao két của phiếu, trường đối soát theo bản đối soát');
+eq(mergeRecon(R0b, null), R0b, 'không đọc được bản đối soát: dùng phiếu như cũ');
+// ---- staffPayload: một người làm gửi lên app_ca_recon_save (đúng các trường máy chủ nhận) ----
+eq(staffPayload({ employee_id: 2, code: 'B2', name: 'X', source: 'ho_tro', role: null, worked: 0, time_in: '', time_out: null, absent_reason: 'ốm', note: '', cash_paid: 0, pay_cash: 1 }),
+  { employee_id: 2, source: 'ho_tro', role: null, worked: false, time_in: null, time_out: null, absent_reason: 'ốm', note: null, cash_paid: null }, 'người nghỉ: worked=false, ô rỗng thành null, không gửi tên');
+eq(staffPayload({ employee_id: 1, worked: 1, time_in: '06:45', time_out: '13:15', cash_paid: 150000 }),
+  { employee_id: 1, source: 'lich', role: null, worked: true, time_in: '06:45', time_out: '13:15', absent_reason: null, note: null, cash_paid: 150000 }, 'người làm: thiếu nguồn = theo lịch, giữ lương trả tiền mặt');
 
 if (bad.length) { print(bad.join('\n')); throw new Error(`HỎNG ${bad.length}/${n}`); }
 print(`ĐẠT ${n} kiểm tra`);

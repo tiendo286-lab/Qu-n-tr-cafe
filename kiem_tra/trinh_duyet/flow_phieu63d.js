@@ -17,7 +17,7 @@ export default async ({ sleep, out }) => {
     await rpc('app__test_ds_open', { p_id: 183 });   // ca 183 = đã Xác nhận Fabi (mở bước 3–5) — gọi trước khi trang đọc tháng
     const caOf = () => ($('.stc-addp [name=ca]')?.selectedOptions?.[0]?.textContent || '').trim();
     // Bước 3: Thu khác — ô Ca cố định là ca này
-    await go('#/ca/doi-soat?id=183&tab=tien&b=3', '.stc-dsp');
+    await go('#/ca/doi-soat-cu?id=183&tab=tien&b=3', '.stc-dsp');
     ok(await openAdd('thu'), 'bước 3 có "+ Thêm phiếu"');
     if ($('.stc-addp')) {
       ok(/Ca /.test(caOf()) && !$$('.stc-addp [name=ca] option').some((o) => o.value === ''), `ô Ca cố định là ca này: "${caOf()}"`);
@@ -30,16 +30,16 @@ export default async ({ sleep, out }) => {
         await save();
         ok(/mở lại/i.test($('.stc-addp .stc-err')?.innerText || ''), `Lưu lần 1 báo sẽ Mở lại xác nhận: ${$('.stc-addp .stc-err')?.innerText.trim().slice(0, 90) || '-'}`);
         await save(); await until(() => !$('.stc-addp'), 100); await sleep(800);
-        await go('#/ca/doi-soat?id=183&tab=tien&b=1', '.stc-dsp');
+        await go('#/ca/doi-soat-cu?id=183&tab=tien&b=1', '.stc-dsp');
         const tra = $$('.stc-cdr[data-t="tra"]').map((r) => r.innerText.replace(/\s+/g, ' '));
         ok(tra.some((t) => /20\.000/.test(t)), `Lưu lần 2: thu nợ vào ca (dòng Trả của ca): ${tra.join(' | ').slice(0, 120) || '-'}`);
-        await go('#/ca/doi-soat?id=183&tab=tien&b=2', '.stc-dsp');
+        await go('#/ca/doi-soat-cu?id=183&tab=tien&b=2', '.stc-dsp');
         ok(!!$('[data-dsclose]'), `ca đã Mở lại xác nhận (bước 2 có nút Xác nhận Fabi): ${$('[data-dsclose]')?.innerText.trim() || '-'}`);
       }
     }
     // Ca 182 chưa xác nhận → không có bước 3; dùng lại ca 183 sau khi mở khoá lại cho Cho nợ / Luân chuyển
     await rpc('app__test_ds_open', { p_id: 183 }); await sleep(61000);   // trang giữ dữ liệu tháng 60 giây
-    await go('#/ca/doi-soat?id=183&tab=tien&b=4', '.stc-dsp');
+    await go('#/ca/doi-soat-cu?id=183&tab=tien&b=4', '.stc-dsp');
     if (await openAdd('chi')) {
       setv('kind', 'no');
       ok(/Ca /.test(caOf()), `bước 4 Cho nợ ở trong ca: "${caOf()}"`);
@@ -47,18 +47,18 @@ export default async ({ sleep, out }) => {
       if (po) { nm.value = po.value; nm.dispatchEvent(new Event('change', { bubbles: true })); }
       $('.stc-addp [name=amount]').value = '30.000'; $('.stc-addp [name=reason]').value = 'Khách mượn tiền trong ca';
       await save(); await until(() => !$('.stc-addp'), 100); await sleep(800);
-      await go('#/ca/doi-soat?id=183&tab=tien&b=1', '.stc-dsp');
+      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=1', '.stc-dsp');
       ok($$('.stc-cdr[data-t="moi"]').some((r) => /30\.000/.test(r.innerText)), 'Cho nợ → thành nợ mới của ca (bước 1)');
     } else ok(false, 'bước 4 không có "+ Thêm phiếu"');
-    await go('#/ca/doi-soat?id=183&tab=tien&b=4', '.stc-dsp');
+    await go('#/ca/doi-soat-cu?id=183&tab=tien&b=4', '.stc-dsp');
     if (await openAdd('chi')) {
       setv('kind', 'lc'); setv('dir', 'tk_tm');
       ok(/Ca /.test(caOf()), `Luân chuyển ở trong ca: "${caOf()}"`);
       $('.stc-addp [name=amount]').value = '40.000'; $('.stc-addp [name=note]').value = 'Khách CK lấy tiền mặt'; $('.stc-addp [name=reason]').value = 'Đổi tiền trong ca';
       await save(); await until(() => !$('.stc-addp'), 100); await sleep(800);
       if ($('.stc-addp')) bad.push('luân chuyển: form còn mở, lỗi: ' + ($('.stc-addp .stc-err')?.innerText.trim() || '-'));
-      await go('#/ca/doi-soat?id=183&tab=tien&b=4', '.stc-dsp'); const t4 = $('.stc-dsp')?.innerText || '';
-      await go('#/ca/doi-soat?id=183&tab=tien&b=3', '.stc-dsp'); const t3 = $('.stc-dsp')?.innerText || '';
+      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=4', '.stc-dsp'); const t4 = $('.stc-dsp')?.innerText || '';
+      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=3', '.stc-dsp'); const t3 = $('.stc-dsp')?.innerText || '';
       ok(/40\.000/.test(t3) && /40\.000/.test(t4), `Luân chuyển → cặp của ca: có 40.000 ở bước 3 (thu, ${/40\.000/.test(t3)}) và bước 4 (chi, ${/40\.000/.test(t4)})`);
     } else ok(false, 'bước 4 không có "+ Thêm phiếu" (luân chuyển)');
     // Sổ thu chi: không còn ô Ca
