@@ -2,7 +2,7 @@
 import { rpc } from '../sb.js';
 import { vnToday } from '../data.js';
 import { $, dialog, html, str } from '../ui.js';
-import { JOBS, ROLE, jobName, STYLE, dur, fd, money, ms, shortName, toast } from '../cv_chung.js?v=2026.11.24.2';
+import { JOBS, ROLE, jobName, STYLE, dur, fd, money, ms, shortName, toast } from '../cv_chung.js?v=2026.11.24.3';
 
 export const perm = 'phan_cong';
 let TAB = 'cho';
