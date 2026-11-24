@@ -9,6 +9,7 @@ import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.j
 import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.24.4';
 import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.24.4';
 import { KA_STATUS } from './phieu_ca.js';
+import { mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.24.4';   // tệp 174: việc đào tạo của tôi
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
 const soft = (p) => p.catch(() => null);
@@ -150,7 +151,7 @@ function luongBlock(cong, ka) {
 export async function render({ me, can }) {
   const emp = !!me.employee_id;
   const isChu = me.role === 'chu';
-  const [T, todo, pc, training, ka, cong, more, pcAll, dtAll] = await Promise.all([
+  const [T, todo, pc, training, ka, cong, more, pcAll, dtAll, plan] = await Promise.all([
     soft(rpc('app_today_me')),
     soft(rpc('app_home_todo')),
     can('nhan_viec') ? soft(rpc('app_pc_mine')) : Promise.resolve({ tasks: [], gv: [], watch: [] }),
@@ -160,7 +161,9 @@ export async function render({ me, can }) {
     soft(rpc('app_today_more')),
     isChu ? soft(rpc('app_pc_all')) : Promise.resolve(null),
     isChu ? soft(rpc('app_dt_work_list', { p_mine: false })) : Promise.resolve(null),
+    emp ? soft(rpc('app_dt_my_plan')) : Promise.resolve(null),
   ]);
+  const hasPlan = !!(plan && ((plan.shifts || []).length || (plan.checks || []).length));
   if (pc) learnJobs(pc.tasks);
   if (pcAll) learnJobs(pcAll.tasks);
   const H = { jobName, pcDue, gvDue, rstate, curStep };
@@ -229,7 +232,7 @@ export async function render({ me, can }) {
       <div class="stack hn-wrap">
         ${caBlock(T, can)}
         <div class="hn-cols">
-          <div class="stack" style="gap:14px">${viecBlock(V)}</div>
+          <div class="stack" style="gap:14px">${hasPlan ? myPlanHtml(plan) : ''}${viecBlock(V)}</div>
           <div class="stack" style="gap:14px">${watcher ? theoDoiBlock(pc, can) : ''}${emp ? luongBlock(cong, ka) : ''}</div>
         </div>
       </div>`,
@@ -256,7 +259,8 @@ export async function render({ me, can }) {
         }
       };
       root.addEventListener('click', onClick);   // #root dùng chung mọi trang → gỡ khi rời trang
-      return () => root.removeEventListener('click', onClick);
+      const offPlan = hasPlan ? mountMyPlan(root, plan, rerender) : () => {};
+      return () => { root.removeEventListener('click', onClick); offPlan(); };
     },
   };
 }
