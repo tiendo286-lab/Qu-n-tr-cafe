@@ -9,7 +9,7 @@ import { rpc } from '../sb.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
 import { fmt } from '../tien.js';
 import { SHIFT_ORDER, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
-import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.23.6';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
+import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.2';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
 import { CHK_LABEL, WORK_LABEL, caBook, confirmKeys, confirmList, isClean, missingList, pageState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';

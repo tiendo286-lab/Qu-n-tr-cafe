@@ -5,9 +5,9 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, $$, ROLE_LABELS, html, raw, str } from '../ui.js';
-import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.23.6';
-import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.23.6';
-import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.23.6';
+import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.24.2';
+import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.24.2';
+import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.24.2';
 import { KA_STATUS } from './phieu_ca.js';
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
