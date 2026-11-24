@@ -21,6 +21,7 @@
 7. Cách làm **B — viết lại trang đối soát ca mới, chạy song song trang cũ** tới khi xong.
 8. Trang mới dùng cho **Chủ, quản lý tổng và quản lý** (mọi người đang đối soát được).
 9. **Tách riêng Tiền mặt và Chuyển khoản** thành hai mục (thay cho các mục chung Tiền thực nhận / Thu chi / Chênh lệch).
+10. **Ba trang cho mỗi ca**: ① Phần việc (nhân viên, bàn giao ca) · ② Tiền · ③ Hoàn thành — trang Tiền không chứa phần việc.
 
 ## 3. Không làm / tuyệt đối tránh
 
@@ -46,29 +47,33 @@
 - Dùng được cho mọi người đang đối soát (Chủ, quản lý tổng, quản lý của cơ sở) — quyền như trang cũ. Nhân viên không thấy.
 - Hai trang ghi **cùng một dữ liệu**: Hoàn thành ở trang nào cũng là Hoàn thành thật; ca đang làm dở ở trang cũ mở bằng trang mới vẫn tiếp tục được, và ngược lại.
 
-### 5.2 Bố cục: một trang dọc cho một ca, làm cho điện thoại trước
+### 5.2 Bố cục: 3 trang cho mỗi ca — ① Phần việc · ② Tiền · ③ Hoàn thành (làm cho điện thoại trước)
+
+Theo ý anh Tiến (24/11): phần việc (nhân viên, bàn giao ca) một trang, tiền một trang, hoàn thành một trang. Thanh trên cùng có 3 nút trang kèm trạng thái; đổi trang không tải lại, không gọi máy chủ.
 
 ```
-Ca Sáng · Thứ Ba 18/11 · Hải Sơn          [Tính lại]
+Ca Sáng · Thứ Tư 19/11 · Hải Sơn                 [Tính lại]
+[① Phần việc ✓] [② Tiền ⚠ 2] [③ Hoàn thành]
 ⚠ Số chưa tính lại (hiện khi vừa sửa khoản làm đổi tiền)
-▸ Phần việc ............. ✓   [Duyệt phần việc]
+── trang ② Tiền ──
 ▸ Số máy Fabi ........... ✓
 ▾ Tiền mặt .............. ⚠ thiếu 249.000   (mở sẵn vì cần xử lý)
 ▾ Chuyển khoản .......... ⚠ dư 262.000
-Hoàn thành: bấm là xác nhận đã xem ảnh phiếu, không sót thu, …
-[ Hoàn thành ]          ‹ Ca trước · Ca tiếp theo ›
+                         ‹ Ca trước · Ca tiếp theo ›
 ```
 
-- **Không chia bước, không khoá theo bước.** Mỗi mục có đầu mục ghi trạng thái (✓ xong · ⚠ cần xử lý · ⏳ chờ kế toán / chờ ca sau). Mục ổn thu gọn, mục cần xử lý mở sẵn; bấm đầu mục để mở / gọn.
-- **Ca khớp hết** (điều kiện như thiết kế A mục 5.1, bỏ phần Xác nhận Fabi): mở ra là màn hình tóm tắt + một nút Hoàn thành (bản thử https://claude.ai/artifact/8o6fFAeLDFWRFjxYzNJzGg); có "Xem chi tiết" để mở các mục như trên.
-- Nội dung từng mục = **toàn bộ việc trong bản rà soát**, xếp lại:
-  - **Phần việc**: người làm, giờ đến / về (sửa có lý do); Nghỉ & làm thay (quản lý cơ sở chỉ xem — quản lý tổng phân loại, Chủ duyệt x2); nhận két ca trước (khớp / lệch → đếm lại cùng người ca trước, lý do); hàng kho tổng nhận trong ca (nhắc, đối soát ở Hàng hoá); đánh giá nhân viên (không bắt buộc). Nút **"Duyệt phần việc"** duyệt cả Nhân sự, Bàn giao, Nhập hàng một lần.
-  - **Số máy Fabi**: so tiền mở ca (2 tầng), doanh thu, nợ bill (= danh sách khách nợ hoá đơn); Lấy số máy; Sai, sửa số (Chủ duyệt); chọn ca chịu lệch mở ca; ảnh phiếu Fabi; nợ mới trong ca (xếp nợ khác vào nhóm + người, đổi nhóm, sửa / xoá / thêm nợ quên ghi); khách trả nợ cũ trong ca (+ / Xoá lần trả); ô tích "đã hỏi về hoá đơn sửa / xoá" (khi có).
-  - **Tiền mặt**: phải có (mở ca + tiền mặt bán + thu tiền mặt − chi tiền mặt, ghi rõ cách tính) · thực nhận (Thu theo ca / theo ngày; quản lý đếm khi thu theo ca) · tiền đóng ca = tiền mở ca sau · phiếu thu / chi **tiền mặt** của ca ("+ Thêm phiếu": Thu khác, Thu nợ, Cho nợ, Luân chuyển, Chi; sửa / xoá có lý do; chọn nhóm từng khoản chi; → Trừ lương) · **lệch tiền mặt** (≤ 5.000 coi như khớp) + Phiếu chênh lệch (trừ lương chọn người bằng ô tích, quán chịu, gán khách trả nợ, ghép ca dư / thiếu, thu khác, chờ Chủ duyệt) + Để sau.
-  - **Chuyển khoản**: phải nhận (chuyển khoản bán + thu chuyển khoản − chi chuyển khoản) · ngân hàng nhận (kế toán nhập; chưa có thì ⏳ chờ kế toán) · phiếu thu / chi **chuyển khoản** của ca (cùng các nút như tiền mặt) · **lệch chuyển khoản** + Phiếu chênh lệch + Để sau.
-  - Phiếu Luân chuyển TM ↔ CK hiện ở cả hai mục (mỗi mục một vế); Xoá luân chuyển xoá cả hai vế. Các ô tích một-cho-cả-ca giữ như bây giờ (một dấu cho ca): "thu nợ đúng khách" hiện ở chỗ khách trả nợ cũ; "đã xem kỹ khoản từ 300.000" và "đã hỏi lý do thiếu / thừa" hiện ở mục có khoản lớn / có lệch (có ở cả hai mục thì là cùng một ô, tích một chỗ là đủ).
-  - Ca chờ kế toán vẫn chờ như luật 17/11 (Hoàn thành cần cả hai mục xong); mục Tiền mặt vẫn xem / sửa được trong lúc chờ.
-  - **Hoàn thành**: danh sách điều quản lý xác nhận khi bấm (ảnh phiếu đúng số máy; không sót khoản thu; khoản chi có thật — khi có chi; két để lại 1.000.000 — khi thu theo ca hoặc ca cuối ngày) + danh sách "Còn thiếu" (mục web tự so chưa xanh, mục cần hỏi chưa tích, lệch chưa xử lý…) bấm vào thì nhảy tới chỗ đó.
+- **Trong mỗi trang không chia bước, không khoá theo bước.** Mỗi mục có đầu mục ghi trạng thái (✓ xong · ⚠ cần xử lý · ⏳ chờ kế toán / chờ ca sau); mục ổn thu gọn, mục cần xử lý mở sẵn; bấm đầu mục để mở / gọn.
+- **Mở ca thì vào trang còn việc** (theo thứ tự ① → ② → ③); ca đã Hoàn thành mở trang ③.
+- **Ca khớp hết** (điều kiện như thiết kế A mục 5.1, bỏ phần Xác nhận Fabi): mở thẳng **trang ③ Hoàn thành** — trang này đã có tóm tắt đủ (người làm, bàn giao, số máy, tiền mặt, chuyển khoản, khoản chi, ảnh phiếu) ⇒ một lần bấm (bản thử cũ https://claude.ai/artifact/8o6fFAeLDFWRFjxYzNJzGg).
+- Nội dung từng trang = **toàn bộ việc trong bản rà soát**, xếp lại:
+  - **Trang ① Phần việc** — *Nhân viên*: người làm, giờ đến / về (sửa có lý do); Nghỉ & làm thay (quản lý cơ sở chỉ xem — quản lý tổng phân loại, Chủ duyệt x2); đánh giá nhân viên (không bắt buộc). *Bàn giao ca*: nhận két ca trước (khớp / lệch → đếm lại cùng người ca trước, lý do); hàng kho tổng nhận trong ca (nhắc, đối soát ở Hàng hoá). Nút **"Duyệt phần việc"** duyệt Nhân sự, Bàn giao, Nhập hàng một lần.
+  - **Trang ② Tiền**:
+    - *Số máy Fabi*: so tiền mở ca (2 tầng), doanh thu, nợ bill (= danh sách khách nợ hoá đơn); Lấy số máy; Sai, sửa số (Chủ duyệt); chọn ca chịu lệch mở ca; ảnh phiếu Fabi; nợ mới trong ca (xếp nợ khác vào nhóm + người, đổi nhóm, sửa / xoá / thêm nợ quên ghi); khách trả nợ cũ trong ca (+ / Xoá lần trả); ô tích "đã hỏi về hoá đơn sửa / xoá" (khi có).
+    - *Tiền mặt*: phải có (mở ca + tiền mặt bán + thu tiền mặt − chi tiền mặt, ghi rõ cách tính) · thực nhận (Thu theo ca / theo ngày; quản lý đếm khi thu theo ca) · tiền đóng ca = tiền mở ca sau · phiếu thu / chi **tiền mặt** của ca ("+ Thêm phiếu": Thu khác, Thu nợ, Cho nợ, Luân chuyển, Chi; sửa / xoá có lý do; chọn nhóm từng khoản chi; → Trừ lương) · **lệch tiền mặt** (≤ 5.000 coi như khớp) + Phiếu chênh lệch (trừ lương chọn người bằng ô tích, quán chịu, gán khách trả nợ, ghép ca dư / thiếu, thu khác, chờ Chủ duyệt) + Để sau.
+    - *Chuyển khoản*: phải nhận (chuyển khoản bán + thu chuyển khoản − chi chuyển khoản) · ngân hàng nhận (kế toán nhập; chưa có thì ⏳ chờ kế toán) · phiếu thu / chi **chuyển khoản** của ca (cùng các nút như tiền mặt) · **lệch chuyển khoản** + Phiếu chênh lệch + Để sau.
+    - Phiếu Luân chuyển TM ↔ CK hiện ở cả hai mục (mỗi mục một vế); Xoá luân chuyển xoá cả hai vế. Các ô tích một-cho-cả-ca giữ như bây giờ (một dấu cho ca): "thu nợ đúng khách" hiện ở chỗ khách trả nợ cũ; "đã xem kỹ khoản từ 300.000" và "đã hỏi lý do thiếu / thừa" hiện ở mục có khoản lớn / có lệch (có ở cả hai mục thì là cùng một ô, tích một chỗ là đủ).
+    - Ca chờ kế toán vẫn chờ như luật 17/11 (Hoàn thành cần cả hai mục xong); mục Tiền mặt vẫn xem / sửa được trong lúc chờ.
+  - **Trang ③ Hoàn thành** — tóm tắt trang ① và ② (trạng thái từng mục, bấm để tới chỗ đó); danh sách **"Còn thiếu"** (mục web tự so chưa xanh, mục cần hỏi chưa tích, lệch chưa xử lý…) bấm vào thì nhảy tới chỗ đó; điều quản lý xác nhận khi bấm (ảnh phiếu đúng số máy; không sót khoản thu; khoản chi có thật — khi có chi; két để lại 1.000.000 — khi thu theo ca hoặc ca cuối ngày); nút **Hoàn thành**; sau khi xong: Mở lại (ghi lý do) và tự sang ca tiếp theo (mục 5.4).
 
 ### 5.3 Lưu và Tính lại
 
@@ -139,7 +144,7 @@ Dùng lại các hộp đang có (thêm phiếu, sửa / xoá có lý do, phiế
 
 ## 9. Em tự quyết — anh xem có đúng ý không
 
-1. **Một trang dọc, không chia bước** (thay 3 thẻ + 5 bước); mục ổn thu gọn, mục cần xử lý mở sẵn.
+1. **Trong mỗi trang không chia bước, không khoá**; mục ổn thu gọn, mục cần xử lý mở sẵn (ba trang Phần việc · Tiền · Hoàn thành là anh chốt). Mở ca thì vào trang còn việc; **ca khớp hết mở thẳng trang Hoàn thành**.
 2. **Gộp 4 ô tích cơ bản vào nút Hoàn thành** (ảnh phiếu, không sót thu, khoản chi có thật, két để lại); 4 ô cần hỏi người vẫn tích riêng tại chỗ.
 3. **Hoàn thành tự duyệt phần việc** khi không có vấn đề; vẫn có nút "Duyệt phần việc" để duyệt riêng.
 4. **Tính lại bằng nút** + dòng vàng nhắc; Hoàn thành tự tính lại.
