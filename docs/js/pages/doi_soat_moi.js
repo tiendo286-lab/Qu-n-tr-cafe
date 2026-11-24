@@ -77,6 +77,7 @@ const CSS = `<style>
 .dsm-gl span{min-width:0;overflow-wrap:anywhere}
 .dsm-old{min-width:0;overflow-wrap:anywhere}.dsm-old .stc-part{margin:0}
 .stc-moi-hide{display:none!important}
+#dsm [hidden]{display:none!important}   /* mỗi bước một trang: .dsm{display:grid} không được đè thuộc tính hidden (lỗi 24/11 — 3 bước hiện chồng) */
 .dsm-st{display:grid;gap:4px;border-bottom:1px dashed var(--line);padding-bottom:6px}.dsm-st:last-of-type{border-bottom:0}
 .dsm-stb{justify-self:start}
 .dsm-ho{display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap;border:1px solid var(--line);border-radius:10px;padding:7px 10px}

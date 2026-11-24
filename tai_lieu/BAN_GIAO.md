@@ -16,6 +16,7 @@ Cập nhật: 24/11/2026 14:45 (**đi lần lượt 3 bước** — ② khoá t�
 - **Trang ① mới làm được:** sửa / thêm / bỏ người làm (`app_ca_recon_save` chỉ khoá `staff`, đủ danh sách — máy chủ giữ khoá khác; Nhân sự đã duyệt thì `app_ca_check(nhan_su, false)` trước vì máy chủ khoá trường của mục đã duyệt), `mountCover`, `mountReportEval`, công việc bàn giao (`app_ca_recon_handover_save`, giao thành việc `app_viec_add`).
 - **Bài thử:** `flow_dsm4` (mới), `flow_dsm1/2` theo đường dẫn mới, 18 bài trang cũ mở thẳng trang cũ → `#/ca/doi-soat-cu` (36 chỗ, dòng kiểm đường dẫn web tạo giữ nguyên); `doi_soat_moi_tinh_dot2.mjs` 30/30.
 - **Đi lần lượt 3 bước** (anh Tiến chọn sau khi xem đợt 4): ② khoá tới khi xong ①, ③ khoá tới khi xong ②; nút sang bước / quay lại ở cuối mỗi trang; ② ghi rõ còn thiếu gì. Bài `flow_dsm1..4` sửa theo (đi qua nút bước, kiểm khoá bước); `doi_soat_moi_tinh_dot2.mjs` 38/38.
+- **Lỗi 3 bước hiện chồng (có từ đợt 1, sửa ở web 2026.11.24.5):** `.dsm{display:grid}` đè thuộc tính `hidden` → cả 3 trang bước hiện cùng lúc; bài thử cũ không kiểm phần ẩn / hiện nên không bắt được. Bài học: khi ẩn bằng `hidden` mà phần tử có lớp đặt `display`, phải có luật `[hidden]{display:none!important}`; bài thử giao diện phải kiểm `getComputedStyle(...).display`, không chỉ kiểm có phần tử.
 - **Còn lại:** bỏ hẳn trang cũ + bài thử cũ khi anh thấy ổn.
 
 ## 24/11/2026 trưa — TRANG ĐỐI SOÁT CA MỚI — ĐỢT 2 + 3 (sửa tại chỗ, Hoàn thành gộp) — ĐÃ LÊN WEB 2026.11.24.2, máy chủ tệp 173 chạy thật 12:41
