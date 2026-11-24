@@ -40,6 +40,14 @@ export default async ({ sleep, out }) => {
       $('[data-dsm-pane="tien"] [data-tick][aria-pressed="false"]:not([data-tick="anh"]):not([data-tick="sot"]):not([data-tick="that"]):not([data-tick="goi"])').click(); await sleep(600); }
     ok(!$('#dsm-next2')?.disabled, 'tích đủ ở bước ② → nút "Xong tiền, sang Hoàn thành" bấm được');
     $('#dsm-next2')?.click(); await until(() => !!$('[data-dsm-tab="xong"][aria-selected="true"]'), 30); await sleep(300);
+    // trang ③ = tổng kết cả ca (anh Tiến 24/11): người làm, bàn giao, số máy Fabi, tiền mặt, chuyển khoản, khoản chi, nợ, chênh lệch, kiểm tra
+    const sum = $('#dsm-sum'); const st = sum?.textContent || '';
+    ok(!!sum && ['Người làm', 'Bàn giao', 'Số máy Fabi', 'Tiền mặt', 'Chuyển khoản', 'Kiểm tra'].every((t) => st.includes(t)), `trang Hoàn thành tổng kết cả ca: ${['Người làm', 'Bàn giao', 'Số máy Fabi', 'Tiền mặt', 'Chuyển khoản', 'Kiểm tra'].filter((t) => !st.includes(t)).join(', ') || 'đủ mục'}`);
+    const sv = $$('[data-dsm-pane="viec"] .dsm-st .dsm-row > span').map((x) => (x.firstChild?.textContent || '').trim()).filter(Boolean);
+    ok(sv.length > 0 && sv.every((n) => st.includes(n)), `tổng kết có đủ người làm: ${sv.join(', ')}`);
+    for (const pm of ['tm', 'ck']) { const a1 = $(`#dsm-sum .dsm-sum-must[data-pm="${pm}"]`)?.dataset.v, b1 = $(`[data-dsm-pane="tien"] .dsm-must[data-pm="${pm}"]`)?.dataset.v;
+      ok(a1 != null && a1 === b1, `tổng kết ${pm === 'tm' ? 'tiền mặt phải có' : 'chuyển khoản phải nhận'} ${a1} = trang Tiền ${b1}`); }
+    ok(fits(), `trang tổng kết không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
     const conf = $$('.dsm-confirm li').map((x) => x.innerText.trim());
     ok(conf.length > 0, `trang Hoàn thành ghi rõ bấm là xác nhận: ${conf.join(' · ')}`);
     n0 = L().length; $('#dsm-done')?.click();

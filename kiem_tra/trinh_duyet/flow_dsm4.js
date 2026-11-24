@@ -29,6 +29,10 @@ export default async ({ sleep, out }) => {
     ok(nStaff >= 2, `mỗi người làm có nút Sửa (${nStaff})`);
     $('[data-dsmst="0"]', viec())?.click(); await wait('form [name=out]', 30);
     let f = $('[name=out]')?.closest('form');
+    if (f) { const shown = (n) => { const el = f.querySelector(`[name=${n}]`)?.closest('[data-w]') || f.querySelector(`[name=${n}]`); return !!el && getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0; };
+      f.worked.value = '0'; f.worked.dispatchEvent(new Event('change', { bubbles: true })); await sleep(150);
+      ok(!shown('out') && shown('absent'), `hộp sửa: chọn Phát sinh nghỉ → ẩn giờ đến / về, hiện ô lý do nghỉ (giờ: ${shown('out')}, lý do: ${shown('absent')})`);
+      f.worked.value = '1'; f.worked.dispatchEvent(new Event('change', { bubbles: true })); await sleep(150); }
     if (f) { f.out.value = '13:15'; f.reason.value = 'thử đợt 4'; let n0 = L().length; submit(f);
       await until(() => since(n0).some((x) => x[1] === 'app_ca_recon_save'), 40); await until(() => /13:15/.test(viec()?.innerText || ''), 40); await sleep(300);
       const sv = since(n0).find((x) => x[1] === 'app_ca_recon_save');

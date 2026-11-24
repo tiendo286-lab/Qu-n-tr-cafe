@@ -45,11 +45,15 @@ export default async ({ sleep, out }) => {
       const names = (R.staff || []).filter((s) => s.worked !== 0 && s.worked !== false).map((s) => s.name).filter(Boolean);
       ok(names.length > 0 && names.every((nm) => ($('[data-dsm-pane="viec"]')?.innerText || '').includes(nm)), `trang Phần việc có tên người làm: ${names.join(', ')}`);
       ok(fits(), `trang Phần việc không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
+      // mỗi bước một trang: chỉ bước đang mở hiện, 2 bước kia ẩn hẳn (lỗi 24/11: CSS .dsm{display:grid} đè thuộc tính hidden → 3 bước hiện chồng)
+      const vis = (k) => { const el = $(`[data-dsm-pane="${k}"]`); return !!el && getComputedStyle(el).display !== 'none' && el.getClientRects().length > 0; };
+      ok(vis('viec') && !vis('tien') && !vis('xong'), `bước ①: chỉ hiện trang Phần việc (hiện: ${['viec', 'tien', 'xong'].filter(vis).join(', ')})`);
       // 4. đi lần lượt 3 bước: ① chưa duyệt thì ② khoá; bấm "Duyệt phần việc, sang bước 2" → sang ② Tiền
       const lock2 = !!$('[data-dsm-tab="tien"][data-lock]'); await tab('tien');
       ok(!lock2 || !!$('[data-dsm-tab="viec"][aria-selected="true"]'), 'bước ② khoá khi phần việc chưa duyệt: bấm không sang');
       $('#dsm-next1')?.click(); await until(() => !!$('[data-dsm-tab="tien"][aria-selected="true"]'), 50); await sleep(400);
       ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'nút cuối bước ① → sang bước ② Tiền');
+      ok(vis('tien') && !vis('viec') && !vis('xong'), `bước ②: chỉ hiện trang Tiền (hiện: ${['viec', 'tien', 'xong'].filter(vis).join(', ')})`);
       const tm = $('.dsm-must[data-pm="tm"]'), ck = $('.dsm-must[data-pm="ck"]');
       ok(Number(tm?.dataset.v) === money.tm.must, `tiền mặt phải có ${tm?.dataset.v} = trang cũ ${money.tm.must}`);
       ok(Number(ck?.dataset.v) === money.ck.must, `chuyển khoản phải nhận ${ck?.dataset.v} = trang cũ ${money.ck.must}`);
