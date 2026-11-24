@@ -1,7 +1,7 @@
 # Đối soát nhanh cho ca khớp hết — bản thiết kế
 
 - Ngày: 24/11/2026. Người yêu cầu: anh Tiến ("trang đối soát quản lý phải tích rất nhiều, mất rất nhiều thao tác").
-- Trạng thái: **chờ anh Tiến duyệt**. Chưa làm gì trên web / máy chủ.
+- Trạng thái: **TẠM DỪNG (24/11)** — anh Tiến yêu cầu rà soát toàn bộ đối soát ca trước, ưu tiên bỏ tải lại trang khi tích / lưu và gộp hạng mục (xem `2026-11-24-ra-soat-doi-soat-ca.md`). Bản này có thể thành một phần (G8) của thiết kế lại. Chưa làm gì trên web / máy chủ.
 - Bản thử anh đã xem: https://claude.ai/artifact/8o6fFAeLDFWRFjxYzNJzGg (3 ca thật ở Hải Sơn 18–19/11, tên nhân viên đã đổi).
 - Vùng khoá: **có đụng** (phần tiền đối soát). Mục 5.6 ghi rõ đổi gì — đây là lời báo trước theo CLAUDE.md.
 
