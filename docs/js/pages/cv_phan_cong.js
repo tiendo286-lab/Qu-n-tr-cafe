@@ -1,8 +1,8 @@
 // Bước 109 — Bảng phân công: mỗi việc × mỗi cơ sở ai làm, hạn bao lâu, mấy bước, mức phạt. Chỉ tài khoản Chủ sửa; Quản lý tổng xem.
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, str } from '../ui.js';
-import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.24.5';
-import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.24.5';
+import { GROUP, GROUPS, JOBS, MERGED, ORDER, ROLE, STYLE, learnJobs, money, shortName, toast } from '../cv_chung.js?v=2026.11.24.6';
+import { hTxt, openJobDialog, schedTxt, webTxt } from '../pc_hop_viec.js?v=2026.11.24.6';
 
 export const perm = 'phan_cong';
 const FROM = {

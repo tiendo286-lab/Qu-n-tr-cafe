@@ -8,10 +8,10 @@
 import { rpc } from '../sb.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
 import { fmt, parseMoney } from '../tien.js';
-import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.24.5';
+import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.24.6';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { SHIFT_ORDER, caChecks, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
-import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.5';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
+import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.6';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
 import { BASIC, CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';

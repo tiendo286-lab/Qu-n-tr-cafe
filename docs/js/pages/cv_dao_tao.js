@@ -8,7 +8,7 @@ import { catalog } from '../data.js';
 import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, flash, html, once, showSaved } from '../ui.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.24.5';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.24.6';
 import { openItemGuide } from './dt_cong_viec.js';
 
 const PROGRAMS = [['chay_ban', 'Chạy bàn'], ['pha_che', 'Pha chế']];
