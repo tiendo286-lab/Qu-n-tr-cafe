@@ -46,6 +46,7 @@ const PAGES = {
   '/quan-ly/nghi-lam-thay': 'duyet_x2',   // chặng 6.2: duyệt nghỉ & làm thay (x2) nhiều ca
   '/quan-ly/doi-soat/ca': 'doi_soat_ca',
   '/ca/doi-soat': 'doi_soat_ca',   // Đối soát về Chốt ca (thiết kế 22/11): trang đối soát của ca 3 tab, thuộc Chốt ca
+  '/ca/doi-soat-moi': 'doi_soat_moi',   // trang đối soát ca mới (thiết kế 24/11), chạy song song trang cũ — đợt 1 chỉ xem
   '/quan-ly/hop': 'cv_tat_ca', // đường dẫn cũ (thông báo cũ) → Công việc
   '/viec': 'cv_toi',
   '/cong-viec/phan-cong': 'cv_phan_cong',

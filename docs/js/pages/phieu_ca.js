@@ -243,7 +243,7 @@ export async function render({ params }) {
     rpc('app_ca_ds_tuan', { p_branch: R0.branch_id, p_from: R0.work_date, p_to: R0.work_date }).then((rs) => (rs || []).find((x) => Number(x.id) === id) || null).catch(() => null),
     rpc('app_ca_ds_con', { p_branch: R0.branch_id }).catch(() => [])]) : [null, []];
   const NX = nextUnfinished(CON || [], R0);
-  const dsTopOf = (back) => html`<div class="toolbar ds-top"><a class="btn sm secondary ds-staff" href="#/ca/phieu?id=${id}">Xem phiếu nhân viên</a>${NX
+  const dsTopOf = (back) => html`<div class="toolbar ds-top"><a class="btn sm secondary ds-staff" href="#/ca/phieu?id=${id}">Xem phiếu nhân viên</a><a class="btn sm secondary" id="ds-newpage" href="#/ca/doi-soat-moi?id=${id}">Xem trang mới (thử) ›</a>${NX
     ? html`<a class="btn sm" id="ds-nextca2" href="#/ca/doi-soat?id=${NX.id}&tab=${NX.tab || 'viec'}">Ca tiếp theo chưa xong ›</a>` : html`<button type="button" class="btn sm secondary" id="ds-nextca2" disabled>✓ Hết ca chưa xong</button>`}
     ${back ? html`<a class="btn sm secondary" href="#/ca?cn=${R0.branch_id}&tuan=${weekStart(R0.work_date)}">‹ Bảng tuần</a>` : ''}</div>`;
   const dsTop = dsTopOf(false);   // trang đầy đủ đã có nút "‹ Danh sách ca" ở đầu trang
