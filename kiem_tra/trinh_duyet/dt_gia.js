@@ -9,7 +9,7 @@ export function makeDt(T, me) {
   T.training_mark_log = []; T.training_day_notes = [];   // chặng 4 (tệp 163): sổ lịch sử + nhận xét theo ngày thật
   const total = PROG.items.length;
   const params = new URLSearchParams(location.search);
-  const workflow = ['flow_dt137', 'flow_dt169', 'flow_dt170', 'flow_dt_c4'].includes(params.get('script')) || params.get('dtwork') === '1';
+  const workflow = ['flow_dt137', 'flow_dt169', 'flow_dt170', 'flow_dt_c4', 'flow_pcdt'].includes(params.get('script')) || params.get('dtwork') === '1';
   let reviewer = Number(params.get('dtptc')) || null;   // bước 169: ?dtptc=<tài khoản> = người phụ trách chính có sẵn
   const extras = [];
   const part = (t) => extras.filter((f) => f.training_id === t.id);
@@ -55,6 +55,49 @@ export function makeDt(T, me) {
     [[3, 0, 'Sáng', 1], [3, 1, 'Sáng', 1], [3, 2, 'Chiều', 1], [3, 3, 'Sáng', 2], [7, 1, 'Sáng', 1], [7, 2, 'Chiều', 1], [9, 4, 'Tối', 1]]
       .forEach(([e, d, sh, b]) => T.schedule_published.push({ week_id: wid, employee_id: e, weekday: d, shift: sh, branch_id: b, role: 'phuc_vu', published_at: now() }));
   }
+  // tệp 174: bài flow_pcdt — phân công theo ca. Phiếu 1 bắt đầu hôm kia; NV03 đi làm hôm kia Sáng · hôm qua Sáng · hôm nay Chiều · mai Sáng · ngày kia Tối;
+  // NV07 (Cấp 1) hôm nay Chiều + mai Sáng; NV08 (Quản lý) mai Sáng. Phiếu 2 (NV04) không có lịch.
+  const addD = (d, n) => new Date(Date.parse(d) + n * 864e5).toISOString().slice(0, 10);
+  if (params.get('script') === 'flow_pcdt') {
+    const d0 = addD(today, -2);
+    T.trainings[0].start_date = d0;
+    if (!T.employees.some((e) => e.id === 4)) T.employees.push({ id: 4, code: 'NV04', name: 'Người học thứ hai', rank: 'Thử việc', status: 'Đang làm' });
+    T.trainings.push({ id: 2, employee_id: 4, program_id: 1, branch_id: 1, start_date: today, instructor_id: 5, manager_id: null });
+    T.weeks = T.weeks || []; T.weeks.push({ id: 9174, start_date: d0, end_date: addD(d0, 6) });
+    T.schedule_published = T.schedule_published || [];
+    [[3, 0, 'Sáng'], [3, 1, 'Sáng'], [3, 2, 'Chiều'], [3, 3, 'Sáng'], [3, 4, 'Tối'], [7, 2, 'Chiều'], [7, 3, 'Sáng'], [8, 3, 'Sáng']]
+      .forEach(([e, d, sh]) => T.schedule_published.push({ week_id: 9174, employee_id: e, weekday: d, shift: sh, branch_id: 1, role: 'phuc_vu', published_at: now() }));
+    const y = addD(today, -1), m1 = addD(today, 1);
+    const fx = (no, employee_id, date, shift, sub_by = null) => extras.push({ training_id: 1, no, employee_id, name: emp(employee_id)?.name, note: null, is_extra: false, finished_at: null, branch_id: 1, branch: 'TEST', date, shift, sub_by });
+    fx(3, 5, y, 'Sáng'); fx(4, 5, y, 'Sáng'); [10, 11, 12].forEach((no) => fx(no, 8, m1, 'Sáng')); fx(13, 7, m1, 'Sáng', 8);
+    T.training_marks.push({ training_id: 1, item_no: 3, introduced: true, practiced: true, level: 'tot', by_account: 5, at: y + ' 07:40:00' },
+      { training_id: 1, item_no: 4, introduced: true, practiced: false, level: null, by_account: 5, at: y + ' 08:05:00' },
+      { training_id: 1, item_no: 13, introduced: true, practiced: true, level: 'kha', by_account: 9, at: now(), cho_kiem_tra: true, cho_by: 9, cho_at: now() });
+    logMark(1, 3, null, { introduced: true, practiced: false, level: null }, { by: 'NV05 – Người hướng dẫn thử', at: y + ' 07:20:00' });
+    logMark(1, 3, { introduced: true, practiced: false, level: null }, { introduced: true, practiced: true, level: 'tot' }, { by: 'NV05 – Người hướng dẫn thử', at: y + ' 07:40:00' });
+    logMark(1, 4, null, { introduced: true, practiced: false, level: null }, { by: 'NV05 – Người hướng dẫn thử', at: y + ' 08:05:00' });
+    logMark(1, 13, null, { introduced: true, practiced: true, level: 'kha' }, { by: 'NV07 – Nhân viên cấp 1 thử', pending: true });
+  }
+  // tệp 174: hàm phụ của phân công theo ca
+  const nmE = (e) => (e ? `${e.code} – ${e.name}` : null);
+  const bcodeOf = (id) => (T.branches.find((b) => b.id === id) || {}).code || null;
+  const pubAll = () => (T.schedule_published || []).map((s) => { const w = (T.weeks || []).find((x) => x.id === s.week_id); return w ? { emp: s.employee_id, date: addD(w.start_date, s.weekday), branch_id: s.branch_id, shift: s.shift } : null; }).filter(Boolean);
+  const SH_ORD = (s) => ['Sáng', 'Chiều', 'Tối'].indexOf(s);
+  const schedOf = (eid, from) => pubAll().filter((x) => x.emp === eid && x.date >= from).map(({ date, branch_id, shift }) => ({ date, branch_id, shift }))
+    .sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : SH_ORD(a.shift) - SH_ORD(b.shift)));
+  const matesOf = (date, shift, br, except) => [...new Set(pubAll().filter((x) => x.date === date && x.shift === shift && x.branch_id === br && x.emp !== except).map((x) => x.emp))];
+  const markOf = (tid, no) => T.training_marks.find((m) => m.training_id === tid && m.item_no === no);
+  const stateOf = (m) => (!m ? 'chua' : m.level && m.cho_kiem_tra ? 'cho_kt' : m.level ? 'dat' : m.introduced ? 'gioi_thieu' : 'chua');
+  const fuOf = (t, no) => extras.find((f) => f.training_id === t.id && f.no === no);
+  const setFu = (t, no, patch) => { let f = fuOf(t, no); if (!f) extras.push(f = { training_id: t.id, no, employee_id: null, note: null, is_extra: false, finished_at: null, branch_id: null });
+    Object.assign(f, patch); f.name = emp(f.employee_id)?.name || null; f.branch = bcodeOf(f.branch_id); return f; };
+  const subGuard = (t, d, sh) => {
+    if (emp(me.employee_id)?.rank !== 'Quản lý') throw new Error('Chỉ quản lý được giao lại cho Cấp 1.');
+    if (!d || d < today) throw new Error('Ngày đã qua không giao lại được.');
+    const mine = extras.filter((f) => f.training_id === t.id && f.date === d && f.shift === sh && ((f.employee_id === me.employee_id && !f.sub_by) || f.sub_by === me.employee_id));
+    if (!mine.length) throw new Error('Bạn không có phần dạy ở ca này.');
+    return mine;
+  };
   // tệp 122: người hướng dẫn chính phải là nhân viên cấp Quản lý đang làm
   const mainGuide = (id) => { if (!id) throw new Error('Chọn người hướng dẫn chính (nhân viên cấp Quản lý).'); const e = emp(Number(id)); if (!e || e.rank !== 'Quản lý' || e.status !== 'Đang làm') throw new Error('Người hướng dẫn chính phải là nhân viên cấp Quản lý đang làm.'); };
   const canEdit = (t) => !!me.perms.dao_tao || [t.instructor_id, t.cont_trainer_id].includes(me.employee_id);
@@ -150,7 +193,9 @@ export function makeDt(T, me) {
       mainGuide(p_employee); t.instructor_id = Number(p_employee);
     },
     app_dt_check_ok({ p_id, p_no, p_level }) {
-      const t = tr(p_id); if (!canCheck(t)) throw new Error('Chỉ người hướng dẫn chính của phiếu hoặc người phụ trách chính đào tạo được xác nhận đạt.');
+      const t = tr(p_id);
+      const subOk = part(t).some((f) => f.no === p_no && f.sub_by != null && f.sub_by === me.employee_id);   // tệp 174: quản lý đã giao lại mục này
+      if (!canCheck(t) && !subOk) throw new Error('Chỉ người hướng dẫn chính của phiếu, người phụ trách chính đào tạo hoặc quản lý đã giao lại mục này được xác nhận đạt.');
       const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === p_no);
       if (!m || !m.cho_kiem_tra || !m.level) throw new Error('Hạng mục này không chờ kiểm tra.');
       const o = st3(m);
@@ -197,10 +242,86 @@ export function makeDt(T, me) {
       [...new Set(p_items)].forEach((no) => { const cur = part(t).find((f) => f.no === no); const before = cur?.employee_id || t.instructor_id;
         const nx = { training_id: t.id, no, employee_id: p_employee, name: emp(p_employee)?.name, note: p_note || cur?.note || null, is_extra: !!(cur?.is_extra && !cur?.finished_at), finished_at: null, branch_id: p_employee ? p_branch : null };
         nx.branch = T.branches.find((b) => b.id === nx.branch_id)?.code;
+        if (cur && cur.employee_id !== p_employee) Object.assign(nx, { date: null, shift: null, sub_by: null });   // tệp 174: trang cũ đổi người → mục rời ca
         if (cur) Object.assign(cur, nx); else extras.push(nx);
         if ((p_employee || t.instructor_id) !== before) changed += 1; });
       window.__DT_BULK = (window.__DT_BULK || []).concat([{ p_id, p_items, p_employee, p_branch, p_note }]);   // bài thử đếm số lần gọi (1 lần lưu)
       return { n: new Set(p_items).size, changed };
+    },
+    // tệp 174: phân công theo ca + quản lý giao lại cho Cấp 1 + việc đào tạo của tôi
+    app_dt_plan_board() {
+      const allOpen = me.role === 'chu' || isPtc();
+      const vis = T.trainings.filter((t) => status(t) !== 'hoan_thanh' && (allOpen || isHdc(t)));
+      if (!allOpen && !vis.length) return { can_board: false, rows: [] };
+      return { can_board: true, today,
+        trainers: T.employees.filter((e) => e.status === 'Đang làm' && ['Cấp 1', 'Quản lý'].includes(e.rank)).sort((a, b) => (a.rank < b.rank ? 1 : a.rank > b.rank ? -1 : a.code < b.code ? -1 : 1))
+          .map((e) => ({ id: e.id, name: nmE(e), rank: e.rank, branches: (T.employee_branches || []).filter((x) => x.employee_id === e.id).map((x) => bcodeOf(x.branch_id)) })),
+        rows: vis.map((t) => ({ id: t.id, employee_id: t.employee_id, employee: nmE(emp(t.employee_id)), program: 'Nhân viên chạy bàn 8 ngày', start_date: t.start_date, due: due(t),
+          branch: bcodeOf(t.branch_id), instructor_id: t.instructor_id, instructor: nmE(emp(t.instructor_id)), achieved: ach(t), total, can_check: canCheck(t),
+          shifts: schedOf(t.employee_id, t.start_date).map((x) => ({ ...x, branch: bcodeOf(x.branch_id), mates: matesOf(x.date, x.shift, x.branch_id, t.employee_id) })),
+          items: PROG.items.map((i) => { const m = markOf(t.id, i.no); const f = fuOf(t, i.no) || {}; const kt = !!(m && m.level && m.cho_kiem_tra);
+            return { no: i.no, day: i.day, title: i.title, state: stateOf(m), level: m?.level || null, who_id: f.employee_id ?? null, date: f.date || null, shift: f.shift || null,
+              branch_id: f.branch_id || null, sub_by: f.sub_by || null, pending_by: kt ? accName(m.cho_by) : null, pending_at: kt ? m.cho_at : null }; }) })) };
+    },
+    app_dt_plan_assign({ p_id, p_date, p_shift, p_branch, p_employee, p_items }) {
+      const t = tr(p_id); if (!canAssign(t)) throw new Error('Chỉ người hướng dẫn chính của phiếu, người phụ trách chính đào tạo hoặc Chủ được giao hạng mục.');
+      if (!p_employee) throw new Error('Chọn người dạy.');
+      if (!p_date || p_date < today) throw new Error('Ngày đã qua không phân công lại được.');
+      const s = schedOf(t.employee_id, t.start_date).find((x) => x.date === p_date && x.shift === p_shift);
+      if (!s) throw new Error('Ca này không có trong lịch đã công bố của nhân viên.');
+      window.__DT_PLAN = (window.__DT_PLAN || []).concat([{ fn: 'app_dt_plan_assign', p_id, p_date, p_shift, p_branch, p_employee, p_items }]);
+      const items = p_items || [];
+      part(t).filter((f) => f.employee_id === p_employee && f.date === p_date && f.shift === p_shift && !items.includes(f.no) && !markOf(t.id, f.no)?.level)
+        .forEach((f) => Object.assign(f, { employee_id: null, name: null, date: null, shift: null, sub_by: null }));
+      let n = 0, moved = 0, skipped = 0;
+      items.forEach((no) => { if (markOf(t.id, no)?.level) { skipped += 1; return; } const f = fuOf(t, no); if (f?.date && (f.date !== p_date || f.shift !== p_shift)) moved += 1;
+        setFu(t, no, { employee_id: p_employee, date: p_date, shift: p_shift, sub_by: null, branch_id: s.branch_id, finished_at: null }); n += 1; });
+      return { n, moved, skipped };
+    },
+    app_dt_plan_unassign({ p_id, p_date, p_shift, p_employee }) {
+      const t = tr(p_id); if (!canAssign(t)) throw new Error('Chỉ người hướng dẫn chính của phiếu, người phụ trách chính đào tạo hoặc Chủ được giao hạng mục.');
+      if (!p_date || p_date < today) throw new Error('Ngày đã qua không phân công lại được.');
+      const xs = part(t).filter((f) => f.employee_id === p_employee && f.date === p_date && f.shift === p_shift && !markOf(t.id, f.no)?.level);
+      xs.forEach((f) => Object.assign(f, { employee_id: null, name: null, date: null, shift: null, sub_by: null }));
+      return xs.length;
+    },
+    app_dt_sub_assign({ p_id, p_date, p_shift, p_employee, p_items }) {
+      const t = tr(p_id); const mine = subGuard(t, p_date, p_shift); const my = me.employee_id;
+      const c = emp(p_employee); if (!c || c.rank !== 'Cấp 1' || c.status !== 'Đang làm' || c.id === t.employee_id) throw new Error('Chỉ giao lại cho nhân viên Cấp 1 có tài khoản.');
+      const items = p_items || [];
+      if (items.some((no) => !mine.some((f) => f.no === no) || markOf(t.id, no)?.level)) throw new Error('Chỉ giao lại được mục của bạn, chưa chấm.');
+      window.__DT_PLAN = (window.__DT_PLAN || []).concat([{ fn: 'app_dt_sub_assign', p_id, p_date, p_shift, p_employee, p_items }]);
+      part(t).filter((f) => f.date === p_date && f.shift === p_shift && f.employee_id === p_employee && f.sub_by === my && !items.includes(f.no) && !markOf(t.id, f.no)?.level)
+        .forEach((f) => Object.assign(f, { employee_id: my, name: emp(my)?.name, sub_by: null }));
+      let n = 0; items.forEach((no) => { const f = fuOf(t, no); if (f.employee_id !== p_employee) { Object.assign(f, { employee_id: p_employee, name: c.name, sub_by: my }); n += 1; } });
+      return { n };
+    },
+    app_dt_sub_take({ p_id, p_date, p_shift, p_employee }) {
+      const t = tr(p_id); subGuard(t, p_date, p_shift); const my = me.employee_id;
+      const xs = part(t).filter((f) => f.date === p_date && f.shift === p_shift && f.employee_id === p_employee && f.sub_by === my && !markOf(t.id, f.no)?.level);
+      xs.forEach((f) => Object.assign(f, { employee_id: my, name: emp(my)?.name, sub_by: null }));
+      return xs.length;
+    },
+    app_dt_my_plan() {
+      const my = me.employee_id;
+      if (!my) return { today, shifts: [], checks: [], cap1: [] };
+      const ord = (s) => ['Sáng', 'Chiều', 'Tối'].indexOf(s);
+      const it = (t, f) => { const m = markOf(t.id, f.no); return { no: f.no, title: PROG.items.find((i) => i.no === f.no)?.title, state: stateOf(m), level: m?.level || null }; };
+      const keys = new Map();
+      T.trainings.filter((t) => status(t) !== 'hoan_thanh').forEach((t) => part(t).filter((f) => f.date && f.date >= addD(today, -1) && (f.employee_id === my || f.sub_by === my))
+        .forEach((f) => keys.set(`${t.id}|${f.date}|${f.shift}`, { t, date: f.date, shift: f.shift })));
+      const shifts = [...keys.values()].map(({ t, date, shift }) => {
+        const fs = part(t).filter((f) => f.date === date && f.shift === shift).sort((a, b) => a.no - b.no);
+        const sc = schedOf(t.employee_id, t.start_date); const s = sc.find((x) => x.date === date && x.shift === shift);
+        const subs = []; fs.filter((f) => f.sub_by === my && f.employee_id !== my).forEach((f) => { let g = subs.find((x) => x.who_id === f.employee_id); if (!g) subs.push(g = { who_id: f.employee_id, who: nmE(emp(f.employee_id)), items: [] }); g.items.push(it(t, f)); });
+        const byF = fs.find((f) => f.employee_id === my && f.sub_by);
+        return { training_id: t.id, trainee: nmE(emp(t.employee_id)), date, shift, branch: s ? bcodeOf(s.branch_id) : null, day_no: new Set(sc.filter((x) => x.date <= date).map((x) => x.date)).size,
+          mates: s ? matesOf(date, shift, s.branch_id, t.employee_id) : [], own: fs.filter((f) => f.employee_id === my).map((f) => it(t, f)), subs, by: byF ? nmE(emp(byF.sub_by)) : null };
+      }).sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : ord(a.shift) - ord(b.shift)));
+      const checks = T.trainings.flatMap((t) => part(t).filter((f) => f.sub_by === my).map((f) => ({ f, m: markOf(t.id, f.no), t })).filter(({ m }) => m && m.level && m.cho_kiem_tra)
+        .map(({ f, m, t }) => ({ training_id: t.id, trainee: nmE(emp(t.employee_id)), no: f.no, title: PROG.items.find((i) => i.no === f.no)?.title, level: m.level, who: accName(m.cho_by), at: m.cho_at })));
+      return { today, me_id: my, me_rank: emp(my)?.rank || null, shifts, checks,
+        cap1: T.employees.filter((e) => e.rank === 'Cấp 1' && e.status === 'Đang làm').map((e) => ({ id: e.id, name: nmE(e), branches: (T.employee_branches || []).filter((x) => x.employee_id === e.id).map((x) => bcodeOf(x.branch_id)) })) };
     },
     app_dt_get({ p_id }) {
       const t = tr(p_id);
