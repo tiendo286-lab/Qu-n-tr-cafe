@@ -37,7 +37,8 @@ export default async ({ sleep, out }) => {
       ok(/13:15/.test(viec()?.innerText || ''), 'đọc lại bản đối soát: hiện giờ về mới 13:15'); }
     else ok(false, 'hộp sửa người làm có ô giờ về');
     // 4. Nhân sự đã duyệt → sửa người làm: web bỏ duyệt Nhân sự trước rồi mới lưu (máy chủ khoá trường của mục đã duyệt)
-    if ($('#dsm-workok')) { $('#dsm-workok').click(); await until(() => !$('#dsm-workok'), 40); await sleep(300); }
+    if (/Duyệt phần việc/.test($('#dsm-next1')?.textContent || '')) { $('#dsm-next1').click(); await until(() => !!$('[data-dsm-tab="tien"][aria-selected="true"]'), 40); await sleep(300); }
+    $('[data-dsm-tab="viec"]')?.click(); await sleep(300);   // quay lại bước ① sửa người làm
     $('[data-dsmst="1"]', viec())?.click(); await wait('form [name=note]', 30);
     f = $('[name=note]')?.closest('form');
     if (f) { f.note.value = 'đi muộn có báo'; f.reason.value = 'thử đợt 4'; let n0 = L().length; submit(f);

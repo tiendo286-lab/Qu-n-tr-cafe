@@ -15,9 +15,11 @@ export default async ({ sleep, out }) => {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
     const { rpc } = await import('../js/sb.js');
     try { await rpc('app__test_ca_staff', { p_id: 182, p_n: 2 }); } catch (_) { /* hook cũ */ }
+    await rpc('app_ds2_work_ok', { p_report: 182, p_parts: ['nhan_su', 'ban_giao', 'nhap_hang'] });   // đi từng bước: ① xong mới mở ② Tiền
     // 1. đường dẫn trang mới: hàm sửa tiền đổi sang bản luật mới; trang cũ giữ hàm cũ
     await go('#/ca/doi-soat-moi?id=182&tab=tien', '#dsm');
     ok(!/Bản xem thử/.test($('#dsm')?.innerText || ''), 'trang mới không còn dòng "Bản xem thử"');
+    ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'phần việc đã duyệt → mở được thẳng bước ② Tiền');
     mark();
     let n0 = L().length;
     $('[data-dsmode="ca"]')?.click();

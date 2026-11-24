@@ -20,7 +20,7 @@ export default async ({ sleep, out }) => {
     } else {
       const { rpc } = await import('../js/sb.js');
       const { dayChain, billListOf, dsChecks, dsCtx } = await import('../js/so_thu_chi_tinh.js');
-      const { missingList, CHK_LABEL } = await import('../js/doi_soat_moi_tinh.js');
+      const { moneyLeftList, CHK_LABEL } = await import('../js/doi_soat_moi_tinh.js');
       // ca thử phần tiền chưa có người làm trong phiếu giả → gắn 2 người đang làm (hook sẵn có của máy chủ giả)
       try { await rpc('app__test_ca_staff', { p_id: 182, p_n: 2 }); } catch (_) { /* máy chủ giả cũ không có hook */ }
       // 1. trang cũ có nút sang trang mới
@@ -45,8 +45,11 @@ export default async ({ sleep, out }) => {
       const names = (R.staff || []).filter((s) => s.worked !== 0 && s.worked !== false).map((s) => s.name).filter(Boolean);
       ok(names.length > 0 && names.every((nm) => ($('[data-dsm-pane="viec"]')?.innerText || '').includes(nm)), `trang Phần việc có tên người làm: ${names.join(', ')}`);
       ok(fits(), `trang Phần việc không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
-      // 4. trang ② Tiền: khung khoản, hai màu, phải có / phải nhận bằng cách tính trang cũ
-      await tab('tien');
+      // 4. đi lần lượt 3 bước: ① chưa duyệt thì ② khoá; bấm "Duyệt phần việc, sang bước 2" → sang ② Tiền
+      const lock2 = !!$('[data-dsm-tab="tien"][data-lock]'); await tab('tien');
+      ok(!lock2 || !!$('[data-dsm-tab="viec"][aria-selected="true"]'), 'bước ② khoá khi phần việc chưa duyệt: bấm không sang');
+      $('#dsm-next1')?.click(); await until(() => !!$('[data-dsm-tab="tien"][aria-selected="true"]'), 50); await sleep(400);
+      ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'nút cuối bước ① → sang bước ② Tiền');
       const tm = $('.dsm-must[data-pm="tm"]'), ck = $('.dsm-must[data-pm="ck"]');
       ok(Number(tm?.dataset.v) === money.tm.must, `tiền mặt phải có ${tm?.dataset.v} = trang cũ ${money.tm.must}`);
       ok(Number(ck?.dataset.v) === money.ck.must, `chuyển khoản phải nhận ${ck?.dataset.v} = trang cũ ${money.ck.must}`);
@@ -60,12 +63,12 @@ export default async ({ sleep, out }) => {
       const lack = keys.filter((k) => !tienTxt.includes(CHK_LABEL[k]));
       ok(keys.length > 0 && lack.length === 0, `trang Tiền hiện đủ ${keys.length} mục kiểm của ca${lack.length ? ' — thiếu: ' + lack.join(', ') : ''}`);
       ok(fits(), `trang Tiền không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
-      // 5. trang ③ Hoàn thành: còn thiếu đúng như hàm tính; nút Hoàn thành khoá
-      await tab('xong');
-      const want = missingList(D, ca, R, dsRow).length;
-      ok($$('#dsm-missing li').length === want, `còn thiếu ${$$('#dsm-missing li').length} dòng = ${want}`);
-      ok(!!$('#dsm-done') && !$('#dsm-done').disabled, 'có nút Hoàn thành bấm được (đợt 3: Hoàn thành gộp)');
-      ok(fits(), `trang Hoàn thành không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
+      // 5. bước ② còn thiếu → nút sang ③ mờ, ghi đúng các mục còn thiếu (= hàm tính); ③ khoá
+      const left2 = moneyLeftList(D, ca);
+      ok(left2.length === 0 ? !$('#dsm-next2')?.disabled : !!$('#dsm-next2')?.disabled && $$('[data-dsm-pane="tien"] .dsm-left li').length === left2.length,
+        `bước ② còn ${left2.length} mục → nút sang Hoàn thành ${left2.length ? 'mờ' : 'bấm được'}, danh sách ${$$('[data-dsm-pane="tien"] .dsm-left li').length} dòng`);
+      if (left2.length) { await tab('xong'); ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]') && !!$('[data-dsm-tab="xong"][data-lock]'), 'bước ③ Hoàn thành khoá khi bước ② còn thiếu'); }
+      ok(!!$('#dsm-done'), 'trang Hoàn thành có nút Hoàn thành (đợt 3: Hoàn thành gộp)');
       // 6. Tính lại: không vẽ lại cả trang, chỉ 4 lần hỏi máy chủ
       const mark = document.createElement('i'); mark.id = 'dsm-mark'; $('#dsm').prepend(mark);
       const c0 = rpcCount(); $('#dsm-recalc').click();
@@ -73,7 +76,7 @@ export default async ({ sleep, out }) => {
       const rn = window.__LOG.filter((x) => x[0] === 'rpc').slice(c0).map((x) => x[1]);
       ok(rn.length <= 7 && rn.length >= 2, `Tính lại hỏi máy chủ ${rn.length} lần (≤ 7: phiếu ca, bản đối soát, sổ tháng, người nợ, bảng tuần một ngày, ca chưa xong, giờ chốt): ${rn.join(', ')}`);
       ok(!!$('#dsm-mark'), 'Tính lại không vẽ lại cả trang');
-      ok(!!$('[data-dsm-tab="xong"][aria-selected="true"]'), 'Tính lại giữ trang đang mở');
+      ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'Tính lại giữ trang đang mở');
       // 7. ca chờ kế toán: chuyển khoản hiện ⏳, không có NaN
       await go('#/ca/doi-soat-moi?id=172&tab=tien', '#dsm');
       ok(/⏳/.test($('.dsm-sec[data-pm="ck"]')?.innerText || ''), 'ca chờ kế toán: mục Chuyển khoản hiện ⏳');

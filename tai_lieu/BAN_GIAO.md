@@ -15,6 +15,7 @@ Cập nhật: 24/11/2026 14:00 (**đợt 4 — chuyển hẳn sang trang đối 
 - **Sửa lỗi có từ đợt 1:** trang mới hiện người làm theo phiếu gốc; nay đọc `app_ca_recon` và ghép như trang cũ (`mergeRecon` trong `doi_soat_moi_tinh.js`).
 - **Trang ① mới làm được:** sửa / thêm / bỏ người làm (`app_ca_recon_save` chỉ khoá `staff`, đủ danh sách — máy chủ giữ khoá khác; Nhân sự đã duyệt thì `app_ca_check(nhan_su, false)` trước vì máy chủ khoá trường của mục đã duyệt), `mountCover`, `mountReportEval`, công việc bàn giao (`app_ca_recon_handover_save`, giao thành việc `app_viec_add`).
 - **Bài thử:** `flow_dsm4` (mới), `flow_dsm1/2` theo đường dẫn mới, 18 bài trang cũ mở thẳng trang cũ → `#/ca/doi-soat-cu` (36 chỗ, dòng kiểm đường dẫn web tạo giữ nguyên); `doi_soat_moi_tinh_dot2.mjs` 30/30.
+- **Đi lần lượt 3 bước** (anh Tiến chọn sau khi xem đợt 4): ② khoá tới khi xong ①, ③ khoá tới khi xong ②; nút sang bước / quay lại ở cuối mỗi trang; ② ghi rõ còn thiếu gì. Bài `flow_dsm1..4` sửa theo (đi qua nút bước, kiểm khoá bước); `doi_soat_moi_tinh_dot2.mjs` 38/38.
 - **Còn lại:** bỏ hẳn trang cũ + bài thử cũ khi anh thấy ổn.
 
 ## 24/11/2026 trưa — TRANG ĐỐI SOÁT CA MỚI — ĐỢT 2 + 3 (sửa tại chỗ, Hoàn thành gộp) — ĐÃ LÊN WEB 2026.11.24.2, máy chủ tệp 173 chạy thật 12:41

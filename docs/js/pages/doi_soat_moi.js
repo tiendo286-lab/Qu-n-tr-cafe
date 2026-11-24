@@ -12,7 +12,7 @@ import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.24.3';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { SHIFT_ORDER, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
 import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.24.3';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
-import { CHK_LABEL, WORK_LABEL, caBook, confirmKeys, confirmList, isClean, mergeRecon, missingList, pageState, staffPayload, workParts } from '../doi_soat_moi_tinh.js';
+import { CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';
 
@@ -83,6 +83,10 @@ const CSS = `<style>
 .dsm-ho>span:first-child{min-width:0;overflow-wrap:anywhere;flex:1 1 200px}.dsm-hoa{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .dsm-err2:not(:empty){background:var(--off-bg);color:var(--off-ink);border:1px solid var(--off-line,var(--line));border-radius:10px;padding:9px 12px;white-space:pre-wrap}
 .dsm-after{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.dsm-step{display:flex;gap:8px;align-items:center;flex-wrap:wrap;border-top:1px solid var(--line);padding-top:10px}
+.dsm-step>.dsm-sub,.dsm-step>.dsm-left{flex-basis:100%}
+.dsm-left ul{margin:4px 0 0;padding-left:20px}.dsm-left li{color:var(--off-ink)}
+.dsm-tabs button[data-lock]{opacity:.55}
 </style>`;
 
 // ô tích: k = mã mục quản lý tự tích → nút bấm được (bộ bắt sự kiện của Sổ thu chi gọi app_stc_tick); không k → chỉ hiện trạng thái
@@ -122,10 +126,13 @@ const workMark = (S) => { const left = S.st ? S.st.viec.left : Object.keys(WORK_
 const gapChip = (b) => (b.real == null ? html`<span class="dsm-chip kt">⏳ chờ kế toán</span>`
   : Math.abs(b.gap) <= 5000 ? html`<span class="dsm-chip ok">✓ khớp${b.gap ? ' (lệch nhỏ ' + signedM(b.gap) + ')' : ''}</span>`
   : html`<span class="dsm-chip ${b.gap < 0 ? 'off' : 'warn'}">⚠ ${b.gap < 0 ? 'thiếu' : 'dư'} ${fmt(Math.abs(b.gap))}</span>`);
+// đi lần lượt 3 bước (anh Tiến 24/11): bước sau khoá 🔒 tới khi xong bước trước
+const stepOf = (S) => stepState(S.D, S.ca, S.R, S.dsRow);
 const tabMark = (S, k) => {
-  if (k === 'viec') { const l = workMark(S); return l.length ? `⚠ ${l.length}` : '✓'; }
-  if (k === 'tien') { if (!S.st) return '!'; if (S.st.tien.wait) return '⏳'; return S.st.tien.left ? `⚠ ${S.st.tien.left}` : '✓'; }
-  return S.st && S.st.done ? '✓ xong' : '';
+  const st = stepOf(S); if (!canStep(st, k)) return '🔒';
+  if (k === 'viec') { if (st.viec) return '✓'; const l = workMark(S); return l.length ? `⚠ ${l.length}` : '⚠'; }
+  if (k === 'tien') { if (!S.st) return '!'; if (st.wait) return '⏳'; return st.tien ? '✓' : `⚠ ${S.st.tien.left}`; }
+  return st.xong ? '✓ xong' : '';
 };
 
 // ---------------- trang ① Phần việc ----------------
@@ -166,7 +173,11 @@ function viecPane(S) {
       ${Object.keys(WORK_LABEL).map((k) => tick(!!(R.checks || {})[k], WORK_LABEL[k] + ((R.checks || {})[k] ? ' — đã duyệt' : ' — chưa duyệt')))}
       ${workMark(S).length ? html`<div class="dsm-sub">Còn: ${workMark(S).join(', ')}.</div>` : ''}
       ${wp.blocked.map((t) => html`<div class="alert warn">⚠ ${t} — nhân viên ca này cùng người ca trước đếm lại ở <a href="#/ca/phieu?id=${R.id}">phiếu chốt ca ›</a></div>`)}
-      ${wp.parts.length && !done && !ro ? html`<button type="button" class="btn" id="dsm-workok">✓ Duyệt phần việc (${wp.parts.map((k) => WORK_LABEL[k]).join(', ')})</button>` : ''}</section>`;
+      </section>
+    <div class="dsm-step">${wp.parts.length && !done && !ro && !wp.blocked.length
+        ? html`<button type="button" class="btn" id="dsm-next1">✓ Duyệt phần việc (${wp.parts.map((k) => WORK_LABEL[k]).join(', ')}), sang bước 2: Tiền ›</button>`
+        : html`<button type="button" class="btn" id="dsm-next1" ${wp.blocked.length && !done ? raw('disabled') : ''}>Sang bước 2: Tiền ›</button>`}
+      ${wp.blocked.length && !done ? html`<div class="dsm-sub">Chưa sang bước 2 được: ${wp.blocked.join(', ')}.</div>` : ''}</div>`;
 }
 
 // ---------------- trang ② Tiền ----------------
@@ -203,8 +214,9 @@ function bookSec(S, b, pm, ticks) {
     ${ticks}</section>`;
 }
 function tienPane(S) {
-  if (S.err) return html`<div class="alert warn dsm-err">${S.err}</div>`;
+  if (S.err) return html`<div class="alert warn dsm-err">${S.err}</div><div class="dsm-step"><button type="button" class="btn secondary" id="dsm-back1">‹ Bước 1</button></div>`;
   const { D, ca, a } = S; const ro = !!D.locked || !!ca.done;
+  const st = stepOf(S); const left = st.tien ? [] : moneyLeftList(D, ca);
   const all = dsChecks(ca, dsCtx(D, ca)).flat(); const has = (k) => all.find((x) => x.k === k);
   const mt = (k) => { const x = has(k); return x ? tick(x.ok, CHK_LABEL[k], x.auto ? null : k, ro) : ''; };
   const mk = (k) => { const x = has(k); return !x ? '' : html`<i class="stc-mk ${x.ok ? 'ok' : ''}">${x.ok ? '✓' : '!'}</i>`; };
@@ -215,7 +227,10 @@ function tienPane(S) {
     <section class="dsm-card"><h2>Quản lý kiểm tra (số máy Fabi, nợ)</h2>${mt('anh')}${mt('hd')}${mt('phanloai')}${mt('tn')}</section>
     <div class="stc-dsp dsm-old">${a ? stcPart(D, a, 2, mk) : ''}</div>
     ${bookSec(S, book.tm, 'tm', html`${mt('cash')}${mt('goi')}${mt('ket')}${mt('sot')}${mt('cat')}${mt('that')}${mt('lon')}${mt('tm')}${gapTicks('tm')}`)}
-    ${bookSec(S, book.ck, 'ck', html`${mt('ck')}${mt('ck5')}${gapTicks('ck')}`)}`;
+    ${bookSec(S, book.ck, 'ck', html`${mt('ck')}${mt('ck5')}${gapTicks('ck')}`)}
+    <div class="dsm-step"><button type="button" class="btn secondary" id="dsm-back1">‹ Bước 1</button><button type="button" class="btn" id="dsm-next2" ${st.tien ? '' : raw('disabled')}>Xong tiền, sang bước 3: Hoàn thành ›</button>
+      ${st.tien ? '' : st.wait ? html`<div class="dsm-sub">⏳ Chờ kế toán (file Fabi / số ngân hàng) — chưa sang Hoàn thành được.</div>`
+        : html`<div class="dsm-left"><b>Còn ${left.length} mục ở bước này:</b><ul>${left.map((t) => html`<li>${t}</li>`)}</ul></div>`}</div>`;
 }
 
 // ---------------- trang ③ Hoàn thành ----------------
@@ -231,13 +246,14 @@ function xongPane(S) {
     ${done ? html`<section class="dsm-card"><h2>Đã hoàn thành đối soát ca</h2>
         <div class="dsm-sub">Muốn sửa: bấm Mở lại — bỏ dấu Hoàn thành và mục tiền (ca về "chưa xong", sửa được ngay), dấu duyệt phần việc giữ nguyên.</div>
         ${ro ? '' : html`<button type="button" class="btn secondary" id="dsm-reopen">Mở lại</button>`}</section>`
-      : html`<section class="dsm-card"><h2>Còn thiếu</h2>
-      ${miss.length ? html`<ul id="dsm-missing">${miss.map((x) => html`<li data-go="${x.page}">${x.text} <span>· ${x.page === 'viec' ? 'trang Phần việc' : 'trang Tiền'}</span></li>`)}</ul>` : html`<div class="dsm-sub">Không còn thiếu gì.</div>`}</section>
+      : html`${miss.length ? html`<section class="dsm-card"><h2>Còn thiếu</h2>
+      <ul id="dsm-missing">${miss.map((x) => html`<li data-go="${x.page}">${x.text} <span>· ${x.page === 'viec' ? 'bước 1' : 'bước 2'}</span></li>`)}</ul></section>` : ''}
     ${conf.length || wp.parts.length ? html`<section class="dsm-confirm"><b>Bấm Hoàn thành là xác nhận đã:</b><ol>${conf.map((t) => html`<li>${t}</li>`)}${wp.parts.length ? html`<li>Duyệt phần việc: ${wp.parts.map((k) => WORK_LABEL[k]).join(', ')}</li>` : ''}</ol>
       <div class="dsm-sub">Web cũng tự xác nhận số Fabi (không còn nút Xác nhận Fabi). Thiếu gì thì báo, không lưu gì.</div></section>` : ''}
     <div id="dsm-finerr" class="dsm-err2" role="alert"></div>
     ${ro ? '' : html`<button type="button" class="btn" id="dsm-done">Hoàn thành</button>`}`}
-    <div id="dsm-after"></div>`;
+    <div id="dsm-after"></div>
+    <div class="dsm-step"><button type="button" class="btn secondary" id="dsm-back2">‹ Bước 2</button></div>`;
 }
 
 // ---------------- khung trang ----------------
@@ -245,7 +261,7 @@ function body(S, active) {
   const R = S.R; const cas = S.D ? (S.D.cas || []).slice().sort((a, b) => (a.date === b.date ? rank(a.shift) - rank(b.shift) : a.date < b.date ? -1 : 1)) : [];
   const i = cas.findIndex((c) => Number(c.id) === Number(R.id)); const prev = i > 0 ? cas[i - 1] : null; const next = i >= 0 && i < cas.length - 1 ? cas[i + 1] : null;
   const nx = nextUnfinished(S.con, R);
-  return html`<nav class="dsm-tabs" aria-label="Các trang đối soát">${TABS.map(([k, t]) => html`<button type="button" data-dsm-tab="${k}" aria-selected="${k === active ? 'true' : 'false'}">${t}<span class="mk">${tabMark(S, k)}</span></button>`)}</nav>
+  return html`<nav class="dsm-tabs" aria-label="Các trang đối soát">${TABS.map(([k, t]) => html`<button type="button" data-dsm-tab="${k}" aria-selected="${k === active ? 'true' : 'false'}" ${canStep(stepOf(S), k) ? '' : raw('data-lock="1"')}>${t}<span class="mk">${tabMark(S, k)}</span></button>`)}</nav>
     <div data-dsm-pane="viec" class="dsm" ${active === 'viec' ? '' : raw('hidden')}>${viecPane(S)}</div>
     <div data-dsm-pane="tien" class="dsm" ${active === 'tien' ? '' : raw('hidden')}>${tienPane(S)}</div>
     <div data-dsm-pane="xong" class="dsm" ${active === 'xong' ? '' : raw('hidden')}>${xongPane(S)}</div>
@@ -253,19 +269,15 @@ function body(S, active) {
       ${nx ? html`<a class="btn sm" href="#/ca/doi-soat?id=${nx.id}">Ca tiếp theo chưa xong ›</a>` : ''}
       ${next ? html`<a class="btn sm secondary" href="#/ca/doi-soat?id=${next.id}">Ca sau ›</a>` : html`<span></span>`}</div>`;
 }
-const firstTab = (S) => {
-  if (S.ca && isClean(S.D, S.ca, S.R, S.dsRow)) return 'xong';
-  if (workMark(S).length) return 'viec';
-  if (!S.st || !S.st.tien.ok || S.st.tien.wait) return 'tien';
-  return 'xong';
-};
+// mở ca: vào bước đầu còn việc (ca đã Hoàn thành / xong cả 2 bước → bước 3)
+const firstTab = (S) => firstStep(stepOf(S));
 
 export async function render({ params }) {
   const id = Number(params.id);
   if (!id) return { title: 'Đối soát ca', html: html`<div class="card">Thiếu mã ca.</div>` };
   let S = await loadShift(id);
   const R = S.R;
-  let active = ['viec', 'tien', 'xong'].includes(params.tab) ? params.tab : firstTab(S);
+  let active = ['viec', 'tien', 'xong'].includes(params.tab) && canStep(stepOf(S), params.tab) ? params.tab : firstTab(S);
   const title = `Ca ${R.shift} · ${dayName(R.work_date)} · ${R.branch_code || ''}`;
   return {
     title: `Đối soát ca mới · ${R.shift} ${String(R.work_date).slice(8, 10)}/${String(R.work_date).slice(5, 7)}`,
@@ -276,11 +288,14 @@ export async function render({ params }) {
       <div id="dsm-body">${body(S, active)}</div></div>`,
     mount(root) {
       const show = (k) => {
+        if (!canStep(stepOf(S), k)) { showSaved(k === 'tien' ? 'Làm xong bước 1: Phần việc (Duyệt phần việc) rồi mới sang bước 2.' : 'Làm xong bước 2: Tiền rồi mới sang bước 3: Hoàn thành.', true); return false; }
         active = k; if (k === 'viec') mountWork($('#dsm-body', root));
         $$('[data-dsm-tab]', root).forEach((b) => b.setAttribute('aria-selected', String(b.dataset.dsmTab === k)));
         $$('[data-dsm-pane]', root).forEach((p) => { p.hidden = p.dataset.dsmPane !== k; });
         try { const [pth, qs] = location.hash.split('?'); const u = new URLSearchParams(qs || ''); u.set('tab', k); history.replaceState(null, '', pth + '?' + u.toString()); } catch (_) { /* bỏ qua */ }
+        return true;
       };
+      const top = () => { try { window.scrollTo({ top: 0 }); } catch (_) { /* bỏ qua */ } };
       // vẽ lại phần thân: thay hẳn phần tử #dsm-body (bộ bắt sự kiện cũ đi theo phần tử cũ), gắn lại bộ bắt của Sổ thu chi với dữ liệu mới
       const bind = (el) => {
         if (!el) return;
@@ -289,7 +304,10 @@ export async function render({ params }) {
         $$('select[data-catx]', el).forEach((x) => x.addEventListener('click', (e) => e.stopPropagation()));   // chọn nhóm trong khung: không mở hộp Sửa
         $$('.dsm-it[data-ed]', el).forEach((b) => b.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); b.click(); } }));
         $$('[data-dsmgap]', el).forEach((b) => b.addEventListener('click', () => gapOpen(b.dataset.dsmgap, b)));
-        $('#dsm-workok', el)?.addEventListener('click', (ev) => workOk(ev.currentTarget));
+        $('#dsm-next1', el)?.addEventListener('click', (ev) => next1(ev.currentTarget));
+        $('#dsm-back1', el)?.addEventListener('click', () => { if (show('viec')) top(); });
+        $('#dsm-next2', el)?.addEventListener('click', () => { if (show('xong')) top(); });
+        $('#dsm-back2', el)?.addEventListener('click', () => { if (show('tien')) top(); });
         $('#dsm-done', el)?.addEventListener('click', (ev) => finish(ev.currentTarget));
         $('#dsm-reopen', el)?.addEventListener('click', () => reopen());
         $$('[data-dsmst]', el).forEach((b) => b.addEventListener('click', () => staffDialog(Number(b.dataset.dsmst))));
@@ -303,6 +321,7 @@ export async function render({ params }) {
       // keep: chỉ đổi tại chỗ (tích / Để sau / chọn nhóm) — giữ dòng giờ chốt đã lấy, khỏi hỏi lại máy chủ
       const draw = (keep = false) => {
         const old = $('#dsm-body', root); if (!old) return;
+        if (!canStep(stepOf(S), active)) active = firstTab(S);   // bước đang mở bị khoá lại (vd sửa người làm → bỏ duyệt Nhân sự)
         const nb = document.createElement('div'); nb.id = 'dsm-body'; nb.innerHTML = str(body(S, active));
         if (keep) old.querySelectorAll('.stc-gio[data-gio-state="done"]').forEach((g) => {
           const t = nb.querySelector(`.stc-gio[data-gio-ca="${g.dataset.gioCa}"]`); if (t) { t.innerHTML = g.innerHTML; t.dataset.gioState = 'done'; } });
@@ -317,10 +336,15 @@ export async function render({ params }) {
           if (!stcGap(S.D, gid)) showSaved('Không tìm thấy dòng chênh lệch — bấm Tính lại.', true);
         } catch (e) { b.disabled = false; showSaved(e.message || String(e), true); }
       };
-      const workOk = async (b) => {
-        b.disabled = true;
-        try { await rpc('app_ds2_work_ok', { p_report: id, p_parts: workParts(S.R).parts }); await reload(); showSaved('Đã duyệt phần việc'); }
-        catch (e) { b.disabled = false; showSaved(e.message || String(e), true); }
+      // bước 1 → 2: còn phần việc chưa duyệt thì duyệt (app_ds2_work_ok) rồi sang bước 2
+      const next1 = async (b) => {
+        const parts = workParts(S.R).parts;
+        if (parts.length && !(S.ca && S.ca.done) && S.R.recon_status !== 'hoan_thanh') {
+          b.disabled = true;
+          try { await rpc('app_ds2_work_ok', { p_report: id, p_parts: parts }); await reload(); showSaved('Đã duyệt phần việc'); }
+          catch (e) { b.disabled = false; showSaved(e.message || String(e), true); return; }
+        }
+        if (show('tien')) top();
       };
       // Hoàn thành gộp (máy chủ app_ds2_finish — một giao dịch): duyệt phần việc web hiện, xác nhận số Fabi, tích ô cơ bản, Hoàn thành; thiếu thì báo, không lưu gì.
       // Xong: sau 1,5 giây tự mở ca tiếp theo chưa xong của cơ sở (nút "Ở lại ca này"); hết ca thì báo và về bảng tuần Chốt ca.

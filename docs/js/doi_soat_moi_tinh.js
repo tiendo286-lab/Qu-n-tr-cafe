@@ -116,6 +116,20 @@ export function staffPayload(s) {
   return { employee_id: Number(s.employee_id), source: s.source || 'lich', role: s.role || null, worked: !!(s.worked === undefined ? true : s.worked),
     time_in: t(s.time_in), time_out: t(s.time_out), absent_reason: t(s.absent_reason), note: t(s.note), cash_paid: Number(s.cash_paid) > 0 ? Number(s.cash_paid) : null };
 }
+// Đi lần lượt 3 bước (anh Tiến 24/11 chọn "Đi lần lượt từng bước"): ① Phần việc xong mới sang ② Tiền, ② xong mới sang ③ Hoàn thành.
+// ① xong = không còn phần việc phải duyệt và không vướng (nhận két lệch cần đếm lại); chờ Chủ duyệt x2 không chặn.
+// ② xong = mọi mục tiền xanh (trừ 4 ô cơ bản và Xác nhận Fabi — Hoàn thành tự làm), không chờ kế toán. Ca đã Hoàn thành: xem được cả 3 bước.
+export function stepState(D, ca, R, dsRow) {
+  const w = workParts(R); const done = !!(ca && ca.done);
+  const viec = done || (!w.parts.length && !w.blocked.length);
+  if (!ca || !D) return { viec, tien: done, xong: done, wait: false };
+  const p = pageState(D, ca, R, dsRow);
+  return { viec, tien: done || (p.tien.ok && !p.tien.wait), xong: done, wait: !done && p.tien.wait };
+}
+export const canStep = (st, k) => k === 'viec' || (k === 'tien' ? !!st.viec : !!(st.viec && st.tien));
+export const firstStep = (st) => (st.xong ? 'xong' : !st.viec ? 'viec' : !st.tien ? 'tien' : 'xong');
+// Bước ② còn thiếu gì (chữ của từng mục tiền chưa xong, bỏ 4 ô cơ bản và Xác nhận Fabi)
+export const moneyLeftList = (D, ca) => moneyLeft(D, ca).map((x) => CHK_LABEL[x.k] || x.k);
 // Đợt 3: mã các ô cơ bản quản lý xác nhận khi bấm Hoàn thành (cùng danh sách, cùng thứ tự với confirmList) — gửi lên app_ds2_finish
 export function confirmKeys(D, ca) {
   const all = dsChecks(ca, dsCtx(D, ca)).flat();

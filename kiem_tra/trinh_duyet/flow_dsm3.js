@@ -23,26 +23,23 @@ export default async ({ sleep, out }) => {
     await until(() => since(n0).includes('app_ds2_reopen'), 40); await until(() => !!$('#dsm-done'), 40); await sleep(400);
     ok(since(n0).includes('app_ds2_reopen'), `Mở lại gọi app_ds2_reopen: ${since(n0).join(', ')}`);
     ok(!$('#dsm-reopen') && !!$('#dsm-done'), 'sau Mở lại: hết nút Mở lại, có nút Hoàn thành');
-    // 2. Duyệt phần việc: một lệnh app_ds2_work_ok, phần việc thành đã duyệt
+    // 2. bước ①: "Duyệt phần việc, sang bước 2" — một lệnh app_ds2_work_ok rồi sang ② Tiền
     await tab('viec');
-    ok(!!$('#dsm-workok'), `trang Phần việc có nút Duyệt phần việc: ${$('#dsm-workok')?.innerText.trim() || '-'}`);
-    n0 = L().length; $('#dsm-workok')?.click();
-    await until(() => since(n0).includes('app_ds2_work_ok'), 40); await until(() => !$('#dsm-workok'), 40); await sleep(300);
-    ok(since(n0).includes('app_ds2_work_ok') && !$('#dsm-workok'), `Duyệt phần việc gọi app_ds2_work_ok rồi hết nút: ${since(n0).join(', ')}`);
-    // 3. Hoàn thành khi còn mục cần hỏi người chưa tích → báo rõ, không lưu gì (ô tích không đổi)
-    const t0 = await ticksOf(rpc);
-    await tab('xong'); n0 = L().length; $('#dsm-done')?.click();
-    await until(() => since(n0).includes('app_ds2_finish'), 40); await until(() => /\S/.test($('#dsm-finerr')?.innerText || ''), 40); await sleep(300);
-    ok(/Còn mục|chưa|Chờ/i.test($('#dsm-finerr')?.innerText || ''), `Hoàn thành thiếu mục → báo: ${($('#dsm-finerr')?.innerText || '-').slice(0, 120)}`);
-    ok(!$('#dsm-reopen'), 'Hoàn thành thiếu mục → ca chưa Hoàn thành');
-    ok(await ticksOf(rpc) === t0, 'Hoàn thành thiếu mục → không lưu ô tích nào');
+    ok(/Duyệt phần việc/.test($('#dsm-next1')?.textContent || ''), `cuối bước ① có nút Duyệt phần việc: ${$('#dsm-next1')?.textContent.trim() || '-'}`);
+    n0 = L().length; $('#dsm-next1')?.click();
+    await until(() => since(n0).includes('app_ds2_work_ok'), 40); await until(() => !!$('[data-dsm-tab="tien"][aria-selected="true"]'), 40); await sleep(300);
+    ok(since(n0).includes('app_ds2_work_ok') && !!$('[data-dsm-tab="tien"][aria-selected="true"]'), `duyệt phần việc (app_ds2_work_ok) rồi sang bước ②: ${since(n0).join(', ')}`);
+    // 3. bước ② còn mục cần hỏi người chưa tích → nút sang Hoàn thành mờ, ghi rõ còn thiếu; bước ③ khoá
+    ok(!!$('#dsm-next2')?.disabled && $$('[data-dsm-pane="tien"] .dsm-left li').length > 0, `bước ② còn thiếu → nút sang Hoàn thành mờ: ${$$('[data-dsm-pane="tien"] .dsm-left li').map((x) => x.textContent.trim()).join(' · ')}`);
+    await tab('xong'); ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'bước ③ khoá khi bước ② còn thiếu');
     // 4. tích đủ mục cần hỏi người + chọn nhóm + Để sau ở trang Tiền, rồi Hoàn thành → xong; tự sang ca sau 1,5 giây, bấm "Ở lại ca này" thì ở lại
     await tab('tien');
     for (let g = 0; g < 8 && $('[data-dsm-pane="tien"] select[data-catx].need'); g++) { const s = $('[data-dsm-pane="tien"] select[data-catx].need'); s.value = [...s.options].find((o) => o.value && o.value !== 'x')?.value || ''; s.dispatchEvent(new Event('change', { bubbles: true })); await sleep(600); }
     for (let g = 0; g < 4 && $('[data-dsm-pane="tien"] [data-dssau][aria-pressed="false"]'); g++) { $('[data-dsm-pane="tien"] [data-dssau][aria-pressed="false"]').click(); await sleep(600); }
     for (let g = 0; g < 12 && $('[data-dsm-pane="tien"] [data-tick][aria-pressed="false"]:not([data-tick="anh"]):not([data-tick="sot"]):not([data-tick="that"]):not([data-tick="goi"])'); g++) {
       $('[data-dsm-pane="tien"] [data-tick][aria-pressed="false"]:not([data-tick="anh"]):not([data-tick="sot"]):not([data-tick="that"]):not([data-tick="goi"])').click(); await sleep(600); }
-    await tab('xong');
+    ok(!$('#dsm-next2')?.disabled, 'tích đủ ở bước ② → nút "Xong tiền, sang Hoàn thành" bấm được');
+    $('#dsm-next2')?.click(); await until(() => !!$('[data-dsm-tab="xong"][aria-selected="true"]'), 30); await sleep(300);
     const conf = $$('.dsm-confirm li').map((x) => x.innerText.trim());
     ok(conf.length > 0, `trang Hoàn thành ghi rõ bấm là xác nhận: ${conf.join(' · ')}`);
     n0 = L().length; $('#dsm-done')?.click();

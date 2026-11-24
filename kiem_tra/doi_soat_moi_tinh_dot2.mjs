@@ -1,6 +1,6 @@
 // Bài thử hàm thuần — trang đối soát ca mới đợt 2 + 3. Chạy: jsc -m kiem_tra/doi_soat_moi_tinh_dot2.mjs (dòng cuối "ĐẠT n kiểm tra").
 import { DS2, ds2Name } from '../docs/js/ds2.js';
-import { workParts, confirmKeys, mergeRecon, staffPayload } from '../docs/js/doi_soat_moi_tinh.js';
+import { workParts, confirmKeys, mergeRecon, staffPayload, stepState, canStep, firstStep, moneyLeftList } from '../docs/js/doi_soat_moi_tinh.js';
 const bad = []; let n = 0;
 const eq = (got, want, msg) => { n++; if (JSON.stringify(got) !== JSON.stringify(want)) bad.push(`${msg}: được ${JSON.stringify(got)}, cần ${JSON.stringify(want)}`); };
 
@@ -53,6 +53,26 @@ eq(staffPayload({ employee_id: 2, code: 'B2', name: 'X', source: 'ho_tro', role:
   { employee_id: 2, source: 'ho_tro', role: null, worked: false, time_in: null, time_out: null, absent_reason: 'ốm', note: null, cash_paid: null }, 'người nghỉ: worked=false, ô rỗng thành null, không gửi tên');
 eq(staffPayload({ employee_id: 1, worked: 1, time_in: '06:45', time_out: '13:15', cash_paid: 150000 }),
   { employee_id: 1, source: 'lich', role: null, worked: true, time_in: '06:45', time_out: '13:15', absent_reason: null, note: null, cash_paid: 150000 }, 'người làm: thiếu nguồn = theo lịch, giữ lương trả tiền mặt');
+
+// ---- đi lần lượt 3 bước (anh Tiến 24/11): xong ① mới sang ②, xong ② mới sang ③ Hoàn thành ----
+const D3 = (ca) => ({ cas: [ca], items: [], ca_debts: [] });
+const Rw = (checks) => ({ id: 501, checks, cash_hand: { state: 'khop' } });
+const ALLW = { nhan_su: {}, ban_giao: {}, nhap_hang: {} };
+let c3 = ca2(); let st3 = stepState(D3(c3), c3, Rw({}), null);
+eq([st3.viec, st3.tien, st3.xong, firstStep(st3), canStep(st3, 'viec'), canStep(st3, 'tien'), canStep(st3, 'xong')], [false, true, false, 'viec', true, false, false],
+  'phần việc chưa duyệt: mở ở ①, ② và ③ khoá (dù tiền đã xong)');
+st3 = stepState(D3(c3), c3, Rw(ALLW), null);
+eq([st3.viec, st3.tien, firstStep(st3), canStep(st3, 'tien'), canStep(st3, 'xong')], [true, true, 'xong', true, true], 'phần việc xong + tiền xong: mở thẳng ③ Hoàn thành');
+c3 = ca2({ ql_counted: null }); st3 = stepState(D3(c3), c3, Rw(ALLW), null);
+eq([st3.viec, st3.tien, firstStep(st3), canStep(st3, 'tien'), canStep(st3, 'xong')], [true, false, 'tien', true, false], 'tiền chưa xong (chưa nhập tiền mặt đếm): mở ở ②, ③ khoá');
+eq(moneyLeftList(D3(c3), c3), ['Đã đếm két và nhập tiền mặt thực nhận'], 'bước ② ghi rõ còn thiếu gì');
+c3 = ca2({ kt_wait: true }); st3 = stepState(D3(c3), c3, Rw(ALLW), null);
+eq([st3.tien, st3.wait, canStep(st3, 'xong')], [false, true, false], 'chờ kế toán: ② chưa xong, ③ khoá');
+c3 = ca2({ done: { at: 'x' }, ql_counted: null }); st3 = stepState(D3(c3), c3, Rw({}), null);
+eq([st3.viec, st3.tien, st3.xong, firstStep(st3), canStep(st3, 'tien')], [true, true, true, 'xong', true], 'ca đã Hoàn thành: xem được cả 3 bước, mở ở ③');
+st3 = stepState(null, null, Rw({}), null);
+eq([st3.viec, st3.tien, firstStep(st3)], [false, false, 'viec'], 'không đọc được phần tiền: ở ①');
+eq(stepState(D3(ca2()), ca2(), { id: 501, checks: { nhan_su: {}, nhap_hang: {} }, cash_hand: { state: 'can_dem_lai' } }, null).viec, false, 'nhận két lệch cần đếm lại: ① chưa xong');
 
 if (bad.length) { print(bad.join('\n')); throw new Error(`HỎNG ${bad.length}/${n}`); }
 print(`ĐẠT ${n} kiểm tra`);
