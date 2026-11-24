@@ -11,7 +11,9 @@ export default async ({ sleep, out }) => {
   const setv = (sel, v) => { const el = $(sel, dlg() || document); el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const wide = (m) => { if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `${m}: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const open = async (id) => { location.hash = DS + '&ds=' + id + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
+  const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
+    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+  const open = async (id) => { location.hash = cu(DS + '&ds=' + id + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
   // bước 168: điện thoại đang mở ca thì lịch thu gọn thành "‹ Chọn ca khác" — bấm để xem ô lịch rồi chọn lại ca
   const calCell = async () => ({ t: txt($('.stc-dsp .stc-dsh .pill')) });   // trạng thái ca: nhãn đầu khối tiền (lưới ca của tab cũ đã bỏ)
   const submit = async () => { $('button[type=submit]', dlg()).click(); await sleep(1000); };

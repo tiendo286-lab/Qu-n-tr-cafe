@@ -13,6 +13,8 @@ export default async ({ sleep, out }) => {
   const P = () => $('.stc-addp'); const el = (n) => $(`[name=${n}]`, P());
   const SO = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11';
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
+  const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
+    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     const sb = (await import('/js/sb.js')).sb; await sb.rpc('app_stc_ds_undone', { p_report: 171 });
@@ -26,7 +28,7 @@ export default async ({ sleep, out }) => {
     $('[data-x]', P()).click(); await sleep(200);
     // B. "Còn thiếu" bấm được
     location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
-    location.hash = DS + '&ds=182&b=2&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500);
+    location.hash = cu(DS + '&ds=182&b=2&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500);
     const lk = [...document.querySelectorAll('.stc-dsp .stc-a-end button.stc-lk')].find((b) => txt(b).includes('ô đỏ'));
     ok(!!lk, 'B1. dòng "Còn thiếu" có nút bấm "còn ô đỏ ở ①"');
     if (lk) { lk.click(); await sleep(500); ok(!!$('.stc-dsp .stc-step[data-step="0"]') && !!$('.stc-dsp .stc-c4[data-k="no"]'), 'B2. bấm → nhảy về bước 1 (thấy ô Nợ bill cần xử lý)'); }

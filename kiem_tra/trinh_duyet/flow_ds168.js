@@ -12,15 +12,17 @@ export default async ({ sleep, out }) => {
   const wait = async (s, n = 60) => { for (let i = 0; i < n && !$(s); i++) await sleep(100); return $(s); };
   const phone = innerWidth <= 600;
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
+  const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
+    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   const wide = (m) => ok(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, m + ': không tràn ngang');
-  const open = async (id) => { location.hash = DS + '&ds=' + id + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
+  const open = async (id) => { location.hash = cu(DS + '&ds=' + id + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
   const tab3 = async () => { $('.ds-pt[data-ptab="xong"]')?.click(); await sleep(350); };   // bước 6 cũ = tab ③ Hoàn thành
   const XONG = '[data-tab-pane="xong"]';
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // ---- a. chưa chọn ca: đường cũ (không có ca) → bảng tuần Chốt ca của cơ sở (ô ca hai dòng Việc · Tiền, "Còn N ca chưa đối soát xong")
-    location.hash = DS + '&t=' + Date.now(); await sleep(500); await wait('.cw-t', 80); await wait('.cw-con', 30); await sleep(500);
+    location.hash = cu(DS + '&t=' + Date.now()); await sleep(500); await wait('.cw-t', 80); await wait('.cw-con', 30); await sleep(500);
     // tháng này → tuần hiện tại (có thể chưa có phiếu nào trong tuần) — kiểm bảng tuần + dòng "Còn N ca chưa đối soát xong" (tính từ 01/11), không phụ thuộc ngày chạy
     ok(location.hash.startsWith('#/ca?') && !!$('.cw-t') && !!$('.cw-con') && !$('.stc-dsp'), 'a. đường cũ Đối soát Fabi (chưa chọn ca) → bảng tuần Chốt ca: ' + location.hash.slice(0, 40));
     wide('a. bảng tuần Chốt ca');

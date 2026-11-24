@@ -95,7 +95,9 @@ export default async ({ sleep, out }) => {
     // ---- c. bước 1 của ca (chặng 6.4, anh Tiến chốt 23/11): nợ khách hàng không cần xếp (✓ + Đổi nhóm); nợ khác phân loại Chủ / Người nhà / Kho tổng
     //      ca 182: Bàn 5 (HĐ), Bàn 3 (TM) là nợ khách còn tiền; Chị Lan đã trả
     const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-    const openCa = async (id, b) => { location.hash = DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
+    const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
+      return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+    const openCa = async (id, b) => { location.hash = cu(DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
     const sortItem = () => $$('.stc-dsp .stc-chk .stc-ci').find((x) => txt(x).includes('nợ khác của ca'));
     const rows = () => $$('.stc-dsp .stc-cdr[data-t="moi"]');
     const rowOf = (name) => rows().find((x) => txt(x).includes(name));

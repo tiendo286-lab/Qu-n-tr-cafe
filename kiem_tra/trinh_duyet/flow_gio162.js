@@ -12,7 +12,9 @@ export default async ({ sleep, out }) => {
   const role = new URLSearchParams(location.search).get('role') || 'chu';
   const phone = window.innerWidth <= 400;
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
-  const openDs = async (id) => { location.hash = DS + '&ds=' + id + '&b=1&t=' + Date.now(); await wait('.stc-dsp'); await wait('.stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(200); };
+  const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
+    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+  const openDs = async (id) => { location.hash = cu(DS + '&ds=' + id + '&b=1&t=' + Date.now()); await wait('.stc-dsp'); await wait('.stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(200); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // 1. ca 181: file Fabi vô lý → hiện "không hợp lệ, sửa tay" + nút sửa

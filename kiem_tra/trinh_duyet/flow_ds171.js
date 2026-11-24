@@ -11,8 +11,10 @@ export default async ({ sleep, out }) => {
   const good = [], bad = []; const ok = (c, m) => (c ? good : bad).push(m);
   const wait = async (s, n = 60) => { for (let i = 0; i < n && !$(s); i++) await sleep(100); return $(s); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
+  const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
+    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   const wide = (m) => ok(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, m + ': không tràn ngang');
-  const open = async (id, b) => { location.hash = DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now(); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
+  const open = async (id, b) => { location.hash = cu(DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
   const step = async (i) => { $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`)?.click(); await sleep(350); };
   const cur = () => $('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep;
   const pill = () => txt($('.stc-dsp .stc-dsh .pill'));
