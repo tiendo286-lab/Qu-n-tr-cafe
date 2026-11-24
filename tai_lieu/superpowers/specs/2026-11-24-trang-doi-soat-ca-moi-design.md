@@ -20,6 +20,7 @@
 6. Đồng ý các đề xuất G1–G8 của bản rà soát.
 7. Cách làm **B — viết lại trang đối soát ca mới, chạy song song trang cũ** tới khi xong.
 8. Trang mới dùng cho **Chủ, quản lý tổng và quản lý** (mọi người đang đối soát được).
+9. **Tách riêng Tiền mặt và Chuyển khoản** thành hai mục (thay cho các mục chung Tiền thực nhận / Thu chi / Chênh lệch).
 
 ## 3. Không làm / tuyệt đối tránh
 
@@ -52,9 +53,8 @@ Ca Sáng · Thứ Ba 18/11 · Hải Sơn          [Tính lại]
 ⚠ Số chưa tính lại (hiện khi vừa sửa khoản làm đổi tiền)
 ▸ Phần việc ............. ✓   [Duyệt phần việc]
 ▸ Số máy Fabi ........... ✓
-▾ Tiền thực nhận ........ ⚠   (mở sẵn vì cần xử lý)
-▸ Thu chi của ca ........ ✓   (thu + chi chung một mục)
-▸ Chênh lệch ............ ✓
+▾ Tiền mặt .............. ⚠ thiếu 249.000   (mở sẵn vì cần xử lý)
+▾ Chuyển khoản .......... ⚠ dư 262.000
 Hoàn thành: bấm là xác nhận đã xem ảnh phiếu, không sót thu, …
 [ Hoàn thành ]          ‹ Ca trước · Ca tiếp theo ›
 ```
@@ -64,9 +64,10 @@ Hoàn thành: bấm là xác nhận đã xem ảnh phiếu, không sót thu, …
 - Nội dung từng mục = **toàn bộ việc trong bản rà soát**, xếp lại:
   - **Phần việc**: người làm, giờ đến / về (sửa có lý do); Nghỉ & làm thay (quản lý cơ sở chỉ xem — quản lý tổng phân loại, Chủ duyệt x2); nhận két ca trước (khớp / lệch → đếm lại cùng người ca trước, lý do); hàng kho tổng nhận trong ca (nhắc, đối soát ở Hàng hoá); đánh giá nhân viên (không bắt buộc). Nút **"Duyệt phần việc"** duyệt cả Nhân sự, Bàn giao, Nhập hàng một lần.
   - **Số máy Fabi**: so tiền mở ca (2 tầng), doanh thu, nợ bill (= danh sách khách nợ hoá đơn); Lấy số máy; Sai, sửa số (Chủ duyệt); chọn ca chịu lệch mở ca; ảnh phiếu Fabi; nợ mới trong ca (xếp nợ khác vào nhóm + người, đổi nhóm, sửa / xoá / thêm nợ quên ghi); khách trả nợ cũ trong ca (+ / Xoá lần trả); ô tích "đã hỏi về hoá đơn sửa / xoá" (khi có).
-  - **Tiền thực nhận**: Thu theo ca / theo ngày; tiền mặt quản lý đếm (thu theo ca); số ngân hàng (kế toán nhập; chưa có thì ⏳); tiền đóng ca = tiền mở ca sau.
-  - **Thu chi của ca** (gộp bước Khoản thu + Khoản chi): phiếu thu và phiếu chi (nhân viên ghi / quản lý ghi); "+ Thêm phiếu" (Thu khác, Thu nợ, Cho nợ, Luân chuyển, Chi); sửa / xoá (lý do); Xoá luân chuyển; chọn nhóm từng khoản chi; → Trừ lương; ô tích "thu nợ đúng khách" (khi có thu nợ) và "đã xem kỹ khoản từ 300.000" (khi có).
-  - **Chênh lệch**: phải có / thực nhận / lệch (≤ 5.000 coi như khớp); Phiếu chênh lệch (trừ lương chọn người bằng ô tích, quán chịu, gán khách trả nợ, ghép ca dư / thiếu, thu khác, chờ Chủ duyệt); Để sau; ô tích "đã hỏi lý do thiếu / thừa" (lệch > 5.000).
+  - **Tiền mặt**: phải có (mở ca + tiền mặt bán + thu tiền mặt − chi tiền mặt, ghi rõ cách tính) · thực nhận (Thu theo ca / theo ngày; quản lý đếm khi thu theo ca) · tiền đóng ca = tiền mở ca sau · phiếu thu / chi **tiền mặt** của ca ("+ Thêm phiếu": Thu khác, Thu nợ, Cho nợ, Luân chuyển, Chi; sửa / xoá có lý do; chọn nhóm từng khoản chi; → Trừ lương) · **lệch tiền mặt** (≤ 5.000 coi như khớp) + Phiếu chênh lệch (trừ lương chọn người bằng ô tích, quán chịu, gán khách trả nợ, ghép ca dư / thiếu, thu khác, chờ Chủ duyệt) + Để sau.
+  - **Chuyển khoản**: phải nhận (chuyển khoản bán + thu chuyển khoản − chi chuyển khoản) · ngân hàng nhận (kế toán nhập; chưa có thì ⏳ chờ kế toán) · phiếu thu / chi **chuyển khoản** của ca (cùng các nút như tiền mặt) · **lệch chuyển khoản** + Phiếu chênh lệch + Để sau.
+  - Phiếu Luân chuyển TM ↔ CK hiện ở cả hai mục (mỗi mục một vế); Xoá luân chuyển xoá cả hai vế. Các ô tích một-cho-cả-ca giữ như bây giờ (một dấu cho ca): "thu nợ đúng khách" hiện ở chỗ khách trả nợ cũ; "đã xem kỹ khoản từ 300.000" và "đã hỏi lý do thiếu / thừa" hiện ở mục có khoản lớn / có lệch (có ở cả hai mục thì là cùng một ô, tích một chỗ là đủ).
+  - Ca chờ kế toán vẫn chờ như luật 17/11 (Hoàn thành cần cả hai mục xong); mục Tiền mặt vẫn xem / sửa được trong lúc chờ.
   - **Hoàn thành**: danh sách điều quản lý xác nhận khi bấm (ảnh phiếu đúng số máy; không sót khoản thu; khoản chi có thật — khi có chi; két để lại 1.000.000 — khi thu theo ca hoặc ca cuối ngày) + danh sách "Còn thiếu" (mục web tự so chưa xanh, mục cần hỏi chưa tích, lệch chưa xử lý…) bấm vào thì nhảy tới chỗ đó.
 
 ### 5.3 Lưu và Tính lại
