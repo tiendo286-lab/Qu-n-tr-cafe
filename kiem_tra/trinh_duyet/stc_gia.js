@@ -230,6 +230,7 @@ export function makeStc(T, me) {
       return { changed: true, rev_end: p_end, next };
     },
     app_stc_month({ p_branch, p_month }) {
+      if (window.__STC_FAIL) throw new Error('Bạn không được xem thu chi của cơ sở này.');   // trang đối soát ca mới (flow_dsm1): giả lập không được xem tiền
       // bước 152: quản lý cơ sở chỉ được giao cơ sở đầu tiên (giả lập Phân công việc Đối soát ca)
       const mine = (bid) => admin() || (me.role === 'ql' && Number(bid) === st().branches[0].id);
       if (!mine(p_branch)) throw new Error('Bạn không được xem thu chi của cơ sở này.');
