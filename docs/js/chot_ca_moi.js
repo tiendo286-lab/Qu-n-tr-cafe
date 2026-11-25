@@ -209,6 +209,21 @@ export async function renderNew(R0, P, SH) {
         <div class="alert ${c.ckLeft === 0 ? 'ok' : 'error'}" style="margin-top:6px"><b>${c.ckLeft === 0 ? 'Chuyển khoản: KHỚP ✓' : 'Chuyển khoản: LỆCH ' + signed(c.ckLeft)}</b></div></div>
       <div class="cm-rc cm-rt"><div class="kv">${row('Doanh thu NET (Phiếu Fabi)', fmt(V.f.total_revenue))}${row(`= Tiền mặt ${fmt(V.f.pos_cash)} + CK ${fmt(V.f.pos_transfer)} + Nợ HĐ ${fmt(V.f.pos_debt)}`, '', 'cm-sub')}</div></div></div>`;
   }
+  // Việc #8 (anh Tiến 26/11): việc bàn giao chưa xong LUÔN hiện cho ca sau — máy chủ (app_ca_get → carried) đã mang theo mọi việc chưa xong của
+  // các ca trước cùng cơ sở; web hiện ngay khi mở phiếu (bước đầu, cả người không chốt ca), nhắc gọn ở các bước khác, đầy đủ ở bước Bàn giao.
+  // Việc đã chuyển vào Công việc (task_id) thì nhân viên không tự đánh dấu xong được (máy chủ chặn) — hiện tới khi người được giao làm xong.
+  const carriedLeft = () => (R.carried || []).filter((h) => !h.done_at);
+  function carriedBox(ed) {
+    const L = R.carried || []; if (!L.length) return '';
+    const left = carriedLeft().length;
+    return html`<section class="cm-carried stack" id="cm-carried" style="gap:8px"><h3 style="margin:0">Việc chưa xong từ ca trước <span class="st-meta">(${left ? `còn ${left} việc` : 'đã xong hết'})</span></h3>
+      ${L.map((h) => html`<div class="cm-person cm-ho-old" data-ho-old="${h.id}"><div>${h.content}<div class="st-meta">Ca ${h.from_shift} ${dmy(h.from_date)}${h.created_by_name ? ' · ' + h.created_by_name + ' ghi' : ''}${h.task_id && !h.done_at ? ' · đã chuyển vào Công việc, quản lý giao người làm' : ''}</div></div>
+        <div class="cm-ph">${h.done_at ? html`<span class="pill ok">${h.task_id ? 'Đã xử lý' : 'Đã xong'}</span>` : html`<span class="pill warn">Chưa xong</span>`}
+          ${ed && !h.task_id ? html`<button type="button" class="btn sm ${h.done_at ? 'secondary' : ''}" data-hodone="${h.id}" data-undo="${h.done_at ? 1 : ''}">${h.done_at ? 'Bỏ đánh dấu' : 'Đã xong'}</button>` : ''}</div></div>`)}
+      <div class="st-meta">Việc chưa xong tự hiện ở các ca sau cho tới khi làm xong.</div></section>`;
+  }
+  const carriedNhac = () => { const n = carriedLeft().length; return n ? html`<div class="alert warn cm-ho-nhac" style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0">
+      <span><strong>Còn ${n} việc chưa xong từ ca trước</strong> <span class="st-meta">· xem ở bước Bàn giao</span></span><button type="button" class="btn sm secondary" data-shift-step="1">Xem việc ›</button></div>` : ''; };
   const B = {
     0: () => html`<div class="st-meta">Mỗi ca chỉ <strong>1 người chốt chính</strong>, chịu trách nhiệm cả phiếu. Hàng kho tổng tới thì nhận ở menu <b>Hàng hoá › Nhận hàng</b> (không cần phiếu chốt ca).</div>
       <div class="kv"><div>Cơ sở</div><div>${R.branch_code || ''} ${R.branch_name || ''}</div><div>Ca</div><div>${R.shift} · ${dmy(R.work_date)}</div></div>
@@ -282,8 +297,7 @@ export async function renderNew(R0, P, SH) {
         <div class="st-meta">Nợ TM / Nợ CK <b>không ghi ở đây</b> — ghi ở bước "Khách nợ trong ca".</div>`;
     },
     6: () => html`<label class="pc-f"><span>Số cốc bán trong ca</span><input class="input" id="cm-cups" inputmode="numeric" value="${V.cups ?? ''}" placeholder="0"></label>`,
-    8: () => html`${(R.carried || []).length ? html`<h3 style="margin:0">Việc chưa xong từ ca trước</h3>${R.carried.map((h) => html`<div class="cm-person"><div>${h.content}<div class="st-meta">Ca ${h.from_shift} ${dmy(h.from_date)}</div></div>
-          ${h.task_id ? html`<span class="pill ${h.done_at ? 'ok' : 'warn'}">${h.done_at ? 'Đã xử lý' : 'Đã giao việc'}</span>` : html`<button type="button" class="btn sm ${h.done_at ? 'secondary' : ''}" data-hodone="${h.id}" data-undo="${h.done_at ? 1 : ''}">${h.done_at ? 'Bỏ đánh dấu' : 'Đã xong'}</button>`}</div>`)}` : ''}
+    8: () => html`${carriedBox(true)}
       <h3 style="margin:0">Bàn giao cho ca sau <span class="st-meta">(không bắt buộc)</span></h3>
       ${V.handover.map((h, i) => html`<div class="cm-line2" style="grid-template-columns:minmax(0,1fr) auto"><textarea class="input" rows="2" data-ho="${i}" placeholder="Việc ca sau làm tiếp / thiết bị / vệ sinh / sự cố" ${h.task_id ? 'disabled' : ''}>${h.content || ''}</textarea>
         ${h.task_id ? html`<span class="pill warn">Đã giao việc</span>` : html`<button type="button" class="btn sm secondary danger" data-hox="${i}" aria-label="Xóa">×</button>`}</div>`)}
@@ -427,7 +441,8 @@ export async function renderNew(R0, P, SH) {
         <div class="st-meta">${odOpen.slice(0, 4).map((d) => `${noName(d)} ${fmt(d.amount)}`).join(' · ')}${odOpen.length > 4 ? ' · …' : ''} — khách trả thì chọn ở mục "Khách trả nợ trong ca" (② Phần tiền · ${LABEL[2]}).</div></div>` : '';
     const sc = ORDER[s] === 1 ? 0 : ORDER[s] === 8 ? 1 : ORDER[s] === 11 ? 2 : 3;
     const stepNav = html`<nav class="sc-steps cm-four-steps" aria-label="Các bước chốt ca">${['Nhân viên','Bàn giao','Tiền','Kiểm tra'].map((label,i) => html`<button type="button" data-shift-step="${i}" class="${i === sc ? 'on' : ''}" aria-current="${i === sc ? 'step' : 'false'}"><b>${i + 1}</b><span>${label}</span></button>`)}</nav>`;
-    return html`${s ? stepNav : ''}${s === 0 ? nhac : ''}
+    const hoBox = s === 0 ? carriedBox(false) : '';   // việc #8: mở phiếu là thấy việc ca trước chưa xong (cả người không chốt ca)
+    return html`${s ? stepNav : ''}${s === 0 ? nhac : ''}${hoBox ? html`<div class="card stack cm-card">${hoBox}</div>` : s && ORDER[s] !== 8 ? carriedNhac() : ''}
       <div class="card stack cm-card" id="cm-body">${s === 1 || ORDER[s] === 8 ? html`<section class="sc-block"><h2>${STEPS[s]}</h2>${B[ORDER[s]]()}</section>` : B[ORDER[s]]()}${s === 0 && tienOther ? nhanHang() : ''}</div>
       <div id="cm-err" role="alert">${err ? html`<div class="alert error">${err}</div>` : ''}</div>
       ${s > 0 ? html`<div class="cm-nav"><button type="button" class="btn secondary" id="cm-back" ${s === 1 ? 'hidden' : ''}>‹ Quay lại</button><button type="button" class="btn" id="cm-next">${s === STEPS.length - 1 ? managerClose ? 'Gửi & hoàn thành' : 'Gửi phiếu' : ORDER[s] === 11 ? 'Kiểm tra & tiếp ›' : 'Lưu & tiếp tục ›'}</button></div>` : ''}`;

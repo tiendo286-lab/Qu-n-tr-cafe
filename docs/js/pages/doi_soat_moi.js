@@ -150,6 +150,14 @@ const tabMark = (S, k) => {
 // công việc bàn giao cho ca sau (giao thành việc), Duyệt phần việc. Đã đối soát (recon_status hoàn thành): máy chủ chặn sửa → chỉ xem.
 const hm = (x) => (x ? String(x).slice(0, 5) : '');
 const isW = (s) => !(s.worked === 0 || s.worked === false);
+// việc #8: việc bàn giao các ca trước chưa xong (app_ca_get → carried) — chỉ xem, để quản lý biết ca này đã nhận những việc gì
+const dm = (iso) => `${String(iso || '').slice(8, 10)}/${String(iso || '').slice(5, 7)}`;
+const carriedCard = (R) => { const L = R.carried || []; if (!L.length) return '';
+  const left = L.filter((x) => !x.done_at).length;
+  return html`<section class="dsm-card" id="dsm-carried"><h2>Việc chưa xong từ ca trước <span class="dsm-sub">${left ? `còn ${left} việc` : 'đã xong hết'}</span></h2>
+    ${L.map((x) => html`<div class="dsm-ho"><span>${x.content || ''} <span class="dsm-sub">· ca ${x.from_shift || ''} ${dm(x.from_date)}</span></span><span class="dsm-hoa">${x.done_at ? html`<span class="dsm-chip ok">${x.done_report_id === R.id ? 'Ca này làm xong' : 'Đã xong'}</span>`
+      : x.task_id ? html`<span class="dsm-chip warn">Chưa xong · ở Công việc</span>` : html`<span class="dsm-chip warn">Chưa xong</span>`}</span></div>`)}
+    <div class="dsm-sub">Việc chưa xong tự hiện ở các ca sau cho tới khi làm xong.</div></section>`; };
 function viecPane(S) {
   const R = S.R; const staff = R.staff || []; const ho = R.handover || [];
   const ro = R.recon_status === 'hoan_thanh';
@@ -179,6 +187,7 @@ function viecPane(S) {
           ${!ro && R.can_recon && x.id && !x.task_id && !x.done_at ? html`<button type="button" class="btn sm secondary" data-dsmgiao="${x.id}">+ Giao thành việc</button>` : ''}</span></div>`)
         : html`<div class="dsm-sub">Không có việc bàn giao.</div>`}
       ${ro ? '' : html`<button type="button" class="btn sm secondary dsm-add" id="dsm-hoadd">+ Thêm việc bàn giao</button>`}</section>
+    ${carriedCard(R)}
     <section class="dsm-card"><h2>Duyệt phần việc</h2>
       ${Object.keys(WORK_LABEL).map((k) => tick(!!(R.checks || {})[k], WORK_LABEL[k] + ((R.checks || {})[k] ? ' — đã duyệt' : ' — chưa duyệt')))}
       ${workMark(S).length ? html`<div class="dsm-sub">Còn: ${workMark(S).join(', ')}.</div>` : ''}
