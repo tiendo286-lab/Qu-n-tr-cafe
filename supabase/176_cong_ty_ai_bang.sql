@@ -143,12 +143,17 @@ language sql security definer set search_path = public as $$
   update public.ai_mac set lan_cuoi = now(), phien_ban = p_phien_ban, dang_nhap_loi = coalesce(p_dang_nhap_loi, false) where id = 1;
 $$;
 
-create or replace function public.app__ai_don_viec_treo() returns int
+drop function if exists public.app__ai_don_viec_treo();
+-- p_giu = null: dọn việc Đang làm quá 35 phút (dự phòng). p_giu = danh sách việc máy Mac đang thật sự chạy:
+-- mọi việc Đang làm KHÔNG có trong danh sách là mồ côi (máy Mac khởi động lại / mất việc giữa chừng) → Kẹt ngay.
+create or replace function public.app__ai_don_viec_treo(p_giu bigint[] default null) returns int
 language plpgsql security definer set search_path = public as $$
 declare n int := 0; r record;
 begin
   for r in update public.ai_viec set trang_thai = 'ket', ly_do_ket = 'Máy Mac dừng giữa chừng', cap_nhat = now()
-            where trang_thai = 'dang_lam' and bat_dau < now() - interval '35 minutes' returning id loop
+            where trang_thai = 'dang_lam'
+              and case when p_giu is null then bat_dau < now() - interval '35 minutes' else not (id = any(p_giu)) end
+            returning id loop
     insert into public.ai_tin(viec_id, nguoi, noi_dung) values (r.id, 'he_thong', '⛔ Kẹt: Máy Mac dừng giữa chừng');
     n := n + 1;
   end loop;
@@ -213,9 +218,9 @@ begin
   return true;
 end $$;
 
-revoke execute on function public.app__ai_nhip_tim(text, boolean), public.app__ai_don_viec_treo(), public.app__ai_nhan_viec(int),
+revoke execute on function public.app__ai_nhip_tim(text, boolean), public.app__ai_don_viec_treo(bigint[]), public.app__ai_nhan_viec(int),
   public.app__ai_ghi_ket_qua(bigint, text, text, jsonb, text), public.app__ai_nhap_kien_thuc(text, text) from public, anon, authenticated;
-grant execute on function public.app__ai_nhip_tim(text, boolean), public.app__ai_don_viec_treo(), public.app__ai_nhan_viec(int),
+grant execute on function public.app__ai_nhip_tim(text, boolean), public.app__ai_don_viec_treo(bigint[]), public.app__ai_nhan_viec(int),
   public.app__ai_ghi_ket_qua(bigint, text, text, jsonb, text), public.app__ai_nhap_kien_thuc(text, text) to ai_viec;
 
 insert into public.app_migrations(file) values ('176_cong_ty_ai_bang.sql') on conflict (file) do nothing;

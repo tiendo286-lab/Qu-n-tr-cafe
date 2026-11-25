@@ -90,6 +90,16 @@ begin
   rep := rep || case when n >= 1 and exists (select 1 from public.ai_viec where id = v_treo and trang_thai = 'ket' and ly_do_ket = 'Máy Mac dừng giữa chừng')
              then 'ĐẠT' else 'HỎNG' end || ' việc Đang làm quá 35 phút → Kẹt "Máy Mac dừng giữa chừng"' || chr(10);
 
+  -- máy Mac khởi động lại: mọi việc Đang làm không nằm trong danh sách đang chạy → Kẹt ngay (không chờ 35 phút)
+  insert into public.ai_viec(phong, tieu_de, nguoi_tao, trang_thai, can_chay, bat_dau) values ('rd', 'mồ côi', 1, 'dang_lam', false, now() - interval '2 minutes') returning id into v_treo;
+  insert into public.ai_viec(phong, tieu_de, nguoi_tao, trang_thai, can_chay, bat_dau) values ('web', 'đang chạy thật', 1, 'dang_lam', false, now() - interval '2 minutes') returning id into v_ql;
+  execute 'set local role ai_viec';
+  select public.app__ai_don_viec_treo(array[v_ql]) into n;
+  execute 'reset role';
+  rep := rep || case when exists (select 1 from public.ai_viec where id = v_treo and trang_thai = 'ket' and ly_do_ket = 'Máy Mac dừng giữa chừng')
+                  and exists (select 1 from public.ai_viec where id = v_ql and trang_thai = 'dang_lam') then 'ĐẠT' else 'HỎNG' end
+             || ' dọn theo danh sách đang chạy: việc mồ côi → Kẹt, việc đang chạy giữ nguyên' || chr(10);
+
   -- nhập kiến thức không trùng
   execute 'set local role ai_viec';
   rep := rep || case when public.app__ai_nhap_kien_thuc('kho', 'A thử') then 'ĐẠT' else 'HỎNG' end || ' nhập kiến thức mới' || chr(10);
