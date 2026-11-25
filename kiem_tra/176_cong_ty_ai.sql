@@ -100,12 +100,13 @@ begin
                   and exists (select 1 from public.ai_viec where id = v_ql and trang_thai = 'dang_lam') then 'ĐẠT' else 'HỎNG' end
              || ' dọn theo danh sách đang chạy: việc mồ côi → Kẹt, việc đang chạy giữ nguyên' || chr(10);
 
-  -- nhập kiến thức không trùng
-  execute 'set local role ai_viec';
+  -- nhập kiến thức không trùng (từ tệp 180 chỉ quản trị gọi được — máy Mac không tự ghi kiến thức)
+  execute 'reset role';
   rep := rep || case when public.app__ai_nhap_kien_thuc('kho', 'A thử') then 'ĐẠT' else 'HỎNG' end || ' nhập kiến thức mới' || chr(10);
   rep := rep || case when not public.app__ai_nhap_kien_thuc('kho', 'A thử') then 'ĐẠT' else 'HỎNG' end || ' nhập lại không trùng' || chr(10);
   rep := rep || case when public.app__ai_nhap_kien_thuc(null, 'B chung thử') then 'ĐẠT' else 'HỎNG' end || ' nhập kiến thức chung (phòng trống)' || chr(10);
   -- nhịp tim
+  execute 'set local role ai_viec';
   perform public.app__ai_nhip_tim('thu', true);
   execute 'reset role';
   select count(*) into n from public.ai_mac where id = 1 and phien_ban = 'thu' and dang_nhap_loi and lan_cuoi > now() - interval '1 minute';
