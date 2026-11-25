@@ -42,7 +42,9 @@ create or replace function public.app__ai_gui_thong_bao(p_tieu_de text, p_noi_du
 language plpgsql security definer set search_path = public as $$
 declare u text; bm text; subs jsonb;
 begin
-  if to_regproc('net.http_post') is null then return false; end if;
+  if not exists (select 1 from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'net' and p.proname = 'http_post') then
+    return false;
+  end if;
   select gia_tri into u from public.ai_cai_dat where khoa = 'edge_url';
   select gia_tri into bm from public.ai_cai_dat where khoa = 'edge_bi_mat';
   if u is null or bm is null then return false; end if;
@@ -68,7 +70,7 @@ begin
 end $$;
 drop trigger if exists ai_viec_bao on public.ai_viec;
 create trigger ai_viec_bao after update of trang_thai on public.ai_viec
-  for each row when (new.trang_thai in ('cho_anh','xong','ket') and new.trang_thai is distinct from old.trang_thai)
+  for each row when (new.trang_thai in ('cho_anh','xong','ket') and old.trang_thai = 'dang_lam')   -- kết quả của máy Mac; không báo khi anh tự bấm
   execute function public.app__ai_viec_bao();
 
 create or replace function public.app__ai_kiem_nhip_tim() returns void

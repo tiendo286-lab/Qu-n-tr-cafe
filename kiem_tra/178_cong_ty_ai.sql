@@ -29,6 +29,10 @@ begin
     rep := rep || 'HỎNG trigger thông báo làm lỗi: ' || sqlerrm || chr(10);
   end;
 
+  -- chỉ báo khi việc rời trạng thái Đang làm (kết quả của máy Mac), không báo khi chính anh bấm Đồng ý / Đóng việc
+  rep := rep || case when (select pg_get_triggerdef(oid) from pg_trigger where tgname = 'ai_viec_bao') like '%old.trang_thai = ''dang_lam''%'
+             then 'ĐẠT' else 'HỎNG' end || ' thông báo chỉ khi việc rời Đang làm' || chr(10);
+
   -- nhịp tim: mất quá 15 phút → báo 1 lần; có lại → hết cờ
   update public.ai_mac set lan_cuoi = now() - interval '20 minutes', da_bao_mat = false where id = 1;
   perform public.app__ai_kiem_nhip_tim();
