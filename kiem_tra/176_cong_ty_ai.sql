@@ -38,6 +38,11 @@ begin
     rep := rep || 'ĐẠT vai ai_viec không đọc được bảng Milano' || chr(10);
   end;
 
+  -- sao lưu Milano không lấy bảng tệp (tránh phình bản sao lưu), vẫn lấy bảng việc
+  rep := rep || case when 'ai_tep' <> all(public.app__backup_tables()) and 'ai_viec' = any(public.app__backup_tables()) then 'ĐẠT' else 'HỎNG' end
+             || ' sao lưu bỏ ai_tep, vẫn giữ ai_viec' || chr(10);
+  rep := rep || case when not has_schema_privilege('ai_viec', 'public', 'create') then 'ĐẠT' else 'HỎNG' end || ' ai_viec không tạo được bảng / hàm trong public' || chr(10);
+
   -- nhận việc: 2 việc kho + 1 việc tk + 1 việc do ql1 tạo (không được nhận)
   insert into public.ai_viec(phong, tieu_de, nguoi_tao, tao_luc) values ('kho', 'kho 1', 1, now() - interval '3 minutes') returning id into v_kho1;
   insert into public.ai_viec(phong, tieu_de, nguoi_tao, tao_luc) values ('kho', 'kho 2', 1, now() - interval '2 minutes') returning id into v_kho2;

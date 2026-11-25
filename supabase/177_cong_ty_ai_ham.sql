@@ -52,7 +52,7 @@ language sql security definer set search_path = public as $$
    where id = any(coalesce(p_tep, '{}')) and viec_id is null and kien_thuc_id is null and nguoi_tao = p_nguoi;
 $$;
 
-revoke execute on function public.app__ai_can_chu(), public.app__ai_viec_ngan(public.ai_viec), public.app__ai_kt(public.ai_kien_thuc),
+revoke execute on function public.app__ai_can_chu(), public.app__ai_hom_nay(), public.app__ai_viec_ngan(public.ai_viec), public.app__ai_kt(public.ai_kien_thuc),
   public.app__ai_trang_thai_phong(text), public.app__ai_gan_tep(bigint, bigint[], bigint) from public, anon, authenticated;
 
 -- ---------------------------------------------------------------- đọc
@@ -212,7 +212,23 @@ begin
   if not found then raise exception 'Không có việc này'; end if;
   if v.trang_thai = 'dang_lam' then raise exception 'Phòng đang làm, chờ xong rồi nhắn'; end if;
   insert into public.ai_tin(viec_id, nguoi, hanh_dong, noi_dung) values (p_viec, 'anh', 'tra_loi', nd);
-  update public.ai_viec set trang_thai = 'cho_lam', can_chay = true, ly_do_ket = null, cap_nhat = now() where id = p_viec;
+  -- nạp kiến thức: lời sửa của anh thay nội dung, để bấm Đúng ghi đúng bản đã sửa
+  update public.ai_viec set trang_thai = 'cho_lam', can_chay = true, ly_do_ket = null, cap_nhat = now(),
+         noi_dung = case when loai = 'doc_kien_thuc' then nd else noi_dung end
+   where id = p_viec;
+end $$;
+
+create or replace function public.app_ai_dong_viec(p_viec bigint) returns void
+language plpgsql security definer set search_path = public as $$
+declare v public.ai_viec;
+begin
+  perform public.app__ai_can_chu();
+  select * into v from public.ai_viec where id = p_viec for update;
+  if not found then raise exception 'Không có việc này'; end if;
+  if v.trang_thai = 'dang_lam' then raise exception 'Phòng đang làm, chờ xong rồi đóng'; end if;
+  if v.trang_thai = 'xong' then raise exception 'Việc này đã xử lý'; end if;
+  update public.ai_viec set trang_thai = 'xong', xong_luc = now(), cap_nhat = now(), can_chay = false where id = p_viec;
+  insert into public.ai_tin(viec_id, nguoi, hanh_dong, noi_dung) values (p_viec, 'anh', 'dong_viec', 'Anh đóng việc này');
 end $$;
 
 create or replace function public.app_ai_dong_y(p_viec bigint) returns void
@@ -296,12 +312,12 @@ end $$;
 revoke execute on function public.app_ai_la_chu(), public.app_ai_tong_quan(), public.app_ai_phong(text), public.app_ai_kien_thuc_chung(),
   public.app_ai_viec(bigint), public.app_ai_lich_su(text), public.app_ai_tep(bigint), public.app_ai_tai_tep(text, text, text),
   public.app_ai_tao_viec(text, text, bigint[]), public.app_ai_tra_loi(bigint, text), public.app_ai_dong_y(bigint),
-  public.app_ai_gui_kien_thuc(text, text, bigint[]), public.app_ai_bo_kien_thuc(bigint, boolean), public.app_ai_doi_model(text, text)
+  public.app_ai_gui_kien_thuc(text, text, bigint[]), public.app_ai_bo_kien_thuc(bigint, boolean), public.app_ai_doi_model(text, text), public.app_ai_dong_viec(bigint)
   from public, anon;
 grant execute on function public.app_ai_la_chu(), public.app_ai_tong_quan(), public.app_ai_phong(text), public.app_ai_kien_thuc_chung(),
   public.app_ai_viec(bigint), public.app_ai_lich_su(text), public.app_ai_tep(bigint), public.app_ai_tai_tep(text, text, text),
   public.app_ai_tao_viec(text, text, bigint[]), public.app_ai_tra_loi(bigint, text), public.app_ai_dong_y(bigint),
-  public.app_ai_gui_kien_thuc(text, text, bigint[]), public.app_ai_bo_kien_thuc(bigint, boolean), public.app_ai_doi_model(text, text)
+  public.app_ai_gui_kien_thuc(text, text, bigint[]), public.app_ai_bo_kien_thuc(bigint, boolean), public.app_ai_doi_model(text, text), public.app_ai_dong_viec(bigint)
   to authenticated;
 
 insert into public.app_migrations(file) values ('177_cong_ty_ai_ham.sql') on conflict (file) do nothing;

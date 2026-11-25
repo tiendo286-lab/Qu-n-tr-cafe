@@ -18,6 +18,20 @@ begin
   begin perform public.app_ai_tep(1); exception when others then if sqlerrm like '%chỉ dành cho Chủ%' then n := n + 1; end if; end;
   begin perform public.app_ai_lich_su('tat_ca'); exception when others then if sqlerrm like '%chỉ dành cho Chủ%' then n := n + 1; end if; end;
   rep := rep || case when n = 4 then 'ĐẠT' else 'HỎNG' end || ' quản lý gọi hàm bị chặn "chỉ dành cho Chủ" (' || n || '/4)' || chr(10);
+  -- mọi hàm app_ai_* (trừ app_ai_la_chu) đều chặn quản lý: gọi với tham số rỗng, lỗi phải là lỗi Chủ
+  n := 0;
+  for msg in select p.oid::regprocedure::text from pg_proc p join pg_namespace s on s.oid = p.pronamespace
+              where s.nspname = 'public' and p.proname like 'app\_ai\_%' and p.proname <> 'app_ai_la_chu' loop
+    begin
+      execute 'select ' || regexp_replace(msg, '\((.*)\)$', '') || '(' ||
+        coalesce((select string_agg('null', ',') from unnest(string_to_array(nullif(substring(msg from '\((.*)\)$'), ''), ','))), '') || ')';
+      rep := rep || 'HỎNG ' || msg || ' không chặn quản lý' || chr(10);
+    exception when others then
+      if sqlerrm not like '%chỉ dành cho Chủ%' then rep := rep || 'HỎNG ' || msg || ' lỗi khác: ' || sqlerrm || chr(10); else n := n + 1; end if;
+    end;
+  end loop;
+  rep := rep || case when n >= 14 then 'ĐẠT' else 'HỎNG' end || ' quét mọi hàm app_ai_*: ' || n || ' hàm chặn quản lý' || chr(10);
+  rep := rep || case when not has_function_privilege('anon', 'public.app__ai_hom_nay()', 'execute') then 'ĐẠT' else 'HỎNG' end || ' anon không gọi được app__ai_hom_nay' || chr(10);
   rep := rep || case when not has_function_privilege('anon', 'public.app_ai_tong_quan()', 'execute') then 'ĐẠT' else 'HỎNG' end || ' anon không gọi được hàm trang' || chr(10);
 
   -- ===== Chủ tạo việc
@@ -99,6 +113,30 @@ begin
   perform public.app_ai_bo_kien_thuc(kt_id, false);
   rep := rep || case when (select trang_thai from public.ai_kien_thuc where id = kt_id) = 'dang_dung' then 'ĐẠT' else 'HỎNG' end || ' dùng lại → đang dùng' || chr(10);
   rep := rep || case when jsonb_array_length(public.app_ai_kien_thuc_chung()) >= 1 then 'ĐẠT' else 'HỎNG' end || ' danh sách kiến thức chung' || chr(10);
+
+  -- ===== sửa kiến thức: lời sửa của anh thay nội dung, Đúng ghi bản đã sửa
+  v_kt2 := public.app_ai_gui_kien_thuc('kho', 'Sữa dùng trong 24 giờ');
+  update public.ai_viec set trang_thai = 'dang_lam', can_chay = false, bat_dau = now() where id = v_kt2;
+  perform public.app__ai_ghi_ket_qua(v_kt2, 'cho_anh', '✅ CẦN DUYỆT', '{"hieu_la":["24 giờ"]}', null);
+  perform public.app_ai_tra_loi(v_kt2, 'Sữa dùng trong 12 giờ');
+  update public.ai_viec set trang_thai = 'dang_lam', can_chay = false, bat_dau = now() where id = v_kt2;
+  perform public.app__ai_ghi_ket_qua(v_kt2, 'cho_anh', '✅ CẦN DUYỆT', '{"hieu_la":["12 giờ"]}', null);
+  perform public.app_ai_dong_y(v_kt2);
+  rep := rep || case when exists (select 1 from public.ai_kien_thuc where phong = 'kho' and noi_dung = 'Sữa dùng trong 12 giờ')
+                  and not exists (select 1 from public.ai_kien_thuc where phong = 'kho' and noi_dung = 'Sữa dùng trong 24 giờ') then 'ĐẠT' else 'HỎNG' end
+             || ' sửa kiến thức rồi Đúng → ghi bản đã sửa (12 giờ)' || chr(10);
+
+  -- ===== đóng việc kẹt
+  update public.ai_viec set trang_thai = 'ket', ly_do_ket = 'Quá 30 phút' where id = v_tk;
+  perform public.app_ai_dong_viec(v_tk);
+  rep := rep || case when (select trang_thai from public.ai_viec where id = v_tk) = 'xong'
+                  and exists (select 1 from public.ai_tin where viec_id = v_tk and nguoi = 'anh' and hanh_dong = 'dong_viec') then 'ĐẠT' else 'HỎNG' end
+             || ' anh đóng việc Kẹt → Xong, có tin' || chr(10);
+  update public.ai_viec set trang_thai = 'dang_lam' where id = v_tk;
+  msg := '';
+  begin perform public.app_ai_dong_viec(v_tk); exception when others then msg := sqlerrm; end;
+  rep := rep || case when msg like '%Phòng đang làm%' then 'ĐẠT' else 'HỎNG' end || ' không đóng được việc đang làm' || chr(10);
+  update public.ai_viec set trang_thai = 'xong' where id = v_tk;
 
   -- ===== model
   perform public.app_ai_doi_model('kho', 'nhanh');

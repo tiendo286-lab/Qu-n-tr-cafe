@@ -41,11 +41,13 @@ create table if not exists public.ai_tin (
   id bigserial primary key,
   viec_id bigint not null references public.ai_viec(id) on delete cascade,
   nguoi text not null check (nguoi in ('anh','phong','he_thong')),
-  hanh_dong text check (hanh_dong in ('giao','tra_loi','dong_y','nap_kien_thuc')),
+  hanh_dong text,
   noi_dung text not null,
   luc timestamptz not null default now()
 );
 create index if not exists ai_tin_viec_idx on public.ai_tin(viec_id, luc);
+alter table public.ai_tin drop constraint if exists ai_tin_hanh_dong_check;
+alter table public.ai_tin add constraint ai_tin_hanh_dong_check check (hanh_dong in ('giao','tra_loi','dong_y','nap_kien_thuc','dong_viec'));
 
 create table if not exists public.ai_kien_thuc (
   id bigserial primary key,
@@ -89,6 +91,18 @@ begin
   end loop;
 end $$;
 revoke all on sequence public.ai_viec_id_seq, public.ai_tin_id_seq, public.ai_kien_thuc_id_seq, public.ai_tep_id_seq from anon, authenticated, public;
+
+-- ---------------------------------------------------------------- sao lưu Milano: bỏ bảng tệp ai_tep
+-- app__backup_tables (tệp 59) tự lấy mọi bảng public; tệp ảnh / Excel trong ai_tep (≤5 MB mỗi tệp) làm phình bản sao lưu jsonb
+-- hằng ngày (giữ 7 bản) và có thể làm hỏng sao lưu cả web. Định nghĩa lại y hệt tệp 59, chỉ thêm điều kiện bỏ ai_tep.
+-- Dữ liệu ai_tep vẫn được Supabase sao lưu hằng ngày (bản sao lưu của máy chủ). Tệp sau có định nghĩa lại hàm này phải giữ điều kiện.
+create or replace function public.app__backup_tables() returns text[]
+language sql stable security definer set search_path = public as $$
+  select coalesce(array_agg(c.relname::text order by c.relname), '{}')
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+   where n.nspname = 'public' and c.relkind = 'r' and not (c.relname::text = any(public.app_import_tables()))
+     and c.relname <> 'ai_tep'
+$$;
 
 -- ---------------------------------------------------------------- 7 phòng (giữ model anh đã đổi khi chạy lại)
 insert into public.ai_phong(ma, ten, mo_ta, model, thu_tu, ghi_chu_khoa) values
