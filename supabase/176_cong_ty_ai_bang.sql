@@ -113,6 +113,15 @@ alter role ai_viec set statement_timeout = '20s';
 alter role ai_viec set idle_in_transaction_session_timeout = '60s';
 grant usage on schema public to ai_viec;
 grant select on public.ai_phong, public.ai_viec, public.ai_tin, public.ai_tep, public.ai_kien_thuc, public.ai_mac to ai_viec;
+-- RLS bật: cho riêng vai ai_viec đọc (ghi chỉ qua hàm app__ai_*)
+do $$
+declare t text;
+begin
+  foreach t in array array['ai_phong','ai_viec','ai_tin','ai_kien_thuc','ai_tep','ai_mac'] loop
+    execute format('drop policy if exists ai_viec_doc on public.%I', t);
+    execute format('create policy ai_viec_doc on public.%I for select to ai_viec using (true)', t);
+  end loop;
+end $$;
 
 -- ---------------------------------------------------------------- hàm nội bộ (chỉ máy Mac gọi)
 create or replace function public.app__ai_nhip_tim(p_phien_ban text, p_dang_nhap_loi boolean) returns void

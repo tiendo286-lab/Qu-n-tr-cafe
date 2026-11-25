@@ -23,6 +23,21 @@ begin
                       and has_function_privilege('ai_viec', 'public.app__ai_nhan_viec(integer)', 'execute') then 'ĐẠT' else 'HỎNG' end
              || ' hàm nội bộ chỉ ai_viec gọi được' || chr(10);
 
+  -- máy Mac đọc được bảng ai_* (RLS bật nhưng có quy tắc cho riêng ai_viec)
+  execute 'set local role ai_viec';
+  select count(*) into n from public.ai_phong;
+  execute 'reset role';
+  rep := rep || case when n = 7 then 'ĐẠT' else 'HỎNG' end || ' vai ai_viec đọc được bảng ai_phong (' || n || ')' || chr(10);
+  begin
+    execute 'set local role ai_viec';
+    perform count(*) from public.accounts;
+    execute 'reset role';
+    rep := rep || 'HỎNG vai ai_viec không được đọc bảng Milano (accounts)' || chr(10);
+  exception when others then
+    execute 'reset role';
+    rep := rep || 'ĐẠT vai ai_viec không đọc được bảng Milano' || chr(10);
+  end;
+
   -- nhận việc: 2 việc kho + 1 việc tk + 1 việc do ql1 tạo (không được nhận)
   insert into public.ai_viec(phong, tieu_de, nguoi_tao, tao_luc) values ('kho', 'kho 1', 1, now() - interval '3 minutes') returning id into v_kho1;
   insert into public.ai_viec(phong, tieu_de, nguoi_tao, tao_luc) values ('kho', 'kho 2', 1, now() - interval '2 minutes') returning id into v_kho2;
