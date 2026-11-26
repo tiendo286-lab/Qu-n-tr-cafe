@@ -211,15 +211,15 @@ export async function renderNew(R0, P, SH) {
   }
   // Việc #8 (anh Tiến 26/11): việc bàn giao chưa xong LUÔN hiện cho ca sau — máy chủ (app_ca_get → carried) đã mang theo mọi việc chưa xong của
   // các ca trước cùng cơ sở; web hiện ngay khi mở phiếu (bước đầu, cả người không chốt ca), nhắc gọn ở các bước khác, đầy đủ ở bước Bàn giao.
-  // Việc đã chuyển vào Công việc (task_id) thì nhân viên không tự đánh dấu xong được (máy chủ chặn) — hiện tới khi người được giao làm xong.
+  // Anh chọn B (26/11): việc đã chuyển vào Công việc (task_id) ca sau cũng bấm "Đã xong" được — máy chủ tệp 181 đóng luôn thẻ Công việc.
   const carriedLeft = () => (R.carried || []).filter((h) => !h.done_at);
   function carriedBox(ed) {
     const L = R.carried || []; if (!L.length) return '';
     const left = carriedLeft().length;
     return html`<section class="cm-carried stack" id="cm-carried" style="gap:8px"><h3 style="margin:0">Việc chưa xong từ ca trước <span class="st-meta">(${left ? `còn ${left} việc` : 'đã xong hết'})</span></h3>
-      ${L.map((h) => html`<div class="cm-person cm-ho-old" data-ho-old="${h.id}"><div>${h.content}<div class="st-meta">Ca ${h.from_shift} ${dmy(h.from_date)}${h.created_by_name ? ' · ' + h.created_by_name + ' ghi' : ''}${h.task_id && !h.done_at ? ' · đã chuyển vào Công việc, quản lý giao người làm' : ''}</div></div>
-        <div class="cm-ph">${h.done_at ? html`<span class="pill ok">${h.task_id ? 'Đã xử lý' : 'Đã xong'}</span>` : html`<span class="pill warn">Chưa xong</span>`}
-          ${ed && !h.task_id ? html`<button type="button" class="btn sm ${h.done_at ? 'secondary' : ''}" data-hodone="${h.id}" data-undo="${h.done_at ? 1 : ''}">${h.done_at ? 'Bỏ đánh dấu' : 'Đã xong'}</button>` : ''}</div></div>`)}
+      ${L.map((h) => html`<div class="cm-person cm-ho-old" data-ho-old="${h.id}"><div>${h.content}<div class="st-meta">Ca ${h.from_shift} ${dmy(h.from_date)}${h.created_by_name ? ' · ' + h.created_by_name + ' ghi' : ''}${h.task_id && !h.done_at ? ' · cũng có trong Công việc' : ''}${h.done_at && h.done_by_name ? ' · ' + h.done_by_name + ' báo xong' : ''}</div></div>
+        <div class="cm-ph">${h.done_at ? html`<span class="pill ok">Đã xong</span>` : html`<span class="pill warn">Chưa xong</span>`}
+          ${ed ? html`<button type="button" class="btn sm ${h.done_at ? 'secondary' : ''}" data-hodone="${h.id}" data-undo="${h.done_at ? 1 : ''}">${h.done_at ? 'Bỏ đánh dấu' : 'Đã xong'}</button>` : ''}</div></div>`)}
       <div class="st-meta">Việc chưa xong tự hiện ở các ca sau cho tới khi làm xong.</div></section>`;
   }
   const carriedNhac = () => { const n = carriedLeft().length; return n ? html`<div class="alert warn cm-ho-nhac" style="display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin:0">
@@ -300,7 +300,7 @@ export async function renderNew(R0, P, SH) {
     8: () => html`${carriedBox(true)}
       <h3 style="margin:0">Bàn giao cho ca sau <span class="st-meta">(không bắt buộc)</span></h3>
       ${V.handover.map((h, i) => html`<div class="cm-line2" style="grid-template-columns:minmax(0,1fr) auto"><textarea class="input" rows="2" data-ho="${i}" placeholder="Việc ca sau làm tiếp / thiết bị / vệ sinh / sự cố" ${h.task_id ? 'disabled' : ''}>${h.content || ''}</textarea>
-        ${h.task_id ? html`<span class="pill warn">Đã giao việc</span>` : html`<button type="button" class="btn sm secondary danger" data-hox="${i}" aria-label="Xóa">×</button>`}</div>`)}
+        ${h.task_id ? html`<span class="pill warn">Đã vào Công việc</span>` : html`<button type="button" class="btn sm secondary danger" data-hox="${i}" aria-label="Xóa">×</button>`}</div>`)}
       <div><button type="button" class="btn sm secondary" id="cm-add-ho">+ Thêm việc bàn giao</button></div>
       ${nhanHang()}`,
     9: () => {   // bước 84: gộp Kết quả tiền + Kiểm tra lần cuối; lệch không bắt ghi lý do — quản lý tự chốt khi đối soát
@@ -684,7 +684,8 @@ export async function renderNew(R0, P, SH) {
         $$('[data-hox]', root).forEach((b) => b.addEventListener('click', () => { V.handover.splice(Number(b.dataset.hox), 1); draw(); }));
         $$('[data-hodone]', root).forEach((b) => b.addEventListener('click', () => busy(async () => {
           await save(); await rpc('app_ca_handover_done', { p_item: Number(b.dataset.hodone), p_report: R.id, p_done: !b.dataset.undo });
-          const h = R.carried.find((x) => String(x.id) === b.dataset.hodone); h.done_at = b.dataset.undo ? null : 'x'; draw();
+          const h = R.carried.find((x) => String(x.id) === b.dataset.hodone); h.done_at = b.dataset.undo ? null : 'x'; h.done_by_name = null; draw();
+          if (h.task_id) showSaved(b.dataset.undo ? 'Đã bỏ đánh dấu — việc mở lại trong Công việc' : 'Đã xong — thẻ trong Công việc cũng tự đóng');
         })));
       }
       async function loadPhotos() {
