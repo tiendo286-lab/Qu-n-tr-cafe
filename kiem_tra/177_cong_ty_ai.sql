@@ -80,7 +80,8 @@ begin
   update public.ai_viec set trang_thai = 'dang_lam', can_chay = false, bat_dau = now() where id = v_kho;
   msg := '';
   begin perform public.app_ai_tra_loi(v_kho, 'thêm'); exception when others then msg := sqlerrm; end;
-  rep := rep || case when msg like '%Phòng đang làm, chờ xong rồi nhắn%' then 'ĐẠT' else 'HỎNG' end || ' nhắn vào việc Đang làm bị chặn' || chr(10);
+  -- từ 181: nhắn khi đang làm được nhận (phòng đọc sau lượt này), việc vẫn Đang làm
+  rep := rep || case when msg = '' and (select trang_thai from public.ai_viec where id = v_kho) = 'dang_lam' then 'ĐẠT' else 'HỎNG' end || ' nhắn vào việc Đang làm: nhận, vẫn Đang làm (181)' || chr(10);
   perform public.app__ai_ghi_ket_qua(v_kho, 'cho_anh', '❓ HỎI ANH 3 mặt hàng chưa có giá', null, null);
   perform public.app_ai_tra_loi(v_kho, 'Lấy giá lần nhập mới nhất');
   select count(*) into n from public.ai_viec where id = v_kho and trang_thai = 'cho_lam' and can_chay;
