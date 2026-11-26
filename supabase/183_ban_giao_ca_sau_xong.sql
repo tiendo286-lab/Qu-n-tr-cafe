@@ -40,8 +40,8 @@ begin
     if h.done_at is not null then return; end if;
     update public.handover_items set done_at = now_, done_by = a.id, done_report_id = p_report where id = p_item;
     if t.id is not null and t.cancelled_at is null and t.status <> 'hoan_thanh' then
-      update public.tasks set status = 'hoan_thanh', done_at = now_, submitted_at = coalesce(submitted_at, now_),
-             started_at = coalesce(started_at, now_), updated_at = now_ where id = t.id;
+      update public.tasks set status = 'hoan_thanh', done_at = now_, approved_at = now_, submitted_at = coalesce(submitted_at, now_),
+             started_at = coalesce(started_at, now_), updated_at = now_ where id = t.id;   -- approved_at: để hiện ở mục Hoàn thành / Việc hôm nay
       perform public.app__viec_event(t.id, 'ca_sau_xong', 'Ca sau đã làm xong ở phiếu chốt ca: ' || note_);
       if t.assignee_id is not null and t.assignee_id is distinct from a.id then
         perform public.app__notify(t.assignee_id, 'Việc bàn giao đã được ca sau làm xong', t.content || E'\n' || note_, '/viec');
@@ -52,7 +52,7 @@ begin
     update public.handover_items set done_at = null, done_by = null, done_report_id = null where id = p_item;
     if t.id is not null and t.cancelled_at is null and t.status = 'hoan_thanh' then
       update public.tasks set status = case when assignee_id is null then 'chua_phan_cong' else 'da_giao' end,
-             done_at = null, updated_at = now_ where id = t.id;
+             done_at = null, approved_at = null, updated_at = now_ where id = t.id;
       perform public.app__viec_event(t.id, 'ca_sau_bo_xong', 'Bỏ đánh dấu xong ở phiếu chốt ca: ' || note_);
     end if;
   end if;
@@ -61,4 +61,4 @@ end $function$;
 revoke all on function public.app_ca_handover_done(bigint, bigint, boolean) from public, anon;
 grant execute on function public.app_ca_handover_done(bigint, bigint, boolean) to authenticated;
 
-insert into public.app_migrations(file) values ('181_ban_giao_ca_sau_xong.sql') on conflict (file) do nothing;
+insert into public.app_migrations(file) values ('183_ban_giao_ca_sau_xong.sql') on conflict (file) do nothing;

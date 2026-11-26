@@ -30,4 +30,5 @@ cp "$D/flow_dsm2.js" "$W/test/"   # trang đối soát ca mới — đợt 2 (s�
 cp "$D/flow_dsm3.js" "$W/test/" 2>/dev/null || true   # đợt 3 (Hoàn thành mới)
 cp "$D/flow_dsm4.js" "$W/test/" 2>/dev/null || true   # đợt 4 (chuyển hẳn, độc lập)
 cp "$D/flow_pcdt.js" "$W/test/" 2>/dev/null || true   # tệp 174: phân công đào tạo theo ca
+cp "$D/flow_bg8.js" "$W/test/"   # việc #8 (tệp 183): việc bàn giao chưa xong luôn hiện cho ca sau
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"
