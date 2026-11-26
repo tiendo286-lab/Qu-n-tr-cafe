@@ -85,7 +85,10 @@ begin
            noi_dung = case when loai = 'doc_kien_thuc' and nd <> '' then nd else noi_dung end
      where id = p_viec;
   else
-    update public.ai_viec set cap_nhat = now() where id = p_viec;
+    -- nạp kiến thức sửa lúc phòng đang đọc: bản sửa vẫn thay nội dung (bấm Đúng ghi bản sửa, không ghi bản cũ)
+    update public.ai_viec set cap_nhat = now(),
+           noi_dung = case when loai = 'doc_kien_thuc' and nd <> '' then nd else noi_dung end
+     where id = p_viec;
   end if;
   return tin;
 end $$;

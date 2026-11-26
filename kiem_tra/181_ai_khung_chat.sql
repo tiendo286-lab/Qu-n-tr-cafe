@@ -94,5 +94,11 @@ begin
   -- ===== thông báo mở thẳng việc
   rep := rep || case when pg_get_functiondef('public.app__ai_viec_bao()'::regprocedure) like '%#viec-%' then 'ĐẠT' else 'HỎNG' end || ' thông báo trỏ #viec-<id>' || chr(10);
 
+  -- ===== nạp kiến thức: anh sửa lúc phòng đang đọc → bản sửa thay nội dung (Đúng ghi bản sửa)
+  v3 := public.app_ai_gui_kien_thuc('ns', 'Sữa mở hộp dùng 24 giờ', '{}');
+  update public.ai_viec set trang_thai = 'dang_lam', can_chay = false, bat_dau = now() where id = v3;
+  perform public.app_ai_tra_loi(v3, 'Sửa: 12 giờ thôi');
+  rep := rep || case when (select noi_dung from public.ai_viec where id = v3) = 'Sửa: 12 giờ thôi' then 'ĐẠT' else 'HỎNG' end || ' nạp kiến thức sửa lúc đang làm: nội dung là bản sửa' || chr(10);
+
   raise exception 'REPORT>> %', chr(10) || rep;
 end $$;
