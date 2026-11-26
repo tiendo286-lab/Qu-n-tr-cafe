@@ -32,8 +32,8 @@ begin
   end if;
   -- 182: nhận phần CHƯA AI NHẬN thì ai có quyền Chốt ca cũng được; giành phần người khác thì phải có tên trong ca hoặc là quản lý
   if pt.claimed_by is not null and not in_ca then
-    raise exception 'Phần % đang do % làm. Chỉ nhân viên có tên trong ca % và quản lý được nhận lại — nhờ % bấm bỏ nhận, hoặc báo quản lý.',
-      public.app__ca_part_label(p_part), public.app__acc_name(pt.claimed_by), r.shift, public.app__acc_name(pt.claimed_by);
+    raise exception 'Phần % đang do % làm. Chỉ nhân viên có tên trong ca % và quản lý được nhận lại — muốn đổi người chốt, báo quản lý.',
+      public.app__ca_part_label(p_part), public.app__acc_name(pt.claimed_by), r.shift;
   end if;
   insert into public.shift_report_parts(report_id, part, claimed_by, claimed_at) values (p_id, p_part, a.id, public.vn_now_text())
   on conflict (report_id, part) do update set prev_by = public.shift_report_parts.claimed_by, claimed_by = excluded.claimed_by,
