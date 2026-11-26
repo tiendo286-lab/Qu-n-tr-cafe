@@ -1,6 +1,6 @@
 // Bước 41 — Chốt ca mới (anh Tiến chốt 12/11/2026): 1 người chốt chính, gõ số theo đúng thứ tự trên phiếu Fabi,
 // web tự kiểm tra từng bước; người khác trong ca chỉ giúp phần nhận hàng. Máy chủ kiểm tra lại khi GỬI (app__ca_part_check).
-import { render as rerender, can } from './app.js';
+import { render as rerender, can, state } from './app.js';
 import { CV_CSS, mountCover } from './nghi_thay.js?v=2026.11.26.1';
 import { rpc, sb } from './sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, noKind, noName, parseMoney, signed, traNoFabi } from './tien.js';
@@ -232,6 +232,7 @@ export async function renderNew(R0, P, SH) {
         : html`<button type="button" class="btn" id="cm-claim">Tôi chốt ca này</button>`}`,
     1: () => html`<div class="st-meta">Danh sách lấy sẵn từ lịch. Chỉ sửa chỗ khác thực tế.</div>
       ${V.staff.length ? '' : html`<div class="st-meta">Lịch chưa xếp ai cho ca này — thêm người làm bên dưới.</div>`}
+      ${notInCa() ? html`<div class="alert info cm-notinca" style="margin:0">Bạn <b>không có tên trong lịch</b> ca này (có thể quản lý chưa đổi kịp lịch). Nếu bạn làm ca này, thêm tên mình ở mục <b>THÊM NGƯỜI LÀM HỘ</b> bên dưới; người có tên mà nghỉ thì bấm <b>Nghỉ</b> và ghi lý do.</div>` : ''}
       ${V.staff.map((s, i) => html`<div class="cm-person"><div class="cm-ph"><div><strong>${s.code} – ${s.name}</strong> <span class="st-meta">${s.role || ''}${s.source === 'lich' ? '' : ' · làm hộ / phát sinh'}</span>
           ${s.pay_cash && Number(s.cash_paid) > 0 ? html` <span class="pill info">Trả lương tiền mặt</span>` : ''}</div>
         <div class="cm-seg" role="group" aria-label="${s.name} có làm không"><button type="button" data-w="${i}" data-v="1" aria-pressed="${s.worked}">Có làm</button><button type="button" data-w="${i}" data-v="0" aria-pressed="${!s.worked}">Nghỉ</button></div></div>
@@ -314,6 +315,8 @@ export async function renderNew(R0, P, SH) {
     },
   };
   const hasCover = () => V.staff.some((x) => !x.worked || x.source !== 'lich');
+  // việc #11 (tệp 182): người chốt không có tên trong danh sách ca (quản lý chưa đổi kịp lịch) → nhắc tự thêm tên mình
+  const notInCa = () => tienMine && !managerClose && !!state.me?.employee_id && !V.staff.some((x) => Number(x.employee_id) === Number(state.me.employee_id));
   const cats = () => Array.isArray(categories) ? categories : categories.cats || categories.categories || [];
   function ledgerRow(m, i) {
     const exchange = m.kind === 'doi_tien'; const positive = Number(m.amount) > 0 || m.sign === 1;
