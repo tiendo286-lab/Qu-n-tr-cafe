@@ -1105,3 +1105,14 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
 - **Nhiều phiên AI:** cho làm song song, theo luật tránh đụng nhau (đã ghi `CLAUDE.md`).
 - **Em tự đóng (đã có việc sau đó thay thế — chưa xác nhận lại với anh):** Q-06 (thêm phiếu ca chiều 03/11 — chặng 6.3d phiếu trang ca luôn trong ca), Q-07 (trừ lương chia đều — chặng 5 chọn người bằng ô tích), Q-08 / Q-12 (bản 6 bước — đã thay bằng trang đối soát ca mới), Q-09 (x2 chờ duyệt — chặng 6.2 trang Duyệt nghỉ & làm thay), Q-32 (trang Công nợ — chặng 6.4 vẫn dùng, giữ), Q-16 (không thêm dòng "còn N phiếu ngoài khoảng ngày" ở Phiếu xuất).
 - **Chưa hỏi lượt này:** Q-13 (phiếu chốt ca nhân viên 8 bước), Q-19 (bài kiểm tra lý thuyết — cần nội dung của anh), Q-20 (trang Đối soát cũ — anh để phần đối soát làm sau), Q-21, Q-31, Q-33, Q-38 (sao lưu Google Drive), Q-41.
+
+## Bảng Chênh lệch tiền (27/11/2026)
+
+Thiết kế: `tai_lieu/superpowers/specs/2026-11-27-bang-tien-chenh-lech-design.md`; hình mẫu https://claude.ai/artifact/3tT5iPsxVtdFuY9Cfcsx5o.
+- Anh Tiến: "T muốn có giao diện bảng tiền chênh lệch này để sẽ đối soát cho chủ và quản lý" → "lên thiết kế trước khi sửa toàn bộ" → **"bảng để xem và xử lý luôn"**.
+- Trang **Quản lý ca › Chênh lệch tiền** (`#/quan-ly/chenh-lech`, quyền đối soát): chọn tháng, cơ sở (Tất cả / từng cơ sở); 5 ô tổng (Tổng thiếu · Tổng dư · Còn chờ xử lý · Chờ Chủ duyệt · Đã xử lý xong); lọc trạng thái / chỉ thiếu / chỉ dư / tiền mặt / chuyển khoản; mỗi dòng = một chênh lệch của một ca theo loại tiền: ngày · ca, cơ sở, loại tiền, phải có, thực tế, lệch (thiếu đỏ −, dư xanh +), người làm ca, đã xử lý bằng, còn lại, trạng thái. Điện thoại: mỗi dòng một thẻ.
+- **Xử lý ngay tại bảng:** nút **Xử lý** / **Xem / sửa** mở đúng Phiếu chênh lệch của Sổ thu chi (trừ lương, quán chịu, ghép ca, phiếu thu, gán nợ, huỷ); dòng chờ Chủ có nút **Duyệt** / **Từ chối** (chỉ Chủ); **Mở ca ›** sang bước Chênh lệch của trang đối soát ca. Cùng hàm máy chủ, cùng luật — không có luật riêng của bảng.
+- 5 trạng thái: Chờ xử lý · Chờ Chủ duyệt · Đã xử lý · Lệch nhỏ (ẩn sẵn) · Số tạm (ca chưa xác nhận xong phần tiền).
+- **Em tự quyết, chưa xác nhận:** lệch nhỏ ẩn sẵn + không tính vào ô tổng; ca chưa xác nhận tiền hiện "Số tạm"; cơ sở theo đúng quyền xem tiền của Sổ thu chi; xếp chờ xử lý lên trước rồi ngày mới nhất.
+- Bài thử: `jsc -m kiem_tra/chenh_lech_tinh.mjs` (21); `flow_cl` (chu 17 · ql 17 · nv 1, máy tính + điện thoại, web đủ dữ liệu); so số thật tháng 11 (chỉ đọc, 27/11): 275 dòng của 4 cơ sở khớp từng dòng với sổ tháng — 37 chờ xử lý, 2 chờ Chủ duyệt, 84 đã xử lý, 152 lệch nhỏ.
+

@@ -1800,6 +1800,14 @@ export const stcBind = (root, D) => bindPage(D, root);
 export const stcPart = (D, a, part, mk) => partA(D, a, part, mk);
 export const stcCatSelect = (D, x) => catSelect(D, x);
 export const stcStyle = () => STYLE;
+// Bảng Chênh lệch tiền (#/quan-ly/chenh-lech, anh Tiến 27/11/2026): nạp sổ tháng một cơ sở (không dùng bộ nhớ đệm) và mở đúng Phiếu chênh lệch của
+// Sổ thu chi từ bảng đó; lưu xong gọi hook của bảng (vẽ lại bảng) thay vì vẽ lại Sổ thu chi. Chỉ là lối vào — mọi luật vẫn ở gapDialog + máy chủ.
+export async function stcLoadFor(cn, thang) { CACHE = null; const D = await load(String(cn), thang); CACHE = null; return D; }
+export function stcGapOpen(D, id, thang, hook) {
+  ONE = null; HOOK = hook || null;
+  P = { tab: 'tong', cn: String(D.branch.id), thang, pm: 'tm', cot: '', loc: '' };
+  return stcGap(D, id);
+}
 export function stcGap(D, id) { const it = (D.items || []).find((x) => x.id === id); if (it?.gap) gapDialog(D, it); return !!it?.gap; }
 
 // ---------------- Khoản treo (tab Tổng) ----------------

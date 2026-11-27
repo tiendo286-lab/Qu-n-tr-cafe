@@ -1,4 +1,4 @@
-# Thiết kế: Bảng tiền chênh lệch (27/11/2026) — CHỜ ANH TIẾN DUYỆT
+# Thiết kế: Bảng tiền chênh lệch (27/11/2026) — anh Tiến chọn "bảng để xem và xử lý luôn" (A + B), đã làm trên nhánh
 
 Hình mẫu (dữ liệu giả): https://claude.ai/artifact/3tT5iPsxVtdFuY9Cfcsx5o
 
@@ -65,3 +65,17 @@ Trạng thái một dòng: **Chờ xử lý** (còn tiền chưa có cách xử 
 
 - Lấy số từ hàm tháng của Sổ thu chi cho từng cơ sở hay viết một hàm đọc gọn riêng (chỉ đọc) — miễn số khớp từng ca với trang đối soát ca; phải có bài so trên dữ liệu thật như đã làm cho trang đối soát ca mới (271 ca khớp hết).
 - Cách sắp xếp mặc định (đề nghị: chờ xử lý lên trước, rồi ngày mới nhất).
+
+## Anh Tiến trả lời 27/11 và những điều em tự quyết khi làm
+
+- **Câu 1 — anh chọn: "bảng để xem và xử lý luôn"** → làm cả A và B trong một đợt.
+- Câu 2, 3, 4 anh chưa trả lời — em làm theo hướng em nghiêng, **chưa xác nhận**:
+  - Lệch nhỏ (máy chủ ghi "Lệch nhỏ ≤ 5.000"): **ẩn sẵn**, có nút lọc "Lệch nhỏ" để xem; không tính vào ô tổng thiếu / dư.
+  - Ca chưa có dòng xử lý lệch ở máy chủ (chưa xác nhận xong phần tiền): hiện nhãn **"Số tạm"**, chỉ có nút Mở ca.
+  - Ai thấy cơ sở nào: đúng theo quyền xem tiền của Sổ thu chi; cơ sở không được xem thì bỏ qua và ghi tên ở đầu bảng.
+- Cách làm: trang `docs/js/pages/chenh_lech.js` + hàm thuần `docs/js/chenh_lech_tinh.js`. **Không có máy chủ mới, không có luật mới:**
+  nạp sổ tháng từng cơ sở bằng `app_stc_month` (qua `stcLoadFor`), dòng lấy từ `caGaps`, số phải có / thực tế từ `dayChain`;
+  nút Xử lý mở đúng `gapDialog` của Sổ thu chi (qua `stcGapOpen`); Duyệt / Từ chối gọi `app_stc_gap_approve` như trong phiếu.
+- Vùng khoá: `so_thu_chi.js` chỉ thêm 2 hàm xuất `stcLoadFor`, `stcGapOpen` (lối vào), không đổi dòng luật nào.
+- "Tất cả cơ sở" nạp lần lượt từng cơ sở (5 lần hỏi sổ tháng, vài giây). Nếu chậm khi dùng thật: viết một hàm đọc gọn riêng ở máy chủ (việc sau).
+- Nút "Mở ca ›" tới `#/ca/doi-soat?id=…&tab=tien&b=5`.
