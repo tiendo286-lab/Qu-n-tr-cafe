@@ -1,7 +1,7 @@
 // Bước 109 — Tất cả công việc (Chủ / Quản lý tổng): việc tự tạo + Giao việc riêng của mọi người, chưa có người, theo dõi từng người, 5 bước việc riêng.
 import { rpc } from '../sb.js';
 import { $, html, str } from '../ui.js';
-import { JOBS, RST, jobName, learnJobs, ROLE, STYLE, bindActions, curStep, dur, fd, gvCard, gvDue, money, ms, pcCard, pcDue, rstate, shortName, toast, tone } from '../cv_chung.js?v=2026.11.27.5';
+import { JOBS, RST, jobName, learnJobs, ROLE, STYLE, bindActions, curStep, dur, fd, gvCard, gvDue, money, ms, pcCard, pcDue, rstate, shortName, toast, tone } from '../cv_chung.js?v=2026.11.27.6';
 
 export const perm = 'hop_giao_viec';
 const F = { br: '', st: 'open', rs: '' };
