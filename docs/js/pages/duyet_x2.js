@@ -105,6 +105,7 @@ export async function render({ params }) {
       ${tab === 'xong' && isOwner && C.open ? (editing.has(r.id)
         ? html`<div class="x2p-foot"><button type="button" class="btn sm secondary" data-undo="${r.id}">Huỷ</button><button type="button" class="btn sm" data-reok="${r.id}">Duyệt lại</button></div>`
         : html`<div class="x2p-foot"><button type="button" class="btn sm secondary" data-edit="${r.id}">Sửa</button></div>`) : ''}
+      ${tab !== 'xong' && ed ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-one="${tab === 'duyet' && isOwner ? 'ok' : 'save'}">${tab === 'duyet' && isOwner ? 'Duyệt ca này' : 'Lưu ca này'}</button></div>` : ''}
       <div class="x2p-err" hidden></div></div></div>`;
   };
 
@@ -150,6 +151,7 @@ export async function render({ params }) {
         el.querySelector('[data-edit]')?.addEventListener('click', () => { editing.add(r.id); redrawCa(r); });
         el.querySelector('[data-undo]')?.addEventListener('click', () => { editing.delete(r.id); redrawCa(r); });
         el.querySelector('[data-reok]')?.addEventListener('click', () => approveOne(r));
+        el.querySelector('[data-one]')?.addEventListener('click', (e) => oneCa(r, e.currentTarget));
         const usedNow = new Set($$('.cv-a .cv-helper', el).map((x) => x.value));
         $$('.cv-e', el).forEach((e) => { e.hidden = usedNow.has(e.dataset.helper); });
       }
@@ -192,6 +194,25 @@ export async function render({ params }) {
         }
         if (!fail) { flash(`Đã ${kind === 'ok' ? 'duyệt' : 'lưu'} ${ok} ca.${kind === 'ok' ? ' Người nghỉ và người làm thay đã được báo.' : ''}`); rerender(); return; }
         flashNow(`Đã ${kind === 'ok' ? 'duyệt' : 'lưu'} ${ok} ca · ${fail} ca báo đỏ cần sửa (xem dòng đỏ). Tải lại trang để thấy danh sách mới.`, ok ? 'warn' : 'error');
+      }
+      // 27/11 (anh Tiến): lưu / duyệt riêng một ca ngay tại khung của ca, không tải lại trang để các ca đang điền dở không mất.
+      const bump = (k, d) => { const n = root.querySelector(`[data-tab="${k}"] strong`); if (n && /^\d+$/.test(n.textContent)) n.textContent = String(Math.max(0, Number(n.textContent) + d)); };
+      async function oneCa(r, btn) {
+        const el = card(r.id), kind = btn.dataset.one, msg = problem(el);
+        if (msg) { mark(el, msg + ' Ca này chưa lưu.'); return; }
+        btn.disabled = true;
+        try {
+          if (kind === 'ok') await rpc('app_cv_approve', { p_id: r.id, p_items: items(el), p_note: '' });
+          else await rpc('app_cv_save', { p_id: r.id, p_items: items(el) });
+        } catch (e) { mark(el, e.message); btn.disabled = false; return; }
+        if (kind === 'save' && tab === 'duyet') {   // vẫn ở Chờ Chủ duyệt → chỉ vẽ lại khung ca
+          const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null); if (C) { r.C = C; redrawCa(r); } else { mark(el, ''); btn.disabled = false; }
+          flashNow(`Đã lưu ca ${caTitle(r)}.`, 'info'); return;
+        }
+        ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); el.remove(); count();
+        bump(tab, -1); bump(kind === 'ok' ? 'xong' : 'duyet', 1);
+        if (!rows.length) list.innerHTML = str(body());
+        flashNow(kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
       }
       async function approveOne(r) {
         const el = card(r.id), msg = problem(el); if (msg) { mark(el, msg); return; }

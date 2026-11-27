@@ -284,6 +284,7 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 - Số dư đầu khác cả 2 cách → báo lệch, bắt ghi lý do (như cũ). Tiền nộp quỹ mà không thực sự vào quỹ sẽ lộ ra khi **kiểm quỹ** (Sổ quỹ).
 
 ## 5q. Nghỉ & làm thay (x2) gọn thao tác — CHỐT và ĐÃ LÀM 12/11/2026 (`supabase/46_nghi_thay_gon.sql`)
+- **27/11/2026 (anh Tiến chốt cách 1):** trang Duyệt nghỉ & làm thay — mỗi khung ca có nút riêng **Lưu ca này** (thẻ Chờ phân loại; Quản lý tổng ở thẻ Chờ Chủ duyệt) / **Duyệt ca này** (Chủ ở thẻ Chờ Chủ duyệt). Bấm xong ca rời danh sách, trang không tải lại nên các ca đang điền dở không mất. Nút lưu / duyệt hàng loạt các ca đã tích vẫn giữ. Ca nhiều người nghỉ vẫn phải điền đủ mới lưu (lưu riêng từng người trong một ca = cách 2, chưa làm). Máy chủ không đổi.
 - **Chủ / Quản lý tổng tự chốt ca** → ở bước "Kiểm tra lần cuối" của phiếu hiện luôn khung **Nghỉ & làm thay**: chọn lý do nghỉ, người làm thay, x2; Chủ bấm **Duyệt** luôn (Quản lý tổng phân loại thì vẫn chờ Chủ duyệt). Nhân viên chốt ca không thấy khung này.
 - Máy chủ cho phân loại / duyệt cả khi phiếu đang chốt (`app_cv_save`, `app_cv_approve`).
 - Tab **Đối soát** có mục **"6. Nghỉ / làm thay (x2)"**: Chờ Quản lý tổng phân loại · Chờ Chủ duyệt (`app_cv_todo`), nút mở thẳng bước Nhân sự.

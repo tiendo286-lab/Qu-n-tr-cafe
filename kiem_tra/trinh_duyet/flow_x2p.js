@@ -53,7 +53,28 @@ export default async ({ sleep, out }) => {
       ok(b.classList.contains('bad') && /Chưa chọn lý do/.test(b.querySelector('.x2p-err').innerText), `Ca thiếu lý do báo đỏ: ${b.querySelector('.x2p-err').innerText}`);
       const st = await Promise.all(ids.map((id) => rpc('app_cv_get', { p_id: id }).then((x) => x.state)));
       ok(st[0] === 'cho_duyet' && st[1] === 'chua_phan_loai' && st[2] === 'cho_duyet', `Sau Lưu: ${st.join(', ')} · ${txt('#x2p-msg')}`);
+      // 27/11: nút "Lưu ca này" ngay trong khung ca — lưu riêng 1 ca, không tải lại trang
+      {
+        const b2 = $(`.x2p-ca[data-id="${ids[1]}"]`), a2 = $(`.x2p-ca[data-id="${ids[0]}"]`);
+        ok(/^lưu ca này$/i.test(b2.querySelector('[data-one]')?.textContent.trim()), `Khung ca có nút: ${b2.querySelector('[data-one]')?.innerText} · ${W()}`);
+        b2.querySelector('[data-one]').click(); await sleep(400);
+        ok(b2.classList.contains('bad') && !!$(`.x2p-ca[data-id="${ids[1]}"]`), `Lưu ca này khi thiếu lý do: báo đỏ, không lưu — ${b2.querySelector('.x2p-err').innerText}`);
+        b2.querySelector('.cv-reason').value = 'tu_tim'; a2.dataset.giu = '1';
+        const n0 = $('[data-tab="duyet"] strong').textContent;
+        b2.querySelector('[data-one]').click(); await wait(() => !$(`.x2p-ca[data-id="${ids[1]}"]`), 100);
+        const s1 = (await rpc('app_cv_get', { p_id: ids[1] })).state;
+        ok(!$(`.x2p-ca[data-id="${ids[1]}"]`) && s1 === 'cho_duyet', `Lưu ca này: ca rời danh sách, máy chủ ${s1} · ${txt('#x2p-msg')}`);
+        ok($(`.x2p-ca[data-id="${ids[0]}"]`)?.dataset.giu === '1', 'Trang không tải lại (khung ca khác còn nguyên)');
+        ok(Number($('[data-tab="duyet"] strong').textContent) === Number(n0) + 1, `Số ở thẻ Chờ Chủ duyệt tăng 1: ${n0} → ${$('[data-tab="duyet"] strong').textContent}`);
+      }
       await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+      {
+        const d2 = $(`.x2p-ca[data-id="${ids[1]}"]`);
+        ok(/^duyệt ca này$/i.test(d2?.querySelector('[data-one]')?.textContent.trim()), `Chờ Chủ duyệt: khung ca có nút ${d2?.querySelector('[data-one]')?.innerText}`);
+        d2.querySelector('[data-one]').click(); await wait(() => !$(`.x2p-ca[data-id="${ids[1]}"]`), 100);
+        const s2 = (await rpc('app_cv_get', { p_id: ids[1] })).state;
+        ok(!$(`.x2p-ca[data-id="${ids[1]}"]`) && s2 === 'da_duyet' && !!$(`.x2p-ca[data-id="${ids[0]}"]`), `Duyệt ca này: chỉ ca đó được duyệt (${s2}), ca khác còn chờ · ${txt('#x2p-msg')} · ${W()}`);
+      }
       const d1 = $(`.x2p-ca[data-id="${ids[0]}"]`), d3 = $(`.x2p-ca[data-id="${ids[2]}"]`);
       ok(d1 && d3 && d1.querySelector('.x2p-pick').checked && d3.querySelector('.x2p-pick').checked, `Chờ Chủ duyệt: 2 ca tích sẵn · ${txt('#x2p-count')}`);
       ok(!!$('#x2p-ok') && !$('#x2p-save'), 'Chủ có nút Duyệt các ca đã tích');
