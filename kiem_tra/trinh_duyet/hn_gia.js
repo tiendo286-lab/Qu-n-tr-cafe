@@ -13,6 +13,7 @@ export function makeHn(T, me) {
   const add12 = (d) => new Date(Date.parse(String(d).slice(0, 10)) + 12 * 864e5).toISOString().slice(0, 10);
   const pub = () => (T.docs || []).filter((d) => d.kind === 'noi_quy' && d.published_version > 0);
   const isRead = (d, emp) => (T.doc_reads || []).some((r) => r.doc_id === d.id && r.employee_id === emp && r.version === d.published_version);
+  const ckRow = (emp) => (T.employee_commitments || []).find((c) => c.employee_id === emp) || {};
   const commitOf = (emp) => ((T.employee_commitments || []).find((c) => c.employee_id === emp) || {}).status || 'chua_ky';
   const commitDue = (e) => add12([String(e.start_date || '').slice(0, 10), '2026-11-18'].sort().pop());
   const active = () => (T.employees || []).filter((e) => e.status === 'Đang làm');
@@ -35,8 +36,20 @@ export function makeHn(T, me) {
       return { today: now().slice(0, 10), can_edit: true,
         docs: pub().map((d) => ({ id: d.id, title: d.published_title || d.title, version: d.published_version, published_at: d.published_at, due: add12(d.published_at) })),
         rows: active().map((e) => ({ employee_id: e.id, code: e.code, name: e.name, rank: e.rank, start_date: e.start_date,
-          unread: pub().filter((d) => !isRead(d, e.id)).map((d) => d.id), commit: commitOf(e.id), commit_at: null, commit_by: null, commit_due: commitDue(e) })) };
+          unread: pub().filter((d) => !isRead(d, e.id)).map((d) => d.id), commit: commitOf(e.id), commit_at: null, commit_by: null, commit_due: commitDue(e),
+          commit_photo: ckRow(e.id).photo_path || null, commit_photo_at: ckRow(e.id).photo_at || null, commit_photo_by: ckRow(e.id).photo_path ? `${me.code} – ${me.name}` : null })) };
     },
+    // tệp 189: ảnh bản cam kết đã ký
+    app_tl_commit_photo: ({ p_employee, p_path }) => {
+      if (!me.perms.ke_toan && !me.perms.quan_ly_nhan_vien) throw new Error('Chỉ Kế toán hoặc người quản lý nhân viên được tải ảnh bản cam kết.');
+      if (p_path && !String(p_path).startsWith(p_employee + '/')) throw new Error('Đường dẫn ảnh không đúng nhân viên.');
+      let c = (T.employee_commitments || []).find((x) => x.employee_id === p_employee);
+      if (!c) { c = { employee_id: p_employee, status: 'chua_ky' }; (T.employee_commitments = T.employee_commitments || []).push(c); }
+      const old = c.photo_path || null; c.photo_path = p_path || null; c.photo_at = p_path ? now() : null;
+      (window.__CK_CALLS = window.__CK_CALLS || []).push({ p_employee, p_path });
+      return old !== (p_path || null) ? old : null;
+    },
+    app_tl_my_commit: () => (me.employee_id ? { status: commitOf(me.employee_id), photo_path: ckRow(me.employee_id).photo_path || null, photo_at: ckRow(me.employee_id).photo_at || null } : null),
   };
   // bước 142: app_today_more — việc mình đã báo xong chờ kiểm tra, việc xong hôm nay, đào tạo đã giao (Quản lý / Chủ). hnfail=more → lỗi.
   out.app_today_more = () => {

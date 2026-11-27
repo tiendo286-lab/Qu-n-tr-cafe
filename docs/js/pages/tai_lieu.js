@@ -5,6 +5,7 @@ import { rating } from '../danh_gia.js';
 import { rpc, selAll } from '../sb.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, html, norm, raw, showSaved } from '../ui.js';
+import { CK_CSS, CK_LABEL, ckView } from '../cam_ket_anh.js?v=2026.11.27.4';
 
 export const DEFAULT_PROCEDURE = 'Quy trình nhân viên order';
 export const procedureOf = (d) => d.procedure_title || DEFAULT_PROCEDURE;
@@ -30,6 +31,8 @@ export async function render({ params, me }) {
   const [label] = KINDS[kind];
   const editor = can('soan_tai_lieu');
   const staffManager = !isProcedure && can('quan_ly_nhan_vien');
+  // tệp 189: nhân viên xem cam kết của mình (trạng thái + ảnh bản đã ký) ở trang Nội quy
+  const myCommit = !isProcedure && me.employee_id ? await rpc('app_tl_my_commit').catch(() => null) : null;
   const [docs, trainings, evaluation, staffStatus, employees] = await Promise.all([
     rpc('app_tl_list', { p_kind: kind }),
     me.employee_id ? rpc('app_dt_mine').catch(() => []) : [],
@@ -137,6 +140,10 @@ export async function render({ params, me }) {
     <div id="saved-indicator" class="saved" role="status" hidden></div>
     ${me.employee_id ? html`<section class="card hb-progress" aria-label="Tiến độ đọc sổ tay"><div><strong>Tiến độ của tôi</strong><span>${handbookRead}/${publishedHandbook.length} nội quy</span></div><div class="hb-progress-track" aria-label="${handbookProgress}%"><i style="width:${handbookProgress}%"></i></div><b>${handbookProgress}%</b></section>` : ''}
     ${personalStatus}
+    ${myCommit ? html`${CK_CSS}<section class="card ck-mine" id="ck-mine"><strong>Bản cam kết của tôi</strong>
+      <span class="pill ${myCommit.status === 'da_ky_nop' ? 'ok' : 'warn'}">${CK_LABEL[myCommit.status] || 'Chưa ký'}</span>
+      ${myCommit.photo_path ? html`<button type="button" class="btn sm secondary" id="ck-mine-xem" data-path="${myCommit.photo_path}">Xem ảnh bản đã ký</button>`
+        : html`<span class="st-meta">${myCommit.status === 'da_ky_nop' ? 'Kế toán chưa lưu ảnh bản đã ký.' : 'Ký bản giấy và nộp cho Kế toán.'}</span>`}</section>` : ''}
     ${unread ? html`<div class="alert warn">Bạn còn ${unread} nội quy chưa xác nhận đã đọc.</div>` : me.employee_id && publishedHandbook.length ? html`<div class="alert ok">Bạn đã đọc đủ bản nội quy hiện hành.</div>` : ''}
     ${tools}
     <div class="hb-reader ${companyOverview ? 'has-company' : ''}">
@@ -153,6 +160,7 @@ export async function render({ params, me }) {
     async mount(root) {
       mountProcedure(root, { groupHome, focus, shown, noun: isProcedure && groupHome ? 'quy trình' : 'bài' });
       $('#hb-continue', root)?.addEventListener('click', () => openDoc(root, $('#hb-continue', root).dataset.doc, true));
+      $('#ck-mine-xem', root)?.addEventListener('click', async (ev) => { try { await ckView(ev.currentTarget.dataset.path, 'Bản cam kết của tôi'); } catch (e) { showSaved(e.message, true); } });
       $$('.read-btn', root).forEach((b) => b.addEventListener('click', async () => {
         try { await rpc('app_tl_read', { p_id: Number(b.dataset.id) }); rerender(); } catch (e) { showSaved(e.message, true); }
       }));

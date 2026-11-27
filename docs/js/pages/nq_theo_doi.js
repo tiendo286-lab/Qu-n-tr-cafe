@@ -4,6 +4,7 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, $$, flash, html, showSaved } from '../ui.js';
+import { CK_CSS, ckDrop, ckUpload, ckView } from '../cam_ket_anh.js?v=2026.11.27.4';
 
 export const perm = ['ke_toan', 'quan_ly_nhan_vien'];
 const COMMIT = { chua_ky: 'Chưa ký', da_ky_chua_nop: 'Đã ký, chưa nộp', da_ky_nop: 'Đã ký và nộp' };
@@ -29,11 +30,16 @@ export async function render({ params }) {
       <div><div class="st-meta">Cam kết</div>
         <select class="input sm nqf-ck" aria-label="Cam kết của ${r.name}">${Object.entries(COMMIT).map(([k, l]) => html`<option value="${k}" ${k === r.commit ? 'selected' : ''}>${l}</option>`)}</select>
         ${r.commit === 'da_ky_nop' ? html`<div class="st-meta">${r.commit_by ? r.commit_by + ' · ' : ''}${r.commit_at || ''}</div>`
-          : html`<div class="st-meta" style="${late(r) ? 'color:#b91c1c;font-weight:600' : ''}">Hạn ${dmy(r.commit_due)}${late(r) ? ' · quá hạn' : ''}</div>`}</div>
+          : html`<div class="st-meta" style="${late(r) ? 'color:#b91c1c;font-weight:600' : ''}">Hạn ${dmy(r.commit_due)}${late(r) ? ' · quá hạn' : ''}</div>`}
+        <div class="ck-ph" data-path="${r.commit_photo || ''}">${r.commit_photo
+          ? html`<span class="pill ok">Có ảnh bản đã ký</span><button type="button" class="btn sm secondary ck-xem">Xem ảnh</button><button type="button" class="btn sm secondary ck-tai">Đổi ảnh</button><button type="button" class="btn sm secondary ck-xoa">Xoá ảnh</button>
+            <span class="st-meta">${r.commit_photo_by ? r.commit_photo_by + ' · ' : ''}${r.commit_photo_at || ''}</span>`
+          : html`<span class="pill mute">Chưa có ảnh</span><button type="button" class="btn sm secondary ck-tai">＋ Ảnh bản đã ký</button>`}
+          <input type="file" class="ck-file" accept="image/*" hidden aria-label="Ảnh bản cam kết của ${r.name}"></div></div>
     </div></article>`;
   return {
     title: 'Theo dõi đọc & cam kết',
-    html: html`<style>
+    html: html`${CK_CSS}<style>
         .nqf-r { display: flex; flex-direction: column; gap: 8px; padding: 12px 14px; }
         .nqf-h { display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; } .nqf-h strong { overflow-wrap: anywhere; }
         .nqf-g { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
@@ -41,7 +47,7 @@ export async function render({ params }) {
         .nqf-docs { display: flex; flex-wrap: wrap; gap: 6px; }
       </style>
       <div class="page-head"><div><h1>Theo dõi đọc nội quy & cam kết</h1>
-        <div class="sub">Nhân viên đọc bản nội quy đang áp dụng trong 12 ngày từ ngày đăng. Cam kết: nhận bản giấy đã ký, chụp ảnh đăng lên nhóm rồi chọn <b>Đã ký và nộp</b>; hạn 12 ngày từ ngày vào làm.</div></div>
+        <div class="sub">Nhân viên đọc bản nội quy đang áp dụng trong 12 ngày từ ngày đăng. Cam kết: nhận bản giấy đã ký, chọn <b>Đã ký và nộp</b>, bấm <b>＋ Ảnh bản đã ký</b> để lưu ảnh lên web (không bắt buộc); hạn 12 ngày từ ngày vào làm.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div id="nqf" class="stack" style="max-width:900px;gap:12px">
         <div class="card stack" style="gap:8px;padding:12px 14px">
@@ -60,6 +66,32 @@ export async function render({ params }) {
         const q = norm(ev.target.value.trim()); let n = 0;
         $$('.nqf-r', root).forEach((c) => { c.hidden = !!q && !c.dataset.search.includes(q); if (!c.hidden) n++; });
         $('#nqf-count', root).textContent = `${n} nhân viên`;
+      });
+      // tệp 189: ảnh bản cam kết đã ký — tải / đổi / xem / xoá (gắn vào khối #nqf, vẽ lại trang thì tự mất)
+      const box0 = $('#nqf', root);
+      const nameOf = (el) => el.closest('.nqf-r').querySelector('.nqf-h strong').textContent;
+      const empOf = (el) => Number(el.closest('.nqf-r').dataset.id);
+      box0.addEventListener('click', async (ev) => {
+        const b = ev.target.closest('.ck-ph button'); if (!b) return;
+        const box = b.closest('.ck-ph');
+        if (b.classList.contains('ck-tai')) { box.querySelector('.ck-file').click(); return; }
+        if (b.classList.contains('ck-xem')) { try { await ckView(box.dataset.path, 'Bản cam kết · ' + nameOf(b)); } catch (e) { showSaved(e.message, true); } return; }
+        if (b.classList.contains('ck-xoa')) {
+          if (!confirm('Xoá ảnh bản cam kết của ' + nameOf(b) + '? Trạng thái cam kết giữ nguyên.')) return;
+          b.disabled = true;
+          try { const old = await rpc('app_tl_commit_photo', { p_employee: empOf(b), p_path: null }); await ckDrop(old); flash('Đã xoá ảnh.'); rerender(); }
+          catch (e) { showSaved(e.message, true); b.disabled = false; }
+        }
+      });
+      box0.addEventListener('change', async (ev) => {
+        const f = ev.target.closest('.ck-file'); if (!f || !f.files || !f.files[0]) return;
+        const box = f.closest('.ck-ph'); const btn = box.querySelector('.ck-tai'); btn.disabled = true; btn.textContent = 'Đang tải…';
+        let path = null;
+        try {
+          path = await ckUpload(empOf(f), f.files[0]);
+          const old = await rpc('app_tl_commit_photo', { p_employee: empOf(f), p_path: path });
+          await ckDrop(old); flash('Đã lưu ảnh bản cam kết.'); rerender();
+        } catch (e) { await ckDrop(path); showSaved(e.message, true); btn.disabled = false; btn.textContent = box.dataset.path ? 'Đổi ảnh' : '＋ Ảnh bản đã ký'; f.value = ''; }
       });
       $$('.nqf-ck', root).forEach((s) => s.addEventListener('change', async () => {
         s.disabled = true;

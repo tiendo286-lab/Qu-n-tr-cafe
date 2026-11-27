@@ -1093,14 +1093,14 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
 - **Phạt việc quá hạn — chốt 4 luật đang chạy:** (1) cơ sở có 2 người đối soát → hiện cả 2 để Chủ chọn phạt ai; (2) việc trễ nhiều ngày phạt 1 lần; (3) việc gộp (đối soát hàng, hoá đơn bù…) cả việc phạt 1 lần; (4) việc 2 bước: bước nào trễ phạt người làm bước đó.
 - **Lý do nghỉ "Bỏ ca":** chỉ phạt 200.000, **không** trừ thêm giờ công (chốt, giữ như web).
 - **Quyền giao việc riêng cho nhân viên:** Chủ + **Quản lý tổng + Quản lý cơ sở** (vai Quản lý CHƯA bật trên máy chủ lúc ghi — chờ anh bảo bật; quyền này cũng là quyền xem Tất cả công việc).
-- **Ảnh bản cam kết đã ký:** CẦN chỗ tải ảnh lên web (chưa làm).
-- **Đào tạo:** mục đã xác nhận đạt thì nhân viên **Cấp 1 không sửa được** nữa (chưa làm — hiện vẫn quay về Chờ kiểm tra); người có quyền Đào tạo (quản lý) ghi mức là đạt luôn — **giữ**.
+- **Ảnh bản cam kết đã ký (máy chủ `189_anh_cam_ket.sql`):** anh chọn thêm 3 câu — **kế toán / người quản lý nhân viên** tải ảnh (nhân viên không tự tải); **không bắt buộc** có ảnh mới đổi được Đã ký và nộp; **ai xem:** Chủ, kế toán, người quản lý nhân viên + chính nhân viên đó. Trang Theo dõi đọc & cam kết: mỗi người một dòng ảnh (＋ Ảnh bản đã ký · Xem ảnh · Đổi ảnh · Xoá ảnh, ghi ai tải, lúc nào); mỗi người 1 ảnh, ảnh nén trước khi tải; đổi trạng thái giữ nguyên ảnh, xoá ảnh giữ nguyên trạng thái. Nhân viên xem ở trang **Nội quy**, thẻ "Bản cam kết của tôi" (trạng thái + nút Xem ảnh). Ảnh nằm kho riêng tư `cam-ket`, thư mục theo mã số nhân viên.
+- **Đào tạo:** mục đã xác nhận đạt thì nhân viên **Cấp 1 không sửa được** nữa (máy chủ `188_dao_tao_cap1_khong_sua_muc_dat.sql`; trên phiếu 3 ô bị khoá, ghi "🔒 Đã xác nhận đạt — muốn đổi thì nhờ người hướng dẫn chính"). Mục đang chờ kiểm tra Cấp 1 vẫn sửa được. **Ngoại lệ em tự đặt (chưa xác nhận với anh):** Cấp 1 đang được giao luyện **giai đoạn 2** của đúng mục đó thì vẫn chấm lại được — đó là việc chấm lại có chủ đích; người có quyền Đào tạo (quản lý) ghi mức là đạt luôn — **giữ**.
 - **Hàng hoá "giao nhầm cơ sở":** chưa cần, để sau.
-- **Quản lý dùng điện thoại:** chưa cần thanh nút dưới đáy; chỉ **làm mỏng phần đầu trang** (chưa làm).
+- **Quản lý dùng điện thoại:** chưa cần thanh nút dưới đáy; chỉ **làm mỏng phần đầu trang** — tên web, chuông, nút Menu nằm trên một hàng (cao khoảng 60px thay vì khoảng 140px).
 - **Nhân viên xem bảng chốt ca cơ sở khác:** giữ như web đang chạy.
-- **Thẻ "Ca của tôi hôm nay":** **ẩn** với tài khoản không gắn nhân viên (Chủ, Kế toán riêng) (chưa làm).
-- **Số đỏ Cảnh báo xếp lịch:** chỉ đếm **lỗi xếp sai**, không đếm ô còn trống của tuần xếp dở (chưa làm).
-- **Kiểu chữ:** thống nhất tiêu đề / nút **IN HOA** trên toàn web, kể cả Sổ thu chi và trang đối soát ca mới (chưa làm).
+- **Thẻ "Ca của tôi hôm nay":** **ẩn** với tài khoản không gắn nhân viên (Chủ, Kế toán riêng).
+- **Số đỏ Cảnh báo xếp lịch:** chỉ đếm **lỗi xếp sai**, không đếm ca thiếu người của tuần xếp dở (lỗi xếp sai = xếp người Nghỉ / Chưa order, vượt định biên, thông 3 ca). Tuần ĐÃ CHỐT thì đếm đủ. Trang Cảnh báo vẫn liệt kê đủ mọi loại — phần "tuần đã chốt đếm đủ" là em tự quyết, chưa xác nhận.
+- **Kiểu chữ:** thống nhất tiêu đề / nút **IN HOA** trên toàn web, kể cả Sổ thu chi và phần tiền của trang đối soát ca (bỏ ngoại lệ chữ thường của Sổ thu chi cho nút, tiêu đề, thẻ cơ sở, thẻ trang). Tên người nợ, nội dung khoản vẫn giữ nguyên chữ.
 - **Order ca:** anh gõ "tôi muốn có tab riêng sửa toàn bộ trang này" — CHƯA RÕ Ý, phải hỏi lại, chưa làm gì.
 - **Nhiều phiên AI:** cho làm song song, theo luật tránh đụng nhau (đã ghi `CLAUDE.md`).
 - **Em tự đóng (đã có việc sau đó thay thế — chưa xác nhận lại với anh):** Q-06 (thêm phiếu ca chiều 03/11 — chặng 6.3d phiếu trang ca luôn trong ca), Q-07 (trừ lương chia đều — chặng 5 chọn người bằng ô tích), Q-08 / Q-12 (bản 6 bước — đã thay bằng trang đối soát ca mới), Q-09 (x2 chờ duyệt — chặng 6.2 trang Duyệt nghỉ & làm thay), Q-32 (trang Công nợ — chặng 6.4 vẫn dùng, giữ), Q-16 (không thêm dòng "còn N phiếu ngoài khoảng ngày" ở Phiếu xuất).

@@ -577,6 +577,7 @@ export function makeStorage() {
   return {
     from: () => ({
       upload: async (path, blob) => { files.set(path, blob); window.__LOG.push(['upload', path, blob.size]); return { data: { path }, error: null }; },
+      createSignedUrl: async (p) => ({ data: { signedUrl: files.has(p) ? URL.createObjectURL(files.get(p)) : 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' }, error: null }),
       createSignedUrls: async (paths) => ({ data: paths.map((p) => ({ path: p, signedUrl: files.has(p) ? URL.createObjectURL(files.get(p)) : 'data:image/gif;base64,R0lGODlhAQABAAAAACw=' })), error: null }),
       remove: async (paths) => { paths.forEach((p) => files.delete(p)); return { data: [], error: null }; },
     }),
