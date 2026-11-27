@@ -17,8 +17,8 @@ const REPORT = { hoan_thanh: 'Đã gửi phiếu chốt ca' };
 
 function caBlock(T, can) {
   let body;
+  if (T && !T.has_employee) return '';   // anh Tiến chốt 27/11: tài khoản không gắn nhân viên (Chủ, Kế toán riêng) thì ẩn thẻ này
   if (!T) body = html`<div class="alert warn">Chưa tải được ca hôm nay.</div>`;
-  else if (!T.has_employee) body = html`<div class="sub">Tài khoản này không gắn nhân viên nên không có ca.</div>`;
   else if (!T.shifts.length) body = html`<div class="sub">Hôm nay bạn không có ca.</div>`;
   else {
     body = T.shifts.map((c) => {

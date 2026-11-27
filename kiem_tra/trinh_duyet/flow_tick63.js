@@ -28,7 +28,7 @@ export default async ({ sleep, out }) => {
       const m0 = manualLeft(), r0 = redLeft(), btn = $('[data-tickall]');
       ok(m0 > 0 ? !!btn : !btn, `bước 1: ${m0} mục QL chưa tích, ${r0} mục đỏ → nút ${btn ? 'có' : 'không'} · "${btn?.innerText.trim() || ''}"`);
       if (btn) {
-        ok(new RegExp(`${m0} mục`).test(btn.innerText), 'nút ghi đúng số mục sẽ tích');
+        ok(new RegExp(`${m0} mục`, "i").test(btn.innerText), 'nút ghi đúng số mục sẽ tích');
         ok(r0 ? !!$('.stc-tkall-red') : !$('.stc-tkall-red'), `bước có mục đỏ thì báo trước: ${$('.stc-tkall-red')?.innerText.trim() || '-'}`);
         btn.click();
         await until(() => !$('[data-tickall]') || stepNo() !== 0, 100); await sleep(800);

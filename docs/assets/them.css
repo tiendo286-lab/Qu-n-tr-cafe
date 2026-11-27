@@ -280,3 +280,13 @@ input, select, textarea, option, .input, [contenteditable], .doc-sum, .ProseMirr
 .gio-dlg .gio-pv:empty, .gio-dlg .gio-log:empty { display: none; }
 .gio-dlg .gio-pv { color: var(--accent, #8a5a2b); font-weight: 600; }
 .gio-dlg input[type=datetime-local] { max-width: 100%; }
+
+/* ---- Quản lý dùng điện thoại: phần đầu trang mỏng lại (anh Tiến chốt 27/11/2026) — tên web, chuông, nút Menu trên một hàng ---- */
+@media (max-width: 900px) {
+  .sidebar { position: relative; padding: 8px 12px; }
+  .sidebar .brand-row { padding-right: 96px; min-height: 38px; }
+  .sidebar .brand { font-size: 16px; padding: 0 4px; }
+  .sidebar .who { padding: 0 4px 2px; font-size: 11.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  details.navd > summary { position: absolute; top: 8px; right: 12px; margin: 0; padding: 8px 12px; min-height: 38px; display: flex; align-items: center; }
+  details.navd[open] > .nav { margin-top: 8px; }
+}

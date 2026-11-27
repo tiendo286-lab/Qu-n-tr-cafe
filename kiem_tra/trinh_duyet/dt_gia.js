@@ -140,6 +140,9 @@ export function makeDt(T, me) {
       Object.assign(m, { introduced: true, practiced: true, level: p_level, cho_kiem_tra: true, cho_by: 9, cho_at: now(), by_account: 9, at: now() });
       logMark(1, p_no, o, st3(m), { by: accName(9), pending: true }); },
     // chặng 4: dữ liệu mẫu để chụp ảnh cho anh duyệt — phiếu 1 có lịch sử 3 ngày thật (hôm kia, hôm qua, hôm nay)
+    // tệp 188: dựng một mục ĐÃ xác nhận đạt (không chờ kiểm tra)
+    app__test_dt_done({ p_no, p_level }) { let m = T.training_marks.find((x) => x.training_id === 1 && x.item_no === p_no); if (!m) T.training_marks.push(m = { training_id: 1, item_no: p_no });
+      Object.assign(m, { introduced: true, practiced: true, level: p_level || 'kha', cho_kiem_tra: false, cho_by: null, cho_at: null, at: now(), by_account: 1 }); },
     app__test_dt_demo() {
       const t = tr(1); const D = (k) => new Date(Date.now() + 7 * 3600e3 - k * 864e5).toISOString().slice(0, 10);
       const A = D(2), B = D(1), C = D(0); const HD = accName(5), C1 = accName(9), NV = 'NV03 – Người học thử';
@@ -329,7 +332,7 @@ export function makeDt(T, me) {
       return { ...t, ...sum(t), program: { name: 'Nhân viên chạy bàn 8 ngày', days: PROG.days }, employee: { code: emp(t.employee_id).code, name: emp(t.employee_id).name, rank: emp(t.employee_id).rank },
         items: PROG.items.map((i) => { const m = T.training_marks.find((x) => x.training_id === t.id && x.item_no === i.no) || {}; return { ...i, introduced: !!m.introduced, practiced: !!m.practiced, level: m.level || null, by: m.at ? (accName(m.by_account) || 'admin – Chủ') : null, at: m.at || null,
           pending: !!(m.cho_kiem_tra && m.level), pending_by: m.cho_kiem_tra ? accName(m.cho_by) : null, pending_at: m.cho_kiem_tra ? m.cho_at : null }; }),
-        can_check: canCheck(t), is_ptc: isPtc(), is_hdc: isHdc(t), ptc: reviewer ? accName(reviewer) : null, can_pick_hdc: isPtc() || me.role === 'chu',
+        can_check: canCheck(t), cap1_lock: !canCheck(t) && emp(me.employee_id)?.rank === 'Cấp 1', is_ptc: isPtc(), is_hdc: isHdc(t), ptc: reviewer ? accName(reviewer) : null, can_pick_hdc: isPtc() || me.role === 'chu',
         hdc_choices: isPtc() || me.perms.dao_tao ? T.employees.filter((e) => e.rank === 'Quản lý' && e.status === 'Đang làm' && e.id !== t.employee_id).map(({ id, code, name }) => ({ id, code, name })) : null,
         days_log: Object.fromEntries(T.training_days.filter((d) => d.training_id === t.id).map((d) => [d.day, d])), tasks: [],
         ...(workflow ? { due: due(t), today, review_from: dayFromStart(t, 8), followups: part(t).map((f) => ({ ...f, mine: f.employee_id != null && f.employee_id === me.employee_id })), can_review: me.account_id === reviewer,
@@ -350,6 +353,9 @@ export function makeDt(T, me) {
       if (n.level && !(n.introduced && n.practiced)) throw new Error(`Hạng mục ${p_no} phải đủ 2 bước rồi mới đánh giá mức đạt.`);
       // bước 169: Cấp 1 ghi mức đạt → Chờ kiểm tra; HDC / PTC tự ghi thì khỏi kiểm
       const cap1 = !canCheck(t) && emp(me.employee_id)?.rank === 'Cấp 1';
+      // tệp 188: mục đã xác nhận đạt thì Cấp 1 không sửa (trừ khi đang được giao giai đoạn 2 của mục đó)
+      if (cap1 && m.level && !m.cho_kiem_tra && !part(t).some((f) => f.no === p_no && f.employee_id === me.employee_id && f.is_extra && !f.finished_at))
+        throw new Error(`Hạng mục ${p_no} đã được xác nhận đạt — nhân viên Cấp 1 không sửa được. Cần đổi thì nhờ người hướng dẫn chính hoặc người phụ trách chính.`);
       const pend = !!n.level && cap1;
       Object.assign(m, n, { at: now(), by_account: me.account_id,
         cho_kiem_tra: !n.level ? false : canCheck(t) ? false : pend || !!m.cho_kiem_tra, cho_by: pend ? me.account_id : m.cho_by, cho_at: pend ? now() : m.cho_at });

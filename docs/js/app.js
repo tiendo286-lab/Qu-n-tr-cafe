@@ -336,7 +336,7 @@ async function refreshBadges() {
     warnBusy = true;
     (async () => {
       const w = await focusWeek();
-      if (w) { const { computeWarnings, warnTotal } = await import('./warnings.js'); state.warn = warnTotal(await computeWarnings(w)); } else state.warn = 0;
+      if (w) { const { computeWarnings, warnMenu } = await import('./warnings.js'); const { closure, ST_CHOT } = await import('./data.js'); const cl = await closure(w.id); state.warn = warnMenu(await computeWarnings(w, { closure: cl }), cl?.status === ST_CHOT); } else state.warn = 0;
     })().catch(() => { /* bỏ qua */ }).finally(() => { warnBusy = false; });
   }
   await Promise.all(jobs.map((j) => j.catch(() => { /* bỏ qua */ })));

@@ -12,9 +12,11 @@ export default async ({ visit, settle, out }) => {
     assert(location.hash === '#/hom-nay', 'Mở web chưa vào Việc hôm nay (đang ở ' + location.hash + ').');
     const root = await visit('#/hom-nay');
     const has = (s) => !!root.querySelector(s);
-    assert(has('#hn-ca') && has('#hn-viec'), 'Thiếu khối Ca hoặc Việc của tôi.');
-    const ca = root.querySelector('#hn-ca').textContent;
-    if (!staff) assert(ca.includes('không gắn nhân viên'), 'Tài khoản không gắn nhân viên phải báo không có ca.');
+    assert(has('#hn-viec'), 'Thiếu khối Việc của tôi.');
+    // anh Tiến chốt 27/11/2026: tài khoản không gắn nhân viên thì ẨN thẻ Ca của tôi hôm nay (trước đây hiện câu "không gắn nhân viên")
+    assert(staff ? has('#hn-ca') : !has('#hn-ca'), staff ? 'Thiếu khối Ca của tôi hôm nay.' : 'Tài khoản không gắn nhân viên phải ẩn thẻ Ca của tôi hôm nay.');
+    const ca = root.querySelector('#hn-ca')?.textContent || '';
+    if (!staff) { /* không có thẻ */ }
     else if (q.get('hnca') === '0') assert(ca.includes('Hôm nay bạn không có ca'), 'Thiếu câu không có ca.');
     else if (q.get('hnca') === '2') assert(ca.indexOf('Sáng') < ca.indexOf('Tối') && ca.includes('Chưa mở phiếu'), 'Hai ca chưa xếp theo giờ / thiếu trạng thái phiếu.');
     else assert(ca.includes('Sáng') && ca.includes('06:45'), 'Thiếu ca hôm nay.');

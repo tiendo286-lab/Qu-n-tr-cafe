@@ -63,9 +63,15 @@ export async function render({ params }) {
   const opt = T.can_admin ? await rpc('app_dt_options') : null;
   const ed = !!T.can_edit;
   const followups = new Map((T.followups || []).map((f) => [f.no, f]));
+  // tệp 188 (anh Tiến chốt 27/11): mục ĐÃ xác nhận đạt thì nhân viên Cấp 1 không sửa nữa — trừ khi đang được giao giai đoạn 2 của mục đó
+  const cap1Locked = (no) => {
+    if (!T.cap1_lock) return false;
+    const it = (T.items || []).find((x) => x.no === no); const a = followups.get(no);
+    return !!(it && it.level && !it.pending) && !(a?.mine && a.is_extra && !a.finished_at);
+  };
   const canMark = (no) => {
     const assignment = followups.get(no);
-    return !T.workflow_review_at && (ed || (assignment?.mine && (!assignment.is_extra || !assignment.finished_at)));
+    return !T.workflow_review_at && !cap1Locked(no) && (ed || (assignment?.mine && (!assignment.is_extra || !assignment.finished_at)));
   };
   const adm = !!T.can_admin;
   // bước 169: người phụ trách chính hoặc Chủ (anh chốt 20/11 — người có quyền Đào tạo không còn đổi được) chọn / đổi người hướng dẫn chính — danh sách Quản lý có tài khoản đang hoạt động
@@ -138,6 +144,7 @@ export async function render({ params }) {
       <select class="input sm it-level" aria-label="Mức đạt hạng mục ${i.no}" ${edit && i.introduced && i.practiced ? '' : 'disabled'}>
         <option value="" disabled ${!i.level ? 'selected' : ''}>— Mức đạt —</option>${Object.entries(LEVEL).map(([k, l]) => html`<option value="${k}" ${i.level === k ? 'selected' : ''}>${l}</option>`)}</select>
       <span class="st-meta it-by">${i.at ? `${i.by} · ${dt(i.at)}` : ''}</span>
+      ${cap1Locked(i.no) ? html`<span class="st-meta it-lock">🔒 Đã xác nhận đạt — muốn đổi thì nhờ người hướng dẫn chính</span>` : ''}
       ${edit && pending && i.level && (extra.mine || adm) ? html`<button type="button" class="btn sm secondary it-finish-phase">Lưu mức hiện tại</button>` : ''}
       ${edit && i.level ? html`<button type="button" class="btn sm secondary it-relearn" title="Dạy lại hạng mục này rồi chọn mức mới — lưu vào lịch sử kể cả khi mức không đổi">↻ Đào tạo lại</button>` : ''}
     </div>

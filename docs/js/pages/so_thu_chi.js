@@ -2094,17 +2094,17 @@ const STYLE = html`<style>
   .stc-top .stc-mb { border: 1px solid rgba(255,255,255,.25); color: var(--stc-hd-ink); border-radius: 10px; width: 32px; height: 32px; display: inline-grid; place-items: center; text-decoration: none; font-weight: 700; }
   .stc-top .stc-month strong { font-size: 15px; min-width: 110px; text-align: center; color: var(--stc-hd-ink); }
   .stc-top .branch-tabs { display: flex; gap: 4px; flex-wrap: wrap; margin: 0; padding: 0; border: 0; }
-  .stc-top .branch-tabs a { color: var(--stc-hd-dim) !important; background: transparent !important; border: 0 !important; padding: 6px 12px; border-radius: 10px; font-weight: 600; text-decoration: none; text-transform: none; letter-spacing: normal; box-shadow: none; min-height: 0; }
+  .stc-top .branch-tabs a { color: var(--stc-hd-dim) !important; background: transparent !important; border: 0 !important; padding: 6px 12px; border-radius: 10px; font-weight: 600; text-decoration: none; box-shadow: none; min-height: 0; }
   .stc-top .branch-tabs a.on { background: rgba(255,255,255,.14) !important; color: var(--stc-hd-ink) !important; }
   .stc-top .branch-tabs a.stc-qn { border: 1px dashed rgba(255,255,255,.35) !important; }
   .stc-sub { font-size: 12px; color: var(--stc-hd-dim); } .stc-sub b { color: var(--stc-hd-ink); font-weight: 600; }
   .stc-top .stc-tabs { display: flex; gap: 4px; flex-wrap: wrap; }
-  .stc-top .stc-tabs a { color: var(--stc-hd-dim); padding: 10px 18px 12px; font-size: 17px; font-weight: 700; border-radius: 14px 14px 0 0; text-decoration: none; }
+  .stc-top .stc-tabs a { color: var(--stc-hd-dim); padding: 10px 18px 12px; font-size: 16px; font-weight: 700; text-transform: uppercase; letter-spacing: .02em; border-radius: 14px 14px 0 0; text-decoration: none; }
   .stc-top .stc-tabs a.on { background: var(--ground, #f5efe6); color: var(--ink); }
-  #stc-page .btn { text-transform: none; letter-spacing: normal; font-weight: 600; border-radius: 10px; }
+  #stc-page .btn { font-weight: 600; border-radius: 10px; }   /* 27/11: anh Tiến chốt tiêu đề / nút IN HOA trên toàn web — bỏ ngoại lệ chữ thường của Sổ thu chi */
   #stc-page .btn.secondary { background: var(--card); border: 1px solid var(--line-strong); color: var(--ink-2); box-shadow: none; }
   #stc-page .btn.sm { padding: 5px 10px; font-size: 12.5px; min-height: 0; }
-  #stc-page h2, #stc-page h3 { text-transform: none; letter-spacing: normal; font-family: inherit; }
+  #stc-page h2, #stc-page h3 { font-family: inherit; }
   #stc-page .stc-side h3 { font-size: 16px; font-weight: 700; }
   #stc-page .stc-side .st-meta { font-size: 12.5px; }
   #stc-page .stc-c { font-size: 13.5px; }

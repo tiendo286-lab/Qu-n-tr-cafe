@@ -95,3 +95,7 @@ export async function computeWarnings(week, ctx = {}) {
 }
 
 export const warnTotal = (w) => WARN_GROUPS.reduce((t, [k]) => t + w[k].length, 0);
+// Số đỏ trên menu (anh Tiến chốt 27/11/2026): tuần đang xếp dở chỉ đếm LỖI XẾP SAI (xếp người Nghỉ / Chưa order, vượt định biên, thông 3 ca);
+// ô còn thiếu người chưa đếm vì chưa xếp xong. Tuần ĐÃ CHỐT thì đếm đủ như trang Cảnh báo.
+export const WRONG_KEYS = ['xep_nghi', 'xep_chua_order', 'vuot', 'thong_3_ca'];
+export const warnMenu = (w, chot) => (chot ? warnTotal(w) : WRONG_KEYS.reduce((t, k) => t + w[k].length, 0));
