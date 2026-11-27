@@ -16,6 +16,13 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 4. `git log -10 --oneline` và trang LOG › Tệp máy chủ đã chạy (`select file from app_migrations`).
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
+
+## 25/11/2026 chiều — MÁY CHỦ TỆP 175: CHÌA KHOÁ CHỈ ĐỌC `ai_doc` CHO CÔNG TY AI (đã chạy thật, nhánh `ai-doc-chi-doc`, không đổi web)
+- Anh Tiến chọn cho nhân viên AI (kho riêng tư `tiendo286-lab/cong-ty-ai`, thư mục `~/CÔNG TY AI`) đọc số bằng vai Postgres `ai_doc`: `bypassrls`, chỉ `select` mọi bảng public (+ bảng mới về sau), `default_transaction_read_only=on`, `statement_timeout=20s`, tối đa 3 kết nối, không vào `auth`. Không đổi hàm `app_*`, `app_can`, `role_permissions`, không đụng vùng khoá.
+- Đã chạy thử (tự hoàn tác) rồi chạy thật 14:2x; `app_migrations` đã ghi `175_ai_doc_chi_doc.sql`. Mật khẩu đặt riêng qua Management API, chỉ ở `~/.cong_ty_ai/ai_doc.env` trên Mac (không trong kho nào).
+- **Số tệp tiếp theo: 176.** Nhánh `ai-doc-chi-doc` chỉ có tệp 175 + mục này → gộp `main` lúc nào cũng được, không tăng `version.json`, không cần `app_releases` (không đổi web).
+- Thu hồi khi cần: `alter role ai_doc nologin;`
+
 ## 24/11/2026 chiều — TRANG ĐỐI SOÁT CA MỚI — ĐỢT 4 (chuyển hẳn, hoạt động độc lập) — ĐÃ LÊN WEB 2026.11.24.3, không đổi máy chủ
 - **Anh Tiến 24/11** (gửi ảnh trang mới trên điện thoại): "Đổi toàn bộ tính năng sang thẻ mới luôn đối soát ca mới hoạt động độc lập". Kế hoạch `tai_lieu/superpowers/plans/2026-11-24-trang-doi-soat-ca-moi-dot-4.md`.
 - **Đường dẫn:** `app.js` — `'/ca/doi-soat'` → `doi_soat_moi` (26 chỗ trong web + thông báo / dấu trang tự sang trang mới), `'/ca/doi-soat-moi'` giữ, trang cũ `'/ca/doi-soat-cu'` → `doi_soat_ca` (dự phòng). `ds2.js`: luật mới (tệp 173) ở `#/ca/doi-soat` + `#/ca/doi-soat-moi`, `#/ca/doi-soat-cu` giữ luật cũ.
