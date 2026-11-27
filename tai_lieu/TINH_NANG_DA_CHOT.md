@@ -1101,7 +1101,7 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
 - **Thẻ "Ca của tôi hôm nay":** **ẩn** với tài khoản không gắn nhân viên (Chủ, Kế toán riêng).
 - **Số đỏ Cảnh báo xếp lịch:** chỉ đếm **lỗi xếp sai**, không đếm ca thiếu người của tuần xếp dở (lỗi xếp sai = xếp người Nghỉ / Chưa order, vượt định biên, thông 3 ca). Tuần ĐÃ CHỐT thì đếm đủ. Trang Cảnh báo vẫn liệt kê đủ mọi loại — phần "tuần đã chốt đếm đủ" là em tự quyết, chưa xác nhận.
 - **Kiểu chữ:** thống nhất tiêu đề / nút **IN HOA** trên toàn web, kể cả Sổ thu chi và phần tiền của trang đối soát ca (bỏ ngoại lệ chữ thường của Sổ thu chi cho nút, tiêu đề, thẻ cơ sở, thẻ trang). Tên người nợ, nội dung khoản vẫn giữ nguyên chữ.
-- **Order ca:** anh gõ "tôi muốn có tab riêng sửa toàn bộ trang này" — CHƯA RÕ Ý, phải hỏi lại, chưa làm gì.
+- **Order ca:** anh gõ "tôi muốn có tab riêng sửa toàn bộ trang này" → 27/11 tối anh nói rõ "dùng cho Chủ để cài đặt", xem mẫu rồi chốt "làm theo mẫu này" — xem mục "Cài đặt trang Order ca" cuối tệp.
 - **Nhiều phiên AI:** cho làm song song, theo luật tránh đụng nhau (đã ghi `CLAUDE.md`).
 - **Em tự đóng (đã có việc sau đó thay thế — chưa xác nhận lại với anh):** Q-06 (thêm phiếu ca chiều 03/11 — chặng 6.3d phiếu trang ca luôn trong ca), Q-07 (trừ lương chia đều — chặng 5 chọn người bằng ô tích), Q-08 / Q-12 (bản 6 bước — đã thay bằng trang đối soát ca mới), Q-09 (x2 chờ duyệt — chặng 6.2 trang Duyệt nghỉ & làm thay), Q-32 (trang Công nợ — chặng 6.4 vẫn dùng, giữ), Q-16 (không thêm dòng "còn N phiếu ngoài khoảng ngày" ở Phiếu xuất).
 - **Chưa hỏi lượt này:** Q-13 (phiếu chốt ca nhân viên 8 bước), Q-19 (bài kiểm tra lý thuyết — cần nội dung của anh), Q-20 (trang Đối soát cũ — anh để phần đối soát làm sau), Q-21, Q-31, Q-33, Q-38 (sao lưu Google Drive), Q-41.
@@ -1123,3 +1123,13 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-27-bang-tien-chenh-lech-design
   - **Đã chạy thật 27/11 14:26 + lên web 2026.11.27.7.** Chạy thử trước đó 14:22 (tự hoàn tác), số chạy thật y hệt: tạo bù 127 phiếu ở 112 ca (35 phiếu chi quán chịu = 92.000; 92 phiếu thu khác = 222.700; 0 lỗi; chạy lại không thêm); **Sổ thu chi tổng thu / tổng chi / số dòng, số chênh lệch chờ, số ca đã đối soát của cả 5 cơ sở KHÔNG đổi**; chỉ kết quả tháng có thêm chi quán chịu và thu khác đúng bằng các số đó. Còn 24 dòng "lệch nhỏ" là của ca chưa Hoàn thành.
   - Bài thử: cục bộ `kiem_tra/lech_nho_190_cuc_bo.sql` (14 dòng); `jsc -m kiem_tra/chenh_lech_tinh.mjs` (25); `flow_cl` chu / ql 19 (điện thoại 20), nv 1.
 
+## Cài đặt trang Order ca (anh Tiến chốt mẫu 27/11/2026 — máy chủ `192_cai_dat_order_ca.sql`, web dự kiến 2026.11.27.8)
+
+- Mẫu anh duyệt: https://claude.ai/artifact/PdkNcV2PooXZBjK2ZG9iSx ("thể hiện rõ giao diện của order luôn" → bên phải thẻ Cài đặt là hình trang Order ca của nhân viên, đổi theo ngay).
+- Trang Xếp lịch tuần › Order có 2 thẻ **Order · Cài đặt**; thẻ Cài đặt (`#/quan-ly/order?tab=cai-dat`, `order_cai_dat.js`) **chỉ Chủ thấy**. Quản lý không thấy thanh thẻ.
+- 4 phần: (1) giờ mở / hết hạn lặp lại hằng tuần (cùng 4 khoá `order_*` của trang Giờ order; giờ riêng từng tuần vẫn ở trang Giờ order); (2) lời nhắn đầu trang cho nhân viên (tối đa 300 chữ, trống thì không hiện); (3) nút chọn nhanh: Cả ngày đi làm được / Cả ngày nghỉ, Chép giống tuần trước; (4) luật khi gửi: phải chọn đủ mọi ô, trước hạn vẫn sửa lại được.
+- **Mặc định = đúng như web trước đó** (không lời nhắn, không nút nhanh, 2 luật bật) — chưa bấm Lưu thì nhân viên không thấy gì khác.
+- Em tự quyết (chưa xác nhận với anh): áp chung mọi cơ sở; tắt "chọn đủ" thì vẫn phải chọn ít nhất 1 ô, ô trống là Chưa order; tắt "sửa lại" thì chỉ khoá sau khi nhân viên TỰ gửi (ô quản lý nhập hộ không làm khoá), quản lý vẫn sửa được như cũ; "Chép giống tuần trước" lấy order tuần liền trước của chính người đó, ca không có thì để nguyên, vẫn giữ luật FULL TIME ↔ ca chính.
+- Máy chủ: bảng `order_cfg` (1 dòng, không cấp quyền cho web); `app_order_cfg()` (mọi người đã đăng nhập đọc), `app_order_cfg_save(jsonb)` (chỉ `system_role = 'chu'`, ghi cả giờ order + nhật ký); `app_submit_order` vá bằng thay chuỗi (2 chỗ).
+- Giao diện: `order_nv.js` tách `orderView` / `orderMount` / `orderCfg` dùng chung cho trang nhân viên và hình xem trước.
+- Bài thử: `flow_ocfg` — chu 13, ql 1, nv 5, nv `phan=bat` 7, nv `phan=khoa` 3 (máy tính + điện thoại). Chạy thử máy chủ thật (tự hoàn tác) 27/11 20:15: 10/10 đạt (`kiem192.sql` ở scratchpad).

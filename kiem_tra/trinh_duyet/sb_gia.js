@@ -171,6 +171,18 @@ export async function rpc(name0, args = {}) {
   if (name === 'app_import_finish') return { employees: 110, weeks: 9 };
   if (name === 'app_create_week') return 99;
   if (name === 'app_submit_order') return { first: true, close_text: '22:00 Chủ Nhật 08/11' };
+  // Cài đặt trang Order ca (tệp 192): giữ trong localStorage để còn sau khi tải lại trang
+  if (name === 'app_order_cfg' || name === 'app_order_cfg_save') {
+    const chu = new URLSearchParams(location.search).get('role') === 'chu';
+    let c = { note: '', quick_day: false, quick_copy: false, require_all: true, edit_after: true, ...JSON.parse(localStorage.getItem('test_order_cfg') || '{}') };
+    if (name === 'app_order_cfg_save') {
+      if (!chu) throw new Error('Chỉ Chủ mới đổi được cài đặt Order ca.');
+      const p = args.p || {};
+      c = { note: p.note || '', quick_day: !!p.quick_day, quick_copy: !!p.quick_copy, require_all: p.require_all !== false, edit_after: p.edit_after !== false };
+      localStorage.setItem('test_order_cfg', JSON.stringify(c));
+    }
+    return { ...c, can_edit: chu };
+  }
   if (name === 'app_chot') return { first: true, changed: 0 };
   if (name === 'app_order_restore') return { ok: true, synced: 0 };
   if (name === 'app_reapply_order') return { updated: 0, added: 0, removed: 0, synced: 0 };

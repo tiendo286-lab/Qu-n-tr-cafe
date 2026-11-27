@@ -38,3 +38,4 @@ cp "$D/flow_ck189.js" "$W/test/"   # tệp 189: ảnh bản cam kết đã ký
 cp "$D/flow_ka_ca.js" "$W/test/"   # khoản âm nối với ca (cần web đủ dữ liệu)
 cp "$D/flow_cl.js" "$W/test/"   # bảng Chênh lệch tiền (cần web đủ dữ liệu)
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"
+cp "$D/flow_ocfg.js" "$W/test/"   # cài đặt trang Order ca (tệp 192)
