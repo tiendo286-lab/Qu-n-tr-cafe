@@ -15,17 +15,24 @@ export function makeCv(T, me) {
     const na = P.filter((p) => p.kind === 'nghi').map((p) => p.employee_id).sort().join(); const nh = P.filter((p) => p.kind === 'ho_tro').map((p) => p.employee_id).sort().join();
     // bước 47: người làm thay có thể là người hỗ trợ hoặc người trong lịch có làm
     const wk = (T.__eff(id).staff || []).filter((s) => s.worked).map((s) => s.employee_id); const nhA = P.filter((p) => p.kind === 'ho_tro').map((p) => p.employee_id); const rh = rows.filter((r) => r.helper_id).map((r) => r.helper_id);
-    if (na !== rows.filter((r) => r.absent_id).map((r) => r.absent_id).sort().join() || !nhA.every((h) => rh.includes(h)) || !rh.every((h) => nhA.includes(h) || wk.includes(h))) return 'lech';
+    if (na !== rows.filter((r) => r.absent_id).map((r) => r.absent_id).sort().join() || !nhA.every((h) => rh.includes(h)) || !rh.every((h) => nhA.includes(h) || wk.includes(h))) {
+      // tệp 186: đang lưu dở từng người (dòng đã có đều đúng người, chưa có dấu đã phân loại) → vẫn chưa phân loại
+      const naA = P.filter((p) => p.kind === 'nghi').map((p) => p.employee_id);
+      if (rows.every((r) => !r.absent_id || naA.includes(r.absent_id)) && rh.every((h) => nhA.includes(h) || wk.includes(h)) && !T.cover_reviews[id]?.set_at) return 'chua_phan_loai';
+      return 'lech';
+    }
     void nh;
     return T.cover_reviews[id]?.ok_at ? 'da_duyet' : 'cho_duyet';
   };
   const js = (c) => ({ ...c, reason_label: LBL[c.reason], absent: c.absent_id ? `${emp(c.absent_id).code} – ${emp(c.absent_id).name}` : null,
     helper: c.helper_id ? `${emp(c.helper_id).code} – ${emp(c.helper_id).name}` : c.helper_name, outsider: !c.helper_id && !!c.helper_name });
-  const write = (id, items) => {
+  const write = (id, items, partial) => {
     const P = people(id);
     if (items.some((i) => i.x2 && !i.helper_id && !i.helper_name)) throw new Error('Tích x2 thì chọn người được x2.');   // bước 47
-    for (const p of P.filter((x) => x.kind === 'nghi')) if (!items.some((i) => i.absent_id === p.employee_id && i.reason)) throw new Error('Còn người nghỉ chưa chọn lý do.');
-    for (const p of P.filter((x) => x.kind === 'ho_tro')) if (!items.some((i) => i.helper_id === p.employee_id)) throw new Error('Còn người hỗ trợ chưa gắn vào dòng nào.');
+    if (items.some((i) => !i.reason)) throw new Error('Chọn lý do cho từng người.');
+    { const hs = items.filter((i) => i.helper_id).map((i) => i.helper_id); if (new Set(hs).size !== hs.length) throw new Error('Người làm thay này đã được chọn cho người nghỉ khác trong ca. Mỗi người hỗ trợ chỉ gắn với 1 dòng.'); }
+    if (!partial) for (const p of P.filter((x) => x.kind === 'nghi')) if (!items.some((i) => i.absent_id === p.employee_id && i.reason)) throw new Error('Còn người nghỉ chưa chọn lý do.');
+    if (!partial) for (const p of P.filter((x) => x.kind === 'ho_tro')) if (!items.some((i) => i.helper_id === p.employee_id)) throw new Error('Còn người hỗ trợ chưa gắn vào dòng nào.');
     T.shift_covers = T.shift_covers.filter((c) => c.report_id !== id).concat(items.map((i, k) => { const h = Number(i.hours ?? (P.find((p) => p.employee_id === i.helper_id) || {}).hours ?? 0);
       return { id: Date.now() + k, report_id: id, absent_id: i.absent_id || null, reason: i.reason, helper_id: i.helper_id || null, helper_name: i.helper_id ? null : i.helper_name || null, hours: h, x2: !!i.x2, fine: i.reason === 'bo_ca' ? 200000 : 0, deduct_hours: i.reason === 'nho_ql' ? h : 0 }; }));
   };
@@ -43,6 +50,17 @@ export function makeCv(T, me) {
       const workers = (T.__eff(p_id).staff || []).filter((s) => s.source === 'lich' && s.worked).map((s) => ({ employee_id: s.employee_id, code: emp(s.employee_id).code, name: emp(s.employee_id).name, hours: hrs(s.time_in, s.time_out) }));
       return { state: state(p_id), can_classify: canCls, is_owner: isOwner, open: true, recon_status: r.recon_status, people: people(p_id), workers, fine: 200000,
         rows: T.shift_covers.filter((c) => c.report_id === p_id).map(js), set_by: rv.set_at ? me.name : null, set_at: rv.set_at || null, ok_by: rv.ok_at ? 'admin – Chủ' : null, ok_at: rv.ok_at || null, ok_note: rv.ok_note || null };
+    },
+    // tệp 186: lưu riêng 1 người, giữ dòng đã lưu của người khác; đủ người thì như Lưu cả ca
+    app_cv_save_one({ p_id, p_item }) {
+      if (!canCls) throw new Error('Chỉ Quản lý tổng / Chủ phân loại nghỉ và làm thay.');
+      const ab = p_item.absent_id || null, hp = p_item.helper_id || null; if (!ab && !hp) throw new Error('Dữ liệu phân loại không hợp lệ.');
+      const keep = T.shift_covers.filter((c) => c.report_id === p_id && !(ab && c.absent_id === ab) && !(!ab && !c.absent_id && c.helper_id === hp) && !(hp && !c.absent_id && c.helper_id === hp));
+      write(p_id, [...keep, p_item], true);
+      const P = people(p_id), rows = T.shift_covers.filter((c) => c.report_id === p_id);
+      const full = P.every((p) => (p.kind === 'nghi' ? rows.some((c) => c.absent_id === p.employee_id) : rows.some((c) => c.helper_id === p.employee_id)));
+      T.cover_reviews[p_id] = full ? { set_at: now() } : {};
+      return state(p_id);
     },
     app_cv_save({ p_id, p_items }) { if (!canCls) throw new Error('Chỉ Quản lý tổng / Chủ phân loại nghỉ và làm thay.'); write(p_id, p_items); T.cover_reviews[p_id] = { set_at: now() }; return state(p_id); },
     app_cv_todo() {
@@ -62,6 +80,7 @@ export function makeCv(T, me) {
     app_cv_approve({ p_id, p_items, p_note }) {
       if (!isOwner) throw new Error('Chỉ Chủ duyệt nghỉ / làm thay.');
       if (p_items) write(p_id, p_items);
+      if (['chua_phan_loai', 'lech'].includes(state(p_id))) throw new Error('Chưa phân loại đủ người nghỉ / người hỗ trợ của ca.');   // như máy chủ
       T.cover_reviews[p_id] = { ...(T.cover_reviews[p_id] || {}), set_at: now(), ok_at: now(), ok_note: p_note || null };
       return state(p_id);
     },

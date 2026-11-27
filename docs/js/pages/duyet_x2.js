@@ -2,6 +2,7 @@
 // 3 thẻ: Chờ phân loại (Quản lý tổng) · Chờ Chủ duyệt · Đã duyệt (theo tháng; Chủ Sửa → Duyệt lại).
 // Mỗi ca một dòng, sửa tại chỗ như khung "Nghỉ & làm thay" trong từng ca (nghi_thay.js). Áp hàng loạt chỉ điền sẵn, chưa lưu.
 // Lưu / duyệt từng ca bằng app_cv_save / app_cv_approve sẵn có (quyền, cách tính x2 / trừ giờ ở máy chủ không đổi).
+// 27/11: nút riêng từng ca (Lưu ca này / Duyệt ca này); ca nhiều người có nút Lưu người này (app_cv_save_one, tệp 186).
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
@@ -28,6 +29,7 @@ const STYLE = html`<style>
   .x2p-err { color: var(--off-line, #dc2626); font-weight: 600; font-size: 13px; }
   .x2p-foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
   .x2p-foot .st-meta { margin-right: auto; }
+  .x2p-p1 { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
 </style>`;
 
 // Chạy song song có giới hạn để mở trang nhanh mà không dồn máy chủ.
@@ -60,11 +62,15 @@ export async function render({ params }) {
   const caTitle = (r) => `${dmy(r.date)} · ${r.branch} · Ca ${r.shift}`;
   const editable = (r) => r.C && !r.C.error && r.C.open && (tab !== 'xong' ? canClassify : isOwner && editing.has(r.id));
   const editor = (r) => {
-    const C = r.C, valid = C.state === 'cho_duyet' || C.state === 'da_duyet';
+    // tệp 186: ca đang lưu dở từng người (vẫn "Chưa phân loại" nhưng đã có dòng) → điền sẵn dòng đã lưu
+    const C = r.C, part = C.state === 'chua_phan_loai' && C.rows.length > 0, valid = C.state === 'cho_duyet' || C.state === 'da_duyet' || part;
     const absents = C.people.filter((p) => p.kind === 'nghi'), helpers = C.people.filter((p) => p.kind === 'ho_tro'), workers = C.workers || [];
     const rowOf = (id) => (valid ? C.rows.find((x) => x.absent_id === id) : null);
     const extraOf = (hid) => (valid ? C.rows.find((x) => x.absent_id === null && x.helper_id === hid) : null);
     const used = new Set(absents.map((a) => String(rowOf(a.employee_id)?.helper_id || '')).filter(Boolean));
+    // 27/11 (cách 2): ca có từ 2 người trở lên → mỗi người một nút Lưu riêng (chỉ ở thẻ Chờ phân loại)
+    const multi = tab === 'cho' && absents.length + helpers.length > 1;
+    const p1 = (saved) => (multi ? html`<div class="x2p-p1"><span class="pill ok x2p-saved" ${part && saved ? '' : 'hidden'}>Đã lưu</span><button type="button" class="btn sm secondary" data-p1>Lưu người này</button></div>` : '');
     const opts = (sel) => html`<option value="">— Không có người làm thay —</option>
       ${helpers.length ? html`<optgroup label="Người hỗ trợ phát sinh">${helpers.map((h) => html`<option value="${h.employee_id}" ${String(sel) === String(h.employee_id) ? 'selected' : ''}>${h.code} – ${h.name} (${hrs(h.hours)} giờ)</option>`)}</optgroup>` : ''}
       ${workers.length ? html`<optgroup label="Người trong lịch có làm">${workers.map((w) => html`<option value="${w.employee_id}" ${String(sel) === String(w.employee_id) ? 'selected' : ''}>${w.code} – ${w.name} (${hrs(w.hours)} giờ)</option>`)}</optgroup>` : ''}
@@ -76,11 +82,11 @@ export async function render({ params }) {
           <div class="cv-grid"><span class="st-meta">Người làm thay</span><select class="input sm cv-helper" aria-label="Người làm thay cho ${a.code}">${opts(hs)}</select>
             <input class="input sm cv-on" placeholder="Tên người ngoài quán" value="${x.outsider ? x.helper_name || x.helper || '' : ''}" ${hs === 'ngoai' ? '' : 'hidden'} aria-label="Tên người ngoài quán">
             <label class="cv-hl" ${hs ? '' : 'hidden'}>Giờ <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${x.hours ?? ''}"></label>
-            <label class="cv-x2"><input type="checkbox" class="check cv-x" ${x.x2 ? 'checked' : ''}> x2</label></div></div>`; })}
+            <label class="cv-x2"><input type="checkbox" class="check cv-x" ${x.x2 ? 'checked' : ''}> x2</label></div>${p1(!!x.reason)}</div>`; })}
       ${helpers.filter((h) => !used.has(String(h.employee_id))).map((h) => { const x = extraOf(h.employee_id) || {};
         return html`<div class="cv-e" data-helper="${h.employee_id}"><div class="cv-grid"><strong>${h.code} – ${h.name}</strong> <span class="pill warn">Hỗ trợ</span> · ${hrs(h.hours)} giờ
           <label class="cv-x2"><input type="checkbox" class="check cv-x" ${x.x2 ? 'checked' : ''}> x2</label></div>
-          <div class="st-meta">Không làm thay ai → tính là Quản lý không xếp đủ lịch (không ai bị trừ). Chọn người này làm người thay ở trên thì dòng này tự bỏ.</div></div>`; })}
+          <div class="st-meta">Không làm thay ai → tính là Quản lý không xếp đủ lịch (không ai bị trừ). Chọn người này làm người thay ở trên thì dòng này tự bỏ.</div>${p1(!!x.reason)}</div>`; })}
       ${absents.length > 1 ? html`<div class="st-meta">Ca có ${absents.length} người nghỉ — chọn tay người làm thay cho từng người.</div>` : ''}`;
   };
   const readOnly = (r) => html`${r.C.rows.map((x) => html`<div>
@@ -152,6 +158,9 @@ export async function render({ params }) {
         el.querySelector('[data-undo]')?.addEventListener('click', () => { editing.delete(r.id); redrawCa(r); });
         el.querySelector('[data-reok]')?.addEventListener('click', () => approveOne(r));
         el.querySelector('[data-one]')?.addEventListener('click', (e) => oneCa(r, e.currentTarget));
+        $$('[data-p1]', el).forEach((b) => b.addEventListener('click', () => onePerson(r, b)));
+        // sửa lại ô của người đã lưu → bỏ nhãn "Đã lưu" (chưa lưu lại)
+        $$('.cv-a, .cv-e', el).forEach((box) => box.addEventListener('change', () => { const p = box.querySelector('.x2p-saved'); if (p) p.hidden = true; }));
         const usedNow = new Set($$('.cv-a .cv-helper', el).map((x) => x.value));
         $$('.cv-e', el).forEach((e) => { e.hidden = usedNow.has(e.dataset.helper); });
       }
@@ -163,22 +172,22 @@ export async function render({ params }) {
         const usedNow = new Set($$('.cv-a .cv-helper', el).map((x) => x.value));
         $$('.cv-e', el).forEach((e) => { e.hidden = usedNow.has(e.dataset.helper); });
       }
-      const items = (el) => [
-        ...$$('.cv-a', el).map((b) => { const hv = b.querySelector('.cv-helper').value;
-          return { absent_id: Number(b.dataset.absent), reason: b.querySelector('.cv-reason').value, helper_id: hv && hv !== 'ngoai' ? Number(hv) : null,
-            helper_name: hv === 'ngoai' ? b.querySelector('.cv-on').value.trim() : null, hours: hv ? b.querySelector('.cv-h').value : null, x2: hv ? b.querySelector('.cv-x').checked : false }; }),
-        ...$$('.cv-e', el).filter((e) => !e.hidden).map((e) => ({ absent_id: null, reason: 'thieu_lich', helper_id: Number(e.dataset.helper), x2: e.querySelector('.cv-x').checked })),
-      ];
+      // Một người = một khung: .cv-a (người nghỉ) hoặc .cv-e (người hỗ trợ không làm thay ai)
+      const itemOf = (b) => { if (b.classList.contains('cv-e')) return { absent_id: null, reason: 'thieu_lich', helper_id: Number(b.dataset.helper), x2: b.querySelector('.cv-x').checked };
+        const hv = b.querySelector('.cv-helper').value;
+        return { absent_id: Number(b.dataset.absent), reason: b.querySelector('.cv-reason').value, helper_id: hv && hv !== 'ngoai' ? Number(hv) : null,
+          helper_name: hv === 'ngoai' ? b.querySelector('.cv-on').value.trim() : null, hours: hv ? b.querySelector('.cv-h').value : null, x2: hv ? b.querySelector('.cv-x').checked : false }; };
+      const items = (el) => [...$$('.cv-a', el), ...$$('.cv-e', el).filter((e) => !e.hidden)].map(itemOf);
       // Thiếu gì thì báo ngay dòng đó (máy chủ vẫn kiểm lại).
-      const problem = (el) => {
-        for (const b of $$('.cv-a', el)) {
-          const hv = b.querySelector('.cv-helper').value;
-          if (!b.querySelector('.cv-reason').value) return 'Chưa chọn lý do nghỉ.';
-          if (b.querySelector('.cv-x').checked && !hv) return 'Tích x2 thì chọn người làm thay.';
-          if (hv === 'ngoai' && !b.querySelector('.cv-on').value.trim()) return 'Ghi tên người ngoài quán.';
-        }
+      const problemOf = (b) => {
+        if (b.classList.contains('cv-e')) return '';
+        const hv = b.querySelector('.cv-helper').value;
+        if (!b.querySelector('.cv-reason').value) return 'Chưa chọn lý do nghỉ.';
+        if (b.querySelector('.cv-x').checked && !hv) return 'Tích x2 thì chọn người làm thay.';
+        if (hv === 'ngoai' && !b.querySelector('.cv-on').value.trim()) return 'Ghi tên người ngoài quán.';
         return '';
       };
+      const problem = (el) => { for (const b of $$('.cv-a', el)) { const m = problemOf(b); if (m) return m; } return ''; };
       const mark = (el, msg) => { el.classList.toggle('bad', !!msg); const e = el.querySelector('.x2p-err'); e.hidden = !msg; e.textContent = msg || ''; };
       async function run(kind) {
         const ids = [...ticked]; if (!ids.length) { flashNow('Chưa tích ca nào.', 'error'); return; }
@@ -209,10 +218,31 @@ export async function render({ params }) {
           const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null); if (C) { r.C = C; redrawCa(r); } else { mark(el, ''); btn.disabled = false; }
           flashNow(`Đã lưu ca ${caTitle(r)}.`, 'info'); return;
         }
-        ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); el.remove(); count();
+        leave(r, kind);
+        flashNow(kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
+      }
+      // Ca đã lưu / duyệt xong rời danh sách của thẻ đang xem, số trên các thẻ đổi theo.
+      function leave(r, kind) {
+        ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); card(r.id)?.remove(); count();
         bump(tab, -1); bump(kind === 'ok' ? 'xong' : 'duyet', 1);
         if (!rows.length) list.innerHTML = str(body());
-        flashNow(kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
+      }
+      // 27/11 (cách 2, tệp 186): lưu riêng 1 người trong ca nhiều người. Đủ người thì ca tự sang Chờ Chủ duyệt.
+      async function onePerson(r, btn) {
+        const el = card(r.id), box = btn.closest('.cv-a, .cv-e'), msg = problemOf(box);
+        const who = box.querySelector('strong')?.textContent || 'người này';
+        if (msg) { mark(el, `${who}: ${msg} Chưa lưu.`); return; }
+        btn.disabled = true; let st;
+        try { st = await rpc('app_cv_save_one', { p_id: r.id, p_item: itemOf(box) }); } catch (e) { mark(el, `${who}: ${e.message}`); btn.disabled = false; return; }
+        btn.disabled = false; mark(el, '');
+        if (st === 'cho_duyet') { leave(r, 'save'); flashNow(`Đã lưu ${who}. Ca ${caTitle(r)} đủ người — chuyển sang Chờ Chủ duyệt.`, 'info'); return; }
+        const p = box.querySelector('.x2p-saved'); if (p) p.hidden = false;
+        const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null);
+        let left = '';
+        if (C && !C.error) { r.C = C;
+          const n = C.people.filter((x) => (x.kind === 'nghi' ? !C.rows.some((y) => y.absent_id === x.employee_id) : !C.rows.some((y) => y.helper_id === x.employee_id))).length;
+          left = n ? ` Ca còn ${n} người chưa lưu — ca vẫn ở Chờ phân loại.` : ''; }
+        flashNow(`Đã lưu ${who}.${left}`, 'info');
       }
       async function approveOne(r) {
         const el = card(r.id), msg = problem(el); if (msg) { mark(el, msg); return; }

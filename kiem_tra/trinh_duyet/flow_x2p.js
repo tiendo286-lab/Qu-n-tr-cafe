@@ -37,7 +37,36 @@ export default async ({ sleep, out }) => {
       const pick = pickOv;   // 3 cơ sở khác nhau, ca đầu ngày
       const ids = [await mkCa(pick[0], true), await mkCa(pick[1], true), await mkCa(pick[2], false)];
       r.push(`Dựng 3 phiếu: ${(await Promise.all(ids.map((id) => rpc('app_ca_get', { p_id: id })))).map((x) => x.status).join(', ')}`);
+      // 27/11 (cách 2, tệp 186): ca thứ 4 có 1 người nghỉ + 1 người hỗ trợ → lưu riêng từng người
+      const id4 = pick[3] ? await mkCa(pick[3], true) : null;
       await go('#/quan-ly/nghi-lam-thay');
+      if (id4) {
+        const c4 = () => $(`.x2p-ca[data-id="${id4}"]`);
+        const one = $(`.x2p-ca[data-id="${ids[2]}"]`);
+        ok($$('[data-p1]').filter((b) => c4().contains(b)).length === 2 && !one.querySelector('[data-p1]'), `Ca 2 người có 2 nút Lưu người này; ca 1 người không có · ${W()}`);
+        const A = c4().querySelector('.cv-a'), E = c4().querySelector('.cv-e');
+        A.querySelector('[data-p1]').click(); await sleep(400);
+        ok(c4().classList.contains('bad') && /Chưa chọn lý do/.test(c4().querySelector('.x2p-err').innerText), `Lưu người này khi chưa chọn lý do: báo đỏ — ${c4().querySelector('.x2p-err').innerText}`);
+        A.querySelector('.cv-reason').value = 'ma_chay'; A.querySelector('.cv-reason').dispatchEvent(new Event('change', { bubbles: true }));
+        E.querySelector('.cv-x').checked = true;   // người thứ hai đang điền dở, chưa lưu
+        A.querySelector('[data-p1]').click(); await wait(() => !A.querySelector('.x2p-saved').hidden, 100);
+        let g4 = await rpc('app_cv_get', { p_id: id4 });
+        ok(g4.state === 'chua_phan_loai' && g4.rows.length === 1 && g4.rows[0].reason === 'ma_chay', `Lưu 1 người: máy chủ ${g4.state}, ${g4.rows.length} dòng · ${txt('#x2p-msg')}`);
+        ok(!!c4() && !A.querySelector('.x2p-saved').hidden && E.querySelector('.x2p-saved').hidden && E.querySelector('.cv-x').checked, 'Ca vẫn ở Chờ phân loại, người đã lưu có nhãn Đã lưu, ô đang điền dở của người kia còn nguyên');
+        await go('#/quan-ly/nghi-lam-thay');
+        ok(c4()?.querySelector('.cv-a .cv-reason').value === 'ma_chay' && !c4().querySelector('.cv-a .x2p-saved').hidden && /Chưa phân loại/i.test(c4().innerText), 'Mở lại trang: lý do đã lưu được điền sẵn, ca vẫn Chưa phân loại');
+        await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+        ok(!c4(), 'Ca lưu dở KHÔNG nằm ở Chờ Chủ duyệt');
+        let e4 = ''; try { await rpc('app_cv_approve', { p_id: id4, p_items: null, p_note: '' }); } catch (e) { e4 = e.message; }
+        g4 = await rpc('app_cv_get', { p_id: id4 });
+        ok(g4.state === 'chua_phan_loai', `Ca lưu dở chưa duyệt được: ${e4 || g4.state}`);
+        await go('#/quan-ly/nghi-lam-thay');
+        const n0 = $('[data-tab="duyet"] strong').textContent;
+        c4().querySelector('.cv-e [data-p1]').click(); await wait(() => !c4(), 100);
+        g4 = await rpc('app_cv_get', { p_id: id4 });
+        ok(!c4() && g4.state === 'cho_duyet' && g4.rows.length === 2, `Lưu người cuối: ca đủ người → ${g4.state}, ${g4.rows.length} dòng · ${txt('#x2p-msg')}`);
+        ok(Number($('[data-tab="duyet"] strong').textContent) === Number(n0) + 1 && !!$(`.x2p-ca[data-id="${ids[0]}"]`), 'Số ở thẻ Chờ Chủ duyệt tăng 1, các ca khác còn nguyên');
+      } else r.push('(bỏ qua phần lưu từng người: dữ liệu thử không đủ 4 cơ sở)');
       ok(!!$('a[href="#/quan-ly/nghi-lam-thay"]'), 'menu Quản lý ca có "Nghỉ & làm thay"');
       ok(txt('.x2p-tabs').includes('Chờ phân loại') && txt('.x2p-tabs').includes('Đã duyệt'), `3 thẻ: ${txt('.x2p-tabs')}`);
       const mine = () => ids.map((id) => $(`.x2p-ca[data-id="${id}"]`));

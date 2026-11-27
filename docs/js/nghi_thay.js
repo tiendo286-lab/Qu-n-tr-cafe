@@ -44,8 +44,9 @@ export async function mountCover(box, R, ctx = {}) {
   const hoursOf = (id) => (helpers.find((h) => String(h.employee_id) === String(id)) || workers.find((w) => String(w.employee_id) === String(id)) || {}).hours;
   const pName = (id) => { const p = C.people.find((x) => x.employee_id === id); return p ? `${p.code} – ${p.name}` : ''; };
   const valid = C.state === 'cho_duyet' || C.state === 'da_duyet';
-  const rowOf = (absentId) => (valid ? C.rows.find((r) => r.absent_id === absentId) : null);
-  const extraOf = (hid) => (valid ? C.rows.find((r) => r.absent_id === null && r.helper_id === hid) : null);
+  const filled = valid || (C.state === 'chua_phan_loai' && C.rows.length > 0);   // tệp 186: ca đang lưu dở từng người → điền sẵn dòng đã lưu
+  const rowOf = (absentId) => (filled ? C.rows.find((r) => r.absent_id === absentId) : null);
+  const extraOf = (hid) => (filled ? C.rows.find((r) => r.absent_id === null && r.helper_id === hid) : null);
   const canEdit = C.can_classify && (C.recon_status !== 'hoan_thanh' || C.self_reconciled) && C.open;
 
   const readOnly = () => html`${C.rows.map((r) => html`<div class="cv-row ${C.state === 'da_duyet' ? 'ok' : ''}">
