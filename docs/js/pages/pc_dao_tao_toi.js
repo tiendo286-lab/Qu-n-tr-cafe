@@ -4,7 +4,7 @@
 //  * "Chờ bạn kiểm tra": mục Cấp 1 tôi giao lại đã ghi mức → Xác nhận đạt (giữ / sửa mức).
 import { rpc } from '../sb.js';
 import { dialog, flash, html, showSaved, str } from '../ui.js';
-import { span } from './pc_dao_tao_tinh.js?v=2026.11.27.2';
+import { span } from './pc_dao_tao_tinh.js?v=2026.11.27.3';
 
 export const LEVEL = { tb: 'Trung bình', kha: 'Khá', tot: 'Tốt' };
 const DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
@@ -35,7 +35,9 @@ export const PCD_CSS = html`<style>
   .pcd-sh .pcd-sw { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; font-size: 14px; } .pcd-sh .pcd-gl { display: block; }
   .pcd-sh.chua { background: #fef3c7; border-color: #f59e0b; } .pcd-sh.giao { background: #e3eaf1; border-color: #6f8fae; }
   .pcd-sh.tre { background: #fbe2df; border-color: #dc2626; } .pcd-sh.trong, .pcd-sh.ok { color: var(--muted); }
-  .pcd-sh.off { border-style: dashed; } .pcd-offt { flex: none; }
+  .pcd-sh.off { border-style: dashed; } .pcd-offt { flex: none; } .pcd-sh > .pill { flex: none; }
+  @media (max-width: 520px) { .pcd-sh { flex-wrap: wrap; gap: 4px 10px; } .pcd-sh .pcd-sd { flex: 1 1 auto; flex-direction: row; flex-wrap: wrap; gap: 2px 8px; align-items: baseline; }
+    .pcd-sh .pcd-sw { order: 5; flex: 1 1 100%; } .pcd-sh .pcd-offt { order: 6; } }
   .pcd-fw { display: flex; flex-direction: column; gap: 8px; } .pcd-fw-f { display: flex; flex-wrap: wrap; gap: 8px; }
   .pcd-fw-f select { flex: 1 1 220px; width: auto; min-width: 0; } .pcd-fw-f input { width: 160px; max-width: 100%; }
   .pcd-fw-it { display: block; width: 100%; text-align: left; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--card, #fff); color: inherit; font: inherit; cursor: pointer; overflow-wrap: anywhere; }
@@ -81,7 +83,7 @@ export function myPlanHtml(P) {
     ${shifts.length ? shifts.map((s) => { const past = s.date < today;
       const pool = s.by ? [] : s.own.filter((x) => OPEN_ST.has(x.state));
       return html`<div class="pcd-mc" data-key="${mineKey(s)}">
-        <div class="pcd-ml"><b>${wd(s.date)} ${dm(s.date)} · ${s.branch || ''} ${s.shift}${s.date === today ? ' · hôm nay' : ''}</b><span class="pcd-meta">dạy <b>${s.trainee}</b> · Ngày ${s.day_no} đi làm</span></div>
+        <div class="pcd-ml"><b>${wd(s.date)} ${dm(s.date)} · ${s.branch || ''} ${s.shift}${s.date === today ? ' · hôm nay' : ''}</b><span class="pcd-meta">dạy <b>${s.trainee}</b> · Ngày ${s.day_no} đi làm</span><a class="pcd-meta pcd-mo" href="#/dao-tao/phieu?id=${s.training_id}">Mở phiếu ›</a></div>
         ${s.own.length ? html`<div class="pcd-ml"><span class="pill info">Bạn dạy</span> mục ${span(s.own.map((x) => x.no))}${s.by ? html` <span class="pcd-meta">(${s.by} giao lại)</span>` : ''}${scored(s.own) ? html` <span class="pcd-meta">· đã chấm ${scored(s.own)}/${s.own.length}</span>` : ''}</div>` : ''}
         ${(s.subs || []).map((g) => html`<div class="pcd-ml"><span class="pill mute">→ ${g.who} (Cấp 1) dạy</span> mục ${span(g.items.map((x) => x.no))}${scored(g.items) ? html` <span class="pcd-meta">· đã chấm ${scored(g.items)}/${g.items.length}</span>` : ''}
           ${!past && g.items.some((x) => OPEN_ST.has(x.state)) ? html`<button type="button" class="btn sm secondary" data-take="${g.who_id}">Lấy lại</button>` : ''}</div>`)}
@@ -101,20 +103,27 @@ function openSub(P, s, reload, pick = null) {
   const paint = () => {
     d.innerHTML = str(html`<div class="pcd-top"><div class="pcd-row"><h2>Giao lại · ${s.trainee} · ${s.branch || ''} ${s.shift} · ${wd(s.date)} ${dm(s.date)}</h2>
         <button type="button" class="btn sm secondary" data-x aria-label="Đóng">✕</button></div>
-        <div class="pcd-meta">Ngày ${s.day_no} đi làm · chỉ những mục được giao cho bạn, chưa chấm</div></div>
+        <div class="pcd-meta">Ngày ${s.day_no} đi làm · chỉ giao lại được mục của bạn mà chưa ai chấm</div></div>
       <div class="pcd-mid">
         <div class="pcd-lbl">CẤP 1 LÀM CÙNG CA (THEO LỊCH)</div>
         <div class="pcd-mates">${mates.length ? mates.map((c) => html`<button type="button" class="pcd-mate ${pick === c.id ? 'on' : ''}" data-pick="${c.id}"><b>${c.name}</b><span>Cấp 1 ${(c.branches || []).join(', ')}</span></button>`) : html`<span class="pcd-meta">Không có Cấp 1 nào làm cùng ca này.</span>`}</div>
         <label class="field">Hoặc chọn Cấp 1 khác<select class="input sm" id="pcd-sother"><option value="">— Chọn Cấp 1 —</option>${others.map((c) => html`<option value="${c.id}" ${pick === c.id ? 'selected' : ''}>${c.name}${c.branches?.length ? ' (' + c.branches.join(', ') + ')' : ''}</option>`)}</select></label>
-        <div class="pcd-meta">${pick ? html`Tích những mục giao cho <b>${nameOf(pick)}</b>. Mục bỏ tích sẽ quay về bạn dạy.` : 'Chọn người Cấp 1 trước.'} Cấp 1 chấm xong thì bạn hoặc người phụ trách chính xác nhận đạt.</div>
+        <div class="pcd-meta">${pick ? html`Tích những mục <b>${nameOf(pick)}</b> dạy thay bạn. Mục không tích thì bạn vẫn dạy.` : 'Chọn một nhân viên Cấp 1 trước, rồi tích mục.'} Cấp 1 chấm xong, bạn hoặc người phụ trách chính bấm Xác nhận đạt.</div>
+        ${pool.length ? '' : html`<div class="pcd-meta">Không còn mục nào chưa chấm để giao lại.</div>`}
         ${pool.map((x) => html`<label class="pcd-it"><input type="checkbox" data-no="${x.no}" ${pick && x.holder === pick ? 'checked' : ''} ${pick ? '' : 'disabled'}>
           <span class="t"><b>${x.no}.</b> ${x.title}<br><span class="pcd-where">${x.holder ? nameOf(x.holder) + ' đang dạy' : 'Bạn đang dạy'}</span></span></label>`)}
       </div>
-      <div class="pcd-foot"><b class="grow">Đã chọn <span id="pcd-sn">0</span> mục</b><button type="button" class="btn" id="pcd-sgo" ${pick ? '' : 'disabled'}>Giao lại${pick ? ' cho ' + nameOf(pick) : ''}</button></div>`);
-    const sync = () => { d.querySelector('#pcd-sn').textContent = d.querySelectorAll('input[data-no]:checked').length; };
+      <div class="pcd-foot"><b class="grow">Đã chọn <span id="pcd-sn">0</span> mục</b><button type="button" class="btn" id="pcd-sgo" disabled>Giao lại</button></div>`);
     sync();
   };
-  d.addEventListener('change', (e) => { if (e.target.id === 'pcd-sother') { pick = Number(e.target.value) || null; paint(); } else d.querySelector('#pcd-sn').textContent = d.querySelectorAll('input[data-no]:checked').length; });
+  // Nút lưu: chưa tích mục nào mà người này cũng chưa giữ mục nào → khoá; bỏ tích hết phần người này đang giữ → "Lấy lại"
+  const sync = () => {
+    const n = d.querySelectorAll('input[data-no]:checked').length; const held = pool.filter((x) => pick && x.holder === pick).length;
+    d.querySelector('#pcd-sn').textContent = n; const go = d.querySelector('#pcd-sgo');
+    go.disabled = !pick || (!n && !held);
+    go.textContent = !pick ? 'Giao lại' : !n && held ? `Lấy lại ${held} mục từ ${nameOf(pick)}` : n ? `Giao lại ${n} mục cho ${nameOf(pick)}` : `Giao lại cho ${nameOf(pick)}`;
+  };
+  d.addEventListener('change', (e) => { if (e.target.id === 'pcd-sother') { pick = Number(e.target.value) || null; paint(); } else sync(); });
   d.addEventListener('click', async (e) => {
     if (e.target.closest('[data-x]')) { d.close(); return; }
     const p = e.target.closest('[data-pick]'); if (p) { pick = Number(p.dataset.pick); paint(); return; }
@@ -123,7 +132,7 @@ function openSub(P, s, reload, pick = null) {
     go.disabled = true;
     try {
       const r = await rpc('app_dt_sub_assign', { p_id: s.training_id, p_date: s.date, p_shift: s.shift, p_employee: pick, p_items: items });
-      d.close(); flash(`Đã giao lại ${r.n} mục cho ${nameOf(pick)}.`); reload();
+      d.close(); flash(items.length ? `Đã giao lại ${items.length} mục cho ${nameOf(pick)}.` : `Đã lấy lại mục từ ${nameOf(pick)}.`); reload();
     } catch (err) { go.disabled = false; showSaved(err.message, true); }
   });
   paint();

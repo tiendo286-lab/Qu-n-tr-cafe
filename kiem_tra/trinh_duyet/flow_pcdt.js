@@ -7,6 +7,12 @@ export default async ({ visit, sleep, out }) => {
   const txt = (el) => (el?.textContent || '').replace(/\s+/g, ' ').trim();
   const role = new URLSearchParams(location.search).get('role') || 'chu';
   const fits = () => document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1;
+  // tệp 187: đo hộp thoại có tràn ngang không (trước đây chỉ đo trang) + dòng ca trên điện thoại
+  const dfits = (dl) => { if (!dl) return false; const R = dl.getBoundingClientRect();
+    return dl.scrollWidth <= dl.clientWidth + 1 && R.right <= window.innerWidth + 1 && R.left >= -1
+      && [dl, ...dl.querySelectorAll('.pcd-mid, .pcd-top, .pcd-foot')].every((x) => x.scrollWidth <= x.clientWidth + 1)
+      && [...dl.querySelectorAll('button, select, label, h2, .pcd-meta, .pill')].every((x) => { const r = x.getBoundingClientRect(); return !r.width || (r.right <= R.right + 1 && r.left >= R.left - 1); }); };
+  const phone = window.innerWidth <= 520;
   const go = async (h) => visit(h + (h.includes('?') ? '&' : '?') + 't=' + Date.now());
   const addD = (n) => new Date(Date.now() + 7 * 3600e3 + n * 864e5).toISOString().slice(0, 10);
   const today = addD(0), y = addD(-1), m1 = addD(1);
@@ -31,8 +37,13 @@ export default async ({ visit, sleep, out }) => {
       ok(/giao lại/.test(txt($('.pcd-ktr[data-no="13"]', c1))), 'Chờ kiểm tra trong thẻ: mục 13 ghi "giao lại"');
       ok(role === 'chu' ? !$('.pcd-ktr [data-ktok]', c1) : !!$('.pcd-ktr[data-no="13"] [data-ktok]', c1), role === 'chu' ? 'Chủ không có nút Xác nhận đạt (chỉ HD chính / người phụ trách chính)' : 'có nút Xác nhận đạt');
       ok(/NV08/.test(txt($(`.pcd-sh[data-key="${m1}|Sáng"]`, c1))) && /giao lại/.test(txt($(`.pcd-sh[data-key="${m1}|Sáng"]`, c1))), 'dòng ca mai: nhóm NV08 + nhóm "giao lại"');
+      { const rw = $(`.pcd-sh[data-key="${m1}|Sáng"]`, c1); const sw = $('.pcd-sw', rw); const pl = rw && [...rw.children].find((x) => x.classList.contains('pill'));
+        const a = rw.getBoundingClientRect(), b = sw.getBoundingClientRect(), c = pl.getBoundingClientRect();
+        ok(c.right <= a.right + 1 && b.right <= a.right + 1 && c.width >= 40, 'dòng ca: nhãn trạng thái nằm trọn trong khung');
+        if (phone) ok(b.width >= a.width * 0.8 && b.top >= c.bottom - 1, 'điện thoại: tên người dạy xuống dòng riêng, rộng gần hết khung — ' + Math.round(b.width) + '/' + Math.round(a.width)); }
       // ---- Phân công ca mai
       let dl = await openShift(m1, 'Sáng');
+      ok(dfits(dl), 'hộp Phân công không tràn ngang');
       ok(!!dl && !!$('.pcd-mate[data-pick="7"]', dl) && !!$('.pcd-mate[data-pick="8"]', dl), 'bảng Phân công: người làm cùng ca NV07 + NV08 hiện sẵn');
       ok(/NV08/.test(txt($('label.pcd-it[data-no="10"] .pcd-where', dl))), 'mục 10 ghi đang giao NV08');
       ok(!!$('label.pcd-it[data-no="13"] input:disabled', dl) && !!$('label.pcd-it[data-no="13"] .pcd-lock', dl), 'mục 13 chờ kiểm tra bị khoá');
@@ -58,6 +69,7 @@ export default async ({ visit, sleep, out }) => {
       // ---- Chi tiết ngày đã qua
       dl = await openShift(y, 'Sáng');
       ok(!!dl && /Đã giới thiệu/.test(txt(dl)) && /Hiện tại/.test(txt(dl)) && !$('#pcd-go', dl), 'ca hôm qua: Chi tiết ngày như phiếu, không có nút Phân công');
+      ok(dfits(dl), 'hộp Chi tiết ngày không tràn ngang');
       await closeDlg();
       dl = await openShift(y, 'Tối');
       ok(!!dl && /không còn trong lịch/.test(txt(dl)) && !$('#pcd-go', dl), 'ca không còn trong lịch: mở được, ghi rõ, không có nút Phân công');
@@ -82,6 +94,7 @@ export default async ({ visit, sleep, out }) => {
       await go('#/hom-nay');
       const mine = $('#pcd-mine'); const card = $(`.pcd-mc[data-key="1|${m1}|Sáng"]`, mine || document);
       ok(!!mine && !!card, 'Việc hôm nay có khối Việc đào tạo của tôi, có ca mai');
+      ok(card?.querySelector('a.pcd-mo')?.getAttribute('href') === '#/dao-tao/phieu?id=1', 'thẻ ca có đường "Mở phiếu ›" tới đúng phiếu');
       if (role === 'ql2' && card) {
         ok(/Bạn dạy/.test(txt(card)) && /10–12/.test(txt(card)) && !!$('[data-sub]', card), 'quản lý: "Bạn dạy" mục 10–12 + nút Giao lại cho Cấp 1');
         ok(/NV07.*13/.test(txt(card)), 'phần đã giao lại cho NV07 (mục 13)');
@@ -89,21 +102,33 @@ export default async ({ visit, sleep, out }) => {
         $('[data-sub]', card).click(); await sleep(400); let dl = $('dialog[open].pcd-dlg');
         ok(!!dl && !!$('.pcd-mate[data-pick="7"]', dl) && !$('.pcd-mate[data-pick="8"]', dl), 'hộp Giao lại: chỉ Cấp 1 làm cùng ca (NV07)');
         ok(!!dl && !$('input[data-no="13"]', dl) && !!$('input[data-no="10"]', dl), 'hộp Giao lại: chỉ mục chưa chấm của tôi');
+        ok(dfits(dl), 'hộp Giao lại không tràn ngang');
+        ok(!!dl && $('#pcd-sgo', dl).disabled && /Chọn một nhân viên Cấp 1 trước/.test(txt(dl)), 'hộp Giao lại: chưa chọn người thì nút khoá, có câu nhắc chọn Cấp 1');
         if (dl) {
           $('.pcd-mate[data-pick="7"]', dl).click(); await sleep(200); dl = $('dialog[open].pcd-dlg');
+          ok($('#pcd-sgo', dl).disabled && /dạy thay bạn/.test(txt(dl)), 'chọn NV07, chưa tích mục nào: nút vẫn khoá (trước đây bấm được dù 0 mục)');
           [10, 11].forEach((n) => { const x = $(`input[data-no="${n}"]`, dl); x.checked = true; x.dispatchEvent(new Event('change', { bubbles: true })); });
+          ok(!$('#pcd-sgo', dl).disabled && /Giao lại 2 mục cho/.test(txt($('#pcd-sgo', dl))), 'tích 2 mục: nút ghi "Giao lại 2 mục cho …" — ' + txt($('#pcd-sgo', dl)));
+          ok(dfits(dl), 'hộp Giao lại (đã chọn người) không tràn ngang');
           window.__DT_PLAN = []; $('#pcd-sgo', dl).click(); await sleep(1300);
           const p = (window.__DT_PLAN || [])[0];
           ok(p && p.fn === 'app_dt_sub_assign' && p.p_items.join() === '10,11' && p.p_employee === 7, 'Giao lại: lưu 1 lần đúng mục / người');
         }
         const c2 = $(`.pcd-mc[data-key="1|${m1}|Sáng"]`);
         ok(/NV07.*10, 11, 13|NV07.*10–11, 13/.test(txt(c2)) && !!$('[data-take="7"]', c2), 'thẻ hiện NV07 dạy 10, 11, 13 + nút Lấy lại');
+        // bỏ tích hết phần NV07 đang giữ → nút thành "Lấy lại N mục từ …" (không lưu, đóng hộp)
+        $('[data-sub]', c2)?.click(); await sleep(400); dl = $('dialog[open].pcd-dlg');
+        if (dl) { $('.pcd-mate[data-pick="7"]', dl).click(); await sleep(200); dl = $('dialog[open].pcd-dlg');
+          [...dl.querySelectorAll('input[data-no]:checked')].forEach((x) => { x.checked = false; x.dispatchEvent(new Event('change', { bubbles: true })); });
+          ok(!$('#pcd-sgo', dl).disabled && /Lấy lại 2 mục từ/.test(txt($('#pcd-sgo', dl))), 'bỏ tích hết phần NV07 giữ: nút ghi "Lấy lại 2 mục từ …" — ' + txt($('#pcd-sgo', dl)));
+          await closeDlg(); }
         $('[data-take="7"]', c2)?.click(); await sleep(1300);
         ok(/Bạn dạy.*10–12/.test(txt($(`.pcd-mc[data-key="1|${m1}|Sáng"]`))), 'Lấy lại → mục 10, 11 về quản lý');
         $('.pcd-mk[data-no="13"] [data-ktok]')?.click(); await sleep(1300);
         ok(!$('.pcd-mk[data-no="13"]'), 'Xác nhận đạt mục 13 → hết chờ kiểm tra');
       }
       if (role === 'c1' && card) ok(/giao lại/.test(txt(card)) && !$('[data-sub]', card), 'Cấp 1: thấy "(… giao lại)", không có nút Giao lại');
+      if (role === 'c1') { const { rpc } = await import('../js/sb.js'); const P = await rpc('app_dt_my_plan'); ok((P.cap1 || []).length === 0, 'Cấp 1 không nhận danh sách nhân viên Cấp 1 (chỉ gửi quản lý)'); }
       ok(fits(), 'Việc hôm nay không tràn ngang');
     }
     if (role === 'nv') { await go('#/hom-nay'); ok(!$('#pcd-mine'), 'nhân viên không dạy: không có khối Việc đào tạo của tôi'); }

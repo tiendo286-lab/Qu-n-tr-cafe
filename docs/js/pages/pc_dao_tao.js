@@ -8,8 +8,8 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { $, dialog, flash, html, showSaved, str } from '../ui.js';
-import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.27.2';
-import { LEVEL, PCD_CSS, dm, mountMyPlan, myPlanHtml, wd } from './pc_dao_tao_toi.js?v=2026.11.27.2';
+import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.27.3';
+import { LEVEL, PCD_CSS, dm, mountMyPlan, myPlanHtml, wd } from './pc_dao_tao_toi.js?v=2026.11.27.3';
 
 export const perm = null;
 const F = { who: '', d: '' };   // ô lọc (giữ khi vẽ lại)
@@ -34,7 +34,7 @@ export async function render() {
   const rows = B.rows || []; const today = B.today;
   const TR = new Map((B.trainers || []).map((t) => [t.id, t]));
   const nameOf = (id, r) => TR.get(id)?.name || (r && id === r.instructor_id ? r.instructor : null) || '—';
-  const gLabel = (g, r) => `${nameOf(g.who_id, r)}${g.sub_by ? ` (${nameOf(g.sub_by, r)} giao lại)` : ''} · mục ${span(g.items.map((x) => x.no))}`;
+  const gLabel = (g, r) => `${nameOf(g.who_id, r)}${g.sub_by ? ` (${nameOf(g.sub_by, r)} giao lại)` : ''} · mục ${span(g.items.map((x) => x.no))}${(g.mixed || []).map((m) => ` (mục ${span(m.nos)}: ${nameOf(m.sub_by, r)} giao lại)`).join('')}`;
   const C = cards(rows, today);
   const fwHtml = () => {
     if (!F.who) return html`<div class="pcd-meta">Chọn người dạy để xem họ phải dạy gì trong ngày.</div>`;
@@ -88,7 +88,7 @@ export async function render() {
         ${sh.off ? html`<div class="pcd-warn">Ca này không còn trong lịch đã công bố (lịch đã đổi sau khi phân công). Mở một ca khác của ${r.employee}, tích các mục này để chuyển sang ca đó.</div>` : ''}
         <div class="pcd-meta">${nos.length} hạng mục · ${gs.length ? gs.map((g) => gLabel(g, r)).join(' · ') : 'không có phân công'}</div>
         ${nos.length ? nos.map((no) => { const it = r.items.find((i) => i.no === no) || { no, title: '', state: 'chua' }; const ls = logs.filter((l) => l.no === no); const g = whoOf.get(no);
-          return html`<div class="pcd-ditem"><div><b>${no}.</b> ${it.title}${g ? html` <span class="pcd-meta">· ${nameOf(g.who_id, r)}${g.sub_by ? ` (${nameOf(g.sub_by, r)} giao lại)` : ''}</span>` : ''}</div>
+          return html`<div class="pcd-ditem"><div><b>${no}.</b> ${it.title}${g ? html` <span class="pcd-meta">· ${nameOf(g.who_id, r)}${it.sub_by ? ` (${nameOf(it.sub_by, r)} giao lại)` : ''}</span>` : ''}</div>
             <ul>${ls.length ? ls.map((l) => html`<li><span class="pcd-tm">${String(l.at || '').slice(11, 16)}</span>${histText(l)} <span class="pcd-meta">· ${l.by || '—'}</span></li>`) : html`<li class="pcd-meta">Chưa ghi gì ngày này</li>`}</ul>
             <div class="pcd-meta">Hiện tại: <b>${nowText(it)}</b></div></div>`; }) : html`<div class="pcd-meta">Ngày này không có hạng mục nào được giao hoặc ghi.</div>`}
         <div class="pcd-note"><div class="pcd-lbl">NHẬN XÉT CỦA NGƯỜI HƯỚNG DẪN · ${dm(sh.date)}</div>

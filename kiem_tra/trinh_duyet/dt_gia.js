@@ -322,7 +322,7 @@ export function makeDt(T, me) {
       const checks = T.trainings.flatMap((t) => part(t).filter((f) => f.sub_by === my).map((f) => ({ f, m: markOf(t.id, f.no), t })).filter(({ m }) => m && m.level && m.cho_kiem_tra)
         .map(({ f, m, t }) => ({ training_id: t.id, trainee: nmE(emp(t.employee_id)), no: f.no, title: PROG.items.find((i) => i.no === f.no)?.title, level: m.level, who: accName(m.cho_by), at: m.cho_at })));
       return { today, me_id: my, me_rank: emp(my)?.rank || null, shifts, checks,
-        cap1: T.employees.filter((e) => e.rank === 'Cấp 1' && e.status === 'Đang làm').map((e) => ({ id: e.id, name: nmE(e), branches: (T.employee_branches || []).filter((x) => x.employee_id === e.id).map((x) => bcodeOf(x.branch_id)) })) };
+        cap1: emp(my)?.rank !== 'Quản lý' ? [] : T.employees.filter((e) => e.rank === 'Cấp 1' && e.status === 'Đang làm').map((e) => ({ id: e.id, name: nmE(e), branches: (T.employee_branches || []).filter((x) => x.employee_id === e.id).map((x) => bcodeOf(x.branch_id)) })) };
     },
     app_dt_get({ p_id }) {
       const t = tr(p_id);

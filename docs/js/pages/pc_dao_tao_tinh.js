@@ -19,7 +19,13 @@ export function groupsOf(row, sh) {
     by.get(who).items.push(it);
   }
   const gs = [...by.values()];
-  gs.forEach((g) => g.items.sort((a, b) => a.no - b.no));
+  gs.forEach((g) => {
+    g.items.sort((a, b) => a.no - b.no);
+    // "giao lại bởi" tính theo TỪNG mục: cả nhóm cùng một người giao lại → sub_by; lẫn lộn → sub_by trống + mixed = [{sub_by, nos}]
+    const subs = [...new Set(g.items.map((x) => x.sub_by ?? null))];
+    g.sub_by = subs.length === 1 ? subs[0] : null;
+    g.mixed = subs.length > 1 ? subs.filter((x) => x != null).map((x) => ({ sub_by: x, nos: g.items.filter((i) => (i.sub_by ?? null) === x).map((i) => i.no) })) : [];
+  });
   return gs.sort((a, b) => a.items[0].no - b.items[0].no);
 }
 
