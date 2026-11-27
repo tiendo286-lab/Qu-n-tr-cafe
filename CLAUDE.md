@@ -23,7 +23,12 @@
 - **Sổ tệp đã chạy** (từ bước 59): mỗi tệp SQL mới, dòng cuối cùng là `insert into public.app_migrations(file) values ('NN_ten_tep.sql') on conflict (file) do nothing;`. Trước khi đặt số thứ tự mới, xem `select max(file) from app_migrations` (trang LOG › Tệp máy chủ đã chạy) để không trùng số.
 - **Mỗi lần đẩy giao diện lên `main`**: tăng số trong `docs/version.json` (vd `2026.11.13.2`) — web đang mở sẽ hiện "Có bản mới — Tải lại".
 - Bảng mới: mặc định không cấp quyền cho `anon` / `authenticated` (bước 59); web đọc / ghi qua hàm `app_*`. Sao lưu tự lấy mọi bảng (`app__backup_tables`), không cần thêm tay.
-- **Chỉ một phiên AI làm việc trên dự án tại một thời điểm** (tránh sửa trùng tệp / trùng số thứ tự SQL). Bắt đầu phiên: `git pull`, xem `git log -5` và sổ tệp đã chạy.
+- **Nhiều phiên AI được làm cùng lúc, theo luật tránh đụng nhau (anh Tiến chốt 27/11/2026, thay luật "chỉ một phiên"):**
+  - Mỗi phiên một việc, làm trong **thư mục riêng** (`git worktree` từ `origin/main`), không sửa trong thư mục chính `Milano App` (thư mục chính có thể đang đứng ở nhánh cũ — đừng tin `BAN_GIAO.md` ở đó, đọc bản của `origin/main`).
+  - **Ngay trước khi chạy tệp SQL thật:** xem lại sổ tệp trên máy chủ (`select file from app_migrations order by 1 desc`) và `git fetch`; số đã có người dùng thì đổi số của mình (27/11 hai phiên cùng lấy số 186).
+  - **Ngay trước khi đẩy lên `main`:** `git fetch`, ghép lên `origin/main` mới nhất, số bản = `version.json` của `origin/main` + 1, chạy lại bài thử trên bản đã ghép. `app_releases` ghi `on conflict do nothing`.
+  - Hai phiên cùng ghi `tai_lieu/BAN_GIAO.md` / `TINH_NANG_DA_CHOT.md` thì khi ghép **giữ cả hai đoạn**.
+  - Bắt đầu phiên: `git fetch`, xem `git log -5 origin/main`, sổ tệp đã chạy và bảng việc.
 
 ## Khi làm một mình (anh Tiến không có mặt)
 - Bắt đầu: `git pull`, `git log -5`, đọc `CLAUDE.md`, `tai_lieu/BAN_GIAO.md`. `TINH_NANG_DA_CHOT.md` chỉ tìm đọc mục liên quan.

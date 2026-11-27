@@ -1087,3 +1087,21 @@ Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi
   - Xem lại ảnh phiếu Fabi chốt ca (mất từ bước 152): nút 📷 ở Đối soát Fabi phần A + ảnh trong thẻ Phần tiền của Đối soát ca.
   - Giao diện Sổ thu chi theo bản mẫu: dải đầu xanh rêu (tháng, cơ sở, tab hồ sơ), nút / tiêu đề chữ thường, dòng giải thích dưới ô, bảng sổ không cắt số.
   - Tính năng bản mẫu còn thiếu: chọn nhóm ngay trên dòng chi + ở Cần phân loại (ca chưa chốt; `app_tc_check` / `app_stc_entry_save`), Chi theo loại có nhóm con, ô Chênh lệch "N ca chờ xử lý", khung Ca thiếu / Ca dư bấm mở phiếu chênh lệch, dòng Cho nợ CK có Người nợ (+ Thêm người nợ…) + nhãn nhắc thu + "Đã thu · còn nợ", Quỹ ngoài "Phần mỗi cơ sở chịu" (tạm tính). Phiếu chênh lệch vẫn mở bằng hộp thoại (cùng chức năng với bản mẫu).
+
+## Các câu anh Tiến trả lời 27/11/2026 (lượt hỏi gom câu cũ Q-14 … Q-37)
+
+- **Phạt việc quá hạn — chốt 4 luật đang chạy:** (1) cơ sở có 2 người đối soát → hiện cả 2 để Chủ chọn phạt ai; (2) việc trễ nhiều ngày phạt 1 lần; (3) việc gộp (đối soát hàng, hoá đơn bù…) cả việc phạt 1 lần; (4) việc 2 bước: bước nào trễ phạt người làm bước đó.
+- **Lý do nghỉ "Bỏ ca":** chỉ phạt 200.000, **không** trừ thêm giờ công (chốt, giữ như web).
+- **Quyền giao việc riêng cho nhân viên:** Chủ + **Quản lý tổng + Quản lý cơ sở** (vai Quản lý CHƯA bật trên máy chủ lúc ghi — chờ anh bảo bật; quyền này cũng là quyền xem Tất cả công việc).
+- **Ảnh bản cam kết đã ký:** CẦN chỗ tải ảnh lên web (chưa làm).
+- **Đào tạo:** mục đã xác nhận đạt thì nhân viên **Cấp 1 không sửa được** nữa (chưa làm — hiện vẫn quay về Chờ kiểm tra); người có quyền Đào tạo (quản lý) ghi mức là đạt luôn — **giữ**.
+- **Hàng hoá "giao nhầm cơ sở":** chưa cần, để sau.
+- **Quản lý dùng điện thoại:** chưa cần thanh nút dưới đáy; chỉ **làm mỏng phần đầu trang** (chưa làm).
+- **Nhân viên xem bảng chốt ca cơ sở khác:** giữ như web đang chạy.
+- **Thẻ "Ca của tôi hôm nay":** **ẩn** với tài khoản không gắn nhân viên (Chủ, Kế toán riêng) (chưa làm).
+- **Số đỏ Cảnh báo xếp lịch:** chỉ đếm **lỗi xếp sai**, không đếm ô còn trống của tuần xếp dở (chưa làm).
+- **Kiểu chữ:** thống nhất tiêu đề / nút **IN HOA** trên toàn web, kể cả Sổ thu chi và trang đối soát ca mới (chưa làm).
+- **Order ca:** anh gõ "tôi muốn có tab riêng sửa toàn bộ trang này" — CHƯA RÕ Ý, phải hỏi lại, chưa làm gì.
+- **Nhiều phiên AI:** cho làm song song, theo luật tránh đụng nhau (đã ghi `CLAUDE.md`).
+- **Em tự đóng (đã có việc sau đó thay thế — chưa xác nhận lại với anh):** Q-06 (thêm phiếu ca chiều 03/11 — chặng 6.3d phiếu trang ca luôn trong ca), Q-07 (trừ lương chia đều — chặng 5 chọn người bằng ô tích), Q-08 / Q-12 (bản 6 bước — đã thay bằng trang đối soát ca mới), Q-09 (x2 chờ duyệt — chặng 6.2 trang Duyệt nghỉ & làm thay), Q-32 (trang Công nợ — chặng 6.4 vẫn dùng, giữ), Q-16 (không thêm dòng "còn N phiếu ngoài khoảng ngày" ở Phiếu xuất).
+- **Chưa hỏi lượt này:** Q-13 (phiếu chốt ca nhân viên 8 bước), Q-19 (bài kiểm tra lý thuyết — cần nội dung của anh), Q-20 (trang Đối soát cũ — anh để phần đối soát làm sau), Q-21, Q-31, Q-33, Q-38 (sao lưu Google Drive), Q-41.
