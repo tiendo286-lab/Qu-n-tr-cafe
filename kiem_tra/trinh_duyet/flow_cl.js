@@ -56,7 +56,7 @@ export default async ({ visit, sleep, out }) => {
       ok(rows().every((r) => num(cell(r, 'Lệch')) < 0), 'lọc chồng Chỉ thiếu: mọi dòng đều thiếu');
       // xử lý ngay tại bảng: Quán chịu
       const r0 = rows()[0]; const key = r0?.dataset.key; const left0 = r0 ? num(cell(r0, 'Còn lại')) : 0;
-      ok(!!r0 && !!q('[data-xl]', r0) && /ca\/doi-soat\?id=\d+/.test(q('a[href^="#/ca/doi-soat"]', r0)?.getAttribute('href') || ''), 'dòng chờ xử lý có nút Xử lý và Mở ca tới đúng ca');
+      ok(!!r0 && !!q('[data-xl]', r0) && /ca\/doi-soat\?id=\d+/.test(q('a.cl-xem', r0)?.getAttribute('href') || '') && !/Mở ca/i.test(txt(q('.cl-acts', r0))), 'dòng còn chênh lệch có nút Xử lý; không còn nút Mở ca, chỉ còn chữ nhỏ "xem ca"');
       q('[data-xl]', r0).click();
       const opened = await waitFor(() => !!q('dialog[open] .stc-gapd'));
       const dl = q('dialog[open]');

@@ -47,7 +47,7 @@ export async function render({ params }) {
       ${tile(S.cho.n ? 'warn' : '', 'Còn chênh lệch', fmt(S.cho.v), `${S.cho.n} dòng · chưa xử lý xong`)}
       ${tile(S.chu.n ? 'plum' : '', 'Chờ Chủ duyệt', fmt(S.chu.v), `${S.chu.n} khoản`)}
       ${tile('', 'Đã xử lý xong', fmt(S.xong.v), `Trừ lương ${fmt(S.xong.tl)} · Quán chịu ${fmt(S.xong.qc)}`)}</div>`;
-  const cnt = (st) => rowsAll.filter((r) => r.st === st).length;
+  const cnt = (st) => rowsAll.filter((r) => (st === 'nho' ? r.small : !r.small && r.st === st)).length;
   const chip = (grp, v, label, n) => html`<button type="button" data-f="${grp}" data-v="${v}" aria-pressed="${String(F[grp] === v)}">${label}${n == null ? '' : html` <span>${n}</span>`}</button>`;
   const filters = () => html`<div class="cl-f" id="cl-f"><div class="cl-chips">${chip('st', '', 'Tất cả', rowsAll.length - cnt('nho'))}${chip('st', 'cho', 'Còn chênh lệch', cnt('cho'))}${chip('st', 'chu', 'Chờ Chủ duyệt', cnt('chu'))}
         ${chip('st', 'xong', 'Đã xử lý', cnt('xong'))}${cnt('tam') ? chip('st', 'tam', 'Số tạm', cnt('tam')) : ''}${cnt('nho') ? chip('st', 'nho', 'Lệch nhỏ', cnt('nho')) : ''}</div>
@@ -57,9 +57,9 @@ export async function render({ params }) {
   const acts = (r) => html`<div class="cl-acts">
       ${owner && r.waits.length ? r.waits.map((w) => html`<button type="button" class="btn sm" data-ok="${w}" data-key="${r.key}">Duyệt</button><button type="button" class="btn sm secondary" data-no="${w}" data-key="${r.key}">Từ chối</button>`) : ''}
       ${r.can_open ? html`<button type="button" class="btn sm ${r.st === 'cho' ? '' : 'secondary'}" data-xl="${r.key}">${r.st === 'cho' ? 'Xử lý' : 'Xem / sửa'}</button>` : ''}
-      <a class="btn sm secondary" href="#/ca/doi-soat?id=${r.ca_id}&tab=tien&b=5">Mở ca ›</a></div>`;
+</div>`;
   const row = (r) => html`<tr class="cl-r ${r.st}" data-key="${r.key}">
-      <td data-l="Ngày · ca"><b>${dm(r.date)} · ${r.shift}</b></td><td data-l="Cơ sở">${r.branch}</td><td data-l="Loại tiền">${PM[r.pm]}</td>
+      <td data-l="Ngày · ca"><b>${dm(r.date)} · ${r.shift}</b><br><a class="cl-xem" href="#/ca/doi-soat?id=${r.ca_id}&tab=tien&b=5">xem ca</a></td><td data-l="Cơ sở">${r.branch}</td><td data-l="Loại tiền">${PM[r.pm]}</td>
       <td data-l="Phải có" class="num">${r.must == null ? '–' : fmt(r.must)}</td><td data-l="Thực tế" class="num">${r.real == null ? '–' : fmt(r.real)}</td>
       <td data-l="Lệch" class="num cl-amt ${r.amt < 0 ? 'thieu' : 'du'}">${signed(r.amt)}</td>
       <td data-l="Người làm ca" class="cl-staff">${r.staff || '—'}</td><td data-l="Đã xử lý bằng" class="cl-done">${doneHtml(r)}</td>
@@ -77,7 +77,7 @@ export async function render({ params }) {
       <div id="cl-page" class="stack" style="gap:12px">
         ${hidden.length && cn === 'all' ? html`<div class="st-meta">Không gồm cơ sở bạn không được xem tiền: ${hidden.join(', ')}.</div>` : ''}
         ${chuaXong ? html`<div class="st-meta" id="cl-chua">Còn ${chuaXong} ca có lệch nhưng quản lý chưa đối soát xong — đối soát xong (bấm Hoàn thành ở ca) thì chênh lệch mới về bảng này. <a href="#/ca">Mở Chốt ca ›</a></div>` : ''}
-        ${tiles(S)}${S.nho || S.tam.n ? html`<div class="st-meta">${S.tam.n ? `${S.tam.n} dòng là số tạm (ca chưa xác nhận xong phần tiền, ${fmt(S.tam.v)}). ` : ''}${S.nho ? `${S.nho} dòng lệch nhỏ đang ẩn — bấm "Lệch nhỏ" để xem.` : ''}</div>` : ''}
+        ${tiles(S)}${S.nho || S.tam.n ? html`<div class="st-meta">${S.tam.n ? `${S.tam.n} dòng là số tạm (ca chưa xác nhận xong phần tiền, ${fmt(S.tam.v)}). ` : ''}${S.nho ? `${S.nho} dòng lệch nhỏ (từ 5.000 trở xuống) đang ẩn — ${S.nhoAuto.n} dòng web đã tự tạo phiếu khi Hoàn thành ca (chi quán chịu ${fmt(S.nhoAuto.chi)}, thu khác ${fmt(S.nhoAuto.thu)}). Bấm "Lệch nhỏ" để xem.` : ''}</div>` : ''}
         ${filters()}${table()}
       </div>`,
     mount(root) {
@@ -123,7 +123,7 @@ const STYLE = html`<style>
   .cl-staff { color: var(--ink-2); max-width: 120px; overflow-wrap: anywhere; } .cl-done { min-width: 130px; max-width: 220px; overflow-wrap: anywhere; }
   .cl-h { font-size: 13px; } .cl-h.wait { color: var(--plum-ink); font-weight: 600; }
   .cl-acts { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; } .cl-acts .btn { white-space: nowrap; }
-  .cl-empty { padding: 18px; color: var(--ink-2); }
+  .cl-empty { padding: 18px; color: var(--ink-2); } .cl-xem { font-size: 12px; font-weight: 400; }
   @media (max-width: 860px) {   /* điện thoại: mỗi chênh lệch một thẻ */
     .cl-wrap { border: 0; background: transparent; overflow: visible; box-shadow: none; } .cl-t thead { display: none; } .cl-t, .cl-t tbody, .cl-t tfoot { display: block; }
     .cl-t tr { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 4px 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; margin-bottom: 10px; }

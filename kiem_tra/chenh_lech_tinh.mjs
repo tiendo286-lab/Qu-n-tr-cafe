@@ -13,13 +13,14 @@ const D = { branch: { id: 1, code: 'LHP' }, cas: [ca(10, '2026-11-20', 'Sáng'),
     lech('g11', 11, '2026-11-20', 'tm', 'chi', 80000, { status: 'Đã xử lý', gap: gap('thieu', 0, { tl: [{ id: 1, name: 'A', amount: 40000 }, { id: 2, name: 'B', amount: 40000 }] }) }),
     lech('g12', 12, '2026-11-21', 'ck', 'thu', 60000, { status: 'Quán chịu · chờ Chủ duyệt', gap: gap('du', 0, { matches: [{ id: 7, with: 'ca Tối 20/11', amount: 60000, status: 'cho_duyet' }] }) }),
     lech('g13', 13, '2026-11-22', 'tm', 'thu', 2000, { status: 'Lệch nhỏ' }),
+    lech('g13c', 13, '2026-11-22', 'ck', 'chi', 3000, { status: 'Đã xử lý', gap: gap('thieu', 0, { item: 'chuyen_khoan', decisions: [{ id: 5, kind: 'quan_chiu', amount: 3000, auto: true }] }) }),   // tệp 190: lệch nhỏ đã tự tạo phiếu
     lech('g14', 14, '2026-11-23', 'tm', 'chi', 30000),                                                                   // ca chưa xác nhận tiền: chưa có phiếu chênh lệch
     lech('g16', 16, '2026-11-25', 'tm', 'chi', 70000, { gap: gap('thieu', 70000) }),   // ca CHƯA đối soát xong: không vào bảng
     lech('g17', 17, '2026-11-26', 'tm', 'thu', 3000, { status: 'Lệch nhỏ' }),                 // chưa xong + lệch nhỏ: không tính là ca đang chờ
     lech('g15', 15, '2026-11-24', 'tm', 'chi', 100000, { gap: gap('thieu', 40000, { qc_wait: [{ id: 9, by: 'QL', amount: 60000 }] }) })] };
 const R = gapRows(D); const by = (id) => R.find((r) => r.id === id);
-ok(R.length === 6 && !R.some((r) => r.id === 'g16' || r.id === 'g17'), 'chỉ ca đã đối soát xong mới vào bảng (ca 16, 17 chưa xong: không có) — ' + R.length);
-ok(gapRows(D, { all: true }).length === 8 && waitingCas(D) === 1, 'đếm riêng: 1 ca chưa đối soát xong đang có lệch đáng kể (ca chỉ lệch nhỏ không tính)');
+ok(R.length === 7 && !R.some((r) => r.id === 'g16' || r.id === 'g17'), 'chỉ ca đã đối soát xong mới vào bảng (ca 16, 17 chưa xong: không có) — ' + R.length);
+ok(gapRows(D, { all: true }).length === 9 && waitingCas(D) === 1, 'đếm riêng: 1 ca chưa đối soát xong đang có lệch đáng kể (ca chỉ lệch nhỏ không tính)');
 ok(CL_ST.cho[0] === 'Còn chênh lệch' && CL_ST.xong[0] === 'Đã xử lý', 'tên trạng thái theo lời anh: Còn chênh lệch / Đã xử lý');
 // số phải khớp đúng nguồn của Sổ thu chi
 for (const c of D.cas.filter((x) => x.done)) for (const g of caGaps(D.items, c.id)) { const r = by(g.x.id); const mm = dayChain(D, c.date).get(c.id).money[g.pm];
@@ -27,15 +28,16 @@ for (const c of D.cas.filter((x) => x.done)) for (const g of caGaps(D.items, c.i
 ok(by('g10').st === 'cho' && by('g10').left === 50000 && by('g10').amt === -50000 && by('g10').can_open, 'thiếu chưa xử lý: Chờ xử lý, còn lại 50.000, mở được phiếu');
 ok(by('g11').st === 'xong' && by('g11').left === 0 && by('g11').handled.length === 2 && by('g11').handled[0].text === 'Trừ lương A', 'đã trừ lương hết: Đã xử lý, ghi từng người');
 ok(by('g12').st === 'chu' && by('g12').amt === 60000 && by('g12').waits.join() === 'match:7', 'ghép ca chờ Chủ: Chờ Chủ duyệt, có mã để Chủ duyệt');
-ok(by('g13').st === 'nho' && by('g13').left === 0 && !by('g13').can_open, 'lệch nhỏ: nhãn riêng, không cần xử lý');
+ok(by('g13').st === 'nho' && by('g13').small && !by('g13').auto && by('g13').left === 0 && !by('g13').can_open, 'lệch nhỏ chưa có phiếu: nhãn riêng, không cần xử lý');
+ok(by('g13c').st === 'xong' && by('g13c').small && by('g13c').auto && /Quán chịu · lệch nhỏ, web tự tạo phiếu/.test(by('g13c').handled[0].text) && by('g13c').left === 0, 'lệch nhỏ web đã tự tạo phiếu (tệp 190): Đã xử lý, ghi rõ "web tự tạo phiếu"');
 ok(by('g14').st === 'tam' && by('g14').left === 30000 && !by('g14').can_open, 'ca chưa xác nhận tiền: Số tạm, chưa mở được phiếu');
 ok(by('g15').st === 'chu' && by('g15').left === 40000 && by('g15').waits.join() === 'qc:9', 'quán chịu chờ Chủ + còn 40.000: Chờ Chủ duyệt, vẫn ghi còn lại');
 ok(by('g10').staff === 'A, B' && by('g14').staff === 'A, B' && by('g10').branch === 'LHP', 'người làm ca + cơ sở');
-ok(sortRows(R).map((r) => r.id).join() === 'g10,g15,g12,g14,g11,g13', 'xếp: chờ xử lý → chờ Chủ (mới trước) → số tạm → đã xử lý → lệch nhỏ — ' + sortRows(R).map((r) => r.id).join());
-ok(filterRows(R, {}).length === 5 && !filterRows(R, {}).some((r) => r.st === 'nho'), 'mặc định ẩn lệch nhỏ');
-ok(filterRows(R, { st: 'nho' }).length === 1 && filterRows(R, { st: 'cho' }).length === 1 && filterRows(R, { dir: 'du' }).map((r) => r.id).join() === 'g12' && filterRows(R, { pm: 'ck' }).length === 1 && filterRows(R, { dir: 'thieu', pm: 'tm' }).length === 4, 'lọc trạng thái / thiếu-dư / loại tiền, lọc chồng');
+ok(sortRows(R).map((r) => r.id).join() === 'g10,g15,g12,g14,g13c,g11,g13', 'xếp: chờ xử lý → chờ Chủ (mới trước) → số tạm → đã xử lý → lệch nhỏ — ' + sortRows(R).map((r) => r.id).join());
+ok(filterRows(R, {}).length === 5 && !filterRows(R, {}).some((r) => r.small), 'mặc định ẩn mọi dòng lệch nhỏ (đã tự tạo phiếu hay chưa)');
+ok(filterRows(R, { st: 'nho' }).length === 2 && filterRows(R, { st: 'xong' }).length === 1 && filterRows(R, { st: 'cho' }).length === 1 && filterRows(R, { dir: 'du' }).map((r) => r.id).join() === 'g12' && filterRows(R, { pm: 'ck' }).length === 1 && filterRows(R, { dir: 'thieu', pm: 'tm' }).length === 4, 'lọc trạng thái / thiếu-dư / loại tiền, lọc chồng');
 const S = summary(R);
-ok(S.thieu.v === 260000 && S.thieu.n === 4 && S.du.v === 60000 && S.du.n === 1 && S.nho === 1, 'ô tổng thiếu / dư không tính lệch nhỏ — ' + JSON.stringify(S.thieu));
+ok(S.thieu.v === 260000 && S.thieu.n === 4 && S.du.v === 60000 && S.du.n === 1 && S.nho === 2 && S.nhoAuto.n === 1 && S.nhoAuto.chi === 3000 && S.nhoAuto.thu === 0, 'ô tổng thiếu / dư không tính lệch nhỏ; đếm riêng lệch nhỏ đã tự tạo phiếu — ' + JSON.stringify(S.thieu));
 ok(S.cho.n === 1 && S.cho.v === 50000 && S.chu.n === 2 && S.chu.v === 120000 && S.tam.n === 1 && S.tam.v === 30000, 'ô chờ xử lý / chờ Chủ duyệt / số tạm');
 ok(S.xong.v === 80000 && S.xong.tl === 80000 && S.xong.qc === 0, 'ô đã xử lý: chỉ tính khoản đã xong, tách trừ lương');
 ok(handled(null).length === 0 && Object.keys(CL_ST).join() === 'cho,chu,xong,nho,tam', 'không có phiếu thì không có cách xử lý; đủ 5 trạng thái');

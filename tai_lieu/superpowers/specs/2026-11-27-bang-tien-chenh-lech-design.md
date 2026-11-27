@@ -79,3 +79,13 @@ Trạng thái một dòng: **Chờ xử lý** (còn tiền chưa có cách xử 
 - Vùng khoá: `so_thu_chi.js` chỉ thêm 2 hàm xuất `stcLoadFor`, `stcGapOpen` (lối vào), không đổi dòng luật nào.
 - "Tất cả cơ sở" nạp lần lượt từng cơ sở (5 lần hỏi sổ tháng, vài giây). Nếu chậm khi dùng thật: viết một hàm đọc gọn riêng ở máy chủ (việc sau).
 - Nút "Mở ca ›" tới `#/ca/doi-soat?id=…&tab=tien&b=5`.
+
+## Anh Tiến chốt thêm sau khi xem thiết kế (27/11)
+
+- **Anh Tiến chốt thêm 27/11 (sau khi xem thiết kế):**
+  - "Quản lý khi đối soát xong sẽ có trạng thái chênh lệch hoặc đã xử lý mới về bảng chênh lệch này" → **chỉ ca đã bấm Hoàn thành đối soát mới vào bảng** (`gapRows` bỏ ca chưa `done`); trạng thái gọi là **Còn chênh lệch** / **Đã xử lý** (+ Chờ Chủ duyệt). Đầu bảng có dòng nhắc "Còn N ca có lệch nhưng quản lý chưa đối soát xong".
+  - "Xử lý tại tab luôn, không cần chuyển về ca" → **bỏ nút Mở ca**, chỉ còn chữ nhỏ "xem ca" dưới ngày · ca (anh chọn).
+  - "Lệch nhỏ 5k sẽ tự động tạo phiếu chi hoặc phiếu thu luôn" → máy chủ **`190_lech_nho_tu_tao_phieu.sql`**, anh chọn 4 câu: ca **thiếu** → phiếu chi **Quán chịu** (không trừ lương, không cần Chủ duyệt); ca **dư** → phiếu thu **Thu khác**; tạo **khi quản lý bấm Hoàn thành đối soát ca**; **tạo bù cho cả tháng 11**. Mở lại Hoàn thành thì phiếu tự tạo tự huỷ, Hoàn thành lại thì tạo lại. Không tạo khi tháng đã chốt hoặc mục đó đã có cách xử lý. Trên bảng: dòng lệch nhỏ ẩn sẵn (nút "Lệch nhỏ" để xem), ghi "Quán chịu · lệch nhỏ, web tự tạo phiếu".
+  - Cách làm ở máy chủ: trigger trên bảng dấu Hoàn thành (`stc_ca_done`) nên mọi đường Hoàn thành / Mở lại đều qua; phiếu = `fin_entries` (không vào quỹ) + `gap_decisions.auto`; `app__gap_rows` nhận thêm lệch nhỏ ĐÃ có phiếu (trạng thái xong); `app_stc_month` trả `auto`. Tạo bù bằng `app__gap_auto_backfill()` (chạy riêng).
+  - Chạy thử trên máy chủ thật 27/11 14:22 (tự hoàn tác): tạo bù 127 phiếu ở 112 ca (35 phiếu chi quán chịu = 92.000; 92 phiếu thu khác = 222.700; 0 lỗi; chạy lại không thêm); **Sổ thu chi tổng thu / tổng chi / số dòng, số chênh lệch chờ, số ca đã đối soát của cả 5 cơ sở KHÔNG đổi**; chỉ kết quả tháng có thêm chi quán chịu và thu khác đúng bằng các số đó. Còn 24 dòng "lệch nhỏ" là của ca chưa Hoàn thành.
+  - Bài thử: cục bộ `kiem_tra/lech_nho_190_cuc_bo.sql` (14 dòng); `jsc -m kiem_tra/chenh_lech_tinh.mjs` (25); `flow_cl` chu / ql 19 (điện thoại 20), nv 1.

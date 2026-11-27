@@ -5,6 +5,7 @@ import { caGaps, dayChain } from './so_thu_chi_tinh.js';
 export const CL_ST = {
   cho: ['Còn chênh lệch', 'warn'], chu: ['Chờ Chủ duyệt', 'plum'], xong: ['Đã xử lý', 'ok'], nho: ['Lệch nhỏ', 'mute'], tam: ['Số tạm', 'mute'],
 };
+export const SMALL = 5000;   // mức lệch nhỏ của máy chủ
 const KIND = { quan_chiu: 'Quán chịu', thu_khac: 'Phiếu thu (Thu khác)', treo: 'Khoản treo' };
 
 // Các cách đã xử lý của một dòng chênh lệch: [{ text, amount, wait, ref }] (ref = 'match:<id>' / 'qc:<id>' khi chờ Chủ duyệt)
@@ -12,7 +13,7 @@ export function handled(g) {
   if (!g) return [];
   return [
     ...(g.tl || []).map((t) => ({ text: 'Trừ lương ' + (t.name || ''), amount: Number(t.amount || 0), wait: false, ref: null })),
-    ...(g.decisions || []).map((d) => ({ text: KIND[d.kind] || d.kind, amount: Number(d.amount || 0), wait: false, ref: null })),
+    ...(g.decisions || []).map((d) => ({ text: (KIND[d.kind] || d.kind) + (d.auto ? ' · lệch nhỏ, web tự tạo phiếu' : ''), amount: Number(d.amount || 0), wait: false, ref: null, auto: !!d.auto })),
     ...(g.debts || []).map((o) => ({ text: 'Gán nợ khách trả · ' + (o.who || ''), amount: Number(o.amount || 0), wait: false, ref: null })),
     ...(g.matches || []).map((m) => ({ text: 'Ghép với ' + (m.with || 'ca khác'), amount: Number(m.amount || 0), wait: m.status === 'cho_duyet', ref: m.status === 'cho_duyet' ? 'match:' + m.id : null })),
     ...(g.qc_wait || []).map((q) => ({ text: 'Quán chịu' + (q.by ? ' · ' + q.by + ' đề nghị' : ''), amount: Number(q.amount || 0), wait: true, ref: 'qc:' + q.id })),
@@ -41,6 +42,7 @@ export function gapRows(D, { all = false } = {}) {
       out.push({
         key: D.branch.id + ':' + x.id, id: x.id, branch_id: D.branch.id, branch: D.branch.code, ca_id: c.id, date: c.date, shift: c.shift || '', pm: g.pm,
         must: mm.must ?? null, real: mm.real ?? null, amt: g.amt, staff: (gap?.people || []).map((p) => p.name).join(', ') || c.staff || '',
+        small: Math.abs(g.amt) <= SMALL, auto: hs.some((h) => h.auto),   // lệch nhỏ ≤ 5.000: tệp 190 tự tạo phiếu khi Hoàn thành
         handled: hs, left, st, can_open: !!gap, note: String(x.status || '').replace(/\s*·\s*⏳ chờ Chủ duyệt/, ''), waits: hs.filter((h) => h.wait && h.ref).map((h) => h.ref),
       });
     }
@@ -53,9 +55,10 @@ const SH = { 'Sáng': 0, 'Chiều': 1, 'Tối': 2 };
 // Chờ xử lý lên trước, rồi ngày mới nhất, ca muộn nhất
 export const sortRows = (rows) => [...rows].sort((a, b) => ORD[a.st] - ORD[b.st] || (a.date < b.date ? 1 : a.date > b.date ? -1 : (SH[b.shift] ?? 9) - (SH[a.shift] ?? 9)) || String(a.branch).localeCompare(String(b.branch)) || (a.pm === b.pm ? 0 : a.pm === 'tm' ? -1 : 1));
 
-// Lọc: f = { st: '' | cho | chu | xong | nho | tam, dir: '' | thieu | du, pm: '' | tm | ck }. st trống = mọi dòng TRỪ lệch nhỏ (ẩn sẵn)
+// Lọc: f = { st: '' | cho | chu | xong | nho | tam, dir: '' | thieu | du, pm: '' | tm | ck }.
+// Lệch nhỏ (≤ 5.000, đã tự tạo phiếu hay chưa) ẩn sẵn; st = 'nho' là xem riêng các dòng lệch nhỏ.
 export function filterRows(rows, f = {}) {
-  return rows.filter((r) => (f.st ? r.st === f.st : r.st !== 'nho')
+  return rows.filter((r) => (f.st === 'nho' ? r.small : !r.small && (!f.st || r.st === f.st))
     && (!f.dir || (f.dir === 'thieu' ? r.amt < 0 : r.amt > 0)) && (!f.pm || r.pm === f.pm));
 }
 
@@ -67,7 +70,8 @@ export function waitingCas(D) {
 
 // Ô tổng (không tính lệch nhỏ vào thiếu / dư cần soát)
 export function summary(rows) {
-  const big = rows.filter((r) => r.st !== 'nho');
+  const big = rows.filter((r) => !r.small);
+  const nhoAuto = rows.filter((r) => r.small && r.auto);
   const sum = (xs, f) => xs.reduce((s, r) => s + f(r), 0);
   const thieu = big.filter((r) => r.amt < 0), du = big.filter((r) => r.amt > 0);
   const cho = big.filter((r) => r.st === 'cho'), chu = big.filter((r) => r.st === 'chu'), tam = big.filter((r) => r.st === 'tam');
@@ -75,6 +79,7 @@ export function summary(rows) {
   const by = (re) => sum(hs.filter((h) => re.test(h.text)), (h) => h.amount);
   return {
     n: big.length, nho: rows.length - big.length,
+    nhoAuto: { n: nhoAuto.length, chi: sum(nhoAuto.filter((r) => r.amt < 0), (r) => -r.amt), thu: sum(nhoAuto.filter((r) => r.amt > 0), (r) => r.amt) },
     thieu: { n: thieu.length, v: sum(thieu, (r) => -r.amt) }, du: { n: du.length, v: sum(du, (r) => r.amt) },
     cho: { n: cho.length, v: sum(cho, (r) => r.left) }, tam: { n: tam.length, v: sum(tam, (r) => Math.abs(r.amt)) },
     chu: { n: chu.reduce((s, r) => s + Math.max(1, r.waits.length), 0), v: sum(chu.flatMap((r) => r.handled.filter((h) => h.wait)), (h) => h.amount) },
