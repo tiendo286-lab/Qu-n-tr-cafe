@@ -1,6 +1,6 @@
 // Việc hôm nay chia nhóm (bước 142): chia khối Vận hành / Nhân sự / Khác, gộp việc cùng loại, Đã xong hôm nay, Mọi người (Chủ).
 // Hàm thuần (không gọi máy chủ, không chạm trang) để thử bằng jsc: kiem_tra/hom_nay_nhom_142.mjs
-import { ORDER, collectWork, jobCat } from './hom_nay_viec.js?v=2026.11.27.3';
+import { ORDER, collectWork, jobCat } from './hom_nay_viec.js?v=2026.11.27.4';
 
 export const CATS = [
   { id: 'vh', name: 'Vận hành', hint: 'Tiền · Chốt ca · Hàng hoá · Ngân hàng' },
@@ -57,6 +57,22 @@ export function roleOfPerson(p) {
   return 'Việc khác';
 }
 export const byRole = (list, role) => (role ? list.filter((x) => (x.roles || []).includes(role)) : list);
+
+// Đợt 2 (27/11/2026): Theo dõi theo cơ sở. Mỗi việc mang code = mã cơ sở ('' = việc chung, không gắn cơ sở).
+export const isLate = (i) => i.group === 'late';          // quá hạn
+export const isNone = (i) => !!(i.who && i.who.none);     // chưa có người nhận
+export const byBranch = (list, code) => (code == null ? list : list.filter((x) => (x.code || '') === code));   // null = mọi cơ sở
+export const byFlag = (list, flag) => (flag === 'late' ? list.filter(isLate) : flag === 'none' ? list.filter(isNone) : list);
+// [{ code, name, n, late, none }] — theo thứ tự cơ sở của hệ thống, rồi mã lạ, cuối cùng là việc chung; cơ sở không có việc vẫn hiện (n = 0)
+export function branchSummary(items, codes) {
+  const order = [...(codes || [])];
+  for (const i of items) { const c = i.code || ''; if (c && !order.includes(c)) order.push(c); }
+  const row = (code, name) => { const xs = byBranch(items, code); return { code, name, n: xs.length, late: xs.filter(isLate).length, none: xs.filter(isNone).length }; };
+  const out = order.map((c) => row(c, c));
+  const chung = row('', 'Việc chung');
+  if (chung.n) out.push(chung);
+  return out;
+}
 
 // Tab Mọi người của Chủ: app_pc_all() + app_dt_work_list(false). Bỏ việc chỉ có mình giữ.
 export function everyoneWork(pcAll, training, me, helpers) {

@@ -862,6 +862,16 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-18-viec-hom-nay-chia-nhom-desi
 - Ô **Theo dõi** liệt kê từng việc mình đã giao, kèm người làm.
 - Máy chủ `124_viec_hom_nay_nhom.sql` (`app_today_more`) + `125_viec_hom_nay_sua.sql` (trả `who_id`, bỏ việc bị xoá / tự bỏ khỏi Đã xong). Phiên bản `2026.11.18.11`.
 
+## Việc hôm nay — đợt 2: Theo dõi theo cơ sở (27/11/2026)
+
+Anh Tiến bảo "làm luôn 1" (không hỏi thêm) — các điểm dưới là em tự quyết theo phương án 18/11, anh chưa xem từng điểm.
+- Ô **Theo dõi** có bảng **Theo cơ sở**: mỗi cơ sở một dòng — số việc đang mở của mọi người, số **quá hạn**, số **chưa có người nhận** (không có thì ghi "Không trễ" / "Không có việc"); việc không gắn cơ sở (đào tạo, giao việc riêng không chọn cơ sở) gom vào dòng **Việc chung**. Bấm một dòng → sang thẻ **Mọi người**, lọc đúng cơ sở đó.
+- Thẻ **Mọi người** thêm hàng nút lọc **cơ sở** (kèm số việc và số trễ) và 2 nút **Chỉ việc quá hạn** / **Chỉ việc chưa có người nhận**; lọc chồng được với lọc vai trò. Đang lọc cơ sở / quá hạn / chưa có người nhận thì ẩn mục Đã xong hôm nay.
+- **Ai thấy:** Chủ và người có quyền **xem Tất cả công việc** (`hop_giao_viec` — mặc định chỉ Chủ; bật cho Quản lý tổng / Quản lý ở tab Phân quyền). Cùng dữ liệu với trang Tất cả công việc (`app_pc_all`) nên **không mở thêm quyền, không đổi máy chủ**. Chủ vẫn mở sẵn Mọi người; người khác mở sẵn Việc của tôi. Quản lý không có quyền đó: trang y như cũ.
+- **Anh Tiến chốt 27/11 (cách A):** quản lý muốn thấy bảng này thì bật quyền xem Tất cả công việc ở tab Phân quyền (thấy mọi cơ sở); không làm luật "quản lý tự thấy riêng cơ sở mình". Đã lên web 2026.11.27.4.
+- **Chưa làm (chờ anh):** khoản âm nối với ca + nút mở ca từng dòng (trang Lệch tiền ca đã bỏ, phải chọn lại chỗ dẫn tới). **Bỏ:** máy chủ chặn nhân viên mở / gửi phiếu ca không có tên mình — ngược với việc #11 anh chốt 26/11.
+- Hàm thuần `branchSummary` / `byBranch` / `byFlag` ở `hom_nay_nhom.js`; mỗi việc mang `code` (mã cơ sở) từ `collectWork`. Bài thử: `jsc -m kiem_tra/hom_nay_co_so_d2.mjs` (12), `flow_hn_coso` (chu / qlt 19 dòng, ql / nv 3 dòng, máy tính + điện thoại).
+
 ## Sổ thu chi mới — chốt 18/11/2026, đợt 1 (chỉ xem) đã làm (bước 143)
 
 Thiết kế đầy đủ: `tai_lieu/superpowers/specs/2026-11-18-so-thu-chi-moi-design.md` (anh Tiến duyệt 18/11). Kế hoạch đợt 1: `tai_lieu/superpowers/plans/2026-11-18-so-thu-chi-moi-dot1.md`. Mẫu: https://claude.ai/artifact/6L53uqto8BgLHgBSLh744E

@@ -61,11 +61,11 @@ export function collectWork({ now, pc, training, ka, todo, today, more }, helper
   const seen = new Set();
   const me = pc?.me ?? null;
   const add = (it) => { if (seen.has(it.key)) return; seen.add(it.key);
-    items.push({ waitingFor: null, sub: '', cat: 'kh', tag: '', kind: null, kindLabel: '', who: YOU, gap: false, review: false, redo: null, ...it }); };
+    items.push({ waitingFor: null, sub: '', code: '', cat: 'kh', tag: '', kind: null, kindLabel: '', who: YOU, gap: false, review: false, redo: null, ...it }); };
 
   for (const t of pc?.tasks || []) {
     const name = helpers.jobName(t.job); const step = helpers.curStep ? helpers.curStep(t) : null;
-    add({ key: 'pc:' + t.id, title: name + (t.code ? ' · ' + t.code : ''), due: helpers.pcDue(t), link: '/viec', ...jobCat(t.job, name),
+    add({ key: 'pc:' + t.id, code: t.code || '', title: name + (t.code ? ' · ' + t.code : ''), due: helpers.pcDue(t), link: '/viec', ...jobCat(t.job, name),
       kind: 'pc:' + t.job, kindLabel: name, who: step ? whoOf(step.accounts, step.names, me, ' (ai làm cũng được)') : YOU });
   }
   // Giao việc riêng (cả việc sinh từ Bàn giao ca). sent = việc mình đã báo xong (app_today_more), luôn là đang chờ.
@@ -78,7 +78,7 @@ export function collectWork({ now, pc, training, ka, todo, today, more }, helper
       : review ? whoOf([k.assignee_id], [k.assignee], me)
       : waiting ? whoOf([k.reviewer_id].filter((x) => x != null), [k.reviewer], me)   // đã báo xong: người đang giữ việc là người kiểm tra
       : k.assignee_id === me ? YOU : whoOf([k.assignee_id].filter((x) => x != null), [k.assignee], me);
-    add({ key: 'gv:' + k.id, title: (k.content || helpers.jobName(24)) + (k.code ? ' · ' + k.code : ''), due: helpers.gvDue(k), link: '/viec',
+    add({ key: 'gv:' + k.id, code: k.code || '', title: (k.content || helpers.jobName(24)) + (k.code ? ' · ' + k.code : ''), due: helpers.gvDue(k), link: '/viec',
       sub: k.handover ? (k.src || 'Bàn giao ca') : '',
       cat: k.handover ? 'vh' : 'kh', tag: k.handover ? 'Bàn giao ca' : 'Giao việc riêng', kind: k.handover ? 'bgc' : null, kindLabel: k.handover ? 'Bàn giao ca' : '',
       who, gap: k.priority === 'gap', review, redo: st === 2 && k.review_note ? k.review_note : null,

@@ -5,11 +5,11 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, $$, ROLE_LABELS, html, raw, str } from '../ui.js';
-import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.27.3';
-import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.27.3';
-import { ROLE_TABS, buildSections, byRole, doneRows, everyoneWork } from '../hom_nay_nhom.js?v=2026.11.27.3';
+import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.27.4';
+import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.27.4';
+import { ROLE_TABS, branchSummary, buildSections, byBranch, byFlag, byRole, doneRows, everyoneWork, isLate, isNone } from '../hom_nay_nhom.js?v=2026.11.27.4';
 import { KA_STATUS } from './phieu_ca.js';
-import { mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.27.3';   // tệp 174: việc đào tạo của tôi
+import { mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.27.4';   // tệp 174: việc đào tạo của tôi
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
 const soft = (p) => p.catch(() => null);
@@ -37,7 +37,7 @@ function caBlock(T, can) {
 const short = (s) => String(s || '').replace(/^[^–]*–\s*/, '');
 const chev = raw('<svg class="hn-chev" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true"><path d="M7 4l6 6-6 6" stroke-linecap="round" stroke-linejoin="round"/></svg>');
 const ICO = { vh: 'VH', ns: 'NS', kh: 'K', done: '✓' };
-let VIEW = 'all', ROLE = '';   // tab của Chủ (giữ trong phiên)
+let VIEW = null, ROLE = '', BR = null, FLAG = '', VIEW_OF = null;   // tab Mọi người (giữ trong phiên): vai trò · cơ sở (null = mọi cơ sở) · chỉ quá hạn / chưa có người nhận
 const openKey = (me) => 'hn-open:' + (me.account_id ?? me.id ?? '');
 function loadOpen(me) { try { return JSON.parse(localStorage.getItem(openKey(me)) || '{}') || {}; } catch { return {}; } }
 function saveOpen(me, o) { try { localStorage.setItem(openKey(me), JSON.stringify(o)); } catch { /* bộ nhớ bị chặn: chỉ không nhớ */ } }
@@ -88,21 +88,22 @@ function doneHtml(rows, O) {
 // V = { W, E, done, isChu, me }
 function viecBlock(V) {
   const O = loadOpen(V.me);
-  const all = V.isChu && VIEW === 'all';
+  const all = V.canAll && VIEW === 'all';
   let body;
   if (all && V.E.failed) body = html`<div class="alert warn" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Chưa tải được việc của mọi người <button type="button" class="btn sm secondary" id="hn-retry">Thử lại</button></div>`;
   else if (!all && V.W.failed) body = html`<div class="alert warn" style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">Chưa tải được công việc <button type="button" class="btn sm secondary" id="hn-retry">Thử lại</button></div>`;
   else {
-    const items = all ? byRole(V.E.items, ROLE) : V.W.items;
+    const items = all ? byFlag(byBranch(byRole(V.E.items, ROLE), BR), FLAG) : V.W.items;
     const done = all ? byRole(V.E.done, ROLE) : V.done;
-    body = html`${buildSections(items).map((s) => sectionHtml(s, O, all ? 'all' : 'mine'))}${doneHtml(done, O)}`;
+    // đang lọc theo cơ sở / quá hạn / chưa có người nhận thì không hiện "Đã xong hôm nay" (mục đó không chia theo cơ sở)
+    body = html`${buildSections(items).map((s) => sectionHtml(s, O, all ? 'all' : 'mine'))}${all && (BR != null || FLAG) ? '' : doneHtml(done, O)}`;
   }
-  const tabs = V.isChu ? html`<div class="hn-tabs" id="hn-tabs" role="group" aria-label="Xem việc">
+  const tabs = V.canAll ? html`<div class="hn-tabs" id="hn-tabs" role="group" aria-label="Xem việc">
       <button type="button" data-view="mine" aria-pressed="${String(!all)}">Việc của tôi (${V.W.items.length})</button>
       <button type="button" data-view="all" aria-pressed="${String(all)}">Mọi người (${V.E.items.length})</button></div>` : '';
   const roles = all && !V.E.failed ? html`<div class="hn-roles" id="hn-roles" aria-label="Lọc theo vai trò người làm">
       <button type="button" data-role="" aria-pressed="${String(!ROLE)}">Tất cả <span>${V.E.items.length}</span></button>${ROLE_TABS.map((r) => html`<button type="button" data-role="${r}" aria-pressed="${String(ROLE === r)}">${r} <span>${byRole(V.E.items, r).length}</span></button>`)}</div>
-      <div class="sub" style="font-size:12px">Việc khác: việc của nhân viên và việc chưa có người nhận.</div>` : '';
+      <div class="sub" style="font-size:12px">Việc khác: việc của nhân viên và việc chưa có người nhận.</div>${brFilter(V)}` : '';
   return html`<section id="hn-viec" class="card stack" style="gap:8px">
     <div class="hn-top"><h2 style="margin:0">${all ? 'Việc của mọi người' : 'Việc của tôi'}</h2>
       <span><button type="button" class="hn-link" id="hn-all-open">Mở hết</button> · <button type="button" class="hn-link" id="hn-all-close">Thu gọn hết</button></span></div>
@@ -110,12 +111,33 @@ function viecBlock(V) {
     <div style="margin-top:6px"><a class="btn sm secondary" href="#/viec">Xem tất cả công việc</a></div></section>`;
 }
 
-function theoDoiBlock(pc, can) {
+// Đợt 2: lọc thẻ Mọi người theo cơ sở + chỉ quá hạn / chỉ chưa có người nhận (số đếm theo vai trò đang chọn)
+function brFilter(V) {
+  const base = byRole(V.E.items, ROLE); const S = branchSummary(base, V.codes); const cur = byBranch(base, BR);
+  const nLate = cur.filter(isLate).length, nNone = cur.filter(isNone).length;
+  return html`<div class="hn-roles hn-brs" id="hn-brs" aria-label="Lọc theo cơ sở">
+      <button type="button" data-br="*" aria-pressed="${String(BR == null)}">Mọi cơ sở <span>${base.length}</span></button>${S.map((b) => html`<button type="button" data-br="${b.code}" aria-pressed="${String(BR === b.code)}">${b.name} <span>${b.n}</span>${b.late ? html`<em>${b.late} trễ</em>` : ''}</button>`)}</div>
+    <div class="hn-roles hn-fl" id="hn-fl" aria-label="Chỉ xem">
+      <button type="button" data-flag="late" aria-pressed="${String(FLAG === 'late')}">Chỉ việc quá hạn <span>${nLate}</span></button>
+      <button type="button" data-flag="none" aria-pressed="${String(FLAG === 'none')}">Chỉ việc chưa có người nhận <span>${nNone}</span></button></div>`;
+}
+// Đợt 2: bảng "Theo cơ sở" trong ô Theo dõi — mỗi cơ sở: số việc đang mở · quá hạn · chưa có người nhận; bấm để xem ngay ở thẻ Mọi người
+function coSoBlock(V) {
+  if (!V.canAll) return '';
+  if (V.E.failed) return html`<div class="sub">Theo cơ sở: chưa tải được việc của mọi người.</div>`;
+  const S = branchSummary(V.E.items, V.codes);
+  return html`<div class="stack" id="hn-coso" style="gap:6px"><div class="sub">Theo cơ sở — việc của mọi người đang mở (${V.E.items.length})</div>
+    ${S.map((b) => html`<button type="button" class="hn-cs" data-br="${b.code}"><b>${b.name}</b><span class="hn-cs-n">${b.n} việc</span>
+      <span class="hn-cs-f">${b.late ? html`<span class="pill hn-p-late">${b.late} quá hạn</span>` : ''}${b.none ? html`<span class="pill hn-p-today">${b.none} chưa có người nhận</span>` : ''}${!b.late && !b.none ? html`<span class="pill ok">${b.n ? 'Không trễ' : 'Không có việc'}</span>` : ''}</span><i>›</i></button>`)}</div>`;
+}
+
+function theoDoiBlock(pc, can, V) {
   const watch = pc?.watch || [];
   const w = (k) => html`<a class="hn-row ${rstate(k) === 3 ? 'waiting' : ''}" href="#/viec"><div class="grow"><div><span class="hn-tag">${k.handover ? 'Bàn giao ca' : 'Giao việc riêng'}</span><strong>${k.content}${k.code ? ' · ' + k.code : ''}</strong></div>
     ${rstate(k) === 3 ? html`<div><span class="pill mute">Chờ ${short(k.reviewer) || 'người kiểm tra'} kiểm tra</span></div>` : ''}${whoHtml({ text: short(k.assignee) || 'Chưa có người nhận', mine: false, none: !k.assignee })}</div>${dueHtml(k.due)}<i>›</i></a>`;
   return html`<details id="hn-theo-doi" class="card" ${innerWidth > 700 ? 'open' : ''}><summary><h2 style="margin:0;display:inline">Theo dõi</h2></summary>
     <div class="stack" style="gap:8px;margin-top:8px">
+      ${coSoBlock(V)}
       ${watch.length ? html`<div class="sub">Việc bạn đã giao, chưa xong (${watch.length})</div>${watch.map(w)}`
         : html`<div class="sub">Không có việc bạn giao đang chờ người khác.</div>`}
       <div class="toolbar" style="gap:8px">
@@ -151,6 +173,9 @@ function luongBlock(cong, ka) {
 export async function render({ me, can }) {
   const emp = !!me.employee_id;
   const isChu = me.role === 'chu';
+  // Đợt 2 (27/11): thẻ Mọi người + Theo cơ sở mở cho ai có quyền xem Tất cả công việc (hop_giao_viec) — cùng dữ liệu với trang đó, không mở thêm quyền
+  const canAll = isChu || can('hop_giao_viec');
+  if (VIEW_OF !== me.account_id) { VIEW_OF = me.account_id; VIEW = isChu ? 'all' : 'mine'; ROLE = ''; BR = null; FLAG = ''; }
   const [T, todo, pc, training, ka, cong, more, pcAll, dtAll, plan] = await Promise.all([
     soft(rpc('app_today_me')),
     soft(rpc('app_home_todo')),
@@ -159,8 +184,8 @@ export async function render({ me, can }) {
     emp ? soft(rpc('app_ka_mine')) : Promise.resolve([]),
     emp ? soft(rpc('app_cong_mine', { p_month: null })) : Promise.resolve(null),
     soft(rpc('app_today_more')),
-    isChu ? soft(rpc('app_pc_all')) : Promise.resolve(null),
-    isChu ? soft(rpc('app_dt_work_list', { p_mine: false })) : Promise.resolve(null),
+    canAll ? soft(rpc('app_pc_all')) : Promise.resolve(null),
+    canAll ? soft(rpc('app_dt_work_list', { p_mine: false })) : Promise.resolve(null),
     emp ? soft(rpc('app_dt_my_plan')) : Promise.resolve(null),
   ]);
   const hasPlan = !!(plan && ((plan.shifts || []).length || (plan.checks || []).length));
@@ -171,7 +196,8 @@ export async function render({ me, can }) {
   NOW = now;
   const W = collectWork({ now, pc, training, ka, todo: todo ? todo.items || [] : null, today: T, more }, H);
   const today0 = T?.today || now.slice(0, 10);
-  const V = { W, E: isChu ? everyoneWork(pcAll, dtAll, me.account_id, H) : null, done: more ? doneRows(more.done_today, today0, me.account_id) : null, isChu, me };
+  const V = { W, E: canAll ? everyoneWork(pcAll, dtAll, me.account_id, H) : null, done: more ? doneRows(more.done_today, today0, me.account_id) : null, isChu, canAll, me,
+    codes: (pcAll?.branches || []).map((b) => b.code) };
   const order = T?.order && !T.order.submitted ? T.order : null;
   const watcher = ['chu', 'ql_tong', 'ql', 'ke_toan'].includes(me.role) || can('doi_soat') || can('ke_toan');
   const today = T?.today || now.slice(0, 10);
@@ -224,6 +250,11 @@ export async function render({ me, can }) {
         .hn-ka { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; font-size: 14px; } .hn-ka span:first-child { flex: 1 1 160px; } .hn-ka b { color: #b91c1c; }
         .hn-order { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; } .hn-order small { font-weight: 400; opacity: .9; }
         #hn-theo-doi summary { cursor: pointer; list-style-position: inside; }
+        .hn-brs button em { font-style: normal; font-size: 11px; font-weight: 700; color: #b91c1c; margin-left: 4px; } .hn-brs button[aria-pressed="true"] em { color: #fecaca; }
+        .hn-fl button[aria-pressed="true"] { background: #b91c1c; border-color: #b91c1c; }
+        .hn-cs { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; width: 100%; text-align: left; border: 1px solid var(--line-soft); border-radius: 12px; padding: 8px 10px; background: var(--card); color: inherit; font: inherit; cursor: pointer; }
+        .hn-cs:hover { background: var(--caramel-soft); } .hn-cs b { min-width: 44px; } .hn-cs-n { font-size: 13px; color: var(--ink-2); } .hn-cs-f { display: flex; flex-wrap: wrap; gap: 4px; flex: 1 1 auto; justify-content: flex-end; min-width: 0; }
+        .hn-cs i { font-style: normal; color: var(--muted); font-size: 18px; }
         .hn-cols { display: grid; gap: 14px; grid-template-columns: minmax(0, 1fr); }
         @media (min-width: 900px) { .hn-cols { grid-template-columns: minmax(0, 3fr) minmax(0, 2fr); align-items: start; } }
       </style>
@@ -233,7 +264,7 @@ export async function render({ me, can }) {
         ${caBlock(T, can)}
         <div class="hn-cols">
           <div class="stack" style="gap:14px">${hasPlan ? myPlanHtml(plan) : ''}${viecBlock(V)}</div>
-          <div class="stack" style="gap:14px">${watcher ? theoDoiBlock(pc, can) : ''}${emp ? luongBlock(cong, ka) : ''}</div>
+          <div class="stack" style="gap:14px">${watcher || canAll ? theoDoiBlock(pc, can, V) : ''}${emp ? luongBlock(cong, ka) : ''}</div>
         </div>
       </div>`,
     mount(root) {
@@ -253,9 +284,15 @@ export async function render({ me, can }) {
           saveOpen(me, O); return;
         }
         const tv = t.closest('#hn-tabs [data-view]'); const tr = t.closest('#hn-roles [data-role]');
-        if (tv || tr) {
-          if (tv) { VIEW = tv.dataset.view; ROLE = ''; } else ROLE = tr.dataset.role;
+        const tb = t.closest('#hn-brs [data-br]'); const tf = t.closest('#hn-fl [data-flag]'); const cs = t.closest('#hn-coso [data-br]');
+        if (tv || tr || tb || tf || cs) {
+          if (tv) { VIEW = tv.dataset.view; ROLE = ''; BR = null; FLAG = ''; }
+          else if (tr) ROLE = tr.dataset.role;
+          else if (tb) BR = tb.dataset.br === '*' ? null : tb.dataset.br;
+          else if (tf) FLAG = FLAG === tf.dataset.flag ? '' : tf.dataset.flag;
+          else { VIEW = 'all'; ROLE = ''; FLAG = ''; BR = cs.dataset.br; }   // bấm một cơ sở ở ô Theo dõi → thẻ Mọi người, lọc đúng cơ sở đó
           $('#hn-viec', root).outerHTML = str(viecBlock(V));
+          if (cs) $('#hn-viec', root).scrollIntoView({ block: 'start', behavior: 'smooth' });
         }
       };
       root.addEventListener('click', onClick);   // #root dùng chung mọi trang → gỡ khi rời trang
