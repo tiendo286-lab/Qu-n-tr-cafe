@@ -8,8 +8,8 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { $, dialog, flash, html, showSaved, str } from '../ui.js';
-import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.27.6';
-import { LEVEL, PCD_CSS, dm, mountMyPlan, myPlanHtml, wd } from './pc_dao_tao_toi.js?v=2026.11.27.6';
+import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.27.7';
+import { LEVEL, PCD_CSS, dm, mountMyPlan, myPlanHtml, wd } from './pc_dao_tao_toi.js?v=2026.11.27.7';
 
 export const perm = null;
 const F = { who: '', d: '' };   // ô lọc (giữ khi vẽ lại)

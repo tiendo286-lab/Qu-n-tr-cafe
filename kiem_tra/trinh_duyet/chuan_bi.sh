@@ -35,4 +35,5 @@ cp "$D/flow_cm182.js" "$W/test/"   # tệp 182: chốt ca ngoài lịch (việc 
 cp "$D/flow_hn_coso.js" "$W/test/"   # Việc hôm nay đợt 2: Theo dõi theo cơ sở
 cp "$D/flow_v2711.js" "$W/test/"   # các việc anh chốt 27/11: thẻ ca, đầu trang điện thoại, số cảnh báo, IN HOA, tệp 188
 cp "$D/flow_ck189.js" "$W/test/"   # tệp 189: ảnh bản cam kết đã ký
+cp "$D/flow_ka_ca.js" "$W/test/"   # khoản âm nối với ca (cần web đủ dữ liệu)
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"

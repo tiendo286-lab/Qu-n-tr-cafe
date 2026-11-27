@@ -480,6 +480,9 @@ export function makeCa(T, me) {
       for (let i = SF.length - 1; i >= 0; i--) if (SF[i].report_id === p_id && SF[i].item === p_item && (SF[i].status === 'chua_xu_ly' || SF[i].auto_tru)) SF.splice(i, 1);
       T.shift_report_checks = T.shift_report_checks.filter((c) => !(c.report_id === p_id && c.item === p_item));
     },
+    // bài thử khoản âm nối với ca: dựng một khoản âm cho người đang đăng nhập ở phiếu ca đầu tiên có trong dữ liệu
+    app__test_ka_add({ p_amount }) { const r = T.shift_reports[0]; if (!r) throw new Error('Dữ liệu thử không có phiếu ca.');
+      SF.push({ id: sfSeq++, report_id: r.id, item: 'tien_mat', employee_id: me.employee_id, amount: p_amount || 25000, reason: 'Thử', status: 'tru_luong', auto_tru: true, created_by: me.account_id, created_at: now() }); return r.id; },
     app_ka_mine: () => SF.filter((k) => k.employee_id === me.employee_id).map(kaJson).reverse(),
     app_ka_seen({ p_id }) { const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (k && !k.seen_at) k.seen_at = now(); },
     app_ka_reply({ p_id, p_text }) { if (!(p_text || '').trim()) throw new Error('Nhập nội dung giải trình.'); const k = SF.find((x) => x.id === p_id && x.employee_id === me.employee_id); if (!k) throw new Error('Không tìm thấy khoản âm của bạn.'); Object.assign(k, { reply: p_text.trim(), reply_at: now(), seen_at: k.seen_at || now() }); },

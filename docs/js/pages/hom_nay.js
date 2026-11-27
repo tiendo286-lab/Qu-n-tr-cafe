@@ -5,11 +5,12 @@ import { render as rerender, state } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, vnd } from '../tien.js';
 import { $, $$, ROLE_LABELS, html, raw, str } from '../ui.js';
-import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.27.6';
-import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.27.6';
-import { ROLE_TABS, branchSummary, buildSections, byBranch, byFlag, byRole, doneRows, everyoneWork, isLate, isNone } from '../hom_nay_nhom.js?v=2026.11.27.6';
+import { curStep, gvDue, jobName, learnJobs, pcDue, rstate } from '../cv_chung.js?v=2026.11.27.7';
+import { collectWork, dueText } from '../hom_nay_viec.js?v=2026.11.27.7';
+import { ROLE_TABS, branchSummary, buildSections, byBranch, byFlag, byRole, doneRows, everyoneWork, isLate, isNone } from '../hom_nay_nhom.js?v=2026.11.27.7';
 import { KA_STATUS } from './phieu_ca.js';
-import { mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.27.6';   // tệp 174: việc đào tạo của tôi
+import { kaCaLink } from './khoan_am_toi.js?v=2026.11.27.7';   // khoản âm nối với ca: đường mở phiếu ca
+import { mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.27.7';   // tệp 174: việc đào tạo của tôi
 
 const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
 const soft = (p) => p.catch(() => null);
@@ -165,7 +166,8 @@ function luongBlock(cong, ka) {
       ? `nghỉ (${c.reason_label})${Number(c.deduct_hours) ? ` · trừ ${h2(c.deduct_hours)} giờ` : ''}` : `làm thay${c.absent ? ' ' + c.absent : ''} · ${h2(c.hours)} giờ${c.x2 ? ' · x2' : ''}`}</div>`)}</div>` : ''}
     <div class="stack" style="gap:4px"><strong>Khoản âm tháng này</strong>
       ${ka === null ? html`<div class="sub">Chưa tải được khoản âm.</div>` : kaM.length ? kaM.map((k) => html`<div class="hn-ka"><span>${dmy(k.work_date)} · ca ${k.shift} ${k.branch}</span>
-        <b>−${vnd(k.amount)}</b><span class="pill ${KA_STATUS[k.status]?.[1] || 'mute'}">${KA_STATUS[k.status]?.[0] || k.status}${k.auto_tru ? ' (mặc định)' : ''}</span></div>`)
+        <b>−${vnd(k.amount)}</b><span class="pill ${KA_STATUS[k.status]?.[1] || 'mute'}">${KA_STATUS[k.status]?.[0] || k.status}${k.auto_tru ? ' (mặc định)' : ''}</span>
+        ${kaCaLink(k) ? html`<a class="hn-link hn-ka-ca" href="${kaCaLink(k)}">Xem ca ›</a>` : ''}</div>`)
         : html`<div class="sub">Không có khoản âm.</div>`}</div>
     <div><a id="hn-luong-more" class="btn sm secondary" href="#/cua-toi/cong">Xem chi tiết</a></div></section>`;
 }

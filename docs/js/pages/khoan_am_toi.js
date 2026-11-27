@@ -1,5 +1,5 @@
 // Khoản âm của tôi: quản lý đối soát ra THIẾU tiền và gán cho mình → xem, bấm "Đã xem", gửi giải trình nếu không đồng ý
-import { render as rerender } from '../app.js';
+import { can, render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, dt, vnd } from '../tien.js';
 import { $$, flash, html, showSaved } from '../ui.js';
@@ -7,6 +7,8 @@ import { KA_STATUS } from './phieu_ca.js';
 
 const canReply = (k) => k.status === 'chua_xu_ly' || k.auto_tru;   // trừ lương mặc định: vẫn giải trình được
 export const KA_STYLE = html`<style>.ka-c.open { border-left: 4px solid #dc2626; } .ka-amt { font-size: 20px; font-weight: 700; color: #b91c1c; } .ka-rep { font-size: 14px; background: var(--line-soft); border-radius: 10px; padding: 8px 10px; }</style>`;
+// Việc hôm nay đợt 2 (27/11/2026): mỗi khoản âm có đường mở đúng phiếu chốt ca phát sinh (theo quyền Chốt ca sẵn có — không mở thêm quyền)
+export const kaCaLink = (k) => (k && k.report_id && can('chot_ca') ? `#/ca/phieu?id=${k.report_id}` : '');
 // bước 138: thẻ khoản âm dùng chung cho Khoản âm của tôi và Công của tôi
 export const kaCard = (k) => html`<article class="card stack ka-c ${canReply(k) ? 'open' : ''}" style="gap:8px;padding:14px" data-id="${k.id}">
     <div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:center">
@@ -14,6 +16,7 @@ export const kaCard = (k) => html`<article class="card stack ka-c ${canReply(k) 
     <div class="ka-amt">−${vnd(k.amount)} <span class="st-meta">· ${k.item_label}</span></div>
     ${k.reason ? html`<div style="font-size:14px"><span class="st-meta">Lý do:</span> ${k.reason}</div>` : ''}
     <div class="st-meta">Người đối soát: ${k.created_by || ''} · ${dt(k.created_at)}</div>
+    ${kaCaLink(k) ? html`<div><a class="btn sm secondary ka-ca" href="${kaCaLink(k)}">Xem phiếu ca ${k.shift} ${dmy(k.work_date)} ›</a></div>` : ''}
     ${k.status_note ? html`<div class="st-meta">Ghi chú xử lý: ${k.status_note}${k.status_by ? ` · ${k.status_by}` : ''}</div>` : ''}
     ${k.status === 'huy' ? '' : k.reply ? html`<div class="ka-rep"><span class="st-meta">Bạn đã giải trình ${dt(k.reply_at)}:</span> ${k.reply}</div>` : ''}
     ${canReply(k) ? html`<div class="stack" style="gap:6px">
