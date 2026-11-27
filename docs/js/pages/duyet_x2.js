@@ -2,6 +2,7 @@
 // 3 thẻ: Chờ phân loại (Quản lý tổng) · Chờ Chủ duyệt · Đã duyệt (theo tháng; Chủ Sửa → Duyệt lại).
 // Mỗi ca một dòng, sửa tại chỗ như khung "Nghỉ & làm thay" trong từng ca (nghi_thay.js). Áp hàng loạt chỉ điền sẵn, chưa lưu.
 // Lưu / duyệt từng ca bằng app_cv_save / app_cv_approve sẵn có (quyền, cách tính x2 / trừ giờ ở máy chủ không đổi).
+// 27/11: ca 1 người nghỉ + 1 người hỗ trợ tự ghép sẵn thành một khung (không có nút Lưu người này).
 // 27/11: nút riêng từng ca (Lưu ca này / Duyệt ca này); ca nhiều người có nút Lưu người này (app_cv_save_one, tệp 186).
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
 import { render as rerender } from '../app.js';
@@ -69,19 +70,23 @@ export async function render({ params }) {
     const extraOf = (hid) => (valid ? C.rows.find((x) => x.absent_id === null && x.helper_id === hid) : null);
     const used = new Set(absents.map((a) => String(rowOf(a.employee_id)?.helper_id || '')).filter(Boolean));
     // 27/11 (cách 2): ca có từ 2 người trở lên → mỗi người một nút Lưu riêng (chỉ ở thẻ Chờ phân loại)
-    const multi = tab === 'cho' && absents.length + helpers.length > 1;
+    // 27/11 (anh Tiến): ca đúng 1 người nghỉ + 1 người hỗ trợ, chưa lưu gì → ghép sẵn người hỗ trợ làm người thay,
+    // cả ca chỉ còn một khung, một nút Lưu ca này (không phải làm 2 lần cho người nghỉ và người được nhờ).
+    const pair11 = absents.length === 1 && helpers.length === 1;
+    const auto = pair11 && !rowOf(absents[0].employee_id) && !extraOf(helpers[0].employee_id) ? helpers[0] : null;
+    const multi = tab === 'cho' && absents.length + helpers.length > 1 && !pair11;
     const p1 = (saved) => (multi ? html`<div class="x2p-p1"><span class="pill ok x2p-saved" ${part && saved ? '' : 'hidden'}>Đã lưu</span><button type="button" class="btn sm secondary" data-p1>Lưu người này</button></div>` : '');
     const opts = (sel) => html`<option value="">— Không có người làm thay —</option>
       ${helpers.length ? html`<optgroup label="Người hỗ trợ phát sinh">${helpers.map((h) => html`<option value="${h.employee_id}" ${String(sel) === String(h.employee_id) ? 'selected' : ''}>${h.code} – ${h.name} (${hrs(h.hours)} giờ)</option>`)}</optgroup>` : ''}
       ${workers.length ? html`<optgroup label="Người trong lịch có làm">${workers.map((w) => html`<option value="${w.employee_id}" ${String(sel) === String(w.employee_id) ? 'selected' : ''}>${w.code} – ${w.name} (${hrs(w.hours)} giờ)</option>`)}</optgroup>` : ''}
       <option value="ngoai" ${sel === 'ngoai' ? 'selected' : ''}>Người ngoài quán…</option>`;
-    return html`${absents.map((a) => { const x = rowOf(a.employee_id) || {}; const hs = x.helper_id || (x.outsider ? 'ngoai' : '');
+    return html`${absents.map((a) => { const x = rowOf(a.employee_id) || {}; const hs = x.helper_id || (x.outsider ? 'ngoai' : '') || (auto ? auto.employee_id : '');
         return html`<div class="cv-a" data-absent="${a.employee_id}">
           <div class="cv-grid"><strong>${a.code} – ${a.name}</strong> <span class="pill off">Nghỉ</span>
             <select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${x.reason === k ? 'selected' : ''}>${l}</option>`)}</select></div>
           <div class="cv-grid"><span class="st-meta">Người làm thay</span><select class="input sm cv-helper" aria-label="Người làm thay cho ${a.code}">${opts(hs)}</select>
             <input class="input sm cv-on" placeholder="Tên người ngoài quán" value="${x.outsider ? x.helper_name || x.helper || '' : ''}" ${hs === 'ngoai' ? '' : 'hidden'} aria-label="Tên người ngoài quán">
-            <label class="cv-hl" ${hs ? '' : 'hidden'}>Giờ <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${x.hours ?? ''}"></label>
+            <label class="cv-hl" ${hs ? '' : 'hidden'}>Giờ <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${x.hours ?? (auto ? auto.hours : '') ?? ''}"></label>
             <label class="cv-x2"><input type="checkbox" class="check cv-x" ${x.x2 ? 'checked' : ''}> x2</label></div>${p1(!!x.reason)}</div>`; })}
       ${helpers.filter((h) => !used.has(String(h.employee_id))).map((h) => { const x = extraOf(h.employee_id) || {};
         return html`<div class="cv-e" data-helper="${h.employee_id}"><div class="cv-grid"><strong>${h.code} – ${h.name}</strong> <span class="pill warn">Hỗ trợ</span> · ${hrs(h.hours)} giờ

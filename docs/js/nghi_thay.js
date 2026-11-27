@@ -61,8 +61,10 @@ export async function mountCover(box, R, ctx = {}) {
     ${helpers.length ? html`<optgroup label="Người hỗ trợ phát sinh">${helpers.map((h) => html`<option value="${h.employee_id}" ${String(sel) === String(h.employee_id) ? 'selected' : ''}>${h.code} – ${h.name} (${hrs(h.hours)} giờ)</option>`)}</optgroup>` : ''}
     ${workers.length ? html`<optgroup label="Người trong lịch có làm">${workers.map((w) => html`<option value="${w.employee_id}" ${String(sel) === String(w.employee_id) ? 'selected' : ''}>${w.code} – ${w.name} (${hrs(w.hours)} giờ)</option>`)}</optgroup>` : ''}
     <option value="ngoai" ${sel === 'ngoai' ? 'selected' : ''}>Người ngoài quán…</option>`;
+  // 27/11 (anh Tiến): ca đúng 1 người nghỉ + 1 người hỗ trợ, chưa lưu gì → ghép sẵn người hỗ trợ làm người thay (một khung).
+  const auto = absents.length === 1 && helpers.length === 1 && !rowOf(absents[0].employee_id) && !extraOf(helpers[0].employee_id) ? helpers[0] : null;
   const editor = () => html`
-    ${absents.map((a) => { const r = rowOf(a.employee_id) || {}; const hsel = r.helper_id || (r.outsider ? 'ngoai' : '');
+    ${absents.map((a) => { const r = rowOf(a.employee_id) || {}; const hsel = r.helper_id || (r.outsider ? 'ngoai' : '') || (auto ? auto.employee_id : '');
       return html`<div class="cv-row cv-a" data-absent="${a.employee_id}">
         <div><strong>${a.code} – ${a.name}</strong> <span class="pill off">Nghỉ</span></div>
         <div class="cv-grid"><select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${r.reason === k ? 'selected' : ''}>${l}</option>`)}</select></div>

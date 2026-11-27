@@ -17,7 +17,7 @@ export default async ({ sleep, out }) => {
       const ov = await rpc('app_ca_overview', { p_date: day });
       const emps = await rpc('app_ca_employees');
       // Phiếu đã gửi: absent=true → người đầu lịch nghỉ + 1 người hỗ trợ; absent=false → chỉ 1 người hỗ trợ làm thêm
-      const mk = async (o, absent) => {
+      const mk = async (o, absent, more = 0) => {   // more: số người hỗ trợ thêm (ca nhiều người)
         const id = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift });
         for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
         const R = await rpc('app_ca_get', { p_id: id });
@@ -25,6 +25,7 @@ export default async ({ sleep, out }) => {
         if (absent && !staff.some((s) => s.source === 'lich' && !s.worked)) { const n = emps.find((e) => !staff.some((s) => s.employee_id === e.id)); staff.push({ employee_id: n.id, source: 'lich', worked: false, absent_reason: 'Ốm' }); }
         const h = emps.find((e) => !staff.some((s) => s.employee_id === e.id));
         staff.push({ employee_id: h.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' });
+        for (let i = 0; i < more; i++) { const h2 = emps.find((e) => !staff.some((s) => s.employee_id === e.id)); staff.push({ employee_id: h2.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' }); }
         await rpc('app_ca_save', { p_id: id, p: { rev_start: R.rev_start || day + ' 06:45', rev_end: (R.rev_start || '') > day + ' 12:00' ? day + ' 23:30' : day + ' 12:39', reported_transfer: 3000000, total_revenue: 5000000, pos_cash: 2000000, pos_transfer: 3000000,
           cash_counted: 3000000, ipos_opening: 1000000, pos_debt: 0, pos_diff: 0, cups: 50, moves: [], goods: [], handover: [], debts: [], staff } });
         await rpc('app_ca_photo_add', { p_id: id, p_path: 'r/x.jpg', p_kind: 'ipos' });
@@ -37,13 +38,25 @@ export default async ({ sleep, out }) => {
       const pick = pickOv;   // 3 cơ sở khác nhau, ca đầu ngày
       const ids = [await mkCa(pick[0], true), await mkCa(pick[1], true), await mkCa(pick[2], false)];
       r.push(`Dựng 3 phiếu: ${(await Promise.all(ids.map((id) => rpc('app_ca_get', { p_id: id })))).map((x) => x.status).join(', ')}`);
-      // 27/11 (cách 2, tệp 186): ca thứ 4 có 1 người nghỉ + 1 người hỗ trợ → lưu riêng từng người
-      const id4 = pick[3] ? await mkCa(pick[3], true) : null;
+      // 27/11 (cách 2, tệp 186): ca thứ 4 có 1 người nghỉ + 2 người hỗ trợ (3 người) → lưu riêng từng người
+      const id4 = pick[3] ? await mkCa(pick[3], true, 1) : null;
       await go('#/quan-ly/nghi-lam-thay');
+      // 27/11 (anh Tiến): ca đúng 1 người nghỉ + 1 người hỗ trợ → ghép sẵn, chỉ một khung, không có Lưu người này
+      {
+        const p = $(`.x2p-ca[data-id="${ids[0]}"]`), g0 = await rpc('app_cv_get', { p_id: ids[0] });
+        const hp = g0.people.find((x) => x.kind === 'ho_tro');
+        ok(!!p && p.querySelector('.cv-a .cv-helper').value === String(hp.employee_id) && p.querySelector('.cv-e').hidden && !p.querySelector('.cv-hl').hidden
+          && Number(p.querySelector('.cv-h').value) === Number(hp.hours), `Ca 1 nghỉ + 1 hỗ trợ: ghép sẵn người làm thay, điền giờ ${p?.querySelector('.cv-h').value}, khung Hỗ trợ ẩn`);
+        ok(!p.querySelector('[data-p1]') && !!p.querySelector('[data-one]') && g0.rows.length === 0, 'Ca 1 nghỉ + 1 hỗ trợ: chỉ một nút Lưu ca này (chưa lưu gì lên máy chủ)');
+        const s = p.querySelector('.cv-helper'); s.value = ''; s.dispatchEvent(new Event('change', { bubbles: true }));
+        ok(!p.querySelector('.cv-e').hidden && p.querySelector('.cv-hl').hidden, 'Bỏ chọn người làm thay → khung Hỗ trợ hiện lại');
+        s.value = String(hp.employee_id); s.dispatchEvent(new Event('change', { bubbles: true }));
+        ok(p.querySelector('.cv-e').hidden, 'Chọn lại → khung Hỗ trợ ẩn');
+      }
       if (id4) {
         const c4 = () => $(`.x2p-ca[data-id="${id4}"]`);
         const one = $(`.x2p-ca[data-id="${ids[2]}"]`);
-        ok($$('[data-p1]').filter((b) => c4().contains(b)).length === 2 && !one.querySelector('[data-p1]'), `Ca 2 người có 2 nút Lưu người này; ca 1 người không có · ${W()}`);
+        ok($$('[data-p1]').filter((b) => c4().contains(b)).length === 3 && !one.querySelector('[data-p1]'), `Ca 3 người có 3 nút Lưu người này; ca 1 người không có · ${W()}`);
         const A = c4().querySelector('.cv-a'), E = c4().querySelector('.cv-e');
         A.querySelector('[data-p1]').click(); await sleep(400);
         ok(c4().classList.contains('bad') && /Chưa chọn lý do/.test(c4().querySelector('.x2p-err').innerText), `Lưu người này khi chưa chọn lý do: báo đỏ — ${c4().querySelector('.x2p-err').innerText}`);
@@ -62,9 +75,11 @@ export default async ({ sleep, out }) => {
         ok(g4.state === 'chua_phan_loai', `Ca lưu dở chưa duyệt được: ${e4 || g4.state}`);
         await go('#/quan-ly/nghi-lam-thay');
         const n0 = $('[data-tab="duyet"] strong').textContent;
-        c4().querySelector('.cv-e [data-p1]').click(); await wait(() => !c4(), 100);
+        { const e1 = c4().querySelectorAll('.cv-e')[0]; e1.querySelector('[data-p1]').click(); await wait(() => !e1.querySelector('.x2p-saved').hidden, 100); }
+        ok(!!c4() && (await rpc('app_cv_get', { p_id: id4 })).state === 'chua_phan_loai', 'Lưu người thứ hai: ca vẫn Chưa phân loại');
+        c4().querySelectorAll('.cv-e')[1].querySelector('[data-p1]').click(); await wait(() => !c4(), 100);
         g4 = await rpc('app_cv_get', { p_id: id4 });
-        ok(!c4() && g4.state === 'cho_duyet' && g4.rows.length === 2, `Lưu người cuối: ca đủ người → ${g4.state}, ${g4.rows.length} dòng · ${txt('#x2p-msg')}`);
+        ok(!c4() && g4.state === 'cho_duyet' && g4.rows.length === 3, `Lưu người cuối: ca đủ người → ${g4.state}, ${g4.rows.length} dòng · ${txt('#x2p-msg')}`);
         ok(Number($('[data-tab="duyet"] strong').textContent) === Number(n0) + 1 && !!$(`.x2p-ca[data-id="${ids[0]}"]`), 'Số ở thẻ Chờ Chủ duyệt tăng 1, các ca khác còn nguyên');
       } else r.push('(bỏ qua phần lưu từng người: dữ liệu thử không đủ 4 cơ sở)');
       ok(!!$('a[href="#/quan-ly/nghi-lam-thay"]'), 'menu Quản lý ca có "Nghỉ & làm thay"');
