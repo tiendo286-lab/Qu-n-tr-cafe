@@ -26,6 +26,7 @@ export default async ({ sleep, out }) => {
         btn.click(); await wait('form.stc-dlg'); await sleep(200);
         const sel = $('form.stc-dlg [name=debt]'); const opts = [...(sel?.options || [])].filter((o) => o.value);
         ok(opts.length > 0, `danh sách khách đang nợ (nợ từ ca trước): ${opts.map((o) => o.textContent.trim()).slice(0, 3).join(' | ')}`);
+        ok(!opts.some((o) => /kho tổng/i.test(o.textContent)), 'trong ca không hiện nợ Kho tổng / Chủ / Người nhà (chỉ nợ khách hàng)');
         if (opts.length) {
           sel.value = opts[0].value; sel.dispatchEvent(new Event('change', { bubbles: true }));
           const who = opts[0].textContent.split('·')[0].trim();

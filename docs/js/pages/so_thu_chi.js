@@ -399,7 +399,7 @@ async function addPanel(D, btn, book, { caId = null, preset = null } = {}) {
     jw.innerHTML = str(html`${bad.map((x) => html`<a class="btn sm secondary" href="${caHref(x.id, x.done ? 'xong' : 'tien')}">${x.label.split(' · ')[0]}: ${x.done ? 'Mở lại ở trang đối soát ca' : 'Xác nhận Fabi'} ›</a>`)}`);
   };
   // bước 168: Thu nợ ngoài ca — chỉ nợ phát sinh từ ngày của phiếu trở về trước (máy chủ tệp 147 chặn lại)
-  const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => Number(x.left ?? 1) > 0 && debtBefore(x, caFix ? { date: caFix.date, shift: caFix.shift } : { date: dv }));
+  const fillDebt = () => { const dv = el('date').value; const keep = el('debt').value; const ok = debts.filter((x) => !(caFix && x.no_remind) && Number(x.left ?? 1) > 0 && debtBefore(x, caFix ? { date: caFix.date, shift: caFix.shift } : { date: dv }));
     el('debt').innerHTML = str(html`<option value="">${ok.length ? '— Chọn khách đang nợ —' : `— Không có khách nợ ghi từ ${dv ? dm(dv) : 'ngày này'} trở về trước —`}</option>${ok.map((x) => html`<option value="${x.id}">${x.who} · còn nợ ${fmt(x.left)} · từ ${x.from}</option>`)}`);
     el('debt').value = ok.some((x) => x.id === keep) ? keep : ''; };
   const kindOf = () => { const k = el('kind').value; return k === 'no' ? `no-${book}` : k; };
@@ -493,7 +493,7 @@ function collectDialog(D, debtId) {
 // chặng 6.3c (anh Tiến chọn 23/11): khách trả nợ cũ trong ca mà nhân viên không ghi → quản lý ghi vào đúng ca (cộng vào tiền phải có của ca).
 // Chỉ nợ ghi từ ca trước. Máy chủ: app_ca_recon_debt_collect (chặn ca hoàn thành / mục tiền đã đối soát, trả nhiều hơn nợ; trả thiếu → phần còn lại thành nợ riêng).
 function traAddDialog(D, c) {
-  const ok = (D.open_debts || []).filter((o) => Number(o.left) > 0 && debtBefore(o, { date: c.date, shift: c.shift }));
+  const ok = (D.open_debts || []).filter((o) => !o.no_remind && Number(o.left) > 0 && debtBefore(o, { date: c.date, shift: c.shift }));   // anh Tiến 28/11: trong ca chỉ hiện nợ khách hàng — nợ Kho tổng / Chủ / Người nhà thu ở Công nợ (ngoài ca)
   const d = dialog(form(`Khách trả nợ cũ trong ca · ${caName(c)}`, html`<div class="st-meta">Khách trả trong ca này mà nhân viên không ghi. Tiền cộng vào tiền phải có của ca (tiền mặt hoặc chuyển khoản).</div>
     <label class="field"><span>Khách đang nợ</span><select class="input" name="debt"><option value="">${ok.length ? '— Chọn khách —' : '— Không có khách nợ ghi trước ca này —'}</option>${ok.map((o) => html`<option value="${o.id}" data-left="${o.left}">${o.who} · còn ${fmt(o.left)} · ${o.from || ''}</option>`)}</select></label>
     ${pmSel('pay', P.pm)}<label class="field"><span>Số tiền khách trả</span><input class="input" name="amount" inputmode="numeric" data-money></label>`));

@@ -1,9 +1,9 @@
 // Bước 109 — Việc của tôi: việc tự tạo theo Bảng phân công + Giao việc riêng, chia theo từng hạng mục; khách nợ ưu tiên đầu trang.
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.28.3';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.28.9';
 import { $, html, str } from '../ui.js';
-import { GROUP, JOBS, ORDER, STYLE, bindActions, fd, gvCard, gvDue, jobName, learnJobs, money, ms, dur, pcCard, pcDue, rstate, toast, tone } from '../cv_chung.js?v=2026.11.28.3';
+import { GROUP, JOBS, ORDER, STYLE, bindActions, fd, gvCard, gvDue, jobName, learnJobs, money, ms, dur, pcCard, pcDue, rstate, toast, tone } from '../cv_chung.js?v=2026.11.28.9';
 
 export const perm = 'nhan_viec';
 let CAT = '';
@@ -63,7 +63,7 @@ export async function render({ me }) {
   return {
     title: 'Việc của tôi',
     html: html`${STYLE}<div id="pc-page"><div class="page-head"><div><h1>Việc của tôi</h1><div class="sub">Việc tự tạo theo Bảng phân công và việc được giao riêng · chia theo hạng mục</div></div>
-      <div class="toolbar"><a class="btn secondary" href="#/cong-viec/dao-tao">Công việc đào tạo</a>
+      <div class="toolbar"><a class="btn secondary" href="#/cong-viec/dao-tao">Đào tạo</a>
       ${D.can_give ? html`<button class="btn" data-a="gv-new">+ Giao việc riêng</button>` : ''}</div></div><div id="pc-body">${draw()}</div></div>`,
     mount(root) {
       const page = $('#pc-page', root), body = $('#pc-body', root);

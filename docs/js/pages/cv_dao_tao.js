@@ -1,185 +1,182 @@
-// Công việc › Đào tạo. Bước 170 (anh Tiến giao 19/11/2026): 3 tab Phiếu | Phân công (số chưa giao) | Chờ kiểm tra (số chờ).
-//  * Ai thấy 2 tab mới: Chủ + người phụ trách chính (mọi phiếu mở), HD chính (phiếu của mình). Người khác chỉ thấy Phiếu.
-//  * Phân công: theo phiếu (khối thu gọn) → hạng mục CHƯA ĐẠT theo Ngày 1…8; tích / "Chọn cả ngày" → thanh "Đã chọn N" → người, cơ sở, ghi chú → lưu 1 lần.
-//    Gợi ý người / cơ sở theo lịch đã công bố (máy chủ tính, app_dt_assign_board). Giao hàng loạt dùng chung kiểm tra quyền (app_dt_assign_bulk).
-//  * Chờ kiểm tra: gom theo phiếu, mỗi dòng Xác nhận đạt · đổi mức rồi xác nhận · Giao giai đoạn 2. KHÔNG có xác nhận hàng loạt.
+// Nhân viên & tài khoản › Đào tạo — MỘT trang duy nhất (anh Tiến chốt 28/11/2026):
+//  * Danh sách người có phiếu (app_dt_work_list) + bộ lọc: tìm tên / mã · cơ sở · chương trình · người hướng dẫn chính · trạng thái.
+//    Lọc tại chỗ, không hỏi lại máy chủ. Không chọn trạng thái thì ẩn người đã hoàn thành. Việc cần làm (chờ kiểm tra / ca chưa giao) lên đầu.
+//  * Bấm một người → thẻ xổ ra tại chỗ: Phiếu đào tạo (chính trang phiếu, nhúng vào) · Phân công theo ca · Chờ kiểm tra.
+//    Hai nút sau chỉ có khi máy chủ trả bảng theo ca cho phiếu đó (app_dt_plan_board: Chủ, người phụ trách chính, HD chính của phiếu).
+//  * Mỗi lúc chỉ nhúng MỘT phiếu (phiếu dùng id cố định trong trang); mở phiếu người khác thì phiếu trước thu về nút "Mở phiếu ở đây".
+//  * Thẻ Phân công / Chờ kiểm tra kiểu cũ (bước 170) đã bỏ; trang riêng Phân công đào tạo (tệp 174) gộp vào đây — phần theo ca ở pc_dao_tao.js.
+//  * Quyền không đổi: web chỉ ẩn / hiện theo can_board, can_check, accounts máy chủ trả.
 import { render as rerender } from '../app.js';
-import { catalog } from '../data.js';
 import { rpc } from '../sb.js';
-import { dmy, dt } from '../tien.js';
-import { $, $$, flash, html, once, showSaved } from '../ui.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.28.3';
-import { openItemGuide } from './dt_cong_viec.js';
+import { $, $$, flash, html, str } from '../ui.js';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.28.9';
+import { chipCounts, matchRow, optionsOf, sortRows } from './dao_tao_loc.js?v=2026.11.28.9';
+import { planUi } from './pc_dao_tao.js?v=2026.11.28.9';
+import { PCD_CSS, dm, mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.28.9';
+import { render as phieuRender } from './phieu_dao_tao.js?v=2026.11.28.9';
 
-const PROGRAMS = [['chay_ban', 'Chạy bàn'], ['pha_che', 'Pha chế']];
-const TABS = [['phieu', 'Phiếu'], ['phan-cong', 'Phân công'], ['kiem-tra', 'Chờ kiểm tra']];
-const STATE = { chua_giao: ['Chưa giao', 'mute'], dang_giao: ['Đang giao Cấp 1', 'info'], cho_kt: ['Chờ kiểm tra', 'warn'] };
-const LEVEL = { tb: 'Trung bình', kha: 'Khá', tot: 'Tốt' };
-const DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];
-const F = { st: '', who: '' };   // bộ lọc tab Phân công (giữ khi vẽ lại)
-const OPEN = new Set();          // khối phiếu đang mở
-const dm = (d) => `${String(d).slice(8, 10)}/${String(d).slice(5, 7)}`;
-const wd = (d) => DOW[new Date(String(d).slice(0, 10) + 'T00:00:00Z').getUTCDay()];
-const schedLine = (r) => (r.sched?.length ? r.sched.slice(0, 4).map((s) => `${wd(s.date)} ${dm(s.date)} · ${s.branch || '—'} · ${s.shift}`).join(' | ') + (r.sched.length > 4 ? ` | +${r.sched.length - 4} ca` : '') : 'Chưa xếp lịch');
-const stateWho = (it) => (it.state === 'dang_giao' && it.who_rank !== 'Cấp 1' ? `Đang giao ${it.who || ''}` : STATE[it.state][0]);
+export const perm = null;
+const PROG = { chay_ban: 'Chạy bàn', pha_che: 'Pha chế' };
+const TABS = [['phieu', 'Phiếu đào tạo'], ['ca', 'Phân công theo ca'], ['kt', 'Chờ kiểm tra']];
+// Trạng thái trang — sống qua các lần vẽ lại (lưu trong phiếu, xác nhận đạt, phân công ca)
+const F = { q: '', cs: '', prog: '', hd: '', st: '' };
+const OPEN = new Set();    // thẻ đang mở
+const TAB = new Map();     // id phiếu → nút đang chọn (mặc định Phiếu đào tạo)
+let PH = null;             // phiếu đang nhúng
+let mucDone = '';          // ?muc= đã áp vào bộ lọc (chỉ áp khi đường dẫn đổi)
+
+const CSS = html`<style>
+  .dtg { max-width: 980px; gap: 12px; }
+  .dtg-f { display: flex; flex-direction: column; gap: 10px; }
+  .dtg-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; }
+  .dtg-row label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--ink-2); flex: 1 1 140px; min-width: 0; }
+  .dtg-row label.wide { flex: 2 1 220px; }
+  .dtg-chips { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .dtg-chip { border: 2px solid transparent; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; min-height: 36px; padding: 4px 12px; }
+  .dtg-chip[aria-pressed="true"] { border-color: var(--ink); }
+  .dtg-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  .dtg-tabs { display: flex; flex-wrap: wrap; gap: 6px; }
+  .dtg-tab { border: 1.5px solid var(--primary); color: var(--primary-dark); border-radius: 10px; padding: 8px 12px; font: inherit; font-weight: 700; background: var(--card); cursor: pointer; min-height: 44px; }
+  .dtg-tab[aria-pressed="true"] { background: var(--primary); color: #fff; }
+  .dtg-ph { min-width: 0; } .dtg-ph .page-head { margin: 0 0 8px; } .dtg-ph .page-head h1 { font-size: 18px; }
+  .dtg-rv > summary { cursor: pointer; font-weight: 700; text-transform: none; letter-spacing: 0; }
+  .dtg [hidden] { display: none !important; }
+  @media (max-width: 640px) { .dtg-row label, .dtg-row label.wide { flex: 1 1 100%; } .dtg-tab { flex: 1 1 auto; } }
+</style>`;
 
 export async function render({ params }) {
-  const program = params.muc === 'pha_che' ? 'pha_che' : 'chay_ban';
-  const [D, B, cat] = await Promise.all([rpc('app_dt_work_list'), rpc('app_dt_assign_board', { p_program: program }).catch(() => ({ can_board: false, rows: [] })), catalog().catch(() => ({ activeBranches: [] }))]);
+  if (params.muc !== undefined && params.muc !== mucDone) { mucDone = params.muc; if (PROG[params.muc]) F.prog = params.muc; }
+  const [D, B] = await Promise.all([rpc('app_dt_work_list'), rpc('app_dt_plan_board').catch(() => ({ can_board: false, rows: [] }))]);
   const board = !!B.can_board;
-  const tab = board && ['phan-cong', 'kiem-tra'].includes(params.tab) ? params.tab : 'phieu';
-  const rows = B.rows || [];
-  const nChua = rows.reduce((t, r) => t + Number(r.n_chua || 0), 0); const nKt = rows.reduce((t, r) => t + Number(r.n_kt || 0), 0);
-  const brs = (cat.activeBranches || []).map((b) => ({ id: b.id, code: b.display_code || b.code }));
-  const href = (o) => '#/cong-viec/dao-tao?' + new URLSearchParams(Object.entries({ muc: program, tab, ...o }).filter(([, v]) => v && v !== 'phieu')).toString();
-  const cards = D.rows.filter((t) => t.program === program).map((t) => {
-    const late = t.status !== 'hoan_thanh' && t.due < D.today;
-    return html`<a class="card stack" style="color:inherit;text-decoration:none;gap:6px" href="#/dao-tao/phieu?id=${t.id}">
-      <strong>${t.employee}</strong>
-      <div class="toolbar"><span class="pill ${DT_STATUS[t.status][1]}">${dtLabel(t)}</span>
-        ${late ? html`<span class="pill off">Quá hạn</span>` : ''}${t.n_check ? html`<span class="pill warn">${t.n_check} chờ kiểm tra</span>` : ''}</div>
-      <div class="sub">${t.achieved}/${t.total} hạng mục · Hạn ${dmy(t.due)}</div>
-      ${t.instructor ? html`<div>Hướng dẫn: ${t.instructor}</div>` : ''}
-      ${t.my_followups ? html`<div>Bạn phụ trách ${t.my_followups} hạng mục bổ sung</div>` : ''}
-    </a>`;
-  });
+  const reload = async () => { const y = window.scrollY; await rerender(); window.scrollTo(0, y); };
+  const P = board ? planUi(B, { keepOpen: (id) => OPEN.add(id), reload }) : null;
+  const mine = board ? null : await rpc('app_dt_my_plan').catch(() => null);
+  const hasMine = !!mine && ((mine.shifts || []).length > 0 || (mine.checks || []).length > 0);
+  const BY = new Map((P ? P.rows : []).map((r) => [r.id, r]));
+  const rows = sortRows((D.rows || []).map((t) => ({ ...t, n_todo: BY.has(t.id) ? P.nTodo(BY.get(t.id)) : 0 })));
+  const tabOf = (id) => (BY.has(id) ? TAB.get(id) || 'phieu' : 'phieu');
+  const loadBtn = html`<button type="button" class="btn sm secondary" data-phload>Mở phiếu ở đây</button>`;
 
-  // ---- tab Phân công
-  const whoNames = [...new Set(rows.flatMap((r) => (r.items || []).filter((i) => i.state !== 'cho_kt').map((i) => i.who).filter(Boolean)))].sort();
-  const itemOk = (i) => (!F.st || i.state === F.st) && (!F.who || i.who === F.who);
-  const personSel = (r) => { const bc = brs.find((b) => b.id === r.best_branch)?.code || '';
-    return html`<select class="input sm dtb-who" aria-label="Người hướng dẫn"><option value="">— Chọn người —</option>
-      ${r.same?.length ? html`<optgroup label="Cùng ca">${r.same.map((p) => html`<option value="${p.id}">${p.name} — trùng ${p.n} ca</option>`)}</optgroup>` : ''}
-      ${r.br_c1?.length ? html`<optgroup label="Cấp 1 cơ sở ${bc}">${r.br_c1.map((p) => html`<option value="${p.id}">${p.name}</option>`)}</optgroup>` : ''}
-      ${r.other?.length ? html`<optgroup label="Khác">${r.other.map((p) => html`<option value="${p.id}">${p.name}${p.hdc ? ' (HD chính)' : ''}</option>`)}</optgroup>` : ''}</select>`; };
-  const boardCard = (r) => {
-    const its = (r.items || []).filter(itemOk);
-    const days = [...new Set(its.map((i) => i.day))].sort((a, b) => a - b);
-    return html`<details class="card dtb" data-id="${r.id}" ${OPEN.has(r.id) ? 'open' : ''}>
-      <summary><div class="dtb-h"><b>${r.employee}</b> <span class="st-meta">· ${r.branch || 'chưa chọn cơ sở'} · HD chính ${r.instructor || '—'} · ${r.achieved}/${r.total} · hạn ${dm(r.due)}</span>
-        <span class="dtb-n">${r.n_chua ? html`<span class="pill mute">${r.n_chua} chưa giao</span>` : ''}${r.n_kt ? html`<span class="pill warn">${r.n_kt} chờ kiểm tra</span>` : ''}</span></div>
-        <div class="st-meta dtb-sched">📅 ${schedLine(r)}</div></summary>
-      ${its.length ? days.map((d) => html`<div class="dtb-day"><label class="dtb-dh"><input type="checkbox" class="check" data-allday="${d}"> <b>Ngày ${d}</b> <span class="st-meta">· Chọn cả ngày</span></label>
-          ${its.filter((i) => i.day === d).map((i) => html`<label class="dtb-it ${i.state === 'cho_kt' ? 'kt' : ''}" data-no="${i.no}" data-day="${d}"><input type="checkbox" class="check" data-no="${i.no}" ${i.state === 'cho_kt' ? 'disabled' : ''}>
-            <span class="dtb-t"><b>${i.no}.</b> ${i.title}${i.phase2 ? html` <span class="pill warn">giai đoạn 2</span>` : ''}<br><span class="st-meta">${i.who || 'HD chính'} · ${i.branch || '—'}</span></span>
-            <span class="pill ${STATE[i.state][1]}">${stateWho(i)}</span></label>`)}</div>`)
-        : html`<div class="st-meta" style="padding:8px 0">${(r.items || []).length ? 'Không có hạng mục khớp bộ lọc.' : 'Đã đạt hết hạng mục.'}</div>`}
-      <div class="dtb-bar" hidden><b>Đã chọn <span class="dtb-cnt">0</span></b>${personSel(r)}
-        <select class="input sm dtb-br" aria-label="Cơ sở đào tạo"><option value="">Theo phiếu${r.branch ? ' · ' + r.branch : ''}</option>${brs.map((b) => html`<option value="${b.id}" ${b.id === r.best_branch ? 'selected' : ''}>${b.code}</option>`)}</select>
-        <input class="input sm dtb-note" placeholder="Ghi chú (không bắt buộc)" aria-label="Ghi chú">
-        <span class="dtb-btns"><button type="button" class="btn sm dtb-go">Giao</button><button type="button" class="btn sm secondary dtb-back">Trả về HD chính</button></span></div>
-    </details>`; };
-  const pcBody = html`<section class="card dtb-flt"><label class="pc-f"><span>Trạng thái</span><select class="input sm" id="dtb-st"><option value="">Tất cả</option>${Object.entries(STATE).map(([k, [l]]) => html`<option value="${k}" ${F.st === k ? 'selected' : ''}>${l}</option>`)}</select></label>
-      <label class="pc-f"><span>Người hướng dẫn</span><select class="input sm" id="dtb-whof"><option value="">Tất cả</option>${whoNames.map((w) => html`<option value="${w}" ${F.who === w ? 'selected' : ''}>${w}</option>`)}</select></label>
-      <span class="st-meta">Gợi ý người / cơ sở theo lịch đã công bố (ngày bắt đầu → hạn 12 ngày). Gợi ý chỉ sắp xếp, không đổi quyền.</span></section>
-    ${rows.length ? rows.map(boardCard) : html`<div class="card">Không có phiếu đang mở.</div>`}`;
+  // phiếu đang nhúng: dựng luôn trong lần vẽ này để trang vẽ lại (sau khi lưu trong phiếu) vẫn còn phiếu và giữ chỗ cuộn
+  let ph = null;
+  if (PH != null && OPEN.has(PH) && tabOf(PH) === 'phieu' && rows.some((t) => t.id === PH)) {
+    try { ph = await phieuRender({ params: { id: String(PH) } }); } catch (e) { ph = { html: html`<div class="alert error">${e.message}</div>` }; }
+  } else PH = null;
 
-  // ---- tab Chờ kiểm tra
-  const ktRows = rows.filter((r) => Number(r.n_kt) > 0);
-  const ktBody = ktRows.length ? ktRows.map((r) => html`<section class="card stack dtk" data-id="${r.id}" style="gap:6px"><div><b>${r.employee}</b> <span class="st-meta">· HD chính ${r.instructor || '—'} · ${r.achieved}/${r.total}</span> <a class="btn sm secondary" href="#/dao-tao/phieu?id=${r.id}">Mở phiếu ›</a></div>
-      ${(r.items || []).filter((i) => i.state === 'cho_kt').map((i) => html`<div class="dtk-row" data-no="${i.no}"><span class="dtk-t"><b>${i.no}.</b> ${i.title}<br><span class="st-meta">${i.pending_by || ''} ghi mức <b>${LEVEL[i.level] || i.level}</b>${i.pending_at ? ' · ' + dt(i.pending_at) : ''}</span></span>
-        ${r.can_check ? html`<span class="dtk-act"><select class="input sm dtk-lv" aria-label="Mức hạng mục ${i.no}">${Object.entries(LEVEL).map(([k, l]) => html`<option value="${k}" ${i.level === k ? 'selected' : ''}>${l}</option>`)}</select>
-          <button type="button" class="btn sm dtk-ok">Xác nhận đạt</button><button type="button" class="btn sm secondary dtk-p2" ${i.level === 'tot' ? 'hidden' : ''}>Giao giai đoạn 2</button></span>` : html`<span class="st-meta">Chờ HD chính / người phụ trách chính xác nhận</span>`}</div>`)}</section>`)
-    : html`<div class="card">Không có hạng mục nào chờ kiểm tra. 👍</div>`;
+  const card = (t) => {
+    const r = BY.get(t.id); const tab = tabOf(t.id);
+    const late = t.status !== 'hoan_thanh' && t.due && t.due < D.today;
+    return html`<details class="card pcd-card dtg-card" data-id="${t.id}" ${OPEN.has(t.id) ? 'open' : ''}>
+      <summary><div class="pcd-h"><b>${t.employee}</b><span class="pcd-meta">${t.branch || 'chưa chọn cơ sở'} · ${PROG[t.program] || t.program || ''} · Đạt ${t.achieved}/${t.total}${t.due ? ' · hạn ' + dm(t.due) : ''} · HD chính ${t.instructor || '—'}</span></div>
+        <div class="pcd-bar"><i style="width:${Math.round((100 * t.achieved) / Math.max(1, t.total))}%"></i></div>
+        <div class="pcd-sum"><span class="pill ${DT_STATUS[t.status]?.[1] || 'mute'}">${dtLabel(t)}</span>${late ? html`<span class="pill off">Quá hạn</span>` : ''}${r ? P.pills(r) : t.n_check ? html`<span class="pill warn">${t.n_check} chờ kiểm tra</span>` : ''}${t.my_followups ? html`<span class="pill info">Bạn phụ trách ${t.my_followups} mục bổ sung</span>` : ''}</div></summary>
+      <div class="pcd-body">
+        ${r ? html`${P.warnHtml(r)}<div class="dtg-tabs">${TABS.map(([k, l]) => html`<button type="button" class="dtg-tab" data-dtab="${k}" aria-pressed="${tab === k ? 'true' : 'false'}">${l}${k === 'kt' && P.nKt(r) ? ` (${P.nKt(r)})` : ''}</button>`)}</div>` : ''}
+        <div data-dpane="phieu" ${tab === 'phieu' ? '' : 'hidden'}><div class="dtg-ph" data-ph="${t.id}">${ph && PH === t.id ? ph.html : loadBtn}</div></div>
+        ${r ? html`<div data-dpane="ca" ${tab === 'ca' ? '' : 'hidden'}>${P.shiftsHtml(r)}</div><div data-dpane="kt" ${tab === 'kt' ? '' : 'hidden'}>${P.ktHtml(r)}</div>` : ''}
+      </div></details>`;
+  };
+  const sel = (id, label, first, opts, cur) => html`<label>${label}<select class="input" id="${id}"><option value="">${first}</option>${opts.map(([v, l]) => html`<option value="${v}" ${cur === v ? 'selected' : ''}>${l}</option>`)}</select></label>`;
+  const same = (xs) => xs.map((x) => [x, x]);
 
   return {
-    title: 'Công việc đào tạo',
-    html: html`${CSS}<div class="page-head"><h1>Công việc đào tạo</h1><a class="btn secondary" href="#/viec">Việc của tôi</a></div>
-      <div id="dt-work" class="stack" style="max-width:${tab === 'phieu' ? 760 : 960}px;gap:12px">
-        <nav class="toolbar" aria-label="Mục đào tạo">
-          ${PROGRAMS.map(([key, label]) => html`<a class="btn ${program === key ? '' : 'secondary'}"
-            href="${'#/cong-viec/dao-tao?' + new URLSearchParams(Object.entries({ muc: key, tab: tab === 'phieu' ? '' : tab }).filter(([, v]) => v)).toString()}" aria-current="${program === key ? 'page' : 'false'}">${label}</a>`)}
-        </nav>
-        ${board ? html`<nav class="dt-tabs" aria-label="Tab đào tạo">${TABS.map(([k, l]) => html`<a class="${tab === k ? 'on' : ''}" href="${href({ tab: k })}" data-dttab="${k}">${l}${k === 'phan-cong' && nChua ? html` <span class="badge">${nChua}</span>` : ''}${k === 'kiem-tra' && nKt ? html` <span class="badge">${nKt}</span>` : ''}</a>`)}</nav>` : ''}
-        ${tab === 'phieu' ? html`
-        ${D.accounts ? html`<form id="dt-reviewer" class="card stack" style="gap:8px">
-          <label class="stack" style="gap:4px">Người phụ trách chính đào tạo (giao hạng mục, đổi người hướng dẫn chính, xác nhận đạt, nhắc hạn, nhận xét cuối)
-            <select class="input" name="reviewer" required>
-              <option value="">Chọn tài khoản</option>
-              ${D.accounts.map((a) => html`<option value="${a.id}" ${a.id === D.reviewer_id ? 'selected' : ''}>${a.name}</option>`)}
-            </select>
-          </label><div><button class="btn secondary">Lưu người phụ trách</button></div>
-          <div id="dt-reviewer-error" role="alert"></div>
-        </form>` : ''}
-        ${D.reviewer ? html`<div class="sub">Người phụ trách chính: ${D.reviewer}</div>` : ''}
-        ${cards.length ? cards : html`<div class="card">${program === 'pha_che' ? 'Chưa có phiếu đào tạo Pha chế.' : 'Chưa có phiếu đào tạo Chạy bàn.'}</div>`}` : tab === 'phan-cong' ? pcBody : ktBody}
+    title: 'Đào tạo',
+    html: html`${PCD_CSS}${CSS}<div class="page-head"><div><h1>Đào tạo</h1><div class="sub">Bấm vào một người để mở phiếu, phân công theo ca và kiểm tra ngay tại đây</div></div><a class="btn secondary" href="#/viec">Việc của tôi</a></div>
+      <div id="pcd" class="stack pcd dtg">
+        ${D.accounts ? html`<details class="card dtg-rv"><summary>Người phụ trách chính: ${D.reviewer || 'chưa chọn'}</summary>
+          <form id="dt-reviewer" class="stack" style="gap:8px;margin-top:10px">
+            <label class="stack" style="gap:4px">Người phụ trách chính (giao hạng mục, đổi người hướng dẫn chính, xác nhận đạt, nhắc hạn, nhận xét cuối)
+              <select class="input" name="reviewer" required><option value="">Chọn tài khoản</option>${D.accounts.map((a) => html`<option value="${a.id}" ${a.id === D.reviewer_id ? 'selected' : ''}>${a.name}</option>`)}</select></label>
+            <div><button class="btn secondary">Lưu người phụ trách</button></div><div id="dt-reviewer-error" role="alert"></div>
+          </form></details>` : D.reviewer ? html`<div class="sub">Người phụ trách chính: ${D.reviewer}</div>` : ''}
+        ${P ? P.sumHtml() : ''}
+        ${hasMine ? myPlanHtml(mine) : ''}
+        <section class="card dtg-f" id="dtg-f" aria-label="Bộ lọc">
+          <div class="dtg-row">
+            <label class="wide">Tìm tên / mã<input type="search" class="input" id="dtg-q" placeholder="Gõ tên hoặc mã nhân viên" value="${F.q}"></label>
+            ${sel('dtg-cs', 'Cơ sở', 'Tất cả cơ sở', same(optionsOf(rows, 'branch')), F.cs)}
+            ${sel('dtg-prog', 'Chương trình', 'Chạy bàn + Pha chế', Object.entries(PROG), F.prog)}
+            ${sel('dtg-hd', 'Người hướng dẫn chính', 'Tất cả', same(optionsOf(rows, 'instructor')), F.hd)}
+          </div>
+          <div class="dtg-chips"><strong style="font-size:13px">Trạng thái:</strong>${Object.entries(DT_STATUS).map(([k, [l, c]]) => html`<button type="button" class="pill ${c} dtg-chip" data-st="${k}" aria-pressed="false">${l}: <span data-n>0</span></button>`)}</div>
+          <div class="dtg-foot"><span id="dtg-count" class="pcd-meta" role="status"></span><button type="button" class="btn sm secondary" id="dtg-clear">Bỏ lọc</button></div>
+        </section>
+        ${P ? P.fwSection() : ''}
+        ${rows.map(card)}
+        <div class="card" id="dtg-empty" hidden>${rows.length ? 'Không có ai khớp bộ lọc. Bấm "Bỏ lọc" để xem lại (người đã hoàn thành chỉ hiện khi bấm nút "Đã hoàn thành").' : 'Chưa có phiếu đào tạo nào.'}</div>
       </div>`,
     mount(root) {
+      const byId = new Map(rows.map((t) => [t.id, t]));
+      let phOff = null; let phSeq = 0;
+      const offPh = () => { if (typeof phOff === 'function') { try { phOff(); } catch (_) { /* bỏ qua */ } } phOff = null; };
+      const box = (id) => $(`.dtg-ph[data-ph="${id}"]`, root);
+      if (ph && ph.mount && box(PH)) phOff = ph.mount(box(PH));
+
+      const applyFilter = () => {
+        let n = 0;
+        $$('details.dtg-card', root).forEach((c) => { const show = matchRow(byId.get(Number(c.dataset.id)), F); c.hidden = !show; if (show) n += 1; });
+        const cnt = chipCounts(rows, F);
+        $$('.dtg-chip', root).forEach((b) => { b.querySelector('[data-n]').textContent = cnt[b.dataset.st] || 0; b.setAttribute('aria-pressed', F.st === b.dataset.st ? 'true' : 'false'); });
+        $('#dtg-count', root).textContent = `Đang hiện ${n} / ${rows.length} người${F.st ? '' : ' (ẩn người đã hoàn thành)'}`;
+        $('#dtg-empty', root).hidden = n > 0;
+      };
+      const readFilter = () => { F.q = $('#dtg-q', root).value; F.cs = $('#dtg-cs', root).value; F.prog = $('#dtg-prog', root).value; F.hd = $('#dtg-hd', root).value; applyFilter(); };
+
+      // nạp phiếu vào thẻ, không vẽ lại cả trang
+      const loadPhieu = async (id) => {
+        offPh(); const seq = ++phSeq; PH = id;
+        $$('.dtg-ph', root).forEach((el) => { if (Number(el.dataset.ph) !== id) el.innerHTML = str(loadBtn); });
+        const b = box(id); if (!b) return;
+        b.innerHTML = str(html`<div class="pcd-meta">Đang tải phiếu…</div>`);
+        let p;
+        try { p = await phieuRender({ params: { id: String(id) } }); } catch (e) { p = { html: html`<div class="alert error">${e.message}</div>` }; }
+        if (seq !== phSeq || !b.isConnected) return;
+        b.innerHTML = str(p.html);
+        if (p.mount) phOff = p.mount(b);
+      };
+
+      const onToggle = (e) => {
+        const c = e.target.closest?.('details.dtg-card'); if (!c || e.target !== c) return;
+        const id = Number(c.dataset.id);
+        if (c.open) OPEN.add(id); else OPEN.delete(id);   // chỉ ghi nhớ; KHÔNG nạp phiếu ở đây — trình duyệt cũng bắn toggle cho thẻ mở sẵn khi trang vẽ lại
+      };
+      const onInput = (e) => { if (e.target.id === 'dtg-q') readFilter(); };
+      const onChange = (e) => {
+        if (['dtg-cs', 'dtg-prog', 'dtg-hd'].includes(e.target.id)) { readFilter(); return; }
+        if (P) P.handleChange(e, root);
+      };
+      const onClick = (e) => {
+        const t = e.target;
+        const chip = t.closest('.dtg-chip'); if (chip) { F.st = F.st === chip.dataset.st ? '' : chip.dataset.st; applyFilter(); return; }
+        if (t.closest('#dtg-clear')) { Object.assign(F, { q: '', cs: '', prog: '', hd: '', st: '' }); ['dtg-q', 'dtg-cs', 'dtg-prog', 'dtg-hd'].forEach((i) => { $('#' + i, root).value = ''; }); applyFilter(); return; }
+        const sm = t.closest('details.dtg-card > summary');   // người dùng bấm mở thẻ → nạp phiếu của người đó (sau khi thẻ đổi trạng thái)
+        if (sm) { const c = sm.parentElement; const id = Number(c.dataset.id); setTimeout(() => { if (c.isConnected && c.open && tabOf(id) === 'phieu' && PH !== id) loadPhieu(id); }, 0); return; }
+        const tb = t.closest('[data-dtab]');
+        if (tb) { const c = tb.closest('details.dtg-card'); const id = Number(c.dataset.id); const k = tb.dataset.dtab; TAB.set(id, k);
+          $$('[data-dtab]', c).forEach((b) => b.setAttribute('aria-pressed', b === tb ? 'true' : 'false'));
+          $$('[data-dpane]', c).forEach((p) => { p.hidden = p.dataset.dpane !== k; });
+          if (k === 'phieu' && PH !== id) loadPhieu(id);
+          return; }
+        const lb = t.closest('[data-phload]'); if (lb) { loadPhieu(Number(lb.closest('.dtg-ph').dataset.ph)); return; }
+        if (t.closest('.dtg-ph')) return;   // bấm trong phiếu nhúng: phiếu tự xử lý
+        if (P) P.handleClick(e);
+      };
       const form = $('#dt-reviewer', root);
-      form?.addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const button = form.querySelector('button');
-        button.disabled = true;
-        try {
-          await rpc('app_dt_reviewer_save', { p_account: Number(form.elements.reviewer.value) });
-          flash('Đã lưu người phụ trách đào tạo.');
-          rerender();
-        } catch (error) {
-          $('#dt-reviewer-error', form).textContent = error.message;
-          button.disabled = false;
-        }
-      });
-      // ---- Phân công
-      $('#dtb-st', root)?.addEventListener('change', (e) => { F.st = e.target.value; rerender(); });
-      $('#dtb-whof', root)?.addEventListener('change', (e) => { F.who = e.target.value; rerender(); });
-      $$('details.dtb', root).forEach((card) => {
-        const id = Number(card.dataset.id);
-        card.addEventListener('toggle', () => { if (card.open) OPEN.add(id); else OPEN.delete(id); });
-        const bar = card.querySelector('.dtb-bar');
-        const picked = () => $$('.dtb-it input[data-no]:checked', card).map((x) => Number(x.dataset.no));
-        const sync = () => { const n = picked().length; bar.hidden = !n; card.querySelector('.dtb-cnt').textContent = n;
-          $$('[data-allday]', card).forEach((a) => { const xs = $$(`.dtb-it[data-day="${a.dataset.allday}"] input:not(:disabled)`, card); a.checked = xs.length > 0 && xs.every((x) => x.checked); }); };
-        card.addEventListener('change', (e) => {
-          const a = e.target.closest('[data-allday]');
-          if (a) $$(`.dtb-it[data-day="${a.dataset.allday}"] input:not(:disabled)`, card).forEach((x) => { x.checked = a.checked; });
-          sync();
-        });
-        const save = async (btn, person) => {
-          const items = picked(); if (!items.length) return;
-          if (person === undefined) { const v = card.querySelector('.dtb-who').value; if (!v) { showSaved('Chọn người được giao.', true); return; } person = Number(v); }
-          btn.disabled = true;
-          try {
-            const r = await rpc('app_dt_assign_bulk', { p_id: id, p_items: items, p_employee: person, p_branch: person ? Number(card.querySelector('.dtb-br').value) || null : null, p_note: card.querySelector('.dtb-note').value.trim() || null });
-            OPEN.add(id); flash(person ? `Đã giao ${r.n} hạng mục.` : `Đã trả ${r.n} hạng mục về HD chính.`); rerender();
-          } catch (e) { btn.disabled = false; showSaved(e.message, true); }
-        };
-        card.querySelector('.dtb-go').addEventListener('click', (e) => save(e.currentTarget));
-        card.querySelector('.dtb-back').addEventListener('click', (e) => save(e.currentTarget, null));
-      });
-      // ---- Chờ kiểm tra (từng dòng, không có xác nhận hàng loạt)
-      $$('.dtk-row', root).forEach((row) => {
-        const id = Number(row.closest('.dtk').dataset.id); const no = Number(row.dataset.no);
-        const lv = row.querySelector('.dtk-lv'); const p2 = row.querySelector('.dtk-p2');
-        lv?.addEventListener('change', () => { if (p2) p2.hidden = lv.value === 'tot'; });
-        row.querySelector('.dtk-ok')?.addEventListener('click', once(async () => {
-          try { await rpc('app_dt_check_ok', { p_id: id, p_no: no, p_level: lv.value }); flash('Đã xác nhận đạt.'); rerender(); } catch (e) { showSaved(e.message, true); }
-        }));
-        p2?.addEventListener('click', async () => {
-          // Giao giai đoạn 2 = xác nhận mức hiện tại (Trung bình / Khá) rồi giao người luyện thêm
-          const r = rows.find((x) => x.id === id); const it = (r.items || []).find((x) => x.no === no);
-          try { await rpc('app_dt_check_ok', { p_id: id, p_no: no, p_level: lv.value }); } catch (e) { showSaved(e.message, true); return; }
-          const T = { id, instructor: r.instructor, instructor_id: r.instructor_id, branch: r.branch, item_branches: brs,
-            helpers: [...(r.same || []), ...(r.br_c1 || []), ...(r.other || [])].map((p) => ({ id: p.id, name: p.name })) };
-          openItemGuide(T, it, null, () => rerender(), true);
-        });
-      });
+      const onSubmit = async (e) => {
+        if (e.target !== form) return;
+        e.preventDefault(); const button = form.querySelector('button'); button.disabled = true;
+        try { await rpc('app_dt_reviewer_save', { p_account: Number(form.elements.reviewer.value) }); flash('Đã lưu người phụ trách đào tạo.'); reload(); }
+        catch (error) { $('#dt-reviewer-error', form).textContent = error.message; button.disabled = false; }
+      };
+      root.addEventListener('toggle', onToggle, true); root.addEventListener('input', onInput); root.addEventListener('change', onChange);
+      root.addEventListener('click', onClick); root.addEventListener('submit', onSubmit);
+      const offMine = hasMine ? mountMyPlan(root, mine, reload) : null;
+      applyFilter();
+      return () => {   // #root dùng chung mọi trang → gỡ khi rời trang
+        root.removeEventListener('toggle', onToggle, true); root.removeEventListener('input', onInput); root.removeEventListener('change', onChange);
+        root.removeEventListener('click', onClick); root.removeEventListener('submit', onSubmit);
+        offPh(); if (typeof offMine === 'function') offMine();
+      };
     },
   };
 }
-
-const CSS = html`<style>
-  .dt-tabs { display: flex; gap: 6px; flex-wrap: wrap; } .dt-tabs a { border: 1.5px solid var(--primary); color: var(--primary); border-radius: 10px; padding: 6px 12px; font-weight: 700; text-decoration: none; background: var(--card); }
-  .dt-tabs a.on { background: var(--primary); color: #fff; }
-  .dtb-flt { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; } .dtb-flt select { width: auto; min-width: 140px; }
-  .dtb summary { cursor: pointer; list-style: none; } .dtb summary::-webkit-details-marker { display: none; }
-  .dtb-h { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; overflow-wrap: anywhere; } .dtb-n { display: inline-flex; gap: 4px; margin-left: auto; }
-  .dtb-sched { margin-top: 4px; overflow-wrap: anywhere; }
-  .dtb-day { border-top: 1px solid var(--line); padding: 6px 0; } .dtb-dh { display: flex; align-items: center; gap: 6px; padding: 4px 0; }
-  .dtb-it { display: flex; align-items: center; gap: 8px; padding: 6px 4px; border-radius: 8px; } .dtb-it:hover { background: var(--subtle); } .dtb-it.kt { opacity: .8; }
-  .dtb-it .check, .dtb-dh .check { width: 20px; height: 20px; flex: 0 0 auto; } .dtb-t { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
-  .dtb-bar { position: sticky; bottom: 0; z-index: 4; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; padding: 10px; margin-top: 6px; background: var(--card); border-top: 2px solid var(--primary); box-shadow: 0 -6px 14px rgba(0,0,0,.08); }
-  .dtb-bar select, .dtb-bar input { width: auto; min-width: 0; flex: 1 1 150px; } .dtb-btns { display: inline-flex; gap: 6px; } .dtb-btns .btn { width: auto; }
-  .dtk-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; border-top: 1px solid var(--line); padding: 8px 0; } .dtk-t { flex: 1 1 260px; min-width: 0; overflow-wrap: anywhere; }
-  .dtk-act { display: inline-flex; gap: 6px; flex-wrap: wrap; align-items: center; } .dtk-act .btn, .dtk-act select { width: auto; }
-  @media (max-width: 600px) { .dtb-n { margin-left: 0; } .dtb-bar select, .dtb-bar input { flex: 1 1 100%; } }
-</style>`;

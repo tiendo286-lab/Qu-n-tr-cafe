@@ -8,6 +8,10 @@ export const DG_BUCKET = 'phieu-ca';
 export const RATINGS = [[91, 'Xuất sắc', 'ok'], [80, 'Tốt', 'ok'], [65, 'Khá', 'info'], [50, 'Trung bình', 'warn'], [0, 'Yếu', 'bad']];
 export const rating = (s) => RATINGS.find(([m]) => Number(s) >= m) || RATINGS[RATINGS.length - 1];
 export const ptsLabel = (p) => (Number(p) === 0 ? 'Nhắc nhở' : `−${p} điểm`);
+// Tệp 193: phiếu phạt tiền đi kèm lần trừ điểm / nhắc nhở (web chỉ ghi lại + cộng tổng tháng, không tự trừ vào đâu)
+export const fineMoney = (n) => `${Number(n || 0).toLocaleString('vi-VN')}đ`;
+export const fineLabel = (m) => (Number(m.fine) > 0 ? ` · phạt ${fineMoney(m.fine)}${m.status === 'hoan' ? ' (đã huỷ)' : ''}` : '');
+const fineNum = (v) => Number(String(v ?? '').replace(/\D/g, '')) || 0;
 export const monthLabel = (m) => (m ? `${m.slice(5, 7)}/${m.slice(0, 4)}` : '');
 const STATUS = { tru: '', hoan: 'Đã hoàn điểm' };
 
@@ -42,17 +46,17 @@ export const DG_CSS = html`<style>
 export function markCard(m, opt = {}) {
   const cls = m.status === 'hoan' ? 'hoan' : Number(m.points) === 0 ? 'warn0' : '';
   return html`<div class="dg-mk ${cls} ${opt.same ? 'same' : ''}" data-id="${m.id}" data-crit="${m.criterion}">
-    <div class="top"><strong>${m.criterion_name}</strong><span class="pts">${ptsLabel(m.points)}</span></div>
+    <div class="top"><strong>${m.criterion_name}</strong><span class="pts">${ptsLabel(m.points)}${fineLabel(m)}</span></div>
     <div class="st-meta">${dmy(m.date)}${m.shift ? ` · ca ${m.shift}` : ''}${m.branch ? ` ${m.branch}` : ''} · ${m.created_by || ''}
       ${opt.nth ? html` · <span class="dg-nth">lần thứ ${opt.nth} ở tiêu chí này</span>` : ''}</div>
     <div>${m.note}</div>
     ${m.photo ? html`<img class="dg-photo" data-photo="${m.photo}" alt="Ảnh kèm lỗi">` : ''}
     ${m.reply ? html`<div class="dg-rep"><span class="st-meta">${opt.mine ? 'Bạn' : 'Nhân viên'} giải trình ${dt(m.reply_at)}:</span> ${m.reply}</div>` : ''}
-    ${m.reviewed_at ? html`<div class="st-meta">${m.status === 'hoan' ? 'Đã hoàn điểm' : 'Giữ nguyên'} · ${m.reviewed_by || ''} ${dt(m.reviewed_at)}${m.review_note ? ` · ${m.review_note}` : ''}</div>`
+    ${m.reviewed_at ? html`<div class="st-meta">${m.status === 'hoan' ? (Number(m.fine) > 0 ? 'Đã hoàn điểm, huỷ tiền phạt' : 'Đã hoàn điểm') : 'Giữ nguyên'} · ${m.reviewed_by || ''} ${dt(m.reviewed_at)}${m.review_note ? ` · ${m.review_note}` : ''}</div>`
       : m.status === 'hoan' ? html`<div class="st-meta">${STATUS.hoan}</div>` : ''}
     ${opt.acts && m.open ? html`<div class="dg-acts">
-        ${m.pending ? html`<button type="button" class="btn sm dg-keep">Giữ điểm</button><button type="button" class="btn sm secondary dg-refund">Hoàn điểm</button>` : ''}
-        ${m.status === 'tru' && !m.pending ? html`<button type="button" class="btn sm secondary dg-refund">Hoàn điểm</button>` : ''}
+        ${m.pending ? html`<button type="button" class="btn sm dg-keep">${Number(m.fine) > 0 ? 'Giữ điểm + phạt' : 'Giữ điểm'}</button><button type="button" class="btn sm secondary dg-refund">${Number(m.fine) > 0 ? 'Hoàn điểm + huỷ phạt' : 'Hoàn điểm'}</button>` : ''}
+        ${m.status === 'tru' && !m.pending ? html`<button type="button" class="btn sm secondary dg-refund">${Number(m.fine) > 0 ? 'Hoàn điểm + huỷ phạt' : 'Hoàn điểm'}</button>` : ''}
         <button type="button" class="btn sm secondary dg-edit">Sửa</button><button type="button" class="btn sm secondary danger dg-del">Xóa</button></div>`
       : opt.acts && !m.open ? html`<div class="st-meta">Tháng ${monthLabel(m.month)} đã khóa — nhờ Chủ mở lại nếu cần sửa.</div>` : ''}
   </div>`;
@@ -117,7 +121,7 @@ export async function openEmployee(empId, ctx = {}) {
       <div class="dg-scroll">
         <div class="dg-sum"><div><div class="st-meta">Tháng ${monthLabel(H.month)}</div><span class="dg-score">${H.score}</span><span class="st-meta">/100</span></div>
           <span class="pill ${r[2]}">${r[1]}</span>
-          <span class="st-meta">${inMon.filter((m) => m.points > 0).length} lần trừ · ${inMon.filter((m) => Number(m.points) === 0).length} nhắc nhở trong tháng · ${marks.length} lần từ trước tới nay</span></div>
+          <span class="st-meta">${inMon.filter((m) => m.points > 0).length} lần trừ · ${inMon.filter((m) => Number(m.points) === 0).length} nhắc nhở trong tháng${Number(H.fine) > 0 ? html` · <strong class="dg-fsum" style="color:#b91c1c">phạt ${fineMoney(H.fine)}</strong>` : ''} · ${marks.length} lần từ trước tới nay</span></div>
         ${E.is_me ? html`<div class="alert warn">Bạn không tự trừ điểm của mình được.</div>` : html`<form class="card stack dg-form" style="gap:10px;padding:12px">
           <strong>${ed ? `Sửa lần đánh giá ngày ${dmy(ed.date)}` : 'Trừ điểm / nhắc nhở'}</strong>
           ${ed ? '' : html`<label class="field"><span>Bộ tiêu chí của nhân viên <span class="st-meta">(mỗi người một bộ, chọn một lần — đổi ở đây là đổi luôn)</span></span>
@@ -128,6 +132,7 @@ export async function openEmployee(empId, ctx = {}) {
             ${(ed ? H.criteria.filter((c) => c.set_code === H.criteria.find((x) => x.code === ed.criterion)?.set_code) : crits).map((c) => html`<option value="${c.code}" ${c.code === sel ? 'selected' : ''}>${c.name} (còn ${Math.max(0, 5 - (used[c.code] || 0))}/5)</option>`)}</select></label>
           <div class="field"><span>Mức</span><div class="dg-pts" role="radiogroup" aria-label="Mức trừ">${['0', '1', '2', '3', '4', '5'].map((v) => html`<label><input type="radio" name="pts" value="${v}" ${pts === v ? 'checked' : ''}> ${v === '0' ? 'Nhắc nhở' : '−' + v}</label>`)}</div></div>
           <label class="field"><span>Lỗi gì (bắt buộc)</span><textarea class="input" name="note" rows="2" placeholder="vd: Đi muộn 15 phút, không báo trước">${old?.note ?? (ed ? ed.note : '')}</textarea></label>
+          <label class="field"><span>Phạt tiền (đồng) <span class="st-meta">— để trống = không phạt</span></span><input class="input" name="fine" inputmode="numeric" autocomplete="off" placeholder="vd: 50.000" value="${old?.fine ?? (ed && Number(ed.fine) ? Number(ed.fine).toLocaleString('vi-VN') : '')}"></label>
           ${ed ? '' : html`<label class="field"><span>Ảnh (không bắt buộc)</span><input class="input" type="file" name="photo" accept="image/*"></label>`}
           <div class="st-meta">Điểm tháng ${monthLabel(mon)} hiện ${score}/100. Mỗi tiêu chí trừ tối đa 5 điểm.</div>
           <div id="dg-err"></div>
@@ -141,11 +146,15 @@ export async function openEmployee(empId, ctx = {}) {
   }
   function collect() {
     const f = $('.dg-form', d); if (!f) return null;
-    return { set: f.set?.value, date: f.date?.value, crit: f.crit?.value, pts: f.querySelector('input[name=pts]:checked')?.value, note: f.note?.value };
+    return { set: f.set?.value, date: f.date?.value, crit: f.crit?.value, pts: f.querySelector('input[name=pts]:checked')?.value, note: f.note?.value, fine: f.fine?.value };
   }
   async function reload() { H = await rpc('app_dg_history', { p_employee: empId }); changed = true; }
   const err = (m) => { const x = $('#dg-err', d); if (x) x.innerHTML = str(html`<div class="alert error">${m}</div>`); };
 
+  d.addEventListener('input', (ev) => {      // ô Phạt tiền: chỉ nhận số, tự chấm hàng nghìn
+    if (ev.target.name !== 'fine') return;
+    const n = fineNum(ev.target.value); ev.target.value = n ? n.toLocaleString('vi-VN') : '';
+  });
   d.addEventListener('change', async (ev) => {
     if (ev.target.name === 'set') {
       if (!ev.target.value) return;
@@ -166,7 +175,7 @@ export async function openEmployee(empId, ctx = {}) {
       if (t.closest('.dg-edit')) { editing = m; draw(false); $('.dg-form', d)?.scrollIntoView({ block: 'start' }); return; }
       if (t.closest('.dg-del')) { if (!confirm('Xóa lần đánh giá này? Nhân viên sẽ được báo.')) return; await rpc('app_dg_delete', { p_id: m.id, p_note: null }); }
       else if (t.closest('.dg-keep')) { const n = prompt('Giữ nguyên điểm. Ghi chú cho nhân viên (không bắt buộc):', ''); if (n === null) return; await rpc('app_dg_resolve', { p_id: m.id, p_keep: true, p_note: n }); }
-      else if (t.closest('.dg-refund')) { const n = prompt('Hoàn lại điểm cho nhân viên. Ghi chú (không bắt buộc):', ''); if (n === null) return; await rpc('app_dg_resolve', { p_id: m.id, p_keep: false, p_note: n }); }
+      else if (t.closest('.dg-refund')) { const n = prompt(`Hoàn lại điểm cho nhân viên${Number(m.fine) > 0 ? ` và huỷ tiền phạt ${fineMoney(m.fine)}` : ''}. Ghi chú (không bắt buộc):`, ''); if (n === null) return; await rpc('app_dg_resolve', { p_id: m.id, p_keep: false, p_note: n }); }
       else return;
       editing = null; await reload(); draw(false);
     } catch (e2) { alert(e2.message); }
@@ -176,10 +185,13 @@ export async function openEmployee(empId, ctx = {}) {
     const f = ev.target; const v = collect();
     if (!editing && !H.employee.set_saved) { err('Chọn bộ tiêu chí (Pha chế hoặc Chạy bàn) cho nhân viên trước.'); return; }
     if (!v.pts) { err('Chọn Nhắc nhở hoặc mức trừ 1–5 điểm.'); return; }
+    const fine = fineNum(v.fine);
+    if (fine > 5000000) { err('Tiền phạt tối đa 5.000.000đ một lần.'); return; }
+    if (fine > 200000 && !confirm(`Phạt ${fineMoney(fine)} — đúng số tiền chưa?`)) return;
     const btn = f.querySelector('[type=submit]'); btn.disabled = true;
     try {
       if (editing) {
-        await rpc('app_dg_edit', { p_id: editing.id, p_criterion: v.crit, p_points: Number(v.pts), p_note: v.note });
+        await rpc('app_dg_edit', { p_id: editing.id, p_criterion: v.crit, p_points: Number(v.pts), p_note: v.note, p_fine: fine });
       } else {
         const date = ctx.report ? ctx.report.date : v.date;
         if (!openMonth(String(date || '').slice(0, 7))) { err(`Tháng ${monthLabel(String(date).slice(0, 7))} đã khóa đánh giá. Nhờ Chủ mở lại.`); btn.disabled = false; return; }
@@ -191,7 +203,7 @@ export async function openEmployee(empId, ctx = {}) {
           if (error) throw new Error('Không tải được ảnh: ' + error.message);
         }
         await rpc('app_dg_add', { p_employee: empId, p_date: date, p_criterion: v.crit, p_points: Number(v.pts), p_note: v.note, p_photo: photo,
-          p_report: ctx.report ? ctx.report.id : null, p_branch: ctx.report ? null : (ctx.branch || null), p_set: null });
+          p_report: ctx.report ? ctx.report.id : null, p_branch: ctx.report ? null : (ctx.branch || null), p_set: null, p_fine: fine });
       }
       editing = null; await reload(); draw(false);
       const top = $('.dg-scroll', d); if (top) top.scrollTop = 0;
@@ -208,10 +220,10 @@ export async function mountReportEval(box, R) {
   const draw = async () => {
     let marks = []; try { marks = (await rpc('app_dg_report', { p_report: R.id })) || []; } catch (_) { /* bỏ qua */ }
     box.innerHTML = str(html`<div class="pc-sec-head"><h2>Đánh giá nhân viên trong ca <span class="st-meta">(không bắt buộc)</span></h2></div>
-      <div class="st-meta">Nhân viên phạm lỗi thì trừ điểm vào đúng tiêu chí (1–5 điểm) hoặc nhắc nhở. Bấm tên để xem toàn bộ lịch sử trước khi chọn mức.</div>
+      <div class="st-meta">Nhân viên phạm lỗi thì trừ điểm vào đúng tiêu chí (1–5 điểm) hoặc nhắc nhở; muốn phạt tiền thì điền thêm ô <b>Phạt tiền</b> trong cùng cửa sổ. Bấm tên để xem toàn bộ lịch sử trước khi chọn mức.</div>
       ${staff.length ? staff.map((s) => { const mk = marks.filter((m) => m.employee_id === s.employee_id); return html`<div class="pc-line" style="justify-content:space-between;align-items:center;gap:10px;flex-wrap:nowrap">
           <div style="flex:1;min-width:0"><strong>${s.code || ''}${s.code ? ' – ' : ''}${s.name || 'NV ' + s.employee_id}</strong>
-            ${mk.length ? html`<div class="st-meta">Ca này: ${mk.map((m) => `${ptsLabel(m.points)} · ${m.criterion_name}`).join('; ')}</div>` : ''}</div>
+            ${mk.length ? html`<div class="st-meta">Ca này: ${mk.map((m) => `${ptsLabel(m.points)}${fineLabel(m)} · ${m.criterion_name}`).join('; ')}</div>` : ''}</div>
           <button type="button" class="btn sm secondary dg-open" style="flex-shrink:0" data-emp="${s.employee_id}">Trừ điểm / nhắc nhở</button></div>`; })
         : html`<div class="st-meta">Ca này chưa có nhân viên.</div>`}`);
     $$('.dg-open', box).forEach((b) => b.addEventListener('click', () => openEmployee(Number(b.dataset.emp), {

@@ -20,7 +20,7 @@ import re,sys; p=sys.argv[1]; s=open(p).read()
 s=re.sub(r'(<script type="module" src="js/app\.js(?:\?v=[^"]+)?"></script>)',r'<script src="test/catch.js"></script>\n\1\n<script type="module" src="test/driver.js"></script>',s,count=1)
 open(p,'w').write(s)
 PY
-cp "$D/flow_dt169.js" "$D/flow_dt170.js" "$W/test/"
+cp "$D/flow_dt169.js" "$D/flow_dtgop.js" "$D/menu_dt.js" "$W/test/"   # 28/11: trang Đào tạo gộp (flow_dt170 bỏ cùng thẻ Phân công / Chờ kiểm tra kiểu cũ)
 cp "$D/flow_ln174.js" "$W/test/"
 cp "$D/flow_hh_c4.js" "$W/test/"   # chặng 4
 cp "$D/flow_dt_c4.js" "$W/test/"   # chặng 4: phiếu đào tạo theo tab ngày thật
@@ -39,3 +39,4 @@ cp "$D/flow_ka_ca.js" "$W/test/"   # khoản âm nối với ca (cần web đủ
 cp "$D/flow_cl.js" "$W/test/"   # bảng Chênh lệch tiền (cần web đủ dữ liệu)
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"
 cp "$D/flow_ocfg.js" "$W/test/"   # cài đặt trang Order ca (tệp 192)
+cp "$D/flow_dg193.js" "$W/test/"   # tệp 193: phiếu phạt tiền trong đánh giá

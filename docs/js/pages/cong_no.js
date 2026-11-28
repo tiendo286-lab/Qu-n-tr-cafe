@@ -81,44 +81,61 @@ export async function render(ctx) {
     };
   }
 
-  // ---------- trang chính
-  const lateP = P.filter((p) => p.grp === 'khach' && p.open.some(late));
+  // ---------- trang chính (28/11, anh Tiến duyệt hình mẫu): dòng tổng + hàng nút nhóm vuốt ngang; mỗi khoản một dòng; nợ khách có nút Đã thu ngay trên dòng;
+  //   khoản đã trả trong tháng gom vào "Đã trả tháng này" (bấm mới mở, có Bỏ đã thu); nhóm trống thu còn một dòng. CHỈ đổi cách bày — số tiền, hàm máy chủ, quyền giữ nguyên.
   const onlyLate = params.qua === '1';
-  const shown = (p) => (p.owe > 0 || p.rows.some((r) => r.closed && String(r.paid_date).slice(0, 7) === month)) && (!onlyLate || lateP.includes(p));
-  const total = P.reduce((t, p) => t + p.owe, 0); const nOwe = P.filter((p) => p.owe > 0).length;
-  // bước 97: ô số đầu trang; bấm ô nhóm → chỉ hiện nhóm đó (?g=), bấm lại → cả 3 nhóm
-  const gOn = DEBT_GRPS.includes(params.g) ? params.g : '';
-  const gSum = (g) => P.filter((p) => p.grp === g).reduce((t, p) => t + p.owe, 0); const gN = (g) => P.filter((p) => p.grp === g && p.owe > 0).length;
-  const paidM = D.rows.filter((r) => r.closed && String(r.paid_date).slice(0, 7) === month);
-  const tile = (g) => html`<a class="cn-k ${gOn === g ? 'on' : ''}" href="${q({ g: gOn === g ? '' : g, qua: params.qua })}"><span class="k">${GRP[g]}</span><b>${fmt(gSum(g))}</b><small>${g === 'khach' ? `${P.filter((p) => p.grp === 'khach').reduce((t, p) => t + p.open.length, 0)} khoản` : `${gN(g)} người`}${gOn === g ? ' · đang lọc — bấm bỏ lọc' : ''}</small></a>`;
-  const card = (p) => { const rs = p.rows.filter((r) => !r.closed || String(r.paid_date).slice(0, 7) === month);
-    return html`<div class="cn-p ${p.owe ? '' : 'done'}" data-s="${(p.name + ' ' + (p.phone || '')).toLowerCase()}">
-      <a class="cn-ph" href="${q({ p: p.key })}"><span class="grow"><b>${p.name}</b>${p.phone ? html` <span class="st-meta">${p.phone}</span>` : ''}</span>
-        ${p.owe ? html`<span class="cn-owe">còn ${fmt(p.owe)}</span>` : html`<span class="cn-ok">✓ đã trả hết</span>`} ›</a>
-      ${rs.map((r) => line(r))}</div>`; };
-  const group = (g) => { const ps = P.filter((p) => p.grp === g && shown(p)).sort((a, b) => (b.owe > 0) - (a.owe > 0) || b.oldest - a.oldest || b.owe - a.owe);
-    const sum = P.filter((p) => p.grp === g).reduce((t, p) => t + p.owe, 0);
-    const add = { khach: '+ Ghi nợ khách', kho: '+ Kho tổng nợ', chu: '+ Ghi nợ của Chủ', khac: '+ Thêm người nợ' }[g];
-    return html`<section class="card stack cn-g" data-g="${g}"><div class="cn-gh"><div><h2>${GRP[g]}</h2><div class="st-meta">${GRP_HELP[g]}</div></div><b class="cn-gsum">${fmt(sum)}</b></div>
-      ${ps.length ? ps.map(card) : html`<div class="st-meta">${onlyLate ? 'Không có.' : 'Không có ai nợ.'}</div>`}
-      ${ed && !onlyLate ? html`<div><button type="button" class="btn sm secondary cn-new" data-g="${g}">${add}</button></div>` : ''}</section>`; };
+  const gOn = DEBT_GRPS.includes(params.g) ? params.g : '';   // bước 97: bấm nút nhóm → chỉ hiện nhóm đó (?g=), bấm lại → cả 4 nhóm
+  const sumOf = (rs) => rs.reduce((t, r) => t + Number(r.amount || 0), 0);
+  const gSum = (g) => P.filter((p) => p.grp === g).reduce((t, p) => t + p.owe, 0);
+  const inMonth = (r) => r.closed && String(r.paid_date).slice(0, 7) === month;
+  const total = P.reduce((t, p) => t + p.owe, 0); const nOpen = D.rows.filter((r) => !r.closed).length;
+  const lateRows = D.rows.filter(late); const paidM = D.rows.filter(inMonth);
+  const CHIP = { khach: 'Khách', kho: 'Kho tổng', chu: 'Chủ', khac: 'Người nhà / quen' };
+  const TITLE = { khach: 'Nợ khách hàng', kho: 'Nợ kho tổng', chu: 'Nợ của Chủ', khac: 'Người nhà / người quen' };
+  const ADD = { khach: '+ Ghi nợ khách', kho: '+ Kho tổng nợ', chu: '+ Ghi nợ', khac: '+ Thêm người nợ' };
+  const nameOf = (r) => dispName(r) || 'Khách';
+  const chip = (g) => html`<a class="cn-k ${gOn === g ? 'on' : ''} ${gSum(g) ? '' : 'zero'}" href="${q({ g: gOn === g ? '' : g, qua: params.qua })}"><span class="k">${CHIP[g]}</span> <b>${fmt(gSum(g))}</b></a>`;
+  const khRow = (r) => { const n = days(r.date, today);
+    return html`<div class="cn-r" data-s="${nameOf(r).toLowerCase()}">
+      <div class="who"><b>${nameOf(r)}</b><small>Nợ ${dmy(r.date).slice(0, 5)} · ${fromTxt(r)} · ${noKind(r.kind)}${r.split ? ' (phần còn lại)' : ''} · <span class="${late(r) ? 'cn-late' : ''}">${n ? `${n} ngày` : 'hôm nay'}${late(r) ? ' ⚠' : ''}</span></small></div>
+      <b class="cn-amt">${fmt(r.amount)}</b>${ed ? html`<button type="button" class="btn sm cn-thu1" data-id="${r.id}">Đã thu</button>` : ''}</div>`; };
+  const pRow = (p) => html`<div class="cn-p" data-s="${(p.name + ' ' + (p.phone || '')).toLowerCase()}"><a class="cn-ph cn-r" href="${q({ p: p.key })}">
+      <span class="who"><b>${p.name}</b>${p.phone ? html` <span class="st-meta">${p.phone}</span>` : ''}<small>${p.open.length} khoản · ${p.oldest ? `lâu nhất ${p.oldest} ngày` : 'ghi hôm nay'}</small></span>
+      <b class="cn-amt">${fmt(p.owe)}</b><span class="go">›</span></a></div>`;
+  const paidRow = (r) => html`<div class="cn-r paid" data-s="${(nameOf(r) + ' ' + (r.phone || '')).toLowerCase()}">
+      <div class="who"><span>${nameOf(r)}</span> <span class="st-meta">· nợ ${dmy(r.date).slice(0, 5)}</span><small class="cn-ok">✓ Trả ${paidTxt(r)}</small></div>
+      <span class="cn-amt">${fmt(r.amount)}</span>${r.can_unthu && ed ? html`<button type="button" class="btn sm secondary cn-unthu" data-id="${r.id}">Bỏ đã thu</button>` : ''}</div>`;
+  const group = (g) => {
+    const rows = D.rows.filter((r) => r.grp === g);
+    const open = g === 'khach' ? rows.filter((r) => !r.closed && (!onlyLate || late(r))).sort((a, b) => String(a.date).localeCompare(String(b.date)) || a.id - b.id) : [];
+    const ps = g === 'khach' ? [] : P.filter((p) => p.grp === g && p.owe > 0).sort((a, b) => b.oldest - a.oldest || b.owe - a.owe);
+    const paid = onlyLate ? [] : rows.filter(inMonth).sort((a, b) => String(b.paid_date).localeCompare(String(a.paid_date)) || b.id - a.id);
+    const lim = g === 'khach' ? 5 : paid.length;   // nợ khách: 5 khoản mới nhất, còn lại xem ở trang lịch sử
+    const addBtn = ed && !onlyLate ? html`<button type="button" class="btn sm secondary cn-new" data-g="${g}">${ADD[g]}</button>` : '';
+    const hist = g === 'khach' && rows.length ? html`<a href="${q({ p: 'khach|khách' })}">Sửa khoản nợ · xem lịch sử ›</a>` : '';
+    if (!open.length && !ps.length && !paid.length) return html`<section class="cn-g cn-empty" data-g="${g}"><span><h2>${TITLE[g]}</h2> — ${onlyLate ? 'không có khoản quá hạn' : 'không có ai nợ'}</span><b class="cn-gsum" hidden>${fmt(gSum(g))}</b>${addBtn}</section>`;
+    return html`<section class="card stack cn-g" data-g="${g}"><div class="cn-gh"><h2 title="${GRP_HELP[g]}">${TITLE[g]}</h2><b class="cn-gsum">${fmt(gSum(g))}</b></div>
+      ${open.map(khRow)}${ps.map(pRow)}${open.length || ps.length ? '' : html`<div class="cn-none st-meta">Không còn ai nợ.</div>`}
+      ${paid.length ? html`<details class="cn-paid"><summary>Đã trả tháng này (${paid.length} khoản · ${fmt(sumOf(paid))})</summary>${paid.slice(0, lim).map(paidRow)}${paid.length > lim ? html`<div class="st-meta cn-rest">… còn ${paid.length - lim} khoản nữa — bấm "xem lịch sử" bên dưới</div>` : ''}</details>` : ''}
+      ${addBtn || hist ? html`<div class="cn-foot">${addBtn}${hist}</div>` : ''}</section>`; };
   return {
     title: `Công nợ ${BR.code}`,
-    html: html`${STYLE}<div class="cn-wrap"><div class="page-head"><div><h1>Công nợ</h1><div class="sub">Người nợ quán theo từng cơ sở</div></div></div>
+    html: html`${STYLE}<div class="cn-wrap"><div class="page-head"><div><h1>Công nợ</h1></div></div>
       <nav class="branch-tabs" aria-label="Cơ sở">${D.branches.map((b) => html`<a class="${cn === b.id ? 'on' : ''}" href="${'#/quan-ly/cong-no?cn=' + b.id}" title="${b.name}">${b.code}</a>`)}</nav>
-      <div class="cn-ks">
-        <a class="cn-k tot ${gOn ? '' : 'on'}" href="${q({ qua: params.qua })}"><span class="k">Còn nợ</span><b>${fmt(total)}</b><small>${nOwe} người${gOn ? ' · bấm xem cả 4 nhóm' : ''}</small></a>
-        <div class="cn-k paid"><span class="k">Đã thu tháng này</span><b>${fmt(paidM.reduce((t, r) => t + Number(r.amount || 0), 0))}</b><small>${paidM.length} khoản</small></div>
-        ${DEBT_GRPS.map(tile)}</div>
-      <section class="card stack cn-sum">
-        ${lateP.length ? html`<a class="cn-latebox ${onlyLate ? 'on' : ''}" href="${q({ qua: onlyLate ? '' : '1' })}">⚠ Khách nợ quá ${LATE} ngày: <b>${lateP.reduce((t, p) => t + p.open.filter(late).length, 0)} khoản · ${fmt(lateP.reduce((t, p) => t + p.open.filter(late).reduce((s, r) => s + Number(r.amount), 0), 0))}</b> ${onlyLate ? '— bấm để xem tất cả' : '— bấm để lọc'}</a>` : html`<div class="st-meta">Không có khách nợ quá ${LATE} ngày.</div>`}
-        <input class="input" id="cn-find" type="search" placeholder="Tìm tên / số điện thoại…" autocomplete="off"></section>
-      ${DEBT_GRPS.filter((g) => !gOn || g === gOn).map(group)}
-      <div class="st-meta">Khách trả trong ca: nhân viên chọn ở phiếu chốt ca (chỉ Nợ khách hàng). Trả ngoài ca: bấm vào người → <b>Đã thu</b> (Sổ thu chi cộng vào). Khoản chi của ca thành nợ: Đối soát ca › Thu chi › <b>Thành nợ</b>.</div></div>`,
+      <div class="cn-top"><div class="cn-big">Còn nợ <b>${fmt(total)}</b> <span class="st-meta">· ${nOpen} khoản</span></div><div class="cn-paidm">Đã thu tháng này <b>${fmt(sumOf(paidM))}</b></div></div>
+      <div class="cn-ks"><a class="cn-k tot ${gOn ? '' : 'on'}" href="${q({ qua: params.qua })}"><span class="k">Tất cả</span></a>${DEBT_GRPS.map(chip)}</div>
+      ${lateRows.length ? html`<a class="cn-latebox ${onlyLate ? 'on' : ''}" href="${q({ qua: onlyLate ? '' : '1' })}">⚠ Khách nợ quá ${LATE} ngày: <b>${lateRows.length} khoản · ${fmt(sumOf(lateRows))}</b> ${onlyLate ? '— bấm để xem tất cả' : '— bấm để lọc'}</a>` : ''}
+      <input class="input" id="cn-find" type="search" placeholder="Tìm tên / số điện thoại…" autocomplete="off">
+      ${(onlyLate ? ['khach'] : DEBT_GRPS.filter((g) => !gOn || g === gOn)).map(group)}
+      <div class="st-meta">Khách trả ngay trong ca thì nhân viên ghi ở phiếu chốt ca.</div></div>`,
     mount() {
+      bindUnthu();
       $('#cn-find').addEventListener('input', (e) => { const s = e.target.value.trim().toLowerCase();
-        $$('.cn-p').forEach((x) => { x.hidden = !!s && !x.dataset.s.includes(s); }); });
+        $$('.cn-wrap [data-s]').forEach((x) => { x.hidden = !!s && !x.dataset.s.includes(s); });
+        if (s) $$('.cn-paid').forEach((d) => { d.open = true; }); });
       $$('.cn-new').forEach((b) => b.addEventListener('click', () => newDebt(b.dataset.g)));
+      $$('.cn-thu1').forEach((b) => b.addEventListener('click', () => { const r = D.rows.find((x) => String(x.id) === String(b.dataset.id));
+        if (r) collect({ key: 'khach|khách', grp: 'khach', name: nameOf(r), phone: r.phone || null, rows: [r], open: [r], owe: Number(r.amount) }); }));
     },
   };
 
@@ -215,18 +232,28 @@ export async function render(ctx) {
 }
 
 const STYLE = html`<style>
-  .cn-wrap { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
+  .cn-wrap { max-width: 640px; width: 100%; min-width: 0; margin: 0 auto; display: flex; flex-direction: column; gap: 12px; }
   .cn-sum { gap: 8px; } .cn-big { font-size: 18px; } .cn-big b { font-size: 22px; color: #b91c1c; }
-  .cn-ks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-  .cn-k { display: flex; flex-direction: column; gap: 2px; padding: 10px 12px; border-radius: 12px; background: var(--card); border: 1px solid var(--line); color: inherit; text-decoration: none; min-width: 0; }
-  .cn-k .k { font-size: 12px; font-weight: 700; text-transform: uppercase; color: var(--ink-2); } .cn-k b { font-size: 19px; font-variant-numeric: tabular-nums; } .cn-k small { color: var(--ink-2); font-size: 12px; }
-  .cn-k.on { border-color: var(--accent, #8b5a2b); box-shadow: 0 0 0 2px var(--accent, #8b5a2b) inset; } .cn-k.tot b { color: #b91c1c; } .cn-k.paid b { color: var(--ok-ink); }
-  .cn-latebox { display: block; padding: 8px 10px; border-radius: 10px; background: var(--warn-bg); color: #92400e; text-decoration: none; }
+  .cn-top { display: flex; justify-content: space-between; gap: 2px 12px; align-items: baseline; flex-wrap: wrap; } .cn-paidm { color: var(--ink-2); font-size: 14px; } .cn-paidm b { color: var(--ok-ink); font-variant-numeric: tabular-nums; }
+  .cn-ks { display: flex; gap: 6px; overflow-x: auto; scrollbar-width: none; padding: 2px 0; } .cn-ks::-webkit-scrollbar { display: none; }
+  .cn-k { flex: none; padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); font-size: 14px; white-space: nowrap; color: inherit; text-decoration: none; }
+  .cn-k b { font-variant-numeric: tabular-nums; } .cn-k.zero { color: var(--ink-2); }
+  .cn-k.on { background: var(--accent, #8b5a2b); border-color: var(--accent, #8b5a2b); color: #fff; font-weight: 600; }
+  .cn-latebox { display: block; padding: 8px 10px; border-radius: 10px; background: var(--warn-bg); color: #92400e; text-decoration: none; font-size: 14px; }
   .cn-latebox.on { outline: 2px solid #d97706; }
-  .cn-g { gap: 8px; } .cn-gh { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; } .cn-gh h2 { margin: 0; } .cn-gsum { font-size: 17px; white-space: nowrap; }
-  .cn-p { border-top: 1px solid var(--line); padding: 8px 0 4px; } .cn-p.done { opacity: .55; } .cn-p[hidden] { display: none; }
-  .cn-ph { display: flex; gap: 8px; align-items: baseline; color: inherit; text-decoration: none; padding: 2px 0 4px; } .cn-ph .grow { min-width: 0; overflow-wrap: anywhere; }
-  .cn-owe { font-weight: 800; color: #b91c1c; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .card.cn-g { gap: 0; padding-top: 12px; padding-bottom: 10px; } .cn-gh { display: flex; justify-content: space-between; gap: 8px; align-items: baseline; padding-bottom: 6px; }
+  .cn-g h2 { margin: 0; font-family: inherit; font-size: 13px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); } .cn-gsum { font-size: 17px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .cn-empty { display: flex; justify-content: space-between; gap: 8px; align-items: center; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px; color: var(--ink-2); font-size: 14px; }
+  .cn-empty h2 { display: inline; font-size: 14px; letter-spacing: 0; text-transform: none; color: inherit; } .cn-empty .btn { width: auto; flex: none; }
+  .cn-r { display: flex; gap: 8px; align-items: center; padding: 9px 0; border-top: 1px solid var(--line); min-height: 44px; color: inherit; text-decoration: none; } .cn-r[hidden], .cn-p[hidden] { display: none; }
+  .cn-r .who { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.3; } .cn-r .who small { display: block; color: var(--ink-2); font-size: 13px; } .cn-r .cn-late { white-space: nowrap; }
+  .cn-r .btn { width: auto; flex: none; } .cn-r .go { color: var(--ink-2); font-size: 18px; font-weight: 400; text-decoration: none; }
+  @media (min-width: 700px) { .cn-ks { flex-wrap: wrap; overflow: visible; } }
+  .cn-paid { border-top: 1px solid var(--line); } .cn-paid summary { padding: 10px 0; color: var(--ink-2); font-size: 14px; font-weight: 400; text-transform: none; letter-spacing: 0; cursor: pointer; } .cn-paid[open] summary { color: inherit; font-weight: 600; }
+  .cn-r.paid { border-top: 0; border-left: 3px solid var(--ok-line); padding: 5px 0 5px 10px; margin: 4px 0; min-height: 0; color: var(--ink-2); } .cn-r.paid .who small.cn-ok { color: var(--ok-ink); font-weight: 500; } .cn-rest { padding: 2px 0 8px; }
+  .cn-wrap a.cn-ph, .cn-wrap a.cn-k, .cn-wrap a.cn-latebox { text-decoration: none; } .cn-top .cn-big .st-meta { font-size: 14px; }
+  .cn-none { padding: 9px 0; border-top: 1px solid var(--line); }
+  .cn-foot { display: flex; gap: 8px 14px; align-items: center; flex-wrap: wrap; padding-top: 8px; border-top: 1px solid var(--line); font-size: 14px; } .cn-foot .btn { width: auto; }
   .cn-l { padding: 4px 0 4px 10px; border-left: 3px solid var(--line); margin: 4px 0; font-size: 14px; } .cn-l.done { opacity: .6; border-left-color: var(--ok-line); }
   .cn-l1 { display: flex; justify-content: space-between; gap: 8px; } .cn-l1 span { min-width: 0; } .cn-amt { white-space: nowrap; font-variant-numeric: tabular-nums; }
   .cn-l2 { color: var(--ink-2); } .cn-late { color: #b91c1c; font-weight: 700; } .cn-ok { color: var(--ok-ink); font-weight: 600; }

@@ -3,7 +3,7 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, $$, flash, go, html, norm, showSaved } from '../ui.js';
-import { DG_CSS, fillPhotos, markCard, monthLabel, openEmployee, rating } from '../danh_gia.js';
+import { DG_CSS, fillPhotos, fineMoney, markCard, monthLabel, openEmployee, rating } from '../danh_gia.js';
 
 export const perm = 'doi_soat';
 
@@ -20,6 +20,7 @@ export async function render({ params }) {
     ? html`<div class="alert ${D.reopened ? 'warn' : 'info'}">${D.reopened ? html`Chủ đã <strong>mở lại</strong> tháng ${monthLabel(D.month)} để đánh giá tiếp.` : html`Tháng ${monthLabel(D.month)} còn sửa được tới hết <strong>${dmy(D.deadline)}</strong>, sau đó tự khóa.`}
         ${D.is_owner && D.reopened ? html` <button type="button" class="btn sm secondary" id="dg-lock">Khóa lại tháng này</button>` : ''}</div>`
     : html`<div class="alert warn">Tháng ${monthLabel(D.month)} <strong>đã khóa</strong> (quá ngày ${dmy(D.deadline)}). ${D.is_owner ? html`<button type="button" class="btn sm" id="dg-open">Mở lại cho quản lý đánh giá tiếp</button>` : 'Cần sửa thì nhờ Chủ mở lại.'}</div>`;
+  const fineSum = emps.reduce((s, e) => s + Number(e.fine || 0), 0);      // tệp 193: tiền phạt tháng (chỉ ghi lại, không tự trừ vào đâu)
   const unset = D.employees.filter((e) => e.status === 'Đang làm' && !e.set_saved);
   const guessable = unset.filter((e) => e.set_code);
   const setSel = (e) => html`<select class="input sm dg-set ${e.set_saved ? '' : 'unset'}" data-emp="${e.id}" aria-label="Bộ tiêu chí của ${e.name}">
@@ -28,12 +29,12 @@ export async function render({ params }) {
   const row = (e) => { const r = rating(e.score); return html`<div class="dg-row ${e.set_saved ? '' : 'no-set'}" data-emp="${e.id}">
       <button type="button" class="dg-rb" data-emp="${e.id}">
       <span class="dg-who"><strong>${e.code} – ${e.name}</strong><span class="st-meta">${e.rank || ''}${e.status !== 'Đang làm' ? ' · ' + e.status : ''}</span></span>
-      <span class="dg-cnt st-meta">${e.n_tru ? `${e.n_tru} lần trừ` : ''}${e.n_tru && e.n_nhac ? ' · ' : ''}${e.n_nhac ? `${e.n_nhac} nhắc nhở` : ''}${e.pending ? html` <span class="pill warn">${e.pending} giải trình</span>` : ''}</span>
+      <span class="dg-cnt st-meta">${e.n_tru ? `${e.n_tru} lần trừ` : ''}${e.n_tru && e.n_nhac ? ' · ' : ''}${e.n_nhac ? `${e.n_nhac} nhắc nhở` : ''}${Number(e.fine) > 0 ? html`${e.n_tru || e.n_nhac ? ' · ' : ''}<strong class="dg-fine" style="color:#b91c1c">phạt ${fineMoney(e.fine)}</strong>` : ''}${e.pending ? html` <span class="pill warn">${e.pending} giải trình</span>` : ''}</span>
       <span class="dg-pt"><strong>${e.score}</strong><span class="pill ${r[2]}">${r[1]}</span></span></button>${setSel(e)}</div>`; };
   return {
     title: 'Đánh giá nhân viên',
     html: html`${DG_CSS}${STYLE}
-      <div class="page-head"><div><h1>Đánh giá nhân viên</h1><div class="sub">Mỗi nhân viên chọn một bộ tiêu chí: Pha chế hoặc Chạy bàn. Đầu tháng mỗi người 100 điểm (20 tiêu chí × 5). Phạm lỗi thì trừ 1–5 điểm vào đúng tiêu chí hoặc nhắc nhở; nhân viên được báo và gửi giải trình được.</div></div>
+      <div class="page-head"><div><h1>Đánh giá nhân viên</h1><div class="sub">Mỗi nhân viên chọn một bộ tiêu chí: Pha chế hoặc Chạy bàn. Đầu tháng mỗi người 100 điểm (20 tiêu chí × 5). Phạm lỗi thì trừ 1–5 điểm vào đúng tiêu chí hoặc nhắc nhở, kèm <b>phạt tiền</b> nếu cần; nhân viên được báo và gửi giải trình được. Tiền phạt web chỉ ghi lại và cộng tổng theo tháng.</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
       <div class="stack" style="max-width:960px;gap:12px">
         <div class="toolbar" style="gap:8px;flex-wrap:wrap">
@@ -45,7 +46,7 @@ export async function render({ params }) {
         <div class="dg-kpi">${counts.map(([l, n, c]) => html`<div class="card"><div class="st-meta">${l}</div><strong class="${c}">${n}</strong></div>`)}</div>
         ${D.pending.length ? html`<section class="card stack" style="gap:8px"><h2 style="margin:0">Giải trình chờ xem (${D.pending.length})</h2>
           ${D.pending.map((m) => html`<div class="stack" style="gap:4px" data-emp="${m.employee_id}"><div class="st-meta"><button type="button" class="dg-link dg-who-l" data-emp="${m.employee_id}">${m.employee}</button></div>${markCard(m, { acts: true })}</div>`)}</section>` : ''}
-        <section class="card stack" style="gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><h2 style="margin:0">Bảng điểm tháng ${monthLabel(D.month)}</h2><span class="st-meta">${emps.length} nhân viên · bấm vào tên để trừ điểm / xem lịch sử · ô bên phải: bộ tiêu chí của người đó</span></div>
+        <section class="card stack" style="gap:6px"><div style="display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;align-items:baseline"><h2 style="margin:0">Bảng điểm tháng ${monthLabel(D.month)}</h2><span class="st-meta">${emps.length} nhân viên${fineSum ? html` · <strong id="dg-fine-sum" style="color:#b91c1c">tổng tiền phạt ${fineMoney(fineSum)}</strong>` : ''} · bấm vào tên để trừ điểm / xem lịch sử · ô bên phải: bộ tiêu chí của người đó</span></div>
           ${unset.length ? html`<div class="alert warn" id="dg-unset">Còn <strong>${unset.length}</strong> nhân viên đang làm chưa chọn bộ tiêu chí (Pha chế hoặc Chạy bàn). Mỗi người chỉ một bộ, giữ cố định tới khi quản lý đổi.
             <div class="toolbar" style="margin-top:6px;gap:8px;flex-wrap:wrap"><label style="display:inline-flex;gap:6px;align-items:center;font-size:14px"><input type="checkbox" class="check" id="dg-only-unset"> Chỉ hiện người chưa chọn</label>
             ${guessable.length ? html`<button type="button" class="btn sm secondary" id="dg-guess">Chọn theo gợi ý cho ${guessable.length} người</button>` : ''}</div></div>` : ''}

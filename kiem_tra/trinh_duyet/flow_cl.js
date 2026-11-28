@@ -31,6 +31,8 @@ export default async ({ visit, sleep, out }) => {
       await visit('#/quan-ly/chenh-lech?thang=' + month + '&cn=1'); await waitFor(() => !!q('#cl-page'));
       ok(!!q('a[href="#/quan-ly/chenh-lech"]') || !!q('a[href^="#/quan-ly/chenh-lech"]'), 'menu Quản lý ca có mục Chênh lệch tiền');
       ok(qa('#cl-tiles .cl-tile').length === 5, 'có 5 ô tổng');
+      { const ds = rows().map((r) => { const m = /(\d\d)\/(\d\d)/.exec(txt(r.cells[0])); return m ? m[2] + m[1] : ''; });   // 28/11: xếp theo ngày, cũ ở trên
+        ok(ds.length > 1 && ds.every((d, i) => d && (!i || ds[i - 1] <= d)), 'bảng xếp theo ngày, ngày cũ ở trên (không gom theo trạng thái) — ' + ds[0] + ' … ' + ds[ds.length - 1]); }
       ok(rows().length > 0, 'bảng có dòng chênh lệch — ' + rows().length);
       const bad1 = rows().filter((r) => { const m = num(cell(r, 'Phải có')), t = num(cell(r, 'Thực tế')), l = num(cell(r, 'Lệch')); return Number.isFinite(m) && Number.isFinite(t) && t - m !== l; });
       ok(bad1.length === 0, 'mọi dòng: thực tế − phải có = lệch — sai ' + bad1.length);

@@ -61,9 +61,10 @@ export default async ({ sleep, out }) => {
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
-    await go('#/quan-ly/doi-soat/ca?id=' + id + '&buoc=1', '#ds-dg .dg-open');
-    r.push(`Đối soát ca: ${txt('#ds-dg h2')} · ${$$('#ds-dg .dg-open').length} người`);
-    $('#ds-dg .dg-open').click(); await wait('dialog.dg-dlg .dg-form'); await sleep(400);
+    try { await rpc('app__test_ca_staff', { p_id: id, p_n: 2 }); } catch (_) { /* ca thử chưa có nhân viên theo lịch → gắn 2 nhân viên giả */ }
+    await go('#/ca/doi-soat?id=' + id, '#dsm-dg .dg-open');
+    r.push(`Đối soát ca: ${txt('#dsm-dg h2')} · ${$$('#dsm-dg .dg-open').length} người`);
+    $('#dsm-dg .dg-open').click(); await wait('dialog.dg-dlg .dg-form'); await sleep(400);
     const d2 = $('dialog.dg-dlg'); const g = $('.dg-form', d2);
     if (!g.set.value) { g.set.value = 'cb'; g.set.dispatchEvent(new Event('change', { bubbles: true })); await sleep(300); }
     const g2 = $('.dg-form', d2); g2.crit.selectedIndex = 1; $('input[name=pts][value="0"]', g2).checked = true; g2.note.value = 'Quên đeo tạp dề';
@@ -71,7 +72,7 @@ export default async ({ sleep, out }) => {
     g2.requestSubmit(); await sleep(1500);
     r.push(`nhắc nhở → ${txt('.alert', d2)}`);
     $('.dg-x', d2).click(); await sleep(1500);
-    r.push(`ô ca sau khi ghi: ${txt('#ds-dg .pc-line .st-meta')}`);
+    r.push(`ô ca sau khi ghi: ${txt('#dsm-dg .pc-line .st-meta')}`);
     // 4. phiếu đào tạo: hướng dẫn
     await go('#/dao-tao/phieu?id=1', '.it-guide');
     r.push(`Phiếu đào tạo: ${$$('.it-guide').length} hạng mục có hướng dẫn / ${$$('.dt-item').length}`);
@@ -83,10 +84,10 @@ export default async ({ sleep, out }) => {
     $$('.dg-go', gd)[0].click(); await sleep(600); r.push(`‹ Trước ${txt('.dg-head strong', gd)}`);
     $$('.dg-x', gd)[0].click(); await sleep(300); r.push(`đóng: ${$('dialog.dt-guide') ? 'CÒN MỞ' : 'ok'}`);
     // 5. Quy trình: bài sổ tay sửa trực tiếp trên web như các bài khác
-    await go('#/quy-trinh', '.doc-card');
+    await go('#/quy-trinh?id=90', '.doc-card');   // trang Quy trình nay chia theo nhóm → mở thẳng bài 90
     const c = $$('.doc-card').find((x) => /SOP 01/.test(x.innerText));
     r.push(`Quy trình: ${$$('.doc-card').length} bài · bài SOP: ${c ? 'có' : 'KHÔNG THẤY'} · nút Sửa: ${c && $('a[href*="soan"]', c) ? 'có' : 'KHÔNG'} · lưới ảnh: ${c ? getComputedStyle($('.doc p:has(img + img)', c)).display : '?'}`);
     c.open = true; await sleep(300); $('.doc img', c).click(); await sleep(300); r.push(`bấm ảnh → ${$('dialog.img-zoom') ? 'xem to' : 'KHÔNG'}`); $('dialog.img-zoom')?.close();
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + e.message); }
   out.push({ route: 'đánh giá + sổ tay', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

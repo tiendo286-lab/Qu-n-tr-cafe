@@ -9,7 +9,7 @@ export function makeDt(T, me) {
   T.training_mark_log = []; T.training_day_notes = [];   // chặng 4 (tệp 163): sổ lịch sử + nhận xét theo ngày thật
   const total = PROG.items.length;
   const params = new URLSearchParams(location.search);
-  const workflow = ['flow_dt137', 'flow_dt169', 'flow_dt170', 'flow_dt_c4', 'flow_pcdt'].includes(params.get('script')) || params.get('dtwork') === '1';
+  const workflow = ['flow_dt137', 'flow_dt169', 'flow_dt_c4', 'flow_pcdt', 'flow_dtgop'].includes(params.get('script')) || params.get('dtwork') === '1';
   let reviewer = Number(params.get('dtptc')) || null;   // bước 169: ?dtptc=<tài khoản> = người phụ trách chính có sẵn
   const extras = [];
   const part = (t) => extras.filter((f) => f.training_id === t.id);
@@ -58,7 +58,7 @@ export function makeDt(T, me) {
   // tệp 174: bài flow_pcdt — phân công theo ca. Phiếu 1 bắt đầu hôm kia; NV03 đi làm hôm kia Sáng · hôm qua Sáng · hôm nay Chiều · mai Sáng · ngày kia Tối;
   // NV07 (Cấp 1) hôm nay Chiều + mai Sáng; NV08 (Quản lý) mai Sáng. Phiếu 2 (NV04) không có lịch.
   const addD = (d, n) => new Date(Date.parse(d) + n * 864e5).toISOString().slice(0, 10);
-  if (params.get('script') === 'flow_pcdt') {
+  if (['flow_pcdt', 'flow_dtgop'].includes(params.get('script'))) {   // flow_dtgop (28/11, trang gộp) dùng chung lịch giả này
     const d0 = addD(today, -2);
     T.trainings[0].start_date = d0;
     if (!T.employees.some((e) => e.id === 4)) T.employees.push({ id: 4, code: 'NV04', name: 'Người học thứ hai', rank: 'Thử việc', status: 'Đang làm' });

@@ -51,6 +51,9 @@ export default async ({ sleep, out }) => {
       // 4. đi lần lượt 3 bước: ① chưa duyệt thì ② khoá; bấm "Duyệt phần việc, sang bước 2" → sang ② Tiền
       const lock2 = !!$('[data-dsm-tab="tien"][data-lock]'); await tab('tien');
       ok(!lock2 || !!$('[data-dsm-tab="viec"][aria-selected="true"]'), 'bước ② khoá khi phần việc chưa duyệt: bấm không sang');
+      // bấm bước đang khoá thì web hiện lời nhắc (alert) — đó là ĐÚNG, lấy ra khỏi danh sách lỗi và kiểm tra có lời nhắc
+      const nhac = (re) => { const i = window.__ERR.findIndex((e) => re.test(String(e))); if (i < 0) return false; window.__ERR.splice(i, 1); return true; };
+      if (lock2) ok(nhac(/alert: Làm xong bước 1/), 'bấm bước ② đang khoá → có lời nhắc "Làm xong bước 1…"');
       $('#dsm-next1')?.click(); await until(() => !!$('[data-dsm-tab="tien"][aria-selected="true"]'), 50); await sleep(400);
       ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'nút cuối bước ① → sang bước ② Tiền');
       ok(vis('tien') && !vis('viec') && !vis('xong'), `bước ②: chỉ hiện trang Tiền (hiện: ${['viec', 'tien', 'xong'].filter(vis).join(', ')})`);
@@ -71,7 +74,8 @@ export default async ({ sleep, out }) => {
       const left2 = moneyLeftList(D, ca);
       ok(left2.length === 0 ? !$('#dsm-next2')?.disabled : !!$('#dsm-next2')?.disabled && $$('[data-dsm-pane="tien"] .dsm-left li').length === left2.length,
         `bước ② còn ${left2.length} mục → nút sang Hoàn thành ${left2.length ? 'mờ' : 'bấm được'}, danh sách ${$$('[data-dsm-pane="tien"] .dsm-left li').length} dòng`);
-      if (left2.length) { await tab('xong'); ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]') && !!$('[data-dsm-tab="xong"][data-lock]'), 'bước ③ Hoàn thành khoá khi bước ② còn thiếu'); }
+      if (left2.length) { await tab('xong'); ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]') && !!$('[data-dsm-tab="xong"][data-lock]'), 'bước ③ Hoàn thành khoá khi bước ② còn thiếu');
+        ok(nhac(/alert: Làm xong bước 2/), 'bấm bước ③ đang khoá → có lời nhắc "Làm xong bước 2…"'); }
       ok(!!$('#dsm-done'), 'trang Hoàn thành có nút Hoàn thành (đợt 3: Hoàn thành gộp)');
       // 6. Tính lại: không vẽ lại cả trang, chỉ 4 lần hỏi máy chủ
       const mark = document.createElement('i'); mark.id = 'dsm-mark'; $('#dsm').prepend(mark);

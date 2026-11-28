@@ -33,7 +33,7 @@ ok(by('g13c').st === 'xong' && by('g13c').small && by('g13c').auto && /Quán ch�
 ok(by('g14').st === 'tam' && by('g14').left === 30000 && !by('g14').can_open, 'ca chưa xác nhận tiền: Số tạm, chưa mở được phiếu');
 ok(by('g15').st === 'chu' && by('g15').left === 40000 && by('g15').waits.join() === 'qc:9', 'quán chịu chờ Chủ + còn 40.000: Chờ Chủ duyệt, vẫn ghi còn lại');
 ok(by('g10').staff === 'A, B' && by('g14').staff === 'A, B' && by('g10').branch === 'LHP', 'người làm ca + cơ sở');
-ok(sortRows(R).map((r) => r.id).join() === 'g10,g15,g12,g14,g13c,g11,g13', 'xếp: chờ xử lý → chờ Chủ (mới trước) → số tạm → đã xử lý → lệch nhỏ — ' + sortRows(R).map((r) => r.id).join());
+ok(sortRows(R).map((r) => r.id).join() === 'g10,g11,g12,g13,g13c,g14,g15', 'xếp theo ngày: ngày cũ trước, trong ngày Sáng → Tối, tiền mặt trước chuyển khoản (không gom theo trạng thái) — ' + sortRows(R).map((r) => r.id).join());
 ok(filterRows(R, {}).length === 5 && !filterRows(R, {}).some((r) => r.small), 'mặc định ẩn mọi dòng lệch nhỏ (đã tự tạo phiếu hay chưa)');
 ok(filterRows(R, { st: 'nho' }).length === 2 && filterRows(R, { st: 'xong' }).length === 1 && filterRows(R, { st: 'cho' }).length === 1 && filterRows(R, { dir: 'du' }).map((r) => r.id).join() === 'g12' && filterRows(R, { pm: 'ck' }).length === 1 && filterRows(R, { dir: 'thieu', pm: 'tm' }).length === 4, 'lọc trạng thái / thiếu-dư / loại tiền, lọc chồng');
 const S = summary(R);

@@ -8,7 +8,7 @@ export function makeDg(T, me) {
   T.employee_eval_sets = T.employee_eval_sets || [{ employee_id: 3, set_code: 'cb' }];
   T.eval_open = T.eval_open || [];
   T.eval_marks = T.eval_marks || [
-    { id: 1, employee_id: 3, work_date: `${mon}-02`, criterion: 'CB001', points: 2, note: 'Đi muộn 10 phút', status: 'tru', created_by: 'admin – Chủ', created_at: now() },
+    { id: 1, employee_id: 3, work_date: `${mon}-02`, criterion: 'CB001', points: 2, fine: 30000, note: 'Đi muộn 10 phút', status: 'tru', created_by: 'admin – Chủ', created_at: now() },
     { id: 2, employee_id: 3, work_date: `${mon}-03`, criterion: 'CB003', points: 0, note: 'Quên chào khách', status: 'tru', reply: 'Em đang bưng khay', reply_at: now(), created_by: 'admin – Chủ', created_at: now() },
     { id: 3, employee_id: 3, work_date: '2026-09-15', criterion: 'CB001', points: 3, note: 'Đi muộn 20 phút', status: 'tru', created_by: 'admin – Chủ', created_at: '2026-09-15 08:00:00' },
   ];
@@ -16,8 +16,10 @@ export function makeDg(T, me) {
   const setOf = (id) => (T.employee_eval_sets.find((x) => x.employee_id === id) || {}).set_code || (/pha/i.test(emp(id)?.preferred_role || '') ? 'pc' : /bàn/i.test(emp(id)?.preferred_role || '') ? 'cb' : null);
   const isOpen = (m) => { const [y, mo] = m.split('-').map(Number); return today <= new Date(Date.UTC(y, mo, 5)).toISOString().slice(0, 10) || T.eval_open.includes(m); };
   const score = (id, m) => { const u = {}; T.eval_marks.filter((x) => x.employee_id === id && x.work_date.startsWith(m) && x.status === 'tru').forEach((x) => { u[x.criterion] = (u[x.criterion] || 0) + x.points; }); return 100 - Object.values(u).reduce((s, v) => s + Math.min(5, v), 0); };
+  const fineOf = (id, m) => T.eval_marks.filter((x) => x.employee_id === id && x.work_date.startsWith(m) && x.status === 'tru').reduce((s, x) => s + Number(x.fine || 0), 0);   // tệp 193
+  const fineChk = (f) => { if (Number(f || 0) < 0 || Number(f || 0) > 5000000) throw new Error('Tiền phạt không hợp lệ (từ 0 đến 5.000.000đ).'); };
   const js = (m) => ({ id: m.id, employee_id: m.employee_id, date: m.work_date, month: m.work_date.slice(0, 7), criterion: m.criterion, criterion_name: CRIT.find((c) => c.code === m.criterion).name,
-    points: m.points, note: m.note, photo: m.photo || null, report_id: m.report_id || null, shift: m.shift || null, branch: m.branch || null, status: m.status, reply: m.reply || null, reply_at: m.reply_at || null,
+    points: m.points, fine: Number(m.fine || 0), note: m.note, photo: m.photo || null, report_id: m.report_id || null, shift: m.shift || null, branch: m.branch || null, status: m.status, reply: m.reply || null, reply_at: m.reply_at || null,
     reviewed_at: m.reviewed_at || null, reviewed_by: m.reviewed_at ? 'admin – Chủ' : null, review_note: m.review_note || null, pending: m.status === 'tru' && !!m.reply && !m.reviewed_at,
     created_by: m.created_by, created_at: m.created_at, open: isOpen(m.work_date.slice(0, 7)) });
   const mk = (id) => { const m = T.eval_marks.find((x) => x.id === id && x.status !== 'huy'); if (!m) throw new Error('Không tìm thấy lần đánh giá này.'); return m; };
@@ -42,7 +44,7 @@ export function makeDg(T, me) {
       return { month: m, open: isOpen(m), reopened: T.eval_open.includes(m), deadline: dl(m), is_owner: me.role === 'chu', me_employee: me.employee_id, sets: SETS, criteria: CRIT,
         branches: T.branches.map((b) => ({ id: b.id, code: b.code, name: b.name })),
         employees: emps.map((e) => ({ id: e.id, code: e.code, name: e.name, rank: e.rank, status: e.status, branches: [], set_code: setOf(e.id), set_saved: T.employee_eval_sets.some((x) => x.employee_id === e.id),
-          score: score(e.id, m), n_tru: T.eval_marks.filter((x) => x.employee_id === e.id && x.work_date.startsWith(m) && x.status === 'tru' && x.points > 0).length,
+          score: score(e.id, m), fine: fineOf(e.id, m), n_tru: T.eval_marks.filter((x) => x.employee_id === e.id && x.work_date.startsWith(m) && x.status === 'tru' && x.points > 0).length,
           n_nhac: T.eval_marks.filter((x) => x.employee_id === e.id && x.work_date.startsWith(m) && x.status === 'tru' && x.points === 0).length,
           pending: T.eval_marks.filter((x) => x.employee_id === e.id && x.status === 'tru' && x.reply && !x.reviewed_at).length })),
         pending: T.eval_marks.filter((x) => x.status === 'tru' && x.reply && !x.reviewed_at).map((x) => ({ ...js(x), employee: `${emp(x.employee_id).code} – ${emp(x.employee_id).name}` })) };
@@ -50,26 +52,27 @@ export function makeDg(T, me) {
     app_dg_history({ p_employee }) {
       need(); const e = emp(p_employee);
       return { employee: { id: e.id, code: e.code, name: e.name, rank: e.rank, set_code: setOf(e.id), set_saved: T.employee_eval_sets.some((x) => x.employee_id === e.id), is_me: me.employee_id === e.id },
-        month: mon, score: score(e.id, mon), today, sets: SETS, criteria: CRIT, open_months: T.eval_open,
+        month: mon, score: score(e.id, mon), fine: fineOf(e.id, mon), today, sets: SETS, criteria: CRIT, open_months: T.eval_open,
         marks: T.eval_marks.filter((x) => x.employee_id === e.id && x.status !== 'huy').sort((a, b) => (b.work_date + b.id).localeCompare(a.work_date + a.id)).map(js) };
     },
-    app_dg_add({ p_employee, p_date, p_criterion, p_points, p_note, p_photo, p_report, p_set }) {
+    app_dg_add({ p_employee, p_date, p_criterion, p_points, p_note, p_photo, p_report, p_set, p_fine }) {
       need(); if (me.employee_id === p_employee) throw new Error('Không tự trừ điểm của mình được.');
       let d = p_date; let shift = null; let branch = null;
       if (p_report) { const r = (T.shift_reports || []).find((x) => x.id === p_report) || {}; d = r.work_date || today; shift = r.shift; branch = 'LHP'; }
       if (!/^\d{4}-\d{2}-\d{2}$/.test(d || '')) throw new Error('Chọn ngày phạm lỗi.');
       lockChk(d);
       if (!(p_points >= 0 && p_points <= 5)) throw new Error('Chọn Nhắc nhở hoặc trừ 1–5 điểm.');
+      fineChk(p_fine);
       if (!String(p_note || '').trim()) throw new Error('Ghi rõ nhân viên phạm lỗi gì.');
       if (p_set) { T.employee_eval_sets = T.employee_eval_sets.filter((x) => x.employee_id !== p_employee); T.employee_eval_sets.push({ employee_id: p_employee, set_code: p_set }); }
       const st = setOf(p_employee); if (!st) throw new Error('Chọn bộ tiêu chí (Pha chế / Chạy bàn) cho nhân viên này trước.');
       if (!T.employee_eval_sets.some((x) => x.employee_id === p_employee)) T.employee_eval_sets.push({ employee_id: p_employee, set_code: st });
       const c = CRIT.find((x) => x.code === p_criterion); if (!c) throw new Error('Chọn tiêu chí.'); if (c.set_code !== st) throw new Error('Tiêu chí này không thuộc bộ tiêu chí của nhân viên.');
       const id = Math.max(0, ...T.eval_marks.map((x) => x.id)) + 1;
-      T.eval_marks.push({ id, employee_id: p_employee, work_date: d, criterion: c.code, points: p_points, note: p_note.trim(), photo: p_photo, report_id: p_report, shift, branch, status: 'tru', created_by: me.name, created_at: now() });
+      T.eval_marks.push({ id, employee_id: p_employee, work_date: d, criterion: c.code, points: p_points, fine: Number(p_fine || 0), note: p_note.trim(), photo: p_photo, report_id: p_report, shift, branch, status: 'tru', created_by: me.name, created_at: now() });
       return id;
     },
-    app_dg_edit({ p_id, p_criterion, p_points, p_note }) { need(); const m = mk(p_id); lockChk(m.work_date); if (!String(p_note || '').trim()) throw new Error('Ghi rõ nhân viên phạm lỗi gì.'); Object.assign(m, { criterion: p_criterion, points: p_points, note: p_note }); },
+    app_dg_edit({ p_id, p_criterion, p_points, p_note, p_fine }) { need(); const m = mk(p_id); lockChk(m.work_date); fineChk(p_fine); if (p_fine != null) m.fine = Number(p_fine); if (!String(p_note || '').trim()) throw new Error('Ghi rõ nhân viên phạm lỗi gì.'); Object.assign(m, { criterion: p_criterion, points: p_points, note: p_note }); },
     app_dg_delete({ p_id }) { need(); const m = mk(p_id); lockChk(m.work_date); m.status = 'huy'; },
     app_dg_resolve({ p_id, p_keep, p_note }) { need(); const m = mk(p_id); lockChk(m.work_date); Object.assign(m, { status: p_keep ? 'tru' : 'hoan', reviewed_at: now(), review_note: p_note || null }); },
     app_dg_set({ p_employee, p_set }) { need(); T.employee_eval_sets = T.employee_eval_sets.filter((x) => x.employee_id !== p_employee); T.employee_eval_sets.push({ employee_id: p_employee, set_code: p_set }); },
@@ -80,8 +83,8 @@ export function makeDg(T, me) {
       if (!me.employee_id) return { month: mon, score: null, marks: [], criteria: [], months: [] };
       const st = setOf(me.employee_id); const mine = T.eval_marks.filter((x) => x.employee_id === me.employee_id && x.status !== 'huy');
       const months = [...new Set(mine.map((x) => x.work_date.slice(0, 7)))].sort().reverse();
-      return { month: mon, set_code: st, set_name: (SETS.find((s) => s.code === st) || {}).name, score: score(me.employee_id, mon), criteria: CRIT.filter((c) => c.set_code === st),
-        months: months.map((m) => ({ month: m, score: score(me.employee_id, m), rating: 'Tốt' })), marks: mine.sort((a, b) => (b.work_date + b.id).localeCompare(a.work_date + a.id)).map(js) };
+      return { month: mon, set_code: st, set_name: (SETS.find((s) => s.code === st) || {}).name, score: score(me.employee_id, mon), fine: fineOf(me.employee_id, mon), criteria: CRIT.filter((c) => c.set_code === st),
+        months: months.map((m) => ({ month: m, score: score(me.employee_id, m), fine: fineOf(me.employee_id, m), rating: 'Tốt' })), marks: mine.sort((a, b) => (b.work_date + b.id).localeCompare(a.work_date + a.id)).map(js) };
     },
     app_dg_reply({ p_id, p_text }) { const m = mk(p_id); if (m.employee_id !== me.employee_id) throw new Error('Không tìm thấy.'); if (m.reviewed_at) throw new Error('Quản lý đã xem lần đánh giá này nên không gửi giải trình nữa.'); if (!String(p_text || '').trim()) throw new Error('Nhập nội dung giải trình.'); Object.assign(m, { reply: p_text.trim(), reply_at: now() }); },
   };
