@@ -4,7 +4,7 @@ export default async ({ sleep, out }) => {
   const $ = (s, r = document) => r.querySelector(s); const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const wait = async (sel, n = 900) => { for (let i = 0; i < n && !$(sel); i++) await sleep(100); return !!$(sel); };
   const txt = (s, r) => ($(s, r)?.innerText || '').replace(/\s+/g, ' ').trim();
-  const W = () => { const w = document.documentElement.clientWidth; const wide = $$('#root *').filter((el) => el.offsetParent && el.getBoundingClientRect().right > w + 1 && !el.closest('.table-wrap, .grid-wrap, .mtx-wrap')).map((el) => el.tagName + '.' + el.className).slice(0, 4); return `rộng ${w}/${document.documentElement.scrollWidth} · tràn: ${wide.join(', ') || 'không'}`; };
+  const W = () => { const w = document.documentElement.clientWidth; const wide = $$('#root *').filter((el) => el.offsetParent && el.getBoundingClientRect().right > w + 1 && !el.closest('.table-wrap, .grid-wrap, .mtx-wrap, .hub-tabs')).map((el) => el.tagName + '.' + el.className).slice(0, 4); return `rộng ${w}/${document.documentElement.scrollWidth} · tràn: ${wide.join(', ') || 'không'}`; };
   const go = async (h, sel) => { location.hash = '#/__tam'; await sleep(200); location.hash = h; await wait(sel); await sleep(800); };
   const r = [];
   try {
@@ -38,15 +38,15 @@ export default async ({ sleep, out }) => {
     r.push(`Phiếu NV: ô "Đã trả lương tiền mặt" ${$$('[data-cash]').length} · giá trị ${$('[data-cash]')?.value} · nhãn: ${$$('.cm-person .pill.info').length}`);
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
     // đối soát ca: nhân sự đầu tiên + phân loại
-    await go('#/quan-ly/doi-soat/ca?id=' + id + '&buoc=1', '#ds-cv .cv-a, #ds-cv h2');
-    await wait('#ds-cv .cv-a', 300); await sleep(500);
-    r.push(`Đối soát: bước đầu "${txt('.ds-pane[data-ds="0"] .ds-hd span')}" · bước 2 "${txt('.ds-pane[data-ds="1"] .ds-hd span')}" · ${txt('#ds-cv h2')} · nghỉ ${$$('#ds-cv .cv-a').length} · làm thêm ${$$('#ds-cv .cv-e').length}`);
-    const a = $('#ds-cv .cv-a'); a.querySelector('.cv-reason').value = 'nho_ql';
+    await go('#/ca/doi-soat?id=' + id, '#dsm-cv .cv-a, #dsm-cv h2');
+    await wait('#dsm-cv .cv-a', 300); await sleep(500);
+    r.push(`Đối soát: thẻ đang mở "${txt('[data-dsm-tab][aria-selected="true"]')}" · ${txt('#dsm-cv h2')} · nghỉ ${$$('#dsm-cv .cv-a').length} · làm thêm ${$$('#dsm-cv .cv-e').length}`);
+    const a = $('#dsm-cv .cv-a'); a.querySelector('.cv-reason').value = 'nho_ql';
     const hs = a.querySelector('.cv-helper'); hs.value = String(helper.id); hs.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200);
     a.querySelector('.cv-x').checked = true;
-    r.push(`chọn người làm thay → giờ ${a.querySelector('.cv-h').value} · làm thêm còn ${$$('#ds-cv .cv-e').length} (${txt('#ds-cv .cv-e strong')})`);
-    $('#ds-cv #cv-ok').click(); await sleep(1500); await wait('#ds-cv h2'); for (let i = 0; i < 200 && !/duyệt/i.test(txt('#ds-cv h2 .pill')); i++) await sleep(100);
-    r.push(`Chủ duyệt → ${txt('#ds-cv h2')} · ${txt('#ds-cv .cv-row')} · tóm tắt: ${txt('#ds-cv-sum')} · ${W()}`);
+    r.push(`chọn người làm thay → giờ ${a.querySelector('.cv-h').value} · làm thêm còn ${$$('#dsm-cv .cv-e').length} (${txt('#dsm-cv .cv-e strong')})`);
+    $('#dsm-cv #cv-ok').click(); await sleep(1500); await wait('#dsm-cv h2'); for (let i = 0; i < 200 && !/duyệt/i.test(txt('#dsm-cv h2 .pill')); i++) await sleep(100);
+    r.push(`Chủ duyệt → ${txt('#dsm-cv h2')} · ${txt('#dsm-cv .cv-row')} · tóm tắt: ${txt('#dsm-cv-sum')} · ${W()}`);
     // bảng công
     await go('#/quan-ly/bao-cao?tab=bang-cong&thang=' + day.slice(0, 7), '#bc-m');
     r.push(`Bảng công: ${$$('.table.rt').length} bảng · ${txt('.card-head h2')} · x2: ${$$('td[data-label="Giờ x2 được cộng"] strong').map((x) => x.innerText).join(',')} · trừ: ${$$('td[data-label="Giờ bị trừ"] strong').map((x) => x.innerText).join(',')} · tiền mặt: ${$$('td[data-label="Lương tiền mặt"]').map((x) => x.innerText).filter((x) => x !== '—').join(',')} · nghỉ&làm thay: ${$$('tr[data-id]').length} dòng · ${W()}`);
@@ -64,6 +64,20 @@ export default async ({ sleep, out }) => {
     // nhân viên: dấu trả tiền mặt
     await go('#/quan-ly/nhan-vien?id=' + cashE.id, '#emp-form');
     r.push(`Hồ sơ: ô trả tiền mặt ${$('input[name=pay_cash]')?.checked ? 'đã tích' : 'CHƯA TÍCH'}`);
+    // 28/11 (anh Tiến chốt viết lại): đoạn đối soát chạy trên trang đối soát ca mới (#dsm-cv ở thẻ ① Phần việc); thêm ý kiểm tra thật —
+    // trước đây bài chỉ in ra chữ, không ý nào làm bài báo LỖI.
+    const all = r.join(' || '); const need = (re, m) => { if (!re.test(all)) window.__ERR.push('Không đạt: ' + m); };
+    need(/ô "Đã trả lương tiền mặt" 1 · giá trị 150\.000/, 'phiếu chốt ca có ô Đã trả lương tiền mặt 150.000');
+    need(/thẻ đang mở "① Phần việc/, 'trang đối soát ca mở ở thẻ ① Phần việc');
+    need(/· nghỉ 1 · làm thêm 2 \|\|/, 'khối Nghỉ & làm thay: 1 người nghỉ, 2 người làm thêm');
+    need(/chọn người làm thay → giờ [1-9][\d,]* · làm thêm còn 1 /, 'chọn người làm thay thì tự điền giờ, làm thêm còn 1');
+    need(/Chủ duyệt → NGHỈ & LÀM THAY CHỦ ĐÃ DUYỆT/i, 'Chủ duyệt xong ghi "Chủ đã duyệt"');
+    need(/Bảng công: [1-9]\d* bảng .*x2: \+[\d,]+ · trừ: −[\d,]+ · tiền mặt: 150\.000đ/, 'bảng công có giờ x2, giờ bị trừ và lương tiền mặt 150.000đ');
+    need(/Sửa \/ xem khiếu nại: mở khung/, 'bảng công mở được khung sửa / xem khiếu nại');
+    need(/Lịch cơ sở: dấu ✓ [1-9]\d* · ✗ 1 · \+ 1 /, 'Lịch cơ sở có dấu ✓ đã làm, 1 ✗ nghỉ, 1 + phát sinh');
+    need(/Lịch tổng: dấu ✓ [1-9]\d* · ✗ 1 · \+ 1/, 'Lịch tổng có dấu ✓, ✗, +');
+    need(/Hồ sơ: ô trả tiền mặt đã tích/, 'hồ sơ nhân viên đã tích trả lương tiền mặt');
+    if (/tràn: [^k]/.test(all)) window.__ERR.push('Không đạt: có trang tràn ngang');
   } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'nhân sự thực tế + x2', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };
