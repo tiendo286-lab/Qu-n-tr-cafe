@@ -4,7 +4,7 @@
 //  * "Chờ bạn kiểm tra": mục Cấp 1 tôi giao lại đã ghi mức → Xác nhận đạt (giữ / sửa mức).
 import { rpc } from '../sb.js';
 import { dialog, flash, html, showSaved, str } from '../ui.js';
-import { span } from './pc_dao_tao_tinh.js?v=2026.11.29.7';
+import { span } from './pc_dao_tao_tinh.js?v=2026.11.29.8';
 
 export const LEVEL = { tb: 'Trung bình', kha: 'Khá', tot: 'Tốt' };
 const DOW = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7'];

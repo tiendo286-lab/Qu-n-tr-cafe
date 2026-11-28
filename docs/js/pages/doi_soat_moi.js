@@ -9,10 +9,10 @@ import { rpc } from '../sb.js';
 import { loadHelpers, pickedId, pickerHtml, wirePicker } from '../chon_nguoi_ca.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
 import { fmt, parseMoney } from '../tien.js';
-import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.29.7';
+import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.29.8';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
 import { SHIFT_ORDER, caChecks, caGaps, dsChecks, dsCtx } from '../so_thu_chi_tinh.js';
-import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.29.7';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
+import { stcBind, stcCatSelect, stcGap, stcMoi, stcPart, stcStyle } from './so_thu_chi.js?v=2026.11.29.8';   // cùng bản với trang cũ (phieu_ca.js); số ?v= tăng khi phát hành
 import { BASIC, CHK_LABEL, WORK_LABEL, canStep, caBook, confirmKeys, confirmList, firstStep, gapView, mergeRecon, missingList, moneyLeftList, pageState, staffPayload, stepState, workParts } from '../doi_soat_moi_tinh.js';
 
 export const perm = 'doi_soat';
@@ -39,6 +39,7 @@ const CSS = `<style>
 .dsm-tabs button[aria-selected="true"]{background:var(--forest);border-color:var(--forest);color:#fffdfa}
 .dsm-tabs .mk{display:block;font-size:12px;font-weight:600}
 .dsm-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:grid;gap:8px;min-width:0}
+.dsm-card>*{min-width:0}   /* 29/11: khối con (vd Nghỉ & làm thay có ô chọn chữ dài) phải co theo màn hình điện thoại, không đẩy thẻ rộng ra */
 .dsm-card h2{margin:0;font-size:15px;display:flex;justify-content:space-between;gap:8px;align-items:center;flex-wrap:wrap}
 .dsm-chip{display:inline-flex;align-items:center;font-size:12.5px;font-weight:700;border-radius:999px;padding:2px 9px}
 .dsm-chip.ok{background:var(--ok-bg);color:var(--ok-ink)}.dsm-chip.warn{background:var(--warn-bg);color:var(--warn-ink)}.dsm-chip.off{background:var(--off-bg);color:var(--off-ink)}.dsm-chip.kt{background:var(--subtle);color:var(--muted)}

@@ -32,6 +32,7 @@ export default async ({ sleep, out }) => {
     // 3. bước ② còn mục cần hỏi người chưa tích → nút sang Hoàn thành mờ, ghi rõ còn thiếu; bước ③ khoá
     ok(!!$('#dsm-next2')?.disabled && $$('[data-dsm-pane="tien"] .dsm-left li').length > 0, `bước ② còn thiếu → nút sang Hoàn thành mờ: ${$$('[data-dsm-pane="tien"] .dsm-left li').map((x) => x.textContent.trim()).join(' · ')}`);
     await tab('xong'); ok(!!$('[data-dsm-tab="tien"][aria-selected="true"]'), 'bước ③ khoá khi bước ② còn thiếu');
+    { const i = window.__ERR.findIndex((e) => /alert: Làm xong bước 2/.test(String(e))); if (i >= 0) window.__ERR.splice(i, 1); ok(i >= 0, 'bấm bước ③ đang khoá → có lời nhắc "Làm xong bước 2…" (lời nhắc là đúng, không tính là lỗi)'); }
     // 4. tích đủ mục cần hỏi người + chọn nhóm + Để sau ở trang Tiền, rồi Hoàn thành → xong; tự sang ca sau 1,5 giây, bấm "Ở lại ca này" thì ở lại
     await tab('tien');
     for (let g = 0; g < 8 && $('[data-dsm-pane="tien"] select[data-catx].need'); g++) { const s = $('[data-dsm-pane="tien"] select[data-catx].need'); s.value = [...s.options].find((o) => o.value && o.value !== 'x')?.value || ''; s.dispatchEvent(new Event('change', { bubbles: true })); await sleep(600); }
