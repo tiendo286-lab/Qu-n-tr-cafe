@@ -12,8 +12,10 @@ import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str, once } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.28.15';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.2';
 import { STATUS as TASK_STATUS } from './viec.js';
+import { planUi } from './pc_dao_tao.js?v=2026.11.29.2';   // tệp 202: phân công nằm trong thẻ ngày
+import { PCD_CSS, wd } from './pc_dao_tao_toi.js?v=2026.11.29.2';
 
 const ITEM_FILTERS = {
   all: 'Tất cả',
@@ -61,6 +63,13 @@ export async function render({ params }) {
   let guided = []; try { guided = (await rpc('app_dt_guide_items', { p_program: PROG })) || []; } catch (_) { /* chưa có sổ tay */ }
   const hasGuide = new Set(guided.map(Number));
   const opt = T.can_admin ? await rpc('app_dt_options') : null;
+  // tệp 202 (anh Tiến 28/11): lịch đi làm đã công bố + phân công theo ca của phiếu này → thẻ ngày có luôn phần phân công.
+  //   Không tải được (máy chủ chưa có tệp 202, lỗi mạng) thì phiếu vẫn chạy như cũ, chỉ không có phần phân công.
+  const PL = await rpc('app_dt_plan_one', { p_id: id }).catch(() => null);
+  const planHook = { reload: () => rerender() };
+  const PU = PL && PL.row ? planUi({ rows: [PL.row], trainers: PL.trainers || [], today: PL.today }, { keepOpen() {}, reload: () => planHook.reload() }) : null;
+  const planDates = PU ? PU.shiftDates(PL.row) : [];
+  const canPlan = !!(PL && PL.can_assign);
   const ed = !!T.can_edit;
   const followups = new Map((T.followups || []).map((f) => [f.no, f]));
   // tệp 188 (anh Tiến chốt 27/11): mục ĐÃ xác nhận đạt thì nhân viên Cấp 1 không sửa nữa — trừ khi đang được giao giai đoạn 2 của mục đó
@@ -107,8 +116,11 @@ export async function render({ params }) {
   const home = (no) => (nextSet.has(no) ? 'next' : lastDay.get(no) || 'cu');
   const today = vnToday();
   const left = items.filter((i) => !i.level).length;
-  const tabKeys = [...dayKeys, 'next'];
-  const tabName = (k) => (k === 'next' ? 'Ngày tiếp theo' : k === 'cu' ? 'Trước khi có sổ' : `Ngày ${dayNo.get(k)} · ${ddmm(k)}`);
+  const planOnly = planDates.filter((d) => !dayKeys.includes(d));   // ngày có ca theo lịch nhưng chưa ai tích gì (thường là ngày sắp tới)
+  const tabKeys = [...[...dayKeys, ...planOnly].sort((a, b) => (a === b ? 0 : a === 'cu' ? -1 : b === 'cu' ? 1 : a < b ? -1 : 1)), 'next'];
+  const tabName = (k) => (k === 'next' ? 'Ngày tiếp theo' : k === 'cu' ? 'Trước khi có sổ' : dayNo.has(k) ? `Ngày ${dayNo.get(k)} · ${ddmm(k)}` : `${wd(k)} ${ddmm(k)}`);
+  const tabTag = (k) => { const g = PU && planDates.includes(k) ? PU.dateTag(PL.row, k) : null; return g && k !== today ? html` <span class="pill ${g.cls} dt-tab-tag">${g.label}</span>` : ''; };
+  const planBlock = (d) => (PU && planDates.includes(d) ? PU.inlineHtml(PL.row, d, canPlan) : '');
   let cur = fresh && tabKeys.includes(fresh.tab) ? fresh.tab : left || !dayKeys.length ? 'next' : dayKeys[dayKeys.length - 1];
 
   const histList = (i, lines) => {
@@ -180,10 +192,19 @@ export async function render({ params }) {
     return html`<section class="dt-pane" data-pane="${d}" role="tabpanel" ${d === cur ? '' : 'hidden'}>
       <div class="dt-pane-h"><strong>${d === 'cu' ? 'Ghi trước khi có sổ lịch sử (không rõ ngày)' : `Ngày ${dayNo.get(d)} · ${dmy(d)}${d === today ? ' · hôm nay' : ''}`}</strong>
         <span class="st-meta">${nos.length} hạng mục${who.length ? ' · người tích: ' + who.join(', ') : ''}</span></div>
+      ${d !== 'cu' ? planBlock(d) : ''}
       ${nos.map((no) => { const i = itemByNo.get(no); if (!i) return ''; const ln = L.filter((l) => l.no === no); return home(no) === d ? itemRow(i, ln) : histCard(i, ln, d); })}
       ${d !== 'cu' && H.ok ? dayNote(d) : ''}
     </section>`;
   };
+
+  // thẻ của ngày có ca theo lịch nhưng chưa có hoạt động: chỉ có phần phân công (ngày đã qua thì chỉ xem)
+  const planPane = (d) => html`<section class="dt-pane dt-plan" data-pane="${d}" role="tabpanel" ${d === cur ? '' : 'hidden'}>
+      <div class="dt-pane-h"><strong>${wd(d)} ${dmy(d)}${d === today ? ' · hôm nay' : ''}</strong>
+        <span class="st-meta">${d < today ? 'ngày đã qua · chưa ai chấm mục nào' : d === today ? 'ca hôm nay theo lịch đã công bố' : 'ngày sắp tới theo lịch đã công bố'}</span></div>
+      ${planBlock(d)}
+      ${d === today ? html`<div class="st-meta">Chấm mục hôm nay: mở thẻ “Ngày tiếp theo”, tích và chọn mức — mục vừa chấm sẽ hiện ở thẻ hôm nay. Quản lý dạy mục chưa được phân công cũng làm như vậy.</div>` : ''}
+    </section>`;
 
   const nextPane = () => {
     const groups = days.map((dd) => ({ dd, its: items.filter((i) => i.day === dd.day && nextSet.has(i.no)) })).filter((g) => g.its.length);
@@ -216,7 +237,7 @@ export async function render({ params }) {
   const st = T.status;
   return {
     title: `Đào tạo ${T.employee.code}`,
-    html: html`${STYLE}${raw(DOC_STYLE)}
+    html: html`${STYLE}${raw(DOC_STYLE)}${PU ? PCD_CSS : ''}
       <div class="page-head"><div><h1>Phiếu đào tạo chạy bàn</h1>
         <div class="sub"><strong>${T.employee.code} – ${T.employee.name}</strong> · ${T.employee.rank}</div>
         <div class="toolbar" style="gap:6px;margin-top:6px"><span class="pill ${DT_STATUS[st][1]}" id="dt-status">${dtLabel(T)}</span></div></div>
@@ -247,10 +268,12 @@ export async function render({ params }) {
           </div>
           ${H.ok ? '' : html`<div class="alert warn">Chưa tải được lịch sử theo ngày — phiếu vẫn chấm được. Tải lại trang để xem lịch sử.</div>`}
           <div class="dt-tabs" id="dt-tabs" role="tablist" aria-label="Phiếu theo ngày đào tạo thật">
-            ${tabKeys.map((k) => html`<button type="button" class="dt-tab ${k === cur ? 'on' : ''}" role="tab" data-tab="${k}" aria-selected="${k === cur ? 'true' : 'false'}">${tabName(k)}${k === 'next' ? html` · <span class="dt-left">còn ${left}</span>` : k === today ? ' · hôm nay' : ''}</button>`)}
+            ${tabKeys.map((k) => html`<button type="button" class="dt-tab ${k === cur ? 'on' : ''}" role="tab" data-tab="${k}" aria-selected="${k === cur ? 'true' : 'false'}">${tabName(k)}${k === 'next' ? html` · <span class="dt-left">còn ${left}</span>` : k === today ? ' · hôm nay' : ''}${tabTag(k)}</button>`)}
           </div>
           <div class="st-meta" id="dt-filter-note" hidden>Đang lọc: hiện mọi hạng mục khớp, xếp theo ngày. Chọn “Tất cả” để xem lại theo tab.</div>
+          ${PU && !planDates.length ? html`<div class="st-meta dt-nosched">Chưa có lịch đã công bố — chưa có ca để phân công.</div>` : ''}
           ${dayKeys.map(dayPane)}
+          ${planOnly.map(planPane)}
           ${nextPane()}
         </section>
         ${day8}
@@ -304,6 +327,13 @@ export async function render({ params }) {
       }
       // ---- tab theo ngày + bộ lọc hạng mục
       const tabs = $('#dt-tabs', root);
+      // tệp 202: khối phân công trong thẻ ngày — lưu xong vẽ lại phiếu, giữ thẻ ngày đang xem
+      if (PU) {
+        planHook.reload = () => refresh({ tab: cur });
+        $('.dt-days', root).addEventListener('click', (ev) => { if (ev.target.closest('.pcd-inl')) PU.handleClick(ev); });
+        $('.dt-days', root).addEventListener('change', (ev) => { if (ev.target.closest('.pcd-inl')) PU.handleChange(ev, root); });
+        PU.syncInline(root);
+      }
       const filter = $('#dt-item-filter', root);
       const panes = $$('.dt-pane', root);
       const stageOf = (row) => (row.dataset.check === '1' ? 'check' : row.dataset.phaseTwo === '1' ? 'phase2' : row.classList.contains('done') ? 'done' : $('.it-intro', row).checked ? 'introduced' : 'new');
@@ -316,7 +346,7 @@ export async function render({ params }) {
             row.hidden = on && (f.startsWith('lv_') ? $('.it-level', row).value !== f.slice(3) : f !== stageOf(row));
             if (!row.hidden) m++;
           });
-          $$('.dt-hcard, .dt-dnote, .dt-hl', pane).forEach((x) => { x.hidden = on; });   // đang lọc: chỉ hiện hàng để sửa
+          $$('.dt-hcard, .dt-dnote, .dt-hl, .pcd-inl', pane).forEach((x) => { x.hidden = on; });   // đang lọc: chỉ hiện hàng để sửa
           $$('.dt-grp', pane).forEach((g) => { g.hidden = on && !$$('.dt-item', g).some((r) => !r.hidden); });
           pane.hidden = on ? m === 0 : pane.dataset.pane !== cur;
           count += m;
@@ -537,6 +567,13 @@ const STYLE = html`<style>
   .dt-confirm .btn { white-space: normal; height: auto; min-height: 36px; text-align: left; overflow-wrap: anywhere; }
   /* chặng 4: tab theo ngày thật */
   .dt-tabs { position: relative; display: flex; gap: 2px; overflow-x: auto; border-bottom: 2px solid var(--line); scrollbar-width: thin; }
+  .dt-tab-tag { font-size: 11px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
+  .pcd-inl { border: 1.5px solid var(--caramel-line, #e8cfb0); background: var(--subtle, #f7f2ea); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
+  .pcd-inl-h { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+  .pcd-inl-sum { font-size: 14px; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
+  .pcd-inl-d > summary { cursor: pointer; font-weight: 700; color: var(--primary-dark, #7a431a); padding: 6px 0; min-height: 32px; } .pcd-inl-d[open] > summary { margin-bottom: 6px; }
+  .pcd-inl .pcd-mid { display: flex; flex-direction: column; gap: 8px; } .pcd-inl .pcd-it { background: var(--card, #fff); padding: 8px; }
+  .pcd-inl .pcd-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; position: sticky; bottom: 0; background: var(--subtle, #f7f2ea); padding: 6px 0; }
   .dt-tab { all: unset; box-sizing: border-box; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-weight: 600; font-size: 14px; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; }
   .dt-tab:hover { background: var(--line-soft); }
   .dt-tab.on { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }

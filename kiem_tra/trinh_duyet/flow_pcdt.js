@@ -17,32 +17,38 @@ export default async ({ visit, sleep, out }) => {
   const addD = (n) => new Date(Date.now() + 7 * 3600e3 + n * 864e5).toISOString().slice(0, 10);
   const today = addD(0), y = addD(-1), m1 = addD(1);
   const card1 = () => $('details.pcd-card[data-id="1"]');
-  const openShift = async (date, shift) => { const c = card1(); if (c && !c.open) { c.open = true; await sleep(100); }
-    $(`.pcd-sh[data-key="${date}|${shift}"]`, card1())?.click(); await sleep(500); return $('dialog[open].pcd-dlg'); };
+  // tệp 202: thẻ không còn danh sách ca; hộp bật lên vẫn mở từ ô "Xem việc của một người dạy" ([data-open]) → bài bấm một nút [data-open] tạm
+  const openShift = async (date, shift) => { const b = document.createElement('button'); b.type = 'button'; b.hidden = true; b.dataset.open = `1|${date}|${shift}`;
+    $('#pcd').appendChild(b); b.click(); b.remove(); await sleep(500); return $('dialog[open].pcd-dlg'); };
+  const inl = (date, shift, id = 1) => $(`.pcd-inl[data-inl="${id}|${date}|${shift}"]`);
+  const openPhieu = async (id) => { const c = $(`details.pcd-card[data-id="${id}"]`); if (!c.open) c.querySelector('summary').click();
+    for (let i = 0; i < 80 && !$(`.dtg-ph[data-ph="${id}"] #dt-tabs`); i++) await sleep(100); if (!$(`.dtg-ph[data-ph="${id}"] #dt-tabs`)) { $(`.dtg-ph[data-ph="${id}"] [data-phload]`)?.click(); for (let i = 0; i < 80 && !$(`.dtg-ph[data-ph="${id}"] #dt-tabs`); i++) await sleep(100); } await sleep(200); };
   const closeDlg = async () => { $('dialog[open].pcd-dlg')?.close(); await sleep(200); };
   try {
     if (['chu', 'kt', 'ql'].includes(role)) {
       await go('#/cong-viec/dao-tao'); for (let i = 0; i < 40 && !location.hash.startsWith('#/cong-viec/dao-tao'); i++) await sleep(100);
       ok(location.hash.startsWith('#/cong-viec/dao-tao') && !$('a[href="#/dao-tao/phan-cong"]'), '28/11: đường cũ Phân công đào tạo tự chuyển về trang Đào tạo gộp, menu không còn mục riêng');
       await go('#/cong-viec/dao-tao');
-      { const c = card1(); if (c) { c.open = true; await sleep(150); $('[data-dtab="ca"]', c)?.click(); await sleep(150); } }   // trang gộp: phần theo ca nằm sau nút "Phân công theo ca"
       ok(!!$('#pcd > .pcd-sum') && /\d/.test(txt($('#pcd > .pcd-sum'))), 'có ô tổng có số');
       const c1 = card1();
       ok(!!c1 && txt(c1.querySelector('summary')).includes('Người học thử'), 'thẻ phiếu 1: tên nhân viên mới');
-      if (c1) { c1.open = true; await sleep(150); }
-      ok(all('.pcd-sh:not(.off)', c1).length === 5, 'phiếu 1 có 5 ca theo lịch đã công bố — có ' + all('.pcd-sh:not(.off)', c1).length);
-      const offRow = $(`.pcd-sh.off[data-key="${y}|Tối"]`, c1);
+      // tệp 202: phân công nằm trong thẻ ngày của phiếu
+      await openPhieu(2);
+      ok(/Chưa có lịch đã công bố/.test(txt($('.dtg-ph[data-ph="2"]'))) && !$('.dtg-ph[data-ph="2"] .pcd-inl'), 'phiếu 2 không lịch: ghi "Chưa có lịch đã công bố", không có khối phân công');
+      await openPhieu(1);
+      ok(!$('.pcd-sh', c1), 'thẻ không còn danh sách ca riêng');
+      ok(all('.pcd-inl').filter((x) => !/không còn trong lịch/.test(txt(x))).length === 5, 'phiếu 1 có 5 ca theo lịch đã công bố (mỗi ca một khối phân công trong thẻ ngày) — có ' + all('.pcd-inl').length);
+      ok([addD(-2), y, today, m1, addD(2)].every((d) => !!$(`#dt-tabs .dt-tab[data-tab="${d}"]`)), 'dãy thẻ ngày có đủ 5 ngày đi làm (cả ngày sắp tới)');
+      const offRow = inl(y, 'Tối');
       ok(!!offRow && /không còn trong lịch/.test(txt(offRow)) && /15/.test(txt(offRow)), 'lịch đổi sau khi giao: ca hôm qua Tối (mục 15) vẫn hiện, ghi "không còn trong lịch"');
-      ok(/Ngày 3/.test(txt($(`.pcd-sh[data-key="${today}|Chiều"]`, c1))), 'ca hôm nay là "Ngày 3" (theo ngày đi làm thật)');
-      const c2 = $('details.pcd-card[data-id="2"]'); if (c2) { c2.open = true; await sleep(100); }
-      ok(/Chưa có lịch đã công bố/.test(txt(c2)), 'phiếu 2 không lịch: ghi "Chưa có lịch đã công bố"');
-      ok(/giao lại/.test(txt($('.pcd-ktr[data-no="13"]', c1))), 'Chờ kiểm tra trong thẻ: mục 13 ghi "giao lại"');
-      ok(role === 'chu' ? !$('.pcd-ktr [data-ktok]', c1) : !!$('.pcd-ktr[data-no="13"] [data-ktok]', c1), role === 'chu' ? 'Chủ không có nút Xác nhận đạt (chỉ HD chính / người phụ trách chính)' : 'có nút Xác nhận đạt');
-      ok(/NV08/.test(txt($(`.pcd-sh[data-key="${m1}|Sáng"]`, c1))) && /giao lại/.test(txt($(`.pcd-sh[data-key="${m1}|Sáng"]`, c1))), 'dòng ca mai: nhóm NV08 + nhóm "giao lại"');
-      { const rw = $(`.pcd-sh[data-key="${m1}|Sáng"]`, c1); const sw = $('.pcd-sw', rw); const pl = rw && [...rw.children].find((x) => x.classList.contains('pill'));
-        const a = rw.getBoundingClientRect(), b = sw.getBoundingClientRect(), c = pl.getBoundingClientRect();
-        ok(c.right <= a.right + 1 && b.right <= a.right + 1 && c.width >= 40, 'dòng ca: nhãn trạng thái nằm trọn trong khung');
-        if (phone) ok(b.width >= a.width * 0.8 && b.top >= c.bottom - 1, 'điện thoại: tên người dạy xuống dòng riêng, rộng gần hết khung — ' + Math.round(b.width) + '/' + Math.round(a.width)); }
+      ok(/hôm nay/.test(txt($(`#dt-tabs .dt-tab[data-tab="${today}"]`))) && !!inl(today, 'Chiều'), 'thẻ hôm nay có khối phân công ca Chiều');
+      ok(/Đã giao/.test(txt($(`#dt-tabs .dt-tab[data-tab="${m1}"]`))) && /Chưa giao/.test(txt($(`#dt-tabs .dt-tab[data-tab="${addD(2)}"]`))), 'nhãn trên thẻ ngày: mai "Đã giao", ngày kia "Chưa giao"');
+      ok(!!$('.dtg-ph .dt-item[data-no="13"][data-check="1"]'), 'mục 13 chờ kiểm tra hiện trong phiếu');
+      ok(role === 'chu' ? !$('.dtg-ph .it-check') : !!$('.dtg-ph .it-check[data-no="13"]'), role === 'chu' ? 'Chủ không có nút Xác nhận đạt (chỉ HD chính / người phụ trách chính)' : 'có nút Xác nhận đạt');
+      ok(/NV08/.test(txt(inl(m1, 'Sáng'))) && /giao lại/.test(txt(inl(m1, 'Sáng'))), 'thẻ ngày mai: nhóm NV08 + nhóm "giao lại"');
+      { $(`#dt-tabs .dt-tab[data-tab="${m1}"]`).click(); await sleep(300); const bx = inl(m1, 'Sáng'); const a = bx.getBoundingClientRect();
+        ok(a.width > 200 && a.right <= window.innerWidth + 1 && bx.scrollWidth <= bx.clientWidth + 1 && fits(), 'khối phân công trong thẻ ngày không tràn ngang');
+        ok(!!$('.pcd-go', bx) && !!$('.pcd-mate[data-pick="7"]', bx), 'khối phân công ngày mai: có người làm cùng ca và nút lưu ngay trong thẻ'); }
       // ---- Phân công ca mai
       let dl = await openShift(m1, 'Sáng');
       ok(dfits(dl), 'hộp Phân công không tràn ngang');
@@ -67,7 +73,8 @@ export default async ({ visit, sleep, out }) => {
         const x = $('input[data-no="11"]', dl); x.checked = true; x.dispatchEvent(new Event('change', { bubbles: true }));
         $('#pcd-go', dl).click(); await sleep(1300);
       }
-      ok(/NV08.*10, 12/.test(txt($(`.pcd-sh[data-key="${m1}|Sáng"]`, card1()))), 'tích mục 11 cho NV07 → mục rời NV08 (còn 10, 12) — có ' + txt($(`.pcd-sh[data-key="${m1}|Sáng"]`, card1())));
+      for (let i = 0; i < 60 && !inl(m1, 'Sáng'); i++) await sleep(100);
+      ok(/NV08.*10, 12/.test(txt($('.pcd-inl-sum', inl(m1, 'Sáng')))), 'tích mục 11 cho NV07 → mục rời NV08 (còn 10, 12) — có ' + txt($('.pcd-inl-sum', inl(m1, 'Sáng'))));
       // ---- Chi tiết ngày đã qua
       dl = await openShift(y, 'Sáng');
       ok(!!dl && /Đã giới thiệu/.test(txt(dl)) && /Hiện tại/.test(txt(dl)) && !$('#pcd-go', dl), 'ca hôm qua: Chi tiết ngày như phiếu, không có nút Phân công');
@@ -85,7 +92,8 @@ export default async ({ visit, sleep, out }) => {
       ok(all('.pcd-fw-it').length === 1 && /10, 12/.test(txt($('.pcd-fw-it'))), 'lọc NV08 + ngày mai → 1 ca, mục 10, 12');
       // ---- Xác nhận đạt trong thẻ (người phụ trách chính / HD chính)
       if (role !== 'chu') {
-        const before = txt($('summary', card1())); $('.pcd-ktr[data-no="13"] [data-ktok]', card1()).click(); await sleep(1300);
+        for (let i = 0; i < 60 && !$('.dtg-ph .it-check[data-no="13"]'); i++) await sleep(100);
+        const before = txt($('summary', card1())); $('.dtg-ph .it-check[data-no="13"]').click(); await sleep(1500);
         ok(/Đạt 2\//.test(before) && /Đạt 3\//.test(txt($('summary', card1()))), 'Xác nhận đạt mục 13 → Đạt 2 → 3');
       }
       ok(fits(), 'trang không tràn ngang');

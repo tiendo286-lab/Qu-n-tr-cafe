@@ -1,4 +1,4 @@
-// Trang Đào tạo gộp (anh Tiến 28/11/2026): một mục Đào tạo — danh sách + bộ lọc, mở phiếu / phân công theo ca / chờ kiểm tra ngay trong thẻ.
+// Trang Đào tạo gộp (anh Tiến 28/11/2026): một mục Đào tạo — danh sách + bộ lọc, mở một người là thấy chờ kiểm tra · phân công theo ca · phiếu trong MỘT màn hình (28/11 tối: bỏ 3 nút chia).
 // Chạy (chuan_bi.sh … --dao-tao-gia, thời gian thật), index.html và test/phone.html:
 //   role=chu · role=kt&dtptc=7 (người phụ trách chính) · role=ql (HD chính NV05) · role=ql2 · role=c1 · role=nv
 // Lịch giả ở dt_gia.js chỉ có khi script=flow_pcdt → bài này không kiểm số ca, chỉ kiểm khung trang (số ca do flow_pcdt kiểm).
@@ -52,7 +52,10 @@ export default async ({ visit, sleep, out }) => {
     card(1).querySelector('summary').click();
     const got1 = await wait(() => !!$('.dtg-ph[data-ph="1"] #dt-tabs') || !!$('.dtg-ph[data-ph="1"] .alert'));
     ok(got1 && location.hash === hash0, 'bấm vào người thứ nhất → phiếu hiện ngay trong thẻ, không chuyển trang');
-    ok(all('[data-dtab]', card(1)).length === (board ? 3 : 0), board ? 'có 3 nút: Phiếu đào tạo · Phân công theo ca · Chờ kiểm tra' : 'không có quyền bảng: không có nút Phân công theo ca / Chờ kiểm tra');
+    ok(!$('[data-dtab]') && !$('[data-dpane]'), '28/11 tối: không còn nút chia Phiếu / Phân công / Chờ kiểm tra — gộp một màn hình');
+    ok(!$('[data-dsec]') && !$('details.dtg-card .pcd-sh') && !$('details.dtg-card .pcd-ktr'), 'tệp 202: thẻ không còn danh sách ca / khối chờ kiểm tra riêng — nằm trong thẻ ngày của phiếu');
+    ok(all('#dt-tabs .dt-tab-tag').length > 0 && all('.dtg-ph[data-ph="1"] .pcd-inl').length > 0, 'thẻ ngày của phiếu có nhãn tình trạng và khối phân công');
+    ok(board ? all('.dtg-ph[data-ph="1"] .pcd-go').length > 0 : all('.dtg-ph[data-ph="1"] .pcd-go').length === 0, board ? 'người được phân công: có nút lưu phân công ngay trong thẻ ngày' : 'người khác: phân công chỉ xem, không có nút lưu');
     ok(board ? !!$('#pcd > .pcd-sum') && !!$('#pcd-who') : !$('#pcd > .pcd-sum') && !$('#pcd-who'), board ? 'có ô tổng + ô xem việc của một người dạy' : 'không có ô tổng / ô xem việc của người dạy');
     ok(fits(), 'mở phiếu trong thẻ: không tràn ngang');
     card(2).querySelector('summary').click();
@@ -62,43 +65,29 @@ export default async ({ visit, sleep, out }) => {
     ok(await wait(() => !!$('.dtg-ph[data-ph="1"] #dt-tabs') || !!$('.dtg-ph[data-ph="1"] .alert')) && !!$('.dtg-ph[data-ph="2"] [data-phload]'), 'bấm "Mở phiếu ở đây" → phiếu về lại thẻ thứ nhất');
 
     if (board) {
-      // 4. ba nút trong thẻ
-      const c = card(1); const pane = (k) => $(`[data-dpane="${k}"]`, c);
-      $('[data-dtab="ca"]', c).click(); await sleep(150);
-      ok(seen(pane('ca')) && !seen(pane('phieu')) && !seen(pane('kt')), 'bấm Phân công theo ca → chỉ hiện phần theo ca');
-      ok(!!$('.pcd-shs, .pcd-nosched', pane('ca')), 'phần theo ca có danh sách ca (hoặc dòng "Chưa có lịch đã công bố")');
-      $('[data-dtab="kt"]', c).click(); await sleep(150);
-      ok(seen(pane('kt')) && !seen(pane('ca')), 'bấm Chờ kiểm tra → chỉ hiện phần chờ kiểm tra');
-      const kr = $('.pcd-ktr', pane('kt'));
-      ok(!!kr || /Không có mục nào chờ kiểm tra/.test(txt(pane('kt'))), 'phần chờ kiểm tra có mục chờ hoặc dòng "Không có mục nào chờ kiểm tra"');
-      if (role === 'chu') ok(!$('[data-ktok]') && !$('[data-ktp2]'), 'Chủ không có nút Xác nhận đạt / Giao giai đoạn 2 (chỉ HD chính / người phụ trách chính)');
+      // 4. phân công ngay trong thẻ ngày sắp tới: chọn người làm cùng ca → tích mục → lưu, không bật hộp
+      const addD = (n) => new Date(Date.now() + 7 * 3600e3 + n * 864e5).toISOString().slice(0, 10);
+      const d2 = addD(2); const key = `1|${d2}|Tối`; const box = () => $(`.pcd-inl[data-inl="${key}"]`);
+      $(`#dt-tabs .dt-tab[data-tab="${d2}"]`).click(); await sleep(300);
+      ok(seen(box()) && /Chưa giao/.test(txt($(`#dt-tabs .dt-tab[data-tab="${d2}"]`))), 'bấm thẻ ngày kia → khối phân công hiện ngay trong thẻ, nhãn "Chưa giao"');
+      const other = $('.pcd-other', box()); other.value = [...other.options].find((o) => /NV07/.test(o.textContent)).value; other.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200);
+      const cb = $('label.pcd-it[data-no="5"] input', box()); cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); await sleep(150);
+      ok(txt($('.pcd-n', box())) === '1' && !$('.pcd-go', box()).disabled && !$('dialog[open]'), 'chọn người dạy + tích 1 mục → "Đã chọn 1", nút lưu bật, không có hộp bật lên');
+      $('.pcd-go', box()).click(); await sleep(1500); await wait(() => !!box());
+      ok(/NV07/.test(txt($('.pcd-inl-sum', box()))) && /Đã giao/.test(txt($(`#dt-tabs .dt-tab[data-tab="${d2}"]`))), 'lưu xong: thẻ ngày kia ghi NV07 dạy mục 5, nhãn đổi thành "Đã giao"');
+      ok(card(1).open && $(`#dt-tabs .dt-tab[data-tab="${d2}"]`).classList.contains('on'), 'lưu xong vẫn ở đúng thẻ ngày đang xem');
+      const kr = $('.dtg-ph .dt-item[data-check="1"]');
+      if (role === 'chu') ok(!$('.dtg-ph .it-check'), 'Chủ không có nút Xác nhận đạt (chỉ HD chính / người phụ trách chính)');
       else if (kr) {
-        const lv = $('.pcd-kt-lv', kr); const p2 = $('[data-ktp2]', kr);
-        ok(!!$('[data-ktok]', kr) && !!p2, 'có nút Xác nhận đạt + Giao giai đoạn 2');
-        lv.value = 'tot'; lv.dispatchEvent(new Event('change', { bubbles: true })); await sleep(100);
-        ok(p2.hidden, 'mức Tốt → ẩn nút Giao giai đoạn 2');
-        lv.value = 'kha'; lv.dispatchEvent(new Event('change', { bubbles: true })); await sleep(100);
-        ok(!p2.hidden, 'mức Khá → hiện nút Giao giai đoạn 2');
-        // 5. lưu rồi trang vẽ lại: còn đúng thẻ mở, đúng nút, bộ lọc
+        // 5. xác nhận mục chờ kiểm tra ngay trong phiếu → trang vẽ lại vẫn giữ thẻ mở, phiếu, bộ lọc
         type('hoc thu'); await sleep(150);
         const before = txt($('summary', card(1)));
-        if (role === 'kt') {   // người phụ trách chính: Giao giai đoạn 2 = xác nhận mức đang chọn rồi mở hộp giao người luyện thêm
-          p2.click(); const dlg = await wait(() => !!$('dialog[open] #dt-guide-person-form'));
-          ok(dlg && /Giao giai đoạn 2/.test(txt($('dialog[open]'))), 'bấm Giao giai đoạn 2 → mở hộp "Giao giai đoạn 2"');
-          $('dialog[open]')?.close(); await sleep(200);
-          const app = await import('../js/app.js'); await app.render(); await sleep(400);
-        } else { $('[data-ktok]', kr).click(); await sleep(1500); }
-        await wait(() => !!card(1));
+        $('.it-check', kr).click(); await sleep(1500); await wait(() => !!$('.dtg-ph[data-ph="1"] #dt-tabs'));
         const c2 = card(1);
-        ok(!!c2 && c2.open && $('[data-dtab="kt"]', c2).getAttribute('aria-pressed') === 'true' && seen($('[data-dpane="kt"]', c2)), 'xác nhận xong → trang vẽ lại, thẻ vẫn mở ở nút Chờ kiểm tra');
+        ok(!!c2 && c2.open && !!$('.dtg-ph[data-ph="1"] #dt-tabs') && all('#dt-tabs').length === 1, 'xác nhận đạt trong phiếu → trang vẽ lại, thẻ vẫn mở, phiếu vẫn còn');
         ok($('#dtg-q').value === 'hoc thu', 'vẽ lại vẫn giữ chữ đang tìm');
         ok(txt($('summary', c2)) !== before, 'số Đạt trên thẻ đổi sau khi xác nhận — ' + txt($('summary', c2)).slice(0, 90));
         $('#dtg-clear').click(); await sleep(150);
-        // 6. lưu trong phiếu nhúng → trang vẽ lại, phiếu vẫn còn trong thẻ
-        $('[data-dtab="phieu"]', c2).click();
-        ok(await wait(() => !!$('.dtg-ph[data-ph="1"] #dt-tabs')), 'quay lại nút Phiếu đào tạo → phiếu hiện trong thẻ');
-        const { render } = await import('../js/app.js'); await render(); await sleep(300);
-        ok(!!card(1) && card(1).open && !!$('.dtg-ph[data-ph="1"] #dt-tabs') && all('#dt-tabs').length === 1, 'trang vẽ lại (như sau khi lưu trong phiếu) → phiếu vẫn còn trong thẻ đang mở — mở=' + card(1)?.open + ' · số phiếu=' + all('#dt-tabs').length + ' · trong thẻ: ' + txt($('.dtg-ph[data-ph="1"]')).slice(0, 80));
       }
     } else {
       // (quản lý được giao lại vẫn có nút xác nhận trong khối Việc đào tạo của tôi — quyền có từ tệp 174, không thuộc thẻ)
