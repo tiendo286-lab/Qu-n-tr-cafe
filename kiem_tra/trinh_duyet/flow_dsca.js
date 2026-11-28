@@ -23,6 +23,17 @@ export default async ({ sleep, out }) => {
       ok(/⏳/.test(txt(cell(172)?.querySelector('.cw-dt'))) && /🔴/.test(txt(cell(182)?.querySelector('.cw-dt'))) && /–/.test(txt(cell(182)?.querySelector('.cw-dv'))),
         `(a) ca 172 chờ kế toán ⏳ · ca 182 ô đỏ 🔴, chưa làm phần việc – (172: ${txt(cell(172)?.querySelector('.cw-dt'))} · 182: ${txt(cell(182)?.querySelector('.cw-dv'))} ${txt(cell(182)?.querySelector('.cw-dt'))})`);
       ok(!!$('.cw-lgds'), '(a) có chú thích ký hiệu Việc · Tiền');
+      // anh Tiến 28/11: màu ô theo đối soát — ca chờ kế toán tím, ca quản lý còn việc vàng, có dòng đếm tuần; xếp loại đúng theo người đang giữ việc
+      ok(cell(172)?.classList.contains('ds-kt') && cell(182)?.classList.contains('ds-wait') && /chờ kế toán/.test(txt(cell(172))) && /ql chưa đối soát/.test(txt(cell(182))) && /tuần này/.test(txt($('.cw-sum'))),
+        `(a) ô 172 màu Chờ kế toán · ô 182 màu QL chưa đối soát · có dòng đếm tuần (${txt($('.cw-sum'))})`);
+      const { dsKind } = await import('../js/pages/chot_ca.js');
+      const kd = (x) => { const k = dsKind(x); return k.k + (k.why.length ? ':' + k.why.join('+') : ''); };
+      const X2 = 'Chờ Chủ duyệt x2';
+      const got = [kd({ recon: 'hoan_thanh', viec: { xong: true, thieu: [] }, tien: { st: 'ok' } }), kd({ viec: { xong: true, thieu: [] }, tien: { st: 'lech' } }),
+        kd({ viec: { xong: false, thieu: [X2] }, tien: { st: 'ok' } }), kd({ viec: { xong: false, thieu: [X2] }, tien: { st: 'lech' } }),
+        kd({ viec: { xong: false, thieu: ['Bàn giao', X2] }, tien: { st: 'lech' } }), kd({ viec: { xong: true, thieu: [] }, tien: { st: 'ht' } }),
+        kd({ viec: { xong: true, thieu: [] }, tien: { st: 'xn' } }), kd({ viec: { xong: false, thieu: [X2] }, tien: { st: 'kt' } })].join(' | ');
+      ok(got === 'done | hold:Chờ tiền về / chênh lệch | hold:Chờ Chủ duyệt x2 | hold:Chờ tiền về / chênh lệch+Chờ Chủ duyệt x2 | wait | wait | wait | kt', '(a) xếp loại ô: ' + got);
       // anh Tiến chốt 23/11: ca đã bấm Hoàn thành tiền mà còn chênh lệch chờ xử lý (183: thiếu tiền mặt 30.000) → Tiền 🟠, chú thích có 🟠
       ok(/🟠/.test(txt(cell(183)?.querySelector('.cw-dt'))) && /còn chênh lệch/.test((cell(183)?.getAttribute('title') || '').toLowerCase()) && /🟠/.test(txt($('.cw-lgds'))),
         '(a) ca 183 Hoàn thành tiền còn chênh lệch → Tiền 🟠 (' + txt(cell(183)?.querySelector('.cw-dt')) + ')');

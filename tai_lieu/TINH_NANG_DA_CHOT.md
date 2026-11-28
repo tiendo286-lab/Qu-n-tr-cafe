@@ -1147,7 +1147,7 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-27-bang-tien-chenh-lech-design
 - Giao diện: `order_nv.js` tách `orderView` / `orderMount` / `orderCfg` dùng chung cho trang nhân viên và hình xem trước.
 - Bài thử: `flow_ocfg` — chu 13, ql 1, nv 5, nv `phan=bat` 7, nv `phan=khoa` 3 (máy tính + điện thoại). Chạy thử máy chủ thật (tự hoàn tác) 27/11 20:15: 10/10 đạt (`kiem192.sql` ở scratchpad).
 
-## Trang đối soát ca: ai mở được, khi nào mở được (anh Tiến chốt 28/11/2026 — web 2026.11.28.11, VÙNG KHOÁ)
+## Trang đối soát ca: ai mở được, khi nào mở được (anh Tiến chốt 28/11/2026 — web 2026.11.28.12, VÙNG KHOÁ)
 
 - Anh Tiến bảo "xoá đối soát cũ"; khi rà thì thấy trang mới thiếu 3 thứ trang cũ có → hỏi từng ý, anh chọn A cả ba (làm như trang cũ):
   1. Người **không được giao** đối soát cơ sở đó mở trang đối soát của ca → chỉ thấy lời báo "Bạn không có quyền đối soát phiếu này" (hoặc lời của máy chủ + "nhờ Chủ thêm tên ở dòng Đối soát ca trong Bảng phân công"), nút Mở phiếu chốt ca. Không thấy số tiền, không tải số tiền của cơ sở.
