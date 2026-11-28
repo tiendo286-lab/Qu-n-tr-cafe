@@ -478,13 +478,18 @@ export async function render({ params }) {
       const stSave = async (R, listNew, reason, date) => {
         if ((R.checks || {}).nhan_su) await rpc('app_ca_check', { p_id: R.id, p_item: 'nhan_su', p_on: false });   // Nhân sự đã duyệt → bỏ duyệt trước, như trang đối soát ca
         await rpc('app_ca_recon_save', { p_id: R.id, p: { staff: listNew }, p_reason: reason });
+        // 29/11 (anh Tiến: "cho bảng tự duyệt lại nhân sự sau khi sửa"): ca TRƯỚC ĐÓ đã duyệt Nhân sự → sửa xong đánh dấu duyệt lại luôn.
+        // Ca chưa duyệt Nhân sự thì để nguyên. Máy chủ không nhận (vd còn điều kiện khác) thì báo để duyệt tay ở trang của ca.
+        let redo = '';
+        if ((R.checks || {}).nhan_su) { try { await rpc('app_ca_check', { p_id: R.id, p_item: 'nhan_su', p_on: true }); redo = ' Đã tự duyệt lại phần Nhân sự của ca.'; }
+          catch (e) { redo = ` CHƯA tự duyệt lại được phần Nhân sự (${e.message || e}) — duyệt lại ở trang của ca.`; } }
         await refreshCa(R.id, date);
-        flashNow(`Đã lưu nhân sự của ca.${(R.checks || {}).nhan_su ? ' Phần Nhân sự của ca đã bị bỏ duyệt — duyệt lại ở trang của ca.' : ''}`, 'info');
+        flashNow(`Đã lưu nhân sự của ca.${redo}`, redo.includes('CHƯA') ? 'warn' : 'info');
       };
       const stOpen = async (rid) => { let R; try { R = await loadCa(rid); } catch (e) { flashNow(`Chưa sửa được nhân sự của ca này tại bảng: ${e.message || String(e)}`, 'error'); return null; }
         if (R.recon_status === 'hoan_thanh') { flashNow('Ca này đã Hoàn thành đối soát — vào trang của ca bấm Mở lại rồi mới sửa nhân sự.', 'error'); return null; }
         return R; };
-      const stNote = (R) => ((R.checks || {}).nhan_su ? html`<div class="st-meta">Nhân sự của ca này đã được duyệt — sửa thì web tự bỏ duyệt Nhân sự, cần duyệt lại ở trang của ca.</div>` : '');
+      const stNote = (R) => ((R.checks || {}).nhan_su ? html`<div class="st-meta">Nhân sự của ca này đã được duyệt — sửa xong web tự duyệt lại phần Nhân sự.</div>` : '');
       async function staffEdit(rid, eid, date) {
         const R = await stOpen(rid); if (!R) return;
         const i = (R.staff || []).findIndex((z) => Number(z.employee_id) === Number(eid)); if (i < 0) { flashNow('Không thấy người này trong ca (tải lại trang).', 'error'); return; }

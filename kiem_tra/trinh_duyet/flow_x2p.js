@@ -77,6 +77,23 @@ export default async ({ sleep, out }) => {
         { const f3 = dlg().querySelector('form'); f3.reason.value = 'Thử bỏ người'; dlg().querySelector('[data-del]').click(); await wait(() => !dlg(), 100); await sleep(900); }
         g = await rpc('app_cv_get', { p_id: idS });
         ok(g.people.length === n0 && !colS()?.querySelector(`[data-st="${idS}:${added}"]`) && g.state === st0, `Bỏ người: ca về ${g.people.length} người, vẫn ${g.state} · ${W()}`);
+        // 29/11: ca đã duyệt Nhân sự → sửa xong bảng tự duyệt lại; ca chưa duyệt thì để nguyên
+        { const chk = async () => !!((await rpc('app_ca_get', { p_id: idS })).checks || {}).nhan_su;
+          const c0 = await chk(); let e9 = '';
+          try { await rpc('app_ca_check', { p_id: idS, p_item: 'nhan_su', p_on: true }); } catch (e) { e9 = e.message; }
+          if (!(await chk())) r.push(`LỖI không dựng được ca đã duyệt Nhân sự để thử: ${e9}`);
+          else {
+            colS().querySelector('[data-stadd]').click(); await wait(() => !!dlg(), 80);
+            const f5 = dlg().querySelector('form'); f5.emp.value = f5.emp.options[f5.emp.options.length - 1].value; const a5 = Number(f5.emp.value);
+            ok(/tự duyệt lại/i.test(dlg().textContent), 'Hộp sửa nhắc: ca đã duyệt Nhân sự, sửa xong web tự duyệt lại');
+            f5.elements.in.value = '07:00'; f5.elements.out.value = '11:00'; f5.reason.value = 'Thử tự duyệt lại'; f5.querySelector('[type=submit]').click(); await wait(() => !dlg(), 100); await sleep(900);
+            const g5 = await rpc('app_cv_get', { p_id: idS });
+            ok(g5.people.some((p) => p.employee_id === a5) && (await chk()) && /tự duyệt lại phần Nhân sự/.test(txt('#x2p-msg')), `Ca đã duyệt Nhân sự: thêm người lưu được và Nhân sự vẫn ở trạng thái đã duyệt · ${txt('#x2p-msg')}`);
+            colS().querySelector(`[data-st="${idS}:${a5}"]`).click(); await wait(() => !!dlg(), 80);
+            dlg().querySelector('form').reason.value = 'Thử bỏ người'; dlg().querySelector('[data-del]').click(); await wait(() => !dlg(), 100); await sleep(900);
+            ok((await rpc('app_cv_get', { p_id: idS })).people.length === n0 && (await chk()), 'Bỏ người vừa thêm: ca về như cũ, Nhân sự vẫn đã duyệt');
+            if (!c0) await rpc('app_ca_check', { p_id: idS, p_item: 'nhan_su', p_on: false }).catch(() => null);   // trả ca về trạng thái ban đầu
+          } }
         }
         window.__KT_XONG = false;
       }
