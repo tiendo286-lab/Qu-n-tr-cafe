@@ -551,7 +551,7 @@ export async function renderNew(R0, P, SH) {
             const grp = (lbl, list) => (list.length ? html`<div class="cm-hp-g">${lbl} (${list.length})</div>${list.map(item)}` : '');
             if (HP.tab === 'out') {
               const name = HP.q.trim().replace(/\s+/g, ' '); const list = HELP.outside.filter(free);
-              const same = HELP.outside.some((x) => x.name.toLowerCase() === name.toLowerCase());
+              const same = HELP.outside.some((x) => norm(x.name).replace(/\s+/g, ' ') === norm(name));   // tệp 205: so tên bỏ dấu
               box.innerHTML = str(html`${grp('Người ngoài đã từng làm', list)}${list.length ? '' : html`<span class="st-meta">${q ? `Chưa có người ngoài nào khớp "${HP.q}".` : 'Chưa có người ngoài nào. Gõ tên ở ô trên để thêm.'}</span>`}
                 ${name.length >= 2 && !same ? html`<button type="button" class="btn sm secondary" id="cm-out-new" style="margin-top:6px;white-space:normal;text-align:left;text-transform:none">+ Thêm "${name}" là người ngoài mới</button>` : ''}`);
               $$('[data-add-emp]', box).forEach((b) => b.addEventListener('click', () => addEmp(HELP.outside.find((x) => String(x.id) === b.dataset.addEmp))));

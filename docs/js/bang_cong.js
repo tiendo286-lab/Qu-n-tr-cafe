@@ -11,7 +11,9 @@ const h2 = (n) => (Number(n) || 0).toLocaleString('vi-VN', { maximumFractionDigi
 export async function renderBangCong(params, nav) {
   const today = new Date(Date.now() + 7 * 3600e3).toISOString().slice(0, 7);
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : today;
-  const D = await rpc('app_bang_cong', { p_month: month });
+  const [D, H] = await Promise.all([rpc('app_bang_cong', { p_month: month }), rpc('app_ca_helpers').catch(() => null)]);
+  // tệp 205: người ngoài làm hộ ca (kể cả người đã ẩn) — ghi rõ trong bảng công. Không đọc được danh sách thì bảng vẫn hiện như cũ.
+  const NN = new Set([...(H?.outside || []), ...(H?.outside_hidden || [])].map((x) => Number(x.id))); const isNN = (r) => NN.has(Number(r.employee_id));
   const app = D.rows.filter((r) => !r.pay_cash); const cash = D.rows.filter((r) => r.pay_cash);
   const outs = D.covers.filter((c) => c.outsider);
   const ml = `${month.slice(5)}/${month.slice(0, 4)}`;
@@ -21,7 +23,7 @@ export async function renderBangCong(params, nav) {
   };
   const table = (rows, isCash) => html`<table class="table rt"><thead><tr><th>Nhân viên</th><th class="r">Ca</th><th class="r">Giờ thực tế</th><th class="r">Giờ x2 được cộng</th><th class="r">Giờ bị trừ</th><th class="r">Phạt</th>
       ${isCash ? html`<th class="r">Lương tiền mặt đã trả</th>` : ''}<th>Ghi chú</th></tr></thead>
-    <tbody>${rows.length ? rows.map((r) => html`<tr><td data-label="Nhân viên"><strong>${r.code} – ${r.name}</strong>${r.status !== 'Đang làm' ? html` <span class="pill mute">${r.status}</span>` : ''}</td>
+    <tbody>${rows.length ? rows.map((r) => html`<tr><td data-label="Nhân viên"><strong>${r.code} – ${r.name}</strong>${isNN(r) ? html` <span class="pill warn">Người ngoài</span>` : r.status !== 'Đang làm' ? html` <span class="pill mute">${r.status}</span>` : ''}</td>
       <td class="r" data-label="Ca">${r.shifts}${r.pending ? html` <span class="st-meta">(${r.pending} chờ xác nhận)</span>` : ''}${r.absent ? html` <span class="st-meta">· nghỉ ${r.absent}</span>` : ''}</td>
       <td class="r" data-label="Giờ thực tế">${h2(r.hours)}</td>
       <td class="r" data-label="Giờ x2 được cộng">${Number(r.x2_hours) ? html`<strong style="color:#15803d">+${h2(r.x2_hours)}</strong>` : '—'}</td>
@@ -58,7 +60,7 @@ export async function renderBangCong(params, nav) {
       $('#bc-m').addEventListener('change', (ev) => { if (ev.target.value) go('/quan-ly/bao-cao?tab=bang-cong&thang=' + ev.target.value); });
       $('#bc-xls').addEventListener('click', () => downloadXlsx(`Bang_cong_${month}.xlsx`, [
         { name: 'BANG_CONG', rows: [['MÃ NV', 'TÊN', 'NHÓM', 'SỐ CA', 'GIỜ THỰC TẾ', 'CA CHỜ XÁC NHẬN', 'SỐ CA NGHỈ', 'GIỜ X2 ĐƯỢC CỘNG', 'GIỜ BỊ TRỪ', 'PHẠT', 'LƯƠNG TIỀN MẶT ĐÃ TRẢ', 'GHI CHÚ'],
-          ...D.rows.map((r) => [r.code, r.name, r.pay_cash ? 'Tiền mặt' : 'HRM', r.shifts, Number(r.hours), r.pending, r.absent, Number(r.x2_hours), Number(r.deduct_hours), Number(r.fine || 0), Number(r.cash_paid), note(r)])] },
+          ...D.rows.map((r) => [r.code, r.name, isNN(r) ? 'Người ngoài (tiền mặt)' : r.pay_cash ? 'Tiền mặt' : 'HRM', r.shifts, Number(r.hours), r.pending, r.absent, Number(r.x2_hours), Number(r.deduct_hours), Number(r.fine || 0), Number(r.cash_paid), note(r)])] },
         { name: 'NGHI_LAM_THAY', rows: [['NGÀY', 'CA', 'CƠ SỞ', 'NGƯỜI NGHỈ', 'LÝ DO', 'NGƯỜI LÀM THAY', 'NGOÀI QUÁN', 'GIỜ', 'X2', 'GIỜ TRỪ', 'PHẠT', 'CHỦ DUYỆT'],
           ...D.covers.map((c) => [c.date, c.shift, c.branch, c.absent || '', c.reason_label, c.helper || '', c.outsider ? 'Có' : '', Number(c.hours), c.x2 ? 'x2' : '', Number(c.deduct_hours), Number(c.fine || 0), c.approved ? 'Đã duyệt' : 'Chờ'])] },
       ]));

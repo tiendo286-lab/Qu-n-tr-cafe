@@ -45,6 +45,8 @@ export default async ({ sleep, out }) => {
     if (!$('#cm-help-list')) { $('[data-hp="out"]').click(); await wait('#cm-help-list', 50); }
     typ($('#cm-helper'), 'anh nam THỬ 202'); await sleep(200);
     ok(!$('#cm-out-new'), 'gõ lại tên đã có (khác hoa thường): không có nút tạo trùng');
+    typ($('#cm-helper'), 'anh nam thu 202'); await sleep(200);
+    ok(!$('#cm-out-new'), 'tệp 205: gõ lại tên đã có nhưng không dấu: không có nút tạo trùng');
     ok(!$$('[data-add-emp]').some((b) => /Anh Nam thử 202/.test(b.innerText)), 'người đã ở trong ca không hiện lại để thêm lần hai');
     // máy chủ: gọi thêm lần nữa cùng tên → trả hồ sơ cũ
     const again = await rpc('app_ca_outsider_add', { p_name: 'ANH NAM thử 202', p_phone: null });
@@ -121,6 +123,28 @@ export default async ({ sleep, out }) => {
       }
       ok(fits(), `trang Nhân viên không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
     }
+
+    // ---------- D. Tệp 205: so tên bỏ dấu · ẩn người ngoài · bảng công ----------
+    const hoa = await rpc('app_ca_outsider_add', { p_name: 'Chị Hoa thử 202', p_phone: null });
+    const n1 = (await rpc('app_ca_helpers')).outside.length;
+    const hoa2 = await rpc('app_ca_outsider_add', { p_name: 'CHI HOA  thu 202', p_phone: null });
+    ok(hoa2.existed === true && hoa2.id === hoa.id && (await rpc('app_ca_helpers')).outside.length === n1, `gõ tên không dấu trùng người đã có → dùng lại hồ sơ cũ (existed=${hoa2.existed})`);
+    await go('#/quan-ly/nhan-vien', '.emp-row');
+    if ($('#show-stopped') && $('.nn-an')) {
+      const rowOf = () => $$('.emp-row').find((r) => /Chị Hoa thử 202/.test(r.innerText));
+      ok(/^Ẩn$/i.test(rowOf()?.querySelector('.nn-an')?.innerText.trim() || ''), 'trang Nhân viên: dòng người ngoài có nút Ẩn');
+      rowOf()?.querySelector('.nn-an')?.click();
+      await until(() => /Hiện lại/i.test(rowOf()?.querySelector('.nn-an')?.innerText || ''), 60);
+      ok(/Đã ẩn/i.test(rowOf()?.innerText || '') && /Hiện lại/i.test(rowOf()?.querySelector('.nn-an')?.innerText || ''), 'bấm Ẩn → dòng có nhãn Đã ẩn và nút Hiện lại');
+      let Hd = await rpc('app_ca_helpers');
+      ok(!Hd.outside.some((x) => x.id === hoa.id) && Hd.outside_hidden.some((x) => x.id === hoa.id), 'người đã ẩn rời danh sách chọn người (vẫn còn ở nhóm đã ẩn cho bảng công)');
+      const again2 = await rpc('app_ca_outsider_add', { p_name: 'chi hoa thu 202', p_phone: null }); Hd = await rpc('app_ca_helpers');
+      ok(again2.id === hoa.id && Hd.outside.some((x) => x.id === hoa.id), 'gõ lại tên người đã ẩn → dùng lại hồ sơ cũ và tự hiện lại');
+      ok(fits(), `trang Nhân viên (có nút Ẩn) không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
+    }
+    const kb = L().length; await go('#/quan-ly/bao-cao?tab=bang-cong', '#bc-m');
+    if ($('#bc-m')) { ok(since(kb).some((x) => x[1] === 'app_ca_helpers'), 'bảng công đọc danh sách người ngoài để gắn nhãn');
+      ok(fits(), `bảng công không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`); }
   } catch (e) { bad.push('LỖI ' + (e.stack || e.message)); }
   out.push({ route: 'tệp 203: thêm người ngoài vào ca', title: `ĐẠT ${good.length} · LỖI ${bad.length} || ${[...bad.map((x) => 'LỖI ' + x), ...good.map((x) => 'ĐẠT ' + x)].join(' || ')}`, len: 0, errs: [...window.__ERR, ...bad] });
 };

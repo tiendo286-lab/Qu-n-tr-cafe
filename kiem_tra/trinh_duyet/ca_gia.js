@@ -568,13 +568,16 @@ export function makeCa(T, me) {
       const br = (id) => (T.employee_branches || []).filter((x) => x.employee_id === id).map((x) => x.branch_id);
       const js = ({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash, branches: br(id) });
       return { active: T.employees.filter((e) => e.status === 'Đang làm').map(js), former: T.employees.filter((e) => e.status !== 'Đang làm' && !e.is_outsider).map(js),
-        outside: T.employees.filter((e) => e.status !== 'Đang làm' && e.is_outsider).map(js) };   // tệp 203: người ngoài
+        outside: T.employees.filter((e) => e.status !== 'Đang làm' && e.is_outsider && !e.outsider_hidden).map(js),
+        outside_hidden: T.employees.filter((e) => e.status !== 'Đang làm' && e.is_outsider && e.outsider_hidden).map(js) };   // tệp 203: người ngoài
     },
     app_ca_outsider_add({ p_name, p_phone = null }) {   // tệp 203: tạo nhanh người ngoài; trùng tên → trả hồ sơ cũ
       const nm = String(p_name || '').trim().replace(/\s+/g, ' ');
       if (nm.length < 2 || nm.length > 60) throw new Error('Tên người ngoài từ 2 đến 60 ký tự.');
       if (p_phone && !/^[0-9 +().-]{8,20}$/.test(String(p_phone).trim())) throw new Error('Số điện thoại không hợp lệ.');
-      let e = T.employees.find((x) => x.is_outsider && x.name.toLowerCase() === nm.toLowerCase()); const existed = !!e;
+      const kd = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim().replace(/\s+/g, ' ');   // tệp 205: so tên bỏ dấu
+      let e = T.employees.find((x) => x.is_outsider && kd(x.name) === kd(nm)); const existed = !!e;
+      if (e) e.outsider_hidden = false;   // đã ẩn → hiện lại
       if (!e) {
         let n = 1; const code = () => 'NG' + String(n).padStart(2, '0');
         while (T.employees.some((x) => String(x.code).toLowerCase() === code().toLowerCase())) n++;
@@ -582,6 +585,10 @@ export function makeCa(T, me) {
         T.employees.push(e);
       }
       return { id: e.id, code: e.code, name: e.name, rank: e.rank, pay_cash: true, branches: [], existed };
+    },
+    app_ca_outsider_hide({ p_id, p_hidden }) {   // tệp 205
+      const e = T.employees.find((x) => x.id === p_id && x.is_outsider); if (!e) throw new Error('Không tìm thấy người ngoài này.');
+      e.outsider_hidden = !!p_hidden;
     },
     app_ca_outsider_rename({ p_id, p_name }) {
       const nm = String(p_name || '').trim().replace(/\s+/g, ' ');
