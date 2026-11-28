@@ -18,8 +18,9 @@ export default async ({ sleep, out }) => {
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     await go();
-    ok(txt($('.stc-dsh')).includes('ca chiều 18/11'), '1. mở phiếu tiền ca Chiều 18/11');
-    await st(1); ok(!!$('[data-dsclose][disabled]'), '1. còn ô đỏ → nút Xác nhận Fabi (bước 2) tắt'); await st(0);
+    // 28/11/2026 bỏ trang đối soát cũ: bài chạy trên trang mới (bước ② Tiền) — khung Xác nhận Fabi / Mở lại xác nhận trang mới ẩn (sửa thẳng tới khi Hoàn thành, luật mới tệp 173)
+    ok(txt($('#root')).includes('ca chiều') && !!$('#dsm .stc-dsp'), '1. mở phần tiền ca Chiều 18/11 ở trang đối soát ca');
+    { const e = $('#dsm .stc-a-end'); ok(!e || getComputedStyle(e).display === 'none', '1. trang mới ẩn khung Xác nhận Fabi của khối cũ'); }
     // 2. mở ca tầng 1: Sửa theo Fabi
     ok(!!$('[data-dsfabi="mo"]', box('mo')) && txt(box('mo')).includes('so với máy'), '2. tiền mở ca: nhân viên ghi khác máy → có Lấy số máy Fabi');
     await act('[data-dsfabi="mo"]', ''); await settle();
@@ -42,19 +43,8 @@ export default async ({ sleep, out }) => {
     await st(1); $('[data-dsmode="ca"]').click(); await sleep(900); await settle();
     ok(!!$('.stc-dsp [name=ds_tm]'), '5. thu theo ca → có ô nhập tiền mặt thực nhận');
     setv('.stc-dsp [name=ds_tm]', '2.000.000'); $('[data-dscash]').click(); await sleep(900); await settle();
-    ok(txt($('.stc-dsp')).includes('2.000.000 (quản lý thu)'), '5. đã lưu tiền mặt thực nhận 2.000.000');
-    // 6. chốt
-    ok(!!$('[data-dsclose]:not([disabled])'), '6. hết ô đỏ + có tiền thực nhận → Chốt bấm được');
-    $('[data-dsclose]').click(); await sleep(1000); await settle();
-    ok($('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep === '2' && txt($('.stc-dsp .stc-dsh')).includes('🔵'), '6. bước 171: xác nhận xong tự sang bước 3, ca 🔵 Đã xác nhận Fabi (chưa hoàn thành)');
-    await st(0); const khoa1 = !$('[data-dsfabi]'); await st(1);
-    ok(txt($('.stc-dsp')).includes('đã xác nhận') && !!$('[data-dsreopen]') && khoa1, '6. Đã xác nhận Fabi: bước 1 khoá, bước 2 có Mở lại xác nhận');
-    location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&pm=tm'; await sleep(300); await wait('.stc-pay'); await sleep(400); $('.stc-all')?.click(); await sleep(300);
-    const sua = $$('.stc-it:not(.void)').find((i) => txt(i).includes('mua sữa tươi'));
-    ok(!!sua && !!$('button.stc-ed:not([disabled])', sua), '6. chốt xong → khoản của ca sửa được ở Sổ chi');
-    // 7. mở lại chốt
-    await go(); await act('[data-dsreopen]', 'nhập lại tiền'); await settle();
-    ok(!!$('[data-dsclose]') && !txt($('.stc-dsp')).includes('🔒 đã chốt'), '7. Mở lại chốt → về chưa chốt');
+    ok($$('#dsm .stc-dsp').some((x) => txt(x).includes('2.000.000')), '5. đã lưu tiền mặt thực nhận 2.000.000');
+    // 6–7 (Xác nhận Fabi rồi Mở lại xác nhận): bỏ 28/11 cùng trang đối soát cũ — trang mới không có hai nút này; Hoàn thành / Mở lại của trang mới do flow_dsm2, flow_dsm4 kiểm.
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `8. không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
   } catch (e) { bad.push('LỖI CHẠY: ' + e.message + ' · ' + [...document.querySelectorAll('dialog[open] .stc-err')].map(txt).join(' | ')); }
   out.push({ stc4: { ok: good, fail: bad } });
