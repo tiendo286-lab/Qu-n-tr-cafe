@@ -190,7 +190,16 @@ export default async ({ sleep, out }) => {
           ok(Number($('[data-tab="xong"] strong').textContent) === nx + 1 && Number($('[data-tab="duyet"] strong').textContent) === nd, 'Số ở thẻ Đã duyệt tăng 1, thẻ Chờ Chủ duyệt không đổi');
           // ca thứ hai: lưu lý do thường → sang Chờ Chủ duyệt → Chủ bấm nhanh Đổi ca ngay ở bước duyệt
           cD().querySelector('.cv-reason').value = 'tu_tim'; cD().querySelector('.cv-x').checked = true; cD().querySelector('[data-one]').click(); await wait(() => !cD(), 100);
+          // 28/11 (bản chạy thử): bước duyệt làm ở BẢNG THEO CA — mỗi cơ sở một cột, thao tác ngay dưới cột
           await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+          ok(/bảng theo ca/i.test($('#x2p-kieu')?.textContent || ''), 'Có nút Xem dạng bảng theo ca (thử)');
+          $('#x2p-kieu').click(); await wait('.x2p-board'); await sleep(700);
+          if (!cD()) { const k = [...$('#x2p-g').options].find((o) => o.textContent.includes(oD.shift)); if (k) { $('#x2p-g').value = k.value; $('#x2p-g').dispatchEvent(new Event('change', { bubbles: true })); await sleep(900); } }
+          {
+            const col = cD()?.closest('.x2p-col');
+            ok(!!col && $$('.x2p-col').length >= 2 && !!col.querySelector('.x2p-pp.x') && !!col.querySelector('.x2p-pp.p'), `Bảng theo ca: ${$$('.x2p-col').length} cột, cột của ca có người ✗ nghỉ và + làm ngoài lịch · ${txt('.x2p-gnav').slice(0, 70)} · ${W()}`);
+            ok(!$('#x2p-ok') && !$('.x2p-pick') && /duyệt ca này/i.test(cD().querySelector('[data-one]')?.textContent || '') && /kieu=bang/.test(location.hash) && /danh sách/i.test($('#x2p-kieu').textContent), 'Bảng theo ca: nút Duyệt ca này nằm ngay dưới cột, không có tích hàng loạt, có nút quay về danh sách');
+          }
           ok(!!cD()?.querySelector('[data-dc]') && cD().querySelector('.cv-x').checked, 'Chờ Chủ duyệt: ca đang x2 có nút nhanh Đổi ca');
           cD().querySelector('[data-dc]').click(); await wait(() => !cD(), 100);
           const gD = await rpc('app_cv_get', { p_id: idD });

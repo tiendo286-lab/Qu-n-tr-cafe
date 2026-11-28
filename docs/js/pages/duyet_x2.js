@@ -7,6 +7,9 @@
 // 28/11 (anh Tiến): hai ca là một lần ĐỔI CA (A nghỉ ca mình và làm thay ở ca của B, B ngược lại) → gộp một khung,
 //   ghép sẵn người làm thay, một nút Lưu cả 2 ca / Duyệt cả 2 ca. Lý do, x2 vẫn chọn tay từng lần. Chỉ ở giao diện.
 // 28/11 (tệp 194): lý do "Đổi ca (lịch chưa sửa)" + nút bấm nhanh Đổi ca ở từng người nghỉ — ca toàn Đổi ca lưu xong là xong luôn, khỏi Chủ duyệt.
+// 28/11 (anh Tiến, BẢN CHẠY THỬ): ?kieu=bang — "bảng theo ca": mỗi lần một buổi (ngày + ca), mỗi cơ sở một cột hiện đủ lịch của ca
+//   (✓ có làm · ✗ có lịch nhưng nghỉ · + làm ngoài lịch), người nghỉ ở cơ sở này mà làm ở cơ sở khác được tô màu; khung lưu / duyệt nằm ngay dưới cột.
+//   Lịch lấy từ app_lich_thuc_te (không có quyền thì chỉ hiện các ca đang chờ). Mặc định vẫn là danh sách.
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
@@ -36,6 +39,18 @@ const STYLE = html`<style>
   .x2p-pair { border: 2px dashed var(--caramel-line); background: var(--caramel-soft); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
   .x2p-pair .x2p-ca { background: var(--card); }
   .x2p-pt { font-weight: 700; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+  .x2p-board { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 10px; align-items: start; }
+  .x2p-col { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .x2p-col h3 { margin: 0; font-size: 15px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
+  .x2p-pp { display: flex; gap: 6px; align-items: baseline; padding: 2px 6px; border-radius: 6px; font-size: 14px; flex-wrap: wrap; }
+  .x2p-pp.x { color: var(--off-line, #dc2626); font-weight: 600; }
+  .x2p-pp.p { color: #b45309; font-weight: 600; }
+  .x2p-pp.mv { background: #fef3c7; outline: 1px dashed #f59e0b; }
+  .x2p-ic { width: 14px; text-align: center; font-weight: 700; }
+  .x2p-gnav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .x2p-gnav select.input { flex: 1 1 200px; width: auto; max-width: 320px; }
+  .x2p-col .x2p-ca { grid-template-columns: minmax(0, 1fr); }
+  .x2p-col .x2p-ca > span:first-child { display: none; }
   .x2p-p1 { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
 </style>`;
 
@@ -49,7 +64,8 @@ async function pool(items, n, fn) {
 export async function render({ params }) {
   const tab = TABS.some(([k]) => k === params.tab) ? params.tab : 'cho';
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
-  const cn = params.cn ? Number(params.cn) : null;
+  const board = params.kieu === 'bang' && tab !== 'xong';   // bản chạy thử: bảng theo ca
+  const cn = params.cn && !board ? Number(params.cn) : null;
   const todo = await rpc('app_cv_todo').catch(() => []);
   let done = null, doneErr = '';
   try { done = await rpc('app_cv_done', { p_month: month }); } catch (e) { doneErr = e.message; }
@@ -83,7 +99,7 @@ export async function render({ params }) {
   for (const r of allRows) { if (r.tail) continue; if (inCn(r) || (r.mate && inCn(r.mate))) { rows.push(r); if (r.mate) rows.push(r.mate); } }
   const anyC = rows.find((r) => r.C && !r.C.error)?.C;
   const canClassify = !!anyC?.can_classify, isOwner = !!anyC?.is_owner;
-  const nav = (p) => go('/quan-ly/nghi-lam-thay?' + new URLSearchParams(Object.entries({ tab, cn: cn || '', thang: tab === 'xong' ? month : '', ...p }).filter(([, v]) => v !== '' && v != null)).toString());
+  const nav = (p) => go('/quan-ly/nghi-lam-thay?' + new URLSearchParams(Object.entries({ tab, cn: cn || '', thang: tab === 'xong' ? month : '', kieu: params.kieu === 'bang' ? 'bang' : '', ...p }).filter(([, v]) => v !== '' && v != null)).toString());
   const ticked = new Set(tab === 'duyet' ? rows.filter((r) => r.C && !r.C.error).map((r) => r.id) : []);
   const editing = new Set();
 
@@ -133,12 +149,22 @@ export async function render({ params }) {
       ${x.complaint_helper ? html`<div class="st-meta">Khiếu nại của người làm thay: ${x.complaint_helper}</div>` : ''}
       ${x.resolved_at ? html`<div class="st-meta">Đã xem khiếu nại · ${x.resolved_by_name || ''} ${dt(x.resolved_at)}</div>` : ''}</div>`)}
     ${!r.C.rows.length ? html`<div class="st-meta">${r.absent ? `Nghỉ: ${r.absent}` : ''}${r.absent && r.helper ? ' · ' : ''}${r.helper ? `Hỗ trợ: ${r.helper}` : ''}</div>` : ''}`;
+  // Bảng theo ca: nhóm các ca theo buổi (ngày + ca). Cặp đổi ca chỉ đi chung một nút khi hai ca nằm cùng buổi đang xem.
+  const gkey = (r) => `${r.date}|${r.shift}`;
+  const gorder = [...new Set(allRows.map(gkey))];
+  const mateOf = (r) => r.mate || rows.find((q) => q.mate === r) || null;
+  const together = (r) => !!r.swap && (!board || (!!mateOf(r) && gkey(mateOf(r)) === gkey(r)));
+  let gcur = gorder.includes(params.ca) ? params.ca : '';
+  const rosterBy = {};   // ngày → dòng app_lich_thuc_te (null = không đọc được)
+  const loadRoster = async (d) => { if (d && !(d in rosterBy)) rosterBy[d] = await rpc('app_lich_thuc_te', { p_from: d, p_to: d, p_branch: null }).catch(() => null); };
+  const gkeys = () => gorder.filter((k) => rows.some((r) => gkey(r) === k));
+  if (board) { if (!gkeys().includes(gcur)) gcur = gkeys()[0] || ''; await loadRoster(gcur.split('|')[0]); }
   const caHtml = (r) => {
     if (!r.C || r.C.error) return html`<div class="cv-row x2p-ca" data-id="${r.id}"><span></span><div class="x2p-body"><div class="x2p-t">${caTitle(r)}</div><div class="x2p-err">Không đọc được ca: ${r.C?.error || ''}</div></div></div>`;
     const C = r.C, ed = editable(r);
     const pill = tab === 'xong' ? html`<span class="pill ok">${String(C.ok_note || '').startsWith('Đổi ca') ? 'Đổi ca — không cần duyệt' : 'Chủ đã duyệt'}</span>${r.complaint ? html` <span class="pill off">Có khiếu nại</span>` : ''}`
       : C.state === 'lech' ? html`<span class="pill off">Nhân sự đã đổi — phân loại lại</span>` : C.state === 'cho_duyet' ? html`<span class="pill warn">Chờ Chủ duyệt</span>` : html`<span class="pill warn">Chưa phân loại</span>`;
-    const pick = tab !== 'xong' && ed ? html`<input type="checkbox" class="check x2p-pick" ${ticked.has(r.id) ? 'checked' : ''} aria-label="Chọn ca ${caTitle(r)}">` : html`<span></span>`;
+    const pick = tab !== 'xong' && ed && !board ? html`<input type="checkbox" class="check x2p-pick" ${ticked.has(r.id) ? 'checked' : ''} aria-label="Chọn ca ${caTitle(r)}">` : html`<span></span>`;
     return html`<div class="cv-row x2p-ca ${tab === 'xong' ? 'ok' : ''}" data-id="${r.id}">${pick}<div class="x2p-body">
       <div class="x2p-t"><a href="#/ca/doi-soat?id=${r.id}">${caTitle(r)}</a> ${pill}</div>
       ${ed ? editor(r) : readOnly(r)}
@@ -147,19 +173,19 @@ export async function render({ params }) {
       ${tab === 'xong' && isOwner && C.open ? (editing.has(r.id)
         ? html`<div class="x2p-foot"><button type="button" class="btn sm secondary" data-undo="${r.id}">Huỷ</button><button type="button" class="btn sm" data-reok="${r.id}">Duyệt lại</button></div>`
         : html`<div class="x2p-foot"><button type="button" class="btn sm secondary" data-edit="${r.id}">Sửa</button></div>`) : ''}
-      ${tab !== 'xong' && ed && !r.swap ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-one="${tab === 'duyet' && isOwner ? 'ok' : 'save'}">${tab === 'duyet' && isOwner ? 'Duyệt ca này' : 'Lưu ca này'}</button></div>` : ''}
+      ${tab !== 'xong' && ed && !together(r) ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-one="${tab === 'duyet' && isOwner ? 'ok' : 'save'}">${tab === 'duyet' && isOwner ? 'Duyệt ca này' : 'Lưu ca này'}</button></div>` : ''}
       <div class="x2p-err" hidden></div></div></div>`;
   };
 
   const counts = { cho: lists.cho.length, duyet: lists.duyet.length, xong: done ? done.length : '–' };
-  const bulk = tab === 'cho' && canClassify && rows.length ? html`<div class="x2p-bulk"><strong>Áp cho các ca đã tích:</strong>
+  const bulk = tab === 'cho' && canClassify && rows.length && !board ? html`<div class="x2p-bulk"><strong>Áp cho các ca đã tích:</strong>
       <select class="input sm" id="x2p-reason" aria-label="Lý do áp hàng loạt"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}">${l}</option>`)}</select>
       <label class="cv-x2"><input type="checkbox" class="check" id="x2p-x"> x2</label>
       <button type="button" class="btn sm secondary" id="x2p-apply">Áp cho ca đã tích</button>
       <span class="st-meta">Chỉ điền sẵn, chưa lưu. Ca 1 người nghỉ + 1 người hỗ trợ tự ghép người làm thay.</span></div>` : '';
   const monthBar = tab === 'xong' ? html`<div class="x2p-bulk"><label class="field" style="margin:0"><span>Tháng</span><input class="input sm" type="month" id="x2p-m" value="${month}"></label>
       <span class="st-meta">Ca còn khiếu nại chưa xem hiện lên đầu.${isOwner ? ' Bấm Sửa để sửa rồi Duyệt lại.' : ' Chỉ Chủ sửa / duyệt lại được.'}</span></div>` : '';
-  const foot = tab === 'xong' || !rows.length ? '' : html`<div class="x2p-foot"><span class="st-meta" id="x2p-count"></span>
+  const foot = tab === 'xong' || !rows.length || board ? '' : html`<div class="x2p-foot"><span class="st-meta" id="x2p-count"></span>
       ${tab === 'cho' && canClassify ? html`<button type="button" class="btn" id="x2p-save">Lưu phân loại các ca đã tích</button>` : ''}
       ${tab === 'duyet' && canClassify && !isOwner ? html`<button type="button" class="btn" id="x2p-save">Lưu các ca đã tích</button>` : ''}
       ${tab === 'duyet' && isOwner ? html`<button type="button" class="btn" id="x2p-ok">Duyệt các ca đã tích</button>` : ''}</div>`;
@@ -167,16 +193,49 @@ export async function render({ params }) {
     return html`<div class="x2p-pair"><div class="x2p-pt"><span>Đổi ca: ${r.swapTitle}</span><span class="st-meta">Hai ca này là một lần đổi ca — ${kind === 'ok' ? 'duyệt' : 'lưu'} một lần cho cả hai.</span></div>
       ${caHtml(r)}${caHtml(r.mate)}
       ${editable(r) || editable(r.mate) ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-pairgo="${kind}">${kind === 'ok' ? 'Duyệt cả 2 ca' : 'Lưu cả 2 ca'}</button></div>` : ''}</div>`; };
-  const body = () => html`${rows.length ? rows.filter((r) => !r.tail).map((r) => (r.mate ? pairHtml(r) : caHtml(r))) : html`<div class="card st-meta">${tab === 'xong' && doneErr ? `Chưa đọc được danh sách đã duyệt: ${doneErr}` : 'Không có ca nào.'}</div>`}`;
+  const bname = (id) => (branches.find(([b]) => b === id) || [])[1] || `Cơ sở ${id}`;
+  const boardHtml = () => {
+    const keys = gkeys(); if (!keys.includes(gcur)) gcur = keys[0] || '';
+    const [date, shift] = gcur.split('|'), rs = rows.filter((r) => gkey(r) === gcur), i = keys.indexOf(gcur);
+    const ros = (rosterBy[date] || []).filter((x) => x.shift === shift);
+    const bids = [...new Set([...ros.map((x) => x.branch_id), ...rs.map((r) => r.branch_id)])].sort((a, b) => a - b);
+    const peopleOf = (bid) => { const L = ros.filter((x) => x.branch_id === bid);
+      if (L.length) return L.map((x) => ({ id: x.employee_id, label: `${x.code} – ${x.name}`, k: !x.worked ? 'x' : x.source === 'lich' ? 'v' : 'p', hours: x.hours }));
+      const r = rs.find((q) => q.branch_id === bid); if (!r?.C || r.C.error) return [];
+      return [...(r.C.workers || []).map((w) => ({ id: w.employee_id, label: `${w.code} – ${w.name}`, k: 'v', hours: w.hours })),
+        ...r.C.people.map((p) => ({ id: p.employee_id, label: `${p.code} – ${p.name}`, k: p.kind === 'nghi' ? 'x' : 'p', hours: p.hours }))]; };
+    const cols = bids.map((bid) => ({ bid, name: bname(bid), P: peopleOf(bid).sort((a, b) => 'vxp'.indexOf(a.k) - 'vxp'.indexOf(b.k)), r: rs.filter((q) => q.branch_id === bid) }));
+    const at = (id, bid, ks) => cols.find((c) => c.bid !== bid && c.P.some((p) => p.id === id && ks.includes(p.k)));
+    const other = (bid) => todo.find((c) => c.date === date && c.shift === shift && c.branch_id === bid && !rs.some((r) => r.id === c.id));
+    const ppHtml = (p, bid) => { const o = p.k === 'x' ? at(p.id, bid, ['v', 'p']) : p.k === 'p' ? at(p.id, bid, ['x']) : null;
+      return html`<div class="x2p-pp ${p.k} ${o ? 'mv' : ''}"><span class="x2p-ic">${p.k === 'v' ? '✓' : p.k === 'x' ? '✗' : '+'}</span><span>${p.label}</span>
+        <span class="st-meta">${p.k === 'x' ? (o ? `nghỉ → đang làm ở ${o.name}` : 'nghỉ') : p.k === 'p' ? `làm ngoài lịch · ${hrs(p.hours)} giờ${o ? ` ← có lịch ở ${o.name}` : ''}` : `${hrs(p.hours)} giờ`}</span></div>`; };
+    const kind = tab === 'duyet' && isOwner ? 'ok' : 'save';
+    const bars = rs.filter((r) => r.mate && rs.includes(r.mate));
+    return html`<div class="x2p-gnav">
+        <button type="button" class="btn sm secondary" data-g="${keys[i - 1] || ''}" ${i > 0 ? '' : 'disabled'} aria-label="Buổi trước">◀</button>
+        <select class="input sm" id="x2p-g" aria-label="Chọn buổi">${keys.map((k) => { const [d, s] = k.split('|'); return html`<option value="${k}" ${k === gcur ? 'selected' : ''}>${dmy(d)} · Ca ${s} (${rows.filter((r) => gkey(r) === k).length} ca)</option>`; })}</select>
+        <button type="button" class="btn sm secondary" data-g="${keys[i + 1] || ''}" ${i < keys.length - 1 ? '' : 'disabled'} aria-label="Buổi sau">▶</button>
+        <span class="st-meta">Buổi ${i + 1} / ${keys.length} · ✓ có làm · ✗ có lịch nhưng nghỉ · + làm ngoài lịch · nền vàng: nghỉ ở cơ sở này nhưng làm ở cơ sở khác cùng ca</span></div>
+      ${rosterBy[date] === null ? html`<div class="alert warn">Chưa đọc được lịch đầy đủ của các cơ sở — chỉ hiện các ca đang chờ.</div>` : ''}
+      <div class="x2p-board">${cols.map((c) => html`<div class="x2p-col" data-col="${c.bid}"><h3>${c.name}
+          ${!c.r.length ? html`<span class="st-meta">${other(c.bid) ? (other(c.bid).state === 'cho_duyet' ? 'đang ở thẻ Chờ Chủ duyệt' : 'đang ở thẻ Chờ phân loại') : c.P.some((p) => p.k !== 'v') ? 'đã xử lý xong' : 'đủ người theo lịch'}</span>` : ''}</h3>
+          ${c.P.length ? c.P.map((p) => ppHtml(p, c.bid)) : html`<div class="st-meta">Chưa có danh sách nhân sự.</div>`}
+          ${c.r.map(caHtml)}</div>`)}</div>
+      ${bars.map((r) => html`<div class="x2p-pair x2p-bar"><div class="x2p-pt"><span>Đổi ca: ${r.swapTitle}</span><span class="st-meta">Hai ca ${bname(r.branch_id)} và ${bname(r.mate.branch_id)} là một lần đổi ca — ${kind === 'ok' ? 'duyệt' : 'lưu'} một lần cho cả hai.</span></div>
+        <div class="x2p-foot"><button type="button" class="btn sm" data-pairgo="${kind}" data-ids="${r.id} ${r.mate.id}">${kind === 'ok' ? 'Duyệt cả 2 ca' : 'Lưu cả 2 ca'}</button></div></div>`)}`;
+  };
+  const body = () => html`${board && rows.length ? boardHtml() : rows.length ? rows.filter((r) => !r.tail).map((r) => (r.mate ? pairHtml(r) : caHtml(r))) : html`<div class="card st-meta">${tab === 'xong' && doneErr ? `Chưa đọc được danh sách đã duyệt: ${doneErr}` : 'Không có ca nào.'}</div>`}`;
 
   return {
     title: 'Duyệt nghỉ & làm thay',
     html: html`${CV_CSS}${STYLE}
       <div class="page-head"><div><h1>Duyệt nghỉ & làm thay</h1><div class="sub">Quản lý tổng phân loại lý do nghỉ và đãi ngộ người làm thay (x2 hay lương thường); Chủ duyệt. Nhờ quản lý tìm người thì người nghỉ bị trừ đúng số giờ người thay làm.</div></div></div>
-      <div class="stack" style="max-width:1000px;gap:12px">
+      <div class="stack" style="max-width:${board ? 1500 : 1000}px;gap:12px">
         <div class="toolbar" style="gap:8px;flex-wrap:wrap;align-items:center">
           <div class="x2p-tabs" role="tablist">${TABS.map(([k, l]) => html`<button type="button" class="x2p-tab" role="tab" aria-selected="${k === tab}" data-tab="${k}">${l} <strong>${counts[k]}</strong></button>`)}</div>
-          <select class="input sm" id="x2p-cn" aria-label="Cơ sở" style="width:auto"><option value="">Tất cả cơ sở</option>${branches.map(([id, name]) => html`<option value="${id}" ${id === cn ? 'selected' : ''}>${name}</option>`)}</select>
+          ${tab !== 'xong' ? html`<button type="button" class="btn sm secondary" id="x2p-kieu">${board ? 'Xem dạng danh sách' : 'Xem dạng bảng theo ca (thử)'}</button>` : ''}
+          <select class="input sm" id="x2p-cn" aria-label="Cơ sở" style="width:auto" ${board ? 'hidden' : ''}><option value="">Tất cả cơ sở</option>${branches.map(([id, name]) => html`<option value="${id}" ${id === cn ? 'selected' : ''}>${name}</option>`)}</select>
         </div>
         ${bulk}${monthBar}
         <div class="x2p-list" id="x2p-list">${body()}</div>
@@ -272,8 +331,9 @@ export async function render({ params }) {
         const el = card(r.id), box = btn.closest('.cv-a'), wrap = el.closest('.x2p-pair');
         const set = (b) => { const s = b.querySelector('.cv-reason'); s.value = 'doi_ca'; s.dispatchEvent(new Event('change', { bubbles: true })); };
         set(box);
-        if (wrap && box.hasAttribute('data-swap')) $$('.cv-a[data-swap]', wrap).forEach(set);
-        const go = wrap ? wrap.querySelector('[data-pairgo]') : el.querySelector('[data-one]');
+        const bar = wrap ? wrap.querySelector('[data-pairgo]') : list.querySelector(`[data-pairgo][data-ids~="${r.id}"]`);   // bảng theo ca: nút cặp nằm dưới bảng
+        if (bar && box.hasAttribute('data-swap')) (wrap ? $$('.cv-a[data-swap]', wrap) : bar.dataset.ids.split(' ').flatMap((id) => $$('.cv-a[data-swap]', card(id) || document.createElement('div')))).forEach(set);
+        const go = bar || el.querySelector('[data-one]');
         if (go) { if (go.dataset.pairgo || go.dataset.one) go.dataset.force = 'save'; go.click(); }
       }
       // Nút nhanh Đổi ca luôn đi đường Lưu (máy chủ tự xong nếu cả ca là Đổi ca), kể cả khi nút của khung đang là Duyệt.
@@ -287,7 +347,8 @@ export async function render({ params }) {
       // 28/11: cặp đổi ca — một nút cho cả hai ca. Thiếu gì ở ca nào thì báo đỏ ca đó và chưa lưu ca nào.
       async function pairGo(btn) {
         const wrap = btn.closest('.x2p-pair'), kind = kindOf(btn, btn.dataset.pairgo);
-        const rs = $$('.x2p-ca', wrap).filter((el) => el.querySelector('.cv-a, .cv-e')).map((el) => rowById(el.dataset.id)).filter(Boolean);
+        const els = btn.dataset.ids ? btn.dataset.ids.split(' ').map((id) => card(id)).filter(Boolean) : $$('.x2p-ca', wrap);
+        const rs = els.filter((el) => el.querySelector('.cv-a, .cv-e')).map((el) => rowById(el.dataset.id)).filter(Boolean);
         let bad = 0; for (const r of rs) { const el = card(r.id), msg = problem(el); mark(el, msg ? msg + ' Chưa lưu ca nào trong cặp.' : ''); if (msg) bad++; }
         if (bad || !rs.length) return;
         btn.disabled = true; let n = 0, dc = 0;
@@ -304,8 +365,13 @@ export async function render({ params }) {
         ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); el?.remove(); count();
         if (wrap && !wrap.querySelector('.x2p-ca')) wrap.remove();
         bump(tab, -1); bump(kind === 'ok' ? 'xong' : 'duyet', 1);
-        if (!rows.length) list.innerHTML = str(body());
+        if (!rows.length) { list.innerHTML = str(body()); return; }
+        if (board) {
+          $$('[data-ids]', list).forEach((b) => { if (!b.dataset.ids.split(' ').some((id) => card(id))) b.closest('.x2p-bar')?.remove(); });
+          if (!list.querySelector('.x2p-ca')) { const keys = gkeys(); gcur = keys.find((k) => gorder.indexOf(k) > gorder.indexOf(gcur)) || keys[0] || ''; drawBoard(); }   // buổi này xong → sang buổi kế
+        }
       }
+      async function drawBoard() { await loadRoster(gcur.split('|')[0]); list.innerHTML = str(body()); $$('.x2p-ca', list).forEach(bindCa); }
       // 27/11 (cách 2, tệp 186): lưu riêng 1 người trong ca nhiều người. Đủ người thì ca tự sang Chờ Chủ duyệt.
       async function onePerson(r, btn) {
         const el = card(r.id), box = btn.closest('.cv-a, .cv-e'), msg = problemOf(box);
@@ -331,6 +397,9 @@ export async function render({ params }) {
       const flashNow = (m, kind) => { let n = $('#x2p-msg', root); if (!n) { n = document.createElement('div'); n.id = 'x2p-msg'; list.before(n); } n.className = `alert ${kind === 'error' ? 'error' : kind === 'warn' ? 'warn' : 'info'}`; n.setAttribute('role', 'alert'); n.textContent = m; n.scrollIntoView({ block: 'nearest' }); };
       $$('[data-tab]', root).forEach((b) => b.addEventListener('click', () => nav({ tab: b.dataset.tab })));
       $('#x2p-cn', root)?.addEventListener('change', (e) => nav({ cn: e.target.value }));
+      $('#x2p-kieu', root)?.addEventListener('click', () => nav({ kieu: board ? '' : 'bang', cn: '' }));
+      list.addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (b && b.dataset.g) { gcur = b.dataset.g; drawBoard(); } });
+      list.addEventListener('change', (e) => { if (e.target.id === 'x2p-g') { gcur = e.target.value; drawBoard(); } });
       $('#x2p-m', root)?.addEventListener('change', (e) => nav({ thang: e.target.value }));
       $('#x2p-apply', root)?.addEventListener('click', () => {
         const reason = $('#x2p-reason', root).value, x2 = $('#x2p-x', root).checked;
