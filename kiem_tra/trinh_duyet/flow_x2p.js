@@ -17,13 +17,13 @@ export default async ({ sleep, out }) => {
       const ov = await rpc('app_ca_overview', { p_date: day });
       const emps = await rpc('app_ca_employees');
       // Phiếu đã gửi: absent=true → người đầu lịch nghỉ + 1 người hỗ trợ; absent=false → chỉ 1 người hỗ trợ làm thêm
-      const mk = async (o, absent, more = 0) => {   // more: số người hỗ trợ thêm (ca nhiều người)
+      const mk = async (o, absent, more = 0, hid = null, aid = null) => {   // hid / aid: chỉ định người hỗ trợ / người nghỉ (cặp đổi ca)   // more: số người hỗ trợ thêm (ca nhiều người)
         const id = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift });
         for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_claim', { p_id: id, p_part: k, p_force: false });
         const R = await rpc('app_ca_get', { p_id: id });
         const staff = (R.staff || []).map((s, i) => ({ ...s, worked: !(absent && i === 0), absent_reason: absent && i === 0 ? 'Ốm' : null, time_in: '06:45', time_out: '12:39' }));
-        if (absent && !staff.some((s) => s.source === 'lich' && !s.worked)) { const n = emps.find((e) => !staff.some((s) => s.employee_id === e.id)); staff.push({ employee_id: n.id, source: 'lich', worked: false, absent_reason: 'Ốm' }); }
-        const h = emps.find((e) => !staff.some((s) => s.employee_id === e.id));
+        if (absent && !staff.some((s) => s.source === 'lich' && !s.worked)) { const n = aid ? { id: aid } : emps.find((e) => !staff.some((s) => s.employee_id === e.id)); staff.push({ employee_id: n.id, source: 'lich', worked: false, absent_reason: 'Ốm' }); }
+        const h = hid ? { id: hid } : emps.find((e) => !staff.some((s) => s.employee_id === e.id));
         staff.push({ employee_id: h.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' });
         for (let i = 0; i < more; i++) { const h2 = emps.find((e) => !staff.some((s) => s.employee_id === e.id)); staff.push({ employee_id: h2.id, source: 'ho_tro', worked: true, time_in: '06:45', time_out: '12:39' }); }
         await rpc('app_ca_save', { p_id: id, p: { rev_start: R.rev_start || day + ' 06:45', rev_end: (R.rev_start || '') > day + ' 12:00' ? day + ' 23:30' : day + ' 12:39', reported_transfer: 3000000, total_revenue: 5000000, pos_cash: 2000000, pos_transfer: 3000000,
@@ -32,7 +32,7 @@ export default async ({ sleep, out }) => {
         for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
         return id;
       };
-      var mkCa = mk, pickOv = []; for (const o of ov) if (!pickOv.some((x) => x.branch_id === o.branch_id)) pickOv.push(o);
+      var mkCa = mk, ovAll = ov, empAll = emps, pickOv = []; for (const o of ov) if (!pickOv.some((x) => x.branch_id === o.branch_id)) pickOv.push(o);
     }
     if (role === 'chu') {
       const pick = pickOv;   // 3 cơ sở khác nhau, ca đầu ngày
@@ -134,6 +134,41 @@ export default async ({ sleep, out }) => {
       x1e.querySelector('.cv-a .cv-x').checked = false; x1e.querySelector('[data-reok]').click(); await sleep(1500);
       const g = await rpc('app_cv_get', { p_id: ids[0] });
       ok(g.state === 'da_duyet' && g.rows.some((x) => x.absent_id && x.x2 === false), `Duyệt lại: x2 bỏ → ${g.rows.map((x) => x.x2).join(',')}`);
+      // 28/11 (anh Tiến): cặp đổi ca — A nghỉ ca X + làm thay ở ca Y, B nghỉ ca Y + làm thay ở ca X → một khung, một nút
+      {
+        const rest = []; for (const o of ovAll) if (!pick.slice(0, 4).includes(o) && !rest.some((x) => x.branch_id === o.branch_id)) rest.push(o);   // mỗi cơ sở lấy ca kế tiếp (giờ doanh thu nối ca trước)
+        const firstOf = async (o) => { const id = await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift }); const R = await rpc('app_ca_get', { p_id: id });
+          return (R.staff || [])[0]?.employee_id ?? null; };
+        let oX = null, oY = null, A = null, B = null;
+        for (const x of rest) { const a = await firstOf(x); if (a == null) continue;
+          for (const y of rest) { if (y === x) continue; const b = await firstOf(y); if (b != null && b !== a) { oX = x; oY = y; A = a; B = b; break; } }
+          if (oX) break; }
+        // ca chưa có lịch (dữ liệu thử): tự chỉ định người nghỉ của từng ca
+        if (!oX && rest.length >= 2 && empAll.length >= 4) { oX = rest[0]; oY = rest[1]; A = empAll[2].id; B = empAll[3].id; }
+        if (!oX) r.push(`LỖI không dựng được cặp đổi ca (còn ${rest.length} ca trống)`);
+        else {
+          const idX = await mkCa(oX, true, 0, B, A), idY = await mkCa(oY, true, 0, A, B);
+          await go('#/quan-ly/nghi-lam-thay');
+          const cX = () => $(`.x2p-ca[data-id="${idX}"]`), cY = () => $(`.x2p-ca[data-id="${idY}"]`);
+          const wrap = cX()?.closest('.x2p-pair');
+          ok(!!wrap && wrap.contains(cY()) && /Đổi ca:/.test(wrap.querySelector('.x2p-pt').innerText), `Cặp đổi ca gộp một khung: ${wrap?.querySelector('.x2p-pt').innerText.replace(/\s+/g, ' ').slice(0, 120)} · ${W()}`);
+          ok(!!wrap && !wrap.querySelector('[data-one]') && !wrap.querySelector('[data-p1]') && $$('[data-pairgo]').filter((b) => wrap.contains(b)).length === 1 && /Lưu cả 2 ca/.test(wrap.querySelector('[data-pairgo]').textContent), 'Cặp đổi ca: chỉ một nút Lưu cả 2 ca');
+          ok(cX().querySelector('.cv-a[data-swap] .cv-helper').value === String(B) && cY().querySelector('.cv-a[data-swap] .cv-helper').value === String(A), 'Cặp đổi ca: mỗi người nghỉ được ghép sẵn với người đổi ca với mình');
+          wrap.querySelector('[data-pairgo]').click(); await sleep(400);
+          ok(cX().classList.contains('bad') && (await rpc('app_cv_get', { p_id: idX })).state === 'chua_phan_loai', `Thiếu lý do: báo đỏ, chưa lưu ca nào — ${cX().querySelector('.x2p-err').innerText}`);
+          const sx = cX().querySelector('.cv-a[data-swap] .cv-reason'); sx.value = 'tu_tim'; sx.dispatchEvent(new Event('change', { bubbles: true }));
+          ok(cY().querySelector('.cv-a[data-swap] .cv-reason').value === 'tu_tim', 'Chọn lý do cho một người → người kia điền theo');
+          wrap.querySelector('[data-pairgo]').click(); await wait(() => !cX() && !cY(), 100);
+          let sp = await Promise.all([idX, idY].map((id) => rpc('app_cv_get', { p_id: id }).then((x) => x.state)));
+          ok(!cX() && !cY() && !wrap.isConnected && sp.every((x) => x === 'cho_duyet'), `Lưu cả 2 ca một lần: ${sp.join(', ')} · ${txt('#x2p-msg')}`);
+          await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+          const w2 = cX()?.closest('.x2p-pair');
+          ok(!!w2 && w2.contains(cY()) && /Duyệt cả 2 ca/.test(w2.querySelector('[data-pairgo]')?.textContent || ''), `Chờ Chủ duyệt: cặp đổi ca một khung, nút ${w2?.querySelector('[data-pairgo]')?.innerText} · ${W()}`);
+          w2.querySelector('[data-pairgo]').click(); await wait(() => !cX() && !cY(), 100);
+          sp = await Promise.all([idX, idY].map((id) => rpc('app_cv_get', { p_id: id }).then((x) => x.state)));
+          ok(sp.every((x) => x === 'da_duyet'), `Duyệt cả 2 ca một lần: ${sp.join(', ')} · ${txt('#x2p-msg')}`);
+        }
+      }
       r.push(`Khung: ${W()}`);
     } else {
       let id = null;

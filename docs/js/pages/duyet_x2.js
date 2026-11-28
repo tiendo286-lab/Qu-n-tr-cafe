@@ -4,6 +4,8 @@
 // Lưu / duyệt từng ca bằng app_cv_save / app_cv_approve sẵn có (quyền, cách tính x2 / trừ giờ ở máy chủ không đổi).
 // 27/11: ca 1 người nghỉ + 1 người hỗ trợ tự ghép sẵn thành một khung (không có nút Lưu người này).
 // 27/11: nút riêng từng ca (Lưu ca này / Duyệt ca này); ca nhiều người có nút Lưu người này (app_cv_save_one, tệp 186).
+// 28/11 (anh Tiến): hai ca là một lần ĐỔI CA (A nghỉ ca mình và làm thay ở ca của B, B ngược lại) → gộp một khung,
+//   ghép sẵn người làm thay, một nút Lưu cả 2 ca / Duyệt cả 2 ca. Lý do, x2 vẫn chọn tay từng lần. Chỉ ở giao diện.
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
@@ -30,6 +32,9 @@ const STYLE = html`<style>
   .x2p-err { color: var(--off-line, #dc2626); font-weight: 600; font-size: 13px; }
   .x2p-foot { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; }
   .x2p-foot .st-meta { margin-right: auto; }
+  .x2p-pair { border: 2px dashed var(--caramel-line); background: var(--caramel-soft); border-radius: 12px; padding: 8px; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+  .x2p-pair .x2p-ca { background: var(--card); }
+  .x2p-pt { font-weight: 700; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
   .x2p-p1 { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
 </style>`;
 
@@ -49,10 +54,32 @@ export async function render({ params }) {
   try { done = await rpc('app_cv_done', { p_month: month }); } catch (e) { doneErr = e.message; }
   const lists = { cho: todo.filter((c) => c.state !== 'cho_duyet'), duyet: todo.filter((c) => c.state === 'cho_duyet'), xong: done || [] };
   const branches = [...new Map([...todo, ...(done || [])].map((c) => [c.branch_id, c.branch])).entries()];
-  const shown = lists[tab].filter((c) => !cn || c.branch_id === cn)
+  const inCn = (c) => !cn || c.branch_id === cn;
+  // Thẻ chờ: đọc cả các cơ sở khác để nhận ra cặp đổi ca giữa hai cơ sở (lọc cơ sở vẫn thấy đủ cặp).
+  const shown = lists[tab].filter((c) => tab !== 'xong' || inCn(c))
     .sort((a, b) => (tab === 'xong' ? (b.complaint ? 1 : 0) - (a.complaint ? 1 : 0) : 0));   // Đã duyệt: ca còn khiếu nại lên đầu
   const details = await pool(shown, 6, (c) => rpc('app_cv_get', { p_id: c.id }));
-  const rows = shown.map((c, i) => ({ ...c, C: details[i] }));
+  const allRows = shown.map((c, i) => ({ ...c, C: details[i] }));
+  // Cặp đổi ca: A nghỉ ở ca X và là người hỗ trợ ở ca Y; B nghỉ ở ca Y và là người hỗ trợ ở ca X (cách nhau không quá 7 ngày).
+  if (tab !== 'xong') {
+    const ppl = (r, k) => (r.C && !r.C.error ? r.C.people.filter((p) => p.kind === k) : []);
+    const has = (r, k, id) => ppl(r, k).some((p) => p.employee_id === id);
+    const gap = (a, b) => Math.abs(new Date(a.date) - new Date(b.date)) / 864e5;
+    const nm = (p) => `${p.code} – ${p.name}`;
+    for (const x of allRows) {
+      if (x.swap) continue; let best = null;
+      for (const y of allRows) {
+        if (y === x || y.swap || !(gap(x, y) <= 7)) continue;
+        const a = ppl(x, 'nghi').find((p) => has(y, 'ho_tro', p.employee_id));
+        const b = a && ppl(y, 'nghi').find((p) => p.employee_id !== a.employee_id && has(x, 'ho_tro', p.employee_id));
+        if (a && b && (!best || gap(x, y) < best.d)) best = { y, a, b, d: gap(x, y) };
+      }
+      if (best) { x.swap = { [best.a.employee_id]: best.b.employee_id }; best.y.swap = { [best.b.employee_id]: best.a.employee_id };
+        x.mate = best.y; best.y.tail = true; x.swapTitle = `${nm(best.a)} ↔ ${nm(best.b)}`; }
+    }
+  }
+  const rows = [];
+  for (const r of allRows) { if (r.tail) continue; if (inCn(r) || (r.mate && inCn(r.mate))) { rows.push(r); if (r.mate) rows.push(r.mate); } }
   const anyC = rows.find((r) => r.C && !r.C.error)?.C;
   const canClassify = !!anyC?.can_classify, isOwner = !!anyC?.is_owner;
   const nav = (p) => go('/quan-ly/nghi-lam-thay?' + new URLSearchParams(Object.entries({ tab, cn: cn || '', thang: tab === 'xong' ? month : '', ...p }).filter(([, v]) => v !== '' && v != null)).toString());
@@ -74,19 +101,21 @@ export async function render({ params }) {
     // cả ca chỉ còn một khung, một nút Lưu ca này (không phải làm 2 lần cho người nghỉ và người được nhờ).
     const pair11 = absents.length === 1 && helpers.length === 1;
     const auto = pair11 && !rowOf(absents[0].employee_id) && !extraOf(helpers[0].employee_id) ? helpers[0] : null;
-    const multi = tab === 'cho' && absents.length + helpers.length > 1 && !pair11;
+    const multi = tab === 'cho' && absents.length + helpers.length > 1 && !pair11 && !r.swap;
+    // 28/11: ca thuộc cặp đổi ca → người nghỉ được ghép sẵn với người đổi ca với mình (nếu chưa lưu gì)
+    const autoOf = (aid) => { const hid = r.swap?.[aid]; return (hid != null && !rowOf(aid) && helpers.find((h) => h.employee_id === hid)) || auto; };
     const p1 = (saved) => (multi ? html`<div class="x2p-p1"><span class="pill ok x2p-saved" ${part && saved ? '' : 'hidden'}>Đã lưu</span><button type="button" class="btn sm secondary" data-p1>Lưu người này</button></div>` : '');
     const opts = (sel) => html`<option value="">— Không có người làm thay —</option>
       ${helpers.length ? html`<optgroup label="Người hỗ trợ phát sinh">${helpers.map((h) => html`<option value="${h.employee_id}" ${String(sel) === String(h.employee_id) ? 'selected' : ''}>${h.code} – ${h.name} (${hrs(h.hours)} giờ)</option>`)}</optgroup>` : ''}
       ${workers.length ? html`<optgroup label="Người trong lịch có làm">${workers.map((w) => html`<option value="${w.employee_id}" ${String(sel) === String(w.employee_id) ? 'selected' : ''}>${w.code} – ${w.name} (${hrs(w.hours)} giờ)</option>`)}</optgroup>` : ''}
       <option value="ngoai" ${sel === 'ngoai' ? 'selected' : ''}>Người ngoài quán…</option>`;
-    return html`${absents.map((a) => { const x = rowOf(a.employee_id) || {}; const hs = x.helper_id || (x.outsider ? 'ngoai' : '') || (auto ? auto.employee_id : '');
-        return html`<div class="cv-a" data-absent="${a.employee_id}">
+    return html`${absents.map((a) => { const x = rowOf(a.employee_id) || {}; const au = autoOf(a.employee_id); const hs = x.helper_id || (x.outsider ? 'ngoai' : '') || (au ? au.employee_id : '');
+        return html`<div class="cv-a" data-absent="${a.employee_id}" ${r.swap?.[a.employee_id] != null ? 'data-swap' : ''}>
           <div class="cv-grid"><strong>${a.code} – ${a.name}</strong> <span class="pill off">Nghỉ</span>
             <select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${x.reason === k ? 'selected' : ''}>${l}</option>`)}</select></div>
           <div class="cv-grid"><span class="st-meta">Người làm thay</span><select class="input sm cv-helper" aria-label="Người làm thay cho ${a.code}">${opts(hs)}</select>
             <input class="input sm cv-on" placeholder="Tên người ngoài quán" value="${x.outsider ? x.helper_name || x.helper || '' : ''}" ${hs === 'ngoai' ? '' : 'hidden'} aria-label="Tên người ngoài quán">
-            <label class="cv-hl" ${hs ? '' : 'hidden'}>Giờ <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${x.hours ?? (auto ? auto.hours : '') ?? ''}"></label>
+            <label class="cv-hl" ${hs ? '' : 'hidden'}>Giờ <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${x.hours ?? (au ? au.hours : '') ?? ''}"></label>
             <label class="cv-x2"><input type="checkbox" class="check cv-x" ${x.x2 ? 'checked' : ''}> x2</label></div>${p1(!!x.reason)}</div>`; })}
       ${helpers.filter((h) => !used.has(String(h.employee_id))).map((h) => { const x = extraOf(h.employee_id) || {};
         return html`<div class="cv-e" data-helper="${h.employee_id}"><div class="cv-grid"><strong>${h.code} – ${h.name}</strong> <span class="pill warn">Hỗ trợ</span> · ${hrs(h.hours)} giờ
@@ -116,7 +145,7 @@ export async function render({ params }) {
       ${tab === 'xong' && isOwner && C.open ? (editing.has(r.id)
         ? html`<div class="x2p-foot"><button type="button" class="btn sm secondary" data-undo="${r.id}">Huỷ</button><button type="button" class="btn sm" data-reok="${r.id}">Duyệt lại</button></div>`
         : html`<div class="x2p-foot"><button type="button" class="btn sm secondary" data-edit="${r.id}">Sửa</button></div>`) : ''}
-      ${tab !== 'xong' && ed ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-one="${tab === 'duyet' && isOwner ? 'ok' : 'save'}">${tab === 'duyet' && isOwner ? 'Duyệt ca này' : 'Lưu ca này'}</button></div>` : ''}
+      ${tab !== 'xong' && ed && !r.swap ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-one="${tab === 'duyet' && isOwner ? 'ok' : 'save'}">${tab === 'duyet' && isOwner ? 'Duyệt ca này' : 'Lưu ca này'}</button></div>` : ''}
       <div class="x2p-err" hidden></div></div></div>`;
   };
 
@@ -132,7 +161,11 @@ export async function render({ params }) {
       ${tab === 'cho' && canClassify ? html`<button type="button" class="btn" id="x2p-save">Lưu phân loại các ca đã tích</button>` : ''}
       ${tab === 'duyet' && canClassify && !isOwner ? html`<button type="button" class="btn" id="x2p-save">Lưu các ca đã tích</button>` : ''}
       ${tab === 'duyet' && isOwner ? html`<button type="button" class="btn" id="x2p-ok">Duyệt các ca đã tích</button>` : ''}</div>`;
-  const body = () => html`${rows.length ? rows.map(caHtml) : html`<div class="card st-meta">${tab === 'xong' && doneErr ? `Chưa đọc được danh sách đã duyệt: ${doneErr}` : 'Không có ca nào.'}</div>`}`;
+  const pairHtml = (r) => { const kind = tab === 'duyet' && isOwner ? 'ok' : 'save';
+    return html`<div class="x2p-pair"><div class="x2p-pt"><span>Đổi ca: ${r.swapTitle}</span><span class="st-meta">Hai ca này là một lần đổi ca — ${kind === 'ok' ? 'duyệt' : 'lưu'} một lần cho cả hai.</span></div>
+      ${caHtml(r)}${caHtml(r.mate)}
+      ${editable(r) || editable(r.mate) ? html`<div class="x2p-foot"><button type="button" class="btn sm" data-pairgo="${kind}">${kind === 'ok' ? 'Duyệt cả 2 ca' : 'Lưu cả 2 ca'}</button></div>` : ''}</div>`; };
+  const body = () => html`${rows.length ? rows.filter((r) => !r.tail).map((r) => (r.mate ? pairHtml(r) : caHtml(r))) : html`<div class="card st-meta">${tab === 'xong' && doneErr ? `Chưa đọc được danh sách đã duyệt: ${doneErr}` : 'Không có ca nào.'}</div>`}`;
 
   return {
     title: 'Duyệt nghỉ & làm thay',
@@ -211,24 +244,44 @@ export async function render({ params }) {
       }
       // 27/11 (anh Tiến): lưu / duyệt riêng một ca ngay tại khung của ca, không tải lại trang để các ca đang điền dở không mất.
       const bump = (k, d) => { const n = root.querySelector(`[data-tab="${k}"] strong`); if (n && /^\d+$/.test(n.textContent)) n.textContent = String(Math.max(0, Number(n.textContent) + d)); };
-      async function oneCa(r, btn) {
-        const el = card(r.id), kind = btn.dataset.one, msg = problem(el);
-        if (msg) { mark(el, msg + ' Ca này chưa lưu.'); return; }
-        btn.disabled = true;
+      // Lưu / duyệt một ca; trả về true khi máy chủ nhận. Ca rời danh sách (hoặc vẽ lại nếu vẫn ở Chờ Chủ duyệt).
+      async function doCa(r, kind) {
+        const el = card(r.id), msg = problem(el);
+        if (msg) { mark(el, msg + ' Ca này chưa lưu.'); return false; }
         try {
           if (kind === 'ok') await rpc('app_cv_approve', { p_id: r.id, p_items: items(el), p_note: '' });
           else await rpc('app_cv_save', { p_id: r.id, p_items: items(el) });
-        } catch (e) { mark(el, e.message); btn.disabled = false; return; }
+        } catch (e) { mark(el, e.message); return false; }
         if (kind === 'save' && tab === 'duyet') {   // vẫn ở Chờ Chủ duyệt → chỉ vẽ lại khung ca
-          const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null); if (C) { r.C = C; redrawCa(r); } else { mark(el, ''); btn.disabled = false; }
-          flashNow(`Đã lưu ca ${caTitle(r)}.`, 'info'); return;
+          const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null); if (C) { r.C = C; redrawCa(r); } else mark(el, '');
+          return true;
         }
-        leave(r, kind);
-        flashNow(kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
+        leave(r, kind); return true;
+      }
+      async function oneCa(r, btn) {
+        const kind = btn.dataset.one; btn.disabled = true;
+        const done = await doCa(r, kind); if (btn.isConnected) btn.disabled = false;
+        if (!done) return;
+        flashNow(kind === 'save' && tab === 'duyet' ? `Đã lưu ca ${caTitle(r)}.` : kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
+      }
+      // 28/11: cặp đổi ca — một nút cho cả hai ca. Thiếu gì ở ca nào thì báo đỏ ca đó và chưa lưu ca nào.
+      async function pairGo(btn) {
+        const wrap = btn.closest('.x2p-pair'), kind = btn.dataset.pairgo;
+        const rs = $$('.x2p-ca', wrap).filter((el) => el.querySelector('.cv-a, .cv-e')).map((el) => rowById(el.dataset.id)).filter(Boolean);
+        let bad = 0; for (const r of rs) { const el = card(r.id), msg = problem(el); mark(el, msg ? msg + ' Chưa lưu ca nào trong cặp.' : ''); if (msg) bad++; }
+        if (bad || !rs.length) return;
+        btn.disabled = true; let n = 0;
+        for (const r of rs) if (await doCa(r, kind)) n++;
+        if (btn.isConnected) btn.disabled = false;
+        const verb = kind === 'ok' ? 'duyệt' : 'lưu';
+        if (n === rs.length) flashNow(`Đã ${verb} ${n} ca của lần đổi ca.${kind === 'ok' ? ' Người nghỉ và người làm thay đã được báo.' : tab === 'cho' ? ' Chuyển sang Chờ Chủ duyệt.' : ''}`, 'info');
+        else flashNow(`Đã ${verb} ${n} ca · ${rs.length - n} ca báo đỏ cần sửa (xem dòng đỏ).`, n ? 'warn' : 'error');
       }
       // Ca đã lưu / duyệt xong rời danh sách của thẻ đang xem, số trên các thẻ đổi theo.
       function leave(r, kind) {
-        ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); card(r.id)?.remove(); count();
+        const el = card(r.id), wrap = el?.closest('.x2p-pair');
+        ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); el?.remove(); count();
+        if (wrap && !wrap.querySelector('.x2p-ca')) wrap.remove();
         bump(tab, -1); bump(kind === 'ok' ? 'xong' : 'duyet', 1);
         if (!rows.length) list.innerHTML = str(body());
       }
@@ -273,6 +326,10 @@ export async function render({ params }) {
         }
         flashNow(`Đã điền sẵn cho ${n} ca (chưa lưu). Kiểm tra lại rồi bấm Lưu phân loại.`, 'info');
       });
+      list.addEventListener('click', (e) => { const b = e.target.closest('[data-pairgo]'); if (b) pairGo(b); });
+      // Cặp đổi ca: chọn lý do cho một người thì người kia (đang để trống) điền theo — vẫn sửa riêng được.
+      list.addEventListener('change', (e) => { const w = e.target.matches?.('.cv-a[data-swap] .cv-reason') && e.target.closest('.x2p-pair');
+        if (w) $$('.cv-a[data-swap] .cv-reason', w).forEach((s) => { if (!s.value) s.value = e.target.value; }); });
       $('#x2p-save', root)?.addEventListener('click', () => run('save'));
       $('#x2p-ok', root)?.addEventListener('click', () => run('ok'));
       $$('.x2p-ca', list).forEach(bindCa);

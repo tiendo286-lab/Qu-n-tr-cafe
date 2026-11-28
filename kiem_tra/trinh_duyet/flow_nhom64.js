@@ -29,13 +29,23 @@ export default async ({ sleep, out }) => {
       const go = async (h, sel) => { location.hash = '#/__tam'; await sleep(300); location.hash = h; await wait(sel); await sleep(1000); };
       await go('#/quan-ly/cong-no?cn=' + br, '.cn-g');
       const tiles = $$('.cn-ks .cn-k[href*="g="]').map(txt);
-      ok(tiles.length === 4 && /khách hàng/.test(tiles[0]) && /kho tổng/.test(tiles[1]) && /chủ/.test(tiles[2]) && /người nhà/.test(tiles[3]), 'A1. 4 ô tổng đúng thứ tự: ' + tiles.join(' | '));
-      const kh = $$('.cn-g[data-g="khach"] .cn-p');
-      ok(kh.length === 1 && /^khách\b/.test(txt(kh[0].querySelector('.cn-ph b'))), `A2. nợ khách gộp một dòng "Khách" (${kh.length} dòng: ${kh.map((x) => txt(x.querySelector('.cn-ph b'))).join(', ')})`);
+      // 28/11 (web 2026.11.28.8 — anh Tiến duyệt hình mẫu): trang Công nợ bày lại — nút nhóm ghi "Khách" (không còn "Khách hàng"),
+      // nợ khách hiện MỖI KHOẢN MỘT DÒNG ngay trên trang chính kèm nút Đã thu; trang từng khoản / lịch sử mở bằng đường dẫn cuối nhóm.
+      ok(tiles.length === 4 && /^khách/.test(tiles[0]) && /kho tổng/.test(tiles[1]) && /chủ/.test(tiles[2]) && /người nhà/.test(tiles[3]), 'A1. 4 nút nhóm đúng thứ tự: ' + tiles.join(' | '));
+      const khRows = $$('.cn-g[data-g="khach"] .cn-r:not(.paid)');
+      const khNames = khRows.map((x) => txt(x.querySelector('.who b')));
+      ok(!$('.cn-g[data-g="khach"] .cn-p') && khNames.some((n) => n.includes('bàn 5 áo xanh')) && khNames.some((n) => n.includes('bàn 7')) && khRows.every((x) => !!x.querySelector('.cn-thu1')),
+        `A2. nợ khách mỗi khoản một dòng trên trang chính, dòng nào cũng có nút Đã thu (${khRows.length} dòng: ${khNames.join(', ')})`);
       ok(!!$('.cn-g[data-g="chu"]') && txt($('.cn-g[data-g="chu"]')).includes('chủ thử'), 'A5. nhóm ③ Chủ có khoản của "Chủ thử"');
       wide('A. Công nợ');
+      { const r7 = khRows.find((x) => txt(x).includes('bàn 7'));
+        r7?.querySelector('.cn-thu1')?.click(); await wait('dialog[open] form [name=amount]'); await sleep(300);
+        ok(!!dlg() && txt(dlg()).includes('bàn 7') && $('[name=amount]', dlg())?.value.replace(/\D/g, '') === '70000', 'A2b. Đã thu ngay trên dòng ở trang chính: hộp ghi đúng khoản bàn 7, số 70.000');
+        $('[data-x]', dlg())?.click(); await sleep(300); }
+      const kh = [$('.cn-g[data-g="khach"] .cn-foot a[href*="p="]')];
+      ok(!!kh[0], 'A2c. cuối nhóm nợ khách có đường dẫn "Sửa khoản nợ · xem lịch sử"');
       if (kh[0]) {
-        kh[0].querySelector('.cn-ph').click(); await wait('.cn-sum'); await sleep(1000);
+        kh[0].click(); await wait('.cn-sum'); await sleep(1000);
         const body = txt($('.cn-wrap'));
         ok(body.includes('bàn 5 áo xanh') && body.includes('bàn 7'), 'A3. dòng Khách mở ra từng khoản kèm ghi chú (bàn 5 áo xanh, bàn 7)');
         ok(!$('#cn-thu') && !$('#cn-edit') && $$('.cn-thu1').length >= 2, `A3. không có "Đã thu" / "Sửa tên" chung; mỗi khoản có nút Đã thu riêng (${$$('.cn-thu1').length})`);
