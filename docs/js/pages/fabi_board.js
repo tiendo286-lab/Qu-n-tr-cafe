@@ -1,5 +1,5 @@
 import { can, render as rerender } from '../app.js';
-import { compareRows, confirmedNote, reviewOf } from '../fabi_so_sanh.js?v=2026.11.28.8';
+import { compareRows, confirmedNote, reviewOf } from '../fabi_so_sanh.js?v=2026.11.28.9';
 import { addDays, catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { xlsx } from '../excel.js';

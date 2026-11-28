@@ -792,6 +792,14 @@ Các giả định nhỏ khác đang dùng tạm xem ở [GIA_DINH_CHO_CHOT.md](
 
 ## Công việc đào tạo — chốt 18/11/2026
 
+- **28/11/2026 — Đào tạo gộp một trang (anh Tiến chốt, web 2026.11.28.9, không đổi máy chủ, không đổi quyền):**
+  - Mục **Đào tạo** nằm ở nhóm menu **Nhân viên & tài khoản** (web 2026.11.28.6); mục "Phân công đào tạo" riêng đã bỏ, đường cũ `#/dao-tao/phan-cong` tự chuyển về `#/cong-viec/dao-tao`. Tiêu đề trang là "Đào tạo".
+  - Trang là danh sách người có phiếu, có **bộ lọc**: tìm tên / mã · cơ sở · chương trình (Chạy bàn / Pha chế) · người hướng dẫn chính · nút trạng thái có số đếm · Bỏ lọc.
+  - **Bấm vào một người → mở ngay tại chỗ**, 3 nút: Phiếu đào tạo (chính phiếu, nhúng vào) · Phân công theo ca · Chờ kiểm tra. Hai nút sau chỉ có với Chủ, người phụ trách chính, HD chính của phiếu (như trước).
+  - **Giữ kiểu phân công theo ca làm 24/11** (tệp 174). **Bỏ** thẻ Phân công + Chờ kiểm tra kiểu cũ (bước 170: tích hạng mục theo Ngày 1…8 rồi giao một lần). Nút **Giao giai đoạn 2** mang sang phần Chờ kiểm tra mới.
+  - Trang phiếu riêng `#/dao-tao/phieu?id=` vẫn còn (trang Nhân viên, thông báo, Việc của tôi dẫn tới).
+  - Em tự quyết, anh chưa bác: người **Đã hoàn thành** mặc định ẩn (bấm nút trạng thái mới hiện); ai có mục chờ kiểm tra / ca chưa giao xếp lên đầu; mỗi lúc chỉ mở một phiếu trong trang (mở phiếu người khác thì phiếu trước thu về nút "Mở phiếu ở đây"); nhãn "N ca chưa giao" chỉ tính khi còn mục chưa đạt chưa xếp vào ca nào.
+
 - Đào tạo có hai mục **Pha chế** và **Chạy bàn**. Mỗi mục dùng phiếu riêng. Phiếu Pha chế chờ danh sách hạng mục.
 
 - Mỗi phiếu của nhân viên mới tương ứng một việc trên danh sách chung, không chia theo cơ sở. Đào tạo theo đầy đủ hạng mục trên phiếu. Chương trình giữ 8 ngày, hạn công việc là 12 ngày.
