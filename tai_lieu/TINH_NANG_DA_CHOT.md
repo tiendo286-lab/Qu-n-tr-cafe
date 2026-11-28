@@ -1146,3 +1146,12 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-27-bang-tien-chenh-lech-design
 - Máy chủ: bảng `order_cfg` (1 dòng, không cấp quyền cho web); `app_order_cfg()` (mọi người đã đăng nhập đọc), `app_order_cfg_save(jsonb)` (chỉ `system_role = 'chu'`, ghi cả giờ order + nhật ký); `app_submit_order` vá bằng thay chuỗi (2 chỗ).
 - Giao diện: `order_nv.js` tách `orderView` / `orderMount` / `orderCfg` dùng chung cho trang nhân viên và hình xem trước.
 - Bài thử: `flow_ocfg` — chu 13, ql 1, nv 5, nv `phan=bat` 7, nv `phan=khoa` 3 (máy tính + điện thoại). Chạy thử máy chủ thật (tự hoàn tác) 27/11 20:15: 10/10 đạt (`kiem192.sql` ở scratchpad).
+
+## Trang đối soát ca: ai mở được, khi nào mở được (anh Tiến chốt 28/11/2026 — web 2026.11.28.11, VÙNG KHOÁ)
+
+- Anh Tiến bảo "xoá đối soát cũ"; khi rà thì thấy trang mới thiếu 3 thứ trang cũ có → hỏi từng ý, anh chọn A cả ba (làm như trang cũ):
+  1. Người **không được giao** đối soát cơ sở đó mở trang đối soát của ca → chỉ thấy lời báo "Bạn không có quyền đối soát phiếu này" (hoặc lời của máy chủ + "nhờ Chủ thêm tên ở dòng Đối soát ca trong Bảng phân công"), nút Mở phiếu chốt ca. Không thấy số tiền, không tải số tiền của cơ sở.
+  2. Nhân viên **chưa hoàn thành phiếu chốt ca** → "Nhân viên chưa hoàn thành phiếu chốt ca … nên chưa đối soát được".
+  3. Ca **còn hàng kho tổng chưa đối soát** → bước ① có dòng nhắc + đường sang Hàng hoá › Đối soát; ca không có hàng thì không hiện.
+- Trang đối soát cũ: từ web 2026.11.28.3 không còn lối vào (bỏ dòng "Trang cũ (dự phòng)"). Mã trang cũ còn trong máy, sẽ gỡ sau (xem `BAN_GIAO.md`).
+- Bài thử: `flow_dsgate` (role `ql&noassign=1` = không được giao).

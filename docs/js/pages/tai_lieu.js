@@ -5,7 +5,7 @@ import { rating } from '../danh_gia.js';
 import { rpc, selAll } from '../sb.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, html, norm, raw, showSaved } from '../ui.js';
-import { CK_CSS, CK_LABEL, ckView } from '../cam_ket_anh.js?v=2026.11.28.10';
+import { CK_CSS, CK_LABEL, ckView } from '../cam_ket_anh.js?v=2026.11.28.11';
 
 export const DEFAULT_PROCEDURE = 'Quy trình nhân viên order';
 export const procedureOf = (d) => d.procedure_title || DEFAULT_PROCEDURE;

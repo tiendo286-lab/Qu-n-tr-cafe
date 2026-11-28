@@ -11,8 +11,8 @@ import { catalog } from '../data.js';
 import { rpc } from '../sb.js';
 import { $, dialog, flash, html, showSaved, str } from '../ui.js';
 import { openItemGuide } from './dt_cong_viec.js';
-import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.28.10';
-import { LEVEL, dm, wd } from './pc_dao_tao_toi.js?v=2026.11.28.10';
+import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.28.11';
+import { LEVEL, dm, wd } from './pc_dao_tao_toi.js?v=2026.11.28.11';
 
 const F = { who: '', d: '' };   // ô lọc người dạy (giữ khi vẽ lại)
 const ST = { chua: ['Chưa giao', 'warn'], giao: ['Đã giao', 'mute'], ok: ['Đã chấm', 'ok'], tre: ['Chưa chấm', 'off'], trong: ['Không phân công', 'mute'] };
