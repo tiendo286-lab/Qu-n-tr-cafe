@@ -10,11 +10,11 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { $, $$, flash, html, str } from '../ui.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.5';
-import { chipCounts, matchRow, optionsOf, sortRows } from './dao_tao_loc.js?v=2026.11.29.5';
-import { planUi } from './pc_dao_tao.js?v=2026.11.29.5';
-import { PCD_CSS, dm, mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.29.5';
-import { render as phieuRender } from './phieu_dao_tao.js?v=2026.11.29.5';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.7';
+import { chipCounts, matchRow, optionsOf, sortRows } from './dao_tao_loc.js?v=2026.11.29.7';
+import { planUi } from './pc_dao_tao.js?v=2026.11.29.7';
+import { PCD_CSS, dm, mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.29.7';
+import { render as phieuRender } from './phieu_dao_tao.js?v=2026.11.29.7';
 
 export const perm = null;
 const PROG = { chay_ban: 'Chạy bàn', pha_che: 'Pha chế' };
@@ -34,6 +34,7 @@ const CSS = html`<style>
   .dtg-chip { border: 2px solid transparent; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; min-height: 36px; padding: 4px 12px; }
   .dtg-chip[aria-pressed="true"] { border-color: var(--ink); }
   .dtg-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
+  details.pcd-card.dtg-card { overflow: visible; }   /* phiếu nhúng nạp lại PCD_CSS sau → phải đủ nặng để thắng .pcd-card { overflow: hidden } */ .dtg-card > summary { border-radius: var(--radius, 18px); } .dtg-card[open] > summary { border-radius: var(--radius, 18px) var(--radius, 18px) 0 0; }
   .dtg-ph { min-width: 0; } .dtg-ph .page-head { margin: 0 0 8px; } .dtg-ph .page-head h1 { font-size: 18px; }
   .dtg-rv > summary { cursor: pointer; font-weight: 700; text-transform: none; letter-spacing: 0; }
   .dtg [hidden] { display: none !important; }

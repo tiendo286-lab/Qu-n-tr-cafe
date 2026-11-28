@@ -12,10 +12,10 @@ import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str, once } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.5';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.7';
 import { STATUS as TASK_STATUS } from './viec.js';
-import { planUi } from './pc_dao_tao.js?v=2026.11.29.5';   // tệp 202: phân công nằm trong thẻ ngày
-import { PCD_CSS, wd } from './pc_dao_tao_toi.js?v=2026.11.29.5';
+import { planUi } from './pc_dao_tao.js?v=2026.11.29.7';   // tệp 202: phân công nằm trong thẻ ngày
+import { PCD_CSS, wd } from './pc_dao_tao_toi.js?v=2026.11.29.7';
 
 const ITEM_FILTERS = {
   all: 'Tất cả',
@@ -566,15 +566,16 @@ const STYLE = html`<style>
   .dt-confirm { display: flex; gap: 8px; flex-wrap: wrap; }
   .dt-confirm .btn { white-space: normal; height: auto; min-height: 36px; text-align: left; overflow-wrap: anywhere; }
   /* chặng 4: tab theo ngày thật */
-  .dt-tabs { position: relative; display: flex; gap: 2px; overflow-x: auto; border-bottom: 2px solid var(--line); scrollbar-width: thin; }
-  .dt-tab-tag { font-size: 11px; padding: 1px 7px; margin-left: 4px; vertical-align: 1px; }
+  .dt-tabs { position: relative; display: flex; gap: 8px; overflow-x: auto; border-bottom: 2px solid var(--line); scrollbar-width: thin; }
+  .dt-tab-tag { font-size: 11px; padding: 1px 7px; margin-left: 6px; vertical-align: 1px; }
   .pcd-inl { border: 1.5px solid var(--caramel-line, #e8cfb0); background: var(--subtle, #f7f2ea); border-radius: 12px; padding: 10px 12px; display: flex; flex-direction: column; gap: 8px; }
   .pcd-inl-h { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
   .pcd-inl-sum { font-size: 14px; display: flex; flex-direction: column; gap: 2px; overflow-wrap: anywhere; }
   .pcd-inl-d > summary { cursor: pointer; font-weight: 700; color: var(--primary-dark, #7a431a); padding: 6px 0; min-height: 32px; } .pcd-inl-d[open] > summary { margin-bottom: 6px; }
   .pcd-inl .pcd-mid { display: flex; flex-direction: column; gap: 8px; } .pcd-inl .pcd-it { background: var(--card, #fff); padding: 8px; }
-  .pcd-inl .pcd-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; position: sticky; bottom: 0; background: var(--subtle, #f7f2ea); padding: 6px 0; }
-  .dt-tab { all: unset; box-sizing: border-box; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-weight: 600; font-size: 14px; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; }
+  .pcd-inl .pcd-foot { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; position: sticky; bottom: 0; z-index: 3; background: var(--subtle, #f7f2ea); padding: 8px 0; border-top: 1px solid var(--line); box-shadow: 0 -6px 10px -8px rgba(60, 40, 20, .35); }
+  .pcd-inl .pcd-foot .pcd-go { min-height: 44px; }
+  .dt-tab { all: unset; box-sizing: border-box; flex: none; cursor: pointer; white-space: nowrap; padding: 10px 12px; font-weight: 600; font-size: 14px; color: var(--ink-2); border-bottom: 3px solid transparent; margin-bottom: -2px; border-radius: 8px 8px 0 0; }
   .dt-tab:hover { background: var(--line-soft); }
   .dt-tab.on { color: var(--primary); border-bottom-color: var(--primary); background: #fff; }
   .dt-tab:focus-visible { outline: 2px solid var(--primary); outline-offset: -2px; }

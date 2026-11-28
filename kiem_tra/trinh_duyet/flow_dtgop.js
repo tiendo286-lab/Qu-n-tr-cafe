@@ -73,6 +73,11 @@ export default async ({ visit, sleep, out }) => {
       const other = $('.pcd-other', box()); other.value = [...other.options].find((o) => /NV07/.test(o.textContent)).value; other.dispatchEvent(new Event('change', { bubbles: true })); await sleep(200);
       const cb = $('label.pcd-it[data-no="5"] input', box()); cb.checked = true; cb.dispatchEvent(new Event('change', { bubbles: true })); await sleep(150);
       ok(txt($('.pcd-n', box())) === '1' && !$('.pcd-go', box()).disabled && !$('dialog[open]'), 'chọn người dạy + tích 1 mục → "Đã chọn 1", nút lưu bật, không có hộp bật lên');
+      // 29/11: dãy thẻ ngày không dính nhau; dòng "Đã chọn N mục + Phân công" dính đáy màn hình khi cuộn giữa danh sách dài
+      { const xs = all('#dt-tabs .dt-tab').map((e) => e.getBoundingClientRect()); ok(xs.every((r, i) => i === 0 || r.left >= xs[i - 1].right + 6), 'dãy thẻ ngày: các thẻ cách nhau, không đè chữ');
+        $('label.pcd-it[data-no="30"]', box()).scrollIntoView({ block: 'center' }); await sleep(300);
+        const f = $('.pcd-foot', box()).getBoundingClientRect();
+        ok(f.bottom <= window.innerHeight + 1 && f.bottom >= window.innerHeight - 4 && f.height >= 44, 'cuộn giữa danh sách: dòng nút Phân công dính đáy màn hình — đáy ' + Math.round(f.bottom) + '/' + window.innerHeight); }
       $('.pcd-go', box()).click(); await sleep(1500); await wait(() => !!box());
       ok(/NV07/.test(txt($('.pcd-inl-sum', box()))) && /Đã giao/.test(txt($(`#dt-tabs .dt-tab[data-tab="${d2}"]`))), 'lưu xong: thẻ ngày kia ghi NV07 dạy mục 5, nhãn đổi thành "Đã giao"');
       ok(card(1).open && $(`#dt-tabs .dt-tab[data-tab="${d2}"]`).classList.contains('on'), 'lưu xong vẫn ở đúng thẻ ngày đang xem');
