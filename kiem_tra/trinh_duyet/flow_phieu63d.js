@@ -24,6 +24,7 @@ export default async ({ sleep, out }) => {
       setv('kind', 'no');
       ok(/Ca /.test(caOf()), `chọn Thu nợ vẫn ở trong ca (không nhảy về Ngoài ca): "${caOf()}"`);
       const d = $('.stc-addp [name=debt]'); const o = [...d.options].find((x) => x.value);
+      ok(![...d.options].some((x) => /kho tổng/i.test(x.textContent)), 'phiếu Thu nợ trong ca không hiện nợ Kho tổng / Chủ / Người nhà');
       ok(!!o, `có khách đang nợ để chọn: ${o?.textContent.trim().slice(0, 40) || '-'}`);
       if (o) {
         setv('debt', o.value); setv('pay2', 'chuyen_khoan'); $('.stc-addp [name=amount]').value = '20.000'; $('.stc-addp [name=reason]').value = 'Khách CK trả nợ trong ca';
