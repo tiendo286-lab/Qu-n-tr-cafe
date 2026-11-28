@@ -79,11 +79,11 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 - **Tổng kết các lỗi 28/11 (anh Tiến kiểm tra từng ca):** tệp 195 (mất dấu tiền đợt 13/11) · 196 (máy gỡ dấu Thu chi ca đã Hoàn thành) · 197 (dấu Hoàn thành treo ca 149) · 198 (cộng nhầm nợ chuyển khoản vào doanh thu) · 200 (Hoàn thành bỏ sót dấu Doanh thu) · web 2026.11.28.11 + .16 (màu ô Chốt ca theo đối soát, ghi đúng dấu thiếu).
 - **Còn ngỏ:** (1) web và máy chủ hiểu "đã Hoàn thành" khác nhau (`stc_ca_done` so với `mdone`) — đề xuất trang đối soát hiện nút Mở lại theo `stc_ca_done`, anh chưa duyệt; (2) quản lý cần vào bấm: LHP Tối 11/11 (149), LHP Tối 17/11 (341), LHP Chiều 19/11 (391 — thiếu dấu Chuyển khoản), ĐK Sáng 1/11 (60); (3) chưa có bài thử tự động cho các tệp 195–200 (mới kiểm bằng REPORT>> tự hoàn tác + đọc lại máy chủ); chưa đăng nhập web thật bằng tài khoản quản lý để bấm thử.
 
-## 28/11/2026 khuya — NGƯỜI NGOÀI LÀM CA (tệp 203) — XONG Ở NHÁNH `nguoi-ngoai-lam-ca`, CHƯA chạy máy chủ thật, CHƯA lên web (chờ anh Tiến bảo)
+## 28/11/2026 khuya — NGƯỜI NGOÀI LÀM CA (tệp 203) — ĐÃ LÊN WEB 2026.11.29.4, máy chủ tệp 203 chạy thật 28/11 23:45 (anh Tiến bảo "đưa lên")
 - Anh Tiến chốt: chỗ thêm người vào ca có 3 loại (nhân viên quán · nhân viên cũ · người ngoài); trả công người ngoài **web không theo dõi nợ công** (anh chọn cách 2 rồi đổi lại cách 1).
 - Đã làm: `supabase/203_nguoi_ngoai_lam_ca.sql` (cột `is_outsider`, `app_ca_helpers` thêm nhóm `outside`, `app_ca_outsider_add`, `app_ca_outsider_rename`), `docs/js/chon_nguoi_ca.js` dùng cho trang đối soát ca + bảng Nghỉ & làm thay, nút thứ ba ở chốt ca, nhãn + Đổi tên ở trang Nhân viên. Không sửa hàm tiền / quyền.
 - Đã thử: `flow_nn203` (chu 35 · ql 34 · qlt 30, máy tính + điện thoại), `flow_hl49`, `flow_dsm4`, `flow_x2p`, `flow_ql_tu_ds` (ql + chu, 2 khung), `flow_dsca`; máy chủ thử cục bộ: tệp 203 chạy 2 lần + `kiem_tra/nguoi_ngoai_203.sql` 12 đạt.
-- Việc còn lại khi anh bảo đưa lên: xem sổ tệp đã chạy (số 200 còn trống không), chạy thử rồi chạy thật tệp 202 TRƯỚC, sau đó tăng `docs/version.json` (lấy số của `origin/main` + 1), gộp `main`, ghi `app_releases`.
+- Số tệp: định lấy 200, rồi 202 — cả hai lần đều bị phiên khác lấy trước trong lúc làm → xem sổ tệp đã chạy NGAY trước khi chạy thật, đổi số bằng lệnh thay có chọn dòng (tệp chung còn nhắc tệp cùng số của việc khác).
 - Bài học: thêm dòng vào `employees` thì trigger `employee_account` tự tạo một tài khoản rỗng — hồ sơ không dùng app phải gỡ tài khoản đó ngay. `chuan_bi.sh` chạy trong worktree thiếu dữ liệu → chép `kiem_tra/trinh_duyet` ra thư mục tạm, nối tắt `docs` (worktree) + `du_lieu` (thư mục chính) rồi chạy.
 - Chưa làm, chưa xác nhận với anh: chữ "(người ngoài)" ở bảng công; ẩn / gộp người ngoài; so trùng tên bỏ dấu.
 
