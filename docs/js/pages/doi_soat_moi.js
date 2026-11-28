@@ -107,6 +107,8 @@ const tick = (on, text, k = null, ro = false) => (k ? html`<button type="button"
 let REFRESH = null;   // móc Sổ thu chi gọi sau mỗi lần lưu (đặt khi mount)
 async function loadShift(id) {
   const R0 = await rpc('app_ca_get', { p_id: id });
+  // VÙNG KHOÁ (anh Tiến chốt 28/11, như trang cũ): không có quyền đối soát ca này (can_recon / recon_note) hoặc nhân viên chưa hoàn thành phiếu → chặn cả trang, không tải số tiền
+  if (!(R0.can_recon && R0.status === 'hoan_thanh')) return { gate: R0 };
   const R = R0;
   const [M, ds, con, RC] = await Promise.all([
     stcMoi({ cn: R.branch_id, thang: String(R.work_date).slice(0, 7), ds: id, hook: (msg, info) => (REFRESH ? REFRESH(msg, info) : null) })
@@ -192,6 +194,7 @@ function viecPane(S) {
       ${Object.keys(WORK_LABEL).map((k) => tick(!!(R.checks || {})[k], WORK_LABEL[k] + ((R.checks || {})[k] ? ' — đã duyệt' : ' — chưa duyệt')))}
       ${workMark(S).length ? html`<div class="dsm-sub">Còn: ${workMark(S).join(', ')}.</div>` : ''}
       ${wp.blocked.map((t) => html`<div class="alert warn">⚠ ${t} — nhân viên ca này cùng người ca trước đếm lại ở <a href="#/ca/phieu?id=${R.id}">phiếu chốt ca ›</a></div>`)}
+      ${!(R.checks || {}).nhap_hang && (((S.dsRow || {}).viec || {}).thieu || []).some((t) => /nhập hàng/i.test(t)) ? html`<div class="alert warn" id="dsm-goods">Ca này còn hàng kho tổng chưa đối soát — làm ở <a href="#/hang-hoa/doi-soat?cn=${R.branch_id}">Hàng hoá › Đối soát ›</a></div>` : ''}
       </section>
     <div class="dsm-step">${wp.parts.length && !done && !ro && !wp.blocked.length
         ? html`<button type="button" class="btn" id="dsm-next1">✓ Duyệt phần việc (${wp.parts.map((k) => WORK_LABEL[k]).join(', ')}), sang bước 2: Tiền ›</button>`
@@ -349,6 +352,12 @@ export async function render({ params }) {
   const id = Number(params.id);
   if (!id) return { title: 'Đối soát ca', html: html`<div class="card">Thiếu mã ca.</div>` };
   let S = await loadShift(id);
+  if (S.gate) {
+    const G = S.gate; const sent = G.status === 'hoan_thanh';
+    return { title: 'Đối soát ca', html: html`<div class="card stack" id="dsm-gate" style="gap:10px;max-width:640px"><h1 style="margin:0">Đối soát ca ${G.shift || ''}</h1>
+      <div>${sent ? (G.recon_note ? html`🔒 ${G.recon_note} Muốn kiểm tra thì nhờ Chủ thêm tên bạn vào ô cơ sở này ở dòng "Đối soát ca" trong Bảng phân công.` : 'Bạn không có quyền đối soát phiếu này.') : `Nhân viên chưa hoàn thành phiếu chốt ca ${G.shift || ''} nên chưa đối soát được.`}</div>
+      <div class="toolbar"><a class="btn sm secondary" href="#/ca/phieu?id=${id}">Mở phiếu chốt ca</a><a class="btn sm secondary" href="#/ca">‹ Danh sách ca</a></div></div>` };
+  }
   const R = S.R;
   let active = ['viec', 'tien', 'xong'].includes(params.tab) && canStep(stepOf(S), params.tab) ? params.tab : firstTab(S);
   const title = `Ca ${R.shift} · ${dayName(R.work_date)} · ${R.branch_code || ''}`;
