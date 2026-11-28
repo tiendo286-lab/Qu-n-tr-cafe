@@ -67,6 +67,13 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
 
+## 28/11/2026 khuya — MÁY CHỦ TỆP 204 ĐÃ CHẠY THẬT: xác nhận lại số tiền không huỷ phần trừ lương đã chia (không đổi web)
+- **Anh Tiến hỏi lại LHP Tối 17/11 (ca 341).** **Gốc lỗi:** chuyển khoản thiếu 35.000 đã chia trừ lương 3 người; quản lý Mở lại phần tiền rồi Hoàn thành → `app_stc_ds_close` gọi `app_ca_result_set(…, '[]')` → `app__ca_drop_shortfalls` huỷ các khoản trừ lương mặc định → `app_stc_ds_done` báo "Chuyển khoản lệch chưa chọn cách xử lý" → hoàn tác; bấm bao nhiêu lần cũng vậy dù bước 2 hiện "Đã xử lý".
+- **Đã làm (tệp 204, anh duyệt "sửa luật, chạy thử rồi chạy thật"):** trong `app_stc_ds_close`, mục THIẾU có khoản trừ lương và chênh lệch đang `xong` theo `app__gap_rows` → ghi kết quả + dấu + nhật ký trực tiếp, không huỷ trừ lương, không gửi lại thông báo. Số lệch đã đổi thì đường cũ. Không sửa dữ liệu — **quản lý tự bấm Hoàn thành ca 341**.
+- **Cách thử đáng nhớ:** thử nút của người dùng trên máy chủ thật mà không đổi dữ liệu — trong khối `DO` đặt `request.jwt.claims` + `request.jwt.claim.sub` = `auth_user_id` của tài khoản cần thử, gọi hàm `app_*`, rồi `RAISE EXCEPTION 'REPORT>> …'` (tự hoàn tác). Nhờ vậy mới thấy câu báo lỗi thật; trước đó em chỉ đọc số và nói sai "bấm Hoàn thành là xong".
+- **Số tệp:** phiên khác chạy song song đã lấy 199, 202, 203 trong tối nay → luôn xem `max(split_part(file,'_',1)::int)` + `git fetch` NGAY trước khi chạy thật (lần này em phải đổi 202 → 204).
+- **Chưa làm:** chưa đếm có ca nào khác đang ở cảnh "đã chia trừ lương rồi bị Mở lại phần tiền".
+
 ## 28/11/2026 khuya — MÁY CHỦ TỆP 201 ĐÃ CHẠY THẬT: web xét lại gỡ mục tiền của ca đã Hoàn thành thì bỏ luôn dấu Hoàn thành (không đổi web)
 - **Lỗi 8 (anh Tiến duyệt "làm tiếp lỗi 8", rồi "chạy thật" sau khi em báo đổi cách):** máy chủ coi ca đã Hoàn thành theo `stc_ca_done`, web theo `mdone` (đủ kết quả 4 mục tiền, tệp 167) → ca có `stc_ca_done` mà thiếu mục tiền thì kẹt (không tích được, không có nút Mở lại). Đường còn tạo ra: `app__ca_auto_green` gỡ mục tiền tự đóng không còn khớp nhưng để nguyên `stc_ca_done`.
 - **Đã làm (tệp 201):** ngay sau khi gỡ, ca có `stc_ca_done` mà không còn đủ kết quả 4 mục tiền → `app__stc_undone_sys` + nhật ký `mo_lai_hoan_thanh`. KHÔNG sửa web / `app_stc_month` (ban đầu định cho trang hiện nút Mở lại theo `stc_ca_done` — bỏ vì phải đổi hàm đọc tháng dùng chung). Không chạy bù ca nào (không ca nào đang kẹt).
