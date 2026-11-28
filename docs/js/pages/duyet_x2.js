@@ -8,6 +8,8 @@
 //   ghép sẵn người làm thay, một nút Lưu cả 2 ca / Duyệt cả 2 ca. Lý do, x2 vẫn chọn tay từng lần. Chỉ ở giao diện.
 // 28/11 (tệp 194): lý do "Đổi ca (lịch chưa sửa)" + nút bấm nhanh Đổi ca ở từng người nghỉ — ca toàn Đổi ca lưu xong là xong luôn, khỏi Chủ duyệt.
 // 28/11 tối (anh Tiến: "thay hẳn danh sách bằng bảng này"): bảng theo ca là MẶC ĐỊNH ở hai thẻ chờ; danh sách cũ còn ở ?kieu=ds (dự phòng, đường nhỏ cuối trang).
+// 29/11 (phần 2, anh Tiến chốt "có" bắt ghi lý do): sửa NHÂN SỰ của ca ngay trên bảng — nút Sửa ở từng dòng tên (có làm / nghỉ, giờ đến – về, bỏ người ngoài lịch)
+//   và "+ Thêm người" cuối cột. Dùng đúng đường của trang đối soát ca: app_ca_recon_save({staff}) + lý do bắt buộc; Nhân sự đã duyệt thì bỏ duyệt trước (app_ca_check).
 // 28/11 khuya (anh Tiến: "sửa trực tiếp tại bảng này luôn" — phần 1): ở bảng theo ca, ô lý do / người làm thay / x2 / Đổi ca nằm NGAY DƯỚI DÒNG TÊN của từng người
 //   (bấm dòng tên để thu gọn / mở), không còn khung riêng cuối cột. Vẫn là app_cv_save / app_cv_approve của cả ca.
 // 28/11 (anh Tiến): "bảng theo ca": mỗi lần một buổi (ngày + ca), mỗi cơ sở một cột hiện đủ lịch của ca
@@ -17,7 +19,8 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy, dt } from '../tien.js';
-import { $, $$, flash, go, html, str } from '../ui.js';
+import { $, $$, dialog, flash, go, html, raw, str } from '../ui.js';
+import { mergeRecon, staffPayload } from '../doi_soat_moi_tinh.js';
 import { CV_CSS, REASONS } from '../nghi_thay.js';
 
 export const perm = 'doi_soat';
@@ -66,6 +69,8 @@ const STYLE = html`<style>
   .x2p-pp[data-tg] { cursor: pointer; position: relative; padding-right: 20px; }
   .x2p-pp[data-tg]::after { content: '▾'; position: absolute; right: 6px; top: 3px; opacity: .7; }
   .x2p-fold { display: none !important; }
+  .x2p-ed { margin-left: auto; border: 0; background: none; padding: 0 2px; font: inherit; font-size: 12px; text-decoration: underline; color: inherit; cursor: pointer; font-weight: 400; }
+  .x2p-colfoot { display: flex; justify-content: flex-start; }
   .x2p-p1 { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
 </style>`;
 
@@ -218,10 +223,10 @@ export async function render({ params }) {
     const ros = (rosterBy[date] || []).filter((x) => x.shift === shift);
     const bids = [...new Set([...ros.map((x) => x.branch_id), ...rs.map((r) => r.branch_id)])].sort((a, b) => a - b);
     const peopleOf = (bid) => { const L = ros.filter((x) => x.branch_id === bid);
-      if (L.length) return L.map((x) => ({ id: x.employee_id, label: `${x.code} – ${x.name}`, k: !x.worked ? 'x' : x.source === 'lich' ? 'v' : 'p', hours: x.hours, reason: x.reason, x2: x.x2 }));
+      if (L.length) return L.map((x) => ({ id: x.employee_id, label: `${x.code} – ${x.name}`, k: !x.worked ? 'x' : x.source === 'lich' ? 'v' : 'p', hours: x.hours, reason: x.reason, x2: x.x2, rid: x.report_id }));
       const r = rs.find((q) => q.branch_id === bid); if (!r?.C || r.C.error) return [];
-      return [...(r.C.workers || []).map((w) => ({ id: w.employee_id, label: `${w.code} – ${w.name}`, k: 'v', hours: w.hours })),
-        ...r.C.people.map((p) => ({ id: p.employee_id, label: `${p.code} – ${p.name}`, k: p.kind === 'nghi' ? 'x' : 'p', hours: p.hours }))]; };
+      return [...(r.C.workers || []).map((w) => ({ id: w.employee_id, label: `${w.code} – ${w.name}`, k: 'v', hours: w.hours, rid: r.id })),
+        ...r.C.people.map((p) => ({ id: p.employee_id, label: `${p.code} – ${p.name}`, k: p.kind === 'nghi' ? 'x' : 'p', hours: p.hours, rid: r.id }))]; };
     const cols = bids.map((bid) => ({ bid, name: bname(bid), P: peopleOf(bid).sort((a, b) => 'vxp'.indexOf(a.k) - 'vxp'.indexOf(b.k)), r: rs.filter((q) => q.branch_id === bid) }));
     const at = (id, bid, ks) => cols.find((c) => c.bid !== bid && c.P.some((p) => p.id === id && ks.includes(p.k)));
     const other = (bid) => todo.find((c) => c.date === date && c.shift === shift && c.branch_id === bid && !rs.some((r) => r.id === c.id));
@@ -230,13 +235,14 @@ export async function render({ params }) {
     const ppHtml = (p, bid, tg) => { const o = p.k === 'x' ? at(p.id, bid, ['v', 'p']) : p.k === 'p' ? at(p.id, bid, ['x']) : null;
       const green = p.k === 'v' || !pending(bid), why = green && p.k !== 'v' && p.reason ? ` · ${p.reason}${p.x2 ? ' · x2' : ''}` : '';
       return html`<div class="x2p-pp ${p.k} ${green ? 'g' : 'r'} ${o ? 'mv' : ''}" ${tg ? 'data-tg' : ''}><span class="x2p-ic">${p.k === 'v' ? '✓' : p.k === 'x' ? '✗' : '+'}</span><span>${p.label}</span>
-        <span class="st-meta">${p.k === 'x' ? (o ? `nghỉ → đang làm ở ${o.name}` : 'nghỉ') : p.k === 'p' ? `làm ngoài lịch · ${hrs(p.hours)} giờ${o ? ` ← có lịch ở ${o.name}` : ''}` : `${hrs(p.hours)} giờ`}${why}</span></div>`; };
+        <span class="st-meta">${p.k === 'x' ? (o ? `nghỉ → đang làm ở ${o.name}` : 'nghỉ') : p.k === 'p' ? `làm ngoài lịch · ${hrs(p.hours)} giờ${o ? ` ← có lịch ở ${o.name}` : ''}` : `${hrs(p.hours)} giờ`}${why}</span>${canClassify && p.rid ? html`<button type="button" class="x2p-ed" data-st="${p.rid}:${p.id}" data-d="${date}">Sửa</button>` : ''}</div>`; };
     // Ca sửa được: người có làm (✓) đứng trên, mỗi người nghỉ / làm ngoài lịch có dòng tên + ô xử lý ngay dưới.
     const ctxOf = (c, r) => { const ids = new Set(r.C.people.map((p) => p.employee_id));
       return { pre: c.P.filter((p) => p.k === 'v').map((p) => ppHtml(p, c.bid)), post: c.P.filter((p) => p.k !== 'v' && !ids.has(p.id)).map((p) => ppHtml(p, c.bid)),
         head: (id, tg) => { let p = c.P.find((q) => q.id === id && q.k !== 'v');
-          if (!p) { const q = r.C.people.find((z) => z.employee_id === id); p = q ? { id, label: `${q.code} – ${q.name}`, k: q.kind === 'nghi' ? 'x' : 'p', hours: q.hours } : null; }
+          if (!p) { const q = r.C.people.find((z) => z.employee_id === id); p = q ? { id, label: `${q.code} – ${q.name}`, k: q.kind === 'nghi' ? 'x' : 'p', hours: q.hours, rid: r.id } : null; }
           return p ? ppHtml(p, c.bid, tg) : ''; } }; };
+    const ridOf = (c) => (c.r[0] && c.r[0].id) || (c.P.find((p) => p.rid) || {}).rid || null;   // mã ca của cột (để thêm người)
     const kind = tab === 'duyet' && isOwner ? 'ok' : 'save';
     const bars = rs.filter((r) => r.mate && rs.includes(r.mate));
     return html`<div class="x2p-gnav">
@@ -249,7 +255,8 @@ export async function render({ params }) {
           ${c.r.length ? html`<span class="pill off">Cần xử lý</span>` : other(c.bid) ? html`<span class="pill off">${other(c.bid).state === 'cho_duyet' ? 'Đang ở thẻ Chờ Chủ duyệt' : 'Đang ở thẻ Chờ phân loại'}</span>`
             : html`<span class="pill ok">${c.P.some((p) => p.k !== 'v') ? 'Đã xử lý xong' : 'Đủ người theo lịch'}</span>`}</h3>
           ${c.r.some(editable) ? '' : c.P.length ? c.P.map((p) => ppHtml(p, c.bid)) : html`<div class="st-meta">Chưa có danh sách nhân sự.</div>`}
-          ${c.r.map((r) => { r._ctx = editable(r) ? ctxOf(c, r) : null; return caHtml(r); })}</div>`)}</div>
+          ${c.r.map((r) => { r._ctx = editable(r) ? ctxOf(c, r) : null; return caHtml(r); })}
+          ${canClassify && ridOf(c) ? html`<div class="x2p-colfoot"><button type="button" class="btn sm secondary" data-stadd="${ridOf(c)}" data-d="${date}">+ Thêm người</button></div>` : ''}</div>`)}</div>
       ${bars.map((r) => html`<div class="x2p-pair x2p-bar"><div class="x2p-pt"><span>Đổi ca: ${r.swapTitle}</span><span class="st-meta">Hai ca ${bname(r.branch_id)} và ${bname(r.mate.branch_id)} là một lần đổi ca — ${kind === 'ok' ? 'duyệt' : 'lưu'} một lần cho cả hai.</span></div>
         <div class="x2p-foot"><button type="button" class="btn sm" data-pairgo="${kind}" data-ids="${r.id} ${r.mate.id}">${kind === 'ok' ? 'Duyệt cả 2 ca' : 'Lưu cả 2 ca'}</button></div></div>`)}`;
   };
@@ -287,7 +294,7 @@ export async function render({ params }) {
         el.querySelector('[data-one]')?.addEventListener('click', (e) => oneCa(r, e.currentTarget));
         $$('[data-p1]', el).forEach((b) => b.addEventListener('click', () => onePerson(r, b)));
         $$('[data-dc]', el).forEach((b) => b.addEventListener('click', () => quickSwap(r, b)));
-        $$('.x2p-pp[data-tg]', el).forEach((h) => h.addEventListener('click', () => h.nextElementSibling?.classList.toggle('x2p-fold')));   // bấm dòng tên: thu gọn / mở ô xử lý
+        $$('.x2p-pp[data-tg]', el).forEach((h) => h.addEventListener('click', (e) => { if (e.target.closest('[data-st]')) return; h.nextElementSibling?.classList.toggle('x2p-fold'); }));   // bấm dòng tên: thu gọn / mở ô xử lý
         // Đổi ca thì không có x2 (máy chủ cũng bỏ) → khoá ô x2 của người đó
         const lockX = (box) => { const c = box.querySelector('.cv-x'), dc = box.querySelector('.cv-reason').value === 'doi_ca'; if (dc) c.checked = false; c.disabled = dc; };
         $$('.cv-a', el).forEach((box) => { lockX(box); box.querySelector('.cv-reason').addEventListener('change', () => lockX(box)); });
@@ -453,6 +460,80 @@ export async function render({ params }) {
       // Cặp đổi ca: chọn lý do cho một người thì người kia (đang để trống) điền theo — vẫn sửa riêng được.
       list.addEventListener('change', (e) => { const w = e.target.matches?.('.cv-a[data-swap] .cv-reason') && e.target.closest('.x2p-pair');
         if (w) $$('.cv-a[data-swap] .cv-reason', w).forEach((s) => { if (!s.value) s.value = e.target.value; }); });
+      // ---- 29/11 phần 2: sửa nhân sự của ca ngay trên bảng (đường của trang đối soát ca, lý do bắt buộc) ----
+      const hm = (x) => (x ? String(x).slice(0, 5) : '');
+      const isW = (z) => !(z.worked === 0 || z.worked === false);
+      // Phải đọc được BẢN ĐỐI SOÁT của ca (nhân sự quản lý đã sửa). Không đọc được (vd ca đang chờ kế toán) thì KHÔNG cho sửa ở đây —
+      // nếu lấy tạm phiếu gốc rồi lưu sẽ ghi đè mất các chỗ quản lý đã sửa.
+      const loadCa = async (rid) => { const [R0, RC] = await Promise.all([rpc('app_ca_get', { p_id: rid }), rpc('app_ca_recon', { p_id: rid })]); return mergeRecon(R0, RC); };
+      const stForm = (title, inner, extra = '') => {
+        const d = dialog(str(html`<form class="stack" style="gap:10px;max-width:460px"><h2 style="margin:0">${title}</h2>${inner}
+          <label class="field"><span>Lý do sửa (bắt buộc)</span><input class="input" name="reason" autocomplete="off"></label><div class="x2p-err x2p-derr"></div>
+          <div class="toolbar" style="justify-content:flex-end;flex-wrap:wrap">${extra}<button type="button" class="btn sm secondary" data-x>Huỷ</button><button class="btn sm" type="submit">Lưu</button></div></form>`));
+        d.querySelector('[data-x]')?.addEventListener('click', () => d.close());
+        return d;
+      };
+      const stRun = async (d, fn) => { const b = d.querySelector('[type=submit]'); if (b) b.disabled = true; try { await fn(); d.close(); } catch (e) { if (b) b.disabled = false; d.querySelector('.x2p-derr').textContent = e.message || String(e); } };
+      const stReason = (f) => { const v = (f.reason?.value || '').trim(); if (!v) throw new Error('Ghi lý do sửa (bắt buộc).'); return v; };
+      const stSave = async (R, listNew, reason, date) => {
+        if ((R.checks || {}).nhan_su) await rpc('app_ca_check', { p_id: R.id, p_item: 'nhan_su', p_on: false });   // Nhân sự đã duyệt → bỏ duyệt trước, như trang đối soát ca
+        await rpc('app_ca_recon_save', { p_id: R.id, p: { staff: listNew }, p_reason: reason });
+        await refreshCa(R.id, date);
+        flashNow(`Đã lưu nhân sự của ca.${(R.checks || {}).nhan_su ? ' Phần Nhân sự của ca đã bị bỏ duyệt — duyệt lại ở trang của ca.' : ''}`, 'info');
+      };
+      const stOpen = async (rid) => { let R; try { R = await loadCa(rid); } catch (e) { flashNow(`Chưa sửa được nhân sự của ca này tại bảng: ${e.message || String(e)}`, 'error'); return null; }
+        if (R.recon_status === 'hoan_thanh') { flashNow('Ca này đã Hoàn thành đối soát — vào trang của ca bấm Mở lại rồi mới sửa nhân sự.', 'error'); return null; }
+        return R; };
+      const stNote = (R) => ((R.checks || {}).nhan_su ? html`<div class="st-meta">Nhân sự của ca này đã được duyệt — sửa thì web tự bỏ duyệt Nhân sự, cần duyệt lại ở trang của ca.</div>` : '');
+      async function staffEdit(rid, eid, date) {
+        const R = await stOpen(rid); if (!R) return;
+        const i = (R.staff || []).findIndex((z) => Number(z.employee_id) === Number(eid)); if (i < 0) { flashNow('Không thấy người này trong ca (tải lại trang).', 'error'); return; }
+        const z = R.staff[i], w = isW(z), ref = (R.staff || []).find((q) => isW(q) && q.time_in && q.time_out) || {};
+        const d = stForm(`${z.code ? z.code + ' – ' : ''}${z.name || 'NV ' + z.employee_id}`, html`
+          <label class="field"><span>Đi làm</span><select class="input" name="worked"><option value="1" ${w ? raw('selected') : ''}>Có làm</option><option value="0" ${w ? '' : raw('selected')}>Phát sinh nghỉ</option></select></label>
+          <div class="cv-grid" data-w="1"><label class="field" style="flex:1"><span>Giờ đến</span><input class="input" type="time" name="in" value="${hm(z.time_in) || hm(ref.time_in)}"></label><label class="field" style="flex:1"><span>Giờ về</span><input class="input" type="time" name="out" value="${hm(z.time_out) || hm(ref.time_out)}"></label></div>
+          <label class="field" data-w="0"><span>Lý do nghỉ</span><input class="input" name="absent" value="${z.absent_reason || ''}"></label>
+          <label class="field"><span>Ghi chú</span><input class="input" name="note" value="${z.note || ''}"></label>${stNote(R)}`,
+          z.source && z.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger" data-del style="margin-right:auto">Bỏ người này</button>` : '');
+        const f = d.querySelector('form'), L = () => (R.staff || []).map(staffPayload);
+        const sync = () => { const on = f.worked.value === '1'; f.querySelectorAll('[data-w]').forEach((x) => { x.hidden = x.dataset.w !== (on ? '1' : '0'); }); };
+        f.worked.addEventListener('change', sync); sync();
+        d.querySelector('[data-del]')?.addEventListener('click', () => stRun(d, async () => { const why = stReason(f); await stSave(R, L().filter((_, k) => k !== i), why, date); }));
+        f.addEventListener('submit', (ev) => { ev.preventDefault(); stRun(d, async () => {
+          const why = stReason(f), on = f.worked.value === '1';
+          if (on && (!f.elements.in.value || !f.elements.out.value)) throw new Error('Nhập giờ đến và giờ về.');
+          if (!on && !f.absent.value.trim()) throw new Error('Ghi lý do nghỉ.');
+          const N = L();
+          N[i] = { ...N[i], worked: on, time_in: on ? f.elements.in.value : null, time_out: on ? f.elements.out.value : null, absent_reason: on ? null : f.absent.value.trim(), note: f.note.value.trim() || null, cash_paid: on ? N[i].cash_paid : null };
+          await stSave(R, N, why, date); }); });
+      }
+      async function staffAdd(rid, date) {
+        const R = await stOpen(rid); if (!R) return;
+        let emps = []; try { emps = (await rpc('app_ca_employees')) || []; } catch (e) { flashNow(e.message || String(e), 'error'); return; }
+        const have = new Set((R.staff || []).map((z) => Number(z.employee_id))), ref = (R.staff || []).find((q) => isW(q) && q.time_in && q.time_out) || {};
+        const d = stForm('Thêm người vào ca', html`<label class="field"><span>Nhân viên</span><select class="input" name="emp"><option value="">— Chọn nhân viên —</option>${emps.filter((e) => !have.has(Number(e.id))).map((e) => html`<option value="${e.id}">${e.code ? e.code + ' – ' : ''}${e.name || ''}</option>`)}</select></label>
+          <div class="cv-grid"><label class="field" style="flex:1"><span>Giờ đến</span><input class="input" type="time" name="in" value="${hm(ref.time_in)}"></label><label class="field" style="flex:1"><span>Giờ về</span><input class="input" type="time" name="out" value="${hm(ref.time_out)}"></label></div>
+          <label class="field"><span>Ghi chú</span><input class="input" name="note"></label><div class="st-meta">Người thêm ở đây tính là người hỗ trợ / làm ngoài lịch của ca.</div>${stNote(R)}`);
+        const f = d.querySelector('form');
+        f.addEventListener('submit', (ev) => { ev.preventDefault(); stRun(d, async () => {
+          if (!f.emp.value) throw new Error('Chọn nhân viên.'); if (!f.elements.in.value || !f.elements.out.value) throw new Error('Nhập giờ đến và giờ về.');
+          const why = stReason(f);
+          await stSave(R, [...(R.staff || []).map(staffPayload), staffPayload({ employee_id: f.emp.value, source: 'ho_tro', worked: 1, time_in: f.elements.in.value, time_out: f.elements.out.value, note: f.note.value })], why, date); }); });
+      }
+      // Sau khi sửa nhân sự: đọc lại danh sách chờ + chi tiết ca đó + lịch của ngày, rồi vẽ lại bảng (không tải lại cả trang).
+      async function refreshCa(id, date) {
+        const [td, C] = await Promise.all([rpc('app_cv_todo').catch(() => null), rpc('app_cv_get', { p_id: id }).catch((e) => ({ error: e.message }))]);
+        delete rosterBy[date];
+        if (td) { todo.splice(0, todo.length, ...td);
+          const setN = (k, v) => { const n = root.querySelector(`[data-tab="${k}"] strong`); if (n) n.textContent = String(v); };
+          setN('cho', td.filter((c) => c.state !== 'cho_duyet').length); setN('duyet', td.filter((c) => c.state === 'cho_duyet').length); }
+        const t = todo.find((c) => c.id === id), i = rows.findIndex((q) => q.id === id), inTab = t && (tab === 'duyet') === (t.state === 'cho_duyet');
+        if (inTab) { if (i >= 0) Object.assign(rows[i], t, { C }); else { rows.push({ ...t, C }); if (!gorder.includes(gkey(t))) gorder.push(gkey(t)); } }
+        else if (i >= 0) rows.splice(i, 1);
+        await drawBoard();
+      }
+      list.addEventListener('click', (e) => { const b = e.target.closest('[data-st]'), a = e.target.closest('[data-stadd]');
+        if (b) { const [rid, eid] = b.dataset.st.split(':').map(Number); staffEdit(rid, eid, b.dataset.d); } else if (a) staffAdd(Number(a.dataset.stadd), a.dataset.d); });
       $('#x2p-save', root)?.addEventListener('click', () => run('save'));
       $('#x2p-ok', root)?.addEventListener('click', () => run('ok'));
       $$('.x2p-ca', list).forEach(bindCa);

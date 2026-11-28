@@ -46,6 +46,40 @@ export default async ({ sleep, out }) => {
       await goB('#/quan-ly/nghi-lam-thay');
       { const c0 = $(`.x2p-ca[data-id="${ids[0]}"]`), e0 = c0?.querySelector('.cv-e');
         ok(!!c0 && c0.classList.contains('x2p-in') && !!e0 && getComputedStyle(e0).display === 'none' && getComputedStyle(c0.querySelector('.cv-a')).display !== 'none', `Bảng theo ca: ca 1 nghỉ + 1 hỗ trợ ghép sẵn — chỉ hiện ô của người nghỉ, ô hỗ trợ ẩn · ${W()}`); }
+      // 29/11 (phần 2): sửa nhân sự của ca ngay trên bảng — thêm người, đổi nghỉ thành có làm, bỏ người; lý do bắt buộc
+      {
+        // Ca nào đọc được bản đối soát thì sửa được; ca đang chờ kế toán thì bảng phải chặn (không lấy tạm phiếu gốc)
+        const cand = [ids[2], ids[1], ids[0], id4].filter(Boolean); const okIds = [], badIds = [];
+        for (const c of cand) { try { await rpc('app_ca_recon', { p_id: c }); okIds.push(c); } catch (e) { badIds.push(c); } }
+        const dlg = () => document.querySelector('dialog[open]');
+        if (badIds.length) { const cb = $(`.x2p-ca[data-id="${badIds[0]}"]`).closest('.x2p-col'); cb.querySelector('[data-stadd]').click(); await sleep(900);
+          ok(!dlg() && /Chưa sửa được nhân sự/.test(txt('#x2p-msg')), `Ca chưa đọc được bản đối soát: bảng chặn sửa nhân sự — ${txt('#x2p-msg').slice(0, 120)}`); }
+        window.__KT_XONG = true;   // từ đây coi như kế toán đã xong → đọc được bản đối soát (giả lập fb_gia.js)
+        if (!okIds.length) { try { await rpc('app_ca_recon', { p_id: cand[0] }); okIds.push(cand[0]); } catch (e) { r.push('LỖI vẫn không đọc được bản đối soát: ' + e.message); } }
+        const idS = okIds[0] || cand[0], cS = () => $(`.x2p-ca[data-id="${idS}"]`), colS = () => cS()?.closest('.x2p-col');
+        const n0 = (await rpc('app_cv_get', { p_id: idS })).people.length; const st0 = (await rpc('app_cv_get', { p_id: idS })).state;
+        if (okIds.length) {
+        ok(!!colS()?.querySelector('[data-stadd]') && !!colS().querySelector('.x2p-pp [data-st]'), `Bảng theo ca: mỗi dòng tên có nút Sửa, cuối cột có + Thêm người · ${W()}`);
+        colS().querySelector('[data-stadd]').click(); await wait(() => !!dlg(), 80);
+        const f = dlg().querySelector('form'); f.emp.value = f.emp.options[f.emp.options.length - 1].value; const added = Number(f.emp.value);
+        f.elements.in.value = '07:00'; f.elements.out.value = '11:00';
+        f.querySelector('[type=submit]').click(); await sleep(500);
+        ok(!!dlg() && /lý do sửa/i.test(dlg().querySelector('.x2p-derr').textContent), `Thêm người không ghi lý do: bị chặn — ${dlg()?.querySelector('.x2p-derr').textContent}`);
+        f.reason.value = 'Thử thêm người'; f.querySelector('[type=submit]').click(); await wait(() => !dlg(), 100); await sleep(900);
+        let g = await rpc('app_cv_get', { p_id: idS });
+        ok(g.people.length === n0 + 1 && g.people.some((p) => p.employee_id === added && p.kind === 'ho_tro') && !!colS()?.querySelector(`[data-st="${idS}:${added}"]`), `Thêm người: ca có ${g.people.length} người nghỉ / hỗ trợ (trước ${n0}), bảng hiện người mới · ${txt('#x2p-msg')}`);
+        // đổi người vừa thêm thành "Phát sinh nghỉ" rồi đổi lại có làm
+        colS().querySelector(`[data-st="${idS}:${added}"]`).click(); await wait(() => !!dlg(), 80);
+        { const f2 = dlg().querySelector('form'); f2.worked.value = '0'; f2.worked.dispatchEvent(new Event('change')); f2.absent.value = 'Ốm'; f2.reason.value = 'Thử đổi thành nghỉ'; f2.querySelector('[type=submit]').click(); await wait(() => !dlg(), 100); await sleep(900); }
+        ok(colS()?.querySelector(`[data-st="${idS}:${added}"]`)?.closest('.x2p-pp').classList.contains('x'), 'Sửa tại dòng: đổi thành Phát sinh nghỉ → dòng chuyển ✗');
+        // bỏ người vừa thêm → ca về như cũ
+        colS().querySelector(`[data-st="${idS}:${added}"]`).click(); await wait(() => !!dlg(), 80);
+        { const f3 = dlg().querySelector('form'); f3.reason.value = 'Thử bỏ người'; dlg().querySelector('[data-del]').click(); await wait(() => !dlg(), 100); await sleep(900); }
+        g = await rpc('app_cv_get', { p_id: idS });
+        ok(g.people.length === n0 && !colS()?.querySelector(`[data-st="${idS}:${added}"]`) && g.state === st0, `Bỏ người: ca về ${g.people.length} người, vẫn ${g.state} · ${W()}`);
+        }
+        window.__KT_XONG = false;
+      }
       await go('#/quan-ly/nghi-lam-thay');
       // 27/11 (anh Tiến): ca đúng 1 người nghỉ + 1 người hỗ trợ → ghép sẵn, chỉ một khung, không có Lưu người này
       {

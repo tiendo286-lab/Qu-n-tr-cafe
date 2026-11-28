@@ -25,6 +25,7 @@ export function makeFb(T, me) {
   };
   // bước 44: phần tiền chờ kế toán = cơ sở dùng Fabi mà thiếu file Fabi hoặc thiếu số dư ngân hàng
   const ktState = (id) => {
+    if (window.__KT_XONG) return { need: false, fabi: true, bank: true, bank_in: 0, bank_accounts: 0, ready: true, missing: [] };   // bài thử bật tạm: coi như kế toán đã xong (flow_x2p sửa nhân sự)
     const sk = T.__stcKt && T.__stcKt(id); if (sk) return sk;   // Đối soát về Chốt ca: ca thử phần tiền theo dữ liệu thử phần tiền
     const r = T.shift_reports.find((x) => x.id === id); if (!r) return null;
     const b = T.branches.find((x) => x.id === r.branch_id) || {};
