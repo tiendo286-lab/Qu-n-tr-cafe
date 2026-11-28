@@ -8,7 +8,9 @@ export default async ({ sleep, out }) => {
   const W = () => `rộng ${document.documentElement.clientWidth}/${document.documentElement.scrollWidth}`;
   const role = new URLSearchParams(location.search).get('role');
   const r = []; const ok = (c, m) => r.push(`${c ? 'ĐẠT' : 'LỖI'} ${m}`);
-  const go = async (h) => { location.hash = '#/__tam'; await sleep(200); location.hash = h; await wait('.x2p-tabs'); await sleep(800); };
+  // 28/11 tối: bảng theo ca là mặc định → các bước thử dạng danh sách cũ mở bằng ?kieu=ds (go); bảng mở bằng goB
+  const goB = async (h) => { location.hash = '#/__tam'; await sleep(200); location.hash = h; await wait('.x2p-tabs'); await sleep(800); };
+  const go = (h) => goB(h + (h.includes('?') ? '&' : '?') + 'kieu=ds');
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(2000);
     const { rpc } = await import('../js/sb.js');
@@ -192,13 +194,14 @@ export default async ({ sleep, out }) => {
           cD().querySelector('.cv-reason').value = 'tu_tim'; cD().querySelector('.cv-x').checked = true; cD().querySelector('[data-one]').click(); await wait(() => !cD(), 100);
           // 28/11 (bản chạy thử): bước duyệt làm ở BẢNG THEO CA — mỗi cơ sở một cột, thao tác ngay dưới cột
           await go('#/quan-ly/nghi-lam-thay?tab=duyet');
-          ok(/bảng theo ca/i.test($('#x2p-kieu')?.textContent || ''), 'Có nút Xem dạng bảng theo ca (thử)');
-          $('#x2p-kieu').click(); await wait('.x2p-board'); await sleep(700);
+          ok(/bảng theo ca/i.test($('#x2p-kieu')?.textContent || ''), 'Dạng danh sách cũ có nút Về bảng theo ca');
+          await goB('#/quan-ly/nghi-lam-thay?tab=duyet'); await wait('.x2p-board'); await sleep(700);
+          ok(!!$('.x2p-board') && !/kieu=/.test(location.hash), 'Mở trang không kèm gì → ra bảng theo ca (mặc định)');
           if (!cD()) { const k = [...$('#x2p-g').options].find((o) => o.textContent.includes(oD.shift)); if (k) { $('#x2p-g').value = k.value; $('#x2p-g').dispatchEvent(new Event('change', { bubbles: true })); await sleep(900); } }
           {
             const col = cD()?.closest('.x2p-col');
             ok(!!col && $$('.x2p-col').length >= 2 && !!col.querySelector('.x2p-pp.x') && !!col.querySelector('.x2p-pp.p'), `Bảng theo ca: ${$$('.x2p-col').length} cột, cột của ca có người ✗ nghỉ và + làm ngoài lịch · ${txt('.x2p-gnav').slice(0, 70)} · ${W()}`);
-            ok(!$('#x2p-ok') && !$('.x2p-pick') && /duyệt ca này/i.test(cD().querySelector('[data-one]')?.textContent || '') && /kieu=bang/.test(location.hash) && /danh sách/i.test($('#x2p-kieu').textContent), 'Bảng theo ca: nút Duyệt ca này nằm ngay dưới cột, không có tích hàng loạt, có nút quay về danh sách');
+            ok(!$('#x2p-ok') && !$('.x2p-pick') && /duyệt ca này/i.test(cD().querySelector('[data-one]')?.textContent || '') && /danh sách cũ/i.test($('#x2p-kieu').textContent), 'Bảng theo ca: nút Duyệt ca này nằm ngay dưới cột, không có tích hàng loạt, có đường về danh sách cũ');
           }
           ok(!!cD()?.querySelector('[data-dc]') && cD().querySelector('.cv-x').checked, 'Chờ Chủ duyệt: ca đang x2 có nút nhanh Đổi ca');
           // 28/11 (anh Tiến): đỏ = còn phải xử lý, xanh = có làm / đã duyệt xong
@@ -227,7 +230,10 @@ export default async ({ sleep, out }) => {
           $('#x2p-save').click(); await sleep(1500); ok((await rpc('app_cv_get', { p_id: id })).state === 'cho_duyet', 'QL tổng lưu phân loại → chờ Chủ duyệt'); }
         await go('#/quan-ly/nghi-lam-thay?tab=duyet');
         ok(!$('#x2p-ok') && !!$('#x2p-save'), 'QL tổng ở Chờ Chủ duyệt: có Lưu, không có Duyệt');
+        await goB('#/quan-ly/nghi-lam-thay?tab=duyet'); await sleep(500);
+        ok(!!$('.x2p-board') && !!$('.x2p-col .x2p-ca [data-one]') && /lưu ca này/i.test($('.x2p-col .x2p-ca [data-one]').textContent) && !$('#x2p-save'), `QL tổng mở mặc định ra bảng theo ca: ${$$('.x2p-col').length} cột, nút Lưu ca này dưới cột · ${W()}`);
       }
+      if (role === 'ql') { await goB('#/quan-ly/nghi-lam-thay'); await sleep(500); ok(!$('[data-one]') && !$('.cv-reason') && !$('[data-pairgo]'), `Quản lý cơ sở ở bảng theo ca: chỉ xem · ${W()}`); await go('#/quan-ly/nghi-lam-thay'); }
       if (role === 'ql') ok((!id || !!row) && !$('#x2p-save') && !$('#x2p-ok') && !$('.x2p-pick') && !$('.cv-reason'), `Quản lý cơ sở chỉ xem (ca ${id ? 'hiện' : 'không dựng được'}, không tích, không lưu / duyệt)`);
     }
   } catch (e) { r.push('LỖI ' + e.stack); }

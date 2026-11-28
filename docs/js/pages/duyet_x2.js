@@ -7,7 +7,8 @@
 // 28/11 (anh Tiến): hai ca là một lần ĐỔI CA (A nghỉ ca mình và làm thay ở ca của B, B ngược lại) → gộp một khung,
 //   ghép sẵn người làm thay, một nút Lưu cả 2 ca / Duyệt cả 2 ca. Lý do, x2 vẫn chọn tay từng lần. Chỉ ở giao diện.
 // 28/11 (tệp 194): lý do "Đổi ca (lịch chưa sửa)" + nút bấm nhanh Đổi ca ở từng người nghỉ — ca toàn Đổi ca lưu xong là xong luôn, khỏi Chủ duyệt.
-// 28/11 (anh Tiến, BẢN CHẠY THỬ): ?kieu=bang — "bảng theo ca": mỗi lần một buổi (ngày + ca), mỗi cơ sở một cột hiện đủ lịch của ca
+// 28/11 tối (anh Tiến: "thay hẳn danh sách bằng bảng này"): bảng theo ca là MẶC ĐỊNH ở hai thẻ chờ; danh sách cũ còn ở ?kieu=ds (dự phòng, đường nhỏ cuối trang).
+// 28/11 (anh Tiến): "bảng theo ca": mỗi lần một buổi (ngày + ca), mỗi cơ sở một cột hiện đủ lịch của ca
 //   (✓ có làm · ✗ có lịch nhưng nghỉ · + làm ngoài lịch), người nghỉ ở cơ sở này mà làm ở cơ sở khác được tô màu; khung lưu / duyệt nằm ngay dưới cột.
 //   Lịch lấy từ app_lich_thuc_te (không có quyền thì chỉ hiện các ca đang chờ). Mặc định vẫn là danh sách.
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
@@ -68,7 +69,7 @@ async function pool(items, n, fn) {
 export async function render({ params }) {
   const tab = TABS.some(([k]) => k === params.tab) ? params.tab : 'cho';
   const month = /^\d{4}-\d{2}$/.test(params.thang || '') ? params.thang : new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 7);
-  const board = params.kieu === 'bang' && tab !== 'xong';   // bản chạy thử: bảng theo ca
+  const board = params.kieu !== 'ds' && tab !== 'xong';   // bảng theo ca (mặc định); ?kieu=ds = danh sách cũ
   const cn = params.cn && !board ? Number(params.cn) : null;
   const todo = await rpc('app_cv_todo').catch(() => []);
   let done = null, doneErr = '';
@@ -103,7 +104,7 @@ export async function render({ params }) {
   for (const r of allRows) { if (r.tail) continue; if (inCn(r) || (r.mate && inCn(r.mate))) { rows.push(r); if (r.mate) rows.push(r.mate); } }
   const anyC = rows.find((r) => r.C && !r.C.error)?.C;
   const canClassify = !!anyC?.can_classify, isOwner = !!anyC?.is_owner;
-  const nav = (p) => go('/quan-ly/nghi-lam-thay?' + new URLSearchParams(Object.entries({ tab, cn: cn || '', thang: tab === 'xong' ? month : '', kieu: params.kieu === 'bang' ? 'bang' : '', ...p }).filter(([, v]) => v !== '' && v != null)).toString());
+  const nav = (p) => go('/quan-ly/nghi-lam-thay?' + new URLSearchParams(Object.entries({ tab, cn: cn || '', thang: tab === 'xong' ? month : '', kieu: params.kieu === 'ds' ? 'ds' : '', ...p }).filter(([, v]) => v !== '' && v != null)).toString());
   const ticked = new Set(tab === 'duyet' ? rows.filter((r) => r.C && !r.C.error).map((r) => r.id) : []);
   const editing = new Set();
 
@@ -242,12 +243,12 @@ export async function render({ params }) {
       <div class="stack" style="max-width:${board ? 1500 : 1000}px;gap:12px">
         <div class="toolbar" style="gap:8px;flex-wrap:wrap;align-items:center">
           <div class="x2p-tabs" role="tablist">${TABS.map(([k, l]) => html`<button type="button" class="x2p-tab" role="tab" aria-selected="${k === tab}" data-tab="${k}">${l} <strong>${counts[k]}</strong></button>`)}</div>
-          ${tab !== 'xong' ? html`<button type="button" class="btn sm secondary" id="x2p-kieu">${board ? 'Xem dạng danh sách' : 'Xem dạng bảng theo ca (thử)'}</button>` : ''}
           <select class="input sm" id="x2p-cn" aria-label="Cơ sở" style="width:auto" ${board ? 'hidden' : ''}><option value="">Tất cả cơ sở</option>${branches.map(([id, name]) => html`<option value="${id}" ${id === cn ? 'selected' : ''}>${name}</option>`)}</select>
         </div>
         ${bulk}${monthBar}
         <div class="x2p-list" id="x2p-list">${body()}</div>
         ${foot}
+        ${tab !== 'xong' ? html`<div class="st-meta" style="text-align:right"><button type="button" class="btn sm secondary" id="x2p-kieu">${board ? 'Xem dạng danh sách cũ' : 'Về bảng theo ca'}</button></div>` : ''}
       </div>`,
     mount(root) {
       const list = $('#x2p-list', root);
@@ -407,7 +408,7 @@ export async function render({ params }) {
       const flashNow = (m, kind) => { let n = $('#x2p-msg', root); if (!n) { n = document.createElement('div'); n.id = 'x2p-msg'; list.before(n); } n.className = `alert ${kind === 'error' ? 'error' : kind === 'warn' ? 'warn' : 'info'}`; n.setAttribute('role', 'alert'); n.textContent = m; n.scrollIntoView({ block: 'nearest' }); };
       $$('[data-tab]', root).forEach((b) => b.addEventListener('click', () => nav({ tab: b.dataset.tab })));
       $('#x2p-cn', root)?.addEventListener('change', (e) => nav({ cn: e.target.value }));
-      $('#x2p-kieu', root)?.addEventListener('click', () => nav({ kieu: board ? '' : 'bang', cn: '' }));
+      $('#x2p-kieu', root)?.addEventListener('click', () => nav({ kieu: board ? 'ds' : '', cn: '' }));
       list.addEventListener('click', (e) => { const b = e.target.closest('[data-g]'); if (b && b.dataset.g) { gcur = b.dataset.g; drawBoard(); } });
       list.addEventListener('change', (e) => { if (e.target.id === 'x2p-g') { gcur = e.target.value; drawBoard(); } });
       $('#x2p-m', root)?.addEventListener('change', (e) => nav({ thang: e.target.value }));
