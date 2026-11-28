@@ -23,7 +23,7 @@ export default async ({ sleep, out }) => {
   { const d0 = item('chi lương – minh'); const c0 = d0 && d0.closest('.stc-ca');
     ok(!!c0 && !$('button.stc-ed:not([disabled])', c0) && txt($('.stc-calock', c0)).includes('đã hoàn thành đối soát') && !!$('.stc-calock a[href*="doi-soat?id=181"]', c0) && !$('button.stc-addca:not([disabled])', c0) && !$('[data-toka]', c0),
       '0. bước 171: ca đã Hoàn thành đối soát → không có Sửa / Xoá, thêm phiếu, → Trừ lương; ghi chú đầu ca dẫn sang Đối soát Fabi'); }
-  location.hash = '#/ca/doi-soat-cu?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
+  location.hash = '#/ca/doi-soat?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
   $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await sleep(900);
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
   const td = item('tiền điện tháng 10');

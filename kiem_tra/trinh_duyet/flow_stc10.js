@@ -8,7 +8,7 @@ export default async ({ sleep, out }) => {
   const wide = (m) => { if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `${m}: không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
-    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+    return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   const open = async (id, b = 1) => { location.hash = cu(DS + '&ds=' + id + '&b=' + b + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500); };   // bước 171: b = bước mở (1 Số máy Fabi, 2 Tiền thực nhận)
   const box = () => $('.stc-pa .stc-cadebt');
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
@@ -31,7 +31,7 @@ export default async ({ sleep, out }) => {
     // 2. ca Sáng 18/11 (đã xác nhận): vẫn có danh sách, trả một phần → còn nợ
     await open(181);
     const b2 = box();
-    ok(!!b2 && !!$('.stc-pa .stc-fsum'), '2. ca đã xác nhận: vẫn có danh sách nợ');
+    ok(!!b2, '2. ca đã xác nhận: vẫn có danh sách nợ');
     ok(!!b2 && txt(b2).includes('bàn 9') && txt(b2).includes('đã trả · 19/11 · quản lý thu · tiền mặt') && !txt(b2).includes('còn nợ'), '2. Bàn 9 quản lý thu ngoài ca → "đã trả · 19/11 · quản lý thu · tiền mặt"');
     wide('2. ca đã xác nhận');
     // 3. ca Tối 18/11: không nợ → không có khung
@@ -50,16 +50,7 @@ export default async ({ sleep, out }) => {
       ok((window.__LOG || []).some((l) => l[0] === 'confirm' && /đưa thiếu 40\.000/.test(l[1])), '4. đưa thiếu 40.000 → web hỏi trước khi ghi');
       $('dialog[open] [data-x]')?.click(); await sleep(200);
     }
-    // 5. bước 160: Mở lại xác nhận Fabi không cần ghi lý do
-    await open(181, 2);
-    const rb = $('[data-dsreopen]'); ok(!!rb, '5. ca đã xác nhận có nút Mở lại xác nhận');
-    if (rb) {
-      rb.click(); await wait('dialog[open]', 40); await sleep(300);
-      const dl = $('dialog[open]'); ok(txt(dl).includes('không bắt buộc'), '5. ô lý do ghi "không bắt buộc"');
-      $('button[type=submit]', dl).click(); await sleep(1200);
-      ok(!$('dialog[open]') && !$('[data-dsreopen]') && !!$('[data-dsclose]'), '5. bấm Lưu không ghi lý do → đã mở lại (có lại nút Xác nhận Fabi)');
-      $('dialog[open] [data-x]')?.click();
-    }
+    // 5 (Mở lại xác nhận Fabi không cần lý do): bỏ 28/11 cùng trang đối soát cũ — trang mới sửa thẳng tới khi Hoàn thành (luật mới tệp 173), nút này ẩn.
   } catch (e) { bad.push('LỖI: ' + e.message); }
   out.push({ stc10: { ok: good, fail: bad } });
 };

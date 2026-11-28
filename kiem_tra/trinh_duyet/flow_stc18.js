@@ -14,7 +14,7 @@ export default async ({ sleep, out }) => {
   const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
-    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+    return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   const open = async (ca, b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = cu(DS + '&ds=' + ca + '&b=' + b + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
   const box = () => $('.stc-dsp .stc-c4[data-k="no"]');
@@ -33,8 +33,8 @@ export default async ({ sleep, out }) => {
     ok(box()?.classList.contains('ok'), '4. chọn người → Nợ bill = danh sách = 150.000 → ô Nợ xanh');
     await rpc('app__test_stc_ca', { p_id: 181, p: { nv: { debt: 0 }, fabi: { debt: 0 } } });   // ca đã xác nhận mà Nợ bill lệch danh sách
     await open(181);
-    const w = [...document.querySelectorAll('.stc-dsp .stc-warnbox')].find((x) => txt(x).includes('danh sách khách nợ hoá đơn'));
-    ok(!!w && txt(w).includes('100.000') && txt(w).includes('mở lại xác nhận'), '5. ca 181 đã xác nhận, Nợ bill 0 ≠ danh sách 100.000 → ghi chú, không mở lại');
+    const w = [...document.querySelectorAll('.stc-dsp .stc-warnbox, .stc-dsp .stc-c4[data-k="no"]')].find((x) => txt(x).includes('danh sách khách nợ'));   // 28/11 bỏ trang cũ: trang mới báo đỏ ngay ở ô Nợ, sửa thẳng (luật mới), không nhắc Mở lại
+    ok(!!w && txt(w).includes('100.000'), '5. ca 181 đã xác nhận, Nợ bill 0 ≠ danh sách 100.000 → có ghi chú lệch' + (w ? '' : ' [khung: ' + [...document.querySelectorAll('.stc-dsp .stc-warnbox, .stc-dsp .stc-c4[data-k="no"]')].map((x) => txt(x).slice(0, 160)).join(' | ') + ']'));
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, `6. không tràn ngang (${document.documentElement.scrollWidth}/${window.innerWidth})`);
   } catch (e) { bad.push('LỖI CHẠY: ' + (e?.message || e) + ' · ' + txt($('dialog[open] .stc-err'))); }
   out.push({ stc18: { ok: good, fail: bad } });

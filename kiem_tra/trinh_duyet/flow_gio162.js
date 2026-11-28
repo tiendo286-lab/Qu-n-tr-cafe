@@ -13,7 +13,7 @@ export default async ({ sleep, out }) => {
   const phone = window.innerWidth <= 400;
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
-    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+    return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   const openDs = async (id) => { location.hash = cu(DS + '&ds=' + id + '&b=1&t=' + Date.now()); await wait('.stc-dsp'); await wait('.stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(200); };
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
@@ -55,10 +55,10 @@ export default async ({ sleep, out }) => {
     // 6. trang đối soát ca — 22/11 (Đưa Đối soát Fabi về lại Chốt ca, anh Tiến duyệt): thẻ "Phần tiền · làm ở Sổ thu chi" đã bỏ, khối tiền nằm ngay tab ② của trang
     //   → dòng giờ + nút sửa ở bước 1 của tab ② (ca 183 không có file Fabi: vai nào được giao cũng có nút). Mục 1–5 ở trên mở bằng đường cũ (tự chuyển sang trang này).
     if (role === 'chu' || role === 'ql') {
-      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat-cu?id=183&tab=tien&b=1';
-      await wait('.ds-ptabs'); await wait('[data-tab-pane="tien"] .stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(300);
-      const g = $('[data-tab-pane="tien"] .stc-pa .stc-gio');
-      ok(!!g && txt(g).includes('giờ doanh thu') && !!$('[data-gio]', g) && !$('[data-tab-pane="tien"]').hidden, '6. Đối soát ca: tab ② Phần tiền có dòng giờ + nút sửa (' + role + ', cơ sở được giao)'
+      location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=183&tab=tien&b=1';
+      await wait('#dsm'); await wait('#dsm .stc-pa .stc-gio[data-gio-state="done"]', 60); await sleep(300);
+      const g = $('#dsm .stc-pa .stc-gio');
+      ok(!!g && txt(g).includes('giờ doanh thu') && !!$('[data-gio]', g) && g.getClientRects().length > 0, '6. Đối soát ca: bước ② Tiền có dòng giờ + nút sửa (' + role + ', cơ sở được giao)'
         + (g ? '' : ` [ô=${!!$('.stc-gio')} trang="${txt($('#root .page-head, #root h1')).slice(0, 120)}"]`));
       if (role === 'chu' && g && $('[data-gio]', g)) { $('[data-gio]', g).click(); await wait('dialog[open] [name=end]', 40); ok(!!dlg() && txt(dlg()).includes('sửa giờ chốt'), '6. nút ở Đối soát ca mở cùng ô sửa'); dlg()?.close(); await sleep(200); }
       if (phone) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, '6. Đối soát ca không tràn ngang');

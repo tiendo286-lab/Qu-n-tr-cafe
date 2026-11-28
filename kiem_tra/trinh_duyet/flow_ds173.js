@@ -10,11 +10,11 @@ export default async ({ sleep, out }) => {
   const gone = async (s, n = 60) => { for (let i = 0; i < n && $(s); i++) await sleep(100); return !$(s); };
   const wide = (m) => ok(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, m + ': không tràn ngang');
   const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
-  const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && x[1] === fn).map((x) => x[2]);
+  const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && (x[1] === fn || x[1] === fn.replace(/^app_(stc|ca_recon)_/, 'app_ds2_'))).map((x) => x[2]);
   const role = new URLSearchParams(location.search).get('role');
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
-    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+    return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   // trang giữ sổ tháng 60 giây → mở tháng khác trước để lấy dữ liệu mới (sau khi bộ thử tự sửa dữ liệu giả)
   const open = async (b = 1) => { location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(300); for (let i = 0; i < 80 && !document.querySelector('.stc-tabs'); i++) await sleep(100);   // 22/11: tab Đối soát Fabi đã bỏ → mở tab Tổng tháng 10 để tải lại số tháng 11
     location.hash = cu(DS + '&ds=182&b=' + b + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500); };

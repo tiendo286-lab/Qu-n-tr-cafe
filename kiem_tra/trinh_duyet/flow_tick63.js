@@ -15,7 +15,7 @@ export default async ({ sleep, out }) => {
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
     if (role === 'nv') {
-      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '#root h1');
+      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '#root h1');
       ok(!$('[data-tickall]'), `${role}: không có nút tích hết`);
     } else {
       // máy chủ giả (trước khi trang đọc dữ liệu tháng, vì trang giữ dữ liệu 60 giây): coi ca 183 như đã Xác nhận Fabi để mở bước 3–5
@@ -24,7 +24,7 @@ export default async ({ sleep, out }) => {
       for (const id of [183]) { try { await rpc('app__test_ds_open', { p_id: id }); ids.push(id); } catch (_) { /* không có ca */ } }
       ok(ids.length > 0, `ca thử đã Xác nhận Fabi: ${ids.join(', ') || 'không có'}`);
       // Bước 1: có mục quản lý (Ảnh phiếu Fabi…) chưa tích → có nút; bấm → hết mục chưa tích; không còn mục đỏ thì sang bước 2, còn thì ở lại + báo
-      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '.stc-dsp');
+      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '.stc-dsp');
       const m0 = manualLeft(), r0 = redLeft(), btn = $('[data-tickall]');
       ok(m0 > 0 ? !!btn : !btn, `bước 1: ${m0} mục QL chưa tích, ${r0} mục đỏ → nút ${btn ? 'có' : 'không'} · "${btn?.innerText.trim() || ''}"`);
       if (btn) {
@@ -36,7 +36,7 @@ export default async ({ sleep, out }) => {
         else ok(stepNo() === 1, `không còn mục đỏ → sang bước 2 (đang bước ${stepNo() + 1})`);
       }
       // Chặng 6.3b: "Xoá lần trả" ở khung Khách trả nợ cũ trong ca (ca 182 chưa Xác nhận Fabi) — bắt lý do, xoá xong dòng Trả biến mất
-      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '.stc-dsp');
+      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '.stc-dsp');
       const tx = $('[data-traxoa]');
       ok(!!tx, `bước 1 có nút "Xoá lần trả" ở dòng khách trả nợ cũ: ${tx?.closest('.stc-cdr')?.innerText.replace(/\s+/g, ' ').slice(0, 80) || '-'}`);
       if (tx) {
@@ -48,7 +48,7 @@ export default async ({ sleep, out }) => {
         ok(!$(`[data-traxoa="${id}"]`), 'xoá xong: dòng Trả biến mất');
       }
       // Bước 2: không tự bấm Xác nhận Fabi
-      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=2', '.stc-dsp');
+      await go('#/ca/doi-soat?id=182&tab=tien&b=2', '.stc-dsp');
       const fabiBefore = !!$('[data-dsreopen]');
       const b2 = $('[data-tickall]');
       if (b2) {
@@ -59,7 +59,7 @@ export default async ({ sleep, out }) => {
       // Bước 3–5 của các ca thử: bước không còn mục đỏ → bấm là sang bước sau (bước 5 → thẻ ③ Hoàn thành)
       let moved = 0;
       for (const id of ids) for (const bb of [3, 4, 5]) {
-        await go(`#/ca/doi-soat-cu?id=${id}&tab=tien&b=${bb}`, '.stc-dsp');
+        await go(`#/ca/doi-soat?id=${id}&tab=tien&b=${bb}`, '.stc-dsp');
         const k = $('[data-tickall]'); if (!k || redLeft()) continue;
         const from = stepNo(); k.click();
         await until(() => stepNo() !== from || !$('.stc-step'), 100); await sleep(800);

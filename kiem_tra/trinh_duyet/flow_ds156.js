@@ -21,7 +21,7 @@ export default async ({ sleep, out }) => {
       cash_counted: 5300000, ipos_opening: 1000000, opening_cash: 1000000, pos_debt: 0, pos_diff: -200000, cups: 50, goods: [], handover: [], staff, debts: [], moves: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/a.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat-cu?id=' + id; await wait('.ds-pane'); await sleep(1800);
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=' + id; await wait('.ds-pane'); await sleep(1800);
     const bar = txt($('#ds-parts'));
     ok(bar.includes('ai làm ca') && bar.includes('bàn giao') && !/\btiền\b/.test(bar) && !bar.includes('hoàn thành'), `thanh bước phần việc không còn "Tiền" / "Hoàn thành" (${bar.slice(0, 80)})`);
     ok($$('.ds-ptabs .ds-pt').map((x) => x.dataset.ptab).join() === 'viec,tien,xong', 'trang có 3 tab ① Phần việc · ② Phần tiền · ③ Hoàn thành');

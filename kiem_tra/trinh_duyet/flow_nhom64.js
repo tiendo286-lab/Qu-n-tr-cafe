@@ -10,7 +10,7 @@ export default async ({ sleep, out }) => {
   const wait = async (s, n = 80) => { for (let i = 0; i < n && !$(s); i++) await sleep(100); return $(s); };
   const gone = async (s, n = 60) => { for (let i = 0; i < n && $(s); i++) await sleep(100); return !$(s); };
   const wide = (m) => ok(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, m + ': không tràn ngang');
-  const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && x[1] === fn).map((x) => x[2]);
+  const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && (x[1] === fn || x[1] === fn.replace(/^app_(stc|ca_recon)_/, 'app_ds2_'))).map((x) => x[2]);
   const dlg = () => $$('dialog[open]').pop();
   const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const PHAN = new URLSearchParams(location.search).get('phan') || 'A';
@@ -97,7 +97,7 @@ export default async ({ sleep, out }) => {
     }
     if (PHAN === 'C') {   // bước 1 trang đối soát ca (role chu / qlt / ql) — VÙNG KHOÁ
       await rpc('app__test_ca_debt_add', { p_report: 182, p_who: 'anh lấy 100k', p_kind: 'muon', p_amount: 100000, p_grp: 'khac' });   // trước khi trang đọc tháng
-      const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = '#/ca/doi-soat-cu?id=182&tab=tien&b=1&t=' + Date.now(); await wait('.stc-dsp'); await sleep(900); };
+      const go = async () => { location.hash = '#/__tam'; await sleep(250); location.hash = '#/ca/doi-soat?id=182&tab=tien&b=1&t=' + Date.now(); await wait('.stc-dsp'); await sleep(900); };
       const row = (w) => $$('.stc-cdr[data-t="moi"]').find((r) => txt(r).includes(w));
       await go();
       let r3 = row('bàn 3'); let rk = row('anh lấy 100k');

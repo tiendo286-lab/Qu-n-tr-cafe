@@ -12,13 +12,13 @@ export default async ({ sleep, out }) => {
   try {
     await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1500);
     if (role === 'nv') {
-      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '#root h1');
+      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '#root h1');
       ok(!$('[data-traadd]'), 'nv: không có nút');
     } else {
       const { rpc } = await import('../js/sb.js');
       await rpc('app__test_ds_open', { p_id: 183 });   // trước khi trang đọc tháng (trang giữ dữ liệu 60 giây)
       // Ca 182 chưa Xác nhận Fabi: có nút, chọn khách nợ từ ca trước, bắt lý do, ghi xong thành dòng Trả của ca
-      await go('#/ca/doi-soat-cu?id=182&tab=tien&b=1', '.stc-dsp');
+      await go('#/ca/doi-soat?id=182&tab=tien&b=1', '.stc-dsp');
       const btn = $('[data-traadd]');
       ok(!!btn, `bước 1 có nút "${btn?.innerText.trim() || '+ Khách trả nợ cũ trong ca'}"`);
       if (btn) {
@@ -37,11 +37,12 @@ export default async ({ sleep, out }) => {
           ok(rows.length === before + 1 && rows.some((r) => r.innerText.includes(who)), `ghi xong: thêm dòng Trả của ${who} (${before} → ${rows.length})`);
         }
       }
-      // Ca 183 đã Xác nhận Fabi: không có nút, có lời nhắc Mở lại
-      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=1', '.stc-dsp');
-      ok(!$('[data-traadd]') && /Mở lại xác nhận/.test($('.stc-cadebt')?.innerText || ''), `ca đã Xác nhận Fabi → nhắc Mở lại: ${($('.stc-tralock')?.innerText || '-').trim()}`);
+      // Ca 183 đã Xác nhận Fabi (trang mới, luật mới tệp 173): chưa Hoàn thành thì vẫn có nút
+      await go('#/ca/doi-soat?id=183&tab=tien&b=1', '.stc-dsp');
+      { const xong = $$('[data-dsm-tab]').some((b) => /Hoàn thành.*xong/.test(b.innerText.replace(/\s+/g, ' ')));   // 28/11 bỏ trang cũ: trang mới theo luật mới (tệp 173) — sửa tự do tới khi Hoàn thành
+        ok(xong ? !$('[data-traadd]') : !!$('[data-traadd]'), `ca đã Xác nhận Fabi: ${xong ? 'đã Hoàn thành → không còn nút' : 'chưa Hoàn thành → vẫn ghi được khách trả nợ cũ (luật mới)'}`); }
       // Bước 3, "+ Thêm phiếu" chọn Thu nợ → nhắc làm ở bước 1
-      await go('#/ca/doi-soat-cu?id=183&tab=tien&b=3', '.stc-dsp');
+      await go('#/ca/doi-soat?id=183&tab=tien&b=3', '.stc-dsp');
       const add = $('[data-addca][data-book="thu"]') || $('[data-addca]');
       if (add) {
         add.click(); await wait('.stc-addp'); await sleep(300);

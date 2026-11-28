@@ -106,7 +106,7 @@ export default async ({ sleep, out }) => {
     const ap = $('.stc-addp');
     ok(!!ap && ['kind', 'pay', 'date', 'ca', 'amount', 'note', 'reason'].every((nm) => ap.querySelector(`[name=${nm}]`)) && ap.querySelectorAll('.stc-ar').length === 2 && !!ap.querySelector('.stc-ar [name=kind]') && !!ap.querySelector('.stc-ar [name=amount]'), '5. Thêm phiếu: đủ ô cũ, xếp 2 hàng (Loại · Tiền · Ngày · Ca · Số tiền / Nội dung · Lý do)');
     wide('5. mở ngày + Thêm phiếu');
-    location.hash = '#/ca/doi-soat-cu?id=181&tab=tien'; await wait('.stc-dsp'); await sleep(600);
+    location.hash = '#/ca/doi-soat?id=181&tab=tien'; await wait('.stc-dsp'); await sleep(600);
     ok(!txt($('#stc-ds')).includes('khung bên phải'), '5. Đối soát Fabi không còn nhắc "khung bên phải"');
     if (role === 'chu') {
       location.hash = '#/quan-ly/so-thu-chi?tab=chi&cn=ngoai&thang=2026-11&cot=chi&t=' + Date.now(); await wait('#stc-book'); await sleep(500);

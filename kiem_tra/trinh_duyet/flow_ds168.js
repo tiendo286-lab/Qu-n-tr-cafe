@@ -13,7 +13,7 @@ export default async ({ sleep, out }) => {
   const phone = innerWidth <= 600;
   const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
   const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
-    return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+    return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
   const wide = (m) => ok(document.documentElement.scrollWidth <= document.documentElement.clientWidth + 1, m + ': không tràn ngang');
   const open = async (id) => { location.hash = cu(DS + '&ds=' + id + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(400); };
   const st = async (i) => { const b = $(`.stc-dsp .stc-steps [data-dsstep="${i}"]`); if (b) { b.click(); await sleep(350); } };   // bước 171: sang bước i + 1 của ca đang mở
@@ -39,7 +39,7 @@ export default async ({ sleep, out }) => {
     ok($('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep === '0' && !!$('#ds-s1 .stc-c4.red') && !$('[data-tab-pane="tien"]').hidden, 'b. bước 6 (tab ③): bấm dòng "Số máy Fabi còn N mục" → về tab ②, tới bước 1 có ô đỏ');
     wide('b. ca 182');
     // ca 172: chờ kế toán
-    location.hash = '#/ca/doi-soat-cu?id=172&t=' + Date.now(); await sleep(400); await wait('#ds-nextca2'); await sleep(300);
+    location.hash = '#/ca/doi-soat?id=172&t=' + Date.now(); await sleep(400); await wait('#ds-nextca2'); await sleep(300);
     ok(txt($('#root')).includes('chờ kế toán') && !$('.stc-dsp') && !$('[data-dsclose]:not([disabled])'), 'b. ca chờ kế toán: trang báo "chờ kế toán", không có nút Xác nhận Fabi (luật 17/11)');
     // ca 183: đã xác nhận + đã hoàn thành, thiếu tiền mặt 30.000
     await open(183);

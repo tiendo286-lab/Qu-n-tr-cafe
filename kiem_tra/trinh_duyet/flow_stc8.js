@@ -35,7 +35,7 @@ export default async ({ sleep, out }) => {
     ok(!!minh && !rows().some((r) => txt(r).includes('minh')), '3. xoá phiếu của Minh → không còn trong danh sách');
     // 4. → Trừ lương trên khoản chi "Mua đá" của ca Sáng 18/11 (đã xác nhận Fabi, chưa chốt)
     // bước 171: → Trừ lương / Phiếu chi chuyển khoản chỉ có ở ca chưa Hoàn thành đối soát → quản lý bấm Mở lại ca Sáng 18/11 ở bước 6 trước
-    location.hash = '#/ca/doi-soat-cu?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
+    location.hash = '#/ca/doi-soat?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
     $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await sleep(900);
     await go(BASE); $('.stc-all')?.click(); await sleep(500);
     const md = () => $$('#stc-book .stc-it').find((i) => txt(i).includes('mua đá') && i.querySelector('[data-toka]'));
@@ -84,7 +84,7 @@ export default async ({ sleep, out }) => {
     ok(!$('#stc-book [data-bankout]'), '6. bảng Tiền mặt không có nút phiếu chi chuyển khoản');
     wide('6. Sổ chi');
     // 7. bước 154: ảnh phiếu Fabi chốt ca xem ở Đối soát Fabi (phần A)
-    location.hash = '#/ca/doi-soat-cu?id=182&tab=tien'; await sleep(500); await wait('.stc-dsp'); await sleep(500);
+    location.hash = '#/ca/doi-soat?id=182&tab=tien'; await sleep(500); await wait('.stc-dsp'); await sleep(500);
     const pb = $('.stc-pa [data-dsphoto]'); ok(!!pb, '7. phần A có nút 📷 Ảnh phiếu Fabi');
     if (pb) { pb.click(); await wait('dialog[open] #stc-ph', 40); await sleep(1200); ok(!!$('dialog[open] #stc-ph') && !!$('dialog[open] a[href*="#/ca/phieu?id=182"]'), '7. mở hộp ảnh phiếu Fabi + đường dẫn phiếu chốt ca'); $('dialog[open] [data-x]')?.click(); await sleep(300); }
   } catch (e) { bad.push('LỖI: ' + e.message); }

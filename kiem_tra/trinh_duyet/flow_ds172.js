@@ -14,7 +14,7 @@ export default async ({ sleep, out }) => {
   const type = (el, v) => { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); el.dispatchEvent(new Event('change', { bubbles: true })); };
   const people = async () => { $('#stc-book [data-people]')?.click(); await wait('dialog[open] [data-prow]', 40); await sleep(250); return dlg(); };
   const row = (pd, name) => $$('[data-prow]', pd).find((r) => txt(r).includes(name.toLowerCase()));
-  const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && x[1] === fn).map((x) => ({ fn: x[1], args: x[2] }));
+  const calls = (fn, from = 0) => (window.__LOG || []).slice(from).filter((x) => x[0] === 'rpc' && (x[1] === fn || x[1] === fn.replace(/^app_(stc|ca_recon)_/, 'app_ds2_'))).map((x) => ({ fn: x[1], args: x[2] }));
   await wait('#root .page-head, #root h1, #root .appbar', 600); await sleep(1200);
   try {
     // ---- a. hộp 👥 Người nợ là danh sách thật
@@ -96,7 +96,7 @@ export default async ({ sleep, out }) => {
     //      ca 182: Bàn 5 (HĐ), Bàn 3 (TM) là nợ khách còn tiền; Chị Lan đã trả
     const DS = '#/quan-ly/so-thu-chi?tab=doi-soat&cn=1&thang=2026-11';
     const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
-      return q.get('ds') ? '#/ca/doi-soat-cu?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
+      return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
     const openCa = async (id, b) => { location.hash = cu(DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
     const sortItem = () => $$('.stc-dsp .stc-chk .stc-ci').find((x) => txt(x).includes('nợ khác của ca'));
     const rows = () => $$('.stc-dsp .stc-cdr[data-t="moi"]');
