@@ -241,8 +241,8 @@ export async function renderNew(R0, P, SH) {
             ${s.source !== 'lich' ? html`<button type="button" class="btn sm secondary danger" data-rm="${i}">Bỏ</button>` : ''}</div>`
           : html`<input class="input sm" data-reason="${i}" placeholder="Lý do nghỉ (bắt buộc)" value="${s.absent_reason || ''}">`}</div>`)}
       <div class="cm-hp"><div class="pc-sub" style="margin:0">THÊM NGƯỜI LÀM HỘ</div>
-        <div class="cm-seg cm-hp-tabs" role="group" aria-label="Chọn nhóm nhân viên"><button type="button" data-hp="in" aria-pressed="${HP.tab === 'in'}">Nhân viên trong quán</button><button type="button" data-hp="old" aria-pressed="${HP.tab === 'old'}">Nhân viên cũ</button></div>
-        ${HP.tab ? html`<input class="input sm" id="cm-helper" placeholder="Lọc theo tên hoặc mã (không cần dấu)" aria-label="Lọc người làm hộ" value="${HP.q}" autocomplete="off">
+        <div class="cm-seg cm-hp-tabs" role="group" aria-label="Chọn nhóm nhân viên"><button type="button" data-hp="in" aria-pressed="${HP.tab === 'in'}">Nhân viên trong quán</button><button type="button" data-hp="old" aria-pressed="${HP.tab === 'old'}">Nhân viên cũ</button><button type="button" data-hp="out" aria-pressed="${HP.tab === 'out'}">Người ngoài</button></div>
+        ${HP.tab ? html`<input class="input sm" id="cm-helper" maxlength="60" placeholder="${HP.tab === 'out' ? 'Gõ tên người ngoài (tìm người đã từng làm, hoặc thêm mới)' : 'Lọc theo tên hoặc mã (không cần dấu)'}" aria-label="${HP.tab === 'out' ? 'Tên người ngoài' : 'Lọc người làm hộ'}" value="${HP.q}" autocomplete="off">
           <div id="cm-help-list" class="cm-hlist"><span class="st-meta">Đang tải danh sách…</span></div>` : ''}</div>
       ${hasCover() ? html`<div class="alert info" style="margin:0"><b>Có nghỉ / làm thay trong ca.</b> Nội dung đã được ghi ngay trong bước Nhân viên; quản lý tổng tiếp tục phân loại sau.</div>` : html`<div class="st-meta">Không có người nghỉ hoặc làm thay trong ca.</div>`}`,
     2: () => {
@@ -286,7 +286,7 @@ export async function renderNew(R0, P, SH) {
       const c = money(); const tm = V.moves.map((m, i) => [m, i]).filter(([m]) => m.kind !== 'chuyen_khoan'); const ck = V.moves.map((m, i) => [m, i]).filter(([m]) => m.kind === 'chuyen_khoan');
       return html`<div class="st-meta">Ghi các khoản <b>thu / chi trong ca</b> — chỉ chọn Thu / Chi và ghi nội dung, quản lý phân loại sau. Không cần ảnh hóa đơn. <b>Két thiếu tiền không ghi ở đây</b> (web tự tính chênh lệch).</div>
         <h3 style="margin:6px 0 0">1. Tiền mặt (trong két)</h3>
-        <div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc bỏ thêm vào két (kể cả quản lý rút ra). Trả lương tiền mặt (người hỗ trợ, nhân viên cũ) thì ghi <b>Chi ra</b>, nội dung <b>"Chi lương + tên"</b>.</div>
+        <div class="st-meta">Tiền mặt lấy ra từ két để chi, hoặc bỏ thêm vào két (kể cả quản lý rút ra). Trả lương tiền mặt (người hỗ trợ, nhân viên cũ, người ngoài) thì ghi <b>Chi ra</b>, nội dung <b>"Chi lương + tên"</b>.</div>
         ${tm.map(([m, i]) => mvRow(m, i))}
         ${c.sal ? html`<div class="cm-person" style="background:var(--line-soft)"><div>Lương trả tiền mặt <span class="st-meta">(đã ghi ở bước Ai làm ca)</span></div><div class="st-meta">${fmt(c.sal)}đ</div></div>` : ''}
         <div class="pc-line"><button type="button" class="btn sm secondary" id="cm-add-move">+ Thêm khoản tiền mặt</button></div>
@@ -534,6 +534,7 @@ export async function renderNew(R0, P, SH) {
         $$('[data-reason]', root).forEach((i) => i.addEventListener('input', () => { V.staff[i.dataset.reason].absent_reason = i.value; soft(); }));
         $$('[data-rm]', root).forEach((b) => b.addEventListener('click', () => { V.staff.splice(Number(b.dataset.rm), 1); draw(); }));
         // bước 48: người làm hộ — "Nhân viên trong quán" (người của cơ sở này lên trước) / "Nhân viên cũ" (đã ngừng làm); bấm tên để thêm
+        // tệp 200: thêm "Người ngoài" — chọn người ngoài đã từng làm, hoặc gõ tên rồi bấm thêm mới (hồ sơ gọn, không tài khoản)
         $$('[data-hp]', root).forEach((b) => b.addEventListener('click', () => { HP.tab = HP.tab === b.dataset.hp ? '' : b.dataset.hp; HP.q = ''; draw(); }));
         if ($('#cm-help-list')) {
           const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();
@@ -548,6 +549,21 @@ export async function renderNew(R0, P, SH) {
             const q = norm(HP.q); const free = (x) => !V.staff.some((st) => st.employee_id === x.id) && hit(x, q);
             const item = (x) => html`<button type="button" class="cm-hp-it" data-add-emp="${x.id}"><strong>${x.code} – ${x.name}</strong><span class="st-meta">${x.rank || ''}</span></button>`;
             const grp = (lbl, list) => (list.length ? html`<div class="cm-hp-g">${lbl} (${list.length})</div>${list.map(item)}` : '');
+            if (HP.tab === 'out') {
+              const name = HP.q.trim().replace(/\s+/g, ' '); const list = HELP.outside.filter(free);
+              const same = HELP.outside.some((x) => x.name.toLowerCase() === name.toLowerCase());
+              box.innerHTML = str(html`${grp('Người ngoài đã từng làm', list)}${list.length ? '' : html`<span class="st-meta">${q ? `Chưa có người ngoài nào khớp "${HP.q}".` : 'Chưa có người ngoài nào. Gõ tên ở ô trên để thêm.'}</span>`}
+                ${name.length >= 2 && !same ? html`<button type="button" class="btn sm secondary" id="cm-out-new" style="margin-top:6px;white-space:normal;text-align:left;text-transform:none">+ Thêm "${name}" là người ngoài mới</button>` : ''}`);
+              $$('[data-add-emp]', box).forEach((b) => b.addEventListener('click', () => addEmp(HELP.outside.find((x) => String(x.id) === b.dataset.addEmp))));
+              $('#cm-out-new')?.addEventListener('click', async (ev) => {
+                ev.currentTarget.disabled = true;
+                try { const e = await rpc('app_ca_outsider_add', { p_name: name, p_phone: null });
+                  if (!HELP.outside.some((x) => x.id === e.id)) HELP.outside.push(e);
+                  HP.q = ''; addEmp(e); }
+                catch (err) { showSaved(err.message || String(err), true); showList(); }
+              });
+              return;
+            }
             const pool = HP.tab === 'old' ? HELP.former : HELP.active;
             const mine = pool.filter((x) => free(x) && (x.branches || []).includes(R.branch_id));
             const other = pool.filter((x) => free(x) && !(x.branches || []).includes(R.branch_id));
@@ -559,7 +575,7 @@ export async function renderNew(R0, P, SH) {
           };
           $('#cm-helper').addEventListener('input', (e) => { HP.q = e.target.value; showList(); });
           if (HELP) showList();
-          else rpc('app_ca_helpers').then((h) => { HELP = { active: h?.active || [], former: h?.former || [] }; showList(); }).catch((e) => { const b = $('#cm-help-list'); if (b) b.textContent = e.message; });
+          else rpc('app_ca_helpers').then((h) => { HELP = { active: h?.active || [], former: h?.former || [], outside: h?.outside || [] }; showList(); }).catch((e) => { const b = $('#cm-help-list'); if (b) b.textContent = e.message; });
         }
         // bước 2
         $('#cm-photo')?.addEventListener('change', (ev) => busy(async () => {

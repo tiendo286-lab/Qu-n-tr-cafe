@@ -18,6 +18,7 @@
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
+import { loadHelpers, pickedId, pickerHtml, wirePicker } from '../chon_nguoi_ca.js';
 import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, html, raw, str } from '../ui.js';
 import { mergeRecon, staffPayload } from '../doi_soat_moi_tinh.js';
@@ -514,16 +515,16 @@ export async function render({ params }) {
       }
       async function staffAdd(rid, date) {
         const R = await stOpen(rid); if (!R) return;
-        let emps = []; try { emps = (await rpc('app_ca_employees')) || []; } catch (e) { flashNow(e.message || String(e), 'error'); return; }
+        let H; try { H = await loadHelpers(); } catch (e) { flashNow(e.message || String(e), 'error'); return; }   // tệp 200: 3 loại người
         const have = new Set((R.staff || []).map((z) => Number(z.employee_id))), ref = (R.staff || []).find((q) => isW(q) && q.time_in && q.time_out) || {};
-        const d = stForm('Thêm người vào ca', html`<label class="field"><span>Nhân viên</span><select class="input" name="emp"><option value="">— Chọn nhân viên —</option>${emps.filter((e) => !have.has(Number(e.id))).map((e) => html`<option value="${e.id}">${e.code ? e.code + ' – ' : ''}${e.name || ''}</option>`)}</select></label>
+        const d = stForm('Thêm người vào ca', html`${pickerHtml()}
           <div class="cv-grid"><label class="field" style="flex:1"><span>Giờ đến</span><input class="input" type="time" name="in" value="${hm(ref.time_in)}"></label><label class="field" style="flex:1"><span>Giờ về</span><input class="input" type="time" name="out" value="${hm(ref.time_out)}"></label></div>
           <label class="field"><span>Ghi chú</span><input class="input" name="note"></label><div class="st-meta">Người thêm ở đây tính là người hỗ trợ / làm ngoài lịch của ca.</div>${stNote(R)}`);
-        const f = d.querySelector('form');
+        const f = d.querySelector('form'); wirePicker(f, H, have, R.branch_id);
         f.addEventListener('submit', (ev) => { ev.preventDefault(); stRun(d, async () => {
-          if (!f.emp.value) throw new Error('Chọn nhân viên.'); if (!f.elements.in.value || !f.elements.out.value) throw new Error('Nhập giờ đến và giờ về.');
-          const why = stReason(f);
-          await stSave(R, [...(R.staff || []).map(staffPayload), staffPayload({ employee_id: f.emp.value, source: 'ho_tro', worked: 1, time_in: f.elements.in.value, time_out: f.elements.out.value, note: f.note.value })], why, date); }); });
+          if (!f.emp.value) throw new Error('Chọn người làm.'); if (!f.elements.in.value || !f.elements.out.value) throw new Error('Nhập giờ đến và giờ về.');
+          const why = stReason(f); const eid = await pickedId(f, have);
+          await stSave(R, [...(R.staff || []).map(staffPayload), staffPayload({ employee_id: eid, source: 'ho_tro', worked: 1, time_in: f.elements.in.value, time_out: f.elements.out.value, note: f.note.value })], why, date); }); });
       }
       // Sau khi sửa nhân sự: đọc lại danh sách chờ + chi tiết ca đó + lịch của ngày, rồi vẽ lại bảng (không tải lại cả trang).
       async function refreshCa(id, date) {

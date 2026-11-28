@@ -257,6 +257,9 @@ Mục tiêu anh Tiến đặt: **dễ hiểu, dễ làm, không bao giờ sai s�
 
 ## 5m-bổ sung 2 (12/11/2026). Chọn người làm hộ (`supabase/48_chon_nguoi_lam_ho.sql`)
 - Bước "Ai làm ca": 2 nút **Nhân viên trong quán** (đang làm; người của cơ sở này lên trước, rồi cơ sở khác) và **Nhân viên cũ** (đã ngừng làm). Bấm nút → hiện danh sách, bấm tên để thêm; có ô lọc theo tên / mã không cần dấu.
+- **Người ngoài (28/11/2026, tệp 200, anh Tiến chốt):** chỗ thêm người vào ca có **3 loại** — Nhân viên trong quán · Nhân viên cũ · **Người ngoài** — ở cả chốt ca (bước Nhân viên), trang đối soát ca (Thêm người hỗ trợ) và bảng Nghỉ & làm thay (Thêm người vào ca). Người ngoài là hồ sơ gọn (mã `NG01`…, cấp bậc "Người ngoài", Ngừng làm, trả tiền mặt, **không tài khoản**); người chốt ca / đối soát tự gõ tên để thêm mới, trùng tên (không kể hoa thường, dấu cách thừa) thì dùng lại hồ sơ cũ. Trang Nhân viên (tích "Hiện cả người ngừng làm"): nhãn Người ngoài, nút Đổi tên, không có Đi làm lại.
+- **Trả công người ngoài (anh Tiến chốt 28/11 — cách 1):** web **không theo dõi nợ công**. Trả ngay trong ca: ghi khoản Chi ra "Chi lương + tên" của ca. Trả hôm khác: ca hôm trả ghi khoản chi lương bình thường, ghi chú tên và ngày làm. Không đổi cách tính tiền, không đổi quyền.
+- Chưa làm (chưa xác nhận với anh): chữ "(người ngoài)" trong bảng công (hiện nhận ra bằng mã `NG…`); ẩn bớt người ngoài không còn dùng; so trùng tên có bỏ dấu.
 
 ## 5m-bổ sung 3 (12/11/2026). Thứ tự bước chốt ca
 1 Nhận chốt ca · 2 Ai làm ca · 3 Phiếu Fabi (+ khách trả nợ cũ) · 4 Khách nợ mới · **5 Thu chi trong ca** (+ khách mượn / khách trả tiền mượn) · **6 Số cốc** · **7 Chuyển khoản hotline** · 8 Kết quả tiền · 9 Bàn giao & nhận hàng · 10 Kiểm tra lần cuối. Ghi hết các khoản tiền trước rồi mới đối chiếu chuyển khoản / tiền mặt, không phải lùi lại; chuyển khoản lệch có nút "Về bước Thu chi" (`ORDER` trong `docs/js/chot_ca_moi.js`).

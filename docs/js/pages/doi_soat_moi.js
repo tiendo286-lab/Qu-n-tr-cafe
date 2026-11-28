@@ -6,6 +6,7 @@
 // 3 trang: ① Phần việc · ② Tiền (Số máy Fabi, Tiền mặt, Chuyển khoản — từng khoản thu / chi và tổng) · ③ Hoàn thành (còn thiếu, xác nhận).
 // Đọc: app_ca_get, sổ tháng của Sổ thu chi (app_stc_month + app_stc_people), app_ca_ds_tuan một ngày, app_ca_ds_con; số tính bằng hàm của Sổ thu chi nên khớp trang cũ.
 import { rpc } from '../sb.js';
+import { loadHelpers, pickedId, pickerHtml, wirePicker } from '../chon_nguoi_ca.js';
 import { $, $$, dialog, html, raw, showSaved, str } from '../ui.js';
 import { fmt, parseMoney } from '../tien.js';
 import { CV_CSS, CV_STATE, mountCover } from '../nghi_thay.js?v=2026.11.29.3';
@@ -501,16 +502,16 @@ export async function render({ params }) {
           await saveStaff(L, r); }); });
       };
       const staffAdd = async () => {
-        let emps = []; try { emps = (await rpc('app_ca_employees')) || []; } catch (e) { showSaved(e.message || String(e), true); return; }
+        let H; try { H = await loadHelpers(); } catch (e) { showSaved(e.message || String(e), true); return; }   // tệp 200: 3 loại người
         const have = new Set((S.R.staff || []).map((s) => Number(s.employee_id)));
-        const d = form('Thêm người hỗ trợ', html`<label class="field"><span>Nhân viên</span><select class="input" name="emp"><option value="">— Chọn nhân viên —</option>${emps.filter((e) => !have.has(Number(e.id))).map((e) => html`<option value="${e.id}">${e.code ? e.code + ' – ' : ''}${e.name || ''}</option>`)}</select></label>
+        const d = form('Thêm người hỗ trợ', html`${pickerHtml()}
           <div class="pc-line" style="gap:8px"><label class="field grow"><span>Giờ đến</span><input class="input" type="time" name="in"></label><label class="field grow"><span>Giờ về</span><input class="input" type="time" name="out"></label></div>
           <label class="field"><span>Ghi chú</span><input class="input" name="note"></label>`);
-        const f = d.querySelector('form');
+        const f = d.querySelector('form'); wirePicker(f, H, have, S.R.branch_id);
         f.addEventListener('submit', (ev) => { ev.preventDefault(); run2(d, async () => {
-          if (!f.emp.value) throw new Error('Chọn nhân viên.'); if (!f.elements.in.value || !f.elements.out.value) throw new Error('Nhập giờ đến và giờ về.');
-          const r = reasonOf(f);
-          await saveStaff([...staffList(), staffPayload({ employee_id: f.emp.value, source: 'ho_tro', worked: 1, time_in: f.elements.in.value, time_out: f.elements.out.value, note: f.note.value })], r); }); });
+          if (!f.emp.value) throw new Error('Chọn người làm.'); if (!f.elements.in.value || !f.elements.out.value) throw new Error('Nhập giờ đến và giờ về.');
+          const r = reasonOf(f); const eid = await pickedId(f, have);
+          await saveStaff([...staffList(), staffPayload({ employee_id: eid, source: 'ho_tro', worked: 1, time_in: f.elements.in.value, time_out: f.elements.out.value, note: f.note.value })], r); }); });
       };
       // công việc bàn giao cho ca sau: gửi đủ danh sách {id, content} (như trang cũ); giao thành việc như trang cũ (bước 87)
       const hoList = () => (S.R.handover || []).map((x) => ({ id: x.id || null, content: x.content || '' }));

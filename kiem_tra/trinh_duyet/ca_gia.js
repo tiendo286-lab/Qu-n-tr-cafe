@@ -567,7 +567,28 @@ export function makeCa(T, me) {
     app_ca_helpers() {   // bước 48: nhân viên trong quán (kèm cơ sở) / nhân viên cũ
       const br = (id) => (T.employee_branches || []).filter((x) => x.employee_id === id).map((x) => x.branch_id);
       const js = ({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash, branches: br(id) });
-      return { active: T.employees.filter((e) => e.status === 'Đang làm').map(js), former: T.employees.filter((e) => e.status !== 'Đang làm').map(js) };
+      return { active: T.employees.filter((e) => e.status === 'Đang làm').map(js), former: T.employees.filter((e) => e.status !== 'Đang làm' && !e.is_outsider).map(js),
+        outside: T.employees.filter((e) => e.status !== 'Đang làm' && e.is_outsider).map(js) };   // tệp 200: người ngoài
+    },
+    app_ca_outsider_add({ p_name, p_phone = null }) {   // tệp 200: tạo nhanh người ngoài; trùng tên → trả hồ sơ cũ
+      const nm = String(p_name || '').trim().replace(/\s+/g, ' ');
+      if (nm.length < 2 || nm.length > 60) throw new Error('Tên người ngoài từ 2 đến 60 ký tự.');
+      if (p_phone && !/^[0-9 +().-]{8,20}$/.test(String(p_phone).trim())) throw new Error('Số điện thoại không hợp lệ.');
+      let e = T.employees.find((x) => x.is_outsider && x.name.toLowerCase() === nm.toLowerCase()); const existed = !!e;
+      if (!e) {
+        let n = 1; const code = () => 'NG' + String(n).padStart(2, '0');
+        while (T.employees.some((x) => String(x.code).toLowerCase() === code().toLowerCase())) n++;
+        e = { id: Math.max(0, ...T.employees.map((x) => x.id)) + 1, code: code(), name: nm, rank: 'Người ngoài', status: 'Ngừng làm', pay_cash: true, is_outsider: true };
+        T.employees.push(e);
+      }
+      return { id: e.id, code: e.code, name: e.name, rank: e.rank, pay_cash: true, branches: [], existed };
+    },
+    app_ca_outsider_rename({ p_id, p_name }) {
+      const nm = String(p_name || '').trim().replace(/\s+/g, ' ');
+      if (nm.length < 2 || nm.length > 60) throw new Error('Tên người ngoài từ 2 đến 60 ký tự.');
+      const e = T.employees.find((x) => x.id === p_id && x.is_outsider); if (!e) throw new Error('Không tìm thấy người ngoài này.');
+      if (T.employees.some((x) => x.is_outsider && x.id !== p_id && x.name.toLowerCase() === nm.toLowerCase())) throw new Error(`Đã có người ngoài tên "${nm}".`);
+      e.name = nm;
     },
     app_ca_employees() { return T.employees.filter((e) => e.status === 'Đang làm').map(({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash })); },
   };

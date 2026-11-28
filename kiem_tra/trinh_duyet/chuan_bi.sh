@@ -40,3 +40,4 @@ cp "$D/flow_cl.js" "$W/test/"   # bảng Chênh lệch tiền (cần web đủ d
 echo "Xong. Chạy: (cd \"$W\" && python3 -m http.server 8765 --bind 127.0.0.1)"
 cp "$D/flow_ocfg.js" "$W/test/"   # cài đặt trang Order ca (tệp 192)
 cp "$D/flow_dg193.js" "$W/test/"   # tệp 193: phiếu phạt tiền trong đánh giá
+cp "$D/flow_nn200.js" "$W/test/"   # tệp 200: người ngoài làm ca

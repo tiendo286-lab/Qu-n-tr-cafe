@@ -76,7 +76,7 @@ export async function render({ params, me }) {
             const stopped = e.status !== 'Đang làm';
             return html`<tr class="emp-row ${stopped ? 'muted stopped' : ''}" data-search="${norm(`${e.code} ${e.name}`)}" data-rank="${e.rank}" data-branches="|${e.branches.join('|')}|" data-roles="|${e.roles.join('|')}|" data-state="${e.state}" data-nq="${e.nq}" data-ck="${e.tl.commit || 'chua_ky'}" data-dt="${e.dt ? e.dt.status : 'chua_dao_tao'}" ${stopped ? 'hidden' : ''}>
               <td style="font-weight:600">${e.code}</td>
-              <td>${full ? html`<a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a>` : html`<span class="emp-name"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</span>`}${e.pay_cash ? html` <span class="pill info" title="Không dùng app, trả lương tiền mặt">Trả tiền mặt</span>` : ''}</td>
+              <td>${full && !e.is_outsider ? html`<a class="emp-name" href="#/quan-ly/nhan-vien?id=${e.id}"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</a>` : html`<span class="emp-name"><span class="av">${e.name.trim().slice(0, 1).toUpperCase()}</span>${e.name}</span>`}${e.pay_cash ? html` <span class="pill info" title="Không dùng app, trả lương tiền mặt">Trả tiền mặt</span>` : ''}${e.is_outsider ? html` <span class="pill warn" title="Người ngoài làm hộ ca — hồ sơ gọn, không tài khoản">Người ngoài</span>${full ? html` <button type="button" class="btn sm secondary nn-ten" data-id="${e.id}" data-name="${e.name}">Đổi tên</button>` : ''}` : ''}</td>
               <td>${stopped || !full ? e.rank : html`<select class="input sm rank-select" data-id="${e.id}" aria-label="Cấp bậc của ${e.name}" style="width:120px">${RANKS.map((r) => html`<option ${r === e.rank ? 'selected' : ''}>${r}</option>`)}</select>`}</td>
               <td data-label="Chi nhánh">${e.branches.length ? e.branches.map((x) => html`<span class="chip">${x}</span>`) : '—'}</td>
               <td data-label="Vai trò làm việc">${e.roles.length ? e.roles.map((x) => html`<span class="chip role">${x}</span>`) : '—'}</td>
@@ -89,7 +89,7 @@ export async function render({ params, me }) {
               ${dts ? html`<td data-label="Đào tạo">${e.dt ? html`<a class="pill ${DT_STATUS[e.dt.status][1]}" href="#/dao-tao/phieu?id=${e.dt.id}" title="Bấm để mở phiếu${e.dt.status !== 'hoan_thanh' ? ' · còn thiếu: ' + e.dt.missing.join(', ') : ''}">${dtLabel(e.dt)}</a>
                   ${e.dt.instructor ? html`<div class="st-meta" style="font-size:11px;color:var(--muted);margin-top:2px">HD: ${e.dt.instructor}</div>` : ''}`
                 : dtAdmin && !stopped && !e.pay_cash ? html`<button type="button" class="btn sm secondary new-dt" data-id="${e.id}" data-name="${e.code} – ${e.name}" data-b="${e.branches[0] || ''}" title="Chưa đào tạo">+ Tạo phiếu</button>` : html`<span class="pill mute">Chưa đào tạo</span>`}</td>` : ''}
-              <td class="st-cell">${full && canStop(e, me) ? (stopped
+              <td class="st-cell">${full && canStop(e, me) && !e.is_outsider ? (stopped
                 ? html`<button type="button" class="btn sm secondary st-btn" data-id="${e.id}" data-to="Đang làm" data-name="${e.code} – ${e.name}">Đi làm lại</button>`
                 : html`<button type="button" class="btn sm secondary danger st-btn" data-id="${e.id}" data-to="Ngừng làm" data-name="${e.code} – ${e.name}">Ngừng làm</button>`) : ''}</td></tr>`;
           })}</tbody></table></div>
@@ -124,6 +124,10 @@ export async function render({ params, me }) {
       apply();
       $$('.dt-chip').forEach((c) => c.addEventListener('click', () => { const f = $('#ef-dt'); f.value = f.value === c.dataset.st ? '' : c.dataset.st; apply(); }));
       $$('.new-dt').forEach((b) => b.addEventListener('click', () => openCreateDialog({ id: Number(b.dataset.id), name: b.dataset.name, branch: b.dataset.b }).catch((e) => showSaved(e.message, true))));
+      $$('.nn-ten').forEach((b) => b.addEventListener('click', async () => {
+        const name = prompt('Tên mới của người ngoài:', b.dataset.name); if (name === null || name.trim() === b.dataset.name) return;
+        try { await rpc('app_ca_outsider_rename', { p_id: Number(b.dataset.id), p_name: name }); flash('Đã đổi tên người ngoài.'); rerender(); } catch (e) { showSaved(e.message, true); }
+      }));
       $$('.rank-select').forEach((s) => { let last = s.value; s.addEventListener('change', async () => {
         // rà soát 20/11: hỏi lại trước khi lưu — chạm nhầm trên điện thoại là đổi cấp bậc ngay
         const who = (s.getAttribute('aria-label') || '').replace('Cấp bậc của ', '') || 'nhân viên này';
