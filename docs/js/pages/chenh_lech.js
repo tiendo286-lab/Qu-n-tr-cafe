@@ -7,8 +7,8 @@ import { catalog, vnToday } from '../data.js';
 import { rpc } from '../sb.js';
 import { fmt } from '../tien.js';
 import { $, flash, html, showSaved, str } from '../ui.js';
-import { CL_ST, filterRows, gapRows, sortRows, summary, waitingCas } from '../chenh_lech_tinh.js?v=2026.11.28.3';
-import { stcGapOpen, stcLoadFor, stcStyle } from './so_thu_chi.js?v=2026.11.28.3';   // cùng bản với trang Sổ thu chi; số ?v= tăng khi phát hành
+import { CL_ST, filterRows, gapRows, sortRows, summary, waitingCas } from '../chenh_lech_tinh.js?v=2026.11.28.4';
+import { stcGapOpen, stcLoadFor, stcStyle } from './so_thu_chi.js?v=2026.11.28.4';   // cùng bản với trang Sổ thu chi; số ?v= tăng khi phát hành
 
 export const perm = 'doi_soat';
 const F = { st: '', dir: '', pm: '' };   // lọc (giữ trong phiên)

@@ -4,7 +4,7 @@ import { render as rerender } from '../app.js';
 import { DOW_LABELS, addDays, catalog, getWeek, vnToday, weekStart, withFtAfter } from '../data.js';
 import { rpc, sel } from '../sb.js';
 import { $, $$, flash, html, str } from '../ui.js';
-import { orderCfg, orderMount, orderView } from './order_nv.js?v=2026.11.28.3';   // cùng bản với trang Order ca; số ?v= tăng khi phát hành
+import { orderCfg, orderMount, orderView } from './order_nv.js?v=2026.11.28.4';   // cùng bản với trang Order ca; số ?v= tăng khi phát hành
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 

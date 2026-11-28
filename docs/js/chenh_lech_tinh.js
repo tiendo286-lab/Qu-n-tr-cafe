@@ -50,10 +50,10 @@ export function gapRows(D, { all = false } = {}) {
   return out;
 }
 
-const ORD = { cho: 0, chu: 1, tam: 2, xong: 3, nho: 4 };
 const SH = { 'Sáng': 0, 'Chiều': 1, 'Tối': 2 };
-// Chờ xử lý lên trước, rồi ngày mới nhất, ca muộn nhất
-export const sortRows = (rows) => [...rows].sort((a, b) => ORD[a.st] - ORD[b.st] || (a.date < b.date ? 1 : a.date > b.date ? -1 : (SH[b.shift] ?? 9) - (SH[a.shift] ?? 9)) || String(a.branch).localeCompare(String(b.branch)) || (a.pm === b.pm ? 0 : a.pm === 'tm' ? -1 : 1));
+// Xếp theo ngày (anh Tiến 28/11/2026: "sắp xếp ngày để dễ ghép tiền âm"): ngày cũ trước, trong ngày Sáng → Chiều → Tối, rồi cơ sở, tiền mặt trước chuyển khoản.
+// Không gom theo trạng thái nữa — dòng thiếu và dòng dư của các ngày sát nhau nằm cạnh nhau để dễ ghép.
+export const sortRows = (rows) => [...rows].sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : (SH[a.shift] ?? 9) - (SH[b.shift] ?? 9)) || String(a.branch).localeCompare(String(b.branch)) || (a.pm === b.pm ? 0 : a.pm === 'tm' ? -1 : 1));
 
 // Lọc: f = { st: '' | cho | chu | xong | nho | tam, dir: '' | thieu | du, pm: '' | tm | ck }.
 // Lệch nhỏ (≤ 5.000, đã tự tạo phiếu hay chưa) ẩn sẵn; st = 'nho' là xem riêng các dòng lệch nhỏ.

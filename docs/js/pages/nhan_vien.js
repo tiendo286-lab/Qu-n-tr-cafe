@@ -1,7 +1,7 @@
 // Nhân viên: danh sách (lọc, sửa nhanh cấp bậc) + tài khoản đăng nhập (cấp mật khẩu, khóa, in hàng loạt, tài khoản riêng) + form thêm/sửa
 import { render as rerender, can } from '../app.js';
 import { RANKS, catalog } from '../data.js';
-import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js?v=2026.11.28.3';
+import { DT_STATUS, dtLabel, openCreateDialog } from './dao_tao.js?v=2026.11.28.4';
 import { rpc, sel, selAll } from '../sb.js';
 import { ACC_CSS, ACC_STATES, accCell, accMenu, accState, bindAccountActions, bindBulk, bindPwButtons, bulkButton, canTouch, pwButton, standaloneSection } from './tai_khoan_chung.js';
 import { $, $$, dialog, flash, go, hhmm, html, norm, showSaved, once } from '../ui.js';
