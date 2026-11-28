@@ -29,11 +29,11 @@ export default async ({ sleep, out }) => {
       const { dsKind } = await import('../js/pages/chot_ca.js');
       const kd = (x) => { const k = dsKind(x); return k.k + (k.why.length ? ':' + k.why.join('+') : ''); };
       const X2 = 'Chờ Chủ duyệt x2';
-      const got = [kd({ recon: 'hoan_thanh', viec: { xong: true, thieu: [] }, tien: { st: 'ok' } }), kd({ viec: { xong: true, thieu: [] }, tien: { st: 'lech' } }),
+      const got = [kd({ recon: 'hoan_thanh', viec: { xong: true, thieu: [] }, tien: { st: 'ok' } }), kd({ viec: { xong: true, thieu: [] }, tien: { st: 'lech', thieu: ['Doanh thu & số cốc'] } }),
         kd({ viec: { xong: false, thieu: [X2] }, tien: { st: 'ok' } }), kd({ viec: { xong: false, thieu: [X2] }, tien: { st: 'lech' } }),
         kd({ viec: { xong: false, thieu: ['Bàn giao', X2] }, tien: { st: 'lech' } }), kd({ viec: { xong: true, thieu: [] }, tien: { st: 'ht' } }),
         kd({ viec: { xong: true, thieu: [] }, tien: { st: 'xn' } }), kd({ viec: { xong: false, thieu: [X2] }, tien: { st: 'kt' } })].join(' | ');
-      ok(got === 'done | hold:Chờ tiền về / chênh lệch | hold:Chờ Chủ duyệt x2 | hold:Chờ tiền về / chênh lệch+Chờ Chủ duyệt x2 | wait | wait | wait | kt', '(a) xếp loại ô: ' + got);
+      ok(got === 'done | hold:Thiếu dấu: Doanh thu & số cốc | hold:Chờ Chủ duyệt x2 | hold:Còn mục tiền chưa có dấu+Chờ Chủ duyệt x2 | wait | wait | wait | kt', '(a) xếp loại ô: ' + got);
       // anh Tiến chốt 23/11: ca đã bấm Hoàn thành tiền mà còn chênh lệch chờ xử lý (183: thiếu tiền mặt 30.000) → Tiền 🟠, chú thích có 🟠
       ok(/🟠/.test(txt(cell(183)?.querySelector('.cw-dt'))) && /còn chênh lệch/.test((cell(183)?.getAttribute('title') || '').toLowerCase()) && /🟠/.test(txt($('.cw-lgds'))),
         '(a) ca 183 Hoàn thành tiền còn chênh lệch → Tiền 🟠 (' + txt(cell(183)?.querySelector('.cw-dt')) + ')');

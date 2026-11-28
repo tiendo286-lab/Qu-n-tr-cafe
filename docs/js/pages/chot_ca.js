@@ -144,7 +144,7 @@ export async function render({ params }) {
       <div class="cw-wrap"><table class="cw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}</tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
-      ${DSW.size ? html`<div class="cw-lg"><span class="cw-c ds-done">Đã đối soát xong</span><span class="cw-c ds-hold">QL đã đối soát, đang chờ tiền về / Chủ duyệt</span><span class="cw-c ds-wait">QL chưa đối soát xong</span><span class="cw-c ds-kt">Chờ kế toán</span></div>` : ''}
+      ${DSW.size ? html`<div class="cw-lg"><span class="cw-c ds-done">Đã đối soát xong</span><span class="cw-c ds-hold">QL đã bấm Hoàn thành, còn thiếu dấu / chờ Chủ duyệt</span><span class="cw-c ds-wait">QL chưa đối soát xong</span><span class="cw-c ds-kt">Chờ kế toán</span></div>` : ''}
       <div class="cw-lg">${DSW.size ? '' : html`<span class="cw-c ok">Xong</span>`}<span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div>
       ${DSW.size ? html`<div class="cw-lg cw-lgds st-meta"><b>Đối soát:</b> Việc ✓ xong · – còn việc &nbsp;|&nbsp; Tiền ⏳ chờ kế toán · 🔴 ô đỏ (mở ca / doanh thu / nợ) · 🔵 chờ xác nhận Fabi · 🟡 chưa bấm Hoàn thành · 🟠 còn chênh lệch chờ xử lý · ✓ xong. Bấm ô để đối soát ca đó.</div>` : ''}</section>
     ${debtSection(DEBT, days.flatMap((d, i) => shifts.map((sh) => mine[i].find((r) => r.shift === sh)).filter((s) => s && s.report_id).map((s) => ({ report_id: s.report_id, day: d, shift: s.shift }))))}`}`;
@@ -170,7 +170,7 @@ const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', lech: '🟠', ok:
 const TTXT = { kt: 'chờ kế toán', red: 'còn ô đỏ (mở ca / doanh thu / nợ)', xn: 'chờ xác nhận Fabi', ht: 'chưa bấm Hoàn thành', lech: 'còn chênh lệch chờ xử lý / chờ Chủ duyệt', ok: 'xong' };
 // Anh Tiến 28/11: xếp loại ô ca theo AI đang giữ việc (chỉ hiển thị — đọc đúng trạng thái máy chủ trả, không đổi luật).
 //   done = đã đối soát xong · kt = chờ kế toán · wait = quản lý còn việc (dấu phần việc, ô đỏ, xác nhận Fabi, bấm Hoàn thành)
-//   hold = quản lý đã làm xong phần mình, còn chờ: chênh lệch / tiền về (🟠), Chủ duyệt x2
+//   hold = quản lý đã bấm Hoàn thành, còn: mục tiền thiếu dấu (🟠), Chủ duyệt x2
 const DSLB = { hold: 'QL đã đối soát', wait: 'QL chưa đối soát', kt: 'Chờ kế toán' };
 const X2 = 'Chờ Chủ duyệt x2';
 export function dsKind(x) {
@@ -179,13 +179,13 @@ export function dsKind(x) {
   if (t === 'kt') return { k: 'kt', why: [] };
   if (thieu.some((v) => v !== X2) || (!x.viec?.xong && !thieu.length) || !['lech', 'ok'].includes(t)) return { k: 'wait', why: [] };
   const why = [];
-  if (t === 'lech') why.push('Chờ tiền về / chênh lệch');
+  if (t === 'lech') why.push((x.tien?.thieu || []).length ? 'Thiếu dấu: ' + x.tien.thieu.join(', ') : 'Còn mục tiền chưa có dấu');   // 28/11: ghi đúng dấu đang thiếu (không ca nào "chờ tiền về")
   if (thieu.includes(X2)) why.push(X2);
   return { k: 'hold', why: why.length ? why : ['Chờ hoàn tất'] };
 }
 function dsSum(list) {
   const n = { done: 0, hold: 0, wait: 0, kt: 0 }; list.forEach((x) => { n[dsKind(x).k] += 1; });
-  return html`Tuần này: <b class="s-done">${n.done} ca xong</b> · <b class="s-hold">${n.hold} ca QL đã đối soát, đang chờ</b> · <b class="s-wait">${n.wait} ca QL chưa đối soát</b>${n.kt ? html` · <b class="s-kt">${n.kt} ca chờ kế toán</b>` : ''}`;
+  return html`Tuần này: <b class="s-done">${n.done} ca xong</b> · <b class="s-hold">${n.hold} ca QL đã bấm Hoàn thành, còn thiếu dấu / chờ duyệt</b> · <b class="s-wait">${n.wait} ca QL chưa đối soát</b>${n.kt ? html` · <b class="s-kt">${n.kt} ca chờ kế toán</b>` : ''}`;
 }
 const WSTYLE = html`<style>
   .cw-c.cw-c.ds-done { background: #1f8a4c; border-color: #1f8a4c; color: #fff; } .cw-c.cw-c.ds-done .cw-st, .cw-c.cw-c.ds-done .cw-m, .cw-c.cw-c.ds-done .cw-m span { color: #fff; } .cw-c.cw-c.ds-done .cw-m .neg { color: #ffd9d4; }
