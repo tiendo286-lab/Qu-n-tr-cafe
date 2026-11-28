@@ -57,6 +57,12 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
 
+## 28/11/2026 khuya — MÁY CHỦ TỆP 196 ĐÃ CHẠY THẬT: máy không tự gỡ dấu Thu chi của ca quản lý đã Hoàn thành + chạy bù 4 ca LHP (không đổi web)
+- **Anh Tiến báo:** LHP Sáng 7/11 không tích được ô "Đã hỏi người làm ca lý do thiếu / thừa" vì web báo ca đã đối soát. **Gốc lỗi:** dấu Thu chi là dấu web tự đóng (auto = 1); quản lý thêm phiếu tay rồi Hoàn thành (dấu vẫn tự động vì `app_stc_ds_close` thấy đã có kết quả); 27/11 11:05 lúc duyệt nghỉ / làm thay hàng loạt, `app__ca_auto_green` xét lại → "Thu chi không còn khớp" → gỡ dấu + mở lại ca, nhưng `stc_ca_done` còn → trang khoá mọi ô trong khi ca tính là chưa xong.
+- **Anh Tiến chốt 28/11:** GIỮ luật "quản lý đã bấm Hoàn thành + Chủ duyệt x2 xong thì ca tự về Đã đối soát xong" (máy không tự bấm Hoàn thành, chỉ ghép 2 việc người đã làm); chỉ sửa lỗi gỡ dấu + chạy bù.
+- **Đã làm (tệp 196):** `app__ca_auto_green` thêm 1 điều kiện — ca có `stc_ca_done` thì không gỡ dấu tự động của `thu_chi`; chạy bù 4 ca (108, 142, 203 → `hoan_thanh`; 341 Tối 17/11 có lại dấu Thu chi nhưng còn thiếu dấu Doanh thu nên vẫn `mo_lai`). Thử REPORT>> trước; sau khi chạy thật gọi xét lại 4 ca: không ca nào bị gỡ lại.
+- **Chưa làm:** không chạy Postgres cục bộ / bài thử trình duyệt cho tệp 196 (chỉ đổi máy chủ, kiểm bằng chạy thử tự hoàn tác trên máy chủ thật). LHP Tối 11/11 (ca 149: có `stc_ca_done`, thiếu kết quả Thu chi + Công nợ, không có dòng `tu_bo_khoa`) chưa tra.
+
 ## 28/11/2026 22:06 — MÁY CHỦ TỆP 195 ĐÃ CHẠY THẬT: đóng lại dấu tiền cho 3 ca LHP 1–2/11 (không đổi web)
 - **Anh Tiến hỏi:** vì sao LHP Tối 1/11 quản lý đã xử lý chênh lệch mà không về xanh. **Gốc lỗi (đã tra nhật ký ca):** đợt mở lại hàng loạt 13/11 gỡ dấu Tiền mặt / Chuyển khoản nhưng giữ kết quả; khi Xác nhận Fabi lại, `app_stc_ds_close` thấy kết quả đúng số nên bỏ qua, không đóng lại dấu. Cả hệ thống chỉ 3 ca (LHP 51, 53, 54). Các ca sau 13/11 không bị (Xác nhận Fabi luôn đóng dấu tiền, kể cả ca có lệch).
 - **Đã làm:** tệp 195 (một lần, không đổi luật / số tiền) đóng 4 dấu, 3 ca tự về `hoan_thanh`. Chạy thử REPORT>> trước, anh duyệt "chạy thật".
