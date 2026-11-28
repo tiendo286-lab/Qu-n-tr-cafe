@@ -515,7 +515,7 @@ export async function render({ params }) {
       }
       async function staffAdd(rid, date) {
         const R = await stOpen(rid); if (!R) return;
-        let H; try { H = await loadHelpers(); } catch (e) { flashNow(e.message || String(e), 'error'); return; }   // tệp 200: 3 loại người
+        let H; try { H = await loadHelpers(); } catch (e) { flashNow(e.message || String(e), 'error'); return; }   // tệp 202: 3 loại người
         const have = new Set((R.staff || []).map((z) => Number(z.employee_id))), ref = (R.staff || []).find((q) => isW(q) && q.time_in && q.time_out) || {};
         const d = stForm('Thêm người vào ca', html`${pickerHtml()}
           <div class="cv-grid"><label class="field" style="flex:1"><span>Giờ đến</span><input class="input" type="time" name="in" value="${hm(ref.time_in)}"></label><label class="field" style="flex:1"><span>Giờ về</span><input class="input" type="time" name="out" value="${hm(ref.time_out)}"></label></div>

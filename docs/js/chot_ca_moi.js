@@ -534,7 +534,7 @@ export async function renderNew(R0, P, SH) {
         $$('[data-reason]', root).forEach((i) => i.addEventListener('input', () => { V.staff[i.dataset.reason].absent_reason = i.value; soft(); }));
         $$('[data-rm]', root).forEach((b) => b.addEventListener('click', () => { V.staff.splice(Number(b.dataset.rm), 1); draw(); }));
         // bước 48: người làm hộ — "Nhân viên trong quán" (người của cơ sở này lên trước) / "Nhân viên cũ" (đã ngừng làm); bấm tên để thêm
-        // tệp 200: thêm "Người ngoài" — chọn người ngoài đã từng làm, hoặc gõ tên rồi bấm thêm mới (hồ sơ gọn, không tài khoản)
+        // tệp 202: thêm "Người ngoài" — chọn người ngoài đã từng làm, hoặc gõ tên rồi bấm thêm mới (hồ sơ gọn, không tài khoản)
         $$('[data-hp]', root).forEach((b) => b.addEventListener('click', () => { HP.tab = HP.tab === b.dataset.hp ? '' : b.dataset.hp; HP.q = ''; draw(); }));
         if ($('#cm-help-list')) {
           const norm = (x) => String(x || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/đ/gi, 'd').toLowerCase().trim();

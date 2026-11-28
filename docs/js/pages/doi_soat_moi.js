@@ -502,7 +502,7 @@ export async function render({ params }) {
           await saveStaff(L, r); }); });
       };
       const staffAdd = async () => {
-        let H; try { H = await loadHelpers(); } catch (e) { showSaved(e.message || String(e), true); return; }   // tệp 200: 3 loại người
+        let H; try { H = await loadHelpers(); } catch (e) { showSaved(e.message || String(e), true); return; }   // tệp 202: 3 loại người
         const have = new Set((S.R.staff || []).map((s) => Number(s.employee_id)));
         const d = form('Thêm người hỗ trợ', html`${pickerHtml()}
           <div class="pc-line" style="gap:8px"><label class="field grow"><span>Giờ đến</span><input class="input" type="time" name="in"></label><label class="field grow"><span>Giờ về</span><input class="input" type="time" name="out"></label></div>

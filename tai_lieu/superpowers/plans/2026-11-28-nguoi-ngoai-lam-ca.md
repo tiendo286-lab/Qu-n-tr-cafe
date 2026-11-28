@@ -25,14 +25,14 @@
 - Tên trống / 1 ký tự / quá 60 ký tự → báo lỗi dễ hiểu, không tạo.
 - Người ngoài đã có trong ca → không thêm lần hai.
 - Người ngoài không hiện trong nhóm "Nhân viên cũ" và không hiện trong danh sách nhân viên đang làm.
-- Máy chủ chưa chạy tệp 200 (web lên trước): nhóm Người ngoài rỗng, bấm thêm mới báo lỗi máy chủ, các nhóm khác vẫn chạy.
+- Máy chủ chưa chạy tệp 202 (web lên trước): nhóm Người ngoài rỗng, bấm thêm mới báo lỗi máy chủ, các nhóm khác vẫn chạy.
 
 ---
 
 ### Task 1: Máy chủ + bản giả lập
 
 **Files:**
-- Create: `supabase/200_nguoi_ngoai_lam_ca.sql`
+- Create: `supabase/202_nguoi_ngoai_lam_ca.sql`
 - Modify: `kiem_tra/trinh_duyet/ca_gia.js` (`app_ca_helpers`, thêm 2 hàm)
 
 **Interfaces — Produces:**
@@ -77,8 +77,8 @@
 
 ### Task 5: Bài thử + tài liệu
 
-**Files:** Create `kiem_tra/trinh_duyet/flow_nn200.js`; Modify `kiem_tra/trinh_duyet/README.md`, `tai_lieu/TINH_NANG_DA_CHOT.md` (mục 5m-bổ sung 2), `docs/version.json`
+**Files:** Create `kiem_tra/trinh_duyet/flow_nn202.js`; Modify `kiem_tra/trinh_duyet/README.md`, `tai_lieu/TINH_NANG_DA_CHOT.md` (mục 5m-bổ sung 2), `docs/version.json`
 
-- [ ] `flow_nn200`: chốt ca → 3 nút → Người ngoài → gõ tên mới → thêm → số người +1; gõ lại tên đó (khác hoa thường) → không tạo trùng, báo đã có trong ca; tên 1 ký tự → không có nút thêm; nhóm Nhân viên cũ không chứa người vừa tạo; trang đối soát ca → Thêm người hỗ trợ → loại Người ngoài → mới → lưu → có trong danh sách; không tràn ngang.
-- [ ] Chạy `flow_nn200` + `flow_hl49` + `flow_dsm1` + bộ vùng khoá (`flow_ql_tu_ds` ql / chu, `flow_stc6`, `flow_stc7`, `flow_dsca`), máy tính + điện thoại.
+- [ ] `flow_nn202`: chốt ca → 3 nút → Người ngoài → gõ tên mới → thêm → số người +1; gõ lại tên đó (khác hoa thường) → không tạo trùng, báo đã có trong ca; tên 1 ký tự → không có nút thêm; nhóm Nhân viên cũ không chứa người vừa tạo; trang đối soát ca → Thêm người hỗ trợ → loại Người ngoài → mới → lưu → có trong danh sách; không tràn ngang.
+- [ ] Chạy `flow_nn202` + `flow_hl49` + `flow_dsm1` + bộ vùng khoá (`flow_ql_tu_ds` ql / chu, `flow_stc6`, `flow_stc7`, `flow_dsca`), máy tính + điện thoại.
 - [ ] Ghi tài liệu, tăng số bản, commit.

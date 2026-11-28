@@ -1,4 +1,4 @@
--- Bài thử tệp 200 (người ngoài làm ca) — chạy trên CSDL thử cục bộ sau seed.sql; tự hoàn tác. Đạt khi ra "REPORT>> ĐẠT …".
+-- Bài thử tệp 202 (người ngoài làm ca) — chạy trên CSDL thử cục bộ sau seed.sql; tự hoàn tác. Đạt khi ra "REPORT>> ĐẠT …".
 do $$
 declare u uuid; h jsonb; a jsonb; b jsonb; c jsonb; err text; n0 int; ok text[] := '{}'; bad text[] := '{}';
 begin
