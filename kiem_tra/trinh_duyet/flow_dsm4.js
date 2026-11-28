@@ -18,7 +18,7 @@ export default async ({ sleep, out }) => {
     await go('#/ca/doi-soat?id=182&tab=viec', '#dsm');
     ok(!!$('#dsm'), '#/ca/doi-soat?id= mở trang đối soát ca mới');
     ok(!/trang cũ thẻ|Về trang cũ/i.test($('#dsm')?.textContent || ''), 'trang mới không còn chữ dẫn sang trang cũ (trừ đường dẫn dự phòng)');
-    ok(/#\/ca\/doi-soat-cu\?id=182$/.test($('#dsm-old')?.getAttribute('href') || ''), `đường dẫn nhỏ "Trang cũ (dự phòng)": ${$('#dsm-old')?.getAttribute('href') || '-'}`);
+    ok(!$('#dsm-old') && !/Trang cũ/i.test($('#dsm')?.textContent || ''), 'không còn đường dẫn "Trang cũ (dự phòng)" (anh Tiến 28/11: xoá đối soát cũ)');
     ok(/#\/ca\/phieu\?id=182$/.test($('#dsm-phieu')?.getAttribute('href') || ''), 'có nút Xem phiếu nhân viên');
     // 2. khối đánh giá nhân viên + nghỉ & làm thay nằm ngay trang ①
     await until(() => /Đánh giá/.test($('#dsm-dg')?.textContent || ''), 40);   // textContent: tiêu đề viết hoa bằng CSS

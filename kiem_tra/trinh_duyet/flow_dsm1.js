@@ -32,7 +32,7 @@ export default async ({ sleep, out }) => {
       ok(!!$('#dsm'), 'mở được trang mới ca 182');
       ok(/Sửa ngay tại đây/.test($('#dsm')?.textContent || ''), 'có dòng "Sửa ngay tại đây" (đợt 2: hết bản xem thử)');
       ok($$('[data-dsm-tab]').length === 3, `3 nút trang: ${$$('[data-dsm-tab]').map((b) => b.innerText.replace(/\s+/g, ' ').trim()).join(' | ')}`);
-      ok(/#\/ca\/doi-soat-cu\?id=182/.test($('#dsm-old')?.getAttribute('href') || ''), 'đường dẫn "Trang cũ (dự phòng)" trỏ đúng ca');
+      ok(!$('#dsm-old'), 'không còn đường dẫn "Trang cũ (dự phòng)" (anh Tiến 28/11: xoá đối soát cũ)');
       // dữ liệu để so (cùng dữ liệu giả, cách tính của trang cũ)
       const R = await rpc('app_ca_get', { p_id: 182 });
       const D = await rpc('app_stc_month', { p_branch: R.branch_id, p_month: R.work_date.slice(0, 7) });

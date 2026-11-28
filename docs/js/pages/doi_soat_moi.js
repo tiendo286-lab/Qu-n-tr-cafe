@@ -357,7 +357,7 @@ export async function render({ params }) {
     html: html`${raw(CSS)}${stcStyle()}${CV_CSS}${DG_CSS}<div id="dsm" class="dsm">
       <div class="dsm-head"><h1>${title}<small>${R.branch_name || ''} · trang đối soát ca mới</small></h1>
         <div class="dsm-tools"><button type="button" class="btn sm" id="dsm-recalc">Tính lại</button><a class="btn sm secondary" id="dsm-phieu" href="#/ca/phieu?id=${id}">Xem phiếu nhân viên</a></div></div>
-      <div class="dsm-sub dsm-hint">Sửa ngay tại đây — lưu xong số tự tính lại, không phải Mở lại xác nhận. <a id="dsm-old" href="#/ca/doi-soat-cu?id=${id}">Trang cũ (dự phòng)</a></div>
+      <div class="dsm-sub dsm-hint">Sửa ngay tại đây — lưu xong số tự tính lại, không phải Mở lại xác nhận.</div>
       <div id="dsm-body">${body(S, active)}</div></div>`,
     mount(root) {
       const show = (k) => {
