@@ -11,8 +11,8 @@ import { catalog } from '../data.js';
 import { rpc } from '../sb.js';
 import { $, dialog, flash, html, showSaved, str } from '../ui.js';
 import { openItemGuide } from './dt_cong_viec.js';
-import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.29.2';
-import { LEVEL, dm, wd } from './pc_dao_tao_toi.js?v=2026.11.29.2';
+import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.29.3';
+import { LEVEL, dm, wd } from './pc_dao_tao_toi.js?v=2026.11.29.3';
 
 const F = { who: '', d: '' };   // ô lọc người dạy (giữ khi vẽ lại)
 const PICK = new Map();        // khối phân công trong thẻ ngày: ca → người dạy đang chọn

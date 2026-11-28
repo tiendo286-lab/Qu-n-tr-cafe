@@ -9,7 +9,7 @@ export const perm = 'cai_gio_order';
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
 export async function render({ me }) {
-  const cd = me.role === 'chu' ? await (await import('./order_cai_dat.js?v=2026.11.29.2')).renderCfg({ me }) : null;
+  const cd = me.role === 'chu' ? await (await import('./order_cai_dat.js?v=2026.11.29.3')).renderCfg({ me }) : null;
   const [settings, weeks] = await Promise.all([
     sel('settings', 'key, value', (b) => b.like('key', 'order_%')),
     sel('weeks', '*', (b) => b.gte('end_date', vnToday()).order('start_date')),
