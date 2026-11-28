@@ -33,6 +33,8 @@ export default async ({ sleep, out }) => {
     r.push(`menu: ${[...document.querySelectorAll('a')].some((a) => a.getAttribute('href') === '#/quan-ly/cong-no') ? 'có Công nợ' : 'KHÔNG'}`);
     r.push(`nhóm: ${$$('.cn-g').map((g) => g.querySelector('h2').innerText + ' ' + g.querySelector('.cn-gsum').innerText + ' (' + g.querySelectorAll('.cn-p').length + ' người)').join(' | ')}`);
     r.push(`ô số: ${$$('.cn-ks .cn-k').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · quá hạn: ${txt('.cn-latebox')} · ${W()}`);
+    chk(document.documentElement.scrollWidth <= document.documentElement.clientWidth, 'trang chính Công nợ không tràn ngang (' + W() + ')');   // 28/11: hàng nút nhóm vuốt ngang trong khung của nó
+    chk(!!document.querySelector('.cn-g[data-g="khach"] .cn-r .cn-thu1'), 'nợ khách: nút Đã thu ngay trên dòng');
     { // bước 97: bấm ô nhóm → chỉ hiện nhóm đó; bấm lại → cả 3 nhóm
       $('.cn-k[href*="g=kho"]').click(); await sleep(300); await wait('.cn-g'); await sleep(1200);
       r.push(`97 lọc Kho tổng: ${$$('.cn-g').map((g) => g.dataset.g).join(',')} · ô đang chọn ${txt('.cn-k.on .k')}`);
@@ -41,7 +43,7 @@ export default async ({ sleep, out }) => {
     const STOP = new URLSearchParams(location.search).get('dung'); const halt = async (k) => { if (STOP === k) { window.scrollTo(0, 0); await new Promise(() => {}); } };   // chụp ảnh
     await rpc('app_cn_debt_save', { p_id: null, p: { branch_id: o.branch_id, grp: 'kho', name: 'Kho tổng', amount: 1200000, kind: 'muon', date: d10, note: 'trả hộ tiền sữa' } });
     if (STOP) { await go('#/quan-ly/cong-no?cn=' + o.branch_id, '.cn-g'); } await halt('1');
-    r.push(`dòng khoản: ${txt('.cn-g[data-g="khach"] .cn-l')}`);
+    r.push(`dòng khoản: ${txt('.cn-g[data-g="khach"] .cn-r')}`);
     // + Kho tổng nợ
     $('.cn-new[data-g="kho"]').click(); await wait('dialog[open] form [name=amount]'); await sleep(300);
     let f = $$('dialog[open] form').pop(); f.amount.value = '500.000'; f.note.value = 'trả hộ tiền sữa'; f.requestSubmit(); await sleep(2500); await wait('.cn-g');
