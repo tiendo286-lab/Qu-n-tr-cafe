@@ -61,6 +61,12 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
 
+## 28/11/2026 khuya — MÁY CHỦ TỆP 198 ĐÃ CHẠY THẬT: luật tự đối soát không cộng nợ chuyển khoản vào doanh thu (không đổi web)
+- **Anh Tiến hỏi LHP Tối 17/11.** **Gốc lỗi:** `app__ca_green` coi Doanh thu khớp khi doanh thu = tiền mặt + chuyển khoản + nợ mới; nợ loại `ck` (khách bấm chuyển khoản, tiền chưa về — đã nằm trong `pos_transfer`) bị cộng lần nữa → mọi ca có nợ `ck` bị coi "Doanh thu không khớp", không tự đóng dấu, lần xét lại 27/11 gỡ dấu tự động + mở lại ca. Cả 12 ca có nợ `ck` từ 1/11 đều có doanh thu = tiền mặt + chuyển khoản (+ nợ hoá đơn).
+- **Đã làm (tệp 198, anh duyệt "sửa luật, chạy thử rồi chạy thật"):** chỉ cộng nợ hoá đơn (`kind` = `bill` / trống); xét lại các ca có nợ `ck` thiếu dấu Doanh thu, bỏ qua ca mà lần xét lại sẽ gỡ dấu. Kết quả: ĐK Sáng 1/11 (60) + LHP Chiều 19/11 (391) có dấu Doanh thu (391 có thêm dấu Tiền mặt); LHP Tối 17/11 (341) KHÔNG đụng vì quản lý vừa Mở lại 22:47 đang làm dở — bấm Hoàn thành là xong.
+- **Còn lại sau tệp 198:** ca 60 đủ 9 dấu nhưng chưa ai bấm Hoàn thành; ca 391 còn thiếu dấu Chuyển khoản (`mo_lai`); 10 ca thiếu dấu Doanh thu do Fabi có hoá đơn sửa / xoá (luật bước 61) và HS Chiều 25/11 chưa rõ — chờ anh quyết.
+- **Bài học:** lần xét lại (`app__ca_auto_green`) có thể GỠ dấu tự động của ca quản lý đang làm dở — chạy thử phải in dấu trước / sau từng ca, đừng chỉ đếm số ca.
+
 ## 28/11/2026 khuya — MÁY CHỦ TỆP 197 ĐÃ CHẠY THẬT: bỏ dấu Hoàn thành treo của LHP Tối 11/11 (ca 149; không đổi web)
 - **Anh Tiến báo:** quản lý không mở được bước 3 của ca này. **Gốc lỗi:** ca có `stc_ca_done` (bấm 22/11 khi chưa có dấu Thu chi / Công nợ) → máy chủ chặn mọi ô tích "bấm Mở lại trước"; nhưng web chỉ nhận ca là đã Hoàn thành khi đủ dấu 4 mục tiền (`app_stc_month` chỉ trả `done` khi `mdone`) → bước 3 (nơi có nút Mở lại) khoá vì bước 2 chưa xong → vòng luẩn quẩn. Cả hệ thống chỉ 1 ca.
 - **Đã làm (tệp 197, anh duyệt "chạy thật"):** bỏ `stc_ca_done` của ca đó (như nút Mở lại), ghi nhật ký ca. 7 dấu + 6 ô tích giữ nguyên; phiếu lệch nhỏ tự tạo huỷ theo luật tệp 190. **Quản lý cần vào làm lại bước 2 → bước 3 Hoàn thành** (xem phiếu chi tay 3.000.000 và khách trả nợ 56.000 CK không có trong file Fabi).
