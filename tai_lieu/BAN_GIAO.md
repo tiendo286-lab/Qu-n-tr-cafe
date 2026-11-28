@@ -59,6 +59,12 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
 
+## 28/11/2026 khuya — MÁY CHỦ TỆP 197 ĐÃ CHẠY THẬT: bỏ dấu Hoàn thành treo của LHP Tối 11/11 (ca 149; không đổi web)
+- **Anh Tiến báo:** quản lý không mở được bước 3 của ca này. **Gốc lỗi:** ca có `stc_ca_done` (bấm 22/11 khi chưa có dấu Thu chi / Công nợ) → máy chủ chặn mọi ô tích "bấm Mở lại trước"; nhưng web chỉ nhận ca là đã Hoàn thành khi đủ dấu 4 mục tiền (`app_stc_month` chỉ trả `done` khi `mdone`) → bước 3 (nơi có nút Mở lại) khoá vì bước 2 chưa xong → vòng luẩn quẩn. Cả hệ thống chỉ 1 ca.
+- **Đã làm (tệp 197, anh duyệt "chạy thật"):** bỏ `stc_ca_done` của ca đó (như nút Mở lại), ghi nhật ký ca. 7 dấu + 6 ô tích giữ nguyên; phiếu lệch nhỏ tự tạo huỷ theo luật tệp 190. **Quản lý cần vào làm lại bước 2 → bước 3 Hoàn thành** (xem phiếu chi tay 3.000.000 và khách trả nợ 56.000 CK không có trong file Fabi).
+- **Chỗ hở còn lại (chưa sửa, chưa hỏi anh):** web và máy chủ hiểu "đã Hoàn thành" khác nhau (`stc_ca_done` so với `mdone`); ca nào có `stc_ca_done` mà thiếu dấu mục tiền sẽ lại kẹt kiểu này. Sau tệp 196 chưa thấy đường nào tạo ra ca như vậy nữa, nhưng nên cho trang đối soát hiện nút Mở lại theo `stc_ca_done`.
+- **Bài học:** trước khi khuyên anh "bấm nút X", phải đọc điều kiện hiện nút X trong web — em đã khuyên bấm Mở lại ở bước 3 trong khi bước 3 đang khoá.
+
 ## 28/11/2026 khuya — MÁY CHỦ TỆP 196 ĐÃ CHẠY THẬT: máy không tự gỡ dấu Thu chi của ca quản lý đã Hoàn thành + chạy bù 4 ca LHP (không đổi web)
 - **Anh Tiến báo:** LHP Sáng 7/11 không tích được ô "Đã hỏi người làm ca lý do thiếu / thừa" vì web báo ca đã đối soát. **Gốc lỗi:** dấu Thu chi là dấu web tự đóng (auto = 1); quản lý thêm phiếu tay rồi Hoàn thành (dấu vẫn tự động vì `app_stc_ds_close` thấy đã có kết quả); 27/11 11:05 lúc duyệt nghỉ / làm thay hàng loạt, `app__ca_auto_green` xét lại → "Thu chi không còn khớp" → gỡ dấu + mở lại ca, nhưng `stc_ca_done` còn → trang khoá mọi ô trong khi ca tính là chưa xong.
 - **Anh Tiến chốt 28/11:** GIỮ luật "quản lý đã bấm Hoàn thành + Chủ duyệt x2 xong thì ca tự về Đã đối soát xong" (máy không tự bấm Hoàn thành, chỉ ghép 2 việc người đã làm); chỉ sửa lỗi gỡ dấu + chạy bù.
