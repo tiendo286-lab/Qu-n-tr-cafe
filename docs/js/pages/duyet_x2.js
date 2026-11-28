@@ -8,6 +8,8 @@
 //   ghép sẵn người làm thay, một nút Lưu cả 2 ca / Duyệt cả 2 ca. Lý do, x2 vẫn chọn tay từng lần. Chỉ ở giao diện.
 // 28/11 (tệp 194): lý do "Đổi ca (lịch chưa sửa)" + nút bấm nhanh Đổi ca ở từng người nghỉ — ca toàn Đổi ca lưu xong là xong luôn, khỏi Chủ duyệt.
 // 28/11 tối (anh Tiến: "thay hẳn danh sách bằng bảng này"): bảng theo ca là MẶC ĐỊNH ở hai thẻ chờ; danh sách cũ còn ở ?kieu=ds (dự phòng, đường nhỏ cuối trang).
+// 29/11 (anh Tiến: "bấm thẳng vào tên để chọn"): ở bảng theo ca, lý do nghỉ là các NÚT BẤM ngay dưới dòng tên (Tự tìm người thay · Nhờ QL tìm · QL cho nghỉ · Bỏ ca · Đổi ca)
+//   thay cho ô xổ xuống; ô xổ xuống vẫn còn (ẩn) để giữ giá trị, dạng danh sách cũ vẫn dùng ô xổ xuống.
 // 29/11 (phần 2, anh Tiến chốt "có" bắt ghi lý do): sửa NHÂN SỰ của ca ngay trên bảng — nút Sửa ở từng dòng tên (có làm / nghỉ, giờ đến – về, bỏ người ngoài lịch)
 //   và "+ Thêm người" cuối cột. Dùng đúng đường của trang đối soát ca: app_ca_recon_save({staff}) + lý do bắt buộc; Nhân sự đã duyệt thì bỏ duyệt trước (app_ca_check).
 // 28/11 khuya (anh Tiến: "sửa trực tiếp tại bảng này luôn" — phần 1): ở bảng theo ca, ô lý do / người làm thay / x2 / Đổi ca nằm NGAY DƯỚI DÒNG TÊN của từng người
@@ -27,6 +29,8 @@ import { CV_CSS, REASONS } from '../nghi_thay.js';
 export const perm = 'doi_soat';
 
 const hrs = (h) => (Number(h) || 0).toLocaleString('vi-VN', { maximumFractionDigits: 2 });
+// Nút lý do ở bảng theo ca (tên ngắn); Đổi ca là nút riêng (bấm là lưu luôn)
+const CHIPS = [['tu_tim', 'Tự tìm người thay'], ['nho_ql', 'Nhờ QL tìm (trừ giờ)'], ['ma_chay', 'QL cho nghỉ'], ['bo_ca', 'Bỏ ca (phạt 200k)']];
 const TABS = [['cho', 'Chờ phân loại'], ['duyet', 'Chờ Chủ duyệt'], ['xong', 'Đã duyệt']];
 const STYLE = html`<style>
   .x2p-tabs { display: flex; gap: 6px; flex-wrap: wrap; }
@@ -66,6 +70,12 @@ const STYLE = html`<style>
   .x2p-in .x2p-body { gap: 4px; }
   .x2p-in .cv-a, .x2p-in .cv-e { margin: 0 0 6px 14px; padding: 6px 8px; border-left: 3px solid #f59e0b; background: #fffbeb; border-radius: 0 8px 8px 0; display: flex; flex-direction: column; gap: 6px; }
   .x2p-in .cv-a > .cv-grid:first-child > strong, .x2p-in .cv-a > .cv-grid:first-child > .pill, .x2p-in .cv-e > .cv-grid:first-child > strong, .x2p-in .cv-e > .cv-grid:first-child > .pill { display: none; }
+  .x2p-rs { display: none; }
+  .x2p-in .x2p-rs { display: flex; flex-wrap: wrap; gap: 6px; flex: 1 1 100%; }
+  .x2p-in .cv-a .cv-reason { display: none; }
+  .x2p-chip { border: 1px solid var(--line); background: var(--card); border-radius: 999px; padding: 5px 10px; font: inherit; font-size: 13px; font-weight: 600; color: var(--ink); cursor: pointer; }
+  .x2p-chip.on, .x2p-in [data-dc].on { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .x2p-chip.bad.on { background: #b91c1c; border-color: #b91c1c; }
   .x2p-in [hidden] { display: none !important; }   /* ô "hỗ trợ" tự ẩn khi người đó đã được chọn làm người thay */
   .x2p-pp[data-tg] { cursor: pointer; position: relative; padding-right: 20px; }
   .x2p-pp[data-tg]::after { content: '▾'; position: absolute; right: 6px; top: 3px; opacity: .7; }
@@ -151,6 +161,7 @@ export async function render({ params }) {
     return html`${absents.map((a) => { const x = rowOf(a.employee_id) || {}; const au = autoOf(a.employee_id); const hs = x.helper_id || (x.outsider ? 'ngoai' : '') || (au ? au.employee_id : '');
         return html`${hd(a.employee_id, true)}<div class="cv-a" data-absent="${a.employee_id}" ${r.swap?.[a.employee_id] != null ? 'data-swap' : ''}>
           <div class="cv-grid"><strong>${a.code} – ${a.name}</strong> <span class="pill off">Nghỉ</span>
+            <div class="x2p-rs" role="group" aria-label="Lý do nghỉ của ${a.code}">${CHIPS.map(([k, l]) => html`<button type="button" class="x2p-chip ${k === 'bo_ca' ? 'bad' : ''}" data-rs="${k}">${l}</button>`)}</div>
             <select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${x.reason === k ? 'selected' : ''}>${l}</option>`)}</select>
             <button type="button" class="btn sm secondary" data-dc title="Thực tế là đổi ca, lịch trên app chưa sửa: không trừ, không x2, khỏi duyệt">Đổi ca</button></div>
           <div class="cv-grid"><span class="st-meta">Người làm thay</span><select class="input sm cv-helper" aria-label="Người làm thay cho ${a.code}">${opts(hs)}</select>
@@ -297,6 +308,11 @@ export async function render({ params }) {
         $$('[data-dc]', el).forEach((b) => b.addEventListener('click', () => quickSwap(r, b)));
         $$('.x2p-pp[data-tg]', el).forEach((h) => h.addEventListener('click', (e) => { if (e.target.closest('[data-st]')) return; h.nextElementSibling?.classList.toggle('x2p-fold'); }));   // bấm dòng tên: thu gọn / mở ô xử lý
         // Đổi ca thì không có x2 (máy chủ cũng bỏ) → khoá ô x2 của người đó
+        // nút lý do: bấm là đặt giá trị cho ô lý do (ẩn) của người đó; nút đang chọn được tô màu
+        $$('[data-rs]', el).forEach((b) => b.addEventListener('click', () => { const s = b.closest('.cv-a').querySelector('.cv-reason'); s.value = s.value === b.dataset.rs ? '' : b.dataset.rs; s.dispatchEvent(new Event('change', { bubbles: true })); }));
+        $$('.cv-a', el).forEach((box) => { const s = box.querySelector('.cv-reason');
+          const paint = () => { $$('[data-rs]', box).forEach((c) => c.classList.toggle('on', c.dataset.rs === s.value)); box.querySelector('[data-dc]')?.classList.toggle('on', s.value === 'doi_ca'); };
+          paint(); s.addEventListener('change', paint); });
         const lockX = (box) => { const c = box.querySelector('.cv-x'), dc = box.querySelector('.cv-reason').value === 'doi_ca'; if (dc) c.checked = false; c.disabled = dc; };
         $$('.cv-a', el).forEach((box) => { lockX(box); box.querySelector('.cv-reason').addEventListener('change', () => lockX(box)); });
         // sửa lại ô của người đã lưu → bỏ nhãn "Đã lưu" (chưa lưu lại)

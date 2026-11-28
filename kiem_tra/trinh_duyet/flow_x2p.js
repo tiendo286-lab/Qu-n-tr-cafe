@@ -46,6 +46,17 @@ export default async ({ sleep, out }) => {
       await goB('#/quan-ly/nghi-lam-thay');
       { const c0 = $(`.x2p-ca[data-id="${ids[0]}"]`), e0 = c0?.querySelector('.cv-e');
         ok(!!c0 && c0.classList.contains('x2p-in') && !!e0 && getComputedStyle(e0).display === 'none' && getComputedStyle(c0.querySelector('.cv-a')).display !== 'none', `Bảng theo ca: ca 1 nghỉ + 1 hỗ trợ ghép sẵn — chỉ hiện ô của người nghỉ, ô hỗ trợ ẩn · ${W()}`); }
+      // 29/11 (anh Tiến: "bấm thẳng vào tên để chọn"): lý do là các nút bấm dưới dòng tên, không còn ô xổ xuống ở bảng
+      { const c1 = $(`.x2p-ca[data-id="${ids[1]}"]`), box = c1.querySelector('.cv-a'), sel = box.querySelector('.cv-reason'), chip = (k) => box.querySelector(`[data-rs="${k}"]`);
+        ok(box.querySelectorAll('[data-rs]').length === 4 && getComputedStyle(sel).display === 'none' && getComputedStyle(chip('bo_ca')).display !== 'none' && !!box.querySelector('[data-dc]'), `Bảng theo ca: 4 nút lý do + nút Đổi ca dưới dòng tên, ô xổ xuống ẩn · ${W()}`);
+        chip('bo_ca').click();
+        const a1 = sel.value === 'bo_ca' && chip('bo_ca').classList.contains('on') && !chip('tu_tim').classList.contains('on');
+        chip('ma_chay').click();
+        const a2 = sel.value === 'ma_chay' && chip('ma_chay').classList.contains('on') && !chip('bo_ca').classList.contains('on');
+        chip('ma_chay').click();
+        ok(a1 && a2 && sel.value === '' && !box.querySelector('[data-rs].on'), 'Bấm nút lý do: chọn, đổi sang nút khác, bấm lần nữa để bỏ chọn');
+        c1.querySelector('[data-one]').click(); await sleep(400);
+        ok(c1.classList.contains('bad') && /Chưa chọn lý do/.test(c1.querySelector('.x2p-err').textContent), 'Chưa bấm nút lý do nào mà Lưu: báo đỏ'); }
       // 29/11 (phần 2): sửa nhân sự của ca ngay trên bảng — thêm người, đổi nghỉ thành có làm, bỏ người; lý do bắt buộc
       {
         // Ca nào đọc được bản đối soát thì sửa được; ca đang chờ kế toán thì bảng phải chặn (không lấy tạm phiếu gốc)
