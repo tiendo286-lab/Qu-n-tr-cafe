@@ -4,7 +4,7 @@ import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { dmy } from '../tien.js';
 import { $, $$, flash, html, showSaved } from '../ui.js';
-import { CK_CSS, ckDrop, ckUpload, ckView } from '../cam_ket_anh.js?v=2026.11.27.8';
+import { CK_CSS, ckDrop, ckUpload, ckView } from '../cam_ket_anh.js?v=2026.11.28.1';
 
 export const perm = ['ke_toan', 'quan_ly_nhan_vien'];
 const COMMIT = { chua_ky: 'Chưa ký', da_ky_chua_nop: 'Đã ký, chưa nộp', da_ky_nop: 'Đã ký và nộp' };

@@ -5,19 +5,19 @@ import { NH_CSS } from '../nhap_hang.js';
 import { DT_CSS, tcList, toDebtDlg } from '../doi_soat_tc.js';
 import { bindPeopleSelect, loadPeople, peopleSelect } from '../nguoi_no_chon.js';
 import { DG_CSS, mountReportEval } from '../danh_gia.js';
-import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.27.8';
+import { CV_CSS, mountCover } from '../nghi_thay.js?v=2026.11.28.1';
 import { rpc, sb } from '../sb.js';
 import { bindMoneyInputs, compressImage, dmy, dt, fmt, fromLocalInput, noName, parseMoney, result, signed, toLocalInput, traNoFabi, vnd } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str } from '../ui.js';
 import { STAFF_LABEL, dayName } from './chot_ca.js';
 import { catalog, weekStart } from '../data.js';
-import { renderNew } from '../chot_ca_moi.js?v=2026.11.27.8';
-import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.27.8';
+import { renderNew } from '../chot_ca_moi.js?v=2026.11.28.1';
+import { ALL_FIELDS, DEN_CSS, ITEM_FIELDS, clearDirect, getDirect, mountLights, setDirect } from '../doi_soat_den.js?v=2026.11.28.1';
 import { mountBankOuts, openBankOut } from '../phieu_chi_ck.js';
 import { watchGio } from '../gio_chot.js';
 import { BUCKET as HD_BUCKET, HD_ACCEPT, HD_CSS, HD_STATUS, fileLinks, photoThumbs, receiptText, signLinks, uploadFiles } from './ke_toan_hoa_don.js';
 
-import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel, DEBT_GRP } from '../ca_chung.js?v=2026.11.27.8';
+import { SHIFT_CSS, shiftFabiFields, shiftSteps, shiftMoneyTable, collapseMoves, expandMoves, newExchangeKey, kindSeg, oneSeg, bindKindSeg, EXCH_LABEL, EXCH_DIRS, exchSigns, debtWhoSel, DEBT_GRP } from '../ca_chung.js?v=2026.11.28.1';
 
 export const perm = 'chot_ca';
 const BUCKET = 'phieu-ca';
@@ -852,7 +852,7 @@ export async function render({ params }) {
       return html`<button type="button" class="stc-sr ds-wgo" data-wgo="${i}"><i class="stc-mk ${lf.length ? '' : 'ok'}">${lf.length ? '!' : '✓'}</i><b>${t}</b><span class="pill ${lf.length ? 'warn' : 'ok'}">${lf.length ? 'Còn: ' + lf.map((x) => CHECK_LABEL[x]).join(', ') : '✓ Xong'}</span></button>`; })}</div>
       ${wLeft.includes('Chờ Chủ duyệt x2') ? html`<div class="st-meta">⏳ Nghỉ & làm thay: chờ Chủ duyệt x2.</div>` : ''}
       ${R0.recon_status === 'hoan_thanh' && NX ? html`<div class="toolbar"><a class="btn" href="#/ca/doi-soat?id=${NX.id}&tab=${NX.tab || 'viec'}">Ca tiếp theo chưa xong ›</a></div>` : ''}</div>` : '';
-  const MONEY = isDs ? await import('./so_thu_chi.js?v=2026.11.27.8').then((m) => m.caMoney({ cn: R0.branch_id, thang: String(R0.work_date || '').slice(0, 7), ds: R0.id, b: params.b || null, t: params.t || '', workLeft: wLeft, workSum: str(wSum) }))
+  const MONEY = isDs ? await import('./so_thu_chi.js?v=2026.11.28.1').then((m) => m.caMoney({ cn: R0.branch_id, thang: String(R0.work_date || '').slice(0, 7), ds: R0.id, b: params.b || null, t: params.t || '', workLeft: wLeft, workSum: str(wSum) }))
     .catch((e) => ({ html: str(html`<div class="alert warn">Chưa mở được phần tiền: ${e.message || e}</div>`), mount() {} })) : null;
   let moneyHtml = isDs ? String(MONEY?.html || '') : '';
   if (isDs && !moneyHtml.includes('data-tab-pane')) moneyHtml = `<section data-tab-pane="tien">${moneyHtml}</section><section data-tab-pane="xong">${moneyHtml}</section>`;

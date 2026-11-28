@@ -37,7 +37,7 @@ function noteOf(log, who) {
 export async function render({ params, me }) {
   // Thẻ Cài đặt (chỉ Chủ): chỉnh trang Order ca của nhân viên — tệp order_cai_dat.js
   const isChu = me.role === 'chu';
-  const cd = isChu ? await import('./order_cai_dat.js?v=2026.11.27.8') : null;
+  const cd = isChu ? await import('./order_cai_dat.js?v=2026.11.28.1') : null;
   if (cd && params.tab === 'cai-dat') return cd.renderCfg({ me });
   const tabs = cd ? cd.orderTabs('order', params.tuan ? parseWeekParam(params.tuan) : '') : '';
   const start = parseWeekParam(params.tuan) || addDays(weekStart(vnToday()), 7);

@@ -1123,7 +1123,7 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-27-bang-tien-chenh-lech-design
   - **Đã chạy thật 27/11 14:26 + lên web 2026.11.27.7.** Chạy thử trước đó 14:22 (tự hoàn tác), số chạy thật y hệt: tạo bù 127 phiếu ở 112 ca (35 phiếu chi quán chịu = 92.000; 92 phiếu thu khác = 222.700; 0 lỗi; chạy lại không thêm); **Sổ thu chi tổng thu / tổng chi / số dòng, số chênh lệch chờ, số ca đã đối soát của cả 5 cơ sở KHÔNG đổi**; chỉ kết quả tháng có thêm chi quán chịu và thu khác đúng bằng các số đó. Còn 24 dòng "lệch nhỏ" là của ca chưa Hoàn thành.
   - Bài thử: cục bộ `kiem_tra/lech_nho_190_cuc_bo.sql` (14 dòng); `jsc -m kiem_tra/chenh_lech_tinh.mjs` (25); `flow_cl` chu / ql 19 (điện thoại 20), nv 1.
 
-## Cài đặt trang Order ca (anh Tiến chốt mẫu 27/11/2026 — máy chủ `192_cai_dat_order_ca.sql`, web dự kiến 2026.11.27.8)
+## Cài đặt trang Order ca (anh Tiến chốt mẫu 27/11/2026 — máy chủ `192_cai_dat_order_ca.sql` đã chạy thật 28/11, web 2026.11.28.1)
 
 - Mẫu anh duyệt: https://claude.ai/artifact/PdkNcV2PooXZBjK2ZG9iSx ("thể hiện rõ giao diện của order luôn" → bên phải thẻ Cài đặt là hình trang Order ca của nhân viên, đổi theo ngay).
 - Trang Xếp lịch tuần › Order có 2 thẻ **Order · Cài đặt**; thẻ Cài đặt (`#/quan-ly/order?tab=cai-dat`, `order_cai_dat.js`) **chỉ Chủ thấy**. Quản lý không thấy thanh thẻ.
