@@ -1,17 +1,12 @@
-// Thẻ Cài đặt của trang Order (chỉ Chủ): chỉnh trang Order ca của nhân viên, bên phải là hình xem trước đổi theo ngay.
-// Máy chủ: tệp 192 (app_order_cfg / app_order_cfg_save). Mở bằng #/quan-ly/order?tab=cai-dat (order_ql.js gọi sang).
+// Phần cài đặt trang Order ca (chỉ Chủ): chỉnh trang Order ca của nhân viên, bên phải là hình xem trước đổi theo ngay.
+// Máy chủ: tệp 192 (app_order_cfg / app_order_cfg_save). Nằm trong trang Cài đặt › Order ca (gio_order.js gọi sang) — anh Tiến 28/11: gộp với Giờ order.
 import { render as rerender } from '../app.js';
 import { DOW_LABELS, addDays, catalog, getWeek, vnToday, weekStart, withFtAfter } from '../data.js';
 import { rpc, sel } from '../sb.js';
 import { $, $$, flash, html, str } from '../ui.js';
-import { orderCfg, orderMount, orderView } from './order_nv.js?v=2026.11.28.1';   // cùng bản với trang Order ca; số ?v= tăng khi phát hành
+import { orderCfg, orderMount, orderView } from './order_nv.js?v=2026.11.28.2';   // cùng bản với trang Order ca; số ?v= tăng khi phát hành
 
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
-
-// Thanh thẻ ở đầu trang Order: chỉ Chủ thấy (order_ql.js cũng dùng)
-export const orderTabs = (on, start) => html`<nav class="tabs-nav" id="od-tabs" style="margin-bottom:12px">
-  <a class="${on === 'order' ? 'on' : ''}" href="#/quan-ly/order${start ? `?tuan=${start}` : ''}">Order</a>
-  <a class="${on === 'cai-dat' ? 'on' : ''}" href="#/quan-ly/order?tab=cai-dat">Cài đặt</a></nav>`;
 
 const CSS = html`<style>
   .oc-wrap { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
@@ -27,7 +22,6 @@ const CSS = html`<style>
 </style>`;
 
 export async function renderCfg({ me }) {
-  if (me.role !== 'chu') return { title: 'Order lịch làm', html: html`<div class="card">Chỉ Chủ mới mở được thẻ Cài đặt.</div>` };
   const start = addDays(weekStart(vnToday()), 7);
   const [settings, cfg, week, shifts0, cat] = await Promise.all([
     sel('settings', 'key, value', (b) => b.like('key', 'order_%')),
@@ -67,15 +61,12 @@ export async function renderCfg({ me }) {
   };
 
   return {
-    title: 'Order lịch làm',
     html: html`
-      <div class="page-head"><div><h1>Order lịch làm</h1><div class="sub">Cài đặt trang Order ca của nhân viên · chỉ Chủ thấy thẻ này</div></div></div>
-      ${orderTabs('cai-dat')}
       <div class="oc-wrap">
         <form class="oc-left" id="oc-form">
           <section class="card stack" style="gap:10px">
             <h2>1. Giờ order</h2>
-            <div class="hint" style="font-size:13px;color:var(--muted)">Nhân viên chỉ order được từ giờ mở đến giờ hết hạn, tính theo tuần liền trước tuần cần order. Giờ riêng cho một tuần (dịp lễ) vẫn chỉnh ở trang <a href="#/quan-ly/gio-order">Giờ order</a>.</div>
+            <div class="hint" style="font-size:13px;color:var(--muted)">Nhân viên chỉ order được từ giờ mở đến giờ hết hạn, tính theo tuần liền trước tuần cần order. Giờ riêng cho một tuần (dịp lễ) chỉnh ở bảng Các tuần đã tạo bên dưới.</div>
             <div class="toolbar" style="gap:16px">
               <div class="field"><label for="open_dow">Mở order</label><div class="toolbar" style="gap:8px">${dow('open_dow', rule.open_dow)}
                 <input class="input oc-time" name="open_time" value="${rule.open_time}" maxlength="5" inputmode="numeric" aria-label="Giờ mở"></div></div>

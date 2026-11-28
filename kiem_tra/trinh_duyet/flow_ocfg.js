@@ -1,6 +1,6 @@
 // Cài đặt trang Order ca (tệp 192, anh Tiến chốt mẫu 27/11/2026). index.html và test/phone.html:
-//   role=chu — trang Order có thẻ Cài đặt; hình xem trước đổi theo ô bật / tắt / lời nhắn; Lưu gọi app_order_cfg_save; giờ sai bị chặn
-//   role=ql  — không có thẻ Cài đặt, ?tab=cai-dat vẫn ra trang Order thường
+//   role=chu — trang Cài đặt › Order ca (gộp với Giờ order, anh Tiến 28/11) có đủ phần cài đặt, trang Order không còn thẻ; hình xem trước đổi theo ô bật / tắt / lời nhắn; Lưu gọi app_order_cfg_save; giờ sai bị chặn
+//   role=ql  — trang Cài đặt › Order ca chỉ có giờ order như cũ, không có phần của Chủ
 //   role=nv  — phan=mac-dinh: trang Order ca y như trước (không lời nhắn, không nút nhanh);
 //              phan=bat: có lời nhắn, nút cả ngày, chép tuần trước, không bắt chọn đủ; phan=khoa: tắt sửa lại → đã tự gửi thì khoá
 export default async ({ visit, sleep, out }) => {
@@ -29,8 +29,9 @@ export default async ({ visit, sleep, out }) => {
     if (role === 'chu') {
       localStorage.removeItem('test_order_cfg');
       await visit('#/quan-ly/order?t=' + Date.now());
-      ok(qa('#od-tabs a').length === 2 && /Cài đặt/i.test(txt(q('#od-tabs'))), 'Chủ: trang Order có 2 thẻ Order · Cài đặt');
-      await visit('#/quan-ly/order?tab=cai-dat'); await waitFor(() => !!q('#oc-preview .day-card'));
+      ok(!q('#od-tabs') && !q('#oc-form'), 'Chủ: trang Order không còn thẻ Cài đặt (đã gộp sang Cài đặt › Order ca)');
+      await visit('#/quan-ly/gio-order'); await waitFor(() => !!q('#oc-preview .day-card'));
+      ok(!q('#rule-form') && qa('form#oc-form [name=open_time]').length === 1 && /Các tuần đã tạo/.test(txt(q('#root'))), 'trang Cài đặt › Order ca: giờ order chỉ có một chỗ, bên dưới còn bảng giờ riêng từng tuần');
       const f = q('#oc-form'); const pv = q('#oc-preview');
       ok(!!f && qa('.day-card', pv).length === 7 && qa('.order-row', pv).length >= 21, 'thẻ Cài đặt: có 4 phần cài đặt và hình xem trước đủ 7 ngày');
       ok(f.elements.require_all.checked && f.elements.edit_after.checked && !f.elements.quick_day.checked && !f.elements.quick_copy.checked && f.elements.note.value === '', 'mặc định = như web đang chạy (2 luật bật, 2 nút nhanh tắt, không lời nhắn)');
@@ -61,8 +62,8 @@ export default async ({ visit, sleep, out }) => {
       ok(fits(), 'trang không tràn ngang');
       localStorage.removeItem('test_order_cfg');
     } else if (role === 'ql') {
-      await visit('#/quan-ly/order?tab=cai-dat&t=' + Date.now());
-      ok(!q('#od-tabs') && !q('#oc-form'), 'quản lý: không có thẻ Cài đặt, đường dẫn thẻ vẫn ra trang Order thường');
+      await visit('#/quan-ly/gio-order?t=' + Date.now()); await sleep(600);
+      ok(!q('#oc-form') && !q('#oc-preview') && (!!q('#rule-form') || !/Các tuần đã tạo/.test(txt(q('#root')))), 'quản lý: không có phần cài đặt của Chủ (nếu có quyền cài giờ thì chỉ thấy giờ order như cũ)');
     } else if (phan === 'khoa') {
       // Chủ tắt "trước hạn vẫn sửa lại được": nhân viên đã tự gửi thì trang khoá
       setCfg({ note: '', quick_day: true, quick_copy: true, require_all: true, edit_after: false });

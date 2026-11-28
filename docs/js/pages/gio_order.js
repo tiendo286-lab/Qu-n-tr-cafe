@@ -1,4 +1,5 @@
-// Giờ mở / hết hạn order: lặp lại hằng tuần + giờ riêng từng tuần
+// Cài đặt › Order ca: giờ mở / hết hạn order (lặp lại hằng tuần + giờ riêng từng tuần).
+// Chủ thấy thêm phần cài đặt trang Order ca (lời nhắn, nút chọn nhanh, luật khi gửi + hình xem trước) — order_cai_dat.js, gộp 28/11 theo anh Tiến.
 import { render as rerender } from '../app.js';
 import { DOW_LABELS, orderWindow, vnToday, weekLabel } from '../data.js';
 import { rpc, sb, sel, viError } from '../sb.js';
@@ -7,7 +8,8 @@ import { $$, flash, html } from '../ui.js';
 export const perm = 'cai_gio_order';
 const TIME_RE = /^([01]\d|2[0-3]):[0-5]\d$/;
 
-export async function render() {
+export async function render({ me }) {
+  const cd = me.role === 'chu' ? await (await import('./order_cai_dat.js?v=2026.11.28.2')).renderCfg({ me }) : null;
   const [settings, weeks] = await Promise.all([
     sel('settings', 'key, value', (b) => b.like('key', 'order_%')),
     sel('weeks', '*', (b) => b.gte('end_date', vnToday()).order('start_date')),
@@ -16,10 +18,10 @@ export async function render() {
   const rule = { open_dow: Number(s.order_open_dow ?? 0), open_time: s.order_open_time || '08:00', close_dow: Number(s.order_close_dow ?? 3), close_time: s.order_close_time || '22:00' };
   const wins = await Promise.all(weeks.map((w) => orderWindow(w.id)));
   return {
-    title: 'Giờ order',
+    title: 'Cài đặt Order ca',
     html: html`
-      <div class="page-head"><div><h1>Giờ order</h1><div class="sub">Nhân viên chỉ order được trong khoảng giờ mở → hết hạn. Sau hạn chỉ người có quyền “Sửa order sau hạn” sửa được.</div></div></div>
-      <section class="card stack" style="max-width:860px">
+      <div class="page-head"><div><h1>Cài đặt Order ca</h1><div class="sub">Nhân viên chỉ order được trong khoảng giờ mở → hết hạn. Sau hạn chỉ người có quyền “Sửa order sau hạn” sửa được.</div></div></div>
+      ${cd ? cd.html : html`<section class="card stack" style="max-width:860px">
         <h2>Lặp lại hằng tuần</h2>
         <div style="font-size:14px;color:var(--muted)">Tính theo <strong>tuần liền trước</strong> tuần cần order. Ví dụ: mở Thứ Hai 08:00, hết hạn Thứ Năm 22:00 → order cho tuần sau.</div>
         <form class="toolbar" style="gap:16px" id="rule-form">
@@ -31,7 +33,7 @@ export async function render() {
             <input class="input" name="close_time" value="${rule.close_time}" maxlength="5" inputmode="numeric" aria-label="Giờ hết hạn" style="width:90px;text-align:center"></div></div>
           <button class="btn" type="submit" style="align-self:flex-end">Lưu</button>
         </form>
-      </section>
+      </section>`}
       <section class="card flush">
         <div class="card-head"><h2>Các tuần đã tạo</h2><div style="font-size:13px;color:var(--muted)">Sửa riêng một tuần (dịp lễ) mà không ảnh hưởng tuần khác. Tuần mới tạo ở trang Order lịch làm.</div></div>
         <div class="table-wrap"><table class="table">
@@ -50,7 +52,8 @@ export async function render() {
         </table></div>
       </section>`,
     mount() {
-      document.getElementById('rule-form').addEventListener('submit', async (ev) => {
+      if (cd) cd.mount();
+      document.getElementById('rule-form')?.addEventListener('submit', async (ev) => {
         ev.preventDefault();
         const f = new FormData(ev.target);
         const od = Number(f.get('open_dow')), cd = Number(f.get('close_dow'));

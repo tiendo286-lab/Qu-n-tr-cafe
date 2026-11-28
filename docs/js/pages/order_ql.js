@@ -34,12 +34,7 @@ function noteOf(log, who) {
   return `Sửa bởi ${who(log.account_id)} lúc ${t.slice(11, 16)} ${t.slice(8, 10)}/${t.slice(5, 7)}: ${LABEL[log.old_status] || log.old_status} → ${LABEL[log.new_status] || log.new_status}`;
 }
 
-export async function render({ params, me }) {
-  // Thẻ Cài đặt (chỉ Chủ): chỉnh trang Order ca của nhân viên — tệp order_cai_dat.js
-  const isChu = me.role === 'chu';
-  const cd = isChu ? await import('./order_cai_dat.js?v=2026.11.28.1') : null;
-  if (cd && params.tab === 'cai-dat') return cd.renderCfg({ me });
-  const tabs = cd ? cd.orderTabs('order', params.tuan ? parseWeekParam(params.tuan) : '') : '';
+export async function render({ params }) {
   const start = parseWeekParam(params.tuan) || addDays(weekStart(vnToday()), 7);
   const week = await getWeek(start);
   const head = html`<div class="page-head"><div><h1>Order lịch làm</h1><div class="sub" id="ol-sub">Tuần ${weekLabel(start)}</div></div><div id="saved-indicator" class="saved" role="status" hidden></div></div>`;
@@ -47,7 +42,7 @@ export async function render({ params, me }) {
     const n = (await sel('employees', 'id', (b) => b.eq('status', 'Đang làm'))).length;
     return {
       title: 'Order lịch làm',
-      html: html`${head}${tabs}${weekBar('/quan-ly/order', start)}
+      html: html`${head}${weekBar('/quan-ly/order', start)}
         <section class="card stack" style="max-width:640px"><h2>Tuần ${weekLabel(start)} chưa được tạo</h2>
           <div style="color:var(--ink-2);line-height:1.6">Khi tạo tuần, cả ${n} nhân viên đang làm sẽ ở trạng thái <strong>Chưa order</strong>. Nhân viên chỉ order được sau khi tuần đã được tạo và trong giờ mở order.</div>
           ${can('xep_lich') ? html`<div><button class="btn" type="button" id="create-week">Tạo tuần mới</button></div>` : html`<div class="alert warn">Chỉ người có quyền xếp lịch mới tạo được tuần mới.</div>`}
@@ -127,7 +122,7 @@ export async function render({ params, me }) {
           : win.state === 'chua_mo' ? html`<span class="pill mute">Chưa mở</span> mở lúc ${win.open_text}`
           : html`<span class="pill off">Đã hết hạn</span> lúc ${win.close_text}`}</div></div>
         <div id="saved-indicator" class="saved" role="status" hidden></div></div>
-      ${tabs}${weekBar('/quan-ly/order', start)}
+      ${weekBar('/quan-ly/order', start)}
       <section class="card toolbar" style="padding:14px 18px">${stepBox}</section>
       ${canEdit ? html`<section class="card stack d-only" style="padding:14px 18px;gap:10px">
         <div style="font-size:13px;color:var(--muted)">Bấm một ô để chọn; giữ <strong>Command</strong> (Mac) / <strong>Ctrl</strong> (Windows) để chọn thêm; kéo chuột qua nhiều ô liền nhau; nhấp đúp để đổi nhanh một ô. Mọi thay đổi tự lưu và đánh dấu chấm đỏ.</div>

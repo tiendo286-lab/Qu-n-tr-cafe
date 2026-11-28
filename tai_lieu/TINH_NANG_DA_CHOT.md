@@ -1125,6 +1125,7 @@ Thiết kế: `tai_lieu/superpowers/specs/2026-11-27-bang-tien-chenh-lech-design
 
 ## Cài đặt trang Order ca (anh Tiến chốt mẫu 27/11/2026 — máy chủ `192_cai_dat_order_ca.sql` đã chạy thật 28/11, web 2026.11.28.1)
 
+- **28/11 anh Tiến sửa: gộp với Giờ order.** Phần cài đặt này nằm ở menu Cài đặt › Order ca (`#/quan-ly/gio-order`, trang Giờ order cũ), KHÔNG còn là thẻ ở trang Xếp lịch tuần › Order. Chủ thấy 4 phần + hình xem trước + bảng giờ riêng từng tuần; người khác có quyền cài giờ chỉ thấy giờ order như cũ (web 2026.11.28.2). Các dòng dưới nói "thẻ Cài đặt" thì hiểu là trang này.
 - Mẫu anh duyệt: https://claude.ai/artifact/PdkNcV2PooXZBjK2ZG9iSx ("thể hiện rõ giao diện của order luôn" → bên phải thẻ Cài đặt là hình trang Order ca của nhân viên, đổi theo ngay).
 - Trang Xếp lịch tuần › Order có 2 thẻ **Order · Cài đặt**; thẻ Cài đặt (`#/quan-ly/order?tab=cai-dat`, `order_cai_dat.js`) **chỉ Chủ thấy**. Quản lý không thấy thanh thẻ.
 - 4 phần: (1) giờ mở / hết hạn lặp lại hằng tuần (cùng 4 khoá `order_*` của trang Giờ order; giờ riêng từng tuần vẫn ở trang Giờ order); (2) lời nhắn đầu trang cho nhân viên (tối đa 300 chữ, trống thì không hiện); (3) nút chọn nhanh: Cả ngày đi làm được / Cả ngày nghỉ, Chép giống tuần trước; (4) luật khi gửi: phải chọn đủ mọi ô, trước hạn vẫn sửa lại được.
