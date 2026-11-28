@@ -43,9 +43,13 @@ const STYLE = html`<style>
   .x2p-col { border: 1px solid var(--line); border-radius: 12px; background: var(--card); padding: 8px; display: flex; flex-direction: column; gap: 6px; min-width: 0; }
   .x2p-col h3 { margin: 0; font-size: 15px; display: flex; flex-wrap: wrap; gap: 6px; align-items: baseline; }
   .x2p-pp { display: flex; gap: 6px; align-items: baseline; padding: 2px 6px; border-radius: 6px; font-size: 14px; flex-wrap: wrap; }
-  .x2p-pp.x { color: var(--off-line, #dc2626); font-weight: 600; }
-  .x2p-pp.p { color: #b45309; font-weight: 600; }
-  .x2p-pp.mv { background: #fef3c7; outline: 1px dashed #f59e0b; }
+  /* 28/11 (anh Tiến): XANH = quản lý đã tích có làm, hoặc nghỉ / làm thêm đã duyệt xong; ĐỎ = còn phải xử lý */
+  .x2p-pp.g { background: #dcfce7; color: #166534; }
+  .x2p-pp.r { background: #fee2e2; color: #b91c1c; font-weight: 600; }
+  .x2p-pp .st-meta { color: inherit; opacity: .85; }
+  .x2p-pp.mv { outline: 2px dashed #f59e0b; }
+  .x2p-col.done .x2p-pp { background: #dcfce7; color: #166534; font-weight: 400; }
+  .x2p-col h3 .pill { font-size: 12px; }
   .x2p-ic { width: 14px; text-align: center; font-weight: 700; }
   .x2p-gnav { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .x2p-gnav select.input { flex: 1 1 200px; width: auto; max-width: 320px; }
@@ -200,26 +204,30 @@ export async function render({ params }) {
     const ros = (rosterBy[date] || []).filter((x) => x.shift === shift);
     const bids = [...new Set([...ros.map((x) => x.branch_id), ...rs.map((r) => r.branch_id)])].sort((a, b) => a - b);
     const peopleOf = (bid) => { const L = ros.filter((x) => x.branch_id === bid);
-      if (L.length) return L.map((x) => ({ id: x.employee_id, label: `${x.code} – ${x.name}`, k: !x.worked ? 'x' : x.source === 'lich' ? 'v' : 'p', hours: x.hours }));
+      if (L.length) return L.map((x) => ({ id: x.employee_id, label: `${x.code} – ${x.name}`, k: !x.worked ? 'x' : x.source === 'lich' ? 'v' : 'p', hours: x.hours, reason: x.reason, x2: x.x2 }));
       const r = rs.find((q) => q.branch_id === bid); if (!r?.C || r.C.error) return [];
       return [...(r.C.workers || []).map((w) => ({ id: w.employee_id, label: `${w.code} – ${w.name}`, k: 'v', hours: w.hours })),
         ...r.C.people.map((p) => ({ id: p.employee_id, label: `${p.code} – ${p.name}`, k: p.kind === 'nghi' ? 'x' : 'p', hours: p.hours }))]; };
     const cols = bids.map((bid) => ({ bid, name: bname(bid), P: peopleOf(bid).sort((a, b) => 'vxp'.indexOf(a.k) - 'vxp'.indexOf(b.k)), r: rs.filter((q) => q.branch_id === bid) }));
     const at = (id, bid, ks) => cols.find((c) => c.bid !== bid && c.P.some((p) => p.id === id && ks.includes(p.k)));
     const other = (bid) => todo.find((c) => c.date === date && c.shift === shift && c.branch_id === bid && !rs.some((r) => r.id === c.id));
+    // Xanh: có làm theo lịch (quản lý đã tích), hoặc ca đó đã duyệt xong nghỉ / làm thay. Đỏ: ca còn chờ phân loại / chờ Chủ duyệt.
+    const pending = (bid) => rs.some((r) => r.branch_id === bid) || !!other(bid);
     const ppHtml = (p, bid) => { const o = p.k === 'x' ? at(p.id, bid, ['v', 'p']) : p.k === 'p' ? at(p.id, bid, ['x']) : null;
-      return html`<div class="x2p-pp ${p.k} ${o ? 'mv' : ''}"><span class="x2p-ic">${p.k === 'v' ? '✓' : p.k === 'x' ? '✗' : '+'}</span><span>${p.label}</span>
-        <span class="st-meta">${p.k === 'x' ? (o ? `nghỉ → đang làm ở ${o.name}` : 'nghỉ') : p.k === 'p' ? `làm ngoài lịch · ${hrs(p.hours)} giờ${o ? ` ← có lịch ở ${o.name}` : ''}` : `${hrs(p.hours)} giờ`}</span></div>`; };
+      const green = p.k === 'v' || !pending(bid), why = green && p.k !== 'v' && p.reason ? ` · ${p.reason}${p.x2 ? ' · x2' : ''}` : '';
+      return html`<div class="x2p-pp ${p.k} ${green ? 'g' : 'r'} ${o ? 'mv' : ''}"><span class="x2p-ic">${p.k === 'v' ? '✓' : p.k === 'x' ? '✗' : '+'}</span><span>${p.label}</span>
+        <span class="st-meta">${p.k === 'x' ? (o ? `nghỉ → đang làm ở ${o.name}` : 'nghỉ') : p.k === 'p' ? `làm ngoài lịch · ${hrs(p.hours)} giờ${o ? ` ← có lịch ở ${o.name}` : ''}` : `${hrs(p.hours)} giờ`}${why}</span></div>`; };
     const kind = tab === 'duyet' && isOwner ? 'ok' : 'save';
     const bars = rs.filter((r) => r.mate && rs.includes(r.mate));
     return html`<div class="x2p-gnav">
         <button type="button" class="btn sm secondary" data-g="${keys[i - 1] || ''}" ${i > 0 ? '' : 'disabled'} aria-label="Buổi trước">◀</button>
         <select class="input sm" id="x2p-g" aria-label="Chọn buổi">${keys.map((k) => { const [d, s] = k.split('|'); return html`<option value="${k}" ${k === gcur ? 'selected' : ''}>${dmy(d)} · Ca ${s} (${rows.filter((r) => gkey(r) === k).length} ca)</option>`; })}</select>
         <button type="button" class="btn sm secondary" data-g="${keys[i + 1] || ''}" ${i < keys.length - 1 ? '' : 'disabled'} aria-label="Buổi sau">▶</button>
-        <span class="st-meta">Buổi ${i + 1} / ${keys.length} · ✓ có làm · ✗ có lịch nhưng nghỉ · + làm ngoài lịch · nền vàng: nghỉ ở cơ sở này nhưng làm ở cơ sở khác cùng ca</span></div>
+        <span class="st-meta">Buổi ${i + 1} / ${keys.length} · <span class="x2p-pp g" style="display:inline">xanh</span> có làm / đã duyệt xong · <span class="x2p-pp r" style="display:inline">đỏ</span> còn phải xử lý · ✓ có làm · ✗ có lịch nhưng nghỉ · + làm ngoài lịch · viền vàng: nghỉ ở cơ sở này nhưng làm ở cơ sở khác cùng ca</span></div>
       ${rosterBy[date] === null ? html`<div class="alert warn">Chưa đọc được lịch đầy đủ của các cơ sở — chỉ hiện các ca đang chờ.</div>` : ''}
       <div class="x2p-board">${cols.map((c) => html`<div class="x2p-col" data-col="${c.bid}"><h3>${c.name}
-          ${!c.r.length ? html`<span class="st-meta">${other(c.bid) ? (other(c.bid).state === 'cho_duyet' ? 'đang ở thẻ Chờ Chủ duyệt' : 'đang ở thẻ Chờ phân loại') : c.P.some((p) => p.k !== 'v') ? 'đã xử lý xong' : 'đủ người theo lịch'}</span>` : ''}</h3>
+          ${c.r.length ? html`<span class="pill off">Cần xử lý</span>` : other(c.bid) ? html`<span class="pill off">${other(c.bid).state === 'cho_duyet' ? 'Đang ở thẻ Chờ Chủ duyệt' : 'Đang ở thẻ Chờ phân loại'}</span>`
+            : html`<span class="pill ok">${c.P.some((p) => p.k !== 'v') ? 'Đã xử lý xong' : 'Đủ người theo lịch'}</span>`}</h3>
           ${c.P.length ? c.P.map((p) => ppHtml(p, c.bid)) : html`<div class="st-meta">Chưa có danh sách nhân sự.</div>`}
           ${c.r.map(caHtml)}</div>`)}</div>
       ${bars.map((r) => html`<div class="x2p-pair x2p-bar"><div class="x2p-pt"><span>Đổi ca: ${r.swapTitle}</span><span class="st-meta">Hai ca ${bname(r.branch_id)} và ${bname(r.mate.branch_id)} là một lần đổi ca — ${kind === 'ok' ? 'duyệt' : 'lưu'} một lần cho cả hai.</span></div>
@@ -362,6 +370,8 @@ export async function render({ params }) {
       // Ca đã lưu / duyệt xong rời danh sách của thẻ đang xem, số trên các thẻ đổi theo.
       function leave(r, kind) {
         const el = card(r.id), wrap = el?.closest('.x2p-pair');
+        { const col = el?.closest('.x2p-col'); if (col && kind === 'ok') { col.classList.add('done'); const p = col.querySelector('h3 .pill'); if (p) { p.className = 'pill ok'; p.textContent = 'Đã xử lý xong'; } }   // bảng theo ca: duyệt xong → cả cột xanh
+          else if (col) { const p = col.querySelector('h3 .pill'); if (p) p.textContent = 'Đang ở thẻ Chờ Chủ duyệt'; } }
         ticked.delete(r.id); rows.splice(rows.indexOf(r), 1); el?.remove(); count();
         if (wrap && !wrap.querySelector('.x2p-ca')) wrap.remove();
         bump(tab, -1); bump(kind === 'ok' ? 'xong' : 'duyet', 1);

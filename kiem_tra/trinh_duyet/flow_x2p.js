@@ -201,8 +201,14 @@ export default async ({ sleep, out }) => {
             ok(!$('#x2p-ok') && !$('.x2p-pick') && /duyệt ca này/i.test(cD().querySelector('[data-one]')?.textContent || '') && /kieu=bang/.test(location.hash) && /danh sách/i.test($('#x2p-kieu').textContent), 'Bảng theo ca: nút Duyệt ca này nằm ngay dưới cột, không có tích hàng loạt, có nút quay về danh sách');
           }
           ok(!!cD()?.querySelector('[data-dc]') && cD().querySelector('.cv-x').checked, 'Chờ Chủ duyệt: ca đang x2 có nút nhanh Đổi ca');
+          // 28/11 (anh Tiến): đỏ = còn phải xử lý, xanh = có làm / đã duyệt xong
+          const colD = cD().closest('.x2p-col'), colOk = $$('.x2p-col').find((c) => c !== colD && !c.querySelector('.x2p-ca') && c.querySelector('.x2p-pp'));
+          ok(colD.querySelector('.x2p-pp.x').classList.contains('r') && colD.querySelector('.x2p-pp.p').classList.contains('r') && /cần xử lý/i.test(colD.querySelector('h3').textContent), 'Bảng theo ca: người nghỉ / làm ngoài lịch của ca đang chờ hiện ĐỎ');
+          ok(!colOk || [...colOk.querySelectorAll('.x2p-pp')].every((p) => p.classList.contains('g')), `Bảng theo ca: cột đã duyệt xong hiện XANH (${colOk ? colOk.querySelector('h3').textContent.replace(/\s+/g, ' ').trim() : 'không có cột nào khác'})`);
+          window.__colD = colD;
           cD().querySelector('[data-dc]').click(); await wait(() => !cD(), 100);
           const gD = await rpc('app_cv_get', { p_id: idD });
+          ok(!window.__colD.isConnected || window.__colD.classList.contains('done'), 'Bảng theo ca: xử lý xong → cột chuyển XANH (hoặc bảng sang buổi kế)');
           ok(!cD() && gD.state === 'da_duyet' && gD.rows[0].reason === 'doi_ca' && gD.rows[0].x2 === false, `Bấm nhanh Đổi ca ở bước duyệt: ${gD.state}, x2 ${gD.rows[0].x2} · ${txt('#x2p-msg')}`);
           await go('#/quan-ly/nghi-lam-thay?tab=xong');
           ok(/Đổi ca — không cần duyệt/i.test(cD()?.querySelector('.x2p-t').textContent || '') && /Đổi ca \(lịch chưa sửa\)/.test(cD().textContent), `Đã duyệt: ${cD()?.textContent.replace(/\s+/g, ' ').slice(0, 140)} · ${W()}`);
