@@ -35,8 +35,9 @@ export default async ({ sleep, out }) => {
     ok(!!minh && !rows().some((r) => txt(r).includes('minh')), '3. xoá phiếu của Minh → không còn trong danh sách');
     // 4. → Trừ lương trên khoản chi "Mua đá" của ca Sáng 18/11 (đã xác nhận Fabi, chưa chốt)
     // bước 171: → Trừ lương / Phiếu chi chuyển khoản chỉ có ở ca chưa Hoàn thành đối soát → quản lý bấm Mở lại ca Sáng 18/11 ở bước 6 trước
-    location.hash = '#/ca/doi-soat?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
-    $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await sleep(900);
+    // 28/11 bỏ trang đối soát cũ: bài này cần ca 181 ở trạng thái "đã Xác nhận Fabi, chưa Hoàn thành" — trước đây bấm Mở lại ở bước 6 trang cũ (app_stc_ds_undone);
+  // nay gọi thẳng hàm đó của máy chủ giả rồi đổi tháng để Sổ thu chi tải lại số (Mở lại của trang mới bỏ cả dấu tiền — flow_dsm2 kiểm).
+  await (await import('../js/sb.js')).rpc('app_stc_ds_undone', { p_report: 181 }); location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(1500);   // Mở lại của trang mới bỏ cả dấu tiền → bộ thử đặt lại ca về "đã Xác nhận Fabi, chưa Hoàn thành"
     await go(BASE); $('.stc-all')?.click(); await sleep(500);
     const md = () => $$('#stc-book .stc-it').find((i) => txt(i).includes('mua đá') && i.querySelector('[data-toka]'));
     const row = md();

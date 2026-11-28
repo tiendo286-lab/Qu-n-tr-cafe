@@ -23,8 +23,9 @@ export default async ({ sleep, out }) => {
   { const d0 = item('chi lương – minh'); const c0 = d0 && d0.closest('.stc-ca');
     ok(!!c0 && !$('button.stc-ed:not([disabled])', c0) && txt($('.stc-calock', c0)).includes('đã hoàn thành đối soát') && !!$('.stc-calock a[href*="doi-soat?id=181"]', c0) && !$('button.stc-addca:not([disabled])', c0) && !$('[data-toka]', c0),
       '0. bước 171: ca đã Hoàn thành đối soát → không có Sửa / Xoá, thêm phiếu, → Trừ lương; ghi chú đầu ca dẫn sang Đối soát Fabi'); }
-  location.hash = '#/ca/doi-soat?id=181&tab=xong'; await wait('[data-tab-pane="xong"] [data-dsundone]', 60); await sleep(300);
-  $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await sleep(900);
+  // 28/11 bỏ trang đối soát cũ: bài này cần ca 181 ở trạng thái "đã Xác nhận Fabi, chưa Hoàn thành" — trước đây bấm Mở lại ở bước 6 trang cũ (app_stc_ds_undone);
+  // nay gọi thẳng hàm đó của máy chủ giả rồi đổi tháng để Sổ thu chi tải lại số (Mở lại của trang mới bỏ cả dấu tiền — flow_dsm2 kiểm).
+  await (await import('../js/sb.js')).rpc('app_stc_ds_undone', { p_report: 181 }); location.hash = '#/quan-ly/so-thu-chi?tab=tong&cn=1&thang=2026-10&t=' + Date.now(); await sleep(1500);   // Mở lại của trang mới bỏ cả dấu tiền → bộ thử đặt lại ca về "đã Xác nhận Fabi, chưa Hoàn thành"
   await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11'); await openAll();
   const td = item('tiền điện tháng 10');
   ok(!!td && !!$('button.stc-ed:not([disabled])', td), '1. khoản ngoài ca có nút Sửa / Xoá bấm được');
