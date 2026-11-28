@@ -58,7 +58,7 @@ export default async ({ sleep, out }) => {
     } else {
       ok(txt(box()).includes('chờ chủ duyệt') && !box().querySelector('[data-dsfixok]') && !!box().querySelector('[data-dsfixcancel]'), 'quản lý: ô ghi "chờ Chủ duyệt", có Bỏ sửa, không có nút Duyệt');
       ok(!box().querySelector('[data-dsfabi]'), 'đang chờ duyệt thì ẩn "Lấy số máy Fabi"');
-      await open(2); ok(txt($('.stc-dsp')).includes('số sửa chờ chủ duyệt') && $('.stc-dsp [data-dsclose]')?.disabled === true, 'bước 2: nút Xác nhận Fabi khoá, ghi còn thiếu "số sửa chờ Chủ duyệt"'); await open(1);
+      // (nút Xác nhận Fabi khoá khi số sửa chờ Chủ duyệt): bỏ 28/11 cùng trang đối soát cũ — trang mới ẩn khung Xác nhận Fabi; ô Nợ còn "chờ Chủ duyệt" thì bước ② chưa xong (kiểm ở dòng trên).
       k0 = (window.__LOG || []).length; box().querySelector('[data-dsfixcancel]').click(); await redraw();
       ok(calls('app_stc_fix_cancel', k0).length === 1 && !!box()?.querySelector('[data-dsfix="no"]'), 'Bỏ sửa → về ô đỏ có "Sai, sửa số"');
     }
