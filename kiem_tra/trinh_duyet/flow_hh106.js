@@ -96,6 +96,6 @@ export default async ({ sleep, out }) => {
     const K = (await rpc('app_gh_inbox', { p_branch: 1 })).rows.find((x) => x.kind === 'khong_hd');
     r.push(`máy chủ: ${K?.state} · HĐ giao ${!!K?.deliv_path} · ${K?.lines.map((l) => l.name + '=' + l.qty_received).join(', ')}`);
     if (new URLSearchParams(location.search).get('dung')) { await go('#/hang-hoa/doi-soat?xem=' + id, '.ds-top'); await new Promise(() => {}); }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'hàng hoá 106', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

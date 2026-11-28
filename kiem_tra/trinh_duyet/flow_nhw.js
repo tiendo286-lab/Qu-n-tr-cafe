@@ -60,6 +60,6 @@ export default async ({ sleep, out }) => {
     $('dialog[open] button[type=submit]').click(); await sleep(2500); await wait('.px-bar', 200); await sleep(600);
     r.push(`sau ghép: khung cần ghép ${!!$('.px-need')} · ${W()}`);
     if (new URLSearchParams(location.search).get('dung')) { await go('#/hang-hoa/phieu-xuat', '.px-bar'); window.scrollTo(0, 0); await new Promise(() => {}); }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'phiếu xuất 107', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

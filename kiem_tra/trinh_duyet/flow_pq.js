@@ -28,6 +28,6 @@ export default async ({ sleep, out }) => {
       r.push(`Sửa NV: khung tài khoản ${fb ? 'có nút "' + fb.innerText.trim() + '"' : 'KHÔNG'} · ${W()}`);
       if (fb) { fb.click(); await sleep(800); r.push(`Sửa NV bấm → hộp: ${$('dialog[open] .temp-pass')?.innerText || 'KHÔNG'}`); $$('dialog').forEach((d) => d.remove()); }
     }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'quyền kế toán + mật khẩu', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

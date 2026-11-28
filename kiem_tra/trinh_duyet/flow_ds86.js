@@ -87,6 +87,6 @@ export default async ({ sleep, out }) => {
       $('#ds-nextca').click(); await sleep(2500); r.push(`ca tiếp theo: ${txt('#saved-indicator')} · ${location.hash}`);
       $('#ds-done').click(); await sleep(2000); r.push(`Hoàn thành → ${location.hash}`); }
     r.push(`cuối: ${W()}`);
-  } catch (e) { r.push('LỖI ' + (e.stack || e)); }
+  } catch (e) { r.push('LỖI ' + (e.stack || e)); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'đối soát từng bước 86', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

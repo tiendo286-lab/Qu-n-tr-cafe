@@ -105,6 +105,6 @@ export default async ({ sleep, out }) => {
     const R2 = await rpc('app_ca_get', { p_id: id2 });
     r.push(`còn Nợ TM chưa trả: ${(await rpc('app_ca_loans_open')).length}`);
     r.push(`Chiều GỬI → ${R2.status} · nợ ${R2.debts.map((d) => d.table_name + ' ' + d.amount).join(',')} · chi ${R2.moves.map((m) => m.amount).join(',')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'chốt ca mới', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

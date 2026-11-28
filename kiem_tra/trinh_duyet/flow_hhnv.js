@@ -20,6 +20,6 @@ export default async ({ sleep, out }) => {
     $('.gh-hero .gh-big')?.click(); await wait('#gh-recv .gh-prog'); await sleep(1000);
     r.push(`mở nhận: ${txt('#gh-recv h1')} · ${txt('.gh-prog')} · nút chụp ${!!$('#gh-shot')} · ${W()}`);
     if (new URLSearchParams(location.search).get('dung')) { await new Promise(() => {}); }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'hàng hoá nhân viên 104', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

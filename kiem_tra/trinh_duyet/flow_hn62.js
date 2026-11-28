@@ -22,6 +22,6 @@ export default async ({ sleep, out }) => {
     }
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/'; await sleep(2500); await wait('#root h1');
     r.push(`${me.role}: trang chủ → ${location.hash} · ${txt('#root h1')} · việc: ${$$('.hn-i').map((a) => a.innerText.replace(/\s+/g, ' ')).join(' | ') || txt('.hn-done')} · đi nhanh: ${$$('.toolbar a.btn').map((a) => a.innerText.trim()).join(', ')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'việc hôm nay', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

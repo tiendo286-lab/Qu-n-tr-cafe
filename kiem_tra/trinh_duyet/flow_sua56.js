@@ -37,6 +37,6 @@ export default async ({ sleep, out }) => {
     r.push(`Ô khoá: giờ ${$('#rev_end')?.disabled} · doanh thu ${$('#total_revenue')?.disabled} · két ${$('#cash_counted')?.disabled} · nhân viên ${$$('#staff select').every((x) => x.disabled)} · Đèn: ${$$('.den-row').map((x) => (x.classList.contains('done') ? '✓' : x.classList.contains('g') ? '🟢' : '·') + x.querySelector('strong').innerText.replace('🔒 ', '').slice(0, 10)).join(' ')}`);
     $('#den-ok')?.click(); for (let i = 0; i < 300 && (await rpc('app_ca_get', { p_id: id })).recon_status !== 'hoan_thanh'; i++) await sleep(100);
     r.push(`Duyệt lại Bàn giao → ${(await rpc('app_ca_get', { p_id: id })).recon_status} (tự hoàn thành, không bấm nút nào khác)`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'sửa từng mục đối soát', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

@@ -41,6 +41,6 @@ export default async ({ sleep, out }) => {
     r.push(`Sau sửa: két bản đối soát ${rc.data.cash_counted} · phiếu ${(await rpc('app_ca_get', { p_id: id })).recon_status} · báo ${txt('#saved-indicator')}`);
     $('#den-dir-done').click(); await sleep(1500); await wait('.den-row'); await sleep(800);
     r.push(`Bấm Xong: còn khung sửa thẳng ${!!$('.den-dir')} · ô két khoá lại ${$('#cash_counted')?.disabled} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'chủ sửa thẳng đối soát', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

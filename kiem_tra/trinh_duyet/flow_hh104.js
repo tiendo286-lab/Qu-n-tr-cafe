@@ -101,6 +101,6 @@ export default async ({ sleep, out }) => {
     const e2 = await rpc('app_gh_recon_reopen', { p_id: id }).then(() => 'được (SAI)', (e) => e.message);
     r.push(`bỏ đối soát khi đã xong: ${e1} · mở lại: ${e2}`);
     if (new URLSearchParams(location.search).get('dung')) { await go('#/hang-hoa/kiem-soat?cn=1', '.ks-wrap'); await new Promise(() => {}); }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'hàng hoá 104', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

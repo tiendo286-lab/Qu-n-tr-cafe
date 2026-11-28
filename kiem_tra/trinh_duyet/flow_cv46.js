@@ -53,6 +53,6 @@ export default async ({ sleep, out }) => {
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id2, p_part: k, p_on: true, p_as_staff: true });
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat'; await wait('#td-cv'); await sleep(800);
     r.push(`Mục 6: ${txt('#td-cv').slice(0, 300)} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'nghỉ / làm thay gọn', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

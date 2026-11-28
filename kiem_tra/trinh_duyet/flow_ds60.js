@@ -31,6 +31,6 @@ export default async ({ sleep, out }) => {
     r.push(`việc chờ (lọc cơ sở, ô chọn ẩn ${$('#td-br')?.hidden}): ${txt('.td-kpis')} · ${W()}`);
     $$('.ck-view a')[1].click(); await wait('.bc-grid'); await sleep(1000);
     r.push(`Theo ngày: ${$$('.bc').length} ô ca · ${$$('.ds-day').length} khung cuối ngày`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'bảng tuần đối soát', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

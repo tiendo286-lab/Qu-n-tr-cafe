@@ -57,6 +57,6 @@ export default async ({ sleep, out }) => {
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ke-toan/fabi?ngay=' + day; await wait('.fb-week'); await sleep(800);
     r.push(`Bảng tuần 1 cơ sở: ${txt('.fb-week-nav')} · ${$$('table.fb-table').length} bảng · ${txt('.fb-stats')} · ${txt('#fb-sync-state')}`);
     r.push(`Ô có số: ${$$('.fb-cell.ready,.fb-cell.review').map((x) => x.innerText.replace(/\s+/g, ' ')).slice(0, 3).join(' | ')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'file ca Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

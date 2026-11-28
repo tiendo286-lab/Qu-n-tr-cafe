@@ -42,6 +42,6 @@ export default async ({ sleep, out }) => {
     const row = $$('.cn-p').find((x) => x.innerText.includes('Bàn 5'));
     r.push(`(4) Công nợ: ${row ? row.innerText.replace(/\s+/g, ' ') : 'KHÔNG THẤY'}`);
     const g = row?.querySelector('.cn-ph .grow'); r.push(`tên rộng ${g ? Math.round(g.getBoundingClientRect().width) : 0}px / khung ${Math.round(($('.cn-g')?.getBoundingClientRect().width) || 0)}px · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.message); }
+  } catch (e) { r.push('LỖI ' + e.message); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'sửa 74', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

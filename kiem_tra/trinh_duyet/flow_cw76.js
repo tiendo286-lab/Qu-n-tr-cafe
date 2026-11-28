@@ -35,6 +35,6 @@ export default async ({ sleep, out }) => {
     if (miss) { const cls = miss.className; miss.click(); await wait('.cm-card, .pc', 300); await sleep(800); r.push(`bấm ô (${cls.includes('miss') ? 'thiếu phiếu' : 'chưa mở'}) → ${location.hash.split('?')[0]} · ${txt('#root h1')}`); }
     location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca?ngay=2026-11-12'; await wait('.cw-t', 300); await sleep(500);
     r.push(`đường dẫn cũ ?ngay= → tuần ${txt('.cw-wt')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.message); }
+  } catch (e) { r.push('LỖI ' + e.message); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'chốt ca tuần 76', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

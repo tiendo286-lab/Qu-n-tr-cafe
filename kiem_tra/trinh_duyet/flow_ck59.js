@@ -28,6 +28,6 @@ export default async ({ sleep, out }) => {
     r.push(`đổi cơ sở → ${txt('.branch-tabs a.on')} · ${txt('#root h2')}`);
     $$('.ckw-nav a')[0].click(); await sleep(400); await wait('.ckw-bar'); await sleep(1200);
     r.push(`tuần trước → ${txt('.ckw-nav strong')} · nút Tuần này ${!!$$('.ckw-nav a').find((a) => a.innerText.toLowerCase().includes('tuần này'))} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'bảng tuần chuyển khoản', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

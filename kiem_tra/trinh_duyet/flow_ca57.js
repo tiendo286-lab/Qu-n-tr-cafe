@@ -33,6 +33,6 @@ export default async ({ sleep, out }) => {
     r.push(`Nút Tạo phiếu chi → ${txt('dialog[open] h2')} · gợi ý ${$('dialog[open] [name=amt]')?.value}`); $('dialog[open]')?.close();
     $('[data-ca="res"][data-item="tien_mat"]')?.click(); await wait('dialog[open]', 100); await sleep(300);
     r.push(`Nút Chọn kết quả Tiền mặt → ${txt('dialog[open] h2')}`); $('dialog[open]')?.close();
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'tiền của ca', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

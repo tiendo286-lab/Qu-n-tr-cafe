@@ -308,6 +308,6 @@ export default async ({ sleep, out }) => {
       if (role === 'ql') { await goB('#/quan-ly/nghi-lam-thay'); await sleep(500); ok(!$('[data-one]') && !$('.cv-reason') && !$('[data-pairgo]'), `Quản lý cơ sở ở bảng theo ca: chỉ xem · ${W()}`); await go('#/quan-ly/nghi-lam-thay'); }
       if (role === 'ql') ok((!id || !!row) && !$('#x2p-save') && !$('#x2p-ok') && !$('.x2p-pick') && !$('.cv-reason'), `Quản lý cơ sở chỉ xem (ca ${id ? 'hiện' : 'không dựng được'}, không tích, không lưu / duyệt)`);
     }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'duyệt nghỉ & làm thay', title: r.join(' || '), len: 0, errs: [...window.__ERR, ...r.filter((x) => x.startsWith('LỖI'))] });
 };

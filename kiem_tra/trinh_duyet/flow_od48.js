@@ -58,6 +58,6 @@ export default async ({ sleep, out }) => {
     typ($('#cm-hot'), '2298000'); await sleep(300); await next();
     setv($('#cm-diff-note'), 'thiếu 40.000'); await next(); await sleep(500);
     r.push(`Bước 10: ${txt('#cm-root h2')} · ${txt('.cm-real')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'khách trả nợ ở bước Phiếu Fabi', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

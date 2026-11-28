@@ -34,6 +34,6 @@ export default async ({ sleep, out }) => {
       b.click(); for (let i = 0; i < 100 && $$('.den-row.auto').length === 4; i++) await sleep(100); await sleep(1500); await wait('.den-row');
       r.push(`Sau Sửa Doanh thu: mục 🔒 còn ${$$('.den-row.auto').length} · ô total_revenue khoá ${$('#total_revenue')?.disabled} · mục 2 nhạt ${$$('.pc-sec.pc-auto').some((s) => /Nhận két/.test(s.innerText))} · ${W()}`);
     }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'tự đối soát + khoá', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

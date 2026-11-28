@@ -34,6 +34,6 @@ export default async ({ sleep, out }) => {
     const g = $('.ds-pane:not([hidden]) [data-ds-go]'); if (g) { g.click(); await sleep(300); r.push(`bấm "Làm bước" → ${txt('.ds-pane:not([hidden]) .ds-hd')}`); }
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/ca/phieu?id=' + id; await wait('#pc-form'); await sleep(800);
     r.push(`Phiếu nhân viên: chip đối soát: ${$$('.rc-chip').length} · nút: ${txt('#pc-form > section:last-of-type a.btn')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'điện thoại', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

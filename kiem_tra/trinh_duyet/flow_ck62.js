@@ -47,6 +47,6 @@ export default async ({ sleep, out }) => {
     await go();
     r.push(`tải lại: ca 1 ${$('.ckw-close', c(id1)).value} · ca 2 ${txt('.ckw-o', c(id2))}`);
     if (new URLSearchParams(location.search).get('dung')) { window.scrollTo(0, 0); await new Promise(() => {}); }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'chuyển khoản: bảng tuần 1 cơ sở', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

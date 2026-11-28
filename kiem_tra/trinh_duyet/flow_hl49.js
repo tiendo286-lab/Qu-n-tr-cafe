@@ -31,6 +31,6 @@ export default async ({ sleep, out }) => {
     $('[data-hp="old"]').click(); await wait('#cm-help-list', 50); for (let i = 0; i < 50 && !$('[data-add-emp]') && !txt('#cm-help-list').includes('Không'); i++) await sleep(50);
     r.push(`Nhân viên cũ: ${$$('.cm-hp-g').map((g) => g.innerText).join(' · ') || txt('#cm-help-list')} · ${W()}`);
     if ($('[data-add-emp]')) { $('[data-add-emp]').click(); await sleep(400); r.push(`Thêm người cũ → ${$$('.cm-person').length} người`); }
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'thêm người làm hộ', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

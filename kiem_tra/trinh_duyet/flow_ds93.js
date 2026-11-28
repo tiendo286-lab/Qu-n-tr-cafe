@@ -82,6 +82,6 @@ export default async ({ sleep, out }) => {
       $('[data-rdgo]').click(); await sleep(800); r.push(`thêm khách nợ: ${txt('dialog h2')}`); $('dialog [data-x]')?.click();
     }
     r.push(`cuối: ${W()}`);
-  } catch (e) { r.push('LỖI ' + (e.stack || e)); }
+  } catch (e) { r.push('LỖI ' + (e.stack || e)); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'đối soát thêm thu chi 93', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

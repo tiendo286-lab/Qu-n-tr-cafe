@@ -33,6 +33,6 @@ export default async ({ sleep, out }) => {
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id2; await wait('#debts'); await sleep(1500);
     const sec = $('#debts').closest('.pc-sec');
     r.push(`Ca thu (${sh[1]}): ${(sec?.innerText || '').replace(/\s+/g, ' ').slice(0, 330)} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'công nợ theo ca thu', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

@@ -41,6 +41,6 @@ export default async ({ sleep, out }) => {
     dl.querySelector('[name=cat]').value = '901';
     dl.querySelector('[type=submit]').click(); for (let i = 0; i < 100 && $('dialog[open]'); i++) await sleep(100); await sleep(2000); await wait('#bank-outs .pcc-row');
     r.push(`Sau lưu: ${txt('#bank-outs')} · ngân hàng: ${txt('#bank-box').slice(0, 200)} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'phiếu chi chuyển khoản', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

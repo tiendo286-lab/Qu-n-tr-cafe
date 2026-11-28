@@ -36,6 +36,6 @@ export default async ({ sleep, out }) => {
     $$('.den-man').find((b) => b.dataset.item === 'cong_no')?.click();
     for (let i = 0; i < 50 && !row('Công nợ')?.classList.contains('done'); i++) await sleep(100); await sleep(800); await wait('.den-row');
     r.push(`Sau duyệt Công nợ: ${row('Công nợ')?.className}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'luật Fabi bước 61', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

@@ -64,6 +64,6 @@ export default async ({ sleep, out }) => {
     // nhân viên: dấu trả tiền mặt
     await go('#/quan-ly/nhan-vien?id=' + cashE.id, '#emp-form');
     r.push(`Hồ sơ: ô trả tiền mặt ${$('input[name=pay_cash]')?.checked ? 'đã tích' : 'CHƯA TÍCH'}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'nhân sự thực tế + x2', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

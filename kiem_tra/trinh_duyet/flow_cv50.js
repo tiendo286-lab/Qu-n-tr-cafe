@@ -41,6 +41,6 @@ export default async ({ sleep, out }) => {
     if (save) { save.click(); await sleep(2500); }
     await wait('#ds-cv h2', 300);
     r.push(`Sau Lưu: ${txt('#ds-cv h2')} · nghỉ ${$$('#ds-cv .cv-a').length} (${names()}) · lỗi: ${txt('#cv-err') || 'không'}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'nghỉ & làm thay theo danh sách mới', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };

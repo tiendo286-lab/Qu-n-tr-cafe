@@ -54,6 +54,6 @@ export default async ({ sleep, out }) => {
     await ktDu(id2, o2.shift, { dau: 3000000, ck: 1000000, tm: 500000, tong: 3450000 }, 'DEN2');
     location.hash = '#/__tam'; await sleep(200); location.hash = '#/quan-ly/doi-soat/ca?id=' + id2; await wait('.den-row'); await sleep(800);
     r.push(`Ca lệch: ${$$('.den-row.r').map((x) => x.innerText.replace(/\s+/g, ' ')).join(' | ')} · nút Xử lý ${$$('.den-row [data-ds-go]').length} · ${txt('#ds-lights .toolbar')} · ${W()}`);
-  } catch (e) { r.push('LỖI ' + e.stack); }
+  } catch (e) { r.push('LỖI ' + e.stack); window.__ERR.push('Bài thử dừng giữa chừng: ' + (e.message || e)); }
   out.push({ route: 'đèn đối soát', title: r.join(' || '), len: 0, errs: [...window.__ERR] });
 };
