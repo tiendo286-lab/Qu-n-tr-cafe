@@ -208,10 +208,16 @@ export default async ({ sleep, out }) => {
           const colD = cD().closest('.x2p-col'), colOk = $$('.x2p-col').find((c) => c !== colD && !c.querySelector('.x2p-ca') && c.querySelector('.x2p-pp'));
           ok(colD.querySelector('.x2p-pp.x').classList.contains('r') && colD.querySelector('.x2p-pp.p').classList.contains('r') && /cần xử lý/i.test(colD.querySelector('h3').textContent), 'Bảng theo ca: người nghỉ / làm ngoài lịch của ca đang chờ hiện ĐỎ');
           ok(!colOk || [...colOk.querySelectorAll('.x2p-pp')].every((p) => p.classList.contains('g')), `Bảng theo ca: cột đã duyệt xong hiện XANH (${colOk ? colOk.querySelector('h3').textContent.replace(/\s+/g, ' ').trim() : 'không có cột nào khác'})`);
-          window.__colD = colD;
+          // 28/11 khuya: sửa ngay tại dòng tên — ô xử lý nằm liền dưới dòng của người nghỉ, bấm dòng để thu gọn / mở
+          { const rowX = colD.querySelector('.x2p-pp.x'), box = rowX.nextElementSibling;
+            ok(cD().classList.contains('x2p-in') && rowX.hasAttribute('data-tg') && box?.classList.contains('cv-a') && !!box.querySelector('.cv-reason') && !!box.querySelector('[data-dc]'), 'Bảng theo ca: ô lý do / Đổi ca nằm ngay dưới dòng tên người nghỉ');
+            rowX.click(); const f1 = getComputedStyle(box).display === 'none'; rowX.click(); const f2 = getComputedStyle(box).display !== 'none';
+            ok(f1 && f2, 'Bấm dòng tên: thu gọn rồi mở lại ô xử lý');
+            ok(colD.querySelectorAll('.x2p-pp').length === new Set([...colD.querySelectorAll('.x2p-pp')].map((p) => p.textContent.trim())).size, `Không có dòng tên nào lặp trong cột (${colD.querySelectorAll('.x2p-pp').length} dòng) · ${W()}`); }
+          window.__colD = colD; window.__nD = colD.querySelectorAll('.x2p-pp').length;
           cD().querySelector('[data-dc]').click(); await wait(() => !cD(), 100);
           const gD = await rpc('app_cv_get', { p_id: idD });
-          ok(!window.__colD.isConnected || window.__colD.classList.contains('done'), 'Bảng theo ca: xử lý xong → cột chuyển XANH (hoặc bảng sang buổi kế)');
+          ok(!window.__colD.isConnected || (window.__colD.classList.contains('done') && window.__colD.querySelectorAll('.x2p-pp').length === window.__nD), 'Bảng theo ca: xử lý xong → cột chuyển XANH, các dòng tên còn nguyên (hoặc bảng sang buổi kế)');
           ok(!cD() && gD.state === 'da_duyet' && gD.rows[0].reason === 'doi_ca' && gD.rows[0].x2 === false, `Bấm nhanh Đổi ca ở bước duyệt: ${gD.state}, x2 ${gD.rows[0].x2} · ${txt('#x2p-msg')}`);
           await go('#/quan-ly/nghi-lam-thay?tab=xong');
           ok(/Đổi ca — không cần duyệt/i.test(cD()?.querySelector('.x2p-t').textContent || '') && /Đổi ca \(lịch chưa sửa\)/.test(cD().textContent), `Đã duyệt: ${cD()?.textContent.replace(/\s+/g, ' ').slice(0, 140)} · ${W()}`);
