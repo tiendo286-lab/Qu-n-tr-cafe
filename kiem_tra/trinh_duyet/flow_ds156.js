@@ -21,13 +21,13 @@ export default async ({ sleep, out }) => {
       cash_counted: 5300000, ipos_opening: 1000000, opening_cash: 1000000, pos_debt: 0, pos_diff: -200000, cups: 50, goods: [], handover: [], staff, debts: [], moves: [] } });
     await rpc('app_ca_photo_add', { p_id: id, p_path: 'r' + id + '/ipos/a.jpg', p_kind: 'ipos' });
     for (const k of ['tien', 'nhan_su']) await rpc('app_ca_part_done', { p_id: id, p_part: k, p_on: true, p_as_staff: true });
-    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=' + id; await wait('.ds-pane'); await sleep(1800);
-    const bar = txt($('#ds-parts'));
-    ok(bar.includes('ai làm ca') && bar.includes('bàn giao') && !/\btiền\b/.test(bar) && !bar.includes('hoàn thành'), `thanh bước phần việc không còn "Tiền" / "Hoàn thành" (${bar.slice(0, 80)})`);
-    ok($$('.ds-ptabs .ds-pt').map((x) => x.dataset.ptab).join() === 'viec,tien,xong', 'trang có 3 tab ① Phần việc · ② Phần tiền · ③ Hoàn thành');
-    const form = $('#pc-form');
-    ok(!!form && !form.querySelector('#ds-money-table, .lx-box, #total_revenue, #moves, .ds-stc-card, a.ds-stc'), 'phần việc không còn bảng tiền / xử lý lệch / ô sửa tiền / thẻ "làm ở Sổ thu chi"');
-    ok(!!$('#stc-page.stc-one[data-ds="' + id + '"]'), 'phần tiền là khối tiền của đúng ca này (tab ②)');
+    location.hash = '#/__tam'; await sleep(300); location.hash = '#/ca/doi-soat?id=' + id; await wait('#dsm'); await sleep(1800);
+    // 28/11 bỏ trang đối soát cũ: kiểm trên trang mới (3 bước ① Phần việc · ② Tiền · ③ Hoàn thành)
+    ok($$('[data-dsm-tab]').map((x) => x.dataset.dsmTab).join() === 'viec,tien,xong', 'trang có 3 bước ① Phần việc · ② Tiền · ③ Hoàn thành');
+    const form = $('[data-dsm-pane="viec"]');
+    ok(!!form && !form.querySelector('#ds-money-table, .lx-box, #total_revenue, #moves, .ds-stc-card, a.ds-stc, .stc-dsp, .stc-c4, [data-dsclose]'), 'bước ① Phần việc không có bảng tiền / xử lý lệch / ô sửa tiền / khối số máy Fabi');
+    ok(!$('#pc-form') && !$('.ds-ptabs') && !$('#stc-page.stc-one'), 'không còn trang đối soát cũ (3 thẻ cũ, khối 6 bước)');
+    ok((($('#dsm-phieu') || {}).getAttribute ? $('#dsm-phieu').getAttribute('href') : '') === '#/ca/phieu?id=' + id, 'trang đang mở đúng ca này (nút Xem phiếu nhân viên trỏ đúng ca)');
     ok(!$$('.ds-hd').some((h) => /còn \d+\/\d+ hạng mục/.test(txt(h)) && txt(h).includes('tiền')), 'không còn đếm hạng mục tiền trong các bước');
     if (window.innerWidth <= 400) ok(document.documentElement.scrollWidth <= window.innerWidth + 1, 'không tràn ngang');
   } catch (err) { bad.push('LỖI: ' + (err && err.message || err)); }

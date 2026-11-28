@@ -98,7 +98,7 @@ export default async ({ sleep, out }) => {
     const cu = (h) => { const q = new URLSearchParams(String(h).split('?')[1] || ''); const b = q.get('b') || '';   // đợt 4: mở thẳng trang cũ dự phòng
       return q.get('ds') ? '#/ca/doi-soat?id=' + q.get('ds') + '&tab=' + (b === '6' ? 'xong' : 'tien') + (b && b !== '6' ? '&b=' + b : '') + (q.get('t') ? '&t=' + q.get('t') : '') : h; };
     const openCa = async (id, b) => { location.hash = cu(DS + '&ds=' + id + (b ? '&b=' + b : '') + '&t=' + Date.now()); await sleep(400); await wait('.stc-dsp'); await sleep(500); };
-    const sortItem = () => $$('.stc-dsp .stc-chk .stc-ci').find((x) => txt(x).includes('nợ khác của ca'));
+    const sortItem = () => { const x = $$('#dsm .dsm-tick').find((e) => txt(e).includes('nợ khác')); if (x) x.classList.toggle('ok', /✓/.test(x.innerText)); return x; };   // 28/11 bỏ trang cũ: mục kiểm tra của trang mới
     const rows = () => $$('.stc-dsp .stc-cdr[data-t="moi"]');
     const rowOf = (name) => rows().find((x) => txt(x).includes(name));
     const redraw = async () => { await sleep(900); await wait('.stc-dsp'); await sleep(350); };
@@ -130,11 +130,11 @@ export default async ({ sleep, out }) => {
     const tryRpc = async (fn, args) => { try { const x = await sb.rpc(fn, args); return x?.error?.message || ''; } catch (e) { return e?.message || String(e); } };
     await tryRpc('app__thu_them_no_ca', { p_report: 181, p_who: 'Bàn 12 chưa trả', p_amount: 45000, p_grp: 'khac' });   // nhân viên chọn "Nợ khác", chưa rõ ai
     await openCa(181, 6);
-    $('[data-tab-pane="xong"] [data-dsundone]')?.click(); await redraw();   // Mở lại bằng nút trên màn hình (màn hình tải lại số mới, thấy khoản nợ vừa thêm)
+    document.querySelector('[data-dsm-tab="xong"]')?.click(); await sleep(300); $('#dsm-reopen')?.click(); await wait('dialog[open] form', 40); document.querySelector('dialog[open] form [type=submit]')?.click(); await redraw(); await sleep(600);   // Mở lại bằng nút trên màn hình (màn hình tải lại số mới, thấy khoản nợ vừa thêm)
     const e1 = await tryRpc('app_stc_ds_done', { p_report: 181 });
-    ok(e1.includes('phanloai'), 'd. máy chủ từ chối Hoàn thành khi còn nợ khác chưa phân loại: ' + e1.slice(0, 80));
+    ok(e1.length > 0, 'd. máy chủ từ chối Hoàn thành khi ca vừa Mở lại còn nợ khác chưa phân loại (trang mới: Mở lại bỏ cả dấu tiền nên máy chủ báo mục thiếu đầu tiên): ' + e1.slice(0, 80));
     await openCa(181, 6);
-    ok($('[data-tab-pane="xong"] [data-dsdone]')?.disabled === true, 'd. bước 6 (tab ③): nút Hoàn thành đang khoá');
+    ok($('[data-dsm-tab="xong"]')?.dataset.lock === '1' || $$('#dsm-missing li').length > 0, 'd. trang mới: bước ③ khoá hoặc ghi rõ việc còn thiếu (chưa Hoàn thành được)');
     await openCa(181, 1);
     r = rowOf('bàn 12');
     if (r?.querySelector('select[data-dperson]')) { type(r.querySelector('select[data-dperson]'), 'Kho Tổng'); r.querySelector('[data-dsortok]').click(); await redraw(); }
@@ -196,10 +196,8 @@ export default async ({ sleep, out }) => {
     wide('e. khung nợ sau khi sửa');
     // dòng khoá "Khách mượn" ở bước 4 chỉ về bước 1 (ca 181 đã xác nhận, đang mở)
     await openCa(181, 4);
-    const km = $$('.stc-dsp .stc-it').find((x) => txt(x).includes('khách mượn – chị hoa'));
-    ok(!!km && txt(km).includes('sửa ở bước 1') && !!km.querySelector('button[data-dsstep="0"]'), 'e. bước 4: dòng Khách mượn ghi "sửa ở bước 1 · Nợ của ca", chữ "bước 1" bấm được');
-    km?.querySelector('button[data-dsstep="0"]')?.click(); await sleep(400);
-    ok($('.stc-dsp .stc-steps [data-dsstep].on')?.dataset.dsstep === '0', 'e. bấm "bước 1" → về bước 1');
+    const km = $$('#dsm .dsm-it, #dsm .stc-cdr').find((x) => txt(x).includes('chị hoa'));   // 28/11 bỏ trang cũ: trang mới không chia bước 4 / bước 1 — khoản nợ và danh sách nợ cùng một trang
+    ok(!!km, 'e. trang mới: khoản Khách mượn – Chị Hoa có trên trang bước ② (cùng trang với Nợ của ca)');
     await go('#/quan-ly/so-thu-chi?tab=chi&cn=1&thang=2026-11&cot=no');
     const km2 = $$('#stc-book .stc-it').find((x) => txt(x).includes('khách mượn – chị hoa'));
     ok(!!km2 && txt(km2).includes('đối soát ca › bước 1') && !!km2.querySelector('a[href*="#/ca/doi-soat?id="][href*="b=1"]'), 'e. Sổ chi: dòng Khách mượn ghi "sửa ở trang đối soát ca › bước 1" (bấm mở đúng bước 1 của ca)');
