@@ -169,6 +169,36 @@ export default async ({ sleep, out }) => {
           ok(sp.every((x) => x === 'da_duyet'), `Duyệt cả 2 ca một lần: ${sp.join(', ')} · ${txt('#x2p-msg')}`);
         }
       }
+      // 28/11 (tệp 194, anh Tiến): lý do Đổi ca + nút nhanh — ca toàn Đổi ca xong luôn, khỏi Chủ duyệt
+      {
+        const more = []; for (const o of ovAll) if (!more.some((x) => x.branch_id === o.branch_id) && o.shift !== pick[0].shift && !(await rpc('app_ca_get', { p_id: await rpc('app_ca_open', { p_branch: o.branch_id, p_date: day, p_shift: o.shift }) })).status?.startsWith('hoan')) more.push(o);
+        const oQ = more[2] || more[0], oD = more[3] || more[1];
+        const idQ = oQ ? await mkCa(oQ, true) : null, idD = oD && oD !== oQ ? await mkCa(oD, true) : null;
+        if (!idQ || !idD) r.push(`LỖI không dựng được 2 ca thử Đổi ca (còn ${more.length} ca trống)`);
+        else {
+          await go('#/quan-ly/nghi-lam-thay');
+          const cQ = () => $(`.x2p-ca[data-id="${idQ}"]`), cD = () => $(`.x2p-ca[data-id="${idD}"]`);
+          ok([...cQ().querySelectorAll('.cv-reason option')].some((o) => o.value === 'doi_ca') && !!cQ().querySelector('[data-dc]'), `Có lý do Đổi ca và nút nhanh Đổi ca · ${W()}`);
+          const sQ = cQ().querySelector('.cv-reason'); sQ.value = 'doi_ca'; sQ.dispatchEvent(new Event('change', { bubbles: true }));
+          ok(cQ().querySelector('.cv-x').disabled && !cQ().querySelector('.cv-x').checked, 'Chọn Đổi ca → ô x2 bị khoá, không tích');
+          sQ.value = 'tu_tim'; sQ.dispatchEvent(new Event('change', { bubbles: true }));
+          ok(!cQ().querySelector('.cv-x').disabled, 'Đổi sang lý do khác → ô x2 mở lại');
+          const nx = Number($('[data-tab="xong"] strong').textContent), nd = Number($('[data-tab="duyet"] strong').textContent);
+          cQ().querySelector('[data-dc]').click(); await wait(() => !cQ(), 100);
+          const gQ = await rpc('app_cv_get', { p_id: idQ });
+          ok(!cQ() && gQ.state === 'da_duyet' && gQ.rows[0].reason === 'doi_ca' && gQ.rows[0].x2 === false, `Bấm nhanh Đổi ca ở Chờ phân loại: ${gQ.state} · ${txt('#x2p-msg')}`);
+          ok(Number($('[data-tab="xong"] strong').textContent) === nx + 1 && Number($('[data-tab="duyet"] strong').textContent) === nd, 'Số ở thẻ Đã duyệt tăng 1, thẻ Chờ Chủ duyệt không đổi');
+          // ca thứ hai: lưu lý do thường → sang Chờ Chủ duyệt → Chủ bấm nhanh Đổi ca ngay ở bước duyệt
+          cD().querySelector('.cv-reason').value = 'tu_tim'; cD().querySelector('.cv-x').checked = true; cD().querySelector('[data-one]').click(); await wait(() => !cD(), 100);
+          await go('#/quan-ly/nghi-lam-thay?tab=duyet');
+          ok(!!cD()?.querySelector('[data-dc]') && cD().querySelector('.cv-x').checked, 'Chờ Chủ duyệt: ca đang x2 có nút nhanh Đổi ca');
+          cD().querySelector('[data-dc]').click(); await wait(() => !cD(), 100);
+          const gD = await rpc('app_cv_get', { p_id: idD });
+          ok(!cD() && gD.state === 'da_duyet' && gD.rows[0].reason === 'doi_ca' && gD.rows[0].x2 === false, `Bấm nhanh Đổi ca ở bước duyệt: ${gD.state}, x2 ${gD.rows[0].x2} · ${txt('#x2p-msg')}`);
+          await go('#/quan-ly/nghi-lam-thay?tab=xong');
+          ok(/Đổi ca — không cần duyệt/i.test(cD()?.querySelector('.x2p-t').textContent || '') && /Đổi ca \(lịch chưa sửa\)/.test(cD().textContent), `Đã duyệt: ${cD()?.textContent.replace(/\s+/g, ' ').slice(0, 140)} · ${W()}`);
+        }
+      }
       r.push(`Khung: ${W()}`);
     } else {
       let id = null;

@@ -6,6 +6,7 @@
 // 27/11: nút riêng từng ca (Lưu ca này / Duyệt ca này); ca nhiều người có nút Lưu người này (app_cv_save_one, tệp 186).
 // 28/11 (anh Tiến): hai ca là một lần ĐỔI CA (A nghỉ ca mình và làm thay ở ca của B, B ngược lại) → gộp một khung,
 //   ghép sẵn người làm thay, một nút Lưu cả 2 ca / Duyệt cả 2 ca. Lý do, x2 vẫn chọn tay từng lần. Chỉ ở giao diện.
+// 28/11 (tệp 194): lý do "Đổi ca (lịch chưa sửa)" + nút bấm nhanh Đổi ca ở từng người nghỉ — ca toàn Đổi ca lưu xong là xong luôn, khỏi Chủ duyệt.
 // Danh sách: app_cv_todo (chờ) + app_cv_done (đã duyệt, tệp 165); chi tiết từng ca: app_cv_get.
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
@@ -112,7 +113,8 @@ export async function render({ params }) {
     return html`${absents.map((a) => { const x = rowOf(a.employee_id) || {}; const au = autoOf(a.employee_id); const hs = x.helper_id || (x.outsider ? 'ngoai' : '') || (au ? au.employee_id : '');
         return html`<div class="cv-a" data-absent="${a.employee_id}" ${r.swap?.[a.employee_id] != null ? 'data-swap' : ''}>
           <div class="cv-grid"><strong>${a.code} – ${a.name}</strong> <span class="pill off">Nghỉ</span>
-            <select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${x.reason === k ? 'selected' : ''}>${l}</option>`)}</select></div>
+            <select class="input sm cv-reason" aria-label="Lý do nghỉ của ${a.code}"><option value="">— Chọn lý do —</option>${REASONS.map(([k, l]) => html`<option value="${k}" ${x.reason === k ? 'selected' : ''}>${l}</option>`)}</select>
+            <button type="button" class="btn sm secondary" data-dc title="Thực tế là đổi ca, lịch trên app chưa sửa: không trừ, không x2, khỏi duyệt">Đổi ca</button></div>
           <div class="cv-grid"><span class="st-meta">Người làm thay</span><select class="input sm cv-helper" aria-label="Người làm thay cho ${a.code}">${opts(hs)}</select>
             <input class="input sm cv-on" placeholder="Tên người ngoài quán" value="${x.outsider ? x.helper_name || x.helper || '' : ''}" ${hs === 'ngoai' ? '' : 'hidden'} aria-label="Tên người ngoài quán">
             <label class="cv-hl" ${hs ? '' : 'hidden'}>Giờ <input class="input sm cv-h" type="number" min="0" max="24" step="0.25" value="${x.hours ?? (au ? au.hours : '') ?? ''}"></label>
@@ -134,7 +136,7 @@ export async function render({ params }) {
   const caHtml = (r) => {
     if (!r.C || r.C.error) return html`<div class="cv-row x2p-ca" data-id="${r.id}"><span></span><div class="x2p-body"><div class="x2p-t">${caTitle(r)}</div><div class="x2p-err">Không đọc được ca: ${r.C?.error || ''}</div></div></div>`;
     const C = r.C, ed = editable(r);
-    const pill = tab === 'xong' ? html`<span class="pill ok">Chủ đã duyệt</span>${r.complaint ? html` <span class="pill off">Có khiếu nại</span>` : ''}`
+    const pill = tab === 'xong' ? html`<span class="pill ok">${String(C.ok_note || '').startsWith('Đổi ca') ? 'Đổi ca — không cần duyệt' : 'Chủ đã duyệt'}</span>${r.complaint ? html` <span class="pill off">Có khiếu nại</span>` : ''}`
       : C.state === 'lech' ? html`<span class="pill off">Nhân sự đã đổi — phân loại lại</span>` : C.state === 'cho_duyet' ? html`<span class="pill warn">Chờ Chủ duyệt</span>` : html`<span class="pill warn">Chưa phân loại</span>`;
     const pick = tab !== 'xong' && ed ? html`<input type="checkbox" class="check x2p-pick" ${ticked.has(r.id) ? 'checked' : ''} aria-label="Chọn ca ${caTitle(r)}">` : html`<span></span>`;
     return html`<div class="cv-row x2p-ca ${tab === 'xong' ? 'ok' : ''}" data-id="${r.id}">${pick}<div class="x2p-body">
@@ -197,6 +199,10 @@ export async function render({ params }) {
         el.querySelector('[data-reok]')?.addEventListener('click', () => approveOne(r));
         el.querySelector('[data-one]')?.addEventListener('click', (e) => oneCa(r, e.currentTarget));
         $$('[data-p1]', el).forEach((b) => b.addEventListener('click', () => onePerson(r, b)));
+        $$('[data-dc]', el).forEach((b) => b.addEventListener('click', () => quickSwap(r, b)));
+        // Đổi ca thì không có x2 (máy chủ cũng bỏ) → khoá ô x2 của người đó
+        const lockX = (box) => { const c = box.querySelector('.cv-x'), dc = box.querySelector('.cv-reason').value === 'doi_ca'; if (dc) c.checked = false; c.disabled = dc; };
+        $$('.cv-a', el).forEach((box) => { lockX(box); box.querySelector('.cv-reason').addEventListener('change', () => lockX(box)); });
         // sửa lại ô của người đã lưu → bỏ nhãn "Đã lưu" (chưa lưu lại)
         $$('.cv-a, .cv-e', el).forEach((box) => box.addEventListener('change', () => { const p = box.querySelector('.x2p-saved'); if (p) p.hidden = true; }));
         const usedNow = new Set($$('.cv-a .cv-helper', el).map((x) => x.value));
@@ -248,33 +254,48 @@ export async function render({ params }) {
       async function doCa(r, kind) {
         const el = card(r.id), msg = problem(el);
         if (msg) { mark(el, msg + ' Ca này chưa lưu.'); return false; }
+        let st;
         try {
-          if (kind === 'ok') await rpc('app_cv_approve', { p_id: r.id, p_items: items(el), p_note: '' });
-          else await rpc('app_cv_save', { p_id: r.id, p_items: items(el) });
+          if (kind === 'ok') st = await rpc('app_cv_approve', { p_id: r.id, p_items: items(el), p_note: '' });
+          else st = await rpc('app_cv_save', { p_id: r.id, p_items: items(el) });
         } catch (e) { mark(el, e.message); return false; }
-        if (kind === 'save' && tab === 'duyet') {   // vẫn ở Chờ Chủ duyệt → chỉ vẽ lại khung ca
+        const auto = kind === 'save' && st === 'da_duyet';   // tệp 194: ca toàn Đổi ca → xong luôn, khỏi Chủ duyệt
+        if (kind === 'save' && tab === 'duyet' && !auto) {   // vẫn ở Chờ Chủ duyệt → chỉ vẽ lại khung ca
           const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null); if (C) { r.C = C; redrawCa(r); } else mark(el, '');
-          return true;
+          return 'luu';
         }
-        leave(r, kind); return true;
+        leave(r, auto ? 'ok' : kind); return auto ? 'doi_ca' : 'roi';
       }
+      // 28/11 (anh Tiến: "đổi nhanh ở bước duyệt x2"): bấm Đổi ca ở một người → đặt lý do Đổi ca, bỏ x2, rồi lưu ca luôn.
+      // Trong khung cặp đổi ca: đặt cho cả hai người đổi ca rồi lưu cả 2 ca.
+      function quickSwap(r, btn) {
+        const el = card(r.id), box = btn.closest('.cv-a'), wrap = el.closest('.x2p-pair');
+        const set = (b) => { const s = b.querySelector('.cv-reason'); s.value = 'doi_ca'; s.dispatchEvent(new Event('change', { bubbles: true })); };
+        set(box);
+        if (wrap && box.hasAttribute('data-swap')) $$('.cv-a[data-swap]', wrap).forEach(set);
+        const go = wrap ? wrap.querySelector('[data-pairgo]') : el.querySelector('[data-one]');
+        if (go) { if (go.dataset.pairgo || go.dataset.one) go.dataset.force = 'save'; go.click(); }
+      }
+      // Nút nhanh Đổi ca luôn đi đường Lưu (máy chủ tự xong nếu cả ca là Đổi ca), kể cả khi nút của khung đang là Duyệt.
+      const kindOf = (btn, k) => { const f = btn.dataset.force; delete btn.dataset.force; return f || k; };
       async function oneCa(r, btn) {
-        const kind = btn.dataset.one; btn.disabled = true;
+        const kind = kindOf(btn, btn.dataset.one); btn.disabled = true;
         const done = await doCa(r, kind); if (btn.isConnected) btn.disabled = false;
         if (!done) return;
-        flashNow(kind === 'save' && tab === 'duyet' ? `Đã lưu ca ${caTitle(r)}.` : kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
+        flashNow(done === 'doi_ca' ? `Đã ghi Đổi ca cho ca ${caTitle(r)} — xong, không cần Chủ duyệt.` : done === 'luu' ? `Đã lưu ca ${caTitle(r)}.` : kind === 'ok' ? `Đã duyệt ca ${caTitle(r)}. Người nghỉ và người làm thay đã được báo.` : `Đã lưu ca ${caTitle(r)} — chuyển sang Chờ Chủ duyệt.`, 'info');
       }
       // 28/11: cặp đổi ca — một nút cho cả hai ca. Thiếu gì ở ca nào thì báo đỏ ca đó và chưa lưu ca nào.
       async function pairGo(btn) {
-        const wrap = btn.closest('.x2p-pair'), kind = btn.dataset.pairgo;
+        const wrap = btn.closest('.x2p-pair'), kind = kindOf(btn, btn.dataset.pairgo);
         const rs = $$('.x2p-ca', wrap).filter((el) => el.querySelector('.cv-a, .cv-e')).map((el) => rowById(el.dataset.id)).filter(Boolean);
         let bad = 0; for (const r of rs) { const el = card(r.id), msg = problem(el); mark(el, msg ? msg + ' Chưa lưu ca nào trong cặp.' : ''); if (msg) bad++; }
         if (bad || !rs.length) return;
-        btn.disabled = true; let n = 0;
-        for (const r of rs) if (await doCa(r, kind)) n++;
+        btn.disabled = true; let n = 0, dc = 0;
+        for (const r of rs) { const d = await doCa(r, kind); if (d) n++; if (d === 'doi_ca') dc++; }
         if (btn.isConnected) btn.disabled = false;
         const verb = kind === 'ok' ? 'duyệt' : 'lưu';
-        if (n === rs.length) flashNow(`Đã ${verb} ${n} ca của lần đổi ca.${kind === 'ok' ? ' Người nghỉ và người làm thay đã được báo.' : tab === 'cho' ? ' Chuyển sang Chờ Chủ duyệt.' : ''}`, 'info');
+        if (dc && dc === rs.length) flashNow(`Đã ghi Đổi ca cho ${dc} ca — xong, không cần Chủ duyệt.`, 'info');
+        else if (n === rs.length) flashNow(`Đã ${verb} ${n} ca của lần đổi ca.${kind === 'ok' ? ' Người nghỉ và người làm thay đã được báo.' : tab === 'cho' ? ' Chuyển sang Chờ Chủ duyệt.' : ''}`, 'info');
         else flashNow(`Đã ${verb} ${n} ca · ${rs.length - n} ca báo đỏ cần sửa (xem dòng đỏ).`, n ? 'warn' : 'error');
       }
       // Ca đã lưu / duyệt xong rời danh sách của thẻ đang xem, số trên các thẻ đổi theo.
@@ -293,6 +314,7 @@ export async function render({ params }) {
         btn.disabled = true; let st;
         try { st = await rpc('app_cv_save_one', { p_id: r.id, p_item: itemOf(box) }); } catch (e) { mark(el, `${who}: ${e.message}`); btn.disabled = false; return; }
         btn.disabled = false; mark(el, '');
+        if (st === 'da_duyet') { leave(r, 'ok'); flashNow(`Đã ghi Đổi ca cho ${who}. Ca ${caTitle(r)} xong, không cần Chủ duyệt.`, 'info'); return; }   // tệp 194
         if (st === 'cho_duyet') { leave(r, 'save'); flashNow(`Đã lưu ${who}. Ca ${caTitle(r)} đủ người — chuyển sang Chờ Chủ duyệt.`, 'info'); return; }
         const p = box.querySelector('.x2p-saved'); if (p) p.hidden = false;
         const C = await rpc('app_cv_get', { p_id: r.id }).catch(() => null);

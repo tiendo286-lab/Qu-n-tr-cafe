@@ -6,7 +6,7 @@ export function makeCv(T, me) {
   { const e = T.employees.find((x) => x.status === 'Đang làm' && x.id > 10); if (e) e.pay_cash = true; }
   const emp = (id) => T.employees.find((e) => e.id === id) || { code: '?', name: '?' };
   const hrs = (a, b) => { if (!a || !b) return 0; const m = (x) => Number(x.slice(0, 2)) * 60 + Number(x.slice(3, 5)); return Math.round((((m(b) - m(a)) + 1440) % 1440) / 60 * 100) / 100; };
-  const LBL = { tu_tim: 'Tự tìm người thay', nho_ql: 'Nhờ quản lý tìm người', ma_chay: 'Quản lý đồng ý cho nghỉ (không trừ lương)', thieu_lich: 'Quản lý không xếp đủ lịch', bo_ca: 'Bỏ ca (phạt 200.000đ)' };
+  const LBL = { tu_tim: 'Tự tìm người thay', nho_ql: 'Nhờ quản lý tìm người', ma_chay: 'Quản lý đồng ý cho nghỉ (không trừ lương)', thieu_lich: 'Quản lý không xếp đủ lịch', bo_ca: 'Bỏ ca (phạt 200.000đ)', doi_ca: 'Đổi ca (lịch chưa sửa)' };
   const people = (id) => (T.__eff(id).staff || []).filter((s) => (s.source === 'lich' && !s.worked) || (s.source === 'ho_tro' && s.worked))
     .map((s) => ({ employee_id: s.employee_id, kind: s.worked ? 'ho_tro' : 'nghi', hours: hrs(s.time_in, s.time_out), code: emp(s.employee_id).code, name: emp(s.employee_id).name, pay_cash: !!emp(s.employee_id).pay_cash }));
   const state = (id) => {
@@ -34,8 +34,10 @@ export function makeCv(T, me) {
     if (!partial) for (const p of P.filter((x) => x.kind === 'nghi')) if (!items.some((i) => i.absent_id === p.employee_id && i.reason)) throw new Error('Còn người nghỉ chưa chọn lý do.');
     if (!partial) for (const p of P.filter((x) => x.kind === 'ho_tro')) if (!items.some((i) => i.helper_id === p.employee_id)) throw new Error('Còn người hỗ trợ chưa gắn vào dòng nào.');
     T.shift_covers = T.shift_covers.filter((c) => c.report_id !== id).concat(items.map((i, k) => { const h = Number(i.hours ?? (P.find((p) => p.employee_id === i.helper_id) || {}).hours ?? 0);
-      return { id: Date.now() + k, report_id: id, absent_id: i.absent_id || null, reason: i.reason, helper_id: i.helper_id || null, helper_name: i.helper_id ? null : i.helper_name || null, hours: h, x2: !!i.x2, fine: i.reason === 'bo_ca' ? 200000 : 0, deduct_hours: i.reason === 'nho_ql' ? h : 0 }; }));
+      return { id: Date.now() + k, report_id: id, absent_id: i.absent_id || null, reason: i.reason, helper_id: i.helper_id || null, helper_name: i.helper_id ? null : i.helper_name || null, hours: h, x2: !!i.x2 && i.reason !== 'doi_ca', fine: i.reason === 'bo_ca' ? 200000 : 0, deduct_hours: i.reason === 'nho_ql' ? h : 0 }; }));
   };
+  // tệp 194: ca đã phân loại đủ và mọi dòng là Đổi ca → đã duyệt luôn
+  const autoOk = (id) => { const rows = T.shift_covers.filter((c) => c.report_id === id); if (state(id) === 'cho_duyet' && rows.length && rows.every((c) => c.reason === 'doi_ca')) T.cover_reviews[id] = { ...T.cover_reviews[id], ok_at: now(), ok_note: 'Đổi ca — không cần Chủ duyệt' }; };
   const isOwner = me.role === 'chu'; const canCls = ['chu', 'ql_tong'].includes(me.role);
   T.account_perms = T.account_perms || [];
   return {
@@ -60,9 +62,10 @@ export function makeCv(T, me) {
       const P = people(p_id), rows = T.shift_covers.filter((c) => c.report_id === p_id);
       const full = P.every((p) => (p.kind === 'nghi' ? rows.some((c) => c.absent_id === p.employee_id) : rows.some((c) => c.helper_id === p.employee_id)));
       T.cover_reviews[p_id] = full ? { set_at: now() } : {};
+      if (full) autoOk(p_id);
       return state(p_id);
     },
-    app_cv_save({ p_id, p_items }) { if (!canCls) throw new Error('Chỉ Quản lý tổng / Chủ phân loại nghỉ và làm thay.'); write(p_id, p_items); T.cover_reviews[p_id] = { set_at: now() }; return state(p_id); },
+    app_cv_save({ p_id, p_items }) { if (!canCls) throw new Error('Chỉ Quản lý tổng / Chủ phân loại nghỉ và làm thay.'); write(p_id, p_items); T.cover_reviews[p_id] = { set_at: now() }; autoOk(p_id); return state(p_id); },
     app_cv_todo() {
       return T.shift_reports.filter((r) => r.status === 'hoan_thanh' && r.recon_status !== 'hoan_thanh' && ['chua_phan_loai', 'lech', 'cho_duyet'].includes(state(r.id))).map((r) => {
         const b = T.branches.find((x) => x.id === r.branch_id) || {}; const P = people(r.id); const nm = (k) => P.filter((p) => p.kind === k).map((p) => `${p.code} – ${p.name}`).join(', ') || null;

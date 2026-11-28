@@ -5,7 +5,8 @@ import { dt } from './tien.js';
 import { $$, html, str } from './ui.js';
 
 // bước 47: thêm Bỏ ca (phạt 200.000đ); ma_chay đổi tên thành Quản lý đồng ý cho nghỉ
-export const REASONS = [['tu_tim', 'Tự tìm người thay — không trừ'], ['nho_ql', 'Nhờ quản lý tìm — người nghỉ bị trừ giờ'], ['ma_chay', 'Quản lý đồng ý cho nghỉ — không trừ lương'], ['bo_ca', 'Bỏ ca — phạt 200.000đ']];
+export const REASONS = [['tu_tim', 'Tự tìm người thay — không trừ'], ['nho_ql', 'Nhờ quản lý tìm — người nghỉ bị trừ giờ'], ['ma_chay', 'Quản lý đồng ý cho nghỉ — không trừ lương'], ['bo_ca', 'Bỏ ca — phạt 200.000đ'],
+  ['doi_ca', 'Đổi ca (lịch chưa sửa) — không trừ, không x2, khỏi duyệt']];   // tệp 194 (anh Tiến 28/11)
 const vnd = (n) => (Number(n) || 0).toLocaleString('vi-VN') + 'đ';
 export const CV_STATE = {
   khong_can: ['Không có người nghỉ / hỗ trợ', 'mute'], chua_phan_loai: ['Chưa phân loại', 'off'], lech: ['Nhân sự đã đổi — phân loại lại', 'off'],
