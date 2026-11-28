@@ -12,10 +12,10 @@ import { dmy, dt } from '../tien.js';
 import { $, $$, dialog, flash, go, hhmm, html, raw, showSaved, str, once } from '../ui.js';
 import { DOC_STYLE, fillImages, sanitize, zoomImages } from '../editor.js';
 import { bindTrainingWork, openItemGuide, trainingWork } from './dt_cong_viec.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.3';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.5';
 import { STATUS as TASK_STATUS } from './viec.js';
-import { planUi } from './pc_dao_tao.js?v=2026.11.29.3';   // tệp 202: phân công nằm trong thẻ ngày
-import { PCD_CSS, wd } from './pc_dao_tao_toi.js?v=2026.11.29.3';
+import { planUi } from './pc_dao_tao.js?v=2026.11.29.5';   // tệp 202: phân công nằm trong thẻ ngày
+import { PCD_CSS, wd } from './pc_dao_tao_toi.js?v=2026.11.29.5';
 
 const ITEM_FILTERS = {
   all: 'Tất cả',

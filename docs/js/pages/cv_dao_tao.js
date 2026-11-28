@@ -10,11 +10,11 @@
 import { render as rerender } from '../app.js';
 import { rpc } from '../sb.js';
 import { $, $$, flash, html, str } from '../ui.js';
-import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.3';
-import { chipCounts, matchRow, optionsOf, sortRows } from './dao_tao_loc.js?v=2026.11.29.3';
-import { planUi } from './pc_dao_tao.js?v=2026.11.29.3';
-import { PCD_CSS, dm, mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.29.3';
-import { render as phieuRender } from './phieu_dao_tao.js?v=2026.11.29.3';
+import { DT_STATUS, dtLabel } from './dao_tao.js?v=2026.11.29.5';
+import { chipCounts, matchRow, optionsOf, sortRows } from './dao_tao_loc.js?v=2026.11.29.5';
+import { planUi } from './pc_dao_tao.js?v=2026.11.29.5';
+import { PCD_CSS, dm, mountMyPlan, myPlanHtml } from './pc_dao_tao_toi.js?v=2026.11.29.5';
+import { render as phieuRender } from './phieu_dao_tao.js?v=2026.11.29.5';
 
 export const perm = null;
 const PROG = { chay_ban: 'Chạy bàn', pha_che: 'Pha chế' };
