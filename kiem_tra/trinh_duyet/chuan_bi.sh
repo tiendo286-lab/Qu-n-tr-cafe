@@ -20,7 +20,7 @@ import re,sys; p=sys.argv[1]; s=open(p).read()
 s=re.sub(r'(<script type="module" src="js/app\.js(?:\?v=[^"]+)?"></script>)',r'<script src="test/catch.js"></script>\n\1\n<script type="module" src="test/driver.js"></script>',s,count=1)
 open(p,'w').write(s)
 PY
-cp "$D/flow_dt169.js" "$D/flow_dt170.js" "$W/test/"
+cp "$D/flow_dt169.js" "$D/flow_dtgop.js" "$D/menu_dt.js" "$W/test/"   # 28/11: trang Đào tạo gộp (flow_dt170 bỏ cùng thẻ Phân công / Chờ kiểm tra kiểu cũ)
 cp "$D/flow_ln174.js" "$W/test/"
 cp "$D/flow_hh_c4.js" "$W/test/"   # chặng 4
 cp "$D/flow_dt_c4.js" "$W/test/"   # chặng 4: phiếu đào tạo theo tab ngày thật

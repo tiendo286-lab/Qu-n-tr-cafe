@@ -13,14 +13,14 @@ export default async ({ visit, sleep, out }) => {
   const fits = () => document.documentElement.scrollWidth <= innerWidth + 1;
   try {
     let root = await visit('#/cong-viec/dao-tao');
-    assert(root.querySelector('#dt-work'), 'Thiếu danh sách công việc đào tạo.');
-    assert(root.querySelector('a[href="#/cong-viec/dao-tao?muc=chay_ban"]'), 'Thiếu mục Chạy bàn.');
-    assert(root.querySelector('a[href="#/cong-viec/dao-tao?muc=pha_che"]'), 'Thiếu mục Pha chế.');
+    assert(root.querySelector('#pcd.dtg'), 'Thiếu danh sách công việc đào tạo.');
+    assert(root.querySelector('#dtg-prog option[value="chay_ban"]'), 'Thiếu mục Chạy bàn.');   // 28/11: hai mục thành ô lọc Chương trình
+    assert(root.querySelector('#dtg-prog option[value="pha_che"]'), 'Thiếu mục Pha chế.');
     root = await visit('#/cong-viec/dao-tao?muc=pha_che');
-    assert(root.textContent.includes('Chưa có phiếu đào tạo Pha chế'), 'Thiếu thông báo chờ phiếu Pha chế.');
-    assert(!root.querySelector('a[href="#/dao-tao/phieu?id=1"]') && fits(), 'Phiếu Chạy bàn lọt vào mục Pha chế hoặc trang tràn ngang.');
+    assert(root.querySelector('#dtg-prog').value === 'pha_che' && !root.querySelector('#dtg-empty').hidden, 'Thiếu thông báo không có phiếu Pha chế.');
+    assert(root.querySelector('details.dtg-card[data-id="1"]').hidden && fits(), 'Phiếu Chạy bàn lọt vào mục Pha chế hoặc trang tràn ngang.');
     root = await visit('#/cong-viec/dao-tao?muc=chay_ban');
-    assert(root.querySelector('a[href="#/dao-tao/phieu?id=1"]'), 'Thiếu phiếu trong mục Chạy bàn.');
+    assert(root.querySelector('details.dtg-card[data-id="1"]') && !root.querySelector('details.dtg-card[data-id="1"]').hidden, 'Thiếu phiếu trong mục Chạy bàn.');
     const form = root.querySelector('#dt-reviewer');
     form.querySelector('select').value = '1';
     form.requestSubmit();

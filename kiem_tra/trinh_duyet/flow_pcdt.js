@@ -22,9 +22,11 @@ export default async ({ visit, sleep, out }) => {
   const closeDlg = async () => { $('dialog[open].pcd-dlg')?.close(); await sleep(200); };
   try {
     if (['chu', 'kt', 'ql'].includes(role)) {
-      await go('#/dao-tao/phan-cong');
-      ok(!!$('a[href="#/dao-tao/phan-cong"]'), 'menu có mục Phân công đào tạo');
-      ok(!!$('#pcd .pcd-sum') && /\d/.test(txt($('#pcd .pcd-sum'))), 'có ô tổng có số');
+      await go('#/cong-viec/dao-tao'); for (let i = 0; i < 40 && !location.hash.startsWith('#/cong-viec/dao-tao'); i++) await sleep(100);
+      ok(location.hash.startsWith('#/cong-viec/dao-tao') && !$('a[href="#/dao-tao/phan-cong"]'), '28/11: đường cũ Phân công đào tạo tự chuyển về trang Đào tạo gộp, menu không còn mục riêng');
+      await go('#/cong-viec/dao-tao');
+      { const c = card1(); if (c) { c.open = true; await sleep(150); $('[data-dtab="ca"]', c)?.click(); await sleep(150); } }   // trang gộp: phần theo ca nằm sau nút "Phân công theo ca"
+      ok(!!$('#pcd > .pcd-sum') && /\d/.test(txt($('#pcd > .pcd-sum'))), 'có ô tổng có số');
       const c1 = card1();
       ok(!!c1 && txt(c1.querySelector('summary')).includes('Người học thử'), 'thẻ phiếu 1: tên nhân viên mới');
       if (c1) { c1.open = true; await sleep(150); }
@@ -89,8 +91,8 @@ export default async ({ visit, sleep, out }) => {
       ok(fits(), 'trang không tràn ngang');
     }
     if (role === 'ql2' || role === 'c1') {
-      await go('#/dao-tao/phan-cong');
-      ok(!$('#pcd .pcd-sum') && !!$('#pcd-mine'), 'không có bảng phân công; trang hiện Việc đào tạo của tôi');
+      await go('#/cong-viec/dao-tao');
+      ok(!$('#pcd > .pcd-sum') && !!$('#pcd-mine'), 'không có bảng phân công; trang hiện Việc đào tạo của tôi');
       await go('#/hom-nay');
       const mine = $('#pcd-mine'); const card = $(`.pcd-mc[data-key="1|${m1}|Sáng"]`, mine || document);
       ok(!!mine && !!card, 'Việc hôm nay có khối Việc đào tạo của tôi, có ca mai');

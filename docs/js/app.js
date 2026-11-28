@@ -21,7 +21,7 @@ export const HUBS = [
   ['Công việc', [['Việc của tôi', '/viec', 'nhan_viec'], ['Tất cả công việc', '/quan-ly/giao-viec', 'hop_giao_viec'], ['Bảng phân công', '/cong-viec/phan-cong', 'phan_cong'], ['Quá hạn & phạt', '/cong-viec/qua-han', 'phan_cong']], null, 'Vận hành'],
   ['Chốt tháng', [['Chốt tháng', '/quan-ly/chot-thang', 'chot_thang']], 'thang', 'Tiền'],   // bước 152: Sổ quỹ cũ → tab Tổng của Sổ thu chi
   ['Kế toán', [['Chuyển khoản thực nhận', '/ke-toan/chuyen-khoan', 'ke_toan'], ['File ca Fabi', '/ke-toan/fabi', ['ke_toan', 'doi_soat']]], null, 'Tiền'],
-  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đào tạo', '/cong-viec/dao-tao', null], ['Phân công đào tạo', '/dao-tao/phan-cong', null], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
+  ['Nhân viên & tài khoản', [['Nhân viên', '/quan-ly/nhan-vien', ['quan_ly_nhan_vien', 'dao_tao']], ['Đào tạo', '/cong-viec/dao-tao', null], ['Đánh giá', '/quan-ly/danh-gia', 'doi_soat'], ['Phân quyền', '/quan-ly/phan-quyen', 'phan_quyen']], null, 'Nhân sự'],
   ['Nội quy & quy trình', [['Nội quy', '/noi-quy', null], ['Quy trình', '/quy-trinh', null], ['Theo dõi đọc & cam kết', '/theo-doi-noi-quy', ['ke_toan', 'quan_ly_nhan_vien']]], null, 'Nhân sự'],
   ['Cài đặt', [['Định biên', '/quan-ly/dinh-bien', 'sua_danh_muc'], ['Chi nhánh, ca & vai trò', '/quan-ly/chi-nhanh', 'sua_danh_muc'],
     ['Order ca', '/quan-ly/gio-order', 'cai_gio_order'], ['Lịch cố định', '/quan-ly/lich-co-dinh', 'sua_danh_muc'],
@@ -57,7 +57,6 @@ const PAGES = {
   '/quy-trinh': 'tai_lieu',
   '/tai-lieu/soan': 'soan_tai_lieu',
   '/cong-viec/dao-tao': 'cv_dao_tao',
-  '/dao-tao/phan-cong': 'pc_dao_tao',   // tệp 174: phân công đào tạo theo ca (song song trang cũ)
   '/theo-doi-noi-quy': 'nq_theo_doi',
   '/dao-tao/phieu': 'phieu_dao_tao',
   '/cua-toi/dao-tao': 'dao_tao_cua_toi',
@@ -368,6 +367,7 @@ export async function render() {
   if (path === '/cai-dat/nguoi-vay') return go('/quan-ly/cong-no');   // UI-29: mục Người vay đã bỏ từ bước 85 → Công nợ
   // bước 104: giao hàng kho tổng chuyển sang menu Hàng hoá (giữ link cũ trong thông báo)
   if (path === '/quan-ly/giao-hang') return go((params.nhan ? '/hang-hoa/nhan' : params.ds || params.xem || can('doi_soat') ? '/hang-hoa/doi-soat' : '/hang-hoa/nhan') + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
+  if (path === '/dao-tao/phan-cong') return go('/cong-viec/dao-tao');   // 28/11: Phân công đào tạo gộp vào trang Đào tạo (giữ đường cũ trong thông báo)
   if (path === '/ke-toan/hoa-don') return go('/hang-hoa/phieu-xuat' + (Object.keys(params).length ? '?' + new URLSearchParams(params).toString() : ''));
   if (cleanup) { try { cleanup(); } catch (_) { /* bỏ qua */ } cleanup = null; }
   if (me?.view_as && !VA_FRAME && vaMode() === 'phone') {   // bước 165: khung điện thoại 390px (trang chạy trong khung, cùng phiên đăng nhập)

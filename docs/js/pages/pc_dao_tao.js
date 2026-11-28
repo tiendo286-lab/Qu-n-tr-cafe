@@ -1,36 +1,28 @@
-// Công việc › Phân công đào tạo (tệp 174, anh Tiến duyệt 24/11/2026) — chạy SONG SONG trang Đào tạo cũ, dùng chung dữ liệu.
-//  * Theo nhân viên mới: mỗi người một thẻ, mở ra là các ca theo lịch ĐÃ CÔNG BỐ; "Ngày N" = thứ tự ngày đi làm thật.
+// Phân công đào tạo theo ca (tệp 174, anh Tiến duyệt 24/11/2026). Từ 28/11/2026 không còn là trang riêng:
+//  trang Đào tạo gộp (cv_dao_tao.js) gọi planUi() để lấy các khối theo ca cho thẻ từng nhân viên.
+//  * Mỗi nhân viên mới: các ca theo lịch ĐÃ CÔNG BỐ; "Ngày N" = thứ tự ngày đi làm thật.
 //  * Bấm ca: ca tới → Phân công (người làm cùng ca hiện sẵn, tích mục, 1 lần lưu; một ca nhiều người dạy);
 //    ca đã qua → Chi tiết ngày như tab ngày của phiếu; ca hôm nay → cả hai.
 //  * Mục đã giao ca khác ghi chú; tích = chuyển sang ca này. Mục chờ kiểm tra khoá. Mục đạt không hiện.
-//  * Chờ kiểm tra nằm trong thẻ từng nhân viên. Ô lọc: một người dạy phải dạy gì trong một ngày.
-//  * Ai thấy bảng: Chủ, người phụ trách chính (mọi phiếu), HD chính (phiếu của mình). Người khác: Việc đào tạo của tôi.
-import { render as rerender } from '../app.js';
+//  * Chờ kiểm tra: Xác nhận đạt · đổi mức rồi xác nhận · Giao giai đoạn 2 (mang từ thẻ Chờ kiểm tra cũ sang, 28/11).
+//  * Ô lọc: một người dạy phải dạy gì trong một ngày.
+//  * Ai có bảng (máy chủ quyết, can_board): Chủ, người phụ trách chính (mọi phiếu), HD chính (phiếu của mình).
+import { catalog } from '../data.js';
 import { rpc } from '../sb.js';
 import { $, dialog, flash, html, showSaved, str } from '../ui.js';
+import { openItemGuide } from './dt_cong_viec.js';
 import { allShifts, cards, dayNo, groupsOf, itemWhere, shiftState, shortfall, span, workOf } from './pc_dao_tao_tinh.js?v=2026.11.28.8';
-import { LEVEL, PCD_CSS, dm, mountMyPlan, myPlanHtml, wd } from './pc_dao_tao_toi.js?v=2026.11.28.8';
+import { LEVEL, dm, wd } from './pc_dao_tao_toi.js?v=2026.11.28.8';
 
-export const perm = null;
-const F = { who: '', d: '' };   // ô lọc (giữ khi vẽ lại)
-const OPEN = new Set();          // thẻ nhân viên đang mở
+const F = { who: '', d: '' };   // ô lọc người dạy (giữ khi vẽ lại)
 const ST = { chua: ['Chưa giao', 'warn'], giao: ['Đã giao', 'mute'], ok: ['Đã chấm', 'ok'], tre: ['Chưa chấm', 'off'], trong: ['Không phân công', 'mute'] };
 const KIND = { gioi_thieu: 'Đã giới thiệu', thuc_hanh: 'Thực hành có giám sát', bo_tich: 'Bỏ tích', ghi_cu: 'Ghi trước khi có sổ lịch sử' };
 const nowText = (it) => (it.state === 'cho_kt' ? `⏳ Chờ kiểm tra · ${LEVEL[it.level] || ''}` : it.state === 'dat' ? `Đạt · ${LEVEL[it.level] || ''}` : it.state === 'gioi_thieu' ? 'Đã giới thiệu' : 'Chưa giới thiệu');
 const histText = (l) => (l.kind === 'muc' ? `Thực hành có giám sát · Mức đạt ${LEVEL[l.new?.level] || ''}${l.pending ? ' · ⏳ chờ kiểm tra' : ''}`
   : l.kind === 'xac_nhan' ? `Xác nhận đạt · ${LEVEL[l.new?.level] || ''}` : l.kind === 'dao_tao_lai' ? `Đào tạo lại · ${LEVEL[l.new?.level] || ''}` : KIND[l.kind] || l.kind);
 
-export async function render() {
-  const B = await rpc('app_dt_plan_board').catch((e) => ({ can_board: false, rows: [], err: e.message }));
-  if (!B.can_board) {
-    const P = await rpc('app_dt_my_plan').catch(() => null);
-    return {
-      title: 'Việc đào tạo của tôi',
-      html: html`${PCD_CSS}<div class="page-head"><div><h1>Việc đào tạo của tôi</h1><div class="sub">Những ca bạn được giao dạy nhân viên mới</div></div></div>
-        <div id="pcd" class="stack">${P ? myPlanHtml(P) : html`<div class="card">${B.err || 'Không tải được việc đào tạo.'}</div>`}</div>`,
-      mount: (root) => mountMyPlan(root, P, rerender),
-    };
-  }
+// B = kết quả app_dt_plan_board. keepOpen(id): nhớ thẻ đang mở trước khi vẽ lại. reload(): vẽ lại trang (giữ chỗ cuộn).
+export function planUi(B, { keepOpen, reload }) {
   const rows = B.rows || []; const today = B.today;
   const TR = new Map((B.trainers || []).map((t) => [t.id, t]));
   const nameOf = (id, r) => TR.get(id)?.name || (r && id === r.instructor_id ? r.instructor : null) || '—';
@@ -43,30 +35,30 @@ export async function render() {
     return html`<div class="pcd-meta">${xs.length} ca · ${xs.reduce((s, x) => s + x.items.length, 0)} mục</div>
       ${xs.map((x) => html`<button type="button" class="pcd-fw-it" data-open="${x.row.id}|${x.sh.date}|${x.sh.shift}"><b>${x.row.employee}</b> · ${x.sh.branch || ''} ${x.sh.shift} · ${x.sh.off ? 'không còn trong lịch' : 'Ngày ' + dayNo(x.row, x.sh.date)} · mục ${span(x.items.map((i) => i.no))}</button>`)}`;
   };
-  const card = (r) => {
-    const kts = r.items.filter((i) => i.state === 'cho_kt');
-    const days = Math.max(0, ...r.items.map((i) => Number(i.day) || 0));
-    const sf = r.shifts.length ? shortfall(r, days) : 0;
-    const shs = allShifts(r);   // + ca "không còn trong lịch" (lịch đổi sau khi đã giao)
-    const tre = shs.filter((sh) => shiftState(r, sh, today) === 'tre').length;
-    const loose = r.items.filter((i) => i.who_id && !i.date && (i.state === 'chua' || i.state === 'gioi_thieu'));
-    return html`<details class="card pcd-card" data-id="${r.id}" ${OPEN.has(r.id) ? 'open' : ''}>
-      <summary><div class="pcd-h"><b>${r.employee}</b><span class="pcd-meta">${r.program} · Đạt ${r.achieved}/${r.total} · hạn ${dm(r.due)} · HD chính ${r.instructor || '—'}</span></div>
-        <div class="pcd-bar"><i style="width:${Math.round((100 * r.achieved) / Math.max(1, r.total))}%"></i></div>
-        <div class="pcd-sum">${kts.length ? html`<span class="pill warn">${kts.length} chờ kiểm tra</span>` : ''}${tre ? html`<span class="pill off">${tre} ca chưa chấm</span>` : ''}${sf ? html`<span class="pill warn">Thiếu ${sf} ngày làm</span>` : ''}</div></summary>
-      <div class="pcd-body">
-        ${sf ? html`<div class="pcd-warn">Lịch đã công bố tới hạn ${dm(r.due)} mới có ${days - sf} ngày làm, thiếu ${sf} ngày so với ${days} ngày giáo trình (lịch tuần sau có thể chưa công bố).</div>` : ''}
-        ${kts.length ? html`<div class="pcd-kt"><div class="pcd-lbl">⏳ CHỜ KIỂM TRA · ${kts.length} MỤC</div>${kts.map((i) => html`<div class="pcd-ktr" data-no="${i.no}"><span><b>${i.no}.</b> ${i.title}<br>
+  const kts = (r) => r.items.filter((i) => i.state === 'cho_kt');
+  const giaoTrinh = (r) => Math.max(0, ...r.items.map((i) => Number(i.day) || 0));
+  const thieu = (r) => (r.shifts.length ? shortfall(r, giaoTrinh(r)) : 0);
+  const nTre = (r) => allShifts(r).filter((sh) => shiftState(r, sh, today) === 'tre').length;
+  // ca sắp tới chưa giao ai dạy — chỉ tính khi còn mục chưa đạt mà chưa xếp vào ca nào (hết mục để giao thì ca trống là bình thường)
+  const nTodo = (r) => (r.items.some((i) => (i.state === 'chua' || i.state === 'gioi_thieu') && !i.date)
+    ? allShifts(r).filter((sh) => !sh.off && shiftState(r, sh, today) === 'chua').length : 0);
+  const pills = (r) => { const k = kts(r).length; const tre = nTre(r); const sf = thieu(r); const td = nTodo(r);
+    return html`${k ? html`<span class="pill warn">${k} chờ kiểm tra</span>` : ''}${tre ? html`<span class="pill off">${tre} ca chưa chấm</span>` : ''}${td ? html`<span class="pill off">${td} ca chưa giao</span>` : ''}${sf ? html`<span class="pill warn">Thiếu ${sf} ngày làm</span>` : ''}`; };
+  const warnHtml = (r) => { const sf = thieu(r); const days = giaoTrinh(r);
+    return sf ? html`<div class="pcd-warn">Lịch đã công bố tới hạn ${dm(r.due)} mới có ${days - sf} ngày làm, thiếu ${sf} ngày so với ${days} ngày giáo trình (lịch tuần sau có thể chưa công bố).</div>` : ''; };
+  const ktHtml = (r) => { const ks = kts(r);
+    return ks.length ? html`<div class="pcd-kt"><div class="pcd-lbl">⏳ CHỜ KIỂM TRA · ${ks.length} MỤC</div>${ks.map((i) => html`<div class="pcd-ktr" data-no="${i.no}"><span><b>${i.no}.</b> ${i.title}<br>
             <span class="pcd-meta">${i.pending_by || '—'} ghi mức <b>${LEVEL[i.level] || i.level}</b>${i.pending_at ? ' · ' + dm(i.pending_at) + ' ' + String(i.pending_at).slice(11, 16) : ''}${i.sub_by ? ` · ${nameOf(i.sub_by, r)} giao lại — ${nameOf(i.sub_by, r)} hoặc người phụ trách chính xác nhận` : ''}</span></span>
-            ${r.can_check ? html`<span class="pcd-kta"><select class="input sm pcd-kt-lv" aria-label="Mức hạng mục ${i.no}">${Object.entries(LEVEL).map(([k, v]) => html`<option value="${k}" ${k === i.level ? 'selected' : ''}>${v}</option>`)}</select><button type="button" class="btn sm" data-ktok>Xác nhận đạt</button></span>` : ''}</div>`)}</div>` : ''}
-        ${loose.length ? html`<div class="pcd-meta">${loose.length} mục đã giao ở trang cũ, chưa xếp ca: mục ${span(loose.map((i) => i.no))}</div>` : ''}
+            ${r.can_check ? html`<span class="pcd-kta"><select class="input sm pcd-kt-lv" aria-label="Mức hạng mục ${i.no}">${Object.entries(LEVEL).map(([k, v]) => html`<option value="${k}" ${k === i.level ? 'selected' : ''}>${v}</option>`)}</select><button type="button" class="btn sm" data-ktok>Xác nhận đạt</button><button type="button" class="btn sm secondary" data-ktp2 ${i.level === 'tot' ? 'hidden' : ''}>Giao giai đoạn 2</button></span>` : ''}</div>`)}</div>`
+      : html`<div class="pcd-meta">Không có mục nào chờ kiểm tra.</div>`; };
+  const shiftsHtml = (r) => { const shs = allShifts(r);   // + ca "không còn trong lịch" (lịch đổi sau khi đã giao)
+    const loose = r.items.filter((i) => i.who_id && !i.date && (i.state === 'chua' || i.state === 'gioi_thieu'));
+    return html`${loose.length ? html`<div class="pcd-meta">${loose.length} mục đã giao ở trang cũ, chưa xếp ca: mục ${span(loose.map((i) => i.no))}</div>` : ''}
         ${shs.length ? html`<div class="pcd-shs">${shs.map((sh) => { const st = shiftState(r, sh, today); const gs = groupsOf(r, sh);
           return html`<button type="button" class="pcd-sh ${st}${sh.off ? ' off' : ''}" data-key="${sh.date}|${sh.shift}"><span class="pcd-sd"><span class="pcd-dn">${sh.off ? 'Ngoài lịch' : 'Ngày ' + dayNo(r, sh.date)}</span><b>${wd(sh.date)} ${dm(sh.date)}</b><span>${sh.branch || ''} ${sh.shift}</span></span>
             <span class="pcd-sw">${gs.length ? gs.map((g) => html`<span class="pcd-gl">${gLabel(g, r)}</span>`) : html`<span class="pcd-meta">${sh.date < today ? 'Không có phân công' : 'Chưa phân công'}</span>`}</span>
             ${sh.off ? html`<span class="pcd-meta pcd-offt">không còn trong lịch</span>` : ''}<span class="pill ${ST[st][1]}">${sh.date === today ? 'Hôm nay' : ST[st][0]}</span></button>`; })}</div>`
-          : html`<div class="pcd-meta pcd-nosched">Chưa có lịch đã công bố — chưa có ca để phân công.</div>`}
-      </div></details>`;
-  };
+          : html`<div class="pcd-meta pcd-nosched">Chưa có lịch đã công bố — chưa có ca để phân công.</div>`}`; };
 
   // ---- bảng dưới khi bấm một ca
   const openShift = (r, sh, view0) => {
@@ -144,7 +136,7 @@ export async function render() {
       const p = t.closest('[data-pick]') || t.closest('[data-edit]'); if (p) { pick = Number(p.dataset.pick || p.dataset.edit); view = 'pc'; paint(); return; }
       const un = t.closest('[data-un]');
       if (un) { un.disabled = true;
-        try { const n = await rpc('app_dt_plan_unassign', { p_id: r.id, p_date: sh.date, p_shift: sh.shift, p_employee: Number(un.dataset.un) }); d.close(); OPEN.add(r.id); flash(`Đã bỏ giao ${n} mục.`); rerender(); }
+        try { const n = await rpc('app_dt_plan_unassign', { p_id: r.id, p_date: sh.date, p_shift: sh.shift, p_employee: Number(un.dataset.un) }); d.close(); keepOpen(r.id); flash(`Đã bỏ giao ${n} mục.`); reload(); }
         catch (err) { un.disabled = false; showSaved(err.message, true); }
         return; }
       const go = t.closest('#pcd-go');
@@ -152,45 +144,51 @@ export async function render() {
         const items = [...d.querySelectorAll('input[data-no]:checked')].map((x) => Number(x.dataset.no)); go.disabled = true;
         try {
           const res = await rpc('app_dt_plan_assign', { p_id: r.id, p_date: sh.date, p_shift: sh.shift, p_branch: sh.branch_id, p_employee: pick, p_items: items });
-          d.close(); OPEN.add(r.id);
+          d.close(); keepOpen(r.id);
           flash(`Đã phân công ${res.n} mục cho ${nameOf(pick, r)} · ${sh.shift} ${wd(sh.date)} ${dm(sh.date)}${res.moved ? ` · chuyển ${res.moved} mục từ ca khác` : ''}${res.skipped ? ` · bỏ qua ${res.skipped} mục đã chấm` : ''}.`);
-          rerender();
+          reload();
         } catch (err) { go.disabled = false; showSaved(err.message, true); }
       }
     });
     paint(); if (view === 'ct') loadH();
   };
 
-  return {
-    title: 'Phân công đào tạo',
-    html: html`${PCD_CSS}<div class="page-head"><div><h1>Phân công đào tạo</h1><div class="sub">Giao việc đào tạo theo từng ca đi làm của nhân viên mới · trang cũ vẫn dùng được ở <a href="#/cong-viec/dao-tao">Đào tạo</a></div></div></div>
-      <div id="pcd" class="stack pcd">
-        <div class="pcd-sum"><span class="pill info">${C.n} người đang đào tạo</span><span class="pill ${C.tre ? 'off' : 'mute'}">${C.tre} ca chưa chấm</span><span class="pill ${C.kt ? 'warn' : 'mute'}">${C.kt} mục chờ kiểm tra</span></div>
-        <section class="card pcd-fw"><div class="pcd-lbl">XEM VIỆC CỦA MỘT NGƯỜI DẠY</div>
+  const fwSection = () => html`<section class="card pcd-fw"><div class="pcd-lbl">XEM VIỆC CỦA MỘT NGƯỜI DẠY</div>
           <div class="pcd-fw-f"><select id="pcd-who" class="input sm" aria-label="Người dạy"><option value="">— Chọn người dạy —</option>${(B.trainers || []).map((t) => html`<option value="${t.id}" ${String(t.id) === F.who ? 'selected' : ''}>${t.name} (${t.rank})</option>`)}</select>
             <input id="pcd-d" type="date" class="input sm" aria-label="Ngày" value="${F.d || today}"></div>
-          <div id="pcd-fw-r">${fwHtml()}</div></section>
-        ${rows.length ? rows.map(card) : html`<div class="card">Không có nhân viên nào đang đào tạo.</div>`}
-      </div>`,
-    mount(root) {
-      const onChange = (e) => {
-        if (e.target.id === 'pcd-who' || e.target.id === 'pcd-d') { F.who = $('#pcd-who', root).value; F.d = $('#pcd-d', root).value; $('#pcd-fw-r', root).innerHTML = str(fwHtml()); }
-      };
-      const onToggle = (e) => { const c = e.target.closest?.('details.pcd-card'); if (c) { const id = Number(c.dataset.id); if (c.open) OPEN.add(id); else OPEN.delete(id); } };
-      const onClick = async (e) => {
-        const t = e.target;
-        const shb = t.closest('.pcd-sh');
-        if (shb) { const r = rows.find((x) => x.id === Number(shb.closest('.pcd-card').dataset.id)); const [date, shift] = shb.dataset.key.split('|');
-          const sh = allShifts(r).find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return; }
-        const fo = t.closest('[data-open]');
-        if (fo) { const [id, date, shift] = fo.dataset.open.split('|'); const r = rows.find((x) => x.id === Number(id)); const sh = r && allShifts(r).find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return; }
-        const ok = t.closest('.pcd-ktr [data-ktok]');
-        if (ok) { const row = ok.closest('.pcd-ktr'); const id = Number(row.closest('.pcd-card').dataset.id); ok.disabled = true;
-          try { await rpc('app_dt_check_ok', { p_id: id, p_no: Number(row.dataset.no), p_level: row.querySelector('.pcd-kt-lv').value }); OPEN.add(id); flash('Đã xác nhận đạt.'); rerender(); }
-          catch (err) { ok.disabled = false; showSaved(err.message, true); } }
-      };
-      root.addEventListener('change', onChange); root.addEventListener('toggle', onToggle, true); root.addEventListener('click', onClick);
-      return () => { root.removeEventListener('change', onChange); root.removeEventListener('toggle', onToggle, true); root.removeEventListener('click', onClick); };
-    },
+          <div id="pcd-fw-r">${fwHtml()}</div></section>`;
+  const sumHtml = () => html`<div class="pcd-sum"><span class="pill info">${C.n} người đang đào tạo</span><span class="pill ${C.tre ? 'off' : 'mute'}">${C.tre} ca chưa chấm</span><span class="pill ${C.kt ? 'warn' : 'mute'}">${C.kt} mục chờ kiểm tra</span></div>`;
+
+  // Trả true nếu sự kiện thuộc phần theo ca (trang gọi không xử lý tiếp).
+  const handleChange = (e, root) => {
+    if (e.target.id === 'pcd-who' || e.target.id === 'pcd-d') { F.who = $('#pcd-who', root).value; F.d = $('#pcd-d', root).value; $('#pcd-fw-r', root).innerHTML = str(fwHtml()); return true; }
+    const lv = e.target.closest?.('.pcd-kt-lv');
+    if (lv) { const p2 = lv.closest('.pcd-ktr')?.querySelector('[data-ktp2]'); if (p2) p2.hidden = lv.value === 'tot'; return true; }
+    return false;
   };
+  const handleClick = (e) => {
+    const t = e.target;
+    const shb = t.closest('.pcd-sh');
+    if (shb) { const r = rows.find((x) => x.id === Number(shb.closest('.pcd-card').dataset.id)); const [date, shift] = shb.dataset.key.split('|');
+      const sh = r && allShifts(r).find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return true; }
+    const fo = t.closest('[data-open]');
+    if (fo) { const [id, date, shift] = fo.dataset.open.split('|'); const r = rows.find((x) => x.id === Number(id)); const sh = r && allShifts(r).find((s) => s.date === date && s.shift === shift); if (sh) openShift(r, sh); return true; }
+    const ok = t.closest('.pcd-ktr [data-ktok]'); const p2 = t.closest('.pcd-ktr [data-ktp2]');
+    if (!ok && !p2) return false;
+    const btn = ok || p2; const row = btn.closest('.pcd-ktr'); const id = Number(row.closest('.pcd-card').dataset.id); const no = Number(row.dataset.no);
+    const level = row.querySelector('.pcd-kt-lv').value; btn.disabled = true;
+    (async () => {
+      try { await rpc('app_dt_check_ok', { p_id: id, p_no: no, p_level: level }); }
+      catch (err) { btn.disabled = false; showSaved(err.message, true); return; }
+      keepOpen(id);
+      if (ok) { flash('Đã xác nhận đạt.'); reload(); return; }
+      // Giao giai đoạn 2 = xác nhận mức hiện tại (Trung bình / Khá) rồi giao người luyện thêm
+      const r = rows.find((x) => x.id === id); const it = r.items.find((x) => x.no === no);
+      const brs = await catalog().then((c) => (c.activeBranches || []).map((b) => ({ id: b.id, code: b.display_code || b.code })), () => []);
+      openItemGuide({ id, instructor: r.instructor, instructor_id: r.instructor_id, branch: r.branch, item_branches: brs,
+        helpers: (B.trainers || []).filter((x) => x.id !== r.employee_id).map((x) => ({ id: x.id, name: x.name })) }, it, null, () => reload(), true);
+    })();
+    return true;
+  };
+  return { rows, today, C, trainers: B.trainers || [], pills, warnHtml, ktHtml, shiftsHtml, fwSection, sumHtml, nTodo, nKt: (r) => kts(r).length, handleClick, handleChange };
 }
