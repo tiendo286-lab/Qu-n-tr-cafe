@@ -51,6 +51,13 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
 
+## 28/11/2026 tối — CHỐT CA: MÀU Ô THEO ĐỐI SOÁT — ĐÃ LÊN WEB 2026.11.28.11 (21:28), không đổi máy chủ
+- **Anh Tiến chốt 28/11:** bảng tuần Chốt ca phải cho thấy ngay ca nào quản lý đã đối soát; ca quản lý đã làm xong phần mình nhưng còn chờ tiền về hoặc chờ Chủ duyệt x2 KHÔNG được hiện giống ca quản lý chưa làm. Anh duyệt theo hình mẫu bấm được (trang riêng tư https://claude.ai/artifact/FNCvYXUkwVyHzLfkAwsYdq).
+- **Đã làm** (`chot_ca.js`, hàm `dsKind` — chỉ hiển thị, đọc `app_ca_ds_tuan` như cũ): xanh đậm = đã đối soát xong · xanh dương "QL đã đối soát" = tiền `lech` / `ok` và phần việc chỉ còn "Chờ Chủ duyệt x2" (ô ghi rõ chờ gì) · vàng "QL chưa đối soát" = còn dấu phần việc hoặc tiền `red` / `xn` / `ht` · tím = `kt` chờ kế toán; dòng đếm "Tuần này" trên bảng. Người không có quyền đối soát thấy bảng như cũ.
+- **Bài thử:** `flow_dsca` thêm 2 dòng (màu ô 172 / 182 + bảng xếp loại 8 trường hợp) — chu / qlt / ql 29 (điện thoại 30), nv 3; `flow_stc1` chu đạt.
+- **Chưa xác nhận / còn ngỏ:** (1) ca `lech` luôn xếp xanh dương "Chờ tiền về / chênh lệch" kể cả khi chênh lệch đó quản lý còn phải tự xử lý — máy chủ chưa tách được, muốn tách cần tệp SQL mới; (2) dòng "ai đối soát, lúc nào" trong ô chưa làm (cần máy chủ trả thêm) — anh chưa trả lời có cần không.
+- **Bài học:** lớp màu mới trên `.cw-c` phải viết `.cw-c.cw-c.ds-*` vì `.cw-c.ok` nằm sau trong cùng khối kiểu và đè mất màu; dữ liệu thử không có ca xanh đậm / xanh dương nên phải kiểm cách xếp loại bằng hàm, đừng chỉ nhìn ảnh. Cây làm việc mới (worktree) đã có sẵn thư mục `du_lieu/` (chỉ có tệp ví dụ) — chép `app.sqlite3` vào đó rồi mới chạy `chuan_bi.sh`.
+
 ## 25/11/2026 chiều — MÁY CHỦ TỆP 175: CHÌA KHOÁ CHỈ ĐỌC `ai_doc` CHO CÔNG TY AI (đã chạy thật, nhánh `ai-doc-chi-doc`, không đổi web)
 - Anh Tiến chọn cho nhân viên AI (kho riêng tư `tiendo286-lab/cong-ty-ai`, thư mục `~/CÔNG TY AI`) đọc số bằng vai Postgres `ai_doc`: `bypassrls`, chỉ `select` mọi bảng public (+ bảng mới về sau), `default_transaction_read_only=on`, `statement_timeout=20s`, tối đa 3 kết nối, không vào `auth`. Không đổi hàm `app_*`, `app_can`, `role_permissions`, không đụng vùng khoá.
 - Đã chạy thử (tự hoàn tác) rồi chạy thật 14:2x; `app_migrations` đã ghi `175_ai_doc_chi_doc.sql`. Mật khẩu đặt riêng qua Management API, chỉ ở `~/.cong_ty_ai/ai_doc.env` trên Mac (không trong kho nào).
