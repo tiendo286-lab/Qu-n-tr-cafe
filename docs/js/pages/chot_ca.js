@@ -123,10 +123,11 @@ export async function render({ params }) {
     // bước 80: hiện lại tiền mặt / chuyển khoản âm dương dưới trạng thái
     const money = s.status === 'hoan_thanh' && s.cash_left != null ? html`<span class="cw-m"><span class="${Number(s.cash_left) < 0 ? 'neg' : Number(s.cash_left) > 0 ? 'pos' : ''}">TM ${kfmt(s.cash_left)}</span><span class="${Number(s.transfer_left) < 0 ? 'neg' : Number(s.transfer_left) > 0 ? 'pos' : ''}">CK ${kfmt(s.transfer_left)}</span></span>` : '';
     const x = s.report_id ? DSW.get(Number(s.report_id)) : null;   // người đối soát: thay "Xong" bằng Việc · Tiền
-    const st = x ? (x.recon === 'hoan_thanh' ? html`<span class="cw-st">✓ Đã đối soát</span>`
-      : html`<span class="cw-dv">Việc ${x.viec?.xong ? '✓' : '–'}</span><span class="cw-dt">Tiền ${TSYM[x.tien?.st] || '…'}</span>`) : html`<span class="cw-st">${lb}</span>`;
+    const k = x ? dsKind(x) : null;   // anh Tiến 28/11: màu ô theo đối soát — xong hẳn / quản lý đã làm, đang chờ / quản lý còn việc / chờ kế toán
+    const st = x ? (k.k === 'done' ? html`<span class="cw-st">✓ Đã đối soát xong</span>`
+      : html`<span class="cw-st">${DSLB[k.k]}</span>${k.why.map((w) => html`<span class="cw-why">${w}</span>`)}<span class="cw-vt"><span class="cw-dv">Việc ${x.viec?.xong ? '✓' : '–'}</span><span class="cw-dt">Tiền ${TSYM[x.tien?.st] || '…'}</span></span>`) : html`<span class="cw-st">${lb}</span>`;
     const tip = x && x.recon !== 'hoan_thanh' ? ` · Việc: ${x.viec?.xong ? 'xong' : 'còn ' + (x.viec?.thieu || []).join(', ')} · Tiền: ${TTXT[x.tien?.st] || ''}${(x.tien?.thieu || []).length ? ' (thiếu ' + x.tien.thieu.join(', ') + ')' : ''}` : '';
-    return html`<td><button type="button" class="ca-shift cw-c ${cls} ${x && x.recon === 'hoan_thanh' ? 'dsok' : ''}" data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" ${x ? html`data-ds="1" data-tab="${x.tab || 'viec'}"` : ''} title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}${tip}">
+    return html`<td><button type="button" class="ca-shift cw-c ${cls} ${k ? 'ds-' + k.k : ''} ${x && x.recon === 'hoan_thanh' ? 'dsok' : ''}" ${k ? html`data-dsk="${k.k}"` : ''} data-b="${s.branch_id}" data-s="${s.shift}" data-d="${d}" data-id="${s.report_id || ''}" ${x ? html`data-ds="1" data-tab="${x.tab || 'viec'}"` : ''} title="Ca ${s.shift} ${dmy(d)}${s.completed_by ? ' · chốt: ' + s.completed_by : ''}${tip}">
       ${st}${money}${s.report_id ? debtLines(DEBT.get(s.report_id)) : ''}</button></td>`;
   };
   const body = html`${STYLE}${WSTYLE}${NB_CSS}${ND_CSS}
@@ -139,10 +140,12 @@ export async function render({ params }) {
     <section class="card cw-card"><div class="cw-h"><h2>${BR.code} – ${BR.name}</h2><span class="st-meta">${nDone} phiếu xong${nMiss ? html` · <b class="neg">${nMiss} thiếu phiếu</b>` : ''}</span></div>
       ${(CON || []).length ? html`<div class="cw-con">Còn <b>${CON.length} ca chưa đối soát xong</b>${nKt ? ` (${nKt} ca chờ kế toán)` : ''}${conOk.length
         ? html` · <a href="#/ca/doi-soat?id=${conOk[0].id}&tab=${conOk[0].tab || 'viec'}">Làm ca cũ nhất ›</a>` : ' · các ca còn lại đều chờ kế toán'}</div>` : ''}
+      ${DSW.size ? html`<div class="cw-sum">${dsSum([...DSW.values()])}</div>` : ''}
       <div class="cw-wrap"><table class="cw-t"><thead><tr><th></th>${shifts.map((s) => html`<th>${s}</th>`)}</tr></thead>
         <tbody>${days.map((d, i) => html`<tr class="${d === today ? 'today' : ''}"><th><b>${WEEKDAYS[i].replace('Thứ ', 'T').replace('Chủ nhật', 'CN')}</b><span>${dmy(d).slice(0, 5)}</span></th>
           ${shifts.map((sh) => cell(mine[i].find((r) => r.shift === sh), d))}</tr>`)}</tbody></table></div>
-      <div class="cw-lg"><span class="cw-c ok">Xong</span><span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div>
+      ${DSW.size ? html`<div class="cw-lg"><span class="cw-c ds-done">Đã đối soát xong</span><span class="cw-c ds-hold">QL đã đối soát, đang chờ tiền về / Chủ duyệt</span><span class="cw-c ds-wait">QL chưa đối soát xong</span><span class="cw-c ds-kt">Chờ kế toán</span></div>` : ''}
+      <div class="cw-lg">${DSW.size ? '' : html`<span class="cw-c ok">Xong</span>`}<span class="cw-c warn">Đang chốt</span><span class="cw-c none">Chưa mở</span><span class="cw-c miss">Thiếu phiếu</span><span class="st-meta">TM / CK: tiền mặt / chuyển khoản lệch (âm = thiếu, dương = dư). Đỏ: khách nợ chưa trả · xanh: đã trả (ghi ca trả) · xanh dương: ca thu nợ. Bấm ô để mở phiếu.</span></div>
       ${DSW.size ? html`<div class="cw-lg cw-lgds st-meta"><b>Đối soát:</b> Việc ✓ xong · – còn việc &nbsp;|&nbsp; Tiền ⏳ chờ kế toán · 🔴 ô đỏ (mở ca / doanh thu / nợ) · 🔵 chờ xác nhận Fabi · 🟡 chưa bấm Hoàn thành · 🟠 còn chênh lệch chờ xử lý · ✓ xong. Bấm ô để đối soát ca đó.</div>` : ''}</section>
     ${debtSection(DEBT, days.flatMap((d, i) => shifts.map((sh) => mine[i].find((r) => r.shift === sh)).filter((s) => s && s.report_id).map((s) => ({ report_id: s.report_id, day: d, shift: s.shift }))))}`}`;
   return {
@@ -165,9 +168,33 @@ export async function render({ params }) {
 // Đối soát về Chốt ca: ký hiệu dòng Tiền (giống Đối soát Fabi)
 const TSYM = { kt: '⏳', red: '🔴', xn: '🔵', ht: '🟡', lech: '🟠', ok: '✓' };   // 🟠: anh Tiến chốt 23/11
 const TTXT = { kt: 'chờ kế toán', red: 'còn ô đỏ (mở ca / doanh thu / nợ)', xn: 'chờ xác nhận Fabi', ht: 'chưa bấm Hoàn thành', lech: 'còn chênh lệch chờ xử lý / chờ Chủ duyệt', ok: 'xong' };
+// Anh Tiến 28/11: xếp loại ô ca theo AI đang giữ việc (chỉ hiển thị — đọc đúng trạng thái máy chủ trả, không đổi luật).
+//   done = đã đối soát xong · kt = chờ kế toán · wait = quản lý còn việc (dấu phần việc, ô đỏ, xác nhận Fabi, bấm Hoàn thành)
+//   hold = quản lý đã làm xong phần mình, còn chờ: chênh lệch / tiền về (🟠), Chủ duyệt x2
+const DSLB = { hold: 'QL đã đối soát', wait: 'QL chưa đối soát', kt: 'Chờ kế toán' };
+const X2 = 'Chờ Chủ duyệt x2';
+export function dsKind(x) {
+  if (x.recon === 'hoan_thanh') return { k: 'done', why: [] };
+  const t = x.tien?.st, thieu = x.viec?.thieu || [];
+  if (t === 'kt') return { k: 'kt', why: [] };
+  if (thieu.some((v) => v !== X2) || (!x.viec?.xong && !thieu.length) || !['lech', 'ok'].includes(t)) return { k: 'wait', why: [] };
+  const why = [];
+  if (t === 'lech') why.push('Chờ tiền về / chênh lệch');
+  if (thieu.includes(X2)) why.push(X2);
+  return { k: 'hold', why: why.length ? why : ['Chờ hoàn tất'] };
+}
+function dsSum(list) {
+  const n = { done: 0, hold: 0, wait: 0, kt: 0 }; list.forEach((x) => { n[dsKind(x).k] += 1; });
+  return html`Tuần này: <b class="s-done">${n.done} ca xong</b> · <b class="s-hold">${n.hold} ca QL đã đối soát, đang chờ</b> · <b class="s-wait">${n.wait} ca QL chưa đối soát</b>${n.kt ? html` · <b class="s-kt">${n.kt} ca chờ kế toán</b>` : ''}`;
+}
 const WSTYLE = html`<style>
-  .cw-dv, .cw-dt { display: block; font-size: 12px; font-weight: 600; line-height: 1.35; }
-  .cw-c.dsok .cw-st { color: var(--ok-ink, #166534); }
+  .cw-c.cw-c.ds-done { background: #1f8a4c; border-color: #1f8a4c; color: #fff; } .cw-c.cw-c.ds-done .cw-st, .cw-c.cw-c.ds-done .cw-m, .cw-c.cw-c.ds-done .cw-m span { color: #fff; } .cw-c.cw-c.ds-done .cw-m .neg { color: #ffd9d4; }
+  .cw-c.cw-c.ds-hold { background: #dbe9fb; border-color: #7fa9e3; color: #123f7a; }
+  .cw-c.cw-c.ds-wait { background: #fff1c7; border-color: #e6bd4a; color: #6b4a00; }
+  .cw-c.cw-c.ds-kt { background: #ece4f7; border-color: #b79ee0; color: #47307a; }
+  .cw-why { display: block; font-size: 12px; font-weight: 700; line-height: 1.3; } .cw-vt { display: flex; flex-wrap: wrap; gap: 0 8px; opacity: .85; }
+  .cw-sum { font-size: 14px; overflow-wrap: anywhere; } .cw-sum .s-done { color: #166534; } .cw-sum .s-hold { color: #123f7a; } .cw-sum .s-wait { color: #8a5a00; } .cw-sum .s-kt { color: #47307a; }
+  .cw-dv, .cw-dt { font-size: 12px; font-weight: 600; line-height: 1.35; }
   .cw-con { font-size: 14px; padding: 8px 10px; border-radius: 8px; background: var(--warn-bg, #fff7e6); border: 1px solid var(--warn-line, #f3d19c); overflow-wrap: anywhere; }
   .cw-lgds { font-size: 12px; }
   .cw-bar { display: flex; justify-content: space-between; align-items: center; gap: 10px; flex-wrap: wrap; padding: 12px 14px; }
