@@ -1,4 +1,4 @@
--- Tệp 202 — Thêm người vào ca: nhân viên quán · nhân viên cũ · NGƯỜI NGOÀI (anh Tiến duyệt 28/11/2026).
+-- Tệp 203 — Thêm người vào ca: nhân viên quán · nhân viên cũ · NGƯỜI NGOÀI (anh Tiến duyệt 28/11/2026).
 --
 -- Người ngoài = một hồ sơ gọn trong employees: is_outsider = true, trạng thái 'Ngừng làm' (không lịch, không đánh giá, không đào tạo),
 --   cấp bậc 'Người ngoài', trả lương tiền mặt, KHÔNG có tài khoản. Nhờ vậy mọi hàm đang nối người làm của ca với hồ sơ nhân viên
@@ -79,4 +79,4 @@ end $$;
 revoke execute on function public.app_ca_outsider_rename(bigint, text) from public, anon;
 grant execute on function public.app_ca_outsider_rename(bigint, text) to authenticated;
 
-insert into public.app_migrations(file) values ('202_nguoi_ngoai_lam_ca.sql') on conflict (file) do nothing;
+insert into public.app_migrations(file) values ('203_nguoi_ngoai_lam_ca.sql') on conflict (file) do nothing;

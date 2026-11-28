@@ -568,9 +568,9 @@ export function makeCa(T, me) {
       const br = (id) => (T.employee_branches || []).filter((x) => x.employee_id === id).map((x) => x.branch_id);
       const js = ({ id, code, name: n, rank, pay_cash }) => ({ id, code, name: n, rank, pay_cash: !!pay_cash, branches: br(id) });
       return { active: T.employees.filter((e) => e.status === 'Đang làm').map(js), former: T.employees.filter((e) => e.status !== 'Đang làm' && !e.is_outsider).map(js),
-        outside: T.employees.filter((e) => e.status !== 'Đang làm' && e.is_outsider).map(js) };   // tệp 202: người ngoài
+        outside: T.employees.filter((e) => e.status !== 'Đang làm' && e.is_outsider).map(js) };   // tệp 203: người ngoài
     },
-    app_ca_outsider_add({ p_name, p_phone = null }) {   // tệp 202: tạo nhanh người ngoài; trùng tên → trả hồ sơ cũ
+    app_ca_outsider_add({ p_name, p_phone = null }) {   // tệp 203: tạo nhanh người ngoài; trùng tên → trả hồ sơ cũ
       const nm = String(p_name || '').trim().replace(/\s+/g, ' ');
       if (nm.length < 2 || nm.length > 60) throw new Error('Tên người ngoài từ 2 đến 60 ký tự.');
       if (p_phone && !/^[0-9 +().-]{8,20}$/.test(String(p_phone).trim())) throw new Error('Số điện thoại không hợp lệ.');

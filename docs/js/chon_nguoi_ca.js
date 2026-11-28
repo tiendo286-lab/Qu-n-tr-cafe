@@ -1,4 +1,4 @@
-// Chọn người thêm vào ca (tệp 202, anh Tiến duyệt 28/11/2026): 3 loại — Nhân viên trong quán · Nhân viên cũ · Người ngoài.
+// Chọn người thêm vào ca (tệp 203, anh Tiến duyệt 28/11/2026): 3 loại — Nhân viên trong quán · Nhân viên cũ · Người ngoài.
 // Dùng chung cho hộp "Thêm người hỗ trợ" (trang đối soát ca) và "Thêm người vào ca" (bảng Nghỉ & làm thay).
 // Người ngoài là hồ sơ gọn (không tài khoản); "+ Người ngoài mới…" tạo ngay khi bấm Lưu.
 import { rpc } from './sb.js';

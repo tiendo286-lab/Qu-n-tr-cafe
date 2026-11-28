@@ -1,4 +1,4 @@
-// Tệp 202 — Thêm người vào ca: 3 loại (Nhân viên trong quán · Nhân viên cũ · Người ngoài). role=ql|chu|qlt · index.html và test/phone.html.
+// Tệp 203 — Thêm người vào ca: 3 loại (Nhân viên trong quán · Nhân viên cũ · Người ngoài). role=ql|chu|qlt · index.html và test/phone.html.
 // A. Chốt ca, bước Nhân viên: nút thứ ba "Người ngoài", gõ tên → thêm mới, không tạo trùng, không lẫn vào Nhân viên cũ.
 // B. Trang đối soát ca (ca giả 182): hộp "Thêm người hỗ trợ" chọn loại người; người ngoài mới thêm được ngay trong hộp.
 export default async ({ sleep, out }) => {
@@ -43,7 +43,7 @@ export default async ({ sleep, out }) => {
     ok(/làm hộ \/ phát sinh/.test($$('.cm-person').find((x) => /Anh Nam thử 202/.test(x.innerText))?.innerText || ''), 'người ngoài tính là người làm hộ / phát sinh');
     // gõ lại đúng tên (khác hoa thường): không có nút tạo trùng, người đã trong ca không hiện lại để bấm
     if (!$('#cm-help-list')) { $('[data-hp="out"]').click(); await wait('#cm-help-list', 50); }
-    typ($('#cm-helper'), 'anh nam THỬ 200'); await sleep(200);
+    typ($('#cm-helper'), 'anh nam THỬ 202'); await sleep(200);
     ok(!$('#cm-out-new'), 'gõ lại tên đã có (khác hoa thường): không có nút tạo trùng');
     ok(!$$('[data-add-emp]').some((b) => /Anh Nam thử 202/.test(b.innerText)), 'người đã ở trong ca không hiện lại để thêm lần hai');
     // máy chủ: gọi thêm lần nữa cùng tên → trả hồ sơ cũ
@@ -76,7 +76,7 @@ export default async ({ sleep, out }) => {
       ok([...f.emp.options].some((x) => x.value === 'moi') && [...f.emp.options].some((x) => /Anh Nam thử 202/.test(x.textContent)), 'loại Người ngoài: có "+ Người ngoài mới…" và người ngoài đã tạo ở phần A');
       chg(f.emp, 'moi'); await sleep(150);
       ok(!f.querySelector('[data-ngoai-moi]').hidden, 'chọn Người ngoài mới → hiện ô tên + số điện thoại');
-      f.in.value = '08:00'; f.out.value = '10:00'; f.reason.value = 'thử tệp 202';
+      f.in.value = '08:00'; f.out.value = '10:00'; f.reason.value = 'thử tệp 203';
       k = L().length; submit(f); await sleep(600);
       ok(!since(k).some((x) => x[1] === 'app_ca_recon_save') && !!$('[name=loai]'), 'chưa ghi tên người ngoài → không lưu, hộp còn mở');
       f.ngoai_ten.value = 'Chị Hoa thử 202'; f.ngoai_sdt.value = '0900 000 200';
@@ -122,5 +122,5 @@ export default async ({ sleep, out }) => {
       ok(fits(), `trang Nhân viên không tràn ngang (${document.documentElement.clientWidth}/${document.documentElement.scrollWidth})`);
     }
   } catch (e) { bad.push('LỖI ' + (e.stack || e.message)); }
-  out.push({ route: 'tệp 202: thêm người ngoài vào ca', title: `ĐẠT ${good.length} · LỖI ${bad.length} || ${[...bad.map((x) => 'LỖI ' + x), ...good.map((x) => 'ĐẠT ' + x)].join(' || ')}`, len: 0, errs: [...window.__ERR, ...bad] });
+  out.push({ route: 'tệp 203: thêm người ngoài vào ca', title: `ĐẠT ${good.length} · LỖI ${bad.length} || ${[...bad.map((x) => 'LỖI ' + x), ...good.map((x) => 'ĐẠT ' + x)].join(' || ')}`, len: 0, errs: [...window.__ERR, ...bad] });
 };

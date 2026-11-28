@@ -53,7 +53,7 @@ Hiện tại:
 - Tên cột, cách sinh mã, vị trí mục "Người ngoài" trong trang Nhân viên, chữ trên nút.
 
 ## Thực tế đã làm (28/11, khác bản thiết kế ở vài điểm nhỏ)
-- Tệp máy chủ `supabase/202_nguoi_ngoai_lam_ca.sql`; mô-đun chọn người `docs/js/chon_nguoi_ca.js`.
+- Tệp máy chủ `supabase/203_nguoi_ngoai_lam_ca.sql`; mô-đun chọn người `docs/js/chon_nguoi_ca.js`.
 - Thêm cả chỗ thứ ba: hộp "Thêm người vào ca" ở bảng Nghỉ & làm thay (web 2026.11.29.1 mới có).
 - Trang Nhân viên: không làm mục riêng; người ngoài nằm trong nhóm ngừng làm, có nhãn + nút Đổi tên. Chưa có Ẩn / gộp.
 - So trùng tên: không kể hoa thường và dấu cách thừa; CHƯA bỏ dấu (máy chủ không có sẵn hàm bỏ dấu).
