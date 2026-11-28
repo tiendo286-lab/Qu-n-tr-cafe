@@ -63,6 +63,13 @@ Cập nhật: 24/11/2026 21:50 (**chênh lệch hiện rõ xử lý thế nào**
 5. Bản rà soát toàn bộ việc 06→21/11 (không lưu git, chỉ trên máy anh Tiến): `tai_lieu/kiem_tra_app_lan_1/` — đọc `00_DOC_TRUOC.md`; phần kỹ thuật theo mã việc ở `phu_luc_cho_phien_AI.md`. **Trước khi hỏi anh "ý anh là gì / ở ca nào" về việc cũ, tìm trong `so_viec_theo_ngay/` ở đó.**
 
 
+## 28/11/2026 23:35 — MÁY CHỦ TỆP 199 ĐÃ CHẠY THẬT: trang đối soát mới — sửa / xoá lần khách trả nợ khi ca đã xác nhận số thì không kẹt (không đổi web)
+- **Lỗi:** LHP Tối 9/11 (ca 144) — quản lý xoá lần khách trả 63k ở trang mới, máy chủ báo "Số lệch chuyển khoản đã đổi … Sửa phần tiền → Mở lại phần tiền" (trang mới không có hai nút này). Ca đã xác nhận số (trang mới tự xác nhận khi bấm dòng chênh lệch) mà chưa Hoàn thành thì không có nút Mở lại → kẹt.
+- **Gốc:** tệp 173 cho sửa tự do tới khi Hoàn thành nhưng chốt chặn cũ `app__ca_direct_guard` (bước 119) vẫn chặn khi số lệch đổi.
+- **Đã làm (vùng khoá, anh duyệt "làm 2"):** có cờ `app.ds_moi` mà số lệch của mục tiền đã xác nhận bị đổi → không chặn, tự mở lại hai mục tiền (`app__ca_item_reopen`, có nhật ký "Tự mở lại mục tiền…"); không cờ (trang cũ, Sổ thu chi) y như trước. Chạy thử có hoàn tác bằng tài khoản quản lý: đường cũ vẫn chặn, trang mới xoá được, nợ quay lại còn nợ.
+- **Bài học:** bài thử trình duyệt dùng máy chủ giả nên không bắt được lỗi kiểu này; đổi luật ở máy chủ phải chạy thử đúng hàm `app_ds2_*` trên ca đã xác nhận số.
+- **Còn mở:** lần trả 63k của ca 144 CHƯA xoá (để quản lý tự bấm); khoản nợ hoá đơn 63k "Bàn ah cây" ở LHP Chiều 9/11 (ca 143) web chưa cho xoá — chờ anh cho biết khách thực trả lúc nào, bằng gì. `app_releases` hôm nay: xem dòng dưới nếu chưa ghi được.
+
 ## 28/11/2026 khuya — MÁY CHỦ TỆP 198 ĐÃ CHẠY THẬT: luật tự đối soát không cộng nợ chuyển khoản vào doanh thu (không đổi web)
 - **Anh Tiến hỏi LHP Tối 17/11.** **Gốc lỗi:** `app__ca_green` coi Doanh thu khớp khi doanh thu = tiền mặt + chuyển khoản + nợ mới; nợ loại `ck` (khách bấm chuyển khoản, tiền chưa về — đã nằm trong `pos_transfer`) bị cộng lần nữa → mọi ca có nợ `ck` bị coi "Doanh thu không khớp", không tự đóng dấu, lần xét lại 27/11 gỡ dấu tự động + mở lại ca. Cả 12 ca có nợ `ck` từ 1/11 đều có doanh thu = tiền mặt + chuyển khoản (+ nợ hoá đơn).
 - **Đã làm (tệp 198, anh duyệt "sửa luật, chạy thử rồi chạy thật"):** chỉ cộng nợ hoá đơn (`kind` = `bill` / trống); xét lại các ca có nợ `ck` thiếu dấu Doanh thu, bỏ qua ca mà lần xét lại sẽ gỡ dấu. Kết quả: ĐK Sáng 1/11 (60) + LHP Chiều 19/11 (391) có dấu Doanh thu (391 có thêm dấu Tiền mặt); LHP Tối 17/11 (341) KHÔNG đụng vì quản lý vừa Mở lại 22:47 đang làm dở — bấm Hoàn thành là xong.
