@@ -62,8 +62,9 @@ const STYLE = html`<style>
   .x2p-in .x2p-body { gap: 4px; }
   .x2p-in .cv-a, .x2p-in .cv-e { margin: 0 0 6px 14px; padding: 6px 8px; border-left: 3px solid #f59e0b; background: #fffbeb; border-radius: 0 8px 8px 0; display: flex; flex-direction: column; gap: 6px; }
   .x2p-in .cv-a > .cv-grid:first-child > strong, .x2p-in .cv-a > .cv-grid:first-child > .pill, .x2p-in .cv-e > .cv-grid:first-child > strong, .x2p-in .cv-e > .cv-grid:first-child > .pill { display: none; }
-  .x2p-pp[data-tg] { cursor: pointer; }
-  .x2p-pp[data-tg]::after { content: '▾'; margin-left: auto; opacity: .7; }
+  .x2p-in [hidden] { display: none !important; }   /* ô "hỗ trợ" tự ẩn khi người đó đã được chọn làm người thay */
+  .x2p-pp[data-tg] { cursor: pointer; position: relative; padding-right: 20px; }
+  .x2p-pp[data-tg]::after { content: '▾'; position: absolute; right: 6px; top: 3px; opacity: .7; }
   .x2p-fold { display: none !important; }
   .x2p-p1 { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; align-items: center; margin-top: 4px; }
 </style>`;

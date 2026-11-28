@@ -42,6 +42,10 @@ export default async ({ sleep, out }) => {
       r.push(`Dựng 3 phiếu: ${(await Promise.all(ids.map((id) => rpc('app_ca_get', { p_id: id })))).map((x) => x.status).join(', ')}`);
       // 27/11 (cách 2, tệp 186): ca thứ 4 có 1 người nghỉ + 2 người hỗ trợ (3 người) → lưu riêng từng người
       const id4 = pick[3] ? await mkCa(pick[3], true, 1) : null;
+      // 28/11 khuya: bảng theo ca, sửa tại dòng — người hỗ trợ đã được ghép làm người thay thì ô "hỗ trợ" của người đó phải ẩn
+      await goB('#/quan-ly/nghi-lam-thay');
+      { const c0 = $(`.x2p-ca[data-id="${ids[0]}"]`), e0 = c0?.querySelector('.cv-e');
+        ok(!!c0 && c0.classList.contains('x2p-in') && !!e0 && getComputedStyle(e0).display === 'none' && getComputedStyle(c0.querySelector('.cv-a')).display !== 'none', `Bảng theo ca: ca 1 nghỉ + 1 hỗ trợ ghép sẵn — chỉ hiện ô của người nghỉ, ô hỗ trợ ẩn · ${W()}`); }
       await go('#/quan-ly/nghi-lam-thay');
       // 27/11 (anh Tiến): ca đúng 1 người nghỉ + 1 người hỗ trợ → ghép sẵn, chỉ một khung, không có Lưu người này
       {
