@@ -83,8 +83,8 @@ export async function render({ params }) {
     : html`<div class="card">Không có hạng mục nào chờ kiểm tra. 👍</div>`;
 
   return {
-    title: 'Công việc đào tạo',
-    html: html`${CSS}<div class="page-head"><h1>Công việc đào tạo</h1><a class="btn secondary" href="#/viec">Việc của tôi</a></div>
+    title: 'Đào tạo',
+    html: html`${CSS}<div class="page-head"><h1>Đào tạo</h1><a class="btn secondary" href="#/viec">Việc của tôi</a></div>
       <div id="dt-work" class="stack" style="max-width:${tab === 'phieu' ? 760 : 960}px;gap:12px">
         <nav class="toolbar" aria-label="Mục đào tạo">
           ${PROGRAMS.map(([key, label]) => html`<a class="btn ${program === key ? '' : 'secondary'}"
